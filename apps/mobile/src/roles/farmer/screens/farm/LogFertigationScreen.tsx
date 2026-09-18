@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   referenceCard: {
-    backgroundColor: '#f5f7f5',
+    backgroundColor: P.nearWhiteTint2,
     borderRadius: 14,
     padding: 14,
     marginTop: 14,
@@ -1063,9 +1063,9 @@ const styles = StyleSheet.create({
     color: P.twGray900,
   },
   costCard: {
-    backgroundColor: '#eef8f1',
+    backgroundColor: P.greenTint1,
     borderWidth: 1.2,
-    borderColor: '#81c784',
+    borderColor: P.green300,
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#a5d6a7',
+    borderColor: P.green200,
     backgroundColor: P.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#a5d6a7',
+    borderColor: P.green200,
   },
   editableBadgeText: {
     fontSize: 10,

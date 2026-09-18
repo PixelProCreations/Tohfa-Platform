@@ -1,63 +1,64 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, G } from 'react-native-svg';
+import { authPalette as P, colors } from '../../theme';
 
 // Simple SVG Icons to match design exactly
 const ChevronLeft = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M15 18L9 12L15 6" stroke="#2e7d32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const Beaker = () => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M19 21H5C4.4 21 4 20.6 4 20C4 19.8 4.1 19.6 4.2 19.4L9 12V5H8C7.4 5 7 4.6 7 4C7 3.4 7.4 3 8 3H16C16.6 3 17 3.4 17 4C17 4.6 16.6 5 16 5H15V12L19.8 19.4C20.1 19.8 20 20.4 19.6 20.8C19.4 20.9 19.2 21 19 21ZM10 13L6.1 19H17.9L14 13V5H10V13Z" fill="#9e9e9e" />
+    <Path d="M19 21H5C4.4 21 4 20.6 4 20C4 19.8 4.1 19.6 4.2 19.4L9 12V5H8C7.4 5 7 4.6 7 4C7 3.4 7.4 3 8 3H16C16.6 3 17 3.4 17 4C17 4.6 16.6 5 16 5H15V12L19.8 19.4C20.1 19.8 20 20.4 19.6 20.8C19.4 20.9 19.2 21 19 21ZM10 13L6.1 19H17.9L14 13V5H10V13Z" fill={P.grey500} />
   </Svg>
 );
 
 const BellAlert = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16ZM16 17H8V11C8 8.52 9.51 6.5 12 6.5C14.49 6.5 16 8.52 16 11V17Z" fill="#d84315"/>
+    <Path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16ZM16 17H8V11C8 8.52 9.51 6.5 12 6.5C14.49 6.5 16 8.52 16 11V17Z" fill={P.deepOrange800}/>
   </Svg>
 );
 
 const ChevronRight = () => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M9 18L15 12L9 6" stroke="#d84315" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M9 18L15 12L9 6" stroke={P.deepOrange800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const StoreIcon = () => (
   <Svg width={120} height={120} viewBox="0 0 24 24" fill="none">
-    <Path d="M2 6L4 11V20C4 20.5523 4.44772 21 5 21H19C19.5523 21 20 20.5523 20 20V11L22 6V5C22 4.44772 21.5523 4 21 4H3C2.44772 4 2 4.44772 2 5V6Z" fill="#ffffff" opacity={0.2} />
-    <Path d="M22 6L20 11V12C20 12.5523 19.5523 13 19 13C18.4477 13 18 12.5523 18 12V11C18 11.5523 17.5523 12 17 12C16.4477 12 16 11.5523 16 11V12C16 12.5523 15.5523 13 15 13C14.4477 13 14 12.5523 14 12V11L14 6H22Z" fill="#ffffff" opacity={0.3} />
+    <Path d="M2 6L4 11V20C4 20.5523 4.44772 21 5 21H19C19.5523 21 20 20.5523 20 20V11L22 6V5C22 4.44772 21.5523 4 21 4H3C2.44772 4 2 4.44772 2 5V6Z" fill={P.weatherCloudWhite} opacity={0.2} />
+    <Path d="M22 6L20 11V12C20 12.5523 19.5523 13 19 13C18.4477 13 18 12.5523 18 12V11C18 11.5523 17.5523 12 17 12C16.4477 12 16 11.5523 16 11V12C16 12.5523 15.5523 13 15 13C14.4477 13 14 12.5523 14 12V11L14 6H22Z" fill={P.weatherCloudWhite} opacity={0.3} />
   </Svg>
 );
 
 const CropTomato = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C16.4183 22 20 18.4183 20 14C20 9.58172 16.4183 6 12 6C7.58172 6 4 9.58172 4 14C4 18.4183 7.58172 22 12 22Z" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V6M12 6L9 9M12 6L15 9" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 22C16.4183 22 20 18.4183 20 14C20 9.58172 16.4183 6 12 6C7.58172 6 4 9.58172 4 14C4 18.4183 7.58172 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 2V6M12 6L9 9M12 6L15 9" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </Svg>
 );
 
 const CropCarrot = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke="#f57c00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V4M9 2V4M15 2V4" stroke="#f57c00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 2V4M9 2V4M15 2V4" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </Svg>
 );
 
 const CropBeans = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12V22" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 12V22" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </Svg>
 );
 
 const Plus = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 5V19M5 12H19" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 5V19M5 12H19" stroke={P.weatherCloudWhite} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -163,41 +164,41 @@ export function ListingsScreen({
 
         {/* List items */}
         <View style={styles.listItem}>
-          <View style={[styles.listIconBox, { backgroundColor: '#e8f5e9' }]}>
+          <View style={[styles.listIconBox, { backgroundColor: colors.brandGreenLight }]}>
             <Image source={require('../../../../assets/images/real_tomato.jpg')} style={styles.realCropImg} />
           </View>
           <View style={styles.listTextCol}>
             <Text style={styles.listTitle}>Tomato · Hybrid</Text>
             <Text style={styles.listSub}>200 kg · ₹38/kg</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: '#e8f5e9' }]}>
-            <Text style={[styles.badgeText, { color: '#2e7d32' }]}>Approved</Text>
+          <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
+            <Text style={[styles.badgeText, { color: colors.brandGreen }]}>Approved</Text>
           </View>
         </View>
 
         <TouchableOpacity style={styles.listItem} onPress={() => onNavigateToCounterOffer?.({})}>
-          <View style={[styles.listIconBox, { backgroundColor: '#fff3e0' }]}>
+          <View style={[styles.listIconBox, { backgroundColor: P.orange50 }]}>
             <Image source={require('../../../../assets/images/real_carrot.jpg')} style={styles.realCropImg} />
           </View>
           <View style={styles.listTextCol}>
             <Text style={styles.listTitle}>Carrot · Ooty</Text>
             <Text style={styles.listSub}>150 kg · ₹40/kg</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: '#f3e5f5' }]}>
-            <Text style={[styles.badgeText, { color: '#8e24aa' }]}>Counter-offer</Text>
+          <View style={[styles.badge, { backgroundColor: P.purple50 }]}>
+            <Text style={[styles.badgeText, { color: P.purple600 }]}>Counter-offer</Text>
           </View>
         </TouchableOpacity>
 
         <View style={styles.listItem}>
-          <View style={[styles.listIconBox, { backgroundColor: '#e8f5e9' }]}>
+          <View style={[styles.listIconBox, { backgroundColor: colors.brandGreenLight }]}>
             <Image source={require('../../../../assets/images/real_french_beans.jpg')} style={styles.realCropImg} />
           </View>
           <View style={styles.listTextCol}>
             <Text style={styles.listTitle}>French Beans</Text>
             <Text style={styles.listSub}>80 kg · ₹55/kg</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: '#fff3e0' }]}>
-            <Text style={[styles.badgeText, { color: '#e65100' }]}>Waiting</Text>
+          <View style={[styles.badge, { backgroundColor: P.orange50 }]}>
+            <Text style={[styles.badgeText, { color: P.orange900 }]}>Waiting</Text>
           </View>
         </View>
         
@@ -218,14 +219,14 @@ export function ListingsScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: P.grey50,
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: P.surfaceMuted,
   },
   headerRow: {
     flexDirection: 'row',
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: P.grey300,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -247,11 +248,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#004d40',
+    color: P.teal900,
   },
   headerSub: {
     fontSize: 14,
-    color: '#78909c',
+    color: P.blueGrey400,
     marginTop: 2,
   },
   scrollContent: {
@@ -261,9 +262,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f9f9f5',
+    backgroundColor: P.creamTint4,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: P.grey300,
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 8,
@@ -278,26 +279,26 @@ const styles = StyleSheet.create({
   },
   protoText: {
     fontSize: 12,
-    color: '#757575',
+    color: P.grey600,
     fontWeight: '600',
   },
   protoToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 16,
     padding: 2,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: P.grey300,
   },
   protoToggleActive: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.brandGreen,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 14,
   },
   protoToggleActiveText: {
-    color: '#ffffff',
+    color: P.weatherCloudWhite,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -306,18 +307,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   protoToggleInactiveText: {
-    color: '#9e9e9e',
+    color: P.grey500,
     fontSize: 10,
     fontWeight: '700',
   },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffebee',
+    backgroundColor: P.red50,
     borderRadius: 16,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#d84315',
+    borderLeftColor: P.deepOrange800,
     marginBottom: 20,
   },
   alertIconBox: {
@@ -329,18 +330,18 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#5d4037',
+    color: P.brown700,
     marginBottom: 4,
   },
   alertSub: {
     fontSize: 13,
-    color: '#d84315',
+    color: P.deepOrange800,
   },
   alertChevron: {
     marginLeft: 8,
   },
   heroCard: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.brandGreen,
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
@@ -360,17 +361,17 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     marginRight: 6,
   },
   heroChipText: {
-    color: '#ffffff',
+    color: P.weatherCloudWhite,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   heroTitle: {
-    color: '#ffffff',
+    color: P.weatherCloudWhite,
     fontSize: 22,
     fontWeight: '800',
     marginBottom: 8,
@@ -389,10 +390,10 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -401,24 +402,24 @@ const styles = StyleSheet.create({
   metricValueBlack: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#212121',
+    color: P.grey900,
     marginBottom: 4,
   },
   metricValueGreen: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#2e7d32',
+    color: colors.brandGreen,
     marginBottom: 4,
   },
   metricValueRed: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#d84315',
+    color: P.deepOrange800,
     marginBottom: 4,
   },
   metricLabel: {
     fontSize: 12,
-    color: '#9e9e9e',
+    color: P.grey500,
     fontWeight: '500',
     lineHeight: 16,
   },
@@ -431,22 +432,22 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#9e9e9e',
+    color: P.grey500,
     letterSpacing: 0.5,
   },
   viewAllBtn: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2e7d32',
+    color: colors.brandGreen,
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -472,12 +473,12 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#212121',
+    color: P.grey900,
     marginBottom: 4,
   },
   listSub: {
     fontSize: 13,
-    color: '#9e9e9e',
+    color: P.grey500,
   },
   badge: {
     paddingHorizontal: 12,
@@ -494,7 +495,7 @@ const styles = StyleSheet.create({
     right: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#2e7d32',
+        shadowColor: colors.brandGreen,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -507,13 +508,13 @@ const styles = StyleSheet.create({
   fab: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.brandGreen,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 28,
   },
   fabText: {
-    color: '#ffffff',
+    color: P.weatherCloudWhite,
     fontSize: 15,
     fontWeight: '800',
     marginLeft: 8,

@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { GroupItem } from './GroupsScreen';
+import { colors, authPalette as P } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -30,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?
   );
 }
 
-function LeaveIcon({ size = 18, color = '#4B5563' }: { size?: number; color?: string }) {
+function LeaveIcon({ size = 18, color = P.twGray600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -44,7 +45,7 @@ function LeaveIcon({ size = 18, color = '#4B5563' }: { size?: number; color?: st
   );
 }
 
-function JoinPlusIcon({ size = 18, color = '#1E5E2B' }: { size?: number; color?: string }) {
+function JoinPlusIcon({ size = 18, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -52,7 +53,7 @@ function JoinPlusIcon({ size = 18, color = '#1E5E2B' }: { size?: number; color?:
   );
 }
 
-function SendPlaneIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function SendPlaneIcon({ size = 18, color = P.weatherCloudWhite }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -66,7 +67,7 @@ function SendPlaneIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function CommentBubbleIcon({ size = 15, color = '#718274' }: { size?: number; color?: string }) {
+function CommentBubbleIcon({ size = 15, color = P.greyMid1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -80,7 +81,7 @@ function CommentBubbleIcon({ size = 15, color = '#718274' }: { size?: number; co
   );
 }
 
-function GroupUsersIcon({ size = 22, color = '#1E5E2B' }: { size?: number; color?: string }) {
+function GroupUsersIcon({ size = 22, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="8" r="3.2" stroke={color} strokeWidth="2" />
@@ -91,7 +92,7 @@ function GroupUsersIcon({ size = 22, color = '#1E5E2B' }: { size?: number; color
   );
 }
 
-function MedalRibbonIcon({ size = 22, color = '#0284C7' }: { size?: number; color?: string }) {
+function MedalRibbonIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="8.5" r="5.5" stroke={color} strokeWidth="2" />
@@ -101,7 +102,7 @@ function MedalRibbonIcon({ size = 22, color = '#0284C7' }: { size?: number; colo
   );
 }
 
-function PestBugIcon({ size = 22, color = '#EA580C' }: { size?: number; color?: string }) {
+function PestBugIcon({ size = 22, color = P.twOrange600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="8" y="8" width="8" height="10" rx="4" stroke={color} strokeWidth="2" />
@@ -111,7 +112,7 @@ function PestBugIcon({ size = 22, color = '#EA580C' }: { size?: number; color?: 
   );
 }
 
-function MountainTerraceIcon({ size = 22, color = '#85582E' }: { size?: number; color?: string }) {
+function MountainTerraceIcon({ size = 22, color = P.brownDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 19l6.5-10L14 16l3.5-5 3.5 8H3z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -119,7 +120,7 @@ function MountainTerraceIcon({ size = 22, color = '#85582E' }: { size?: number; 
   );
 }
 
-function BanknotesCashIcon({ size = 22, color = '#7C3AED' }: { size?: number; color?: string }) {
+function BanknotesCashIcon({ size = 22, color = P.twViolet600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="16" height="12" rx="2.5" stroke={color} strokeWidth="2" />
@@ -147,7 +148,7 @@ const DEFAULT_POSTS: FeedPost[] = [
     id: 'post-1',
     authorName: 'You',
     authorInitials: 'You',
-    avatarBg: '#1E5E2B',
+    avatarBg: P.greenDeep1,
     date: '20 Jul 2026',
     body: 'Anyone else seeing early carrot fly this season? Zone A beds got hit despite the neem spray.',
     commentsCount: 0,
@@ -157,7 +158,7 @@ const DEFAULT_POSTS: FeedPost[] = [
     id: 'post-2',
     authorName: 'Muthu K.',
     authorInitials: 'MK',
-    avatarBg: '#7A5C3D',
+    avatarBg: P.brownDeep3,
     date: '19 Jul 2026',
     body: 'Raised beds to ₹40/kg at the Ooty mandi today. Grade 1 moving fast — list early.',
     commentsCount: 6,
@@ -166,7 +167,7 @@ const DEFAULT_POSTS: FeedPost[] = [
     id: 'post-3',
     authorName: 'Ravi S.',
     authorInitials: 'RS',
-    avatarBg: '#1E40AF',
+    avatarBg: P.twBlue800,
     date: '17 Jul 2026',
     body: 'Sharing the jeevamrut schedule that worked for my terraces last cycle. Happy to walk anyone through the ratio adjustments during heavy rainfall.',
     commentsCount: 4,
@@ -178,8 +179,8 @@ const DEFAULT_GROUP: GroupItem = {
   name: 'Ooty Carrot Growers',
   membersCount: 128,
   iconType: 'users',
-  iconBg: '#EAF3DE',
-  iconColor: '#1E5E2B',
+  iconBg: P.lightGreen,
+  iconColor: P.greenDeep1,
   isJoined: true,
 };
 
@@ -215,7 +216,7 @@ export function GroupDetailScreen({
       id: `post-${Date.now()}`,
       authorName: 'You',
       authorInitials: 'You',
-      avatarBg: '#1E5E2B',
+      avatarBg: P.greenDeep1,
       date: 'Today',
       body: newPostText.trim(),
       commentsCount: 0,
@@ -245,7 +246,7 @@ export function GroupDetailScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
 
       {/* ── Header Bar ── */}
       <View style={styles.header}>
@@ -256,7 +257,7 @@ export function GroupDetailScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowBackIcon size={18} color="#1E5E2B" />
+          <ArrowBackIcon size={18} color={P.greenDeep1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Group</Text>
       </View>
@@ -297,12 +298,12 @@ export function GroupDetailScreen({
             >
               {isJoined ? (
                 <>
-                  <LeaveIcon size={18} color="#4B5563" />
+                  <LeaveIcon size={18} color={P.twGray600} />
                   <Text style={styles.leaveGroupButtonText}>Leave group</Text>
                 </>
               ) : (
                 <>
-                  <JoinPlusIcon size={18} color="#1E5E2B" />
+                  <JoinPlusIcon size={18} color={P.greenDeep1} />
                   <Text style={styles.joinGroupButtonText}>Join group</Text>
                 </>
               )}
@@ -314,7 +315,7 @@ export function GroupDetailScreen({
             <TextInput
               style={styles.shareInput}
               placeholder="Share something with the group..."
-              placeholderTextColor="#8C9088"
+              placeholderTextColor={P.greyMid2}
               value={newPostText}
               onChangeText={setNewPostText}
               accessibilityLabel="Share with group"
@@ -326,7 +327,7 @@ export function GroupDetailScreen({
               accessibilityRole="button"
               accessibilityLabel="Post message"
             >
-              <SendPlaneIcon size={18} color="#FFFFFF" />
+              <SendPlaneIcon size={18} color={P.weatherCloudWhite} />
             </TouchableOpacity>
           </View>
 
@@ -358,7 +359,7 @@ export function GroupDetailScreen({
 
               {/* Comments Footer */}
               <View style={styles.postFooter}>
-                <CommentBubbleIcon size={15} color="#718274" />
+                <CommentBubbleIcon size={15} color={P.greyMid1} />
                 <Text style={styles.postCommentsCount}>
                   {post.commentsCount} comments
                 </Text>
@@ -378,7 +379,7 @@ export function GroupDetailScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
   },
   keyboardContainer: {
     flex: 1,
@@ -389,19 +390,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -410,12 +411,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#1A2E1A',
+    color: colors.textDark,
     letterSpacing: -0.2,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: '#F0ECE1',
+    backgroundColor: P.tanTint3,
   },
   scrollView: {
     flex: 1,
@@ -428,13 +429,13 @@ const styles = StyleSheet.create({
 
   // Group Header Card
   groupHeaderCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#ECE8DD',
+    borderColor: P.tanTint2,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -459,17 +460,17 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 16.5,
     fontWeight: '800',
-    color: '#1A2E1A',
+    color: colors.textDark,
     marginBottom: 2,
   },
   groupMembers: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: '#718274',
+    color: P.greyMid1,
   },
   groupDescription: {
     fontSize: 13,
-    color: '#4B5563',
+    color: P.twGray600,
     lineHeight: 19,
     marginBottom: 14,
   },
@@ -478,25 +479,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1.5,
-    borderColor: '#E8E4D8',
+    borderColor: P.creamTint6,
     borderRadius: 14,
     paddingVertical: 12,
   },
   leaveGroupButtonText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#4B5563',
+    color: P.twGray600,
   },
   joinGroupButton: {
-    backgroundColor: '#EAF3DE',
-    borderColor: '#C8E6C9',
+    backgroundColor: P.lightGreen,
+    borderColor: P.green100,
   },
   joinGroupButtonText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1E5E2B',
+    color: P.greenDeep1,
   },
 
   // Share Input Box
@@ -509,20 +510,20 @@ const styles = StyleSheet.create({
   shareInput: {
     flex: 1,
     height: 46,
-    backgroundColor: '#F3EFE6',
+    backgroundColor: P.tanTint1,
     borderRadius: 14,
     paddingHorizontal: 14,
     fontSize: 13.5,
-    color: '#1A2E1A',
+    color: colors.textDark,
   },
   sendButton: {
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: '#1E5E2B',
+    backgroundColor: P.greenDeep1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1E5E2B',
+    shadowColor: P.greenDeep1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
@@ -536,27 +537,27 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#718274',
+    color: P.greyMid1,
     letterSpacing: 0.8,
     marginBottom: 12,
   },
 
   // Feed Posts
   postCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ECE8DD',
+    borderColor: P.tanTint2,
     padding: 14,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 1,
   },
   postCardSelfHighlight: {
-    borderColor: '#D4EED8',
+    borderColor: P.greenPaleBg,
   },
   postAuthorRow: {
     flexDirection: 'row',
@@ -572,7 +573,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: P.weatherCloudWhite,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -582,16 +583,16 @@ const styles = StyleSheet.create({
   postAuthorName: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1A2E1A',
+    color: colors.textDark,
     marginBottom: 1,
   },
   postDate: {
     fontSize: 11.5,
-    color: '#718274',
+    color: P.greyMid1,
   },
   postBodyText: {
     fontSize: 13,
-    color: '#374151',
+    color: P.twGray700,
     lineHeight: 19,
     marginBottom: 10,
   },
@@ -603,6 +604,6 @@ const styles = StyleSheet.create({
   postCommentsCount: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#718274',
+    color: P.greyMid1,
   },
 });

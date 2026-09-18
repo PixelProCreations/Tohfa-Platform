@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { type CounterOffer, type Listing } from '../../api/listings';
 import { Icon } from '@tohfa/mobile-ui';
+import { authPalette as P, colors } from '../../theme';
 
 export interface CounterOfferScreenProps {
   listing?: Listing | null | undefined;
@@ -55,7 +56,7 @@ export function CounterOfferScreen({
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={onCancel}>
-            <Icon name="arrow_back" size={20} color="#2e7d32" />
+            <Icon name="arrow_back" size={20} color={colors.brandGreen} />
           </Pressable>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Counter-Offer</Text>
@@ -68,7 +69,7 @@ export function CounterOfferScreen({
           {/* Timer Banner */}
           <View style={styles.timerBanner}>
             <View style={styles.timerLeft}>
-              <Icon name="schedule" size={28} color="#d85b3b" />
+              <Icon name="schedule" size={28} color={P.coralMid2} />
               <View style={styles.timerTextContainer}>
                 <Text style={styles.timerTopLabel}>TIME TO RESPOND</Text>
                 <Text style={styles.timerMainValue}>
@@ -128,7 +129,7 @@ export function CounterOfferScreen({
           {/* Admin Reason */}
           <View style={styles.reasonCard}>
             <View style={styles.reasonHeaderRow}>
-              <Icon name="info" size={18} color="#757575" />
+              <Icon name="info" size={18} color={P.grey600} />
               <Text style={styles.reasonHeader}>Admin's reason</Text>
             </View>
             <Text style={styles.reasonText}>
@@ -139,13 +140,13 @@ export function CounterOfferScreen({
           {/* Inspection Photo */}
           <Pressable style={styles.photoCard}>
             <View style={styles.photoIconBox}>
-              <Icon name="visibility" size={24} color="#9e9e9e" />
+              <Icon name="visibility" size={24} color={P.grey500} />
             </View>
             <View style={styles.photoTextContainer}>
               <Text style={styles.photoTitle}>Inspection photo</Text>
               <Text style={styles.photoSubtitle}>Admin's quality evidence · tap to view</Text>
             </View>
-            <Icon name="chevron_right" size={24} color="#bdbdbd" />
+            <Icon name="chevron_right" size={24} color={P.greyLight1} />
           </Pressable>
 
         </ScrollView>
@@ -161,7 +162,7 @@ export function CounterOfferScreen({
             }}
           >
             <View style={styles.btnAcceptIconContainer}>
-              <Icon name="check" size={14} color="#2e7d32" />
+              <Icon name="check" size={14} color={colors.brandGreen} />
             </View>
             <Text style={styles.btnAcceptText}>Accept</Text>
           </Pressable>
@@ -172,7 +173,7 @@ export function CounterOfferScreen({
               else if (onCancel) onCancel();
             }}
           >
-            <Icon name="swap_horiz" size={18} color="#673ab7" />
+            <Icon name="swap_horiz" size={18} color={P.deepPurple500} />
             <Text style={styles.btnCounterText}>Counter back</Text>
           </Pressable>
           <Pressable
@@ -182,7 +183,7 @@ export function CounterOfferScreen({
               else if (onCancel) onCancel();
             }}
           >
-            <Icon name="close" size={18} color="#616161" />
+            <Icon name="close" size={18} color={P.greyDeep1} />
             <Text style={styles.btnWithdrawText}>Withdraw</Text>
           </Pressable>
         </View>
@@ -194,7 +195,7 @@ export function CounterOfferScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#faf8f5',
+    backgroundColor: P.tanTint9,
   },
   container: {
     flex: 1,
@@ -206,15 +207,15 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#ebebeb',
-    backgroundColor: '#ffffff',
+    borderBottomColor: P.greyTint1,
+    backgroundColor: P.weatherCloudWhite,
   },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#d5ebd5',
+    borderColor: P.greenTint5,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -225,12 +226,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1c3029',
+    color: P.nearBlackDark3,
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#9e9e9e',
+    color: P.grey500,
   },
   scrollContent: {
     padding: 20,
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
   },
   timerBanner: {
     flexDirection: 'row',
-    backgroundColor: '#fde9e1',
+    backgroundColor: P.tanTint8,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -255,32 +256,32 @@ const styles = StyleSheet.create({
   timerTopLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#d85b3b',
+    color: P.coralMid2,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   timerMainValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#8b4b3b',
+    color: P.rustDeep1,
   },
   timerLeftLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#8b4b3b',
+    color: P.rustDeep1,
   },
   timerRight: {
     alignItems: 'flex-end',
   },
   timerRightText: {
     fontSize: 11,
-    color: '#a05c48',
+    color: P.coralMid4,
     fontWeight: '500',
   },
   sectionHeader: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#9e9e9e',
+    color: P.grey500,
     letterSpacing: 0.5,
     marginBottom: 16,
   },
@@ -291,18 +292,18 @@ const styles = StyleSheet.create({
   },
   askCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#eeeeee',
+    borderColor: P.borderLight,
     borderRadius: 12,
     padding: 16,
     marginRight: 8,
   },
   counterCard: {
     flex: 1,
-    backgroundColor: '#fbf9ff',
+    backgroundColor: P.violetTint1,
     borderWidth: 1.5,
-    borderColor: '#9b71e1',
+    borderColor: P.violetLight1,
     borderRadius: 12,
     padding: 16,
     marginLeft: 8,
@@ -310,14 +311,14 @@ const styles = StyleSheet.create({
   cardHeaderAsk: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#9e9e9e',
+    color: P.grey500,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   cardHeaderCounter: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#7b4bc6',
+    color: P.violetMid1,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
@@ -327,37 +328,37 @@ const styles = StyleSheet.create({
   cardFieldLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#9e9e9e',
+    color: P.grey500,
     marginBottom: 2,
   },
   cardFieldValue: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#212121',
+    color: P.grey900,
   },
   counterColor: {
-    color: '#55348b',
+    color: P.violetDeep1,
   },
   discountText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#e55a30',
+    color: P.coralMid3,
   },
   dashedDivider: {
     height: 1,
     borderWidth: 1,
-    borderColor: '#eeeeee',
+    borderColor: P.borderLight,
     borderStyle: 'dashed',
     marginVertical: 8,
     borderRadius: 1,
   },
   dashedDividerCounter: {
-    borderColor: '#e1d4fa',
+    borderColor: P.violetTint3,
   },
   reasonCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#eeeeee',
+    borderColor: P.borderLight,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -370,24 +371,24 @@ const styles = StyleSheet.create({
   reasonHeader: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#424242',
+    color: P.grey800,
     marginLeft: 8,
   },
   reasonText: {
     fontSize: 14,
-    color: '#616161',
+    color: P.greyDeep1,
     lineHeight: 20,
   },
   boldText: {
     fontWeight: '700',
-    color: '#424242',
+    color: P.grey800,
   },
   photoCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#eeeeee',
+    borderColor: P.borderLight,
     borderRadius: 12,
     padding: 12,
   },
@@ -395,9 +396,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: P.grey100,
     borderWidth: 1.5,
-    borderColor: '#e0e0e0',
+    borderColor: P.grey300,
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
@@ -409,20 +410,20 @@ const styles = StyleSheet.create({
   photoTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#212121',
+    color: P.grey900,
     marginBottom: 2,
   },
   photoSubtitle: {
     fontSize: 12,
-    color: '#9e9e9e',
+    color: P.grey500,
   },
   bottomBar: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderTopWidth: 1,
-    borderTopColor: '#ebebeb',
+    borderTopColor: P.greyTint1,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -437,13 +438,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   btnAccept: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.brandGreen,
   },
   btnAcceptIconContainer: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
@@ -451,28 +452,28 @@ const styles = StyleSheet.create({
   btnAcceptText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: P.weatherCloudWhite,
   },
   btnCounter: {
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#7b4bc6',
+    borderColor: P.violetMid1,
   },
   btnCounterText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#7b4bc6',
+    color: P.violetMid1,
     marginTop: 2,
   },
   btnWithdraw: {
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: P.grey300,
   },
   btnWithdrawText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#616161',
+    color: P.greyDeep1,
     marginTop: 2,
   },
 });

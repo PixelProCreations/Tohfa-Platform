@@ -50,7 +50,7 @@ function ChevronUpIcon({ size = 20, color = P.twGray400 }: { size?: number; colo
   );
 }
 
-function WaterDropIcon({ size = 24, color = '#1E40AF' }: { size?: number; color?: string }) {
+function WaterDropIcon({ size = 24, color = P.twBlue800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -64,7 +64,7 @@ function WaterDropIcon({ size = 24, color = '#1E40AF' }: { size?: number; color?
   );
 }
 
-function BugIcon({ size = 24, color = '#6B21A8' }: { size?: number; color?: string }) {
+function BugIcon({ size = 24, color = P.twPurple800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -78,7 +78,7 @@ function BugIcon({ size = 24, color = '#6B21A8' }: { size?: number; color?: stri
   );
 }
 
-function LeafIcon({ size = 24, color = '#166534' }: { size?: number; color?: string }) {
+function LeafIcon({ size = 24, color = P.twGreen800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -93,7 +93,7 @@ function LeafIcon({ size = 24, color = '#166534' }: { size?: number; color?: str
   );
 }
 
-function TractorIcon({ size = 24, color = '#9A3412' }: { size?: number; color?: string }) {
+function TractorIcon({ size = 24, color = P.twOrange800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="7" cy="16" r="3" stroke={color} strokeWidth="2" />
@@ -103,7 +103,7 @@ function TractorIcon({ size = 24, color = '#9A3412' }: { size?: number; color?: 
   );
 }
 
-function UsersIcon({ size = 14, color = '#374151' }: { size?: number; color?: string }) {
+function UsersIcon({ size = 14, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -123,8 +123,8 @@ const ENTRIES = [
     zone: 'Zone 2 — Lower Slope',
     time: '07:10 AM',
     duration: '45m',
-    color: '#3B82F6', // twBlue500
-    bg: '#EFF6FF', // twBlue50
+    color: P.twBlue500, // twBlue500
+    bg: P.twBlue50, // twBlue50
     Icon: WaterDropIcon,
     expanded: true,
     details: {
@@ -144,8 +144,8 @@ const ENTRIES = [
     zone: 'Zone 2 — Lower Slope',
     time: '08:30 AM',
     duration: '20m',
-    color: '#9333EA', // twPurple600
-    bg: '#FAF5FF', // twPurple50
+    color: P.twPurple600, // twPurple600
+    bg: P.twPurple50, // twPurple50
     Icon: BugIcon,
     expanded: false,
   },
@@ -156,8 +156,8 @@ const ENTRIES = [
     zone: 'Zone 3 — Terrace',
     time: '11:00 AM',
     duration: '1h 15m',
-    color: '#166534', // twGreen800
-    bg: '#F0FDF4', // twGreen50
+    color: P.twGreen800, // twGreen800
+    bg: P.twGreen50, // twGreen50
     Icon: LeafIcon,
     expanded: false,
   },
@@ -168,8 +168,8 @@ const ENTRIES = [
     zone: 'Zone 1 — Upper Field',
     time: '02:15 PM',
     duration: '1h',
-    color: '#C2410C', // twOrange700
-    bg: '#FFF7ED', // twOrange50
+    color: P.twOrange700, // twOrange700
+    bg: P.twOrange50, // twOrange50
     Icon: TractorIcon,
     expanded: false,
   },

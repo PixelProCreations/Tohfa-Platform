@@ -25,9 +25,8 @@ export const Step1Personal: React.FC<Step1Props> = ({ initialData, onSave }) => 
   const { colors } = theme;
 
   // Extract or default values from initial data
-  const [fullName, setFullName] = useState(initialData?.fullName ?? 'Kumar');
-
-  const [dob, setDob] = useState(initialData?.dob ?? '12 / 06 / 1985');
+  const [fullName, setFullName] = useState(initialData?.fullName ?? '');
+  const [dob, setDob] = useState(initialData?.dob ?? '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [otp, setOtp] = useState('');
 
@@ -44,21 +43,21 @@ export const Step1Personal: React.FC<Step1Props> = ({ initialData, onSave }) => 
     return '1985-06-12';
   })();
 
-  const [gender, setGender] = useState(initialData?.gender ?? 'Male');
+  const [gender, setGender] = useState(initialData?.gender ?? '');
   const [showGenderMenu, setShowGenderMenu] = useState(false);
 
   // Clean initial mobile number (strip +91 prefix if already saved)
-  const rawMobile = initialData?.mobile ?? '98765 43210';
+  const rawMobile = initialData?.mobile ?? '';
   const cleanMobile = rawMobile.replace(/^\+91\s?/, '');
   const [mobileNumber, setMobileNumber] = useState(cleanMobile);
 
-  const rawAadhaar = initialData?.aadhaarNumber ?? initialData?.aadhaarLast4 ?? '3782 4591 0023';
+  const rawAadhaar = initialData?.aadhaarNumber ?? initialData?.aadhaarLast4 ?? '';
   const [aadhaarNumber, setAadhaarNumber] = useState(rawAadhaar);
 
   const fallbackAddress =
     [initialData?.village, initialData?.taluk, initialData?.district]
       .filter(Boolean)
-      .join(', ') || 'Kotagiri Village, Kotagiri Taluk, The Nilgiris';
+      .join(', ') || '';
   const initialAddress = initialData?.address ?? fallbackAddress;
   const [address, setAddress] = useState(initialAddress);
 

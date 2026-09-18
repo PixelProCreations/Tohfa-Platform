@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createKeychainMock } from '../../../tests/mocks/keychainMock';
+import { createAsyncStorageMock } from '../../../tests/mocks/asyncStorageMock';
+
+vi.mock('react-native-keychain', () => createKeychainMock());
+// registrationDraft.ts is now AsyncStorage-backed (via zustand's persist middleware) --
+// see asyncStorageMock.ts's docblock for why the real package can't run in this test env.
+vi.mock('@react-native-async-storage/async-storage', () => createAsyncStorageMock());
+
 import { request, setAccessToken, setOnAuthFailure } from '../api/client';
 import { tokenStorage } from '../storage/tokenStorage';
-import { saveRegistrationDraft, getRegistrationDraft, clearRegistrationDraft } from '../storage/registrationDraft';
+import { useRegistrationDraftStore } from '../storage/registrationDraft';
 
 describe('Token Refresh Concurrency & Mid-Session Recovery (S-46)', () => {
   beforeEach(async () => {
@@ -11,7 +19,7 @@ describe('Token Refresh Concurrency & Mid-Session Recovery (S-46)', () => {
       accessToken: 'expired-access-token',
       refreshToken: 'valid-refresh-token-round-1',
     });
-    await clearRegistrationDraft();
+    useRegistrationDraftStore.getState().reset();
   });
 
   it('collapses five concurrent 401s into exactly one POST /auth/refresh call and replays all five successfully', async () => {
@@ -96,10 +104,12 @@ describe('Token Refresh Concurrency & Mid-Session Recovery (S-46)', () => {
 
   it('genuinely failed refresh clears tokens and triggers auth failure without discarding in-progress registration draft', async () => {
     // Farmer had an active draft in progress
-    await saveRegistrationDraft({
-      applicationId: 'app-draft-46',
-      currentStep: 3,
-      step1: { fullName: 'Ramanathan', mobile: '9876543210' },
+    useRegistrationDraftStore.setState({
+      draft: {
+        applicationId: 'app-draft-46',
+        currentStep: 3,
+        step1: { fullName: 'Ramanathan', mobile: '9876543210' },
+      },
     });
 
     let authFailureNotified = false;
@@ -144,9 +154,9 @@ describe('Token Refresh Concurrency & Mid-Session Recovery (S-46)', () => {
     expect(authFailureNotified).toBe(true);
 
     // 3. Draft was NOT lost / NOT discarded!
-    const preservedDraft = await getRegistrationDraft();
+    const preservedDraft = useRegistrationDraftStore.getState().draft;
     expect(preservedDraft).not.toBeNull();
-    expect(preservedDraft?.applicationId).toBe('app-draft-46');
-    expect(preservedDraft?.step1?.fullName).toBe('Ramanathan');
+    expect(preservedDraft.applicationId).toBe('app-draft-46');
+    expect(preservedDraft.step1?.fullName).toBe('Ramanathan');
   });
 });

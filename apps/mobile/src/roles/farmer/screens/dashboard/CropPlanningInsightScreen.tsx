@@ -8,29 +8,30 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
+import { authPalette as P, colors } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
 const ChevronLeft = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M15 18L9 12L15 6" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const LightbulbIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M9 21H15M12 3C8.68629 3 6 5.68629 6 9C6 11.2208 7.20683 13.1599 9 14.1973V17H15V14.1973C16.7932 13.1599 18 11.2208 18 9C18 5.68629 15.3137 3 12 3Z" stroke="#2E7D32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M9 21H15M12 3C8.68629 3 6 5.68629 6 9C6 11.2208 7.20683 13.1599 9 14.1973V17H15V14.1973C16.7932 13.1599 18 11.2208 18 9C18 5.68629 15.3137 3 12 3Z" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-const FarmerIcon = ({ color = '#15803D' }: { color?: string }) => (
+const FarmerIcon = ({ color = P.twGreen700 }: { color?: string }) => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
     <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="2.5" />
     <Path d="M4 21C4 17.134 7.13401 14 11 14H13C16.866 14 20 17.134 20 21" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
   </Svg>
 );
 
-const SeedlingIcon = ({ color = '#15803D' }: { color?: string }) => (
+const SeedlingIcon = ({ color = P.twGreen700 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path d="M12 22V12" stroke={color} strokeWidth="2" strokeLinecap="round" />
     <Path d="M7 12C7 9.24 9.24 7 12 7C14.76 7 17 9.24 17 12" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -38,21 +39,21 @@ const SeedlingIcon = ({ color = '#15803D' }: { color?: string }) => (
   </Svg>
 );
 
-const CheckCircleIcon = ({ color = '#6B7280' }: { color?: string }) => (
+const CheckCircleIcon = ({ color = P.twGray500 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
     <Path d="M8 12L11 15L16 9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-const ArrowsIcon = ({ color = '#C2410C' }: { color?: string }) => (
+const ArrowsIcon = ({ color = P.twOrange700 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path d="M7 17L17 7" stroke={color} strokeWidth="2" strokeLinecap="round" />
     <Path d="M7 7H17V17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-const PlusCircleIcon = ({ color = '#15803D' }: { color?: string }) => (
+const PlusCircleIcon = ({ color = P.twGreen700 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
     <Line x1="12" y1="8" x2="12" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -60,7 +61,7 @@ const PlusCircleIcon = ({ color = '#15803D' }: { color?: string }) => (
   </Svg>
 );
 
-const SwitchIcon = ({ color = '#C2410C' }: { color?: string }) => (
+const SwitchIcon = ({ color = P.twOrange700 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path d="M7 16L3 12L7 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M17 8L21 12L17 16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -68,7 +69,7 @@ const SwitchIcon = ({ color = '#C2410C' }: { color?: string }) => (
   </Svg>
 );
 
-const DiversifyIcon = ({ color = '#92400E' }: { color?: string }) => (
+const DiversifyIcon = ({ color = P.twAmber800 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path d="M12 3V12" stroke={color} strokeWidth="2" strokeLinecap="round" />
     <Path d="M12 12L6 18" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -151,33 +152,33 @@ function statusConfig(status: CropStatus) {
   switch (status) {
     case 'Under-supplied':
       return {
-        badgeBg: '#DCFCE7',
-        badgeText: '#15803D',
-        supplyBarColor: '#66BB6A',
-        demandBarColor: '#2E7D32',
-        insightBg: '#F0FDF4',
-        insightBorder: '#D1FAE5',
-        insightIconColor: '#15803D',
+        badgeBg: P.twGreen100,
+        badgeText: P.twGreen700,
+        supplyBarColor: P.leafGreen,
+        demandBarColor: colors.brandGreen,
+        insightBg: P.twGreen50,
+        insightBorder: P.twEmerald100,
+        insightIconColor: P.twGreen700,
       };
     case 'Balanced':
       return {
-        badgeBg: '#F3F4F6',
-        badgeText: '#374151',
-        supplyBarColor: '#60A5FA',
-        demandBarColor: '#1E40AF',
-        insightBg: '#F9FAFB',
-        insightBorder: '#E5E7EB',
-        insightIconColor: '#6B7280',
+        badgeBg: P.twGray100,
+        badgeText: P.twGray700,
+        supplyBarColor: P.twBlue400,
+        demandBarColor: P.twBlue800,
+        insightBg: P.twGray50,
+        insightBorder: P.twGray200,
+        insightIconColor: P.twGray500,
       };
     case 'Over-supplied':
       return {
-        badgeBg: '#FEF3C7',
-        badgeText: '#92400E',
-        supplyBarColor: '#FBBF24',
-        demandBarColor: '#D97706',
-        insightBg: '#FFFBEB',
-        insightBorder: '#FDE68A',
-        insightIconColor: '#92400E',
+        badgeBg: P.twAmber100,
+        badgeText: P.twAmber800,
+        supplyBarColor: P.twAmber400,
+        demandBarColor: P.twAmber600,
+        insightBg: P.twAmber50,
+        insightBorder: P.twAmber200,
+        insightIconColor: P.twAmber800,
       };
   }
 }
@@ -265,7 +266,7 @@ export function CropPlanningInsightScreen({ onNavigateBack }: CropPlanningInsigh
                 <Text style={styles.cropName}>{crop.name}</Text>
                 {crop.youGrow && (
                   <View style={styles.youGrowBadge}>
-                    <FarmerIcon color="#15803D" />
+                    <FarmerIcon color={P.twGreen700} />
                     <Text style={styles.youGrowText}>You grow this</Text>
                   </View>
                 )}
@@ -325,7 +326,7 @@ export function CropPlanningInsightScreen({ onNavigateBack }: CropPlanningInsigh
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FAFAF7',
+    backgroundColor: P.creamTint1,
   },
 
   // Header
@@ -334,15 +335,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EEE6',
+    borderBottomColor: colors.borderSoft,
   },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F0FFF0',
+    backgroundColor: P.paleMintBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -353,13 +354,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: colors.textDark,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#6B7566',
+    color: colors.textSubtle,
     marginTop: 1,
   },
 
@@ -376,7 +377,7 @@ const styles = StyleSheet.create({
   // Info Banner
   infoBanner: {
     flexDirection: 'row',
-    backgroundColor: '#EAF3DE',
+    backgroundColor: P.lightGreen,
     borderRadius: 12,
     padding: 14,
     alignItems: 'flex-start',
@@ -386,7 +387,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#D4EED8',
+    backgroundColor: P.greenPaleBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -396,11 +397,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    color: '#3A5A3A',
+    color: P.greenDeep5,
   },
   bold: {
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: colors.textDark,
   },
 
   // Filter Pills
@@ -414,31 +415,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#E8E6DD',
+    borderColor: colors.borderLight,
   },
   filterPillActive: {
-    backgroundColor: '#1A2E1A',
-    borderColor: '#1A2E1A',
+    backgroundColor: colors.textDark,
+    borderColor: colors.textDark,
   },
   filterPillText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#374151',
+    color: P.twGray700,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: P.weatherCloudWhite,
   },
 
   // Crop Card
   cropCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 14,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#F0EEE6',
+    borderColor: colors.borderSoft,
   },
   cropCardHeader: {
     flexDirection: 'row',
@@ -450,13 +451,13 @@ const styles = StyleSheet.create({
   cropName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: colors.textDark,
   },
   youGrowBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: P.twGreen100,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -464,7 +465,7 @@ const styles = StyleSheet.create({
   youGrowText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#15803D',
+    color: P.twGreen700,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -489,16 +490,16 @@ const styles = StyleSheet.create({
   barLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#6B7566',
+    color: colors.textSubtle,
   },
   barValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: colors.textDark,
   },
   barTrack: {
     height: 8,
-    backgroundColor: '#F0EEE6',
+    backgroundColor: colors.borderSoft,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -524,14 +525,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    color: '#374151',
+    color: P.twGray700,
   },
 
   // Footer
   footerNote: {
     fontSize: 11,
     fontWeight: '400',
-    color: '#B8B6AA',
+    color: P.legal,
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic',

@@ -64,7 +64,7 @@ export function AddCertificationScreen({
 
   const handleSubmit = async () => {
     if (!certNumber.trim() || !issuingBody.trim() || !expiresOn.trim()) {
-      setError(t('error.generic'));
+      setError(t('error.generic') || 'Please fill in all required fields.');
       return;
     }
 
@@ -75,24 +75,22 @@ export function AddCertificationScreen({
       const defaultIssuedOn = new Date().toISOString().split('T')[0] ?? '2026-01-01';
 
       // BR-02: New certificate starts UNVERIFIED
-      try {
-        await createCertification({
-          certType,
-          certNumber: certNumber.trim(),
-          issuingBody: issuingBody.trim(),
-          issuedOn: issuedOn.trim() || defaultIssuedOn,
-          expiresOn: expiresOn.trim(),
-          documentUrl: documentUrl || undefined,
-        });
-      } catch {
-        // Prototype/offline fallback
-      }
+      await createCertification({
+        certType,
+        certNumber: certNumber.trim(),
+        issuingBody: issuingBody.trim(),
+        issuedOn: issuedOn.trim() || defaultIssuedOn,
+        expiresOn: expiresOn.trim(),
+        documentUrl: documentUrl || undefined,
+      });
 
       Alert.alert(t('farmer.common.submit'), t('farmer.certifications.add.success'), [
         { text: 'OK', onPress: () => onSuccess?.() },
       ]);
-    } catch {
-      setError(t('error.generic'));
+    } catch (err: unknown) {
+      const problem = (err as { problem?: { detail?: string } })?.problem;
+      const message = (err as Error)?.message;
+      setError(problem?.detail ?? message ?? t('error.generic'));
     } finally {
       setSubmitting(false);
     }

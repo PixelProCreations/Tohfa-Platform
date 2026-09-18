@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { createApp } from '../../app.js';
-import { signRefreshToken } from '../../auth/jwt.js';
+import { signOAuthLinkToken, signRefreshToken, verifyOAuthLinkToken } from '../../auth/jwt.js';
+import { AppError } from '../../http/problem.js';
 import { createAuthService } from './auth.service.js';
-import type { AuthRepo, OtpVerificationRow, RefreshTokenRow } from './auth.repo.js';
-import { databaseReady, describeIfDatabase } from '../../test/factories.js';
+import type { AuthRepo, OAuthIdentityRow, OtpVerificationRow, RefreshTokenRow } from './auth.repo.js';
+import type { OAuthProviderClient } from './oauth.providers.js';
+import { anActor, databaseReady, describeIfDatabase } from '../../test/factories.js';
 
 function hashValue(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -95,6 +98,35 @@ function mockRepo(overrides: Partial<AuthRepo> = {}): AuthRepo {
     findOtpById: async () => null,
     incrementOtpAttempts: async () => null,
     consumeOtp: async () => {},
+    findOAuthIdentity: async () => null,
+    findOAuthIdentityByUserAndProvider: async () => null,
+    createOAuthIdentity: async (_db, params) => ({
+      id: '55555555-5555-5555-5555-555555555555',
+      user_id: params.userId,
+      provider: params.provider,
+      provider_subject_id: params.providerSubjectId,
+      email: params.email ?? null,
+      linked_at: new Date(),
+      created_at: new Date(),
+    }),
+    deleteOAuthIdentity: async () => null,
+    ...overrides,
+  };
+}
+
+function fakeOAuthClient(overrides: Partial<OAuthProviderClient> = {}): OAuthProviderClient {
+  return {
+    verifyGoogleToken: async () => ({
+      subjectId: 'google-sub-1',
+      email: 'priya@example.com',
+      fullName: 'Priya Raman',
+      photoUrl: 'https://lh3.googleusercontent.com/a/photo.jpg',
+    }),
+    verifyFacebookToken: async () => ({
+      subjectId: 'fb-sub-1',
+      email: 'priya@example.com',
+      fullName: 'Priya Raman',
+    }),
     ...overrides,
   };
 }
@@ -246,6 +278,345 @@ describe('Auth Module & BR-32 Test Contract', () => {
     });
   });
 
+  describe('BR-39: OAuth is login/linking only, never a bypass of mobile+OTP', () => {
+    it('BR-39b: a verified token with no linked identity returns NOT_LINKED + profile + linkToken, no tokens issued', async () => {
+      const repo = mockRepo({ findOAuthIdentity: async () => null });
+      const service = createAuthService(repo, fakeOAuthClient());
+
+      const result = (await service.loginWithOAuth('google', { token: 'valid-google-token' })) as {
+        status: string;
+        profile: { fullName?: string; email?: string; photoUrl?: string };
+        linkToken: string;
+      };
+
+      expect(result.status).toBe('NOT_LINKED');
+      expect(result.profile.email).toBe('priya@example.com');
+      expect(result.profile.fullName).toBe('Priya Raman');
+      expect(result).not.toHaveProperty('accessToken');
+
+      // The linkToken is real and carries the verified profile through to
+      // /auth/otp/verify.
+      const payload = verifyOAuthLinkToken(result.linkToken);
+      expect(payload.provider).toBe('GOOGLE');
+      expect(payload.providerSubjectId).toBe('google-sub-1');
+      expect(payload.email).toBe('priya@example.com');
+    });
+
+    it('BR-39e: POST /auth/me/oauth/link against an identity already linked to a DIFFERENT account fails with OAUTH_IDENTITY_ALREADY_LINKED', async () => {
+      const repo = mockRepo({
+        findOAuthIdentity: async () => ({
+          id: 'identity-other',
+          user_id: 'someone-else',
+          provider: 'GOOGLE',
+          provider_subject_id: 'google-sub-1',
+          email: 'other@example.com',
+          linked_at: new Date(),
+          created_at: new Date(),
+        }),
+      });
+      const service = createAuthService(repo, fakeOAuthClient());
+      const actor = anActor({ userId: 'me-user-id' });
+
+      await expect(
+        service.linkOAuthIdentity(actor, { provider: 'google', token: 'valid-google-token' }),
+      ).rejects.toThrow(expect.objectContaining({ code: 'OAUTH_IDENTITY_ALREADY_LINKED', status: 409 }));
+    });
+
+    it('BR-39f: a provider that rejects the token surfaces OAUTH_TOKEN_INVALID, not a generic 401', async () => {
+      const repo = mockRepo();
+      const service = createAuthService(
+        repo,
+        fakeOAuthClient({
+          verifyGoogleToken: async () => {
+            throw new AppError('OAUTH_TOKEN_INVALID', { detail: 'Google rejected the ID token.' });
+          },
+        }),
+      );
+
+      await expect(service.loginWithOAuth('google', { token: 'garbage' })).rejects.toThrow(
+        expect.objectContaining({ code: 'OAUTH_TOKEN_INVALID', status: 401 }),
+      );
+    });
+
+    it('BR-39f: a malformed/tampered linkToken passed to /auth/otp/verify surfaces OAUTH_LINK_TOKEN_INVALID, not a generic 401', async () => {
+      const correctCode = '333444';
+      const challengeId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+      const challenge: OtpVerificationRow = {
+        id: challengeId,
+        user_id: null,
+        mobile: '+919000000097',
+        purpose: 'REGISTRATION',
+        code_hash: hashValue(correctCode),
+        attempts: 0,
+        max_attempts: 3,
+        locked_at: null,
+        expires_at: new Date(Date.now() + 300000),
+        consumed_at: null,
+        resend_count: 0,
+        last_sent_at: new Date(),
+        created_at: new Date(),
+      };
+
+      const repo = mockRepo({
+        findOtpById: async () => challenge,
+        findUserByMobile: async () => null,
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.verifyOtp({ challengeId, code: correctCode, linkToken: 'not-a-real-jwt' }),
+      ).rejects.toThrow(expect.objectContaining({ code: 'OAUTH_LINK_TOKEN_INVALID', status: 401 }));
+    });
+
+    // The remaining BR-39 cases exercise the success path, which — like
+    // `login`/`verifyOtp` themselves — reaches the database directly for the
+    // farmer/customer lookup and/or `withTransaction`, not only through the
+    // mocked repo. They run only when DATABASE_URL points at a real,
+    // migrated Postgres (see apps/api/CLAUDE.md's "Tests" section).
+    describeIfDatabase('success paths (real database)', () => {
+      it('BR-39a: a verified Google token for an already-linked identity logs in like /auth/login', async () => {
+        if (!(await databaseReady('users'))) return;
+
+        const linkedUserId = '66666666-6666-6666-6666-666666666666';
+        const repo = mockRepo({
+          findOAuthIdentity: async () => ({
+            id: 'identity-1',
+            user_id: linkedUserId,
+            provider: 'GOOGLE',
+            provider_subject_id: 'google-sub-1',
+            email: 'priya@example.com',
+            linked_at: new Date(),
+            created_at: new Date(),
+          }),
+          findUserById: async () => ({
+            id: linkedUserId,
+            mobile: '+919876500001',
+            email: 'priya@example.com',
+            password_hash: null,
+            full_name: 'Priya Raman',
+            preferred_locale: 'en',
+            user_type: 'CUSTOMER',
+            status: 'ACTIVE',
+            mfa_enabled: false,
+            last_login_at: null,
+            created_at: new Date(),
+          }),
+          getUserRoles: async () => [],
+        });
+
+        const service = createAuthService(repo, fakeOAuthClient());
+        const result = (await service.loginWithOAuth('google', { token: 'valid-google-token' })) as {
+          accessToken: string;
+          requiresRoleSelection: boolean;
+        };
+
+        expect(result.accessToken).toBeTypeOf('string');
+        expect(result.requiresRoleSelection).toBe(false);
+      });
+
+      it('BR-39c: OTP-verify with a valid linkToken for a brand-new mobile number creates the account AND links the identity', async () => {
+        if (!(await databaseReady('oauth_identities'))) return;
+
+        const correctCode = '654321';
+        const challengeId = '77777777-7777-7777-7777-777777777777';
+        const mobile = '+919000000099';
+
+        const challenge: OtpVerificationRow = {
+          id: challengeId,
+          user_id: null,
+          mobile,
+          purpose: 'REGISTRATION',
+          code_hash: hashValue(correctCode),
+          attempts: 0,
+          max_attempts: 3,
+          locked_at: null,
+          expires_at: new Date(Date.now() + 300000),
+          consumed_at: null,
+          resend_count: 0,
+          last_sent_at: new Date(),
+          created_at: new Date(),
+        };
+
+        let createdUserId: string | null = null;
+        let createCustomerUserCalls = 0;
+        let createOAuthIdentityCalls = 0;
+
+        const repo = mockRepo({
+          findOtpById: async () => challenge,
+          findUserByMobile: async () => null,
+          createCustomerUser: async (_db, params) => {
+            createCustomerUserCalls += 1;
+            // A real seeded user id (db/seed/003_dev_users.sql) — not
+            // semantically meaningful here, only load-bearing: `repo` is
+            // mocked so this "created" row is never really inserted, but the
+            // service's `writeAuditLog` call right after IS a real INSERT
+            // whose `actor_id` carries a live FK to `users(id)`.
+            createdUserId = '00000000-0000-0000-0000-000000000001';
+            return {
+              id: createdUserId,
+              mobile: params.mobile,
+              email: params.email ?? null,
+              password_hash: params.passwordHash,
+              full_name: params.fullName,
+              preferred_locale: params.preferredLocale,
+              user_type: 'CUSTOMER',
+              status: params.status ?? 'ACTIVE',
+              mfa_enabled: false,
+              last_login_at: null,
+              created_at: new Date(),
+            };
+          },
+          createOAuthIdentity: async (_db, params): Promise<OAuthIdentityRow> => {
+            createOAuthIdentityCalls += 1;
+            expect(params.userId).toBe(createdUserId);
+            return {
+              id: 'identity-new',
+              user_id: params.userId,
+              provider: params.provider,
+              provider_subject_id: params.providerSubjectId,
+              email: params.email ?? null,
+              linked_at: new Date(),
+              created_at: new Date(),
+            };
+          },
+        });
+
+        const service = createAuthService(repo);
+        const linkToken = signOAuthLinkToken({
+          provider: 'GOOGLE',
+          providerSubjectId: 'google-sub-new',
+          email: 'newperson@example.com',
+          fullName: 'New Person',
+        });
+
+        const result = (await service.verifyOtp({ challengeId, code: correctCode, linkToken })) as {
+          accessToken: string;
+          oauthProfile?: { fullName?: string; email?: string };
+        };
+
+        expect(createCustomerUserCalls).toBe(1);
+        expect(createOAuthIdentityCalls).toBe(1);
+        expect(result.accessToken).toBeTypeOf('string');
+        expect(result.oauthProfile?.email).toBe('newperson@example.com');
+      });
+
+      it('BR-39d: OTP-verify with a valid linkToken for an EXISTING mobile number links to that account instead of creating a duplicate', async () => {
+        if (!(await databaseReady('oauth_identities'))) return;
+
+        const correctCode = '111222';
+        const challengeId = '99999999-9999-9999-9999-999999999999';
+        // A real seeded user id (db/seed/003_dev_users.sql) — see the same
+        // note on BR-39c above: `writeAuditLog` inside the link branch does a
+        // real INSERT whose actor_id needs a live FK target.
+        const existingUserId = '00000000-0000-0000-0000-000000000002';
+        const mobile = '+919000000098';
+
+        const challenge: OtpVerificationRow = {
+          id: challengeId,
+          user_id: existingUserId,
+          mobile,
+          purpose: 'LOGIN',
+          code_hash: hashValue(correctCode),
+          attempts: 0,
+          max_attempts: 3,
+          locked_at: null,
+          expires_at: new Date(Date.now() + 300000),
+          consumed_at: null,
+          resend_count: 0,
+          last_sent_at: new Date(),
+          created_at: new Date(),
+        };
+
+        let createCustomerUserCalls = 0;
+        let createOAuthIdentityCalls = 0;
+
+        const repo = mockRepo({
+          findOtpById: async () => challenge,
+          findUserById: async () => ({
+            id: existingUserId,
+            mobile,
+            email: null,
+            password_hash: 'hash',
+            full_name: 'Existing User',
+            preferred_locale: 'en',
+            user_type: 'CUSTOMER',
+            status: 'ACTIVE',
+            mfa_enabled: false,
+            last_login_at: null,
+            created_at: new Date(),
+          }),
+          createCustomerUser: async () => {
+            createCustomerUserCalls += 1;
+            throw new Error('must not create a new account for an existing mobile number');
+          },
+          findOAuthIdentity: async () => null,
+          createOAuthIdentity: async (_db, params): Promise<OAuthIdentityRow> => {
+            createOAuthIdentityCalls += 1;
+            expect(params.userId).toBe(existingUserId);
+            return {
+              // audit_log.entity_id is `uuid` (no FK, but the column type
+              // still rejects a non-UUID string).
+              id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+              user_id: params.userId,
+              provider: params.provider,
+              provider_subject_id: params.providerSubjectId,
+              email: params.email ?? null,
+              linked_at: new Date(),
+              created_at: new Date(),
+            };
+          },
+        });
+
+        const service = createAuthService(repo);
+        const linkToken = signOAuthLinkToken({
+          provider: 'GOOGLE',
+          providerSubjectId: 'google-sub-existing',
+          email: 'existing@example.com',
+        });
+
+        const result = (await service.verifyOtp({ challengeId, code: correctCode, linkToken })) as {
+          accessToken: string;
+        };
+
+        expect(createCustomerUserCalls).toBe(0);
+        expect(createOAuthIdentityCalls).toBe(1);
+        expect(result.accessToken).toBeTypeOf('string');
+      });
+
+      it('unlink removes the row', async () => {
+        if (!(await databaseReady('oauth_identities'))) return;
+
+        let deleteCalledWith: { userId: string; provider: string } | null = null;
+        const repo = mockRepo({
+          deleteOAuthIdentity: async (_db, userId, provider): Promise<OAuthIdentityRow> => {
+            deleteCalledWith = { userId, provider };
+            return {
+              // See the BR-39d note above: audit_log.entity_id is `uuid`.
+              id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+              user_id: userId,
+              provider,
+              provider_subject_id: 'google-sub-1',
+              email: null,
+              linked_at: new Date(),
+              created_at: new Date(),
+            };
+          },
+        });
+        const service = createAuthService(repo, fakeOAuthClient());
+        // A real seeded user id (db/seed/003_dev_users.sql) — `writeAuditLog`
+        // after the delete needs a live FK target, same as BR-39c/d above.
+        const actor = anActor({ userId: '00000000-0000-0000-0000-000000000003' });
+
+        await service.unlinkOAuthIdentity(actor, 'google');
+
+        expect(deleteCalledWith).toEqual({
+          userId: '00000000-0000-0000-0000-000000000003',
+          provider: 'GOOGLE',
+        });
+      });
+    });
+  });
+
   describe('HTTP Schema Validation', () => {
     const app = createApp();
 
@@ -285,6 +656,263 @@ describe('Auth Module & BR-32 Test Contract', () => {
 
       expect(res.status).toBe(202);
       expect(res.body).toHaveProperty('challengeId');
+    });
+  });
+
+  describe('Multi-role login (login())', () => {
+    const mobile = '+919876500011';
+    const plainPassword = 'CorrectHorse99!';
+    let passwordHash: string;
+
+    beforeAll(async () => {
+      // Real bcrypt hash, matching how auth.service.ts's login() actually
+      // compares (bcrypt.compare against user.password_hash) — a fake string
+      // would make every login attempt fail regardless of what we're testing.
+      passwordHash = await bcrypt.hash(plainPassword, 12);
+    });
+
+    function adminUser(): NonNullable<Awaited<ReturnType<AuthRepo['findUserByMobile']>>> {
+      return {
+        id: '00000000-0000-4000-8000-000000000101',
+        mobile,
+        email: null,
+        password_hash: passwordHash,
+        full_name: 'Multi Role Admin',
+        preferred_locale: 'en',
+        // ADMIN + non-FARMER/CUSTOMER role codes below so the service never
+        // takes the `pool.query(...)` farmer/customer lookup branches
+        // (auth.service.ts lines ~516-531) — keeps this a pure mocked-repo
+        // unit test with no live database required.
+        user_type: 'ADMIN',
+        status: 'ACTIVE',
+        mfa_enabled: false,
+        last_login_at: null,
+        created_at: new Date(),
+      };
+    }
+
+    it('a user with more than one role assignment and no roleCode gets requiresRoleSelection with no tokens', async () => {
+      const repo = mockRepo({
+        findUserByMobile: async () => adminUser(),
+        getUserRoles: async () => [
+          { role_code: 'TOHFA_ADMIN', warehouse_id: null, warehouse_name: null, zone_id: null, zone_name: null },
+          { role_code: 'SUB_WH_ADMIN', warehouse_id: null, warehouse_name: null, zone_id: null, zone_name: null },
+        ],
+      });
+      const service = createAuthService(repo);
+
+      const result = (await service.login({ mobile, password: plainPassword })) as {
+        requiresRoleSelection: boolean;
+        availableRoles: Array<{ code: string; warehouseId?: string; zoneId?: string }>;
+        accessToken?: string;
+      };
+
+      expect(result).toEqual({
+        requiresRoleSelection: true,
+        availableRoles: [
+          { code: 'TOHFA_ADMIN', warehouseId: undefined, zoneId: undefined },
+          { code: 'SUB_WH_ADMIN', warehouseId: undefined, zoneId: undefined },
+        ],
+      });
+      expect(result).not.toHaveProperty('accessToken');
+    });
+
+    it('the same multi-role user supplying a valid roleCode gets real tokens scoped to only that role', async () => {
+      const repo = mockRepo({
+        findUserByMobile: async () => adminUser(),
+        getUserRoles: async () => [
+          { role_code: 'TOHFA_ADMIN', warehouse_id: null, warehouse_name: null, zone_id: null, zone_name: null },
+          { role_code: 'SUB_WH_ADMIN', warehouse_id: null, warehouse_name: null, zone_id: null, zone_name: null },
+        ],
+      });
+      const service = createAuthService(repo);
+
+      const result = (await service.login({
+        mobile,
+        password: plainPassword,
+        roleCode: 'TOHFA_ADMIN',
+      })) as {
+        requiresRoleSelection: boolean;
+        accessToken: string;
+        user: { roles: Array<{ code: string }> };
+      };
+
+      expect(result.requiresRoleSelection).toBe(false);
+      expect(result.accessToken).toBeTypeOf('string');
+      expect(result.user.roles).toHaveLength(1);
+      expect(result.user.roles[0]?.code).toBe('TOHFA_ADMIN');
+    });
+
+    it('a user with only one role assignment never gets requiresRoleSelection, even without a roleCode', async () => {
+      const repo = mockRepo({
+        findUserByMobile: async () => adminUser(),
+        getUserRoles: async () => [
+          { role_code: 'TOHFA_ADMIN', warehouse_id: null, warehouse_name: null, zone_id: null, zone_name: null },
+        ],
+      });
+      const service = createAuthService(repo);
+
+      const result = (await service.login({ mobile, password: plainPassword })) as {
+        requiresRoleSelection: boolean;
+        accessToken: string;
+      };
+
+      expect(result.requiresRoleSelection).toBe(false);
+      expect(result.accessToken).toBeTypeOf('string');
+    });
+  });
+
+  describe('resetPassword()', () => {
+    it('an invalid OTP code is rejected with OTP_INVALID, reusing verifyOtp\'s OTP-checking logic', async () => {
+      const correctCode = '445566';
+      const challengeId = '88888888-8888-8888-8888-888888888888';
+
+      const challenge: OtpVerificationRow = {
+        id: challengeId,
+        user_id: null,
+        mobile: '+919000000055',
+        purpose: 'PASSWORD_RESET',
+        code_hash: hashValue(correctCode),
+        attempts: 0,
+        max_attempts: 3,
+        locked_at: null,
+        expires_at: new Date(Date.now() + 300000),
+        consumed_at: null,
+        resend_count: 0,
+        last_sent_at: new Date(),
+        created_at: new Date(),
+      };
+
+      const repo = mockRepo({
+        findOtpById: async () => challenge,
+        incrementOtpAttempts: async () => null,
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.resetPassword({ challengeId, code: '000000', newPassword: 'BrandNewPassword1' }),
+      ).rejects.toThrow(expect.objectContaining({ code: 'OTP_INVALID', status: 401 }));
+    });
+
+    it('a locked OTP challenge is rejected with OTP_LOCKED and never touches the password or sessions', async () => {
+      const challengeId = '77777777-aaaa-bbbb-cccc-777777777777';
+
+      const challenge: OtpVerificationRow = {
+        id: challengeId,
+        user_id: null,
+        mobile: '+919000000056',
+        purpose: 'PASSWORD_RESET',
+        code_hash: hashValue('999999'),
+        attempts: 3,
+        max_attempts: 3,
+        locked_at: new Date(),
+        expires_at: new Date(Date.now() + 300000),
+        consumed_at: null,
+        resend_count: 0,
+        last_sent_at: new Date(),
+        created_at: new Date(),
+      };
+
+      let updateUserPasswordCalls = 0;
+      let revokeAllUserSessionsCalls = 0;
+
+      const repo = mockRepo({
+        findOtpById: async () => challenge,
+        updateUserPassword: async () => {
+          updateUserPasswordCalls += 1;
+        },
+        revokeAllUserSessions: async () => {
+          revokeAllUserSessionsCalls += 1;
+        },
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.resetPassword({ challengeId, code: '999999', newPassword: 'BrandNewPassword1' }),
+      ).rejects.toThrow(expect.objectContaining({ code: 'OTP_LOCKED', status: 429 }));
+
+      expect(updateUserPasswordCalls).toBe(0);
+      expect(revokeAllUserSessionsCalls).toBe(0);
+    });
+
+    // The success path calls `withTransaction`, which opens a REAL
+    // pool.connect() + BEGIN/COMMIT against Postgres even though `repo` here
+    // is mocked (see db/pool.ts). Gated the same way as BR-39c/d above.
+    describeIfDatabase('success path (real database transaction)', () => {
+      it('hashes the new password with bcrypt and revokes every session for that user', async () => {
+        if (!(await databaseReady('users'))) return;
+
+        const correctCode = '246810';
+        const challengeId = '55555555-6666-7777-8888-999999999999';
+        const mobile = '+919000000057';
+        const userId = '00000000-0000-4000-8000-000000000102';
+        const oldPasswordHash = await bcrypt.hash('OldPassword123', 12);
+        const newPassword = 'BrandNewPassword2';
+
+        const challenge: OtpVerificationRow = {
+          id: challengeId,
+          user_id: null,
+          mobile,
+          purpose: 'PASSWORD_RESET',
+          code_hash: hashValue(correctCode),
+          attempts: 0,
+          max_attempts: 3,
+          locked_at: null,
+          expires_at: new Date(Date.now() + 300000),
+          consumed_at: null,
+          resend_count: 0,
+          last_sent_at: new Date(),
+          created_at: new Date(),
+        };
+
+        let capturedPasswordHash: string | null = null;
+        let revokeAllUserSessionsCalledWith:
+          | { userId: string; revokedBy: string | undefined; reason: string | undefined }
+          | null = null;
+        let consumeOtpCalledWith: string | null = null;
+
+        const repo = mockRepo({
+          findOtpById: async () => challenge,
+          consumeOtp: async (_db, id) => {
+            consumeOtpCalledWith = id;
+          },
+          findUserByMobile: async () => ({
+            id: userId,
+            mobile,
+            email: null,
+            password_hash: oldPasswordHash,
+            full_name: 'Reset Password User',
+            preferred_locale: 'en',
+            user_type: 'CUSTOMER',
+            status: 'ACTIVE',
+            mfa_enabled: false,
+            last_login_at: null,
+            created_at: new Date(),
+          }),
+          updateUserPassword: async (_db, uid, passwordHash) => {
+            capturedPasswordHash = passwordHash;
+            expect(uid).toBe(userId);
+          },
+          revokeAllUserSessions: async (_db, uid, revokedBy, reason) => {
+            revokeAllUserSessionsCalledWith = { userId: uid, revokedBy, reason };
+          },
+        });
+        const service = createAuthService(repo);
+
+        await service.resetPassword({ challengeId, code: correctCode, newPassword });
+
+        expect(consumeOtpCalledWith).toBe(challengeId);
+
+        expect(capturedPasswordHash).toBeTypeOf('string');
+        expect(capturedPasswordHash).not.toBe(oldPasswordHash);
+        expect(await bcrypt.compare(newPassword, capturedPasswordHash as unknown as string)).toBe(true);
+
+        expect(revokeAllUserSessionsCalledWith).toEqual({
+          userId,
+          revokedBy: userId,
+          reason: 'PASSWORD_RESET_ALL_SESSIONS',
+        });
+      });
     });
   });
 });

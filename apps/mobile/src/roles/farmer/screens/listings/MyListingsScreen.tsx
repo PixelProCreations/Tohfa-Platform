@@ -1,6 +1,7 @@
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
+import { authPalette as P } from '../../theme';
 
 interface MyListingsScreenProps {
   onNavigateBack: () => void;
@@ -12,7 +13,7 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onNavigateBack}>
-          <Icon name="arrow_back" size={20} color="#1F2937" />
+          <Icon name="arrow_back" size={20} color={P.twGray800} />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>My Listings</Text>
@@ -23,21 +24,21 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity style={styles.filterDropdown}>
           <Text style={[styles.filterText, { marginLeft: 0 }]}>All statuses</Text>
-          <Icon name="expand_more" size={18} color="#4B5563" style={styles.filterCaret} />
+          <Icon name="expand_more" size={18} color={P.twGray600} style={styles.filterCaret} />
         </TouchableOpacity>
 
         {/* Card 1: Carrot */}
         <TouchableOpacity style={[styles.card, styles.cardCarrot]} onPress={onNavigateToListingDetail} activeOpacity={0.8}>
           <View style={styles.cardHeader}>
             <Text style={styles.cropTitle}>Carrot · Ooty</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
-              <Text style={[styles.statusText, { color: '#7E22CE' }]}>Counter-offer</Text>
+            <View style={[styles.statusBadge, { backgroundColor: P.twPurple100 }]}>
+              <Text style={[styles.statusText, { color: P.twPurple700 }]}>Counter-offer</Text>
             </View>
           </View>
           <Text style={styles.cropSub}>Grade 1 · 150 kg · ₹40/kg · 14 Jul</Text>
-          <View style={[styles.alertStrip, { backgroundColor: '#FFEDD5' }]}>
-            <Icon name="schedule" size={14} color="#C2410C" />
-            <Text style={[styles.alertText, { color: '#C2410C' }]}>Your reply needed · 22h 30m left</Text>
+          <View style={[styles.alertStrip, { backgroundColor: P.twOrange100 }]}>
+            <Icon name="schedule" size={14} color={P.twOrange700} />
+            <Text style={[styles.alertText, { color: P.twOrange700 }]}>Your reply needed · 22h 30m left</Text>
           </View>
         </TouchableOpacity>
 
@@ -45,8 +46,8 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
         <TouchableOpacity style={[styles.card, styles.cardFrenchBeans]} onPress={onNavigateToListingDetail} activeOpacity={0.8}>
           <View style={styles.cardHeader}>
             <Text style={styles.cropTitle}>French Beans</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#FFEDD5' }]}>
-              <Text style={[styles.statusText, { color: '#C2410C' }]}>Waiting</Text>
+            <View style={[styles.statusBadge, { backgroundColor: P.twOrange100 }]}>
+              <Text style={[styles.statusText, { color: P.twOrange700 }]}>Waiting</Text>
             </View>
           </View>
           <Text style={styles.cropSub}>Grade 2 · 80 kg · ₹55/kg · 16 Jul</Text>
@@ -56,14 +57,14 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
         <TouchableOpacity style={[styles.card, styles.cardTomato]} onPress={onNavigateToListingDetail} activeOpacity={0.8}>
           <View style={styles.cardHeader}>
             <Text style={styles.cropTitle}>Tomato · Hybrid</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusText, { color: '#15803D' }]}>Approved</Text>
+            <View style={[styles.statusBadge, { backgroundColor: P.twGreen100 }]}>
+              <Text style={[styles.statusText, { color: P.twGreen700 }]}>Approved</Text>
             </View>
           </View>
           <Text style={styles.cropSub}>Grade 1 · 200 kg · ₹38/kg · 09 Jul</Text>
-          <View style={[styles.alertStrip, { backgroundColor: '#ECFCCB' }]}>
-            <Icon name="account_balance_wallet" size={14} color="#15803D" />
-            <Text style={[styles.alertText, { color: '#15803D' }]}>Paid · ₹7,600 net</Text>
+          <View style={[styles.alertStrip, { backgroundColor: P.twLime100 }]}>
+            <Icon name="account_balance_wallet" size={14} color={P.twGreen700} />
+            <Text style={[styles.alertText, { color: P.twGreen700 }]}>Paid · ₹7,600 net</Text>
           </View>
         </TouchableOpacity>
 
@@ -71,8 +72,8 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
         <TouchableOpacity style={[styles.card, styles.cardCabbage]} onPress={onNavigateToListingDetail} activeOpacity={0.8}>
           <View style={styles.cardHeader}>
             <Text style={styles.cropTitle}>Cabbage</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#FEE2E2' }]}>
-              <Text style={[styles.statusText, { color: '#B91C1C' }]}>Rejected</Text>
+            <View style={[styles.statusBadge, { backgroundColor: P.twRed100 }]}>
+              <Text style={[styles.statusText, { color: P.twRed700 }]}>Rejected</Text>
             </View>
           </View>
           <Text style={styles.cropSub}>Grade 2 · 120 kg · ₹18/kg · 02 Jul</Text>
@@ -82,8 +83,8 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
         <TouchableOpacity style={[styles.card, styles.cardPotato]} onPress={onNavigateToListingDetail} activeOpacity={0.8}>
           <View style={styles.cardHeader}>
             <Text style={styles.cropTitle}>Potato · Kufri</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#F3F4F6' }]}>
-              <Text style={[styles.statusText, { color: '#4B5563' }]}>Withdrawn</Text>
+            <View style={[styles.statusBadge, { backgroundColor: P.twGray100 }]}>
+              <Text style={[styles.statusText, { color: P.twGray600 }]}>Withdrawn</Text>
             </View>
           </View>
           <Text style={styles.cropSub}>Grade 1 · 300 kg · ₹22/kg · 28 Jun</Text>
@@ -95,22 +96,22 @@ export function MyListingsScreen({ onNavigateBack, onNavigateToListingDetail }: 
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#FAFAFA' },
+  screen: { flex: 1, backgroundColor: P.grey50 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: P.twGray100,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -121,11 +122,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: P.slate900,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: P.slate500,
     marginTop: 2,
   },
   content: {
@@ -136,14 +137,14 @@ const styles = StyleSheet.create({
   filterDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     alignSelf: 'stretch',
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 15,
-    color: '#1F2937',
+    color: P.twGray800,
     fontWeight: '600',
     marginLeft: 8,
     flex: 1,
@@ -160,41 +161,41 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
+    borderColor: P.twGray100,
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   cardCarrot: {
-    borderColor: '#E9D5FF',
+    borderColor: P.twPurple200,
     borderLeftWidth: 4,
-    borderLeftColor: '#9333EA',
+    borderLeftColor: P.twPurple600,
   },
   cardFrenchBeans: {
-    borderColor: '#FFEDD5',
+    borderColor: P.twOrange100,
     borderLeftWidth: 4,
-    borderLeftColor: '#F97316',
+    borderLeftColor: P.twOrange500,
   },
   cardTomato: {
-    borderColor: '#DCFCE7',
+    borderColor: P.twGreen100,
     borderLeftWidth: 4,
-    borderLeftColor: '#22C55E',
+    borderLeftColor: P.twGreen500,
   },
   cardCabbage: {
-    borderColor: '#FEE2E2',
+    borderColor: P.twRed100,
     borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
+    borderLeftColor: P.twRed500,
   },
   cardPotato: {
-    borderColor: '#F3F4F6',
+    borderColor: P.twGray100,
     borderLeftWidth: 4,
-    borderLeftColor: '#9CA3AF',
+    borderLeftColor: P.twGray400,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
   cropTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: P.slate900,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -218,7 +219,7 @@ const styles = StyleSheet.create({
   },
   cropSub: {
     fontSize: 13,
-    color: '#64748B',
+    color: P.slate500,
   },
   alertStrip: {
     flexDirection: 'row',

@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   paymentBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBF4FF',
+    backgroundColor: P.paleBlueBg,
     borderLeftWidth: 3.5,
     borderLeftColor: P.twBlue600,
     borderRadius: 12,
