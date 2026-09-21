@@ -36,6 +36,7 @@
     "@react-native/metro-config": "0.74.87",
     "@types/react": "^18.2.79",
     "@types/react-test-renderer": "^18.0.7",
+    "react-native-dotenv": "^4.1.1",
     "react-native-svg-transformer": "^1.5.3",
     "react-test-renderer": "18.2.0",
     "typescript": "^5.5.4",

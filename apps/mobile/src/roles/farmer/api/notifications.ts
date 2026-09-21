@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api } from '../../../shell/api/client';
 import { Platform } from 'react-native';
 
 export interface NotificationItem {

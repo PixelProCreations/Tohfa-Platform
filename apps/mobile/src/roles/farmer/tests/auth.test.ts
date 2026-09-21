@@ -13,7 +13,7 @@ import {
   resolveRouteAfterAuth,
   verifyOtp,
 } from '../api/auth';
-import { getAccessToken as getClientAccessToken, setAccessToken } from '../api/client';
+import { getAccessToken as getClientAccessToken, setAccessToken } from '../../../shell/api/client';
 import { saveTokens, getAccessToken as getStoredAccessToken } from '../storage/tokenStorage';
 
 describe('User Story 42 (S-42) Auth Tests', () => {

@@ -15,7 +15,7 @@ import { authPalette as themeAuthPalette } from '../../theme';
 import { t } from '../../../../i18n/farmer';
 import { Icon } from '@tohfa/mobile-ui';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
-import { ApiError } from '../../api/client';
+import { ApiError } from '../../../../shell/api/client';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map

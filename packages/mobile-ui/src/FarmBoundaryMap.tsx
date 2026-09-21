@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import type { Feature, Point } from 'geojson';
+import { MAPBOX_ACCESS_TOKEN } from '@env';
 import { useTheme } from './theme';
 
 let Mapbox: any = null;
@@ -50,25 +51,18 @@ try {
   isMapboxAvailable = false;
 }
 
-/**
- * TOHFA's real Mapbox public token (`pk.…`, Mapbox account "tohfa"). Public
- * tokens are designed to ship embedded in client apps (same convention as
- * `GOOGLE_WEB_CLIENT_ID` in apps/mobile/src/roles/farmer/native/socialSignIn.ts)
- * — unlike `RNMBX_MAPS_DOWNLOAD_TOKEN` (a *secret* token, kept out of the repo
- * in `~/.zshrc`), this one is meant to be public and is safe to commit.
- *
- * It lives here, next to the component, rather than under a farmer-specific
- * `native/` config file: unlike the Google/Facebook OAuth client IDs (which
- * are genuinely per-role, farmer-only login providers), a Mapbox token is not
- * tied to any one role — the same token would back a future customer
- * delivery map or admin farm-audit map just as well. This component is the
- * one place in the codebase that talks to Mapbox, so the token lives beside
- * it instead of being duplicated per role.
- */
-const MAPBOX_ACCESS_TOKEN =
-  process.env.MAPBOX_ACCESS_TOKEN ||
-  process.env.EXPO_PUBLIC_MAPBOX_TOKEN ||
-  '';
+// MAPBOX_ACCESS_TOKEN (imported above from '@env') is TOHFA's real Mapbox
+// public token (`pk.…`, Mapbox account "tohfa"), inlined at bundle time by
+// react-native-dotenv from apps/mobile/.env (gitignored -- see
+// apps/mobile/.env.example) via apps/mobile/babel.config.js. Public tokens
+// are designed to ship embedded in client apps and are not secret, unlike
+// RNMBX_MAPS_DOWNLOAD_TOKEN (kept in ~/.zshrc, never in a repo file).
+//
+// This must always resolve to a real, non-empty string: @rnmapbox/maps'
+// native Android SDK throws MapboxConfigurationException and crashes the
+// whole app the instant a MapView mounts with no token set -- confirmed via
+// adb logcat. `safe: false, allowUndefined: false` in babel.config.js make a
+// missing .env entry fail the build loudly instead of silently inlining ''.
 
 let mapboxConfigured = false;
 

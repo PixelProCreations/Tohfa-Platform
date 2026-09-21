@@ -170,29 +170,30 @@ export const Step5Review: React.FC<Step5Props> = ({ draft, onSubmitSuccess, onBa
         <Section
           title="DOCUMENTS"
           stepNum={4}
-          data={[
-            {
-              label: 'ID proof',
-              value: draft.step4?.documents?.some((d) => d.docType === 'ID_PROOF')
-                ? 'Uploaded'
-                : 'Uploaded',
-              highlight: true,
-            },
-            {
-              label: 'Farm docs',
-              value: draft.step4?.documents?.some((d) => d.docType === 'FARM_DOC')
-                ? 'Uploaded'
-                : 'Uploaded',
-              highlight: true,
-            },
-            {
-              label: 'Certification',
-              value: draft.step4?.documents?.some((d) => d.docType === 'CERTIFICATE')
-                ? 'Uploaded'
-                : 'Not provided',
-              highlight: Boolean(draft.step4?.documents?.some((d) => d.docType === 'CERTIFICATE')),
-            },
-          ]}
+          data={(() => {
+            const docs = draft.step4?.documents ?? [];
+            const idDoc = docs.find((d) => d.docType === 'ID_PROOF' && d.fileUrl && d.fileUrl !== 'placeholder-not-yet-wired');
+            const farmDoc = docs.find((d) => d.docType === 'FARM_DOC' && d.fileUrl && d.fileUrl !== 'placeholder-not-yet-wired');
+            const certDoc = docs.find((d) => d.docType === 'CERTIFICATE' && d.fileUrl);
+            return [
+              {
+                label: 'ID proof',
+                value: idDoc ? `✓ ${idDoc.fileName ?? 'Uploaded'}` : '⚠ Not uploaded',
+                highlight: !!idDoc,
+              },
+              {
+                label: 'Farm docs',
+                value: farmDoc ? `✓ ${farmDoc.fileName ?? 'Uploaded'}` : '⚠ Not uploaded',
+                highlight: !!farmDoc,
+              },
+              {
+                label: 'Certification',
+                value: certDoc ? `✓ ${certDoc.fileName ?? 'Uploaded'}` : 'Not provided',
+                highlight: !!certDoc,
+              },
+            ];
+          })()}
+
         />
 
         {/* Terms Confirmation Box */}

@@ -10,7 +10,7 @@ import {
 import { t } from '../../../../i18n/farmer';
 import { Icon, ErrorState } from '@tohfa/mobile-ui';
 import { requestOtp } from '../../api/auth';
-import { ApiError } from '../../api/client';
+import { ApiError } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
 
 interface ForgotPasswordScreenProps {

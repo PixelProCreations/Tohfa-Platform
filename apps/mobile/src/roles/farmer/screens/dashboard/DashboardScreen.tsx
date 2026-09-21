@@ -35,6 +35,15 @@ import { authPalette as P, colors } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 import { getGreetingKey } from '../../utils/greeting';
 
+// Splits a trailing "(...)" suffix off a display name, e.g. seed/demo accounts
+// labeled "Suresh Gowda (Expiring Soon)" for QA identification -- a real
+// farmer's name never has one, so this renders as a single Text with no
+// suffix in that case.
+function splitNameSuffix(fullName: string): { base: string; suffix: string | null } {
+  const match = fullName.match(/^(.*\S)\s+(\([^)]*\))\s*$/);
+  return match ? { base: match[1]!, suffix: match[2]! } : { base: fullName, suffix: null };
+}
+
 function HeaderSearchIcon({ size = 19, color = colors.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -535,7 +544,15 @@ export function DashboardScreen({
               </View>
               <View>
                 <Text style={styles.greetingText}>{t(getGreetingKey())}</Text>
-                <Text style={styles.nameText}>{profile?.fullName ?? 'Kumar'}</Text>
+                {(() => {
+                  const { base, suffix } = splitNameSuffix(profile?.fullName ?? 'Kumar');
+                  return (
+                    <Text style={styles.nameText}>
+                      {base}
+                      {suffix ? <Text style={styles.nameSuffixText}> {suffix}</Text> : null}
+                    </Text>
+                  );
+                })()}
               </View>
             </TouchableOpacity>
             <View style={styles.headerActions}>
@@ -1046,6 +1063,12 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  nameSuffixText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '400',
+    opacity: 0.75,
   },
   headerActions: {
     flexDirection: 'row',

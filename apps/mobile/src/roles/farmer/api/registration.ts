@@ -1,7 +1,7 @@
 /**
  * Typed API client methods for Farmer Registration (S-43).
  */
-import { request } from './client';
+import { request } from '../../../shell/api/client';
 
 export interface CreateFarmerApplicationPayload {
   mobile: string;
