@@ -97,7 +97,13 @@ function CalendarMiniIcon({ size = 12, color = P.deepGreen }: { size?: number; c
   );
 }
 
-
+function FlaskBeakerIcon({ size = 20, color = P.twOrange600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 function UsersIcon({ size = 20, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
@@ -467,6 +473,31 @@ export function FarmManagementScreen({
               <ChevronRightIcon size={14} color={P.twOrange600} />
             </View>
           </TouchableOpacity>
+
+          {/* 7. Soil Management (FR-F06) */}
+          <TouchableOpacity
+            style={styles.moduleCard}
+            activeOpacity={0.88}
+            onPress={onNavigateToSoilManagement}
+            accessibilityRole="button"
+            accessibilityLabel="Soil Management"
+          >
+            <View style={styles.moduleCardTop}>
+              <View style={[styles.iconBadge, { backgroundColor: P.mintTintBg }]}>
+                <FlaskBeakerIcon size={20} color={P.twGreen700} />
+              </View>
+            </View>
+
+            <View style={styles.moduleTextSection}>
+              <Text style={styles.moduleTitle}>Soil Management</Text>
+              <Text style={styles.moduleDesc}>pH 6.4 · Tests, health tracking & conservation</Text>
+            </View>
+
+            <View style={styles.statusRowGreen}>
+              <CheckmarkCircleIcon size={16} color={P.twGreen700} />
+              <Text style={styles.statusRowGreenText}>pH 6.4 Optimal</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* ── Learning Hub Card ── */}
@@ -617,8 +648,8 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 28,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
 
   /* Attention Banner */
@@ -660,7 +691,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: P.twGray200,
     padding: 14,
-    minHeight: 172,
+    minHeight: 180,
     justifyContent: 'space-between',
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },

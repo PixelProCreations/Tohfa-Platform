@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,10 +12,15 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { t, type TranslationKey } from '../../../../i18n/farmer';
-import { authPalette as P } from '../../theme';
+import { t } from '../../../../i18n/farmer';
+import { authPalette as P, colors } from '../../theme';
+import {
+  listNotifications,
+  markNotificationAsRead,
+  type NotificationItem as ApiNotificationItem,
+} from '../../api/notifications';
 
-// --- SVG Icons for Pixel-Perfect Fidelity to Screen 14 ---
+// --- SVG Icons for Notifications ---
 
 function ChevronLeftIcon({ color = P.ink, size = 20 }: { color?: string; size?: number }) {
   return (
@@ -86,117 +93,151 @@ function DeviceTutorialIcon({ color = P.twPurple600, size = 22 }: { color?: stri
   );
 }
 
-// --- Notification Types & Initial Mock Data ---
-//
-// Specification gap: there is no notifications endpoint in `../../api/farmer`
-// or `docs/openapi.yaml` yet, so this list is local mock state, same as the
-// farm-rating source. Titles/messages carry i18n *keys*, resolved with `t()`
-// inside the component (not at module scope) so the screen re-renders
-// correctly when the locale switcher changes languages -- see the same
-// pattern/comment in FarmRatingsScreen.tsx.
+// --- Types ---
 
 export type NotificationCategory = 'all' | 'reminders' | 'approvals' | 'alerts' | 'success';
 
-interface NotificationDef {
+interface UINotificationItem {
   id: string;
   section: 'TODAY' | 'YESTERDAY' | 'EARLIER';
   category: 'reminders' | 'approvals' | 'alerts' | 'success';
-  titleKey: TranslationKey;
-  messageKey: TranslationKey;
-  timeKey: TranslationKey;
-  hasAction?: boolean;
+  title: string;
+  message: string;
+  time: string;
+  hasAction?: boolean | undefined;
+  actionLabel?: string | undefined;
   isUnread: boolean;
   iconBg: string;
   iconColor: string;
   iconType: 'cart' | 'warning' | 'check' | 'calendar' | 'clipboard' | 'tutorial';
-}
-
-const NOTIFICATION_DEFS: NotificationDef[] = [
-  {
-    id: '1',
-    section: 'TODAY',
-    category: 'approvals',
-    titleKey: 'farmer.notifications.item.counterOffer.title',
-    messageKey: 'farmer.notifications.item.counterOffer.message',
-    timeKey: 'farmer.notifications.time.minAgo18',
-    hasAction: true,
-    isUnread: true,
-    iconBg: P.twAmber100,
-    iconColor: P.twAmber600,
-    iconType: 'cart',
-  },
-  {
-    id: '2',
-    section: 'TODAY',
-    category: 'alerts',
-    titleKey: 'farmer.notifications.item.rainWarning.title',
-    messageKey: 'farmer.notifications.item.rainWarning.message',
-    timeKey: 'farmer.notifications.time.hoursAgo2',
-    isUnread: true,
-    iconBg: P.twRed100,
-    iconColor: P.twRed600,
-    iconType: 'warning',
-  },
-  {
-    id: '3',
-    section: 'TODAY',
-    category: 'success',
-    titleKey: 'farmer.notifications.item.paymentReceived.title',
-    messageKey: 'farmer.notifications.item.paymentReceived.message',
-    timeKey: 'farmer.notifications.time.hoursAgo5',
-    isUnread: false,
-    iconBg: P.twGreen100,
-    iconColor: P.twGreen600,
-    iconType: 'check',
-  },
-  {
-    id: '4',
-    section: 'YESTERDAY',
-    category: 'reminders',
-    titleKey: 'farmer.notifications.item.fertigationDue.title',
-    messageKey: 'farmer.notifications.item.fertigationDue.message',
-    timeKey: 'farmer.notifications.time.yesterday7am',
-    isUnread: false,
-    iconBg: P.twOrange100,
-    iconColor: P.twOrange600,
-    iconType: 'calendar',
-  },
-  {
-    id: '5',
-    section: 'YESTERDAY',
-    category: 'approvals',
-    titleKey: 'farmer.notifications.item.listingApproved.title',
-    messageKey: 'farmer.notifications.item.listingApproved.message',
-    timeKey: 'farmer.notifications.time.yesterday320pm',
-    isUnread: false,
-    iconBg: P.sky100,
-    iconColor: P.sky600,
-    iconType: 'clipboard',
-  },
-  {
-    id: '6',
-    section: 'EARLIER',
-    category: 'reminders',
-    titleKey: 'farmer.notifications.item.newTutorials.title',
-    messageKey: 'farmer.notifications.item.newTutorials.message',
-    timeKey: 'farmer.notifications.time.apr20',
-    isUnread: false,
-    iconBg: P.twPurple100,
-    iconColor: P.twPurple600,
-    iconType: 'tutorial',
-  },
-];
-
-interface NotificationItem extends NotificationDef {
-  title: string;
-  message: string;
-  time: string;
-  actionLabel?: string | undefined;
+  data?: Record<string, unknown> | undefined;
 }
 
 interface NotificationsScreenProps {
   onBack: () => void;
   onNavigateToCounterOffer?: (listingId?: string) => void;
+}
+
+// --- Helpers ---
+
+function getSection(createdAt: string): 'TODAY' | 'YESTERDAY' | 'EARLIER' {
+  const date = new Date(createdAt);
+  const now = new Date();
+
+  if (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  ) {
+    return 'TODAY';
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate()
+  ) {
+    return 'YESTERDAY';
+  }
+
+  return 'EARLIER';
+}
+
+function formatRelativeTime(createdAt: string): string {
+  const date = new Date(createdAt);
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays === 1) {
+    const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return `Yesterday, ${timeStr}`;
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function categorizeNotification(item: ApiNotificationItem): 'reminders' | 'approvals' | 'alerts' | 'success' {
+  const rawCat = typeof item.data?.category === 'string' ? item.data.category.toLowerCase() : '';
+  if (rawCat === 'reminders' || rawCat === 'approvals' || rawCat === 'alerts' || rawCat === 'success') {
+    return rawCat;
+  }
+
+  const event = typeof item.data?.eventName === 'string' ? item.data.eventName.toLowerCase() : '';
+  if (
+    event.includes('counter_offer') ||
+    event.includes('approved') ||
+    event.includes('order.confirmed')
+  ) {
+    return 'approvals';
+  }
+  if (
+    event.includes('rejected') ||
+    event.includes('expiring') ||
+    event.includes('warning') ||
+    event.includes('alert')
+  ) {
+    return 'alerts';
+  }
+  if (
+    event.includes('payout') ||
+    event.includes('paid') ||
+    event.includes('credited') ||
+    event.includes('delivered') ||
+    event.includes('goods.received')
+  ) {
+    return 'success';
+  }
+  if (event.includes('info_requested') || event.includes('dispatched') || event.includes('due')) {
+    return 'reminders';
+  }
+
+  const text = `${item.title ?? ''} ${item.body}`.toLowerCase();
+  if (text.includes('counter') || text.includes('offer') || text.includes('approved') || text.includes('approval')) {
+    return 'approvals';
+  }
+  if (text.includes('warn') || text.includes('alert') || text.includes('danger') || text.includes('expir') || text.includes('reject')) {
+    return 'alerts';
+  }
+  if (text.includes('credit') || text.includes('paid') || text.includes('payout') || text.includes('payment') || text.includes('success')) {
+    return 'success';
+  }
+
+  return 'reminders';
+}
+
+function getIconMeta(
+  category: 'reminders' | 'approvals' | 'alerts' | 'success',
+  title: string,
+  body: string,
+): {
+  iconType: 'cart' | 'warning' | 'check' | 'calendar' | 'clipboard' | 'tutorial';
+  iconBg: string;
+  iconColor: string;
+} {
+  const text = `${title} ${body}`.toLowerCase();
+  if (category === 'approvals') {
+    if (text.includes('listing') || text.includes('certif') || text.includes('doc')) {
+      return { iconType: 'clipboard', iconBg: P.sky100, iconColor: P.sky600 };
+    }
+    return { iconType: 'cart', iconBg: P.twAmber100, iconColor: P.twAmber600 };
+  }
+  if (category === 'alerts') {
+    return { iconType: 'warning', iconBg: P.twRed100, iconColor: P.twRed600 };
+  }
+  if (category === 'success') {
+    return { iconType: 'check', iconBg: P.twGreen100, iconColor: P.twGreen600 };
+  }
+  if (text.includes('tutorial') || text.includes('video') || text.includes('learn')) {
+    return { iconType: 'tutorial', iconBg: P.twPurple100, iconColor: P.twPurple600 };
+  }
+  return { iconType: 'calendar', iconBg: P.twOrange100, iconColor: P.twOrange600 };
 }
 
 export function NotificationsScreen({
@@ -205,34 +246,131 @@ export function NotificationsScreen({
 }: NotificationsScreenProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<NotificationCategory>('all');
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [rawItems, setRawItems] = useState<ApiNotificationItem[]>([]);
+  const [_unreadCount, setUnreadCount] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const notifications: NotificationItem[] = NOTIFICATION_DEFS.map((def) => ({
-    ...def,
-    title: t(def.titleKey),
-    message: t(def.messageKey),
-    time: t(def.timeKey),
-    actionLabel: def.hasAction ? t('farmer.notifications.reviewOffer') : undefined,
-    isUnread: def.isUnread && !readIds.has(def.id),
-  }));
+  const fetchNotifications = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
 
-  // Counts for tabs
-  const reminderCount = notifications.filter((n) => n.category === 'reminders').length;
-  const approvalCount = notifications.filter((n) => n.category === 'approvals').length;
-  const alertCount = notifications.filter((n) => n.category === 'alerts').length;
+    try {
+      const res = await listNotifications({ limit: 50 });
+      setRawItems(res.items);
+      setUnreadCount(res.unreadCount);
+    } catch (err) {
+      console.warn('Failed to load notifications:', err);
+      setError('Unable to load notifications. Please check your connection.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-  const markAllAsRead = () => {
-    setReadIds(new Set(NOTIFICATION_DEFS.map((n) => n.id)));
-  };
+  useEffect(() => {
+    void fetchNotifications();
+  }, [fetchNotifications]);
 
-  const toggleItemRead = (id: string) => {
-    setReadIds((prev) => new Set(prev).add(id));
-  };
+  // Map raw API items to UI items with computed styling and categorization
+  const notifications: UINotificationItem[] = useMemo(() => {
+    return rawItems.map((item) => {
+      const title = item.title?.trim() || t('farmer.notifications.title');
+      const message = item.body;
+      const category = categorizeNotification(item);
+      const section = getSection(item.createdAt);
+      const time = formatRelativeTime(item.createdAt);
+      const isUnread = item.readAt === null && !readIds.has(item.id);
+      const isCounterOffer =
+        item.data?.listingId !== undefined ||
+        (typeof item.data?.eventName === 'string' &&
+          item.data.eventName.toLowerCase().includes('counter_offer')) ||
+        `${title} ${message}`.toLowerCase().includes('counter') ||
+        `${title} ${message}`.toLowerCase().includes('offer') ||
+        `${title} ${message}`.includes('சலுகை') ||
+        `${title} ${message}`.includes('மறு விலை');
+      const hasAction = isCounterOffer;
+      const actionLabel = hasAction ? t('farmer.notifications.reviewOffer') : undefined;
+      const { iconType, iconBg, iconColor } = getIconMeta(category, title, message);
+
+      return {
+        id: item.id,
+        section,
+        category,
+        title,
+        message,
+        time,
+        hasAction,
+        actionLabel,
+        isUnread,
+        iconBg,
+        iconColor,
+        iconType,
+        data: item.data,
+      };
+    });
+  }, [rawItems, readIds]);
 
   // Filter items by active tab
-  const filteredNotifications = notifications.filter((item) => {
-    if (activeTab === 'all') return true;
-    return item.category === activeTab;
-  });
+  const filteredNotifications = useMemo(() => {
+    if (activeTab === 'all') return notifications;
+    return notifications.filter((item) => item.category === activeTab);
+  }, [activeTab, notifications]);
+
+  // Tab counts
+  const reminderCount = useMemo(
+    () => notifications.filter((n) => n.category === 'reminders' && n.isUnread).length,
+    [notifications],
+  );
+  const approvalCount = useMemo(
+    () => notifications.filter((n) => n.category === 'approvals' && n.isUnread).length,
+    [notifications],
+  );
+  const alertCount = useMemo(
+    () => notifications.filter((n) => n.category === 'alerts' && n.isUnread).length,
+    [notifications],
+  );
+
+  const totalUnread = useMemo(
+    () => notifications.filter((n) => n.isUnread).length,
+    [notifications],
+  );
+
+  const markAllAsRead = async () => {
+    const unreadItems = notifications.filter((n) => n.isUnread);
+    if (unreadItems.length === 0) return;
+
+    // Optimistically mark all in state
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      unreadItems.forEach((n) => next.add(n.id));
+      return next;
+    });
+    setUnreadCount(0);
+
+    // Call backend API for all unread items
+    await Promise.allSettled(unreadItems.map((n) => markNotificationAsRead(n.id)));
+  };
+
+  const toggleItemRead = (item: UINotificationItem) => {
+    if (item.isUnread) {
+      setReadIds((prev) => new Set(prev).add(item.id));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+      void markNotificationAsRead(item.id).catch((err) => {
+        console.warn('Failed to mark notification as read:', err);
+      });
+    }
+
+    if (item.hasAction && onNavigateToCounterOffer) {
+      const listingId = typeof item.data?.listingId === 'string' ? item.data.listingId : undefined;
+      onNavigateToCounterOffer(listingId);
+    }
+  };
 
   const sections: ('TODAY' | 'YESTERDAY' | 'EARLIER')[] = ['TODAY', 'YESTERDAY', 'EARLIER'];
   const sectionLabel = (section: 'TODAY' | 'YESTERDAY' | 'EARLIER'): string => {
@@ -246,7 +384,7 @@ export function NotificationsScreen({
     }
   };
 
-  const renderIcon = (type: NotificationItem['iconType'], color: string) => {
+  const renderIcon = (type: UINotificationItem['iconType'], color: string) => {
     switch (type) {
       case 'cart':
         return <CartIcon color={color} />;
@@ -284,10 +422,13 @@ export function NotificationsScreen({
 
         <TouchableOpacity
           onPress={markAllAsRead}
+          disabled={totalUnread === 0}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
         >
-          <Text style={styles.markAllReadText}>{t('farmer.notifications.markAllRead')}</Text>
+          <Text style={[styles.markAllReadText, totalUnread === 0 && styles.markAllReadDisabled]}>
+            {t('farmer.notifications.markAllRead')}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -305,9 +446,11 @@ export function NotificationsScreen({
             <Text style={[styles.tabText, activeTab === 'reminders' && styles.tabTextActive]}>
               {t('farmer.notifications.tab.reminders')}
             </Text>
-            <View style={styles.badgeGray}>
-              <Text style={styles.badgeGrayText}>{reminderCount}</Text>
-            </View>
+            {reminderCount > 0 && (
+              <View style={styles.badgeGray}>
+                <Text style={styles.badgeGrayText}>{reminderCount}</Text>
+              </View>
+            )}
             {activeTab === 'reminders' && <View style={styles.activeIndicator} />}
           </Pressable>
 
@@ -316,18 +459,22 @@ export function NotificationsScreen({
             <Text style={[styles.tabText, activeTab === 'approvals' && styles.tabTextActive]}>
               {t('farmer.notifications.tab.approvals')}
             </Text>
-            <View style={styles.badgeGray}>
-              <Text style={styles.badgeGrayText}>{approvalCount}</Text>
-            </View>
+            {approvalCount > 0 && (
+              <View style={styles.badgeGray}>
+                <Text style={styles.badgeGrayText}>{approvalCount}</Text>
+              </View>
+            )}
             {activeTab === 'approvals' && <View style={styles.activeIndicator} />}
           </Pressable>
 
           {/* Tab: Alerts */}
           <Pressable style={[styles.tabButton, activeTab === 'alerts' && styles.tabButtonActive]} onPress={() => setActiveTab('alerts')}>
             <Text style={[styles.tabText, activeTab === 'alerts' && styles.tabTextActive]}>{t('farmer.notifications.tab.alerts')}</Text>
-            <View style={styles.badgeRed}>
-              <Text style={styles.badgeRedText}>{alertCount}</Text>
-            </View>
+            {alertCount > 0 && (
+              <View style={styles.badgeRed}>
+                <Text style={styles.badgeRedText}>{alertCount}</Text>
+              </View>
+            )}
             {activeTab === 'alerts' && <View style={styles.activeIndicator} />}
           </Pressable>
 
@@ -339,74 +486,88 @@ export function NotificationsScreen({
         </ScrollView>
       </View>
 
-      {/* Notifications List */}
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {sections.map((sectionName) => {
-          const sectionItems = filteredNotifications.filter((n) => n.section === sectionName);
-          if (sectionItems.length === 0) return null;
+      {/* Content Area */}
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.brandGreen} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorTitle}>Notice</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchNotifications()} activeOpacity={0.8}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchNotifications(true)}
+              colors={[colors.brandGreen]}
+              tintColor={colors.brandGreen}
+            />
+          }
+        >
+          {sections.map((sectionName) => {
+            const sectionItems = filteredNotifications.filter((n) => n.section === sectionName);
+            if (sectionItems.length === 0) return null;
 
-          return (
-            <View key={sectionName} style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>{sectionLabel(sectionName)}</Text>
-              {sectionItems.map((item) => {
-                const isUnread = item.isUnread;
+            return (
+              <View key={sectionName} style={styles.sectionContainer}>
+                <Text style={styles.sectionTitle}>{sectionLabel(sectionName)}</Text>
+                {sectionItems.map((item) => {
+                  const isUnread = item.isUnread;
 
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      toggleItemRead(item.id);
-                      if (item.actionLabel && onNavigateToCounterOffer) {
-                        onNavigateToCounterOffer('demo');
-                      }
-                    }}
-                    style={[styles.card, isUnread ? styles.cardUnread : styles.cardRead]}
-                  >
-                    {/* Icon Column */}
-                    <View style={[styles.iconContainer, { backgroundColor: item.iconBg }]}>{renderIcon(item.iconType, item.iconColor)}</View>
-
-                    {/* Content Column */}
-                    <View style={styles.contentColumn}>
-                      <View style={styles.titleRow}>
-                        <Text style={styles.itemTitle}>{item.title}</Text>
-                        {isUnread && <View style={styles.unreadDot} />}
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      onPress={() => toggleItemRead(item)}
+                      style={[styles.card, isUnread ? styles.cardUnread : styles.cardRead]}
+                    >
+                      {/* Icon Column */}
+                      <View style={[styles.iconContainer, { backgroundColor: item.iconBg }]}>
+                        {renderIcon(item.iconType, item.iconColor)}
                       </View>
 
-                      <Text style={styles.itemMessage}>{item.message}</Text>
+                      {/* Content Column */}
+                      <View style={styles.contentColumn}>
+                        <View style={styles.titleRow}>
+                          <Text style={styles.itemTitle}>{item.title}</Text>
+                          {isUnread && <View style={styles.unreadDot} />}
+                        </View>
 
-                      {/* Action Link (e.g. Review offer >) */}
-                      {item.actionLabel && (
-                        <TouchableOpacity
-                          style={styles.actionRow}
-                          onPress={() => {
-                            toggleItemRead(item.id);
-                            if (onNavigateToCounterOffer) {
-                              onNavigateToCounterOffer('demo');
-                            }
-                          }}
-                        >
-                          <Text style={styles.actionLabel}>{item.actionLabel}</Text>
-                        </TouchableOpacity>
-                      )}
+                        <Text style={styles.itemMessage}>{item.message}</Text>
 
-                      {/* Timestamp */}
-                      <Text style={styles.timestampText}>{item.time}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                        {/* Action Link (e.g. Review offer >) */}
+                        {item.actionLabel && (
+                          <View style={styles.actionRow}>
+                            <Text style={styles.actionLabel}>{item.actionLabel}</Text>
+                          </View>
+                        )}
+
+                        {/* Timestamp */}
+                        <Text style={styles.timestampText}>{item.time}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            );
+          })}
+
+          {filteredNotifications.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>{t('farmer.notifications.empty.title')}</Text>
+              <Text style={styles.emptySubtitle}>{t('farmer.notifications.empty.subtitle')}</Text>
             </View>
-          );
-        })}
-
-        {filteredNotifications.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>{t('farmer.notifications.empty.title')}</Text>
-            <Text style={styles.emptySubtitle}>{t('farmer.notifications.empty.subtitle')}</Text>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -444,6 +605,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: P.twGreen700,
+  },
+  markAllReadDisabled: {
+    color: P.twGray400,
   },
   tabsWrapper: {
     backgroundColor: P.white,
@@ -505,6 +669,35 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: P.twRed600,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: P.twGray900,
+    marginBottom: 6,
+  },
+  errorText: {
+    fontSize: 14,
+    color: P.twGray600,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: colors.brandGreen,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: P.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   listContent: {
     paddingBottom: 40,

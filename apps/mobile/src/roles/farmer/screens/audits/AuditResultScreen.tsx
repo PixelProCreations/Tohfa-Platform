@@ -211,18 +211,17 @@ const gaugeStyles = StyleSheet.create({
     marginTop: 4,
   },
   scaleLabel: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.5,
   },
   scaleSubtext: {
-    fontSize: 11,
+    fontSize: 10,
     color: P.twGray400,
     textAlign: 'center',
     marginTop: 6,
-    lineHeight: 15,
+    lineHeight: 14,
   },
 });
 

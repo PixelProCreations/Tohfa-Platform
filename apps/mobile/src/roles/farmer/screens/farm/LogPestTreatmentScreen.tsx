@@ -963,9 +963,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   pestInfoCard: {
-    backgroundColor: '#fbf9ff',
+    backgroundColor: P.violetTint1,
     borderWidth: 1,
-    borderColor: '#e9d5ff',
+    borderColor: P.twPurple200,
     borderRadius: 14,
     padding: 14,
     marginTop: 12,
@@ -1120,8 +1120,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   autoBadgeText: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
     fontWeight: '700',
     color: P.twGray500,
   },

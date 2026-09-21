@@ -17,7 +17,7 @@ import { authPalette as P, colors } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -31,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?
   );
 }
 
-function EyeIcon({ size = 20, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function EyeIcon({ size = 20, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -46,7 +46,7 @@ function EyeIcon({ size = 20, color = '#9CA3AF' }: { size?: number; color?: stri
   );
 }
 
-function EyeOffIcon({ size = 20, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function EyeOffIcon({ size = 20, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -61,7 +61,7 @@ function EyeOffIcon({ size = 20, color = '#9CA3AF' }: { size?: number; color?: s
   );
 }
 
-function CheckCircleIcon({ size = 15, color = '#2E7D32' }: { size?: number; color?: string }) {
+function CheckCircleIcon({ size = 15, color = colors.brandGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -124,7 +124,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -138,7 +138,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <ArrowBackIcon size={20} color="#1E5E2B" />
+            <ArrowBackIcon size={20} color={P.greenDeep1} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Password change</Text>
         </View>
@@ -162,7 +162,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               value={currentPassword}
               onChangeText={setCurrentPassword}
               placeholder="Enter current password"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={P.twGray400}
               secureTextEntry={!showCurrent}
               autoCapitalize="none"
             />
@@ -173,7 +173,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               accessibilityRole="button"
               accessibilityLabel={showCurrent ? 'Hide current password' : 'Show current password'}
             >
-              {showCurrent ? <EyeIcon size={20} color="#9CA3AF" /> : <EyeOffIcon size={20} color="#9CA3AF" />}
+              {showCurrent ? <EyeIcon size={20} color={P.twGray400} /> : <EyeOffIcon size={20} color={P.twGray400} />}
             </TouchableOpacity>
           </View>
 
@@ -185,7 +185,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               value={newPassword}
               onChangeText={setNewPassword}
               placeholder="Enter at least 8 characters"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={P.twGray400}
               secureTextEntry={!showNew}
               autoCapitalize="none"
             />
@@ -196,13 +196,13 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               accessibilityRole="button"
               accessibilityLabel={showNew ? 'Hide new password' : 'Show new password'}
             >
-              {showNew ? <EyeIcon size={20} color="#9CA3AF" /> : <EyeOffIcon size={20} color="#9CA3AF" />}
+              {showNew ? <EyeIcon size={20} color={P.twGray400} /> : <EyeOffIcon size={20} color={P.twGray400} />}
             </TouchableOpacity>
           </View>
 
           {/* Requirement indicator */}
           <View style={styles.requirementRow}>
-            <CheckCircleIcon size={16} color={isAtLeast8 ? '#2E7D32' : '#9CA3AF'} />
+            <CheckCircleIcon size={16} color={isAtLeast8 ? colors.brandGreen : P.twGray400} />
             <Text
               style={[
                 styles.requirementText,
@@ -221,7 +221,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Re-enter new password"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={P.twGray400}
               secureTextEntry={!showConfirm}
               autoCapitalize="none"
             />
@@ -232,7 +232,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               accessibilityRole="button"
               accessibilityLabel={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
             >
-              {showConfirm ? <EyeIcon size={20} color="#9CA3AF" /> : <EyeOffIcon size={20} color="#9CA3AF" />}
+              {showConfirm ? <EyeIcon size={20} color={P.twGray400} /> : <EyeOffIcon size={20} color={P.twGray400} />}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -259,7 +259,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
   },
   keyboardContainer: {
     flex: 1,
@@ -270,17 +270,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3EFE6',
+    borderBottomColor: P.tanTint1,
   },
   backCircleBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#162616',
+    color: P.nearBlackDark2,
   },
   scrollArea: {
     flex: 1,
@@ -301,22 +301,22 @@ const styles = StyleSheet.create({
   subText: {
     fontSize: 13,
     lineHeight: 18.5,
-    color: '#718274',
+    color: P.greyMid1,
     marginBottom: 24,
   },
   fieldLabel: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: colors.textDark,
     marginBottom: 8,
     marginTop: 14,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     borderRadius: 14,
     height: 52,
     paddingHorizontal: 16,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1A2E1A',
+    color: colors.textDark,
     paddingVertical: 0,
   },
   eyeBtn: {
@@ -343,21 +343,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   requirementTextActive: {
-    color: '#2E7D32',
+    color: colors.brandGreen,
   },
   requirementTextInactive: {
-    color: '#9CA3AF',
+    color: P.twGray400,
   },
   bottomBar: {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 16 : 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderTopWidth: 1,
-    borderTopColor: '#F3EFE6',
+    borderTopColor: P.tanTint1,
   },
   saveBtn: {
-    backgroundColor: '#256F2B',
+    backgroundColor: P.greenDeep2,
     borderRadius: 14,
     height: 52,
     alignItems: 'center',
@@ -366,6 +366,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: P.weatherCloudWhite,
   },
 });

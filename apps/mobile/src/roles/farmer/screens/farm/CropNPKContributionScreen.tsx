@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 6 : 4,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 10 : 10,
     paddingBottom: 14,
     backgroundColor: P.paleStoneBg,
   },

@@ -480,7 +480,11 @@ export function SoilManagementScreen({
           })}
         </View>
 
-        {/* ── Action Button at bottom of list ── */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      {/* ── Bottom Fixed Button: Upload New Soil Test ── */}
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.uploadBtn}
           onPress={handleUploadNewTest}
@@ -491,9 +495,7 @@ export function SoilManagementScreen({
           <PlusIcon size={18} color={P.white} />
           <Text style={styles.uploadBtnText}>Upload New Soil Test</Text>
         </TouchableOpacity>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </View>
 
       {/* ── Interactive Detail Modal for sub-screens ── */}
       <Modal visible={activeModal !== null} transparent animationType="slide">
@@ -658,7 +660,7 @@ const styles = StyleSheet.create({
   headerTag: {
     fontSize: 11,
     fontWeight: '700',
-    color: P.twGreen700,
+    color: P.twGray500,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 2,
@@ -682,7 +684,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   statsRow: {
     flexDirection: 'row',
@@ -706,7 +708,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: P.twAmber100,
+    backgroundColor: P.amber50,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -744,7 +746,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: P.twGreen50,
+    backgroundColor: P.mintTintBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -769,6 +771,14 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 16,
   },
+  bottomBar: {
+    backgroundColor: P.white,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 14 : 10,
+    borderTopWidth: 1,
+    borderTopColor: P.twGray100,
+  },
   uploadBtn: {
     backgroundColor: P.forestGreen,
     height: 48,
@@ -782,7 +792,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     gap: 8,
-    marginTop: 18,
   },
   uploadBtnText: {
     fontSize: 15,

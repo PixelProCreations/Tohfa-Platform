@@ -1,4 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { createAsyncStorageMock } from '../../../tests/mocks/asyncStorageMock';
+
+vi.mock('@react-native-async-storage/async-storage', () => createAsyncStorageMock());
+
 import {
   renderOtpState,
   registerCustomer,

@@ -1,62 +1,63 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import { authPalette as P, colors } from '../../theme';
 
 // Custom Icons
 const ChevronLeft = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" pointerEvents="none">
-    <Path d="M15 18L9 12L15 6" stroke="#2e7d32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const ArrowRight = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M5 12H19M19 12L12 5M19 12L12 19" stroke={P.weatherCloudWhite} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const InfoCircle = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="10" stroke="#1976d2" strokeWidth="1.5" />
-    <Path d="M12 16V12M12 8H12.01" stroke="#1976d2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="12" cy="12" r="10" stroke={P.blue700} strokeWidth="1.5" />
+    <Path d="M12 16V12M12 8H12.01" stroke={P.blue700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const CheckCircle = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="11" fill="#2e7d32" />
-    <Path d="M7 12L10 15L17 8" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="12" cy="12" r="11" fill={colors.brandGreen} />
+    <Path d="M7 12L10 15L17 8" stroke={P.weatherCloudWhite} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const EmptyCircle = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="11" stroke="#e0e0e0" strokeWidth="1" fill="#ffffff" />
+    <Circle cx="12" cy="12" r="11" stroke={P.grey300} strokeWidth="1" fill={P.weatherCloudWhite} />
   </Svg>
 );
 
 // Crop Icons
 const CropCarrot = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke="#f57c00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V4M9 2V4M15 2V4" stroke="#f57c00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 2V4M9 2V4M15 2V4" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </Svg>
 );
 
 const CropCabbage = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12C12 12 8 16 6 12C4 8 12 6 12 6" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12C12 12 16 16 18 12C20 8 12 6 12 6" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12V22" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 12C12 12 8 16 6 12C4 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 12C12 12 16 16 18 12C20 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 12V22" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </Svg>
 );
 
 const CropBeetroot = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="14" r="6" stroke="#ad1457" strokeWidth="2" />
-    <Circle cx="12" cy="14" r="2" fill="#ad1457" />
-    <Path d="M12 8V2M9 4L12 8M15 4L12 8" stroke="#ad1457" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="12" cy="14" r="6" stroke={P.pink800} strokeWidth="2" />
+    <Circle cx="12" cy="14" r="2" fill={P.pink800} />
+    <Path d="M12 8V2M9 4L12 8M15 4L12 8" stroke={P.pink800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -81,8 +82,6 @@ export function CreateListingScreen({
           <TouchableOpacity 
             style={styles.backBtn} 
             onPress={onCancel}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -129,7 +128,7 @@ export function CreateListingScreen({
           onPress={() => setSelectedId('carrot')}
           activeOpacity={0.8}
         >
-          <View style={[styles.cropIconBox, { backgroundColor: '#fff3e0' }]}>
+          <View style={[styles.cropIconBox, { backgroundColor: P.orange50 }]}>
             <Image source={require('../../../../assets/images/real_carrot.jpg')} style={styles.realCropImg} />
           </View>
           <View style={styles.cropTextCol}>
@@ -151,7 +150,7 @@ export function CreateListingScreen({
           onPress={() => setSelectedId('cabbage')}
           activeOpacity={0.8}
         >
-          <View style={[styles.cropIconBox, { backgroundColor: '#e8f5e9' }]}>
+          <View style={[styles.cropIconBox, { backgroundColor: colors.brandGreenLight }]}>
             <Image source={require('../../../../assets/images/real_cabbage.jpg')} style={styles.realCropImg} />
           </View>
           <View style={styles.cropTextCol}>
@@ -173,7 +172,7 @@ export function CreateListingScreen({
           onPress={() => setSelectedId('beetroot')}
           activeOpacity={0.8}
         >
-          <View style={[styles.cropIconBox, { backgroundColor: '#fce4ec' }]}>
+          <View style={[styles.cropIconBox, { backgroundColor: P.pink50 }]}>
             <Image source={require('../../../../assets/images/real_beetroot.jpg')} style={styles.realCropImg} />
           </View>
           <View style={styles.cropTextCol}>
@@ -212,10 +211,10 @@ export function CreateListingScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: P.grey50,
   },
   header: {
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     paddingTop: 16,
   },
   headerRow: {
@@ -229,8 +228,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#ffffff',
+    borderColor: P.grey300,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -241,16 +239,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#004d40',
+    color: P.teal900,
   },
   headerSub: {
     fontSize: 14,
-    color: '#78909c',
+    color: P.blueGrey400,
     marginTop: 2,
   },
   cancelText: {
     fontSize: 15,
-    color: '#607d8b',
+    color: P.blueGrey500,
     fontWeight: '600',
   },
   progressContainer: {
@@ -261,12 +259,12 @@ const styles = StyleSheet.create({
   },
   progressActive: {
     flex: 1,
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.brandGreen,
     borderRadius: 1.5,
   },
   progressInactive: {
     flex: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: P.grey300,
     borderRadius: 1.5,
   },
   scrollContent: {
@@ -274,12 +272,12 @@ const styles = StyleSheet.create({
   },
   infoBanner: {
     flexDirection: 'row',
-    backgroundColor: '#e3f2fd', // light blue
+    backgroundColor: P.blue50, // light blue
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#bbdefb',
+    borderColor: P.blue100,
   },
   infoIconBox: {
     marginRight: 12,
@@ -288,33 +286,33 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: '#455a64',
+    color: P.blueGrey700,
     lineHeight: 20,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#9e9e9e',
+    color: P.grey500,
     letterSpacing: 0.5,
     marginBottom: 16,
   },
   cropCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1.5,
-    borderColor: '#f5f5f5',
+    borderColor: P.grey100,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
     shadowRadius: 4,
     elevation: 1,
   },
   cropCardSelected: {
-    borderColor: '#2e7d32',
+    borderColor: colors.brandGreen,
   },
   cropIconBox: {
     width: 48,
@@ -343,43 +341,42 @@ const styles = StyleSheet.create({
   cropTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#212121',
+    color: P.grey900,
   },
   gradeBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: colors.brandGreenLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   gradeBadgeText: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#2e7d32',
+    color: colors.brandGreen,
   },
   cropSub: {
     fontSize: 13,
-    color: '#757575',
+    color: P.grey600,
   },
   radioBox: {
     marginLeft: 12,
   },
   footer: {
     padding: 20,
-    backgroundColor: '#fafafa',
+    backgroundColor: P.grey50,
     borderTopWidth: 1,
-    borderTopColor: '#f5f5f5',
+    borderTopColor: P.grey100,
   },
   nextBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.brandGreen,
     borderRadius: 16,
     paddingVertical: 16,
   },
   nextBtnText: {
-    color: '#ffffff',
+    color: P.weatherCloudWhite,
     fontSize: 16,
     fontWeight: '800',
     marginRight: 8,

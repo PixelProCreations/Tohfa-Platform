@@ -46,5 +46,13 @@
     "tsx": "^4.16.2",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.0.1"
+  },
+  "dependencies": {
+    "lottie-react-native": "^6.7.2"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@rnmapbox/maps@10.2.9": "patches/@rnmapbox__maps@10.2.9.patch"
+    }
   }
 }

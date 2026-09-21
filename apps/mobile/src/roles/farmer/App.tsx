@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { setOnAuthFailure } from './api/client';
-import { logout } from './api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -17,8 +16,6 @@ import { WelcomeScreen } from './screens/auth/WelcomeScreen';
 import { AddCertificationScreen } from './screens/certifications/AddCertificationScreen';
 import { CertificationsScreen } from './screens/certifications/CertificationsScreen';
 import { EditCertificationScreen } from './screens/certifications/EditCertificationScreen';
-import { ViewCertificationScreen } from './screens/certifications/ViewCertificationScreen';
-import { RenewCertificationScreen } from './screens/certifications/RenewCertificationScreen';
 import { DashboardScreen } from './screens/dashboard/DashboardScreen';
 import { WeatherScreen } from './screens/dashboard/WeatherScreen';
 import { ActiveCropsScreen } from './screens/dashboard/ActiveCropsScreen';
@@ -59,10 +56,6 @@ import { SoilMoistureTrackingScreen } from './screens/farm/SoilMoistureTrackingS
 import { ErosionConservationScreen } from './screens/farm/ErosionConservationScreen';
 import { ExportSoilReportsScreen } from './screens/farm/ExportSoilReportsScreen';
 import { UploadNewSoilTestScreen } from './screens/farm/UploadNewSoilTestScreen';
-import { PestManagementScreen } from './screens/farm/PestManagementScreen';
-import { PestLibraryScreen } from './screens/farm/PestLibraryScreen';
-import { TreatmentScheduleScreen } from './screens/farm/TreatmentScheduleScreen';
-import { WeatherRiskAnalyticsScreen } from './screens/farm/WeatherRiskAnalyticsScreen';
 import { CropWorkforceHoursScreen } from './screens/farm/CropWorkforceHoursScreen';
 import { CropNPKContributionScreen } from './screens/farm/CropNPKContributionScreen';
 import { FarmDiaryScreen } from './screens/farm/FarmDiaryScreen';
@@ -95,7 +88,6 @@ import { CreateListingStep2Screen } from './screens/listings/CreateListingStep2S
 import { ListingDetailScreen } from './screens/listings/ListingDetailScreen';
 import { ListingsScreen } from './screens/listings/ListingsScreen';
 import { MyListingsScreen } from './screens/listings/MyListingsScreen';
-import { RecentListingsScreen } from './screens/listings/RecentListingsScreen';
 import { NotificationsScreen } from './screens/notifications/NotificationsScreen';
 import { AuditsScreen } from './screens/audits/AuditsScreen';
 import { AuditResultScreen } from './screens/audits/AuditResultScreen';
@@ -111,15 +103,6 @@ import { AddZoneScreen } from './screens/profile/AddZoneScreen';
 import { PersonalDetailsScreen } from './screens/profile/PersonalDetailsScreen';
 import { FarmRatingsScreen } from './screens/profile/FarmRatingsScreen';
 import { SoilTestScreen } from './screens/profile/SoilTestScreen';
-import { BankPaymentScreen } from './screens/payment/BankPaymentScreen';
-import { BankAccountScreen } from './screens/payment/BankAccountScreen';
-import { UpiIdScreen } from './screens/payment/UpiIdScreen';
-import { PayoutHistoryScreen } from './screens/payment/PayoutHistoryScreen';
-import { PayoutDetailScreen } from './screens/payment/PayoutDetailScreen';
-import { WithdrawFundsScreen } from './screens/payment/WithdrawFundsScreen';
-import { WalletTransactionDetailScreen } from './screens/payment/WalletTransactionDetailScreen';
-import { AddMoneyScreen } from './screens/payment/AddMoneyScreen';
-import { CashTopUpScreen } from './screens/payment/CashTopUpScreen';
 import { NewSoilTestScreen } from './screens/profile/NewSoilTestScreen';
 import { RegistrationFlowScreen } from './screens/registration/RegistrationFlowScreen';
 import { WalletScreen } from './screens/wallet/WalletScreen';
@@ -129,7 +112,7 @@ import {
   updateCertificationLocally,
   deleteCertificationLocally,
 } from './api/farmer';
-import { authPalette, colors, fontSizes, spacing, typography, weights } from './theme';
+import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
 
 export type ScreenName =
@@ -157,8 +140,6 @@ export type ScreenName =
   | 'Zones'
   | 'AddZone'
   | 'EditCertification'
-  | 'ViewCertification'
-  | 'RenewCertification'
   | 'Notifications'
   | 'PersonalDetails'
   | 'Audits'
@@ -181,7 +162,6 @@ export type ScreenName =
   | 'NewFarmDiaryEntryStep3'
   | 'ActiveCrops'
   | 'MyListings'
-  | 'RecentListings'
   | 'DailyAttendance'
   | 'TohfaCalendar'
   | 'CropPlanningInsight'
@@ -231,21 +211,7 @@ export type ScreenName =
   | 'SoilMoistureTracking'
   | 'ErosionConservation'
   | 'ExportSoilReports'
-  | 'UploadNewSoilTest'
-  | 'PestManagement'
-  | 'PestLibrary'
-  | 'TreatmentSchedule'
-  | 'WeatherRiskAnalytics'
-  | 'BankPayment'
-  | 'BankAccount'
-  | 'UpiId'
-  | 'PayoutHistory'
-  | 'PayoutDetail'
-  | 'Wallet'
-  | 'WithdrawFunds'
-  | 'WalletTransactionDetail'
-  | 'AddMoney'
-  | 'CashTopUp';
+  | 'UploadNewSoilTest';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -428,6 +394,7 @@ export default function App(): React.JSX.Element {
             purpose={
               (params['purpose'] as 'LOGIN' | 'PASSWORD_RESET') ?? 'LOGIN'
             }
+            linkToken={typeof params['linkToken'] === 'string' ? params['linkToken'] : undefined}
             onNavigate={(s, p) => navigate(s, p)}
           />
         ) : screen === 'ForgotPassword' ? (
@@ -453,54 +420,17 @@ export default function App(): React.JSX.Element {
           </View>
         ) : screen === 'Certifications' ? (
           <CertificationsScreen
-            onBack={() => {
-              if (history.length > 0) {
-                goBack();
-              } else {
-                setCurrentTab('Profile');
-                navigate('MainTabs');
-              }
-            }}
+            onBack={goBack}
             onNavigateToAddCertification={() => navigate('AddCertification')}
             onNavigateToEditCertification={(certification) => {
               setSelectedCertification(certification);
               navigate('EditCertification');
-            }}
-            onNavigateToViewCertification={(certification) => {
-              setSelectedCertification(certification);
-              navigate('ViewCertification');
-            }}
-            onNavigateToRenewCertification={(certification) => {
-              setSelectedCertification(certification);
-              navigate('RenewCertification');
             }}
           />
         ) : screen === 'AddCertification' ? (
           <AddCertificationScreen
             onSuccess={goBack}
             onCancel={goBack}
-          />
-        ) : screen === 'ViewCertification' && selectedCertification ? (
-          <ViewCertificationScreen
-            certification={selectedCertification}
-            onBack={() => navigate('Certifications')}
-            onEdit={(cert) => {
-              setSelectedCertification(cert);
-              navigate('EditCertification');
-            }}
-            onRenew={(cert) => {
-              setSelectedCertification(cert);
-              navigate('RenewCertification');
-            }}
-          />
-        ) : screen === 'RenewCertification' && selectedCertification ? (
-          <RenewCertificationScreen
-            certification={selectedCertification}
-            onCancel={() => navigate('Certifications')}
-            onSave={(updated) => {
-              if (updated) updateCertificationLocally(updated);
-              navigate('Certifications');
-            }}
           />
         ) : screen === 'EditCertification' && selectedCertification ? (
           <EditCertificationScreen
@@ -521,7 +451,10 @@ export default function App(): React.JSX.Element {
               setCurrentTab('Listings');
               navigate('MainTabs');
             }}
-            onCancel={goBack}
+            onCancel={() => {
+              setCurrentTab('Listings');
+              navigate('MainTabs');
+            }}
             onNext={() => navigate('CreateListingStep2')}
           />
         ) : screen === 'CreateListingStep2' ? (
@@ -576,31 +509,29 @@ export default function App(): React.JSX.Element {
         ) : screen === 'Notifications' ? (
           <NotificationsScreen
             onBack={goBack}
-            onNavigateToCounterOffer={() => {
-              if (!selectedListing) {
-                setSelectedListing({
-                  id: 'dummy-listing',
-                  listingNumber: 'L-9821',
-                  cropName: 'Carrot - Ooty - Grade 1',
+            onNavigateToCounterOffer={(listingId) => {
+              setSelectedListing({
+                id: listingId || 'dummy-listing',
+                listingNumber: 'L-9821',
+                cropName: 'Carrot - Ooty - Grade 1',
+                quantityKg: '150',
+                askingPricePerKg: '40',
+                ceilingPricePerKg: '45',
+                status: 'COUNTER_OFFER',
+                grade: 'Grade 1',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                activeCounterOffer: {
+                  id: 'dummy-offer',
+                  pricePerKg: '34',
                   quantityKg: '150',
-                  askingPricePerKg: '40',
-                  ceilingPricePerKg: '45',
-                  status: 'COUNTER_OFFER',
-                  grade: 'Grade 1',
+                  message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
+                  round: 1,
+                  expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
-                  activeCounterOffer: {
-                    id: 'dummy-offer',
-                    pricePerKg: '34',
-                    quantityKg: '150',
-                    message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                    round: 1,
-                    expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  },
-                } as any);
-              }
+                },
+              } as any);
               navigate('CounterOffer');
             }}
           />
@@ -619,7 +550,7 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onNavigateToInputManagement={() => navigate('InputManagement')}
             onNavigateToSoilManagement={() => navigate('SoilManagement')}
-            onNavigateToPestManagement={() => navigate('PestManagement')}
+            onNavigateToPestManagement={() => navigate('LogPestTreatment')}
           />
         ) : screen === 'InputManagement' ? (
           <InputManagementScreen
@@ -656,24 +587,6 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onSave={() => goBack('InputManagement')}
           />
-        ) : screen === 'PestManagement' ? (
-          <PestManagementScreen
-            onBack={goBack}
-            onNavigateToSchedule={() => navigate('TreatmentSchedule')}
-            onNavigateToPestLibrary={() => navigate('PestLibrary')}
-            onNavigateToWeatherRisk={() => navigate('WeatherRiskAnalytics')}
-          />
-        ) : screen === 'PestLibrary' ? (
-          <PestLibraryScreen
-            onBack={goBack}
-            onNavigateToSchedule={() => {
-              navigate('TreatmentSchedule');
-            }}
-          />
-        ) : screen === 'TreatmentSchedule' ? (
-          <TreatmentScheduleScreen onBack={goBack} />
-        ) : screen === 'WeatherRiskAnalytics' ? (
-          <WeatherRiskAnalyticsScreen onBack={goBack} />
         ) : screen === 'FarmManagement' ? (
           <FarmManagementScreen
             onBack={() => goBack('MainTabs')}
@@ -714,7 +627,7 @@ export default function App(): React.JSX.Element {
           <CropDiaryEntriesScreen
             crop={selectedCrop}
             onBack={() => goBack('CropDetail')}
-            onNewEntry={() => navigate('NewFarmDiaryEntry')}
+            onNewEntry={() => navigate('AddInputApplied', { fromDiary: '1', initialInputType: 'Fertigation' })}
           />
         ) : screen === 'CropInputsApplied' ? (
           <CropInputsAppliedScreen
@@ -772,7 +685,7 @@ export default function App(): React.JSX.Element {
             animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
             species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
             breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
-            gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
+            gender={typeof params['gender'] === 'string' ? params['gender'] : 'F'}
             age={typeof params['age'] === 'string' ? params['age'] : '4 yr'}
             statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : 'Fully Organic'}
             onBack={goBack}
@@ -856,14 +769,16 @@ export default function App(): React.JSX.Element {
         ) : screen === 'NewFarmDiaryEntry' ? (
           <NewFarmDiaryEntryScreen
             crop={selectedCrop}
-            selectedCategory={typeof params['diaryCategory'] === 'string' ? params['diaryCategory'] : 'Crop Care'}
             onBack={goBack}
-            onNext={(data: any) => {
-              const cat = typeof data === 'string' ? data : (data?.category || 'Crop Care');
-              const field = typeof data === 'object' ? data.field : undefined;
-              const cropName = typeof data === 'object' ? data.cropName : undefined;
-              setParams((prev) => ({ ...prev, diaryCategory: cat, diaryField: field, diaryCrop: cropName }));
-              navigate('NewFarmDiaryEntryStep2', { diaryCategory: cat, diaryField: field, diaryCrop: cropName });
+            onNext={(cat) => {
+              setParams((prev) => ({ ...prev, diaryCategory: cat }));
+              if (cat.toLowerCase() === 'nutrients') {
+                navigate('AddInputApplied', { initialInputType: 'Fertigation', fromDiary: '1' });
+              } else if (cat.toLowerCase() === 'crop care') {
+                navigate('AddInputApplied', { initialInputType: 'Pest Treatment', fromDiary: '1' });
+              } else {
+                navigate('NewFarmDiaryEntryStep2', { diaryCategory: cat });
+              }
             }}
           />
         ) : screen === 'NewFarmDiaryEntryStep2' ? (
@@ -954,64 +869,6 @@ export default function App(): React.JSX.Element {
             onNavigateBack={goBack}
             onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest')}
           />
-        ) : screen === 'BankPayment' ? (
-          <BankPaymentScreen
-            onBack={goBack}
-            onNavigateToBankAccount={() => navigate('BankAccount')}
-            onNavigateToUpiId={() => navigate('UpiId')}
-            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
-            onNavigateToWallet={() => navigate('Wallet')}
-          />
-        ) : screen === 'BankAccount' ? (
-          <BankAccountScreen
-            onBack={goBack}
-          />
-        ) : screen === 'UpiId' ? (
-          <UpiIdScreen
-            onBack={goBack}
-            onSaveSuccess={goBack}
-          />
-        ) : screen === 'PayoutHistory' ? (
-          <PayoutHistoryScreen
-            onBack={goBack}
-            onNavigateToDetail={(payout) => navigate('PayoutDetail', payout as any)}
-          />
-        ) : screen === 'PayoutDetail' ? (
-          <PayoutDetailScreen
-            payout={params as any}
-            onBack={goBack}
-          />
-        ) : screen === 'WithdrawFunds' ? (
-          <WithdrawFundsScreen
-            onClose={goBack}
-            onRequestSuccess={goBack}
-          />
-        ) : screen === 'WalletTransactionDetail' ? (
-          <WalletTransactionDetailScreen
-            transaction={params as any}
-            onBack={goBack}
-          />
-        ) : screen === 'AddMoney' ? (
-          <AddMoneyScreen
-            onClose={goBack}
-            onSuccess={goBack}
-            onNavigateToCashTopUp={(data) => navigate('CashTopUp', data)}
-          />
-        ) : screen === 'CashTopUp' ? (
-          <CashTopUpScreen
-            amount={typeof params['amount'] === 'string' ? params['amount'] : '2,000'}
-            referenceCode={typeof params['referenceCode'] === 'string' ? params['referenceCode'] : 'CASH-TU-7734'}
-            onBack={goBack}
-            onDone={goBack}
-          />
-        ) : screen === 'Wallet' ? (
-          <WalletScreen
-            onBack={goBack}
-            onNavigateToAddMoney={() => navigate('AddMoney')}
-            onNavigateToWithdraw={() => navigate('WithdrawFunds')}
-            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
-            onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
-          />
         ) : screen === 'Weather' ? (
           <WeatherScreen
             onNavigateBack={goBack}
@@ -1019,105 +876,11 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ActiveCrops' ? (
           <ActiveCropsScreen
             onNavigateBack={goBack}
-            onNavigateToCropDetail={(crop) => {
-              setSelectedCrop(crop);
-              navigate('CropDetail');
-            }}
-            onNavigateToNewCrop={() => navigate('NewCrop')}
           />
         ) : screen === 'MyListings' ? (
           <MyListingsScreen
             onNavigateBack={goBack}
-            onNavigateToCreateListing={() => navigate('CreateListing')}
-            onNavigateToListingDetail={(item) => {
-              if (item) {
-                setSelectedListing({
-                  id: item.id,
-                  listingNumber: item.listingNumber,
-                  cropName: `${item.cropName} - ${item.cropVariety}`,
-                  quantityKg: item.quantityKg,
-                  askingPricePerKg: item.askingPricePerKg,
-                  ceilingPricePerKg: item.askingPricePerKg,
-                  status: item.status,
-                  grade: item.grade,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                } as any);
-              }
-              navigate('ListingDetail');
-            }}
-            onNavigateToCounterOffer={(item) => {
-              setSelectedListing({
-                id: item?.id || 'dummy-listing',
-                listingNumber: item?.listingNumber || 'L-9821',
-                cropName: 'Carrot - Ooty - Grade 1',
-                quantityKg: '150',
-                askingPricePerKg: '40',
-                ceilingPricePerKg: '45',
-                status: 'COUNTER_OFFER',
-                grade: 'Grade 1',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                activeCounterOffer: {
-                  id: 'dummy-offer',
-                  pricePerKg: '34',
-                  quantityKg: '150',
-                  message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                  round: 1,
-                  expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-              } as any);
-              navigate('CounterOffer');
-            }}
-          />
-        ) : screen === 'RecentListings' ? (
-          <RecentListingsScreen
-            onNavigateBack={goBack}
-            onNavigateToCreateListing={() => navigate('CreateListing')}
-            onNavigateToListingDetail={(item) => {
-              if (item) {
-                setSelectedListing({
-                  id: item.id,
-                  listingNumber: item.listingNumber,
-                  cropName: `${item.cropName} - ${item.cropVariety}`,
-                  quantityKg: item.quantityKg,
-                  askingPricePerKg: item.askingPricePerKg,
-                  ceilingPricePerKg: item.askingPricePerKg,
-                  status: item.status,
-                  grade: item.grade,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                } as any);
-              }
-              navigate('ListingDetail');
-            }}
-            onNavigateToCounterOffer={(item) => {
-              setSelectedListing({
-                id: item?.id || 'dummy-listing',
-                listingNumber: item?.listingNumber || 'L-9821',
-                cropName: 'Carrot - Ooty - Grade 1',
-                quantityKg: '150',
-                askingPricePerKg: '40',
-                ceilingPricePerKg: '45',
-                status: 'COUNTER_OFFER',
-                grade: 'Grade 1',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                activeCounterOffer: {
-                  id: 'dummy-offer',
-                  pricePerKg: '34',
-                  quantityKg: '150',
-                  message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                  round: 1,
-                  expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-              } as any);
-              navigate('CounterOffer');
-            }}
+            onNavigateToListingDetail={() => navigate('ListingDetail')}
           />
         ) : screen === 'TohfaCalendar' ? (
           <TohfaCalendarScreen
@@ -1152,11 +915,11 @@ export default function App(): React.JSX.Element {
             tool={
               selectedToolForEdit
                 ? {
-                  id: selectedToolForEdit.id,
-                  name: selectedToolForEdit.name,
-                  purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
-                  serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
-                }
+                    id: selectedToolForEdit.id,
+                    name: selectedToolForEdit.name,
+                    purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
+                    serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
+                  }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1189,12 +952,12 @@ export default function App(): React.JSX.Element {
             equipment={
               selectedEquipmentForEdit
                 ? {
-                  id: selectedEquipmentForEdit.id,
-                  name: selectedEquipmentForEdit.name,
-                  purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
-                  coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
-                  serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
-                }
+                    id: selectedEquipmentForEdit.id,
+                    name: selectedEquipmentForEdit.name,
+                    purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
+                    coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
+                    serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
+                  }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1227,13 +990,13 @@ export default function App(): React.JSX.Element {
             planting={
               selectedTreeForEdit
                 ? {
-                  id: selectedTreeForEdit.id,
-                  species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
-                  treeCount: selectedTreeForEdit.treeCount ?? 12,
-                  plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
-                  locationZone: selectedTreeForEdit.zoneInfo,
-                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
-                }
+                    id: selectedTreeForEdit.id,
+                    species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
+                    treeCount: selectedTreeForEdit.treeCount ?? 12,
+                    plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
+                    locationZone: selectedTreeForEdit.zoneInfo,
+                    purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                  }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1266,13 +1029,13 @@ export default function App(): React.JSX.Element {
             machinery={
               selectedMachineryForEdit
                 ? {
-                  id: selectedMachineryForEdit.id,
-                  name: selectedMachineryForEdit.name,
-                  makeModel: selectedMachineryForEdit.makeModel,
-                  purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
-                  fuelType: selectedMachineryForEdit.fuelType,
-                  serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
-                }
+                    id: selectedMachineryForEdit.id,
+                    name: selectedMachineryForEdit.name,
+                    makeModel: selectedMachineryForEdit.makeModel,
+                    purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
+                    fuelType: selectedMachineryForEdit.fuelType,
+                    serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
+                  }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1354,6 +1117,7 @@ export default function App(): React.JSX.Element {
             onNavigateToChangePassword={() => navigate('ChangePassword')}
             onNavigateToChangeMobile={() => navigate('ChangeMobile')}
             onNavigateToAboutSupport={() => navigate('AboutSupport')}
+            onSignOut={() => navigate('Welcome')}
           />
         ) : (
           /* MainTabs layout */
@@ -1367,41 +1131,45 @@ export default function App(): React.JSX.Element {
                   onNavigateToWallet={() => setCurrentTab('Wallet')}
                   onNavigateToProfile={() => setCurrentTab('Profile')}
                   onNavigateToNotifications={() => navigate('Notifications')}
+                  onNavigateToCounterOffer={(item) => {
+                    if (item && item.id) {
+                      setSelectedListing(item);
+                    } else {
+                      setSelectedListing({
+                        id: 'dummy-listing',
+                        listingNumber: 'L-9821',
+                        cropName: 'Carrot - Ooty - Grade 1',
+                        quantityKg: '150',
+                        askingPricePerKg: '40',
+                        ceilingPricePerKg: '45',
+                        status: 'COUNTER_OFFERED',
+                        grade: 'GRADE_1',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        activeCounterOffer: {
+                          id: 'dummy-offer',
+                          listingId: 'dummy-listing',
+                          round: 1,
+                          offeredBy: 'ADMIN',
+                          pricePerKg: '34',
+                          quantityKg: '150',
+                          message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
+                          status: 'PENDING',
+                          expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
+                        },
+                      } as any);
+                    }
+                    navigate('CounterOffer');
+                  }}
                   onNavigateToFarmManagement={() => navigate('CropManagement')}
                   onNavigateToCropManagement={() => navigate('CropManagement')}
                   onNavigateToWeather={() => navigate('Weather')}
                   onNavigateToActiveCrops={() => navigate('ActiveCrops')}
                   onNavigateToFarmDiary={() => navigate('FarmDiary')}
-                  onNavigateToMyListings={() => navigate('MyListings')}
+                  onNavigateToMyListings={() => setCurrentTab('Listings')}
                   onNavigateToAttendance={() => navigate('DailyAttendance')}
                   onNavigateToTohfaCalendar={() => navigate('TohfaCalendar')}
-                  onNavigateToInventory={() => navigate('FarmInventory')}
                   onNavigateToLearningHub={() => navigate('LearningHub')}
-                  onNavigateToReviewOffer={() => {
-                    setSelectedListing({
-                      id: 'dummy-listing',
-                      listingNumber: 'L-9821',
-                      cropName: 'Carrot - Ooty - Grade 1', // combining subtitle for display
-                      quantityKg: '150',
-                      askingPricePerKg: '40',
-                      ceilingPricePerKg: '45',
-                      status: 'COUNTER_OFFER',
-                      grade: 'Grade 1',
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                      activeCounterOffer: {
-                        id: 'dummy-offer',
-                        pricePerKg: '34',
-                        quantityKg: '150',
-                        message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                        round: 1,
-                        expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                      },
-                    } as any);
-                    navigate('CounterOffer');
-                  }}
                   onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
                   onNavigateToCropDetail={(cropName: string) => {
                     const found = localProduceCropsCache.find(
@@ -1413,26 +1181,7 @@ export default function App(): React.JSX.Element {
                 />
               ) : currentTab === 'Listings' ? (
                 <ListingsScreen
-                  onNavigateBack={() => setCurrentTab('Home')}
-                  onNavigateToMyListings={() => navigate('MyListings')}
                   onNavigateToCreateListing={() => navigate('CreateListing')}
-                  onNavigateToListingDetail={(item) => {
-                    if (item) {
-                      setSelectedListing({
-                        id: item.id,
-                        listingNumber: item.listingNumber,
-                        cropName: item.cropName,
-                        quantityKg: item.quantityKg,
-                        askingPricePerKg: item.askingPricePerKg,
-                        ceilingPricePerKg: item.askingPricePerKg,
-                        status: item.status,
-                        grade: item.grade,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                      } as any);
-                    }
-                    navigate('ListingDetail');
-                  }}
                   onNavigateToCounterOffer={(item) => {
                     if (item && item.id) {
                       setSelectedListing(item);
@@ -1464,12 +1213,7 @@ export default function App(): React.JSX.Element {
                   }}
                 />
               ) : currentTab === 'Wallet' ? (
-                <WalletScreen
-                  onNavigateToAddMoney={() => navigate('AddMoney')}
-                  onNavigateToWithdraw={() => navigate('WithdrawFunds')}
-                  onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
-                  onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
-                />
+                <WalletScreen />
               ) : (
                 <ProfileScreen
                   onNavigateToHome={() => setCurrentTab('Home')}
@@ -1482,13 +1226,12 @@ export default function App(): React.JSX.Element {
                   onNavigateToSoilTest={() => navigate('SoilTest')}
                   onNavigateToSettings={() => navigate('Settings')}
                   onNavigateToAboutSupport={() => navigate('AboutSupport')}
-                  onNavigateToBankPayment={() => navigate('BankAccount')}
                 />
               )}
             </View>
 
             {/* Bottom Tab Bar */}
-            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 58 }]}>
+            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 70 }]}>
               <Pressable
                 style={styles.tabItem}
                 onPress={() => setCurrentTab('Home')}
@@ -1585,8 +1328,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     color: colors.white,
-    fontSize: fontSizes.h2,
-    lineHeight: typography.h2.lineHeight,
+    fontSize: typography.title,
     fontWeight: weights.bold,
   },
   localeRow: { flexDirection: 'row', gap: 6 },
@@ -1597,8 +1339,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   localeChipActive: { backgroundColor: colors.white },
-  localeText: { color: colors.white, fontSize: fontSizes.helper, lineHeight: typography.helper.lineHeight, fontWeight: '600' },
-  localeTextActive: { color: colors.primaryPressed, fontSize: fontSizes.helper, lineHeight: typography.helper.lineHeight, fontWeight: '700' },
+  localeText: { color: colors.white, fontSize: 12, fontWeight: '600' },
+  localeTextActive: { color: colors.primaryPressed, fontSize: 12, fontWeight: '700' },
   content: { flex: 1 },
   mainTabsContainer: { flex: 1 },
   tabScreenContainer: { flex: 1 },
@@ -1619,8 +1361,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   tabItemText: {
-    fontSize: fontSizes.caption,
-    lineHeight: typography.caption.lineHeight,
+    fontSize: typography.caption,
     color: colors.onSurfaceVariant,
     fontWeight: weights.medium,
   },
@@ -1636,21 +1377,21 @@ const styles = StyleSheet.create({
   },
   centerAddButton: {
     backgroundColor: authPalette.deepGreen,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -20,
+    marginTop: -24,
     shadowColor: authPalette.deepGreen,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 5,
-    borderWidth: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 6,
+    borderWidth: 3.5,
     borderColor: colors.white,
   },
   unsupportedContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  unsupportedText: { fontSize: fontSizes.body, lineHeight: typography.body.lineHeight, color: colors.onSurface, textAlign: 'center' },
+  unsupportedText: { fontSize: typography.body, color: colors.onSurface, textAlign: 'center' },
 });
 

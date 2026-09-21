@@ -440,6 +440,74 @@ async function runDemoSeed() {
       [farmerIds[1], superAdminUserId],
     );
 
+    // -------------------------------------------------------------------------
+    // 9. Seed Demo Farm Ratings (BR-06, LOCKED 10 categories)
+    // -------------------------------------------------------------------------
+    console.log('Seeding demo farm ratings...');
+    const catRows = (await client.query(`SELECT id, code FROM rating_categories WHERE is_active = true ORDER BY sort_order`)).rows;
+    const catMap = new Map(catRows.map((c) => [c.code, c.id]));
+
+    // Farmer 3 (Suresh Gowda, +919870000003) -> Total 83, GOOD
+    const ratingId3 = '70000000-0000-0000-0000-000000000003';
+    const farmer3Id = '20000000-0000-0000-0000-000000000003';
+    await client.query(
+      `INSERT INTO farm_ratings (id, farmer_id, zone_id, period_label, status, total_score, tier_code, rated_by, rated_at, notes)
+       VALUES ($1, $2, $3, 'CYCLE-1', 'COMPLETE', 83, 'GOOD', $4, now(), 'Verified organic practices, strong soil regeneration and high produce quality.')
+       ON CONFLICT (id) DO UPDATE SET total_score = 83, tier_code = 'GOOD', status = 'COMPLETE'`,
+      [ratingId3, farmer3Id, defaultZone, superAdminUserId],
+    );
+    await client.query(
+      `UPDATE farmers SET overall_rating = 83, rating_tier_code = 'GOOD' WHERE id = $1`,
+      [farmer3Id],
+    );
+
+    const scores3 = [
+      ['CERTIFICATION', 9],
+      ['SOIL_LAND', 8],
+      ['FARMING_PRACTICES', 9],
+      ['ENVIRONMENTAL', 8],
+      ['PRODUCE_QUALITY', 9],
+      ['TRACEABILITY', 8],
+      ['SOCIAL_LABOR', 8],
+      ['FINANCIAL', 8],
+      ['MARKET_RELATIONS', 8],
+      ['INNOVATION', 8],
+    ];
+    for (const [code, score] of scores3) {
+      const catId = catMap.get(code);
+      if (catId) {
+        await client.query(
+          `INSERT INTO farm_rating_scores (rating_id, category_id, score, scored_by)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (rating_id, category_id) DO UPDATE SET score = $3`,
+          [ratingId3, catId, score, superAdminUserId],
+        );
+      }
+    }
+
+    // Farmer 1 (Ramesh Patel, +919870000001) -> Total 90, EXCELLENT
+    const ratingId1 = '70000000-0000-0000-0000-000000000001';
+    const farmer1Id = '20000000-0000-0000-0000-000000000001';
+    await client.query(
+      `INSERT INTO farm_ratings (id, farmer_id, zone_id, period_label, status, total_score, tier_code, rated_by, rated_at, notes)
+       VALUES ($1, $2, $3, 'CYCLE-1', 'COMPLETE', 90, 'EXCELLENT', $4, now(), 'Outstanding bio-diversity, drip irrigation, and 100% organic traceability.')
+       ON CONFLICT (id) DO UPDATE SET total_score = 90, tier_code = 'EXCELLENT', status = 'COMPLETE'`,
+      [ratingId1, farmer1Id, defaultZone, superAdminUserId],
+    );
+    await client.query(
+      `UPDATE farmers SET overall_rating = 90, rating_tier_code = 'EXCELLENT' WHERE id = $1`,
+      [farmer1Id],
+    );
+
+    for (const cat of catRows) {
+      await client.query(
+        `INSERT INTO farm_rating_scores (rating_id, category_id, score, scored_by)
+         VALUES ($1, $2, 9, $3)
+         ON CONFLICT (rating_id, category_id) DO UPDATE SET score = 9`,
+        [ratingId1, cat.id, superAdminUserId],
+      );
+    }
+
     await client.query('COMMIT');
     console.log('✅ Demo dataset seeded successfully.');
   } catch (err) {

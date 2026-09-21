@@ -418,7 +418,7 @@ export function NewCropScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowBackIcon size={20} color={P.deepGreen} />
+          <ArrowBackIcon size={20} color={P.twGreen800} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleGroup}>
@@ -1062,8 +1062,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 19,
-    fontWeight: '800',
-    color: P.deepGreen,
+    fontWeight: '700',
+    color: P.ink,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
@@ -1096,7 +1096,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressBarActive: {
-    backgroundColor: P.deepGreen,
+    backgroundColor: P.twGreen700,
   },
   progressBarInactive: {
     backgroundColor: P.twGray200,
@@ -1232,8 +1232,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   fromZonePillText: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
     fontWeight: '700',
     color: P.twGray700,
     letterSpacing: 0.5,
@@ -1325,7 +1324,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.deepGreen,
+    backgroundColor: P.twGreen800,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
@@ -1358,7 +1357,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.deepGreen,
+    backgroundColor: P.twGreen800,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,

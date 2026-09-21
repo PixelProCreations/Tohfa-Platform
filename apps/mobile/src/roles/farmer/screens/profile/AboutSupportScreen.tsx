@@ -13,10 +13,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { authPalette as P } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -30,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?
   );
 }
 
-function TractorIcon({ size = 26, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function TractorIcon({ size = 26, color = P.weatherCloudWhite }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="7" cy="17" r="3" stroke={color} strokeWidth="2" />
@@ -47,7 +48,7 @@ function TractorIcon({ size = 26, color = '#FFFFFF' }: { size?: number; color?: 
   );
 }
 
-function DocTextIcon({ size = 20, color = '#718274' }: { size?: number; color?: string }) {
+function DocTextIcon({ size = 20, color = P.greyMid1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -62,7 +63,7 @@ function DocTextIcon({ size = 20, color = '#718274' }: { size?: number; color?: 
   );
 }
 
-function ShieldIcon({ size = 20, color = '#718274' }: { size?: number; color?: string }) {
+function ShieldIcon({ size = 20, color = P.greyMid1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -76,7 +77,7 @@ function ShieldIcon({ size = 20, color = '#718274' }: { size?: number; color?: s
   );
 }
 
-function ExternalLinkIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ExternalLinkIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -91,7 +92,7 @@ function ExternalLinkIcon({ size = 18, color = '#9CA3AF' }: { size?: number; col
   );
 }
 
-function ChevronDownIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -99,7 +100,7 @@ function ChevronDownIcon({ size = 18, color = '#9CA3AF' }: { size?: number; colo
   );
 }
 
-function ChevronUpIcon({ size = 18, color = '#256F2B' }: { size?: number; color?: string }) {
+function ChevronUpIcon({ size = 18, color = P.greenDeep2 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -107,7 +108,7 @@ function ChevronUpIcon({ size = 18, color = '#256F2B' }: { size?: number; color?
   );
 }
 
-function PhoneIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
+function PhoneIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -121,7 +122,7 @@ function PhoneIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: st
   );
 }
 
-function MailIcon({ size = 20, color = '#2563EB' }: { size?: number; color?: string }) {
+function MailIcon({ size = 20, color = P.twBlue600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="4" width="20" height="16" rx="2" stroke={color} strokeWidth="1.8" />
@@ -130,7 +131,7 @@ function MailIcon({ size = 20, color = '#2563EB' }: { size?: number; color?: str
   );
 }
 
-function MapPinIcon({ size = 18, color = '#718274' }: { size?: number; color?: string }) {
+function MapPinIcon({ size = 18, color = P.greyMid1 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -145,7 +146,7 @@ function MapPinIcon({ size = 18, color = '#718274' }: { size?: number; color?: s
   );
 }
 
-function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -155,10 +156,10 @@ function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; col
 
 function StarIcon({ size = 28, filled = false }: { size?: number; filled?: boolean }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? '#F59E0B' : '#E5E7EB'}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? P.twAmber500 : P.twGray200}>
       <Path
         d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-        stroke={filled ? '#F59E0B' : '#D1D5DB'}
+        stroke={filled ? P.twAmber500 : P.twGray300}
         strokeWidth="1.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -265,7 +266,7 @@ export function AboutSupportScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -276,7 +277,7 @@ export function AboutSupportScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowBackIcon size={20} color="#1E5E2B" />
+          <ArrowBackIcon size={20} color={P.greenDeep1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>About & support</Text>
       </View>
@@ -289,7 +290,7 @@ export function AboutSupportScreen({
         {/* ── App Info Card ── */}
         <View style={styles.appCard}>
           <View style={styles.appIconBox}>
-            <TractorIcon size={26} color="#FFFFFF" />
+            <TractorIcon size={26} color={P.weatherCloudWhite} />
           </View>
           <View style={styles.appInfoCol}>
             <Text style={styles.appName}>TOHFA Farmer</Text>
@@ -306,9 +307,9 @@ export function AboutSupportScreen({
             onPress={handleOpenTerms}
             activeOpacity={0.75}
           >
-            <DocTextIcon size={20} color="#718274" />
+            <DocTextIcon size={20} color={P.greyMid1} />
             <Text style={styles.legalRowText}>Terms of Service</Text>
-            <ExternalLinkIcon size={18} color="#9CA3AF" />
+            <ExternalLinkIcon size={18} color={P.twGray400} />
           </TouchableOpacity>
 
           <View style={styles.rowDivider} />
@@ -318,9 +319,9 @@ export function AboutSupportScreen({
             onPress={handleOpenPrivacy}
             activeOpacity={0.75}
           >
-            <ShieldIcon size={20} color="#718274" />
+            <ShieldIcon size={20} color={P.greyMid1} />
             <Text style={styles.legalRowText}>Privacy Policy</Text>
-            <ExternalLinkIcon size={18} color="#9CA3AF" />
+            <ExternalLinkIcon size={18} color={P.twGray400} />
           </TouchableOpacity>
         </View>
 
@@ -339,9 +340,9 @@ export function AboutSupportScreen({
                 >
                   <Text style={styles.faqQuestionText}>{faq.question}</Text>
                   {isExpanded ? (
-                    <ChevronUpIcon size={18} color="#256F2B" />
+                    <ChevronUpIcon size={18} color={P.greenDeep2} />
                   ) : (
-                    <ChevronDownIcon size={18} color="#9CA3AF" />
+                    <ChevronDownIcon size={18} color={P.twGray400} />
                   )}
                 </TouchableOpacity>
 
@@ -373,14 +374,14 @@ export function AboutSupportScreen({
           onPress={handleCallHelpline}
           activeOpacity={0.8}
         >
-          <View style={[styles.contactIconBox, { backgroundColor: '#EAF5E9' }]}>
-            <PhoneIcon size={20} color="#1E5E2B" />
+          <View style={[styles.contactIconBox, { backgroundColor: P.greenTint3 }]}>
+            <PhoneIcon size={20} color={P.greenDeep1} />
           </View>
           <View style={styles.contactTextCol}>
             <Text style={styles.contactTitle}>Helpline · 1800 425 1661</Text>
             <Text style={styles.contactSubtitle}>Mon–Sat, 9:00 am – 6:00 pm</Text>
           </View>
-          <ChevronRightIcon size={18} color="#9CA3AF" />
+          <ChevronRightIcon size={18} color={P.twGray400} />
         </TouchableOpacity>
 
         {/* Email */}
@@ -389,20 +390,20 @@ export function AboutSupportScreen({
           onPress={handleEmailSupport}
           activeOpacity={0.8}
         >
-          <View style={[styles.contactIconBox, { backgroundColor: '#E8F2FD' }]}>
-            <MailIcon size={20} color="#2563EB" />
+          <View style={[styles.contactIconBox, { backgroundColor: P.blueTint1 }]}>
+            <MailIcon size={20} color={P.twBlue600} />
           </View>
           <View style={styles.contactTextCol}>
             <Text style={styles.contactTitle}>support@tohfa.org</Text>
             <Text style={styles.contactSubtitle}>Email support</Text>
           </View>
-          <ChevronRightIcon size={18} color="#9CA3AF" />
+          <ChevronRightIcon size={18} color={P.twGray400} />
         </TouchableOpacity>
 
         {/* Regional Offices */}
         <View style={styles.officesCard}>
           <View style={styles.officesHeader}>
-            <MapPinIcon size={18} color="#718274" />
+            <MapPinIcon size={18} color={P.greyMid1} />
             <Text style={styles.officesTitle}>Regional offices</Text>
           </View>
           <View style={styles.chipsRow}>
@@ -439,7 +440,7 @@ export function AboutSupportScreen({
             value={feedbackText}
             onChangeText={setFeedbackText}
             placeholder="Tell us what's working or what could be better... (optional)"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={P.twGray400}
             multiline
             numberOfLines={3}
           />
@@ -465,7 +466,7 @@ export function AboutSupportScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF9F6',
+    backgroundColor: P.creamTint2,
   },
   header: {
     flexDirection: 'row',
@@ -473,17 +474,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3EFE6',
+    borderBottomColor: P.tanTint1,
   },
   backCircleBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#162616',
+    color: P.nearBlackDark2,
   },
   scrollArea: {
     flex: 1,
@@ -504,13 +505,13 @@ const styles = StyleSheet.create({
   appCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: P.tanTint4,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1.5 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -520,7 +521,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 15,
-    backgroundColor: '#256F2B',
+    backgroundColor: P.greenDeep2,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -531,36 +532,36 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#162616',
+    color: P.nearBlackDark2,
   },
   appVersion: {
     fontSize: 12,
-    color: '#8A988D',
+    color: P.greyMid3,
     marginTop: 2,
     fontWeight: '500',
   },
   appOrg: {
     fontSize: 12,
-    color: '#8A988D',
+    color: P.greyMid3,
     marginTop: 2,
     fontWeight: '500',
   },
   sectionHeaderTitle: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#718274',
+    color: P.greyMid1,
     letterSpacing: 0.8,
     marginBottom: 8,
     marginTop: 6,
   },
   cardContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: P.tanTint4,
     marginBottom: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -576,12 +577,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#162616',
+    color: P.nearBlackDark2,
     marginLeft: 12,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: '#F5F1E8',
+    backgroundColor: P.tanTint5,
     marginLeft: 16,
   },
   faqHeaderRow: {
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
-    color: '#162616',
+    color: P.nearBlackDark2,
     paddingRight: 8,
   },
   faqBodyBox: {
@@ -606,7 +607,7 @@ const styles = StyleSheet.create({
   faqAnswerText: {
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#556557',
+    color: P.greenDeep3,
   },
   faqLinkBtn: {
     marginTop: 8,
@@ -615,18 +616,18 @@ const styles = StyleSheet.create({
   faqLinkText: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: '#256F2B',
+    color: P.greenDeep2,
   },
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: P.tanTint4,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -646,21 +647,21 @@ const styles = StyleSheet.create({
   contactTitle: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#162616',
+    color: P.nearBlackDark2,
   },
   contactSubtitle: {
     fontSize: 12,
-    color: '#718274',
+    color: P.greyMid1,
     marginTop: 2,
   },
   officesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: P.tanTint4,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -675,7 +676,7 @@ const styles = StyleSheet.create({
   officesTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#162616',
+    color: P.nearBlackDark2,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -683,7 +684,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   officeChip: {
-    backgroundColor: '#F3EFE6',
+    backgroundColor: P.tanTint1,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -691,16 +692,16 @@ const styles = StyleSheet.create({
   officeChipText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: '#556557',
+    color: P.greenDeep3,
   },
   feedbackCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.weatherCloudWhite,
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: P.tanTint4,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: P.nearBlackDark1,
     shadowOffset: { width: 0, height: 1.5 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -709,7 +710,7 @@ const styles = StyleSheet.create({
   feedbackTitle: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#162616',
+    color: P.nearBlackDark2,
     marginBottom: 14,
   },
   starsRow: {
@@ -721,20 +722,20 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   feedbackInput: {
-    backgroundColor: '#F5F1E8',
+    backgroundColor: P.tanTint5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EAE4D6',
+    borderColor: P.tanTint7,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#162616',
+    color: P.nearBlackDark2,
     minHeight: 70,
     textAlignVertical: 'top',
     marginBottom: 14,
   },
   submitFeedbackBtn: {
-    backgroundColor: '#256F2B',
+    backgroundColor: P.greenDeep2,
     borderRadius: 13,
     height: 48,
     alignItems: 'center',
@@ -743,6 +744,6 @@ const styles = StyleSheet.create({
   submitFeedbackBtnText: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: P.weatherCloudWhite,
   },
 });
