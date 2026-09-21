@@ -11,11 +11,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, authPalette as P } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -29,7 +28,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   );
 }
 
-function SearchIcon({ size = 18, color = P.greyMid2 }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = '#8C9088' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -38,7 +37,7 @@ function SearchIcon({ size = 18, color = P.greyMid2 }: { size?: number; color?: 
   );
 }
 
-function CheckmarkIcon({ size = 13, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function CheckmarkIcon({ size = 13, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -52,7 +51,7 @@ function CheckmarkIcon({ size = 13, color = P.greenDeep1 }: { size?: number; col
   );
 }
 
-function GroupUsersIcon({ size = 22, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function GroupUsersIcon({ size = 22, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="8" r="3.2" stroke={color} strokeWidth="2" />
@@ -63,7 +62,7 @@ function GroupUsersIcon({ size = 22, color = P.greenDeep1 }: { size?: number; co
   );
 }
 
-function MedalRibbonIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
+function MedalRibbonIcon({ size = 22, color = '#0284C7' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="8.5" r="5.5" stroke={color} strokeWidth="2" />
@@ -73,7 +72,7 @@ function MedalRibbonIcon({ size = 22, color = P.sky600 }: { size?: number; color
   );
 }
 
-function PestBugIcon({ size = 22, color = P.twOrange600 }: { size?: number; color?: string }) {
+function PestBugIcon({ size = 22, color = '#EA580C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="8" y="8" width="8" height="10" rx="4" stroke={color} strokeWidth="2" />
@@ -83,7 +82,7 @@ function PestBugIcon({ size = 22, color = P.twOrange600 }: { size?: number; colo
   );
 }
 
-function MountainTerraceIcon({ size = 22, color = P.brownDeep1 }: { size?: number; color?: string }) {
+function MountainTerraceIcon({ size = 22, color = '#85582E' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 19l6.5-10L14 16l3.5-5 3.5 8H3z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -91,7 +90,7 @@ function MountainTerraceIcon({ size = 22, color = P.brownDeep1 }: { size?: numbe
   );
 }
 
-function BanknotesCashIcon({ size = 22, color = P.twViolet600 }: { size?: number; color?: string }) {
+function BanknotesCashIcon({ size = 22, color = '#7C3AED' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="16" height="12" rx="2.5" stroke={color} strokeWidth="2" />
@@ -101,7 +100,7 @@ function BanknotesCashIcon({ size = 22, color = P.twViolet600 }: { size?: number
   );
 }
 
-function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
+function CloseIcon({ size = 20, color = '#374151' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -128,8 +127,8 @@ export const INITIAL_FARMER_GROUPS: GroupItem[] = [
     name: 'Ooty Carrot Growers',
     membersCount: 128,
     iconType: 'users',
-    iconBg: P.lightGreen,
-    iconColor: P.greenDeep1,
+    iconBg: '#EAF3DE',
+    iconColor: '#1E5E2B',
     isJoined: true,
     recentDiscussion: 'Kavitha R: Current harvest rates in Zone A are hitting ₹42/kg with Grade 1 sorting.',
   },
@@ -138,8 +137,8 @@ export const INITIAL_FARMER_GROUPS: GroupItem[] = [
     name: 'Organic Certification Help',
     membersCount: 94,
     iconType: 'medal',
-    iconBg: P.sky100,
-    iconColor: P.sky600,
+    iconBg: '#E0F2FE',
+    iconColor: '#0284C7',
     isJoined: false,
     recentDiscussion: 'Dr. Anand: New checklist uploaded for renewal audits happening next month.',
   },
@@ -148,8 +147,8 @@ export const INITIAL_FARMER_GROUPS: GroupItem[] = [
     name: 'Nilgiris Pest Watch',
     membersCount: 156,
     iconType: 'pest',
-    iconBg: P.twOrange100,
-    iconColor: P.twOrange600,
+    iconBg: '#FFEDD5',
+    iconColor: '#EA580C',
     isJoined: true,
     recentDiscussion: 'Muthu K: Whitefly sightings near Lovedale valley. Recommend applying neem spray at 5ml/L.',
   },
@@ -158,8 +157,8 @@ export const INITIAL_FARMER_GROUPS: GroupItem[] = [
     name: 'Terrace Farming Techniques',
     membersCount: 72,
     iconType: 'terrace',
-    iconBg: P.tanTint11,
-    iconColor: P.brownDeep1,
+    iconBg: '#F5EBE1',
+    iconColor: '#85582E',
     isJoined: false,
     recentDiscussion: 'TOHFA Team: New contour ridge trenching diagram shared in files.',
   },
@@ -168,8 +167,8 @@ export const INITIAL_FARMER_GROUPS: GroupItem[] = [
     name: 'Market Price Talk',
     membersCount: 210,
     iconType: 'cash',
-    iconBg: P.twPurple100,
-    iconColor: P.twViolet600,
+    iconBg: '#F3E8FF',
+    iconColor: '#7C3AED',
     isJoined: false,
     recentDiscussion: 'Sundaram P: Weekend customer preorder demand is highest for French Beans and Carrots.',
   },
@@ -243,7 +242,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>
@@ -254,7 +253,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowBackIcon size={18} color={P.greenDeep1} />
+          <ArrowBackIcon size={18} color="#1E5E2B" />
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>Groups</Text>
@@ -270,18 +269,18 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
       >
         {/* ── Search Input ── */}
         <View style={styles.searchContainer}>
-          <SearchIcon size={18} color={P.greyMid2} />
+          <SearchIcon size={18} color="#8C9088" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search groups..."
-            placeholderTextColor={P.greyMid2}
+            placeholderTextColor="#8C9088"
             value={searchQuery}
             onChangeText={setSearchQuery}
             accessibilityLabel="Search groups"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-              <CloseIcon size={16} color={P.greyMid2} />
+              <CloseIcon size={16} color="#8C9088" />
             </TouchableOpacity>
           )}
         </View>
@@ -319,7 +318,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
                   accessibilityRole="button"
                   accessibilityLabel="Leave group"
                 >
-                  <CheckmarkIcon size={12} color={P.greenDeep1} />
+                  <CheckmarkIcon size={12} color="#1E5E2B" />
                   <Text style={styles.joinedBadgeText}>Joined</Text>
                 </TouchableOpacity>
               ) : (
@@ -355,7 +354,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
 
   // Header
@@ -365,19 +364,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: P.twGray200,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -389,18 +388,18 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
     marginTop: 1,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: P.tanTint3,
+    backgroundColor: '#F0ECE1',
   },
 
   // Scroll View
@@ -417,7 +416,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderRadius: 14,
     paddingHorizontal: 14,
     height: 46,
@@ -426,7 +425,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginLeft: 10,
     paddingVertical: 0,
   },
@@ -441,12 +440,12 @@ const styles = StyleSheet.create({
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 14,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 5,
@@ -467,13 +466,13 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 3,
   },
   groupMembersText: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Joined Badge (Pill)
@@ -481,7 +480,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: P.lightGreen,
+    backgroundColor: '#EAF3DE',
     borderRadius: 18,
     paddingHorizontal: 13,
     paddingVertical: 7,
@@ -489,12 +488,12 @@ const styles = StyleSheet.create({
   joinedBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: P.greenDeep1,
+    color: '#1E5E2B',
   },
 
   // Join Button (Dark Green Pill)
   joinButton: {
-    backgroundColor: P.greenDeep1,
+    backgroundColor: '#1E5E2B',
     borderRadius: 18,
     paddingHorizontal: 18,
     paddingVertical: 7,
@@ -504,7 +503,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
   },
 
   // Empty State
@@ -515,12 +514,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 4,
   },
   emptySub: {
     fontSize: 12.5,
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Modal
@@ -530,7 +529,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 20,
@@ -551,23 +550,23 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   modalSub: {
     fontSize: 12,
-    color: P.greyMid1,
+    color: '#718274',
     marginTop: 2,
   },
   modalCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: P.twGray100,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   discussionBox: {
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderRadius: 14,
     padding: 14,
     marginBottom: 18,
@@ -575,33 +574,33 @@ const styles = StyleSheet.create({
   discussionLabel: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 6,
   },
   discussionText: {
     fontSize: 13,
-    color: P.twGray600,
+    color: '#4B5563',
     lineHeight: 19,
   },
   modalJoinBtn: {
-    backgroundColor: P.greenDeep1,
+    backgroundColor: '#1E5E2B',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   modalJoinBtnText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
   modalLeaveBtn: {
-    backgroundColor: P.twRed100,
+    backgroundColor: '#FEE2E2',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   modalLeaveBtnText: {
-    color: P.twRed600,
+    color: '#DC2626',
     fontSize: 14,
     fontWeight: '800',
   },

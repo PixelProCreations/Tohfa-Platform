@@ -33,14 +33,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  // Short on purpose: `requireAuth` only verifies the JWT signature/expiry, it
-  // never checks whether the session was revoked (see requireAuth.ts's
-  // docblock). Logout, password reset, and session-revocation all invalidate
-  // the *refresh* token immediately, but an access token already issued stays
-  // valid until it naturally expires — this TTL is that window. 5 minutes
-  // bounds it tightly without materially increasing refresh-endpoint traffic,
-  // since the client already refreshes transparently on a 401.
-  JWT_ACCESS_TTL: z.string().min(1).default('5m'),
+  JWT_ACCESS_TTL: z.string().min(1).default('15m'),
   JWT_REFRESH_TTL: z.string().min(1).default('30d'),
 
   AZURE_STORAGE_CONNECTION_STRING: z.string().default(''),
@@ -59,22 +52,6 @@ const envSchema = z.object({
   TWILIO_FROM_NUMBER: z.string().default(''),
   FCM_SERVER_KEY: z.string().default(''),
   SENTRY_DSN: z.string().default(''),
-
-  // OAuth social login (BR-39). Alternate login/prefill only — see
-  // apps/api/src/modules/auth/oauth.providers.ts. Real console credentials do
-  // not exist yet, so these default to '' like the other not-yet-provisioned
-  // provider keys above; an empty GOOGLE_OAUTH_CLIENT_ID or missing
-  // FACEBOOK_APP_SECRET makes the corresponding verifier fail closed with
-  // OAUTH_TOKEN_INVALID at request time rather than the app refusing to boot.
-  GOOGLE_OAUTH_CLIENT_ID: z.string().default(''),
-  FACEBOOK_APP_ID: z.string().default(''),
-  FACEBOOK_APP_SECRET: z.string().default(''),
-
-  // No mock/no-op fallback by design — an empty key makes the weather
-  // gateway fail closed with WEATHER_PROVIDER_ERROR at request time (see
-  // apps/api/src/weather/openweathermap.weather.ts) rather than the app
-  // refusing to boot, so the rest of the API stays usable without one.
-  OPENWEATHERMAP_API_KEY: z.string().default(''),
 
   OTP_LENGTH: intFromEnv(4, 8).default(6),
   OTP_TTL_SECONDS: intFromEnv(30, 3600).default(300),

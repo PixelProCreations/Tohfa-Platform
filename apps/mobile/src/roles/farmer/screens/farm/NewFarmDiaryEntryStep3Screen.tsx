@@ -13,8 +13,22 @@ import { authPalette as P } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
-// Success Checkmark Icon
+// Icons
 // ─────────────────────────────────────────────
+
+function ArrowBackIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M5 12L12 19M5 12L12 5"
+        stroke={P.deepGreen}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 function SuccessCheckmarkIcon({ size = 88 }: { size?: number }) {
   return (
@@ -48,7 +62,7 @@ export interface NewFarmDiaryEntryStep3ScreenProps {
 
 export function NewFarmDiaryEntryStep3Screen({
   crop,
-  onBack: _onBack,
+  onBack,
   onDone,
   onSave,
 }: NewFarmDiaryEntryStep3ScreenProps): React.JSX.Element {
@@ -69,6 +83,19 @@ export function NewFarmDiaryEntryStep3Screen({
       <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       <View style={styles.container}>
+        {/* ── Top Header with Back Button ── */}
+        <View style={styles.topHeader}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack || handleFinish}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <ArrowBackIcon />
+          </TouchableOpacity>
+        </View>
+
         {/* ── Centered Content ── */}
         <View style={styles.centerContent}>
           <SuccessCheckmarkIcon size={96} />
@@ -110,15 +137,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: P.white,
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 24,
+  },
+  topHeader: {
+    width: '100%',
+    paddingTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   centerContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 20,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 24,

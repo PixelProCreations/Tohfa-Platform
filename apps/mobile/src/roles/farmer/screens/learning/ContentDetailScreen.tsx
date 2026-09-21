@@ -12,11 +12,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, authPalette as P } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = P.weatherCloudWhite }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -30,7 +29,7 @@ function ArrowBackIcon({ size = 20, color = P.weatherCloudWhite }: { size?: numb
   );
 }
 
-function BookmarkIcon({ size = 18, color = P.weatherCloudWhite, isSaved = false }: { size?: number; color?: string; isSaved?: boolean }) {
+function BookmarkIcon({ size = 18, color = '#FFFFFF', isSaved = false }: { size?: number; color?: string; isSaved?: boolean }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={isSaved ? color : 'none'}>
       <Path
@@ -44,7 +43,7 @@ function BookmarkIcon({ size = 18, color = P.weatherCloudWhite, isSaved = false 
   );
 }
 
-function PlayTriangleOutlineIcon({ size = 24, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function PlayTriangleOutlineIcon({ size = 24, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -58,7 +57,7 @@ function PlayTriangleOutlineIcon({ size = 24, color = P.greenDeep1 }: { size?: n
   );
 }
 
-function VideoCameraPillIcon({ size = 14, color = colors.brandGreen }: { size?: number; color?: string }) {
+function VideoCameraPillIcon({ size = 14, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="4" width="15" height="16" rx="3" stroke={color} strokeWidth="2" />
@@ -67,7 +66,7 @@ function VideoCameraPillIcon({ size = 14, color = colors.brandGreen }: { size?: 
   );
 }
 
-function VerifiedBadgeIcon({ size = 15, color = colors.brandGreen }: { size?: number; color?: string }) {
+function VerifiedBadgeIcon({ size = 15, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -82,7 +81,7 @@ function VerifiedBadgeIcon({ size = 15, color = colors.brandGreen }: { size?: nu
   );
 }
 
-function HeartIcon({ size = 18, color = P.twRed500, isFilled = false }: { size?: number; color?: string; isFilled?: boolean }) {
+function HeartIcon({ size = 18, color = '#EF4444', isFilled = false }: { size?: number; color?: string; isFilled?: boolean }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={isFilled ? color : 'none'}>
       <Path
@@ -96,7 +95,7 @@ function HeartIcon({ size = 18, color = P.twRed500, isFilled = false }: { size?:
   );
 }
 
-function CommentBubbleIcon({ size = 18, color = P.twGray600 }: { size?: number; color?: string }) {
+function CommentBubbleIcon({ size = 18, color = '#4B5563' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -110,7 +109,7 @@ function CommentBubbleIcon({ size = 18, color = P.twGray600 }: { size?: number; 
   );
 }
 
-function PlayCircleMiniIcon({ size = 26, color = P.weatherCloudWhite }: { size?: number; color?: string }) {
+function PlayCircleMiniIcon({ size = 26, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
@@ -119,7 +118,7 @@ function PlayCircleMiniIcon({ size = 26, color = P.weatherCloudWhite }: { size?:
   );
 }
 
-function SendPlaneIcon({ size = 20, color = P.weatherCloudWhite }: { size?: number; color?: string }) {
+function SendPlaneIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -155,7 +154,7 @@ export const DEFAULT_CONTENT_DETAIL: ContentDetailItem = {
   date: '20 Jul 2026',
   duration: '6:30',
   type: 'Video',
-  bgColor: P.greenDeep1,
+  bgColor: '#1E5E2B',
   paragraphs: [
     'A step-by-step walkthrough of laying drip lines across sloped carrot terraces so every bed gets even moisture without runoff. Covers emitter spacing for the Nilgiris’ clay-loam soils, main-line pressure, and how to schedule cycles around the afternoon mist.',
     'Best paired with the jeevamrut fertigation routine — inject bio-inputs through the same line once the beds are established.',
@@ -179,7 +178,7 @@ const RELATED_CONTENT: RelatedContentItem[] = [
     title: 'Making jeevamrut: 5-day fermentation',
     author: 'Muthu K.',
     type: 'Video',
-    bgColor: colors.brandGreen,
+    bgColor: '#2E7D32',
     duration: '8:15',
   },
   {
@@ -187,7 +186,7 @@ const RELATED_CONTENT: RelatedContentItem[] = [
     title: 'Neem oil spray — correct dilution',
     author: 'Dr. Anand',
     type: 'Video',
-    bgColor: P.greenDeep4,
+    bgColor: '#6E8B2A',
     duration: '4:50',
   },
   {
@@ -195,7 +194,7 @@ const RELATED_CONTENT: RelatedContentItem[] = [
     title: 'Vermicompost bed maintenance',
     author: 'TOHFA Field Team',
     type: 'Video',
-    bgColor: P.brownDeep1,
+    bgColor: '#85582E',
     duration: '11:20',
   },
 ];
@@ -273,7 +272,7 @@ export function ContentDetailScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.greenDeep1} />
+      <StatusBar barStyle="light-content" backgroundColor="#1E5E2B" />
 
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
@@ -285,7 +284,7 @@ export function ContentDetailScreen({
           showsVerticalScrollIndicator={false}
         >
           {/* ── Top Hero Video Section ── */}
-          <View style={[styles.videoHero, { backgroundColor: currentContent.bgColor ?? P.greenDeep1 }]}>
+          <View style={[styles.videoHero, { backgroundColor: currentContent.bgColor ?? '#1E5E2B' }]}>
             {/* Top Navigation Bar Overlay */}
             <View style={styles.heroNavBar}>
               <TouchableOpacity
@@ -295,7 +294,7 @@ export function ContentDetailScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
               >
-                <ArrowBackIcon size={18} color={P.weatherCloudWhite} />
+                <ArrowBackIcon size={18} color="#FFFFFF" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -305,7 +304,7 @@ export function ContentDetailScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Bookmark video"
               >
-                <BookmarkIcon size={18} color={P.weatherCloudWhite} isSaved={isSaved} />
+                <BookmarkIcon size={18} color="#FFFFFF" isSaved={isSaved} />
               </TouchableOpacity>
             </View>
 
@@ -317,7 +316,7 @@ export function ContentDetailScreen({
               accessibilityRole="button"
               accessibilityLabel="Play video"
             >
-              <PlayTriangleOutlineIcon size={26} color={P.greenDeep1} />
+              <PlayTriangleOutlineIcon size={26} color="#1E5E2B" />
             </TouchableOpacity>
 
             {/* Bottom Right Duration Badge */}
@@ -330,7 +329,7 @@ export function ContentDetailScreen({
           <View style={styles.bodyContent}>
             {/* Video Type Pill */}
             <View style={styles.typePill}>
-              <VideoCameraPillIcon size={14} color={colors.brandGreen} />
+              <VideoCameraPillIcon size={14} color="#2E7D32" />
               <Text style={styles.typePillText}>{currentContent.type ?? 'Video'}</Text>
             </View>
 
@@ -339,7 +338,7 @@ export function ContentDetailScreen({
 
             {/* Author & Date */}
             <View style={styles.authorRow}>
-              <VerifiedBadgeIcon size={15} color={colors.brandGreen} />
+              <VerifiedBadgeIcon size={15} color="#2E7D32" />
               <Text style={styles.authorText}>
                 {currentContent.author} · {currentContent.date}
               </Text>
@@ -362,7 +361,7 @@ export function ContentDetailScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Like content"
               >
-                <HeartIcon size={18} color={P.coralMid1} isFilled={isLiked} />
+                <HeartIcon size={18} color="#E0533C" isFilled={isLiked} />
                 <Text style={styles.likeCountText}>{likesCount}</Text>
               </TouchableOpacity>
 
@@ -374,7 +373,7 @@ export function ContentDetailScreen({
                 accessibilityRole="button"
                 accessibilityLabel="View comments"
               >
-                <CommentBubbleIcon size={18} color={P.twGray600} />
+                <CommentBubbleIcon size={18} color="#4B5563" />
                 <Text style={styles.commentCountText}>{commentsCount}</Text>
               </TouchableOpacity>
             </View>
@@ -405,7 +404,7 @@ export function ContentDetailScreen({
               >
                 {/* Thumbnail */}
                 <View style={[styles.relatedThumbnail, { backgroundColor: item.bgColor }]}>
-                  <PlayCircleMiniIcon size={24} color={P.weatherCloudWhite} />
+                  <PlayCircleMiniIcon size={24} color="#FFFFFF" />
                 </View>
 
                 {/* Info */}
@@ -430,7 +429,7 @@ export function ContentDetailScreen({
           <TextInput
             style={styles.commentInput}
             placeholder="Add a comment..."
-            placeholderTextColor={P.greyMid2}
+            placeholderTextColor="#8C9088"
             value={commentText}
             onChangeText={setCommentText}
             accessibilityLabel="Add a comment"
@@ -442,7 +441,7 @@ export function ContentDetailScreen({
             accessibilityRole="button"
             accessibilityLabel="Send comment"
           >
-            <SendPlaneIcon size={18} color={P.weatherCloudWhite} />
+            <SendPlaneIcon size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -455,7 +454,7 @@ export function ContentDetailScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
   keyboardContainer: {
     flex: 1,
@@ -497,11 +496,11 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 4,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -517,7 +516,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   durationText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -531,7 +530,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: P.lightGreen,
+    backgroundColor: '#EAF3DE',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -539,14 +538,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   typePillText: {
-    color: colors.brandGreen,
+    color: '#2E7D32',
     fontSize: 12,
     fontWeight: '700',
   },
   titleText: {
     fontSize: 20,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 27,
     letterSpacing: -0.2,
     marginBottom: 8,
@@ -560,11 +559,11 @@ const styles = StyleSheet.create({
   authorText: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
   },
   paragraphText: {
     fontSize: 13.5,
-    color: P.twGray600,
+    color: '#4B5563',
     lineHeight: 20.5,
     marginBottom: 12,
   },
@@ -585,52 +584,52 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   likePill: {
-    backgroundColor: P.coralTint1,
+    backgroundColor: '#FDECE8',
     borderWidth: 1,
-    borderColor: P.coralTint2,
+    borderColor: '#FCD8D0',
   },
   likePillActive: {
-    backgroundColor: P.coralTint3,
+    backgroundColor: '#FBD8D0',
   },
   likeCountText: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: P.coralMid1,
+    color: '#E0533C',
   },
   commentPill: {
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
   },
   commentCountText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: P.twGray700,
+    color: '#374151',
   },
 
   // Comments Box
   commentsExpandedBox: {
-    backgroundColor: P.creamTint3,
+    backgroundColor: '#F9F8F5',
     borderRadius: 14,
     padding: 14,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
   },
   commentsHeaderTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 8,
   },
   commentItem: {
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: P.tanTint3,
+    borderBottomColor: '#F0ECE1',
   },
   commentItemText: {
     fontSize: 12.5,
-    color: P.twGray600,
+    color: '#4B5563',
     lineHeight: 18,
   },
 
@@ -638,7 +637,7 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: P.greyMid1,
+    color: '#718274',
     letterSpacing: 0.8,
     marginTop: 10,
     marginBottom: 12,
@@ -647,15 +646,15 @@ const styles = StyleSheet.create({
   // Related Content Card
   relatedCard: {
     flexDirection: 'row',
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 12,
     alignItems: 'center',
     gap: 12,
     marginBottom: 12,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -675,14 +674,14 @@ const styles = StyleSheet.create({
   relatedTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 18,
     marginBottom: 4,
   },
   relatedSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Bottom Comment Bar
@@ -691,28 +690,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: P.tanTint3,
+    borderTopColor: '#F0ECE1',
     gap: 10,
   },
   commentInput: {
     flex: 1,
     height: 44,
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderRadius: 22,
     paddingHorizontal: 16,
     fontSize: 13.5,
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: P.greenDeep1,
+    backgroundColor: '#1E5E2B',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: P.greenDeep1,
+    shadowColor: '#1E5E2B',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,

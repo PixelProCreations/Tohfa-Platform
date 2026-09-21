@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../theme';
 import { Step1Personal } from './Step1Personal';
@@ -6,7 +6,11 @@ import { Step2FarmDetails } from './Step2FarmDetails';
 import { Step3Location } from './Step3Location';
 import { Step4Documents } from './Step4Documents';
 import { Step5Review } from './Step5Review';
-import { useRegistrationDraftStore, type Step1PersonalData } from '../../storage/registrationDraft';
+import {
+  getRegistrationDraft,
+  saveRegistrationDraft,
+  type RegistrationDraft,
+} from '../../storage/registrationDraft';
 import {
   createFarmerApplication,
   saveFarmerApplicationStep,
@@ -27,54 +31,77 @@ const STEP_TITLES: Record<number, string> = {
 export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavigate }) => {
   const theme = useTheme();
   const { colors } = theme;
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState<RegistrationDraft>({
+    applicationId: 'draft-temp',
+    currentStep: 1,
+  });
 
-  // `persist` restores `draft` from AsyncStorage asynchronously; `hasHydrated` flips true once
-  // that restore has settled (found a draft, found nothing, or failed) -- see
-  // `storage/registrationDraft.ts`'s `onRehydrateStorage`. Replaces the old manual `loading`
-  // state + cold-start effect, which called a broken `getRegistrationDraft()`/
-  // `saveRegistrationDraft()` pair backed by a `localStorage` global that doesn't exist in RN.
-  const hasHydrated = useRegistrationDraftStore((s) => s.hasHydrated);
-  const draft = useRegistrationDraftStore((s) => s.draft);
-  const setApplicationId = useRegistrationDraftStore((s) => s.setApplicationId);
-  const updateStepAndAdvanceInStore = useRegistrationDraftStore((s) => s.updateStepAndAdvance);
-  const goToStep = useRegistrationDraftStore((s) => s.goToStep);
-  const goBackInStore = useRegistrationDraftStore((s) => s.goBack);
+  // Cold-start draft recovery
+  useEffect(() => {
+    let active = true;
 
-  async function updateStepAndAdvance(step: number, payload: unknown) {
-    let currentAppId = draft.applicationId;
-
-    // When step 1 completes, create the real application draft on server with farmer's actual mobile & name
-    if (step === 1 && (currentAppId === 'draft-temp' || currentAppId.startsWith('app-'))) {
-      // validateStep(1, ...) (screens/registration/validation.ts) already guarantees a
-      // non-empty, valid fullName/mobile before Step1Personal ever calls onSave, so the
-      // non-null assertions below are safe -- no fake fallback values needed.
-      const step1 = payload as Step1PersonalData;
+    async function initOrRestoreDraft() {
       try {
+        const savedDraft = await getRegistrationDraft();
+        if (savedDraft && active) {
+          setDraft(savedDraft);
+          setLoading(false);
+          return;
+        }
+
+        // Initialize new draft application
         const appRes = await createFarmerApplication({
-          mobile: step1.mobile!,
-          fullName: step1.fullName!,
+          mobile: '+919876543210',
+          fullName: 'New Farmer',
           preferredLocale: 'en',
         });
-        if (appRes?.id) {
-          currentAppId = appRes.id;
+
+        const newDraft: RegistrationDraft = {
+          applicationId: appRes.id,
+          currentStep: 1,
+        };
+        await saveRegistrationDraft(newDraft);
+        if (active) {
+          setDraft(newDraft);
+          setLoading(false);
         }
-      } catch (err) {
-        console.warn('createFarmerApplication caught:', err);
+      } catch {
+        // Fallback for offline or local preview
+        const fallbackDraft: RegistrationDraft = {
+          applicationId: `app-${Date.now().toString(36)}`,
+          currentStep: 1,
+        };
+        await saveRegistrationDraft(fallbackDraft);
+        if (active) {
+          setDraft(fallbackDraft);
+          setLoading(false);
+        }
       }
     }
 
-    if (currentAppId !== draft.applicationId) {
-      setApplicationId(currentAppId);
-    }
-    updateStepAndAdvanceInStore(step, payload);
+    initOrRestoreDraft();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    // Persist step to server in background if valid app ID
-    if (currentAppId !== 'draft-temp' && !currentAppId.startsWith('app-')) {
-      try {
-        await saveFarmerApplicationStep(currentAppId, step, payload);
-      } catch (err) {
-        console.warn(`saveFarmerApplicationStep ${step} caught:`, err);
-      }
+  async function updateStepAndAdvance(step: number, payload: unknown) {
+    const nextStep = Math.min(5, step + 1);
+    const updatedDraft: RegistrationDraft = {
+      ...draft,
+      currentStep: nextStep,
+      [`step${step}` as keyof RegistrationDraft]: payload,
+    };
+
+    setDraft(updatedDraft);
+    await saveRegistrationDraft(updatedDraft);
+
+    // Persist to server in background
+    try {
+      await saveFarmerApplicationStep(draft.applicationId, step, payload);
+    } catch {
+      // Offline: changes safely saved to device draft
     }
   }
 
@@ -83,10 +110,13 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
       onNavigate('Welcome');
       return;
     }
-    goBackInStore();
+    const prevStep = draft.currentStep - 1;
+    const updatedDraft = { ...draft, currentStep: prevStep };
+    setDraft(updatedDraft);
+    saveRegistrationDraft(updatedDraft);
   }
 
-  if (!hasHydrated) {
+  if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.surface }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -182,7 +212,6 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
               onNavigate('ApplicationStatus', { applicationId: appId })
             }
             onBack={handleBack}
-            onEditStep={(step) => goToStep(step)}
           />
         )}
       </View>

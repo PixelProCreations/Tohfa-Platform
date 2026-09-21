@@ -59,22 +59,16 @@ describe('Farmer Mobile Foundation & Lint Guard (S-41)', () => {
   it('asserts no AsyncStorage credential writes', () => {
     const allFiles = getAllFiles(srcDir);
     const violatingFiles: string[] = [];
-    // Scoped to actual credential/session fields, not "touches AsyncStorage at all" -- see
-    // storage/registrationDraft.ts, a sanctioned, non-credential AsyncStorage use (a
-    // registration draft, via zustand's persist middleware) that this guard should not flag.
-    // Farmer auth tokens themselves stay on storage/tokenStorage.ts's Keychain-backed store;
-    // this pattern is what would catch a regression back to AsyncStorage for THAT.
-    const credentialFieldPattern = /accessToken|refreshToken|\bpassword\b/i;
 
     for (const filePath of allFiles) {
       const normalizedPath = filePath.replace(/\\/g, '/');
       if (normalizedPath.includes('/tests/')) continue;
       const content = fs.readFileSync(filePath, 'utf8');
-      const usesAsyncStorage =
+      if (
         content.includes('async-storage') ||
         content.includes('AsyncStorage.setItem') ||
-        content.includes('AsyncStorage.getItem');
-      if (usesAsyncStorage && credentialFieldPattern.test(content)) {
+        content.includes('AsyncStorage.getItem')
+      ) {
         violatingFiles.push(path.relative(srcDir, filePath));
       }
     }

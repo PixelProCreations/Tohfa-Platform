@@ -14,12 +14,10 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { setLocale, type Locale } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
-import { logout } from '../../api/auth';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -33,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   );
 }
 
-function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -47,7 +45,7 @@ function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; c
   );
 }
 
-function TranslateIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+function TranslateIcon({ size = 22, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -68,7 +66,7 @@ function TranslateIcon({ size = 22, color = colors.brandGreen }: { size?: number
   );
 }
 
-function BellIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+function BellIcon({ size = 22, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -89,7 +87,7 @@ function BellIcon({ size = 22, color = colors.brandGreen }: { size?: number; col
   );
 }
 
-function DataStorageIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
+function DataStorageIcon({ size = 22, color = '#0284C7' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -110,7 +108,7 @@ function DataStorageIcon({ size = 22, color = P.sky600 }: { size?: number; color
   );
 }
 
-function LockPasswordIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+function LockPasswordIcon({ size = 22, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="5" y="11" width="14" height="10" rx="2.5" stroke={color} strokeWidth="2" />
@@ -126,7 +124,7 @@ function LockPasswordIcon({ size = 22, color = colors.brandGreen }: { size?: num
   );
 }
 
-function MobilePhoneIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+function MobilePhoneIcon({ size = 22, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="6" y="2" width="12" height="20" rx="3" stroke={color} strokeWidth="2" />
@@ -135,7 +133,7 @@ function MobilePhoneIcon({ size = 22, color = colors.brandGreen }: { size?: numb
   );
 }
 
-function HelpSupportIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+function HelpSupportIcon({ size = 22, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -151,7 +149,7 @@ function HelpSupportIcon({ size = 22, color = colors.brandGreen }: { size?: numb
   );
 }
 
-function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
+function CloseIcon({ size = 20, color = '#374151' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -159,7 +157,7 @@ function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: 
   );
 }
 
-function InfoCircleIcon({ size = 19, color = P.greenDeep8 }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 19, color = '#4E8744' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
@@ -168,7 +166,7 @@ function InfoCircleIcon({ size = 19, color = P.greenDeep8 }: { size?: number; co
   );
 }
 
-function CloudRainIcon({ size = 22, color = P.twBlue600 }: { size?: number; color?: string }) {
+function CloudRainIcon({ size = 22, color = '#2563EB' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -188,7 +186,7 @@ function CloudRainIcon({ size = 22, color = P.twBlue600 }: { size?: number; colo
   );
 }
 
-function LeafOutlineIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+function LeafOutlineIcon({ size = 22, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -208,7 +206,7 @@ function LeafOutlineIcon({ size = 22, color = colors.brandGreen }: { size?: numb
   );
 }
 
-function PriceTagIcon({ size = 22, color = P.twViolet600 }: { size?: number; color?: string }) {
+function PriceTagIcon({ size = 22, color = '#7C3AED' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -223,7 +221,7 @@ function PriceTagIcon({ size = 22, color = P.twViolet600 }: { size?: number; col
   );
 }
 
-function UsersGroupIcon({ size = 22, color = P.brownDeep2 }: { size?: number; color?: string }) {
+function UsersGroupIcon({ size = 22, color = '#8D5B3A' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -249,7 +247,7 @@ function UsersGroupIcon({ size = 22, color = P.brownDeep2 }: { size?: number; co
   );
 }
 
-function CommunityChatIcon({ size = 22, color = P.twStone500 }: { size?: number; color?: string }) {
+function CommunityChatIcon({ size = 22, color = '#78716C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -263,20 +261,6 @@ function CommunityChatIcon({ size = 22, color = P.twStone500 }: { size?: number;
         d="M15 8H5a2 2 0 0 0-2 2v8l3.5-3.5H15a2 2 0 0 0 2-2v-2.5a2 2 0 0 0-2-2Z"
         stroke={color}
         strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SignOutIcon({ size = 20, color = P.twRed600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
-        stroke={color}
-        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -323,7 +307,6 @@ interface SettingsScreenProps {
   onNavigateToChangePassword?: (() => void) | undefined;
   onNavigateToChangeMobile?: (() => void) | undefined;
   onNavigateToAboutSupport?: (() => void) | undefined;
-  onSignOut: () => void;
 }
 
 export function SettingsScreen({
@@ -332,7 +315,6 @@ export function SettingsScreen({
   onNavigateToChangePassword,
   onNavigateToChangeMobile,
   onNavigateToAboutSupport,
-  onSignOut,
 }: SettingsScreenProps): React.JSX.Element {
   const [selectedLocale, setSelectedLocale] = useState<Locale>('en');
 
@@ -369,22 +351,6 @@ export function SettingsScreen({
   const handleSwitchLanguage = (lang: Locale) => {
     setSelectedLocale(lang);
     setLocale(lang);
-  };
-
-  const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of TOHFA?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            await logout();
-            onSignOut();
-          })();
-        },
-      },
-    ]);
   };
 
   const handleClearCache = () => {
@@ -446,7 +412,7 @@ export function SettingsScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>
@@ -457,7 +423,7 @@ export function SettingsScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowBackIcon size={18} color={P.greenDeep1} />
+          <ArrowBackIcon size={18} color="#1E5E2B" />
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>Settings</Text>
@@ -489,7 +455,7 @@ export function SettingsScreen({
             <Text style={styles.profileMeta}>TOHFA-04127 · +91 98420 55031</Text>
           </View>
 
-          <ChevronRightIcon size={18} color={P.twGray400} />
+          <ChevronRightIcon size={18} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* Profile Helper Caption */}
@@ -502,8 +468,8 @@ export function SettingsScreen({
 
         {/* Language Card */}
         <View style={styles.settingCard}>
-          <View style={[styles.iconBox, { backgroundColor: P.lightGreen }]}>
-            <TranslateIcon size={22} color={colors.brandGreen} />
+          <View style={[styles.iconBox, { backgroundColor: '#EAF3DE' }]}>
+            <TranslateIcon size={22} color="#2E7D32" />
           </View>
 
           <View style={styles.settingInfo}>
@@ -559,8 +525,8 @@ export function SettingsScreen({
           accessibilityRole="button"
           accessibilityLabel="Notifications settings"
         >
-          <View style={[styles.iconBox, { backgroundColor: P.lightGreen }]}>
-            <BellIcon size={22} color={colors.brandGreen} />
+          <View style={[styles.iconBox, { backgroundColor: '#EAF3DE' }]}>
+            <BellIcon size={22} color="#2E7D32" />
           </View>
 
           <View style={styles.settingInfo}>
@@ -572,7 +538,7 @@ export function SettingsScreen({
 
           <View style={styles.rightActionRow}>
             <Text style={styles.statusPillGreen}>{activeNotifCount} of 5</Text>
-            <ChevronRightIcon size={18} color={P.twGray400} />
+            <ChevronRightIcon size={18} color="#9CA3AF" />
           </View>
         </TouchableOpacity>
 
@@ -584,8 +550,8 @@ export function SettingsScreen({
           accessibilityRole="button"
           accessibilityLabel="Data and storage settings"
         >
-          <View style={[styles.iconBox, { backgroundColor: P.sky100 }]}>
-            <DataStorageIcon size={22} color={P.sky600} />
+          <View style={[styles.iconBox, { backgroundColor: '#E0F2FE' }]}>
+            <DataStorageIcon size={22} color="#0284C7" />
           </View>
 
           <View style={styles.settingInfo}>
@@ -595,7 +561,7 @@ export function SettingsScreen({
             </Text>
           </View>
 
-          <ChevronRightIcon size={18} color={P.twGray400} />
+          <ChevronRightIcon size={18} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* ── SECTION 2: SECURITY ── */}
@@ -615,15 +581,15 @@ export function SettingsScreen({
           accessibilityRole="button"
           accessibilityLabel="Change password"
         >
-          <View style={[styles.iconBox, { backgroundColor: P.lightGreen }]}>
-            <LockPasswordIcon size={22} color={colors.brandGreen} />
+          <View style={[styles.iconBox, { backgroundColor: '#EAF3DE' }]}>
+            <LockPasswordIcon size={22} color="#2E7D32" />
           </View>
 
           <View style={styles.settingInfo}>
             <Text style={styles.settingTitle}>Change password</Text>
           </View>
 
-          <ChevronRightIcon size={18} color={P.twGray400} />
+          <ChevronRightIcon size={18} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* Change Mobile Number */}
@@ -640,8 +606,8 @@ export function SettingsScreen({
           accessibilityRole="button"
           accessibilityLabel="Change mobile number"
         >
-          <View style={[styles.iconBox, { backgroundColor: P.lightGreen }]}>
-            <MobilePhoneIcon size={22} color={colors.brandGreen} />
+          <View style={[styles.iconBox, { backgroundColor: '#EAF3DE' }]}>
+            <MobilePhoneIcon size={22} color="#2E7D32" />
           </View>
 
           <View style={styles.settingInfo}>
@@ -649,7 +615,7 @@ export function SettingsScreen({
             <Text style={styles.settingSubtitle}>Verified by OTP</Text>
           </View>
 
-          <ChevronRightIcon size={18} color={P.twGray400} />
+          <ChevronRightIcon size={18} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* ── SECTION 3: SUPPORT ── */}
@@ -669,8 +635,8 @@ export function SettingsScreen({
           accessibilityRole="button"
           accessibilityLabel="About and support"
         >
-          <View style={[styles.iconBox, { backgroundColor: P.lightGreen }]}>
-            <HelpSupportIcon size={22} color={colors.brandGreen} />
+          <View style={[styles.iconBox, { backgroundColor: '#EAF3DE' }]}>
+            <HelpSupportIcon size={22} color="#2E7D32" />
           </View>
 
           <View style={styles.settingInfo}>
@@ -680,28 +646,7 @@ export function SettingsScreen({
             </Text>
           </View>
 
-          <ChevronRightIcon size={18} color={P.twGray400} />
-        </TouchableOpacity>
-
-        {/* ── SECTION 4: ACCOUNT ── */}
-        <Text style={styles.sectionHeaderTitle}>ACCOUNT</Text>
-
-        {/* Sign Out */}
-        <TouchableOpacity
-          style={styles.settingCard}
-          activeOpacity={0.85}
-          onPress={handleSignOut}
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-        >
-          <View style={[styles.iconBox, { backgroundColor: P.twRed100 }]}>
-            <SignOutIcon size={22} color={P.twRed600} />
-          </View>
-
-          <View style={styles.settingInfo}>
-            <Text style={[styles.settingTitle, { color: P.twRed600 }]}>Sign out</Text>
-            <Text style={styles.settingSubtitle}>Sign out of your TOHFA account</Text>
-          </View>
+          <ChevronRightIcon size={18} color="#9CA3AF" />
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -734,13 +679,13 @@ export function SettingsScreen({
                 accessibilityLabel="Close notifications"
                 activeOpacity={0.7}
               >
-                <CloseIcon size={16} color={P.twGray500} />
+                <CloseIcon size={16} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
             {/* Disclaimer Info Banner */}
             <View style={styles.notifAlertCard}>
-              <InfoCircleIcon size={18} color={colors.brandGreen} />
+              <InfoCircleIcon size={18} color="#2E7D32" />
               <Text style={styles.notifAlertText}>
                 Turning a category off only stops push alerts for it — reminders, badges and due-dates elsewhere stay untouched.
               </Text>
@@ -753,8 +698,8 @@ export function SettingsScreen({
 
             {/* 1. Weather alerts */}
             <View style={styles.notifRow}>
-              <View style={[styles.notifIconBox, { backgroundColor: P.blueTint1 }]}>
-                <CloudRainIcon size={22} color={P.twBlue600} />
+              <View style={[styles.notifIconBox, { backgroundColor: '#E8F2FD' }]}>
+                <CloudRainIcon size={22} color="#2563EB" />
               </View>
               <View style={styles.notifTextCol}>
                 <Text style={styles.notifTitle}>Weather alerts</Text>
@@ -769,8 +714,8 @@ export function SettingsScreen({
 
             {/* 2. Farm reminders */}
             <View style={styles.notifRow}>
-              <View style={[styles.notifIconBox, { backgroundColor: P.greenTint4 }]}>
-                <LeafOutlineIcon size={22} color={colors.brandGreen} />
+              <View style={[styles.notifIconBox, { backgroundColor: '#EAF5E7' }]}>
+                <LeafOutlineIcon size={22} color="#2E7D32" />
               </View>
               <View style={styles.notifTextCol}>
                 <Text style={styles.notifTitle}>Farm reminders</Text>
@@ -785,8 +730,8 @@ export function SettingsScreen({
 
             {/* 3. Marketing updates */}
             <View style={styles.notifRow}>
-              <View style={[styles.notifIconBox, { backgroundColor: P.violetTint2 }]}>
-                <PriceTagIcon size={22} color={P.twViolet600} />
+              <View style={[styles.notifIconBox, { backgroundColor: '#F3EEFC' }]}>
+                <PriceTagIcon size={22} color="#7C3AED" />
               </View>
               <View style={styles.notifTextCol}>
                 <Text style={styles.notifTitle}>Marketing updates</Text>
@@ -801,8 +746,8 @@ export function SettingsScreen({
 
             {/* 4. Payroll & workforce */}
             <View style={styles.notifRow}>
-              <View style={[styles.notifIconBox, { backgroundColor: P.tanTint10 }]}>
-                <UsersGroupIcon size={22} color={P.brownDeep2} />
+              <View style={[styles.notifIconBox, { backgroundColor: '#F6EFE5' }]}>
+                <UsersGroupIcon size={22} color="#8D5B3A" />
               </View>
               <View style={styles.notifTextCol}>
                 <Text style={styles.notifTitle}>Payroll & workforce</Text>
@@ -817,8 +762,8 @@ export function SettingsScreen({
 
             {/* 5. Community */}
             <View style={styles.notifRow}>
-              <View style={[styles.notifIconBox, { backgroundColor: P.tanTint6 }]}>
-                <CommunityChatIcon size={22} color={P.twStone500} />
+              <View style={[styles.notifIconBox, { backgroundColor: '#F3EFE9' }]}>
+                <CommunityChatIcon size={22} color="#78716C" />
               </View>
               <View style={styles.notifTextCol}>
                 <Text style={styles.notifTitle}>Community</Text>
@@ -844,7 +789,7 @@ export function SettingsScreen({
                 style={styles.modalCloseCircle}
                 onPress={() => setActiveModal(null)}
               >
-                <CloseIcon size={18} color={P.twGray700} />
+                <CloseIcon size={18} color="#374151" />
               </TouchableOpacity>
             </View>
 
@@ -873,7 +818,7 @@ export function SettingsScreen({
                 style={styles.modalCloseCircle}
                 onPress={() => setActiveModal(null)}
               >
-                <CloseIcon size={18} color={P.twGray700} />
+                <CloseIcon size={18} color="#374151" />
               </TouchableOpacity>
             </View>
 
@@ -882,7 +827,7 @@ export function SettingsScreen({
               style={styles.modalTextInput}
               secureTextEntry
               placeholder="Enter current password"
-              placeholderTextColor={P.twGray400}
+              placeholderTextColor="#9CA3AF"
               value={currentPass}
               onChangeText={setCurrentPass}
             />
@@ -892,7 +837,7 @@ export function SettingsScreen({
               style={styles.modalTextInput}
               secureTextEntry
               placeholder="Enter at least 6 characters"
-              placeholderTextColor={P.twGray400}
+              placeholderTextColor="#9CA3AF"
               value={newPass}
               onChangeText={setNewPass}
             />
@@ -902,7 +847,7 @@ export function SettingsScreen({
               style={styles.modalTextInput}
               secureTextEntry
               placeholder="Re-enter new password"
-              placeholderTextColor={P.twGray400}
+              placeholderTextColor="#9CA3AF"
               value={confirmPass}
               onChangeText={setConfirmPass}
             />
@@ -930,7 +875,7 @@ export function SettingsScreen({
                   setActiveModal(null);
                 }}
               >
-                <CloseIcon size={18} color={P.twGray700} />
+                <CloseIcon size={18} color="#374151" />
               </TouchableOpacity>
             </View>
 
@@ -940,7 +885,7 @@ export function SettingsScreen({
               keyboardType="phone-pad"
               maxLength={10}
               placeholder="e.g. 9842055031"
-              placeholderTextColor={P.twGray400}
+              placeholderTextColor="#9CA3AF"
               value={newMobile}
               onChangeText={setNewMobile}
               editable={!otpSent}
@@ -954,7 +899,7 @@ export function SettingsScreen({
                   keyboardType="number-pad"
                   maxLength={6}
                   placeholder="Enter OTP code"
-                  placeholderTextColor={P.twGray400}
+                  placeholderTextColor="#9CA3AF"
                   value={otpCode}
                   onChangeText={setOtpCode}
                 />
@@ -983,7 +928,7 @@ export function SettingsScreen({
                 style={styles.modalCloseCircle}
                 onPress={() => setActiveModal(null)}
               >
-                <CloseIcon size={18} color={P.twGray700} />
+                <CloseIcon size={18} color="#374151" />
               </TouchableOpacity>
             </View>
 
@@ -1022,7 +967,7 @@ export function SettingsScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
 
   // Header
@@ -1032,19 +977,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: P.twGray200,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -1056,18 +1001,18 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
     marginTop: 1,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: P.tanTint3,
+    backgroundColor: '#F0ECE1',
   },
 
   // Scroll View
@@ -1084,12 +1029,12 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 16,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -1099,13 +1044,13 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: P.greenDeep1,
+    backgroundColor: '#1E5E2B',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   avatarText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1115,22 +1060,22 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 2,
   },
   profileFarm: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
   },
   profileMeta: {
     fontSize: 11.5,
-    color: P.greyMid2,
+    color: '#8C9088',
     marginTop: 2,
   },
   profileCaption: {
     fontSize: 11.5,
-    color: P.greyMid2,
+    color: '#8C9088',
     marginTop: 8,
     marginBottom: 16,
     paddingHorizontal: 4,
@@ -1140,7 +1085,7 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: P.greyMid1,
+    color: '#718274',
     letterSpacing: 0.8,
     marginTop: 6,
     marginBottom: 10,
@@ -1150,13 +1095,13 @@ const styles = StyleSheet.create({
   settingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 14,
     marginBottom: 10,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 4,
@@ -1176,18 +1121,18 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 2,
   },
   settingSubtitle: {
     fontSize: 12,
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Language Segmented Switcher
   langSegmentedContainer: {
     flexDirection: 'row',
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderRadius: 16,
     padding: 3,
   },
@@ -1197,8 +1142,8 @@ const styles = StyleSheet.create({
     borderRadius: 13,
   },
   langSegmentActive: {
-    backgroundColor: P.weatherCloudWhite,
-    shadowColor: P.nearBlackDark1,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 2,
@@ -1207,10 +1152,10 @@ const styles = StyleSheet.create({
   langSegmentText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: P.twGray500,
+    color: '#6B7280',
   },
   langSegmentTextActive: {
-    color: colors.textDark,
+    color: '#1A2E1A',
     fontWeight: '800',
   },
 
@@ -1223,7 +1168,7 @@ const styles = StyleSheet.create({
   statusPillGreen: {
     fontSize: 12,
     fontWeight: '700',
-    color: P.greenDeep1,
+    color: '#1E5E2B',
   },
 
   // Modal Styles
@@ -1233,7 +1178,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 20,
@@ -1246,23 +1191,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: P.tanTint3,
+    borderBottomColor: '#F0ECE1',
   },
   modalTitle: {
     fontSize: 16.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   modalCloseCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: P.twGray100,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   notifModalCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -1273,7 +1218,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 4.5,
     borderRadius: 2.5,
-    backgroundColor: P.twGray300,
+    backgroundColor: '#D1D5DB',
     alignSelf: 'center',
     marginBottom: 16,
   },
@@ -1286,13 +1231,13 @@ const styles = StyleSheet.create({
   notifSheetTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: P.nearBlackDark4,
+    color: '#132514',
   },
   notifAlertCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: P.greenTint2,
-    borderColor: P.greenTint6,
+    backgroundColor: '#EDF6E8',
+    borderColor: '#D5E9CC',
     borderWidth: 1,
     borderRadius: 13,
     paddingHorizontal: 12,
@@ -1304,13 +1249,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     lineHeight: 16.5,
-    color: P.greenDeep9,
+    color: '#3B6334',
     fontWeight: '500',
   },
   notifCountHeader: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: P.greenDeep10,
+    color: '#205B28',
     marginBottom: 12,
   },
   notifRow: {
@@ -1333,11 +1278,11 @@ const styles = StyleSheet.create({
   notifTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: P.nearBlackDark2,
+    color: '#162616',
   },
   notifSub: {
     fontSize: 12,
-    color: P.greyMid4,
+    color: '#7D8C80',
     marginTop: 2,
   },
   customToggleTrack: {
@@ -1348,18 +1293,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   customToggleTrackOn: {
-    backgroundColor: colors.brandGreen,
+    backgroundColor: '#2E7D32',
   },
   customToggleTrackOff: {
-    backgroundColor: P.twGray300,
+    backgroundColor: '#D1D5DB',
   },
   customToggleThumb: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     elevation: 2,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.18,
     shadowRadius: 2,
@@ -1375,91 +1320,91 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: P.creamTint3,
+    borderBottomColor: '#F9F8F5',
   },
   switchLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   switchSub: {
     fontSize: 12,
-    color: P.greyMid1,
+    color: '#718274',
     marginTop: 2,
   },
   modalPrimaryBtn: {
-    backgroundColor: P.greenDeep1,
+    backgroundColor: '#1E5E2B',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 18,
   },
   modalPrimaryBtnText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
   storageInfoBox: {
-    backgroundColor: P.twSky50,
+    backgroundColor: '#F0F9FF',
     borderRadius: 14,
     padding: 16,
     alignItems: 'center',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: P.twSky200,
+    borderColor: '#BAE6FD',
   },
   storageValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: P.sky600,
+    color: '#0284C7',
     marginBottom: 4,
   },
   storageLabel: {
     fontSize: 12.5,
-    color: P.twSky700,
+    color: '#0369A1',
     fontWeight: '500',
   },
   modalDangerBtn: {
-    backgroundColor: P.twRed100,
+    backgroundColor: '#FEE2E2',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   modalDangerBtnText: {
-    color: P.twRed600,
+    color: '#DC2626',
     fontSize: 14,
     fontWeight: '800',
   },
   inputLabel: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginTop: 10,
     marginBottom: 4,
   },
   modalTextInput: {
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   supportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: P.tanTint3,
+    borderBottomColor: '#F0ECE1',
   },
   supportLabel: {
     fontSize: 13,
-    color: P.greyMid1,
+    color: '#718274',
     fontWeight: '500',
   },
   supportValue: {
     fontSize: 13,
-    color: colors.textDark,
+    color: '#1A2E1A',
     fontWeight: '700',
   },
 });

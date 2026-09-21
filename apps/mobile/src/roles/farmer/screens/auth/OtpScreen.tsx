@@ -39,12 +39,6 @@ interface OtpScreenProps {
   resendAvailableAt?: string | undefined;
   attemptsRemaining?: number | undefined;
   purpose?: 'LOGIN' | 'PASSWORD_RESET';
-  /**
-   * BR-39, optional. Set only when this OTP challenge was requested to
-   * complete an OAuth link (see `LoginScreen.tsx`'s `onSocialLogin`,
-   * NOT_LINKED branch). Passed through unchanged to `verifyOtp()`.
-   */
-  linkToken?: string | undefined;
   onNavigate: (
     screen: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
     params?: Record<string, string | number | undefined>
@@ -57,7 +51,6 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
   resendAvailableAt: initialResendAvailableAt,
   attemptsRemaining: initialAttemptsRemaining = 3,
   purpose = 'LOGIN',
-  linkToken,
   onNavigate,
 }) => {
   const [activeChallengeId, setActiveChallengeId] = useState(initialChallengeId || '');
@@ -94,20 +87,8 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
     setErrorMsg(null);
 
     try {
-      // BR-39: `linkToken`, when present, tells the server to link (or
-      // create-and-link) the OAuth identity that started this OTP challenge
-      // atomically with this verify call. Its `oauthProfile` result field
-      // (fullName/email/photoUrl the provider returned) is intentionally not
-      // consumed here — see this task's sub-agent report for why routing a
-      // brand-new OAuth-created account into the farmer registration wizard
-      // was left unimplemented rather than guessed. Every verify outcome,
-      // linked or not, proceeds through the same existing post-login route.
-      await verifyOtp({
-        challengeId: activeChallengeId,
-        code,
-        ...(linkToken !== undefined ? { linkToken } : {}),
-      });
-
+      const res = await verifyOtp({ challengeId: activeChallengeId, code });
+      
       const me = await fetchMe();
       const route = resolveRouteAfterAuth(me);
       onNavigate(route.name, route.params);

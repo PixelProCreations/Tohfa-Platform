@@ -19,11 +19,7 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
 
-    // "geojson" is here deliberately, not by accident: @rnmapbox/maps'
-    // (FarmBoundaryMap.tsx) own public prop types reference the ambient
-    // `GeoJSON.*` namespace (e.g. MapView's onPress). Without this, that
-    // namespace is simply undeclared anywhere in this package's compile.
-    "types": ["react", "geojson"],
+    "types": ["react"],
     "baseUrl": ".",
     "paths": {
       "@tohfa/design-tokens": ["../design-tokens/src/index.ts"]

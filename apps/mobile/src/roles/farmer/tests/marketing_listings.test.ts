@@ -1,13 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
-import { createKeychainMock } from '../../../tests/mocks/keychainMock';
-
-// api/listings.ts -> api/client.ts -> storage/tokenStorage.ts imports react-native-keychain,
-// whose real module transitively requires('react-native') -- react-native's own index.js uses
-// Flow's `import typeof` syntax, which is unparseable outside Metro/Babel. This test never
-// exercises token storage directly, but the import chain still needs a mock or module load
-// itself throws before any test body runs.
-vi.mock('react-native-keychain', () => createKeychainMock());
-
+import { describe, it, expect } from 'vitest';
 import {
   evalListingCeiling,
   canCounterBack,

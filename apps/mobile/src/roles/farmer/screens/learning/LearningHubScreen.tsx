@@ -11,11 +11,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, authPalette as P } from '../../theme';
+import { authPalette as P, colors } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -29,7 +29,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   );
 }
 
-function SearchIcon({ size = 18, color = P.greyMid2 }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = '#8C9088' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -38,7 +38,15 @@ function SearchIcon({ size = 18, color = P.greyMid2 }: { size?: number; color?: 
   );
 }
 
-function PlayTriangleOutlineIcon({ size = 22, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function PlayTriangleFilledIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M8 5v14l11-7L8 5z" fill={color} />
+    </Svg>
+  );
+}
+
+function PlayTriangleOutlineIcon({ size = 22, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -52,7 +60,7 @@ function PlayTriangleOutlineIcon({ size = 22, color = P.greenDeep1 }: { size?: n
   );
 }
 
-function PlayCircleMiniIcon({ size = 26, color = P.weatherCloudWhite }: { size?: number; color?: string }) {
+function PlayCircleMiniIcon({ size = 26, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
@@ -64,7 +72,7 @@ function PlayCircleMiniIcon({ size = 26, color = P.weatherCloudWhite }: { size?:
   );
 }
 
-function VerifiedBadgeIcon({ size = 15, color = colors.brandGreen }: { size?: number; color?: string }) {
+function VerifiedBadgeIcon({ size = 15, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -79,7 +87,7 @@ function VerifiedBadgeIcon({ size = 15, color = colors.brandGreen }: { size?: nu
   );
 }
 
-function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
+function CloseIcon({ size = 20, color = '#374151' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -87,7 +95,7 @@ function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: 
   );
 }
 
-function BookOpenIcon({ size = 20, color = colors.brandGreen }: { size?: number; color?: string }) {
+function BookOpenIcon({ size = 20, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -96,7 +104,7 @@ function BookOpenIcon({ size = 20, color = colors.brandGreen }: { size?: number;
   );
 }
 
-function CheckmarkIcon({ size = 13, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function CheckmarkIcon({ size = 13, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -110,7 +118,7 @@ function CheckmarkIcon({ size = 13, color = P.greenDeep1 }: { size?: number; col
   );
 }
 
-function GroupUsersIcon({ size = 22, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function GroupUsersIcon({ size = 22, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="8" r="3.2" stroke={color} strokeWidth="2" />
@@ -121,7 +129,7 @@ function GroupUsersIcon({ size = 22, color = P.greenDeep1 }: { size?: number; co
   );
 }
 
-function MedalRibbonIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
+function MedalRibbonIcon({ size = 22, color = '#0284C7' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="8.5" r="5.5" stroke={color} strokeWidth="2" />
@@ -131,7 +139,7 @@ function MedalRibbonIcon({ size = 22, color = P.sky600 }: { size?: number; color
   );
 }
 
-function PestBugIcon({ size = 22, color = P.twOrange600 }: { size?: number; color?: string }) {
+function PestBugIcon({ size = 22, color = '#EA580C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="8" y="8" width="8" height="10" rx="4" stroke={color} strokeWidth="2" />
@@ -141,7 +149,7 @@ function PestBugIcon({ size = 22, color = P.twOrange600 }: { size?: number; colo
   );
 }
 
-function MountainTerraceIcon({ size = 22, color = P.brownDeep1 }: { size?: number; color?: string }) {
+function MountainTerraceIcon({ size = 22, color = '#85582E' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 19l6.5-10L14 16l3.5-5 3.5 8H3z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -149,7 +157,7 @@ function MountainTerraceIcon({ size = 22, color = P.brownDeep1 }: { size?: numbe
   );
 }
 
-function BanknotesCashIcon({ size = 22, color = P.twViolet600 }: { size?: number; color?: string }) {
+function BanknotesCashIcon({ size = 22, color = '#7C3AED' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="16" height="12" rx="2.5" stroke={color} strokeWidth="2" />
@@ -159,7 +167,7 @@ function BanknotesCashIcon({ size = 22, color = P.twViolet600 }: { size?: number
   );
 }
 
-function CalendarCheckIcon({ size = 20, color = colors.brandGreen }: { size?: number; color?: string }) {
+function CalendarCheckIcon({ size = 20, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -190,7 +198,7 @@ const FEATURED_VIDEO: VideoItem = {
   author: 'TOHFA Field Team',
   date: '20 Jul 2026',
   duration: '6:30',
-  bgColor: P.greenDeep1,
+  bgColor: '#1E5E2B',
   isFeatured: true,
   description:
     'A complete step-by-step field guide on laying drip emitter lines along slope contours in terraced vegetable plots to prevent erosion and achieve 40% water savings.',
@@ -203,7 +211,7 @@ const LATEST_VIDEOS: VideoItem[] = [
     author: 'Muthu K.',
     date: '14 Jul 2026',
     duration: '8:15',
-    bgColor: colors.brandGreen,
+    bgColor: '#2E7D32',
     description:
       'Master the traditional formula for organic microbial bio-fertilizer using local cow dung, urine, jaggery, and pulse flour.',
   },
@@ -213,7 +221,7 @@ const LATEST_VIDEOS: VideoItem[] = [
     author: 'Dr. Anand',
     date: '09 Jul 2026',
     duration: '4:50',
-    bgColor: P.greenDeep4,
+    bgColor: '#6E8B2A',
     description:
       'Learn the precise oil-to-water ratio with natural soap emulsifier to protect cruciferous crops from whitefly and aphids without leaf burn.',
   },
@@ -223,7 +231,7 @@ const LATEST_VIDEOS: VideoItem[] = [
     author: 'TOHFA Field Team',
     date: '02 Jul 2026',
     duration: '11:20',
-    bgColor: P.brownDeep1,
+    bgColor: '#85582E',
     description:
       'Techniques for regulating moisture levels, temperature checks, and gentle worm harvesting for high-potency organic castings.',
   },
@@ -233,7 +241,7 @@ const LATEST_VIDEOS: VideoItem[] = [
     author: 'Kavitha R.',
     date: '28 Jun 2026',
     duration: '7:40',
-    bgColor: P.greenDeep1,
+    bgColor: '#1E5E2B',
     description:
       'Interplanting marigolds and basil alongside tomato rows to repel nematodes and attract beneficial pollinator insects.',
   },
@@ -490,6 +498,31 @@ export function LearningHubScreen({
     );
   };
 
+  const handleOpenTrainingVideo = (training: TrainingWorkshop) => {
+    const detailItem: ContentDetailItem = {
+      id: `training-${training.id}`,
+      title: training.title,
+      author: training.instructor,
+      date: training.date,
+      duration: training.mode === 'Online Webinar' ? '45:00' : '1:15:00',
+      type: 'Video',
+      bgColor: training.mode === 'Online Webinar' ? '#1E3A8A' : '#2E7D32',
+      paragraphs: [
+        `Complete recorded session of "${training.title}" hosted by ${training.instructor}.`,
+        `Format: ${training.mode} · Location: ${training.location} · Timing: ${training.time}.`,
+        'Watch the high-definition practical demonstration, instructor guidance, and step-by-step methods for organic agricultural plots.',
+      ],
+      likesCount: 54,
+      commentsCount: 9,
+    };
+
+    if (onNavigateToContentDetail) {
+      onNavigateToContentDetail(detailItem);
+    } else {
+      setActiveContentDetail(detailItem);
+    }
+  };
+
   const toggleTrainingRegistration = (trainingId: string) => {
     setTrainings((prev) =>
       prev.map((t) => (t.id === trainingId ? { ...t, isRegistered: !t.isRegistered } : t))
@@ -498,7 +531,7 @@ export function LearningHubScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Top Header Bar ── */}
       <View style={styles.header}>
@@ -509,7 +542,7 @@ export function LearningHubScreen({
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ArrowBackIcon size={18} color={P.greenDeep1} />
+          <ArrowBackIcon size={18} color="#1E5E2B" />
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>Learning Hub</Text>
@@ -524,7 +557,7 @@ export function LearningHubScreen({
       >
         {/* ── Search Input ── */}
         <View style={styles.searchContainer}>
-          <SearchIcon size={18} color={P.greyMid2} />
+          <SearchIcon size={18} color="#8C9088" />
           <TextInput
             style={styles.searchInput}
             placeholder={
@@ -536,14 +569,14 @@ export function LearningHubScreen({
                 ? 'Search farmer groups...'
                 : 'Search workshops & trainings...'
             }
-            placeholderTextColor={P.greyMid2}
+            placeholderTextColor="#8C9088"
             value={searchQuery}
             onChangeText={setSearchQuery}
             accessibilityLabel="Search learning content"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-              <CloseIcon size={16} color={P.greyMid2} />
+              <CloseIcon size={16} color="#8C9088" />
             </TouchableOpacity>
           )}
         </View>
@@ -590,7 +623,7 @@ export function LearningHubScreen({
 
                   {/* Play Button */}
                   <View style={styles.featuredPlayCircle}>
-                    <PlayTriangleOutlineIcon size={24} color={P.greenDeep1} />
+                    <PlayTriangleOutlineIcon size={24} color="#1E5E2B" />
                   </View>
 
                   {/* Duration Badge */}
@@ -603,7 +636,7 @@ export function LearningHubScreen({
                 <View style={styles.featuredInfo}>
                   <Text style={styles.featuredTitle}>{FEATURED_VIDEO.title}</Text>
                   <View style={styles.authorRow}>
-                    <VerifiedBadgeIcon size={14} color={colors.brandGreen} />
+                    <VerifiedBadgeIcon size={14} color="#2E7D32" />
                     <Text style={styles.authorText}>
                       {FEATURED_VIDEO.author} · {FEATURED_VIDEO.date}
                     </Text>
@@ -627,7 +660,7 @@ export function LearningHubScreen({
               >
                 {/* Thumbnail */}
                 <View style={[styles.videoThumbnail, { backgroundColor: video.bgColor }]}>
-                  <PlayCircleMiniIcon size={24} color={P.weatherCloudWhite} />
+                  <PlayCircleMiniIcon size={24} color="#FFFFFF" />
                   <View style={styles.videoDurationBadge}>
                     <Text style={styles.videoDurationText}>{video.duration}</Text>
                   </View>
@@ -678,7 +711,7 @@ export function LearningHubScreen({
                   {article.snippet}
                 </Text>
                 <View style={styles.articleFooter}>
-                  <BookOpenIcon size={14} color={colors.brandGreen} />
+                  <BookOpenIcon size={14} color="#2E7D32" />
                   <Text style={styles.articleAuthor}>
                     {article.author} · {article.date}
                   </Text>
@@ -756,28 +789,21 @@ export function LearningHubScreen({
                 </View>
                 <Text style={styles.trainingTitle}>{training.title}</Text>
                 <View style={styles.trainingDetailRow}>
-                  <CalendarCheckIcon size={14} color={P.twGray500} />
+                  <CalendarCheckIcon size={14} color="#6B7280" />
                   <Text style={styles.trainingDetailText}>{training.time}</Text>
                 </View>
                 <Text style={styles.trainingLocationText}>Location: {training.location}</Text>
                 <Text style={styles.trainingInstructorText}>Instructor: {training.instructor}</Text>
 
                 <TouchableOpacity
-                  style={[
-                    styles.trainingRegisterBtn,
-                    training.isRegistered && styles.trainingRegisteredBtn,
-                  ]}
-                  onPress={() => toggleTrainingRegistration(training.id)}
+                  style={styles.trainingPlayBtn}
+                  onPress={() => handleOpenTrainingVideo(training)}
                   activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Play video for ${training.title}`}
                 >
-                  <Text
-                    style={[
-                      styles.trainingRegisterBtnText,
-                      training.isRegistered && styles.trainingRegisteredBtnText,
-                    ]}
-                  >
-                    {training.isRegistered ? '✓ Registered' : 'Register for Session'}
-                  </Text>
+                  <PlayTriangleFilledIcon size={16} color="#FFFFFF" />
+                  <Text style={styles.trainingPlayBtnText}>Play Session Video</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -798,7 +824,7 @@ export function LearningHubScreen({
                 style={styles.modalCloseCircle}
                 onPress={() => setSelectedBlog(null)}
               >
-                <CloseIcon size={18} color={P.twGray700} />
+                <CloseIcon size={18} color="#374151" />
               </TouchableOpacity>
             </View>
 
@@ -833,7 +859,7 @@ export function LearningHubScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
 
   // Header
@@ -843,19 +869,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: P.twGray200,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -867,13 +893,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
     marginTop: 1,
   },
 
@@ -891,16 +917,18 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.tanTint1,
-    borderRadius: 14,
+    backgroundColor: P.twGray50,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    height: 46,
+    height: 44,
     marginBottom: 14,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: colors.textDark,
+    color: P.twGray900,
     marginLeft: 10,
     paddingVertical: 0,
   },
@@ -911,9 +939,9 @@ const styles = StyleSheet.create({
   // Segmented Tabs Bar
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: P.tanTint1,
-    borderRadius: 22,
-    padding: 3,
+    backgroundColor: P.twGray100,
+    borderRadius: 14,
+    padding: 4,
     marginBottom: 18,
   },
   tabItem: {
@@ -921,35 +949,35 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
+    borderRadius: 10,
   },
   tabItemActive: {
-    backgroundColor: P.weatherCloudWhite,
-    shadowColor: P.nearBlackDark1,
+    backgroundColor: colors.brandGreen,
+    shadowColor: colors.brandGreen,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.18,
     shadowRadius: 3,
     elevation: 2,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: P.twGray500,
+    color: P.twGray600,
   },
   tabTextActive: {
-    color: colors.textDark,
-    fontWeight: '800',
+    color: colors.white,
+    fontWeight: '700',
   },
 
   // Featured Video Card
   featuredCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     overflow: 'hidden',
     marginBottom: 16,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -972,8 +1000,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   featuredBadgeText: {
-    color: P.weatherCloudWhite,
-    fontSize: 10,
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
@@ -981,11 +1010,11 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 3,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -1001,7 +1030,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   durationBadgeText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1011,7 +1040,7 @@ const styles = StyleSheet.create({
   featuredTitle: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 21,
     marginBottom: 6,
   },
@@ -1023,14 +1052,14 @@ const styles = StyleSheet.create({
   authorText: {
     fontSize: 12,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Section Headers
   sectionHeaderTitle: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: P.greyMid1,
+    color: '#718274',
     letterSpacing: 0.8,
     marginTop: 8,
     marginBottom: 12,
@@ -1039,15 +1068,15 @@ const styles = StyleSheet.create({
   // Latest Videos List Items
   videoCard: {
     flexDirection: 'row',
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 12,
     alignItems: 'center',
     gap: 12,
     marginBottom: 12,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -1071,8 +1100,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   videoDurationText: {
-    color: P.weatherCloudWhite,
-    fontSize: 9.5,
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '700',
   },
   videoDetails: {
@@ -1082,14 +1112,14 @@ const styles = StyleSheet.create({
   videoTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 18,
     marginBottom: 4,
   },
   videoSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Empty State
@@ -1100,12 +1130,12 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 4,
   },
   emptyStateSubtitle: {
     fontSize: 13,
-    color: P.greyMid1,
+    color: '#718274',
     textAlign: 'center',
   },
 
@@ -1116,13 +1146,13 @@ const styles = StyleSheet.create({
 
   // Blog Tab
   articleCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 16,
     marginBottom: 14,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -1135,7 +1165,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   articleTagPill: {
-    backgroundColor: P.lightGreen,
+    backgroundColor: '#EAF3DE',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1143,22 +1173,22 @@ const styles = StyleSheet.create({
   articleTagText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.brandGreen,
+    color: '#2E7D32',
   },
   articleReadTime: {
     fontSize: 11.5,
-    color: P.greyMid2,
+    color: '#8C9088',
   },
   articleTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 20,
     marginBottom: 6,
   },
   articleSnippet: {
     fontSize: 12.5,
-    color: P.twGray600,
+    color: '#4B5563',
     lineHeight: 18,
     marginBottom: 10,
   },
@@ -1169,17 +1199,17 @@ const styles = StyleSheet.create({
   },
   articleAuthor: {
     fontSize: 11.5,
-    color: P.greyMid1,
+    color: '#718274',
   },
 
   // Groups Tab
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 14,
     marginBottom: 12,
     gap: 12,
@@ -1188,7 +1218,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: P.lightGreen,
+    backgroundColor: '#EAF3DE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1198,65 +1228,65 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: 14,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 2,
   },
   groupSubtitle: {
     fontSize: 12,
-    color: P.greyMid1,
+    color: '#718274',
   },
   groupActionBtn: {
-    backgroundColor: colors.brandGreen,
+    backgroundColor: '#2E7D32',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 14,
   },
   groupActionBtnJoined: {
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
   },
   groupActionBtnText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
   groupActionBtnTextJoined: {
-    color: colors.brandGreen,
+    color: '#2E7D32',
   },
   joinedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: P.lightGreen,
+    backgroundColor: '#EAF3DE',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
   },
   joinedBadgeText: {
-    color: P.greenDeep1,
+    color: '#1E5E2B',
     fontSize: 12,
     fontWeight: '700',
   },
   joinButton: {
-    backgroundColor: colors.brandGreen,
+    backgroundColor: '#2E7D32',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
   },
   joinButtonText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
 
   // Trainings Tab
   trainingCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: P.tanTint2,
+    borderColor: '#ECE8DD',
     padding: 16,
     marginBottom: 14,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
@@ -1269,31 +1299,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   trainingModePill: {
-    backgroundColor: P.twEmerald100,
+    backgroundColor: '#D1FAE5',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   trainingModeOnline: {
-    backgroundColor: P.twBlue100,
+    backgroundColor: '#DBEAFE',
   },
   trainingModeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: P.twEmerald800,
+    color: '#065F46',
   },
   trainingModeTextOnline: {
-    color: P.twBlue800,
+    color: '#1E40AF',
   },
   trainingDate: {
     fontSize: 12,
     fontWeight: '700',
-    color: P.greenDeep1,
+    color: '#1E5E2B',
   },
   trainingTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 20,
     marginBottom: 8,
   },
@@ -1305,35 +1335,32 @@ const styles = StyleSheet.create({
   },
   trainingDetailText: {
     fontSize: 12,
-    color: P.twGray600,
+    color: '#4B5563',
   },
   trainingLocationText: {
     fontSize: 12,
-    color: P.twGray600,
+    color: '#4B5563',
     marginBottom: 4,
   },
   trainingInstructorText: {
     fontSize: 12,
-    color: P.twGray700,
+    color: '#374151',
     fontWeight: '500',
     marginBottom: 12,
   },
-  trainingRegisterBtn: {
-    backgroundColor: colors.brandGreen,
-    paddingVertical: 10,
-    borderRadius: 12,
+  trainingPlayBtn: {
+    backgroundColor: '#2E7D32',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  trainingRegisteredBtn: {
-    backgroundColor: P.lightGreen,
-  },
-  trainingRegisterBtnText: {
-    color: P.weatherCloudWhite,
-    fontSize: 13,
+  trainingPlayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
     fontWeight: '700',
-  },
-  trainingRegisteredBtnText: {
-    color: colors.brandGreen,
   },
 
   // Video Player Modal
@@ -1343,7 +1370,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   videoPlayerCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     maxHeight: '90%',
@@ -1356,18 +1383,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: P.twGray100,
+    borderBottomColor: '#F3F4F6',
   },
   playerHeaderTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   modalCloseCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: P.twGray100,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1399,7 +1426,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   playerTimeText: {
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1413,11 +1440,12 @@ const styles = StyleSheet.create({
   playerProgressFill: {
     width: '35%',
     height: '100%',
-    backgroundColor: P.twGreen400,
+    backgroundColor: '#4ADE80',
   },
   playerHdBadge: {
-    color: P.weatherCloudWhite,
-    fontSize: 10,
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '800',
     backgroundColor: 'rgba(0,0,0,0.4)',
     paddingHorizontal: 4,
@@ -1430,7 +1458,7 @@ const styles = StyleSheet.create({
   playerTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 23,
     marginBottom: 6,
   },
@@ -1442,23 +1470,23 @@ const styles = StyleSheet.create({
   },
   playerAuthorText: {
     fontSize: 12.5,
-    color: P.greyMid1,
+    color: '#718274',
     fontWeight: '500',
   },
   playerDescLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 4,
   },
   playerDescText: {
     fontSize: 13,
-    color: P.twGray600,
+    color: '#4B5563',
     lineHeight: 19,
     marginBottom: 14,
   },
   takeawayBox: {
-    backgroundColor: P.tanTint1,
+    backgroundColor: '#F3EFE6',
     borderRadius: 12,
     padding: 12,
     marginBottom: 20,
@@ -1466,18 +1494,18 @@ const styles = StyleSheet.create({
   takeawayTitle: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 4,
   },
   takeawayText: {
     fontSize: 12,
-    color: P.twGray600,
+    color: '#4B5563',
     lineHeight: 17,
   },
 
   // Blog Reader Modal
   blogReaderCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     maxHeight: '90%',
@@ -1489,24 +1517,24 @@ const styles = StyleSheet.create({
   blogReaderTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textDark,
+    color: '#1A2E1A',
     lineHeight: 24,
     marginTop: 10,
     marginBottom: 8,
   },
   blogReaderMeta: {
     fontSize: 12,
-    color: P.greyMid1,
+    color: '#718274',
     marginBottom: 14,
   },
   blogContentDivider: {
     height: 1,
-    backgroundColor: P.twGray100,
+    backgroundColor: '#F3F4F6',
     marginBottom: 14,
   },
   blogParagraph: {
     fontSize: 14,
-    color: P.twGray700,
+    color: '#374151',
     lineHeight: 22,
     marginBottom: 14,
   },

@@ -12,7 +12,7 @@ import {
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
-import { authPalette as P, colors, radius, spacing } from '../../theme';
+import { colors, radius, spacing } from '../../theme';
 import { formatSafeDate } from '../../polyfills';
 import {
   dateFromCalendarDay,
@@ -49,43 +49,43 @@ const CALENDAR_THEME = {
 
 const ChevronLeft = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M15 18L9 12L15 6" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const ToolsIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" stroke={P.weatherCloudWhite} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const CalendarIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x="3" y="4" width="18" height="18" rx="2" stroke={colors.textSubtle} strokeWidth="2" />
-    <Line x1="3" y1="10" x2="21" y2="10" stroke={colors.textSubtle} strokeWidth="2" />
-    <Line x1="8" y1="2" x2="8" y2="6" stroke={colors.textSubtle} strokeWidth="2" strokeLinecap="round" />
-    <Line x1="16" y1="2" x2="16" y2="6" stroke={colors.textSubtle} strokeWidth="2" strokeLinecap="round" />
+    <Rect x="3" y="4" width="18" height="18" rx="2" stroke="#6B7566" strokeWidth="2" />
+    <Line x1="3" y1="10" x2="21" y2="10" stroke="#6B7566" strokeWidth="2" />
+    <Line x1="8" y1="2" x2="8" y2="6" stroke="#6B7566" strokeWidth="2" strokeLinecap="round" />
+    <Line x1="16" y1="2" x2="16" y2="6" stroke="#6B7566" strokeWidth="2" strokeLinecap="round" />
   </Svg>
 );
 
 const InfoIcon = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="9" stroke={P.twGray400} strokeWidth="2" />
-    <Line x1="12" y1="16" x2="12" y2="12" stroke={P.twGray400} strokeWidth="2" strokeLinecap="round" />
-    <Circle cx="12" cy="8" r="1" fill={P.twGray400} />
+    <Circle cx="12" cy="12" r="9" stroke="#9CA3AF" strokeWidth="2" />
+    <Line x1="12" y1="16" x2="12" y2="12" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+    <Circle cx="12" cy="8" r="1" fill="#9CA3AF" />
   </Svg>
 );
 
 const CheckIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M5 13L9 17L19 7" stroke={P.weatherCloudWhite} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const PlusIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Line x1="12" y1="5" x2="12" y2="19" stroke={P.weatherCloudWhite} strokeWidth="2.5" strokeLinecap="round" />
-    <Line x1="5" y1="12" x2="19" y2="12" stroke={P.weatherCloudWhite} strokeWidth="2.5" strokeLinecap="round" />
+    <Line x1="12" y1="5" x2="12" y2="19" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" />
+    <Line x1="5" y1="12" x2="19" y2="12" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" />
   </Svg>
 );
 
@@ -167,7 +167,7 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
             value={name}
             onChangeText={setName}
             placeholder="e.g. Pruning Shears"
-            placeholderTextColor={P.legal}
+            placeholderTextColor="#B8B6AA"
           />
         </View>
 
@@ -200,7 +200,7 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
             value={serviceInterval}
             onChangeText={setServiceInterval}
             placeholder="e.g. 90"
-            placeholderTextColor={P.legal}
+            placeholderTextColor="#B8B6AA"
             keyboardType="numeric"
           />
         </View>
@@ -293,7 +293,7 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: P.creamTint1,
+    backgroundColor: '#FAFAF7',
   },
 
   // Header
@@ -302,15 +302,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
+    borderBottomColor: '#F0EEE6',
   },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: P.paleMintBg,
+    backgroundColor: '#F0FFF0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -321,19 +321,19 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     letterSpacing: 0.3,
   },
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    color: colors.textSubtle,
+    color: '#6B7566',
     marginTop: 1,
   },
   cancelText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.brandGreen,
+    color: '#2E7D32',
   },
 
   // Scroll
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   categoryBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.brandGreen,
+    backgroundColor: '#2E7D32',
     borderRadius: 12,
     padding: 14,
     marginBottom: 24,
@@ -370,12 +370,12 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
   },
   categorySubtitle: {
     fontSize: 12,
     fontWeight: '400',
-    color: P.green100,
+    color: '#C8E6C9',
     marginTop: 1,
   },
 
@@ -383,18 +383,18 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 8,
   },
   required: {
-    color: P.twRed600,
+    color: '#DC2626',
     fontWeight: '600',
   },
   inputContainer: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: '#E8E6DD',
     paddingHorizontal: 14,
     paddingVertical: 14,
     marginBottom: 20,
@@ -405,17 +405,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: colors.textDark,
+    color: '#1A2E1A',
     padding: 0,
   },
   inputText: {
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: colors.textDark,
+    color: '#1A2E1A',
   },
   placeholderText: {
-    color: P.legal,
+    color: '#B8B6AA',
   },
 
   // Info
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '400',
-    color: P.twGray400,
+    color: '#9CA3AF',
     lineHeight: 17,
   },
 
@@ -438,17 +438,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
     paddingTop: 12,
-    backgroundColor: P.creamTint1,
+    backgroundColor: '#FAFAF7',
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.brandGreen,
+    backgroundColor: '#2E7D32',
     borderRadius: 14,
     paddingVertical: 16,
     gap: 8,
-    shadowColor: colors.brandGreen,
+    shadowColor: '#2E7D32',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
   },
 
   // Purchase date calendar (new code — tokens from ../../theme, see CLAUDE.md)

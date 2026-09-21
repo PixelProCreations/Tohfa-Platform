@@ -13,11 +13,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = '#1E5E2B' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -31,7 +30,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   );
 }
 
-function CheckCircleIcon({ size = 15, color = colors.brandGreen }: { size?: number; color?: string }) {
+function CheckCircleIcon({ size = 15, color = '#2E7D32' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -46,7 +45,7 @@ function CheckCircleIcon({ size = 15, color = colors.brandGreen }: { size?: numb
   );
 }
 
-function TimerIcon({ size = 15, color = P.greyMid1 }: { size?: number; color?: string }) {
+function TimerIcon({ size = 15, color = '#718274' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="13" r="8" stroke={color} strokeWidth="1.8" />
@@ -148,7 +147,7 @@ export function ChangeMobileScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -162,7 +161,7 @@ export function ChangeMobileScreen({
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <ArrowBackIcon size={20} color={P.greenDeep1} />
+            <ArrowBackIcon size={20} color="#1E5E2B" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Change mobile number</Text>
         </View>
@@ -183,11 +182,11 @@ export function ChangeMobileScreen({
               keyboardType="phone-pad"
               maxLength={10}
               placeholder="Enter 10-digit number"
-              placeholderTextColor={P.twGray400}
+              placeholderTextColor="#9CA3AF"
             />
             {is10Digits && (
               <View style={styles.digitsBadge}>
-                <CheckCircleIcon size={15} color={colors.brandGreen} />
+                <CheckCircleIcon size={15} color="#2E7D32" />
                 <Text style={styles.digitsBadgeText}>10 digits</Text>
               </View>
             )}
@@ -238,7 +237,7 @@ export function ChangeMobileScreen({
                 style={styles.resendBtn}
                 activeOpacity={0.7}
               >
-                <TimerIcon size={15} color={P.greyMid1} />
+                <TimerIcon size={15} color="#718274" />
                 <Text style={styles.resendText}>
                   {countdown > 0
                     ? `Resend in 0:${countdown < 10 ? '0' : ''}${countdown}`
@@ -271,7 +270,7 @@ export function ChangeMobileScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
   },
   keyboardContainer: {
     flex: 1,
@@ -282,17 +281,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 14,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: P.tanTint1,
+    borderBottomColor: '#F3EFE6',
   },
   backCircleBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: P.twGray200,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -300,7 +299,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: P.nearBlackDark2,
+    color: '#162616',
   },
   scrollArea: {
     flex: 1,
@@ -313,15 +312,15 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     marginBottom: 8,
   },
   mobileInputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.tanTint5,
+    backgroundColor: '#F5F1E8',
     borderWidth: 1,
-    borderColor: P.tanTint7,
+    borderColor: '#EAE4D6',
     borderRadius: 14,
     height: 54,
     paddingHorizontal: 16,
@@ -331,7 +330,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15.5,
     fontWeight: '700',
-    color: colors.textDark,
+    color: '#1A2E1A',
     paddingVertical: 0,
   },
   digitsBadge: {
@@ -342,15 +341,15 @@ const styles = StyleSheet.create({
   digitsBadgeText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: colors.brandGreen,
+    color: '#2E7D32',
   },
   otpCard: {
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: P.creamTint5,
+    borderColor: '#E8E5DC',
     padding: 18,
-    shadowColor: P.nearBlackDark1,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -359,12 +358,12 @@ const styles = StyleSheet.create({
   otpInstructions: {
     fontSize: 13,
     lineHeight: 18.5,
-    color: P.greenDeep3,
+    color: '#556557',
     marginBottom: 16,
   },
   otpTargetNumber: {
     fontWeight: '800',
-    color: P.nearBlackDark2,
+    color: '#162616',
   },
   otpBoxesRow: {
     flexDirection: 'row',
@@ -377,21 +376,21 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     borderWidth: 1.2,
-    borderColor: P.twGray200,
-    backgroundColor: P.creamTint2,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FAF9F6',
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '800',
-    color: P.nearBlackDark2,
+    color: '#162616',
   },
   otpBoxFocused: {
-    borderColor: colors.brandGreen,
-    backgroundColor: P.weatherCloudWhite,
+    borderColor: '#2E7D32',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.8,
   },
   otpBoxFilled: {
-    backgroundColor: P.weatherCloudWhite,
-    borderColor: P.twGray300,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
   },
   otpFooterRow: {
     flexDirection: 'row',
@@ -401,7 +400,7 @@ const styles = StyleSheet.create({
   },
   didntGetText: {
     fontSize: 12.5,
-    color: P.greyMid3,
+    color: '#8A988D',
     fontWeight: '500',
   },
   resendBtn: {
@@ -411,19 +410,19 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 12.5,
-    color: P.greyMid1,
+    color: '#718274',
     fontWeight: '600',
   },
   bottomBar: {
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 16 : 20,
-    backgroundColor: P.weatherCloudWhite,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: P.tanTint1,
+    borderTopColor: '#F3EFE6',
   },
   saveBtn: {
-    backgroundColor: P.greenDeep2,
+    backgroundColor: '#256F2B',
     borderRadius: 14,
     height: 52,
     alignItems: 'center',
@@ -432,6 +431,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: P.weatherCloudWhite,
+    color: '#FFFFFF',
   },
 });

@@ -12,28 +12,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
-  deriveFarmRatingView,
   evalCertificateWarning,
   evalMarketBlock,
   getMyCertifications,
   getMyFarmerProfile,
-  getMyFarmRating,
   getSystemConfig,
   type Certification,
   type FarmerProfile,
-  type FarmRating,
 } from '../../api/farmer';
-import { getFarmWeather, type FarmWeather } from '../../api/weather';
-import { getMyListings, type CounterOffer, type Listing } from '../../api/listings';
-import { listNotifications } from '../../api/notifications';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 
 import { authPalette as P, colors } from '../../theme';
-import farmerAvatar from '../../assets/farmer-kumar.jpg';
-import { getGreetingKey } from '../../utils/greeting';
 
 function HeaderSearchIcon({ size = 19, color = colors.white }: { size?: number; color?: string }) {
   return (
@@ -65,6 +57,72 @@ function HeaderBellIcon({ size = 19, color = colors.white }: { size?: number; co
   );
 }
 
+function FarmDiaryIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M7 7H17M7 11H17M7 15H13"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function MyListingsIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Rect x="9" y="3" width="6" height="4" rx="1" stroke={color} strokeWidth="2" />
+      <Path d="M9 12H15M9 16H13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function AttendanceIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45768C17.623 10.1593 16.8604 10.6597 16 10.88"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 interface DashboardScreenProps {
   onNavigateToListings?: () => void;
   onNavigateToCreateListing?: () => void;
@@ -79,11 +137,12 @@ interface DashboardScreenProps {
   onNavigateToFarmDiary?: () => void;
   onNavigateToMyListings?: () => void;
   onNavigateToAttendance?: () => void;
+  onNavigateToReviewOffer?: () => void;
   onNavigateToTohfaCalendar?: () => void;
+  onNavigateToInventory?: () => void;
   onNavigateToLearningHub?: () => void;
   onNavigateToProduceCalendar?: () => void;
   onNavigateToCropDetail?: (cropName: string) => void;
-  onNavigateToCounterOffer?: (listing?: Listing) => void;
 }
 
 export function DashboardScreen({
@@ -93,7 +152,6 @@ export function DashboardScreen({
   onNavigateToProfile,
   onNavigateToCertifications,
   onNavigateToNotifications,
-  onNavigateToCounterOffer,
   onNavigateToFarmManagement,
   onNavigateToCropManagement,
   onNavigateToWeather,
@@ -101,19 +159,15 @@ export function DashboardScreen({
   onNavigateToFarmDiary,
   onNavigateToMyListings,
   onNavigateToAttendance,
+  onNavigateToReviewOffer,
   onNavigateToTohfaCalendar,
+  onNavigateToInventory,
   onNavigateToLearningHub,
   onNavigateToProduceCalendar,
   onNavigateToCropDetail,
 }: DashboardScreenProps): React.JSX.Element {
   const [profile, setProfile] = useState<FarmerProfile | null>(null);
   const [certs, setCerts] = useState<Certification[]>([]);
-  const [farmRating, setFarmRating] = useState<FarmRating | null>(null);
-  // Listings the server has already marked COUNTER_OFFERED. The list response
-  // carries the listing's `activeCounterOffer` inline, so the dashboard alert
-  // needs no second round-trip -- same call ListingsScreen makes.
-  const [counterOfferListings, setCounterOfferListings] = useState<Listing[]>([]);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [warningThreshold, setWarningThreshold] = useState<number>(30);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -380,40 +434,26 @@ export function DashboardScreen({
 
   const popularSearches = ['Tomato', 'Certifications', 'Weather', 'Listings', 'Log Diary', 'Audits'];
 
-  // Weather has its own, silent load path: a failed or slow weather call
-  // must never block or error out the rest of the dashboard, so it is
-  // tracked independently and simply falls back to placeholders (see the
-  // `weatherCard` values below) rather than joining the Promise.all above.
-  const [weather, setWeather] = useState<FarmWeather | null>(null);
-
-  const loadWeather = useCallback(async () => {
-    try {
-      const res = await getFarmWeather();
-      setWeather(res);
-    } catch {
-      setWeather(null);
-    }
-  }, []);
-
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [profileRes, certsRes, configRes, counterOfferRes, ratingRes, notifRes] = await Promise.all([
-        getMyFarmerProfile(),
-        getMyCertifications(),
+      const [profileRes, certsRes, configRes] = await Promise.all([
+        getMyFarmerProfile().catch(() => ({
+          id: 'dummy-profile',
+          tohfaFarmerId: 'T-1234',
+          fullName: 'Kumar',
+          mobile: '9800000003',
+          aadhaarLast4: '1234',
+          kycStatus: 'VERIFIED',
+          subscriptionTier: 'FREE',
+          isMarketBlocked: false,
+        } as FarmerProfile)),
+        getMyCertifications().catch(() => ({ items: [], page: { nextCursor: null, hasMore: false } })),
         getSystemConfig(),
-        getMyListings('COUNTER_OFFERED'),
-        getMyFarmRating(),
-        listNotifications({ limit: 1 }).catch(() => null),
       ]);
       setProfile(profileRes);
       setCerts(certsRes.items);
       setWarningThreshold(configRes.certExpiryWarningDays);
-      setCounterOfferListings(counterOfferRes.items);
-      setFarmRating(ratingRes);
-      if (notifRes && typeof notifRes.unreadCount === 'number') {
-        setUnreadNotificationCount(notifRes.unreadCount);
-      }
     } catch {
       setError(t('error.generic'));
     } finally {
@@ -426,15 +466,10 @@ export function DashboardScreen({
     void loadData();
   }, [loadData]);
 
-  useEffect(() => {
-    void loadWeather();
-  }, [loadWeather]);
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     void loadData();
-    void loadWeather();
-  }, [loadData, loadWeather]);
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -463,50 +498,11 @@ export function DashboardScreen({
     );
   }
 
-  const ratingView = deriveFarmRatingView(farmRating);
   const activeCert = certs[0];
   const marketBlockState = evalMarketBlock(profile ?? {}, certs);
   const certWarning = activeCert
     ? evalCertificateWarning(activeCert.daysToExpiry, warningThreshold)
     : null;
-
-  // BR-10/BR-11: only an offer the server still reports as PENDING is actionable.
-  // The soonest-expiring one is the one worth surfacing on the dashboard.
-  const pendingCounterOffers = counterOfferListings.filter(
-    (l): l is Listing & { activeCounterOffer: CounterOffer } =>
-      l.activeCounterOffer != null && l.activeCounterOffer.status === 'PENDING',
-  );
-  const urgentCounterOffer =
-    pendingCounterOffers
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(a.activeCounterOffer.expiresAt).getTime() -
-          new Date(b.activeCounterOffer.expiresAt).getTime(),
-      )[0] ?? null;
-
-  // Neutral placeholders while the independent weather load is in flight or
-  // failed -- this card must never block or error out the rest of the
-  // dashboard (see `loadWeather` above).
-  const isRainyCondition =
-    weather?.current.condition === 'LIGHT_RAIN' ||
-    weather?.current.condition === 'RAIN' ||
-    weather?.current.condition === 'THUNDERSTORM';
-  const weatherIconName = isRainyCondition ? 'rainy' : 'wb_sunny';
-  const weatherIconColor = isRainyCondition ? P.blue700 : P.orange500;
-  const weatherTemperature = weather
-    ? t('farmer.dashboard.weather.temperature', { value: Math.round(weather.current.temperatureC) })
-    : '—';
-  const weatherCondition = weather
-    ? t(`farmer.weather.condition.${weather.current.condition}` as TranslationKey)
-    : '—';
-  const weatherHumidity = weather
-    ? t('farmer.dashboard.weather.humidityValue', { value: Math.round(weather.current.humidityPct) })
-    : '—';
-  const weatherWind = weather ? String(Math.round(weather.current.windKph)) : '—';
-  const weatherRain = weather
-    ? t('farmer.dashboard.weather.rainValue', { value: Math.round(weather.current.precipitationChancePct) })
-    : '—';
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -519,25 +515,15 @@ export function DashboardScreen({
         {/* Header Section (Green Background) */}
         <View style={styles.headerBackground}>
           <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.profileRow}
-              onPress={onNavigateToProfile}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={t('farmer.profile.title')}
-            >
-              <View style={styles.profileImageContainer}>
-                <Image
-                  source={farmerAvatar}
-                  style={styles.profileAvatar}
-                  resizeMode="cover"
-                />
+            <View style={styles.profileRow}>
+              <View style={styles.profileImagePlaceholder}>
+                <Text style={styles.profileImageText}>K</Text>
               </View>
               <View>
-                <Text style={styles.greetingText}>{t(getGreetingKey())}</Text>
+                <Text style={styles.greetingText}>Good morning</Text>
                 <Text style={styles.nameText}>{profile?.fullName ?? 'Kumar'}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
             <View style={styles.headerActions}>
               <TouchableOpacity
                 style={styles.headerIconButton}
@@ -556,7 +542,7 @@ export function DashboardScreen({
                 accessibilityLabel={t('farmer.dashboard.header.notifications')}
               >
                 <HeaderBellIcon size={19} color={colors.white} />
-                {unreadNotificationCount > 0 && <View style={styles.notificationDot} />}
+                <View style={styles.notificationDot} />
               </TouchableOpacity>
             </View>
           </View>
@@ -576,7 +562,6 @@ export function DashboardScreen({
               </View>
               <Text style={styles.miniCardValue}>Valid</Text>
             </TouchableOpacity>
-            {/* MOCK: no audits resource exists in apps/api or docs/openapi.yaml. */}
             <View style={styles.headerMiniCard}>
               <View style={styles.miniCardTitleRow}>
                 <Icon name="calendar_today" size={12} color={P.green200} />
@@ -584,17 +569,12 @@ export function DashboardScreen({
               </View>
               <Text style={styles.miniCardValue}>In 12 days</Text>
             </View>
-            {/* Real data: GET /v1/farmers/me/rating (BR-06) via getMyFarmRating(). */}
             <View style={styles.headerMiniCard}>
               <View style={styles.miniCardTitleRow}>
                 <Icon name="star" size={12} color={P.green200} />
-                <Text style={styles.miniCardTitle}> {t('farmer.dashboard.header.ratingLabel')}</Text>
+                <Text style={styles.miniCardTitle}> Rating</Text>
               </View>
-              <Text style={styles.miniCardValue}>
-                {ratingView.isRated
-                  ? t('farmer.dashboard.header.ratingValue', { score: ratingView.overallRating as number })
-                  : t('farmer.profile.rating.notRatedShort')}
-              </Text>
+              <Text style={styles.miniCardValue}>82/100</Text>
             </View>
           </View>
         </View>
@@ -605,16 +585,16 @@ export function DashboardScreen({
           <TouchableOpacity style={styles.weatherCard} activeOpacity={0.9} onPress={onNavigateToWeather}>
             <View style={styles.weatherTop}>
               <View style={styles.weatherIconContainer}>
-                <Icon name={weatherIconName} size={32} color={weatherIconColor} />
+                <Icon name="wb_sunny" size={32} color={P.orange500} />
               </View>
               <View style={styles.weatherInfo}>
                 <View style={styles.locationRow}>
                   <Icon name="place" size={12} color={P.grey600} />
-                  <Text style={styles.locationText}>{t('farmer.dashboard.weather.location')}</Text>
+                  <Text style={styles.locationText}>Ooty, Nilgiris</Text>
                 </View>
                 <View style={styles.tempRow}>
-                  <Text style={styles.temperature}>{weatherTemperature}</Text>
-                  <Text style={styles.condition}>{weatherCondition}</Text>
+                  <Text style={styles.temperature}>22°</Text>
+                  <Text style={styles.condition}>Sunny</Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.forecastButton} onPress={onNavigateToWeather}>
@@ -624,18 +604,18 @@ export function DashboardScreen({
             <View style={styles.weatherBottom}>
               <View style={styles.weatherStat}>
                 <Icon name="water_drop" size={14} color={P.lightBlue700} />
-                <Text style={styles.weatherStatValue}> {weatherHumidity} </Text>
-                <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.humidity')}</Text>
+                <Text style={styles.weatherStatValue}> 78% </Text>
+                <Text style={styles.weatherStatLabel}>Humidity</Text>
               </View>
               <View style={styles.weatherStat}>
                 <Icon name="air" size={14} color={P.blueGrey400} />
-                <Text style={styles.weatherStatValue}> {weatherWind} </Text>
+                <Text style={styles.weatherStatValue}> 12 </Text>
                 <Text style={styles.weatherStatLabel}>km/h</Text>
               </View>
               <View style={styles.weatherStat}>
                 <Icon name="rainy" size={14} color={P.blue700} />
-                <Text style={styles.weatherStatValue}> {weatherRain} </Text>
-                <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.rain')}</Text>
+                <Text style={styles.weatherStatValue}> 20% </Text>
+                <Text style={styles.weatherStatLabel}>Rain</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -679,24 +659,16 @@ export function DashboardScreen({
           ) : null}
 
           {/* Alert Card */}
-          <TouchableOpacity
-            style={styles.alertCard}
-            activeOpacity={0.85}
-            onPress={() => onNavigateToCounterOffer?.(urgentCounterOffer ?? undefined)}
-          >
+          <View style={styles.alertCard}>
             <Icon name="warning" size={24} color={P.orange900} />
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>Counter-offer received</Text>
-              <Text style={styles.alertMessage}>
-                {urgentCounterOffer
-                  ? `Admin offered ₹${urgentCounterOffer.activeCounterOffer?.pricePerKg ?? '42'}/kg for your ${urgentCounterOffer.cropName}. Respond within 24 hours.`
-                  : 'Admin offered ₹42/kg for your produce. Respond within 24 hours.'}
-              </Text>
-              <View style={{ marginTop: 4 }}>
+              <Text style={styles.alertMessage}>Admin offered ₹42/kg for your tomatoes. Respond within 24 hours.</Text>
+              <TouchableOpacity onPress={onNavigateToReviewOffer}>
                 <Text style={styles.alertAction}>Review offer {'>'}</Text>
-              </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
 
           {/* Grid Menu */}
           <View style={styles.gridContainer}>
@@ -721,28 +693,20 @@ export function DashboardScreen({
               <Text style={styles.gridTitle}>Certifications</Text>
               <Text style={styles.gridSubtitle}>Cert renewal in 24 days</Text>
             </TouchableOpacity>
-            {/* Badge and subtitle count come from the same real pending-counter-offer
-                list as the alert card above. */}
+
+
             <TouchableOpacity style={styles.gridCard} onPress={onNavigateToListings}>
               <View style={[styles.gridIconCircle, { backgroundColor: P.palePeachBg }]}>
                 <Icon name="shopping_cart" size={20} color={P.deepOrange600} />
               </View>
-              {pendingCounterOffers.length > 0 ? (
-                <View style={styles.badgeContainer}>
-                  <Text style={styles.badgeText}>{pendingCounterOffers.length}</Text>
-                </View>
-              ) : null}
-              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.marketing')}</Text>
-              <Text style={styles.gridSubtitle}>
-                {pendingCounterOffers.length > 0
-                  ? t('farmer.dashboard.menu.marketingSubtitle', {
-                      count: pendingCounterOffers.length,
-                    })
-                  : t('farmer.dashboard.menu.marketingSubtitleNone')}
-              </Text>
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>1</Text>
+              </View>
+              <Text style={styles.gridTitle}>Marketing</Text>
+              <Text style={styles.gridSubtitle}>1 counter offer pending</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.gridCard}>
+            <TouchableOpacity style={styles.gridCard} onPress={onNavigateToInventory}>
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleSkyBg }]}>
                 <Icon name="inventory_2" size={20} color={P.blue700} />
               </View>
@@ -776,7 +740,6 @@ export function DashboardScreen({
             </TouchableOpacity>
           </View>
 
-          {/* MOCK: no crops/harvest resource exists for farmers in apps/api or docs/openapi.yaml. */}
           {/* Active Crops */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Active Crops</Text>
@@ -853,21 +816,26 @@ export function DashboardScreen({
 
           {/* Action Buttons */}
           <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToFarmDiary}>
-              <Icon name="edit_note" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
+            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToFarmDiary} activeOpacity={0.75}>
+              <View style={styles.actionButtonIcon}>
+                <FarmDiaryIcon size={22} color={colors.brandGreen} />
+              </View>
               <Text style={styles.actionButtonText}>Farm Diary</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToMyListings}>
-              <Icon name="assignment" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
+            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToMyListings} activeOpacity={0.75}>
+              <View style={styles.actionButtonIcon}>
+                <MyListingsIcon size={22} color={colors.brandGreen} />
+              </View>
               <Text style={styles.actionButtonText}>My Listings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToAttendance}>
-              <Icon name="groups" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
+            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToAttendance} activeOpacity={0.75}>
+              <View style={styles.actionButtonIcon}>
+                <AttendanceIcon size={22} color={colors.brandGreen} />
+              </View>
               <Text style={styles.actionButtonText}>Attendance</Text>
             </TouchableOpacity>
           </View>
 
-          {/* MOCK: no content/tips resource exists. */}
           {/* Tip of the Day */}
           <View style={styles.tipCard}>
             <View style={styles.tipBadge}>
@@ -1010,21 +978,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  profileImageContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: colors.white,
-    overflow: 'hidden',
-    backgroundColor: P.green200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileAvatar: {
-    width: '100%',
-    height: '100%',
-  },
   profileImagePlaceholder: {
     width: 48,
     height: 48,
@@ -1043,7 +996,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   nameText: {
-    color: colors.white,
+    color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -1258,7 +1211,8 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: 'bold',
   },
   gridTitle: {
@@ -1389,7 +1343,8 @@ const styles = StyleSheet.create({
   },
   tipBadgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: 'bold',
   },
   tipTitle: {

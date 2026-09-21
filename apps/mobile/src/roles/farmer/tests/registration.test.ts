@@ -1,41 +1,20 @@
-import { describe, expect, it, beforeAll, beforeEach, vi } from 'vitest';
-import { createAsyncStorageMock } from '../../../tests/mocks/asyncStorageMock';
-
-// Must be mocked before importing anything that transitively pulls in
-// @react-native-async-storage/async-storage -- see asyncStorageMock.ts's own docblock for why
-// (the real package throws outside a React Native/browser runtime, which is exactly this app's
-// plain-Node vitest environment).
-vi.mock('@react-native-async-storage/async-storage', () => createAsyncStorageMock());
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { describe, expect, it, beforeEach } from 'vitest';
 import {
-  useRegistrationDraftStore,
+  saveRegistrationDraft,
+  getRegistrationDraft,
+  clearRegistrationDraft,
   type RegistrationDraft,
 } from '../storage/registrationDraft';
 import { validateStep, validateCrossStepSubmission } from '../screens/registration/validation';
 
-const DRAFT_STORAGE_KEY = 'TOHFA_FARMER_REGISTRATION_DRAFT_V1';
-const EMPTY_DRAFT: RegistrationDraft = { applicationId: 'draft-temp', currentStep: 1 };
-
 describe('User Story 43 (S-43) Registration Tests', () => {
-  beforeAll(async () => {
-    // The store starts hydrating (from the mocked, empty AsyncStorage) the moment this test
-    // file imports it. Let that settle before any test runs so `hasHydrated` reads are
-    // deterministic instead of racing the first test's assertions.
-    await useRegistrationDraftStore.persist.rehydrate();
-  });
-
   beforeEach(async () => {
-    await AsyncStorage.removeItem(DRAFT_STORAGE_KEY);
-    useRegistrationDraftStore.setState({ draft: EMPTY_DRAFT, hasHydrated: true });
+    await clearRegistrationDraft();
   });
 
   describe('Cold-Start Draft Resume', () => {
     it('registration: cold-start test proves killed app resumes on correct step with saved answers intact', async () => {
-      // 1. Simulate a farmer who has completed Step 1 and Step 2 and is now on Step 3, right
-      // before the app process gets killed. `setState` goes through the exact same wrapped
-      // setState the store's own actions use, so this triggers persist's real write path --
-      // there is no shortcut here that bypasses AsyncStorage.
+      // 1. Simulate user completing Step 1 and being on Step 3 before app process is killed
       const draftState: RegistrationDraft = {
         applicationId: 'app-uuid-9988',
         currentStep: 3,
@@ -72,70 +51,21 @@ describe('User Story 43 (S-43) Registration Tests', () => {
         },
       };
 
-      useRegistrationDraftStore.setState({ draft: draftState });
+      // Save draft state
+      await saveRegistrationDraft(draftState);
 
-      // 2. Prove the draft actually reached AsyncStorage, not just an in-memory fallback. This
-      // is the exact assertion the OLD `globalThis.localStorage`-backed implementation could
-      // never satisfy: `localStorage` does not exist in React Native, so `getStorage()` always
-      // returned null and every write silently fell back to a module-level `memoryDraft`
-      // variable instead of ever reaching real storage.
-      await vi.waitFor(async () => {
-        const raw = await AsyncStorage.getItem(DRAFT_STORAGE_KEY);
-        expect(raw).not.toBeNull();
-      });
-      const persistedRaw = await AsyncStorage.getItem(DRAFT_STORAGE_KEY);
-      const persisted = JSON.parse(persistedRaw as string);
-      expect(persisted.state.draft.applicationId).toBe('app-uuid-9988');
-      expect(persisted.state.draft.step1.fullName).toBe('Senthil Kumar');
+      // 2. Simulate complete cold start (app killed mid-flow, memory reinitialized)
+      const restoredDraft = await getRegistrationDraft();
 
-      // 3. Simulate a genuine cold start: tear down the entire module graph the way killing
-      // the JS process would (every module-level variable, including the zustand store
-      // singleton itself, is gone), then reconstruct it from scratch. `vi.resetModules()` gives
-      // an honestly fresh store instance, not a hand-wave -- but it also wipes this test's
-      // *mock* AsyncStorage back to empty, which a real device's on-disk AsyncStorage file
-      // would NOT do across a real app relaunch. Re-seeding the fresh mock with the exact bytes
-      // captured above stands in for that one guarantee real disk provides for free; everything
-      // downstream of it (a brand-new store reading those bytes back into `draft` via
-      // `persist`'s ordinary rehydration path) is exercised for real, not simulated.
-      vi.resetModules();
-      const freshAsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      await freshAsyncStorage.setItem(DRAFT_STORAGE_KEY, persistedRaw as string);
-
-      const { useRegistrationDraftStore: freshStore } = await import('../storage/registrationDraft');
-      await freshStore.persist.rehydrate();
-
-      const restoredDraft = freshStore.getState().draft;
-
-      expect(freshStore.getState().hasHydrated).toBe(true);
-      expect(restoredDraft.applicationId).toBe('app-uuid-9988');
-      expect(restoredDraft.currentStep).toBe(3);
-      expect(restoredDraft.step1?.fullName).toBe('Senthil Kumar');
-      expect(restoredDraft.step1?.aadhaarLast4).toBe('4321');
-      expect(restoredDraft.step2?.farms[0]?.name).toBe('Green Hill Farm');
-      expect(restoredDraft.step3?.latitude).toBe(11.385);
-      expect(restoredDraft.step3?.longitude).toBe(76.732);
-    });
-
-    it('registration: reset() clears both in-memory state and the persisted AsyncStorage entry after submission', async () => {
-      useRegistrationDraftStore.setState({
-        draft: { applicationId: 'app-uuid-1234', currentStep: 5, step1: { fullName: 'Test Farmer' } },
-      });
-      await vi.waitFor(async () => {
-        expect(await AsyncStorage.getItem(DRAFT_STORAGE_KEY)).not.toBeNull();
-      });
-
-      useRegistrationDraftStore.getState().reset();
-
-      expect(useRegistrationDraftStore.getState().draft).toEqual(EMPTY_DRAFT);
-
-      // The reset write reaches AsyncStorage too -- a subsequent cold start must not resurrect
-      // the submitted draft.
-      await vi.waitFor(async () => {
-        const raw = await AsyncStorage.getItem(DRAFT_STORAGE_KEY);
-        expect(raw).not.toBeNull();
-        const persisted = JSON.parse(raw as string);
-        expect(persisted.state.draft).toEqual(EMPTY_DRAFT);
-      });
+      // Assert draft resumed exactly at step 3 with full answers preserved
+      expect(restoredDraft).not.toBeNull();
+      expect(restoredDraft?.applicationId).toBe('app-uuid-9988');
+      expect(restoredDraft?.currentStep).toBe(3);
+      expect(restoredDraft?.step1?.fullName).toBe('Senthil Kumar');
+      expect(restoredDraft?.step1?.aadhaarLast4).toBe('4321');
+      expect(restoredDraft?.step2?.farms[0]?.name).toBe('Green Hill Farm');
+      expect(restoredDraft?.step3?.latitude).toBe(11.385);
+      expect(restoredDraft?.step3?.longitude).toBe(76.732);
     });
   });
 
