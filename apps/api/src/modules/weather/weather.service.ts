@@ -19,7 +19,7 @@ import type { Executor } from '../../db/pool.js';
 import { pool } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { weatherGateway, type WeatherGateway } from '../../weather/index.js';
+import { weatherGateway, type WeatherGateway, type WeatherSnapshot } from '../../weather/index.js';
 import { weatherRepo, type WeatherRepo } from './weather.repo.js';
 import type { FarmWeatherAlertResponse, FarmWeatherResponse } from './weather.schema.js';
 

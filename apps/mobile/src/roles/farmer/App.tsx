@@ -1131,6 +1131,36 @@ export default function App(): React.JSX.Element {
                   onNavigateToWallet={() => setCurrentTab('Wallet')}
                   onNavigateToProfile={() => setCurrentTab('Profile')}
                   onNavigateToNotifications={() => navigate('Notifications')}
+                  onNavigateToCounterOffer={(item) => {
+                    if (item && item.id) {
+                      setSelectedListing(item);
+                    } else {
+                      setSelectedListing({
+                        id: 'dummy-listing',
+                        listingNumber: 'L-9821',
+                        cropName: 'Carrot - Ooty - Grade 1',
+                        quantityKg: '150',
+                        askingPricePerKg: '40',
+                        ceilingPricePerKg: '45',
+                        status: 'COUNTER_OFFERED',
+                        grade: 'GRADE_1',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        activeCounterOffer: {
+                          id: 'dummy-offer',
+                          listingId: 'dummy-listing',
+                          round: 1,
+                          offeredBy: 'ADMIN',
+                          pricePerKg: '34',
+                          quantityKg: '150',
+                          message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
+                          status: 'PENDING',
+                          expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
+                        },
+                      } as any);
+                    }
+                    navigate('CounterOffer');
+                  }}
                   onNavigateToFarmManagement={() => navigate('CropManagement')}
                   onNavigateToCropManagement={() => navigate('CropManagement')}
                   onNavigateToWeather={() => navigate('Weather')}

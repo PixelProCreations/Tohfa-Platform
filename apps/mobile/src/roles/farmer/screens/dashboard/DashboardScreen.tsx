@@ -83,6 +83,7 @@ interface DashboardScreenProps {
   onNavigateToLearningHub?: () => void;
   onNavigateToProduceCalendar?: () => void;
   onNavigateToCropDetail?: (cropName: string) => void;
+  onNavigateToCounterOffer?: (listing?: Listing) => void;
 }
 
 export function DashboardScreen({
@@ -92,6 +93,7 @@ export function DashboardScreen({
   onNavigateToProfile,
   onNavigateToCertifications,
   onNavigateToNotifications,
+  onNavigateToCounterOffer,
   onNavigateToFarmManagement,
   onNavigateToCropManagement,
   onNavigateToWeather,
@@ -677,16 +679,24 @@ export function DashboardScreen({
           ) : null}
 
           {/* Alert Card */}
-          <View style={styles.alertCard}>
+          <TouchableOpacity
+            style={styles.alertCard}
+            activeOpacity={0.85}
+            onPress={() => onNavigateToCounterOffer?.(urgentCounterOffer ?? undefined)}
+          >
             <Icon name="warning" size={24} color={P.orange900} />
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>Counter-offer received</Text>
-              <Text style={styles.alertMessage}>Admin offered ₹42/kg for your tomatoes. Respond within 24 hours.</Text>
-              <TouchableOpacity>
+              <Text style={styles.alertMessage}>
+                {urgentCounterOffer
+                  ? `Admin offered ₹${urgentCounterOffer.activeCounterOffer?.pricePerKg ?? '42'}/kg for your ${urgentCounterOffer.cropName}. Respond within 24 hours.`
+                  : 'Admin offered ₹42/kg for your produce. Respond within 24 hours.'}
+              </Text>
+              <View style={{ marginTop: 4 }}>
                 <Text style={styles.alertAction}>Review offer {'>'}</Text>
-              </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Grid Menu */}
           <View style={styles.gridContainer}>
