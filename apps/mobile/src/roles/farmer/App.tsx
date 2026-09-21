@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { setOnAuthFailure } from './api/client';
+import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
+import { tokenStorage } from './storage/tokenStorage';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -342,6 +343,10 @@ export default function App(): React.JSX.Element {
   }, [screen, currentTab, history, goBack]);
 
   useEffect(() => {
+    // Wires the shared API client's silent-refresh path to farmer's own
+    // Keychain-backed store. Replaces what the old private roles/farmer/api/client.ts
+    // used to hardcode internally (it imported ./storage/tokenStorage directly).
+    configureTokenStorage(tokenStorage);
     setOnAuthFailure(() => {
       setScreen('Welcome');
       setHistory([]);

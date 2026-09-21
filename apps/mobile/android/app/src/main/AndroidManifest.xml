@@ -39,13 +39,28 @@
              before this works; see that file's comment. Google Sign-In needs
              no manifest entry (Play Services auto-linking handles it) — its
              web client ID is configured at runtime in
-             roles/farmer/api/googleSignIn.ts, also a placeholder today. -->
+             roles/farmer/api/googleSignIn.ts, also a placeholder today.
+
+             AutoInitEnabled/AutoLogAppEventsEnabled are off on purpose: with
+             a placeholder App ID, the SDK's default auto-init tries to log
+             an app-launch event on every cold start and fails loudly
+             (com.facebook.GraphResponse "Invalid application ID", plus a
+             NativeEventEmitter addListener/removeListeners warning from its
+             analytics bridge) before the farmer has ever touched the
+             Facebook button. Flip both back to true once a real App ID is
+             in place, if app-events logging is actually wanted. -->
         <meta-data
             android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/facebook_app_id" />
         <meta-data
             android:name="com.facebook.sdk.ClientToken"
             android:value="@string/facebook_client_token" />
+        <meta-data
+            android:name="com.facebook.sdk.AutoInitEnabled"
+            android:value="false" />
+        <meta-data
+            android:name="com.facebook.sdk.AutoLogAppEventsEnabled"
+            android:value="false" />
         <activity
             android:name="com.facebook.FacebookActivity"
             android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"

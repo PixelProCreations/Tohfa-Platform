@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api } from '../../../shell/api/client';
 
 export type WeatherCondition =
   | 'CLEAR'

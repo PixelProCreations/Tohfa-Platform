@@ -22,7 +22,7 @@ import {
   isRoleSelectionRequired,
   type OAuthProviderCode,
 } from '../../api/auth';
-import { ApiError } from '../../api/client';
+import { ApiError } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
   signInWithFacebook,

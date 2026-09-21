@@ -15,7 +15,7 @@ import {
   FARM_RATING_TIER_LABEL_KEY,
   type FarmRating,
 } from '../api/farmer';
-import { setAccessToken } from '../api/client';
+import { setAccessToken } from '../../../shell/api/client';
 
 describe('BR-06: Farm Rating (10-category framework, farmer-facing surfaces)', () => {
   beforeEach(() => {

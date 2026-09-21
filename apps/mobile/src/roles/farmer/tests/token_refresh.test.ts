@@ -7,13 +7,17 @@ vi.mock('react-native-keychain', () => createKeychainMock());
 // see asyncStorageMock.ts's docblock for why the real package can't run in this test env.
 vi.mock('@react-native-async-storage/async-storage', () => createAsyncStorageMock());
 
-import { request, setAccessToken, setOnAuthFailure } from '../api/client';
+import { configureTokenStorage, request, setAccessToken, setOnAuthFailure } from '../../../shell/api/client';
 import { tokenStorage } from '../storage/tokenStorage';
 import { useRegistrationDraftStore } from '../storage/registrationDraft';
 
 describe('Token Refresh Concurrency & Mid-Session Recovery (S-46)', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    // Mirrors the configureTokenStorage(tokenStorage) call roles/farmer/App.tsx now
+    // makes at mount, now that the shared client (src/shell/api/client.ts) needs the
+    // store injected explicitly instead of hardcoding it internally.
+    configureTokenStorage(tokenStorage);
     setAccessToken('expired-access-token');
     await tokenStorage.setTokens({
       accessToken: 'expired-access-token',
