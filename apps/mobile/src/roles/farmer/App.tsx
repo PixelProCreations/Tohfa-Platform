@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { setOnAuthFailure } from './api/client';
+import { logout } from './api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -56,6 +57,10 @@ import { SoilMoistureTrackingScreen } from './screens/farm/SoilMoistureTrackingS
 import { ErosionConservationScreen } from './screens/farm/ErosionConservationScreen';
 import { ExportSoilReportsScreen } from './screens/farm/ExportSoilReportsScreen';
 import { UploadNewSoilTestScreen } from './screens/farm/UploadNewSoilTestScreen';
+import { PestManagementScreen } from './screens/farm/PestManagementScreen';
+import { PestLibraryScreen } from './screens/farm/PestLibraryScreen';
+import { TreatmentScheduleScreen } from './screens/farm/TreatmentScheduleScreen';
+import { WeatherRiskAnalyticsScreen } from './screens/farm/WeatherRiskAnalyticsScreen';
 import { CropWorkforceHoursScreen } from './screens/farm/CropWorkforceHoursScreen';
 import { CropNPKContributionScreen } from './screens/farm/CropNPKContributionScreen';
 import { FarmDiaryScreen } from './screens/farm/FarmDiaryScreen';
@@ -103,6 +108,15 @@ import { AddZoneScreen } from './screens/profile/AddZoneScreen';
 import { PersonalDetailsScreen } from './screens/profile/PersonalDetailsScreen';
 import { FarmRatingsScreen } from './screens/profile/FarmRatingsScreen';
 import { SoilTestScreen } from './screens/profile/SoilTestScreen';
+import { BankPaymentScreen } from './screens/payment/BankPaymentScreen';
+import { BankAccountScreen } from './screens/payment/BankAccountScreen';
+import { UpiIdScreen } from './screens/payment/UpiIdScreen';
+import { PayoutHistoryScreen } from './screens/payment/PayoutHistoryScreen';
+import { PayoutDetailScreen } from './screens/payment/PayoutDetailScreen';
+import { WithdrawFundsScreen } from './screens/payment/WithdrawFundsScreen';
+import { WalletTransactionDetailScreen } from './screens/payment/WalletTransactionDetailScreen';
+import { AddMoneyScreen } from './screens/payment/AddMoneyScreen';
+import { CashTopUpScreen } from './screens/payment/CashTopUpScreen';
 import { NewSoilTestScreen } from './screens/profile/NewSoilTestScreen';
 import { RegistrationFlowScreen } from './screens/registration/RegistrationFlowScreen';
 import { WalletScreen } from './screens/wallet/WalletScreen';
@@ -211,7 +225,21 @@ export type ScreenName =
   | 'SoilMoistureTracking'
   | 'ErosionConservation'
   | 'ExportSoilReports'
-  | 'UploadNewSoilTest';
+  | 'UploadNewSoilTest'
+  | 'PestManagement'
+  | 'PestLibrary'
+  | 'TreatmentSchedule'
+  | 'WeatherRiskAnalytics'
+  | 'BankPayment'
+  | 'BankAccount'
+  | 'UpiId'
+  | 'PayoutHistory'
+  | 'PayoutDetail'
+  | 'Wallet'
+  | 'WithdrawFunds'
+  | 'WalletTransactionDetail'
+  | 'AddMoney'
+  | 'CashTopUp';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -450,10 +478,7 @@ export default function App(): React.JSX.Element {
               setCurrentTab('Listings');
               navigate('MainTabs');
             }}
-            onCancel={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
+            onCancel={goBack}
             onNext={() => navigate('CreateListingStep2')}
           />
         ) : screen === 'CreateListingStep2' ? (
@@ -551,7 +576,7 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onNavigateToInputManagement={() => navigate('InputManagement')}
             onNavigateToSoilManagement={() => navigate('SoilManagement')}
-            onNavigateToPestManagement={() => navigate('LogPestTreatment')}
+            onNavigateToPestManagement={() => navigate('PestManagement')}
           />
         ) : screen === 'InputManagement' ? (
           <InputManagementScreen
@@ -588,6 +613,24 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onSave={() => goBack('InputManagement')}
           />
+        ) : screen === 'PestManagement' ? (
+          <PestManagementScreen
+            onBack={goBack}
+            onNavigateToSchedule={() => navigate('TreatmentSchedule')}
+            onNavigateToPestLibrary={() => navigate('PestLibrary')}
+            onNavigateToWeatherRisk={() => navigate('WeatherRiskAnalytics')}
+          />
+        ) : screen === 'PestLibrary' ? (
+          <PestLibraryScreen
+            onBack={goBack}
+            onNavigateToSchedule={() => {
+              navigate('TreatmentSchedule');
+            }}
+          />
+        ) : screen === 'TreatmentSchedule' ? (
+          <TreatmentScheduleScreen onBack={goBack} />
+        ) : screen === 'WeatherRiskAnalytics' ? (
+          <WeatherRiskAnalyticsScreen onBack={goBack} />
         ) : screen === 'FarmManagement' ? (
           <FarmManagementScreen
             onBack={() => goBack('MainTabs')}
@@ -686,7 +729,7 @@ export default function App(): React.JSX.Element {
             animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
             species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
             breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
-            gender={typeof params['gender'] === 'string' ? params['gender'] : '♀'}
+            gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
             age={typeof params['age'] === 'string' ? params['age'] : '4 yr'}
             statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : 'Fully Organic'}
             onBack={goBack}
@@ -870,6 +913,64 @@ export default function App(): React.JSX.Element {
             onNavigateBack={goBack}
             onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest')}
           />
+        ) : screen === 'BankPayment' ? (
+          <BankPaymentScreen
+            onBack={goBack}
+            onNavigateToBankAccount={() => navigate('BankAccount')}
+            onNavigateToUpiId={() => navigate('UpiId')}
+            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+            onNavigateToWallet={() => navigate('Wallet')}
+          />
+        ) : screen === 'BankAccount' ? (
+          <BankAccountScreen
+            onBack={goBack}
+          />
+        ) : screen === 'UpiId' ? (
+          <UpiIdScreen
+            onBack={goBack}
+            onSaveSuccess={goBack}
+          />
+        ) : screen === 'PayoutHistory' ? (
+          <PayoutHistoryScreen
+            onBack={goBack}
+            onNavigateToDetail={(payout) => navigate('PayoutDetail', payout as any)}
+          />
+        ) : screen === 'PayoutDetail' ? (
+          <PayoutDetailScreen
+            payout={params as any}
+            onBack={goBack}
+          />
+        ) : screen === 'WithdrawFunds' ? (
+          <WithdrawFundsScreen
+            onClose={goBack}
+            onRequestSuccess={goBack}
+          />
+        ) : screen === 'WalletTransactionDetail' ? (
+          <WalletTransactionDetailScreen
+            transaction={params as any}
+            onBack={goBack}
+          />
+        ) : screen === 'AddMoney' ? (
+          <AddMoneyScreen
+            onClose={goBack}
+            onSuccess={goBack}
+            onNavigateToCashTopUp={(data) => navigate('CashTopUp', data)}
+          />
+        ) : screen === 'CashTopUp' ? (
+          <CashTopUpScreen
+            amount={typeof params['amount'] === 'string' ? params['amount'] : '2,000'}
+            referenceCode={typeof params['referenceCode'] === 'string' ? params['referenceCode'] : 'CASH-TU-7734'}
+            onBack={goBack}
+            onDone={goBack}
+          />
+        ) : screen === 'Wallet' ? (
+          <WalletScreen
+            onBack={goBack}
+            onNavigateToAddMoney={() => navigate('AddMoney')}
+            onNavigateToWithdraw={() => navigate('WithdrawFunds')}
+            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+            onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
+          />
         ) : screen === 'Weather' ? (
           <WeatherScreen
             onNavigateBack={goBack}
@@ -877,6 +978,11 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ActiveCrops' ? (
           <ActiveCropsScreen
             onNavigateBack={goBack}
+            onNavigateToCropDetail={(crop) => {
+              setSelectedCrop(crop);
+              navigate('CropDetail');
+            }}
+            onNavigateToNewCrop={() => navigate('NewCrop')}
           />
         ) : screen === 'MyListings' ? (
           <MyListingsScreen
@@ -916,11 +1022,11 @@ export default function App(): React.JSX.Element {
             tool={
               selectedToolForEdit
                 ? {
-                    id: selectedToolForEdit.id,
-                    name: selectedToolForEdit.name,
-                    purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
-                    serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
-                  }
+                  id: selectedToolForEdit.id,
+                  name: selectedToolForEdit.name,
+                  purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
+                  serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -953,12 +1059,12 @@ export default function App(): React.JSX.Element {
             equipment={
               selectedEquipmentForEdit
                 ? {
-                    id: selectedEquipmentForEdit.id,
-                    name: selectedEquipmentForEdit.name,
-                    purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
-                    coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
-                    serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
-                  }
+                  id: selectedEquipmentForEdit.id,
+                  name: selectedEquipmentForEdit.name,
+                  purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
+                  coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
+                  serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -991,13 +1097,13 @@ export default function App(): React.JSX.Element {
             planting={
               selectedTreeForEdit
                 ? {
-                    id: selectedTreeForEdit.id,
-                    species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
-                    treeCount: selectedTreeForEdit.treeCount ?? 12,
-                    plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
-                    locationZone: selectedTreeForEdit.zoneInfo,
-                    purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
-                  }
+                  id: selectedTreeForEdit.id,
+                  species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
+                  treeCount: selectedTreeForEdit.treeCount ?? 12,
+                  plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
+                  locationZone: selectedTreeForEdit.zoneInfo,
+                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1030,13 +1136,13 @@ export default function App(): React.JSX.Element {
             machinery={
               selectedMachineryForEdit
                 ? {
-                    id: selectedMachineryForEdit.id,
-                    name: selectedMachineryForEdit.name,
-                    makeModel: selectedMachineryForEdit.makeModel,
-                    purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
-                    fuelType: selectedMachineryForEdit.fuelType,
-                    serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
-                  }
+                  id: selectedMachineryForEdit.id,
+                  name: selectedMachineryForEdit.name,
+                  makeModel: selectedMachineryForEdit.makeModel,
+                  purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
+                  fuelType: selectedMachineryForEdit.fuelType,
+                  serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1209,7 +1315,12 @@ export default function App(): React.JSX.Element {
                   }}
                 />
               ) : currentTab === 'Wallet' ? (
-                <WalletScreen />
+                <WalletScreen
+                  onNavigateToAddMoney={() => navigate('AddMoney')}
+                  onNavigateToWithdraw={() => navigate('WithdrawFunds')}
+                  onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+                  onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
+                />
               ) : (
                 <ProfileScreen
                   onNavigateToHome={() => setCurrentTab('Home')}
@@ -1222,12 +1333,13 @@ export default function App(): React.JSX.Element {
                   onNavigateToSoilTest={() => navigate('SoilTest')}
                   onNavigateToSettings={() => navigate('Settings')}
                   onNavigateToAboutSupport={() => navigate('AboutSupport')}
+                  onNavigateToBankPayment={() => navigate('BankAccount')}
                 />
               )}
             </View>
 
             {/* Bottom Tab Bar */}
-            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 70 }]}>
+            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 58 }]}>
               <Pressable
                 style={styles.tabItem}
                 onPress={() => setCurrentTab('Home')}
@@ -1373,18 +1485,18 @@ const styles = StyleSheet.create({
   },
   centerAddButton: {
     backgroundColor: authPalette.deepGreen,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
+    marginTop: -20,
     shadowColor: authPalette.deepGreen,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 6,
-    borderWidth: 3.5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5,
+    borderWidth: 3,
     borderColor: colors.white,
   },
   unsupportedContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },

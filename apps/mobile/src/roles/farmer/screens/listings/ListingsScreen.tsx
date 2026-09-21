@@ -1,11 +1,19 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image, Modal } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, G } from 'react-native-svg';
+import { authPalette as P } from '../../theme';
 
 // Simple SVG Icons to match design exactly
 const ChevronLeft = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M15 18L9 12L15 6" stroke="#2e7d32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" pointerEvents="none">
+    <Path d="M15 18L9 12L15 6" stroke={P.deepGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const StoreClosedIcon = () => (
+  <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="10" stroke="#d84315" strokeWidth="2" />
+    <Path d="M12 6V12L16 14" stroke="#d84315" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -17,7 +25,7 @@ const Beaker = () => (
 
 const BellAlert = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16ZM16 17H8V11C8 8.52 9.51 6.5 12 6.5C14.49 6.5 16 8.52 16 11V17Z" fill="#d84315"/>
+    <Path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16ZM16 17H8V11C8 8.52 9.51 6.5 12 6.5C14.49 6.5 16 8.52 16 11V17Z" fill="#d84315" />
   </Svg>
 );
 
@@ -34,27 +42,6 @@ const StoreIcon = () => (
   </Svg>
 );
 
-const CropTomato = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C16.4183 22 20 18.4183 20 14C20 9.58172 16.4183 6 12 6C7.58172 6 4 9.58172 4 14C4 18.4183 7.58172 22 12 22Z" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V6M12 6L9 9M12 6L15 9" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-
-const CropCarrot = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke="#f57c00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V4M9 2V4M15 2V4" stroke="#f57c00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-
-const CropBeans = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12V22" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </Svg>
-);
-
 const Plus = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path d="M12 5V19M5 12H19" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -65,21 +52,49 @@ interface ListingsScreenProps {
   onNavigateToCreateListing?: () => void;
   onNavigateToCounterOffer?: (listing: any) => void;
   onNavigateBack?: () => void;
+  onNavigateToMyListings?: () => void;
+  onNavigateToViewAll?: () => void;
+  onNavigateToListingDetail?: (item?: any) => void;
 }
 
 export function ListingsScreen({
   onNavigateToCreateListing,
   onNavigateToCounterOffer,
-  onNavigateBack
+  onNavigateBack,
+  onNavigateToMyListings,
+  onNavigateToViewAll,
+  onNavigateToListingDetail,
 }: ListingsScreenProps): React.JSX.Element {
+  const [isMarketOpen, setIsMarketOpen] = useState<boolean>(true);
+  const [showClosedModal, setShowClosedModal] = useState<boolean>(false);
+
+  const handleToggleClosed = () => {
+    setIsMarketOpen(false);
+    // modal only pops when farmer tries to create a listing while closed
+  };
+
+  const handleToggleOpen = () => {
+    setIsMarketOpen(true);
+  };
+
+  const handleCreateListing = () => {
+    if (!isMarketOpen) {
+      setShowClosedModal(true);
+      return;
+    }
+    onNavigateToCreateListing?.();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity 
-            style={styles.backBtn} 
+          <TouchableOpacity
+            style={styles.backBtn}
             onPress={onNavigateBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -93,7 +108,7 @@ export function ListingsScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Prototype Banner */}
         <View style={styles.prototypeBanner}>
           <View style={styles.protoRow}>
@@ -101,12 +116,22 @@ export function ListingsScreen({
             <Text style={styles.protoText}>Prototype only · market-day state</Text>
           </View>
           <View style={styles.protoToggle}>
-            <View style={styles.protoToggleActive}>
-              <Text style={styles.protoToggleActiveText}>Open</Text>
-            </View>
-            <View style={styles.protoToggleInactive}>
-              <Text style={styles.protoToggleInactiveText}>Closed</Text>
-            </View>
+            <TouchableOpacity
+              style={[styles.protoToggleBtn, isMarketOpen && styles.protoToggleActive]}
+              onPress={handleToggleOpen}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.protoToggleText, isMarketOpen && styles.protoToggleActiveText]}>Open</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.protoToggleBtn, !isMarketOpen && styles.protoToggleClosedActive]}
+              onPress={handleToggleClosed}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.protoToggleText, !isMarketOpen && styles.protoToggleClosedActiveText]}>Closed</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -125,16 +150,24 @@ export function ListingsScreen({
         </TouchableOpacity>
 
         {/* Market Day Hero */}
-        <View style={styles.heroCard}>
-          <View style={{position:'absolute', right: -20, bottom: -10}}>
-             <StoreIcon />
+        <View style={[styles.heroCard, !isMarketOpen && styles.heroCardClosed]}>
+          <View style={{ position: 'absolute', right: -20, bottom: -10 }}>
+            <StoreIcon />
           </View>
-          <View style={styles.heroChip}>
-            <View style={styles.heroChipDot} />
-            <Text style={styles.heroChipText}>MARKET DAY IS OPEN</Text>
+          <View style={[styles.heroChip, !isMarketOpen && styles.heroChipClosed]}>
+            <View style={[styles.heroChipDot, !isMarketOpen && styles.heroChipDotClosed]} />
+            <Text style={styles.heroChipText}>
+              {isMarketOpen ? 'MARKET DAY IS OPEN' : 'MARKET DAY IS CLOSED'}
+            </Text>
           </View>
-          <Text style={styles.heroTitle}>Today is a market day</Text>
-          <Text style={styles.heroSub}>Listings are being accepted now. Add a harvest-ready crop to start selling.</Text>
+          <Text style={styles.heroTitle}>
+            {isMarketOpen ? 'Today is a market day' : 'Market is closed today'}
+          </Text>
+          <Text style={styles.heroSub}>
+            {isMarketOpen
+              ? 'Listings are being accepted now. Add a harvest-ready crop to start selling.'
+              : 'New crop listings are paused. Next market day opens Wednesday at 06:00 AM.'}
+          </Text>
         </View>
 
         {/* Metrics */}
@@ -156,13 +189,21 @@ export function ListingsScreen({
         {/* Recent Listings */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>RECENT LISTINGS</Text>
-          <TouchableOpacity>
+          <TouchableOpacity
+            onPress={onNavigateToMyListings || onNavigateToViewAll}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Text style={styles.viewAllBtn}>View all</Text>
           </TouchableOpacity>
         </View>
 
         {/* List items */}
-        <View style={styles.listItem}>
+        <TouchableOpacity
+          style={styles.listItem}
+          onPress={onNavigateToListingDetail}
+          activeOpacity={0.8}
+        >
           <View style={[styles.listIconBox, { backgroundColor: '#e8f5e9' }]}>
             <Image source={require('../../../../assets/images/real_tomato.jpg')} style={styles.realCropImg} />
           </View>
@@ -173,9 +214,13 @@ export function ListingsScreen({
           <View style={[styles.badge, { backgroundColor: '#e8f5e9' }]}>
             <Text style={[styles.badgeText, { color: '#2e7d32' }]}>Approved</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.listItem} onPress={() => onNavigateToCounterOffer?.({})}>
+        <TouchableOpacity
+          style={styles.listItem}
+          onPress={() => onNavigateToCounterOffer?.({})}
+          activeOpacity={0.8}
+        >
           <View style={[styles.listIconBox, { backgroundColor: '#fff3e0' }]}>
             <Image source={require('../../../../assets/images/real_carrot.jpg')} style={styles.realCropImg} />
           </View>
@@ -188,7 +233,11 @@ export function ListingsScreen({
           </View>
         </TouchableOpacity>
 
-        <View style={styles.listItem}>
+        <TouchableOpacity
+          style={styles.listItem}
+          onPress={onNavigateToListingDetail}
+          activeOpacity={0.8}
+        >
           <View style={[styles.listIconBox, { backgroundColor: '#e8f5e9' }]}>
             <Image source={require('../../../../assets/images/real_french_beans.jpg')} style={styles.realCropImg} />
           </View>
@@ -199,18 +248,47 @@ export function ListingsScreen({
           <View style={[styles.badge, { backgroundColor: '#fff3e0' }]}>
             <Text style={[styles.badgeText, { color: '#e65100' }]}>Waiting</Text>
           </View>
-        </View>
-        
-        <View style={{height: 100}} />
+        </TouchableOpacity>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Floating Action Button */}
       <View style={styles.fabContainer}>
-        <TouchableOpacity style={styles.fab} onPress={onNavigateToCreateListing}>
+        <TouchableOpacity style={styles.fab} onPress={handleCreateListing} activeOpacity={0.85}>
           <Plus />
           <Text style={styles.fabText}>Create listing</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Market Closed Popup Modal */}
+      <Modal
+        visible={showClosedModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowClosedModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconBox}>
+              <StoreClosedIcon />
+            </View>
+            <Text style={styles.modalTitle}>Market Day is Closed</Text>
+            <Text style={styles.modalDesc}>
+              Listings are not being accepted at this time. Today's market session is currently closed.
+              {'\n\n'}
+              Next market day opens on Wednesday at 06:00 AM. You can still manage active listings and respond to counter-offers.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowClosedModal(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>OK, Understood</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -237,6 +315,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -247,7 +326,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#004d40',
+    color: P.deepGreen,
   },
   headerSub: {
     fontSize: 14,
@@ -290,24 +369,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  protoToggleActive: {
-    backgroundColor: '#2e7d32',
+  protoToggleBtn: {
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 14,
   },
-  protoToggleActiveText: {
-    color: '#ffffff',
-    fontSize: 10,
+  protoToggleText: {
+    color: '#9e9e9e',
+    fontSize: 11,
     fontWeight: '700',
   },
-  protoToggleInactive: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  protoToggleActive: {
+    backgroundColor: '#2e7d32',
+  },
+  protoToggleActiveText: {
+    color: '#ffffff',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  protoToggleClosedActive: {
+    backgroundColor: '#d84315',
+  },
+  protoToggleClosedActiveText: {
+    color: '#ffffff',
   },
   protoToggleInactiveText: {
     color: '#9e9e9e',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '700',
   },
   alertBanner: {
@@ -328,12 +418,14 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '800',
     color: '#5d4037',
     marginBottom: 4,
   },
   alertSub: {
     fontSize: 13,
+    lineHeight: 18,
     color: '#d84315',
   },
   alertChevron: {
@@ -365,7 +457,8 @@ const styles = StyleSheet.create({
   },
   heroChipText: {
     color: '#ffffff',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -517,5 +610,71 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     marginLeft: 8,
+  },
+  // -- Closed hero variant --
+  heroCardClosed: {
+    backgroundColor: '#616161',
+  },
+  heroChipClosed: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  heroChipDotClosed: {
+    backgroundColor: '#ef9a9a',
+  },
+  // -- Market closed modal --
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 28,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  modalIconBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#fff3e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#212121',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDesc: {
+    fontSize: 14,
+    color: '#616161',
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: P.deepGreen,
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

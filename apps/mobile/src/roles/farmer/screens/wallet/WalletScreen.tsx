@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  FlatList,
-  Pressable,
-  RefreshControl,
+  BackHandler,
+  Platform,
   SafeAreaView,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import {
@@ -25,6 +27,7 @@ import { t, type TranslationKey } from '../../../../i18n/farmer';
 import {
   MIN_TOUCH_TARGET,
   colors,
+  fontSizes,
   radius,
   spacing,
   typography,
@@ -185,123 +188,157 @@ export function WalletScreen(): React.JSX.Element {
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('farmer.wallet.title')}</Text>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* Balance Card: Formatted without float operations */}
-        <Card style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>{t('farmer.wallet.balance')}</Text>
-          <Text style={styles.balanceValue}>
-            {wallet ? formatMoneyAmount(wallet.balance) : '₹0.00'}
-          </Text>
-          <View style={styles.walletMetaRow}>
-            <Badge
-              label={wallet?.status ?? 'ACTIVE'}
-              variant={wallet?.status === 'ACTIVE' ? 'success' : 'danger'}
-            />
-            <Text style={styles.walletCurrency}>{wallet?.currency ?? 'INR'}</Text>
-          </View>
-        </Card>
-
-        {/* Re-querying Filter Tabs (ALL / CREDIT / DEBIT / ADJUST) */}
-        <View style={styles.tabsRow}>
-          {(['ALL', 'CREDIT', 'DEBIT', 'ADJUST'] as const).map((tab) => {
-            const tabKey =
-              tab === 'ALL'
-                ? 'farmer.wallet.tab.all'
-                : tab === 'CREDIT'
-                  ? 'farmer.wallet.tab.credit'
-                  : tab === 'DEBIT'
-                    ? 'farmer.wallet.tab.debit'
-                    : 'farmer.wallet.tab.adjust';
-
-            return (
-              <Pressable
-                key={tab}
-                style={[styles.tabButton, selectedTab === tab && styles.tabButtonActive]}
-                onPress={() => setSelectedTab(tab)}
-                accessibilityRole="tab"
-              >
-                <Text
-                  style={[
-                    styles.tabButtonText,
-                    selectedTab === tab && styles.tabButtonTextActive,
-                  ]}
-                >
-                  {t(tabKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-
-        {/* Transactions Ledger */}
-        <View style={styles.ledgerSection}>
-          {loadingTxns ? (
-            <View style={styles.skeletonContainer}>
-              <Skeleton height={56} width="100%" style={styles.skeletonItem} />
-              <Skeleton height={56} width="100%" style={styles.skeletonItem} />
-              <Skeleton height={56} width="100%" style={styles.skeletonItem} />
-            </View>
-          ) : (
-            <FlatList
-              data={transactions}
-              keyExtractor={(item) => item.id}
-              renderItem={renderTransactionItem}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  colors={[colors.primary]}
-                />
-              }
-              ListEmptyComponent={
-                <EmptyState
-                  title={t('farmer.wallet.transactions.empty') || 'No transactions found'}
-                  message="Produce sales and payouts will appear here."
-                  iconName="account_balance_wallet"
-                />
-              }
-              contentContainerStyle={styles.listContent}
-            />
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          {onBack && (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowBackIcon size={20} color={P.twGreen800} />
+            </TouchableOpacity>
           )}
+
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.headerTitle}>Wallet</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Dark Green Available Balance Card */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Available Balance</Text>
+          <Text style={styles.balanceValue}>₹4,250</Text>
+
+          <View style={styles.balanceDivider} />
+
+          <View style={styles.balanceStatsRow}>
+            <View style={styles.statCol}>
+              <Text style={styles.statValue}>₹28,600</Text>
+              <Text style={styles.statLabel}>Total Received</Text>
+            </View>
+
+            <View style={styles.statVerticalDivider} />
+
+            <View style={styles.statCol}>
+              <Text style={styles.statValue}>₹24,350</Text>
+              <Text style={styles.statLabel}>Total Withdrawn</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Invoices List */}
-        {invoices.length > 0 ? (
-          <View style={styles.invoicesSection}>
-            <Text style={styles.sectionTitle}>{t('farmer.wallet.invoices.title')}</Text>
-            {invoices.slice(0, 3).map((inv) => (
-              <View key={inv.id} style={styles.invoiceRow}>
-                <View style={styles.invoiceInfo}>
-                  <Text style={styles.invoiceNumber}>{inv.invoiceNumber}</Text>
-                  <Text style={styles.invoiceDate}>
-                    {new Date(inv.issuedAt).toLocaleDateString()}
-                  </Text>
-                </View>
-                <Text style={styles.invoiceAmount}>{formatMoneyAmount(inv.totalAmount)}</Text>
-                <Pressable
-                  style={styles.invoiceBtn}
-                  onPress={() => void handleDownloadInvoice(inv.id)}
+        {/* 3 Action Buttons Row */}
+        <View style={styles.actionRow}>
+          {/* Add Money */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onNavigateToAddMoney}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Add Money"
+          >
+            <View style={styles.actionIconCircle}>
+              <PlusCircleIcon size={22} color={P.twGreen700} />
+            </View>
+            <Text style={styles.actionCardText}>Add Money</Text>
+          </TouchableOpacity>
+
+          {/* Withdraw */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onNavigateToWithdraw}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Withdraw"
+          >
+            <View style={styles.actionIconCircle}>
+              <ArrowUpRightIcon size={22} color={P.twGreen700} />
+            </View>
+            <Text style={styles.actionCardText}>Withdraw</Text>
+          </TouchableOpacity>
+
+          {/* Payout History */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onNavigateToPayoutHistory}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Payout History"
+          >
+            <View style={styles.actionIconCircle}>
+              <ReceiptIcon size={22} color={P.twGreen700} />
+            </View>
+            <Text style={styles.actionCardText}>Payout History</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Recent Transactions Section */}
+        <View style={styles.txSection}>
+          <Text style={styles.sectionHeader}>RECENT TRANSACTIONS</Text>
+
+          <View style={styles.txList}>
+            {SAMPLE_TRANSACTIONS.map((item) => {
+              const isCredit = item.type === 'credit';
+              const isTopUp = item.title.includes('Top-up');
+
+              const iconBg = isTopUp
+                ? P.twBlue50
+                : isCredit
+                  ? P.twGreen50
+                  : P.twRed50;
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.txCard}
+                  onPress={() => onNavigateToTransactionDetail && onNavigateToTransactionDetail(item)}
+                  activeOpacity={0.75}
                   accessibilityRole="button"
+                  accessibilityLabel={`${item.title}, ${item.amount}`}
                 >
-                  <Icon name="download" size={18} color={colors.primary} />
-                </Pressable>
-              </View>
-            ))}
+                  <View style={[styles.txIconBox, { backgroundColor: iconBg }]}>
+                    {isTopUp ? (
+                      <CreditCardMiniIcon size={18} color={P.twBlue700} />
+                    ) : isCredit ? (
+                      <ArrowDownIcon size={18} color={P.twGreen700} />
+                    ) : (
+                      <ArrowUpIcon size={18} color={P.twRed600} />
+                    )}
+                  </View>
+
+                  <View style={styles.txContent}>
+                    <Text style={styles.txTitle}>{item.title}</Text>
+                    <Text style={styles.txSubtitle}>
+                      {item.date} · {item.ref}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.txAmount,
+                      { color: isCredit ? P.twGreen700 : P.twRed600 },
+                    ]}
+                  >
+                    {item.amount}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        ) : null}
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -312,36 +349,56 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, gap: spacing.md },
   header: { gap: spacing.xs },
   title: {
-    fontSize: typography.headline,
+    fontSize: fontSizes.h1,
+    lineHeight: typography.h1.lineHeight,
     fontWeight: weights.bold,
     color: colors.onSurface,
   },
-  errorBox: {
-    padding: spacing.md,
-    backgroundColor: colors.surfaceVariant,
-    borderColor: colors.danger,
-    borderWidth: 1,
-    borderRadius: radius.card,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  errorText: { color: colors.danger, fontSize: typography.body },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  errorText: { color: colors.danger, fontSize: fontSizes.body, lineHeight: typography.body.lineHeight },
   balanceCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.cardMax,
-    padding: spacing.xl,
-    gap: spacing.xs,
+    backgroundColor: P.deepGreen,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: P.deepGreen,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 3,
   },
   balanceLabel: {
-    fontSize: typography.body,
+    fontSize: fontSizes.body,
+    lineHeight: typography.body.lineHeight,
     fontWeight: weights.medium,
     color: colors.surface,
   },
   balanceValue: {
-    fontSize: 32,
-    fontWeight: weights.bold,
+    fontSize: fontSizes.display,
+    lineHeight: typography.display.lineHeight,
+    fontWeight: weights.extrabold,
     color: colors.white,
   },
   walletMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
-  walletCurrency: { color: colors.surface, fontSize: typography.caption },
+  walletCurrency: { color: colors.surface, fontSize: fontSizes.caption, lineHeight: typography.caption.lineHeight },
   tabsRow: { flexDirection: 'row', gap: spacing.xs },
   tabButton: {
     flex: 1,
@@ -351,70 +408,88 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfacePressed,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
   },
-  tabButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  statCol: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: P.white,
   },
   tabButtonText: {
-    fontSize: typography.caption,
+    fontSize: fontSizes.caption,
+    lineHeight: typography.caption.lineHeight,
     fontWeight: weights.medium,
     color: colors.onSurface,
   },
-  tabButtonTextActive: {
-    color: colors.white,
-    fontWeight: weights.bold,
+  statVerticalDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 14,
   },
-  ledgerSection: { flex: 1 },
-  listContent: { gap: spacing.sm, paddingBottom: spacing.lg },
-  txnRow: {
+  actionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    padding: spacing.md,
-    borderRadius: radius.card,
-    gap: spacing.sm,
+    gap: 10,
   },
-  txnIconContainer: {
+  actionCard: {
+    flex: 1,
+    backgroundColor: P.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  actionIconCircle: {
     width: 36,
     height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceVariant,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   txnDetails: { flex: 1, gap: 2 },
   txnType: {
-    fontSize: typography.body,
+    fontSize: fontSizes.body,
+    lineHeight: typography.body.lineHeight,
     fontWeight: weights.semibold,
     color: colors.onSurface,
   },
   txnDate: {
-    fontSize: typography.caption,
+    fontSize: fontSizes.caption,
+    lineHeight: typography.caption.lineHeight,
     color: colors.onSurfaceVariant,
   },
   txnAmounts: { alignItems: 'flex-end', gap: 2 },
   txnAmount: {
-    fontSize: typography.body,
+    fontSize: fontSizes.body,
+    lineHeight: typography.body.lineHeight,
     fontWeight: weights.bold,
   },
   txnAmountCredit: { color: colors.primary },
   txnAmountDebit: { color: colors.danger },
   txnBalanceAfter: {
-    fontSize: typography.caption,
+    fontSize: fontSizes.caption,
+    lineHeight: typography.caption.lineHeight,
     color: colors.onSurfaceVariant,
   },
   emptyContainer: { padding: spacing.xl, alignItems: 'center' },
-  emptyText: { color: colors.onSurfaceVariant, fontSize: typography.body },
+  emptyText: { color: colors.onSurfaceVariant, fontSize: fontSizes.body, lineHeight: typography.body.lineHeight },
   invoicesSection: { gap: spacing.xs },
   sectionTitle: {
-    fontSize: typography.title,
+    fontSize: fontSizes.h2,
+    lineHeight: typography.h2.lineHeight,
     fontWeight: weights.bold,
     color: colors.onSurface,
   },
-  invoiceRow: {
+  txCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -423,23 +498,32 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   invoiceInfo: { flex: 1 },
-  invoiceNumber: { fontSize: typography.caption, fontWeight: weights.bold, color: colors.onSurface },
-  invoiceDate: { fontSize: typography.caption, color: colors.onSurfaceVariant },
-  invoiceAmount: { fontSize: typography.caption, fontWeight: weights.bold, color: colors.onSurface },
+  invoiceNumber: { fontSize: fontSizes.caption, lineHeight: typography.caption.lineHeight, fontWeight: weights.bold, color: colors.onSurface },
+  invoiceDate: { fontSize: fontSizes.caption, lineHeight: typography.caption.lineHeight, color: colors.onSurfaceVariant },
+  invoiceAmount: { fontSize: fontSizes.caption, lineHeight: typography.caption.lineHeight, fontWeight: weights.bold, color: colors.onSurface },
   invoiceBtn: {
     minWidth: MIN_TOUCH_TARGET,
     minHeight: MIN_TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  skeletonContainer: {
-    padding: spacing.md,
-    gap: spacing.md,
+  txContent: {
+    flex: 1,
+    paddingRight: 8,
   },
-  skeletonItem: {
-    borderRadius: radius.sm,
+  txTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: P.twGray900,
   },
-  skeletonCard: {
-    borderRadius: radius.card,
+  txSubtitle: {
+    fontSize: 12,
+    color: P.twGray500,
+    marginTop: 2,
+  },
+  txAmount: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
