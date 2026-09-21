@@ -4,7 +4,7 @@ import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
 
 // Custom Icons
 const ChevronLeft = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" pointerEvents="none">
     <Path d="M15 18L9 12L15 6" stroke="#2e7d32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
@@ -81,6 +81,8 @@ export function CreateListingScreen({
           <TouchableOpacity 
             style={styles.backBtn} 
             onPress={onCancel}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -228,6 +230,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,

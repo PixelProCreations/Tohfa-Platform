@@ -90,7 +90,7 @@ const RECENT_LISTINGS_DATA: ListingItem[] = [
     grade: 'Grade 1',
     status: 'Counter-offer',
     statusBadgeBg: P.twPurple100,
-    statusBadgeText: P.twPurple700,
+    statusBadgeText: P.twPurple600,
     date: '14 Jul 2026',
     image: require('../../../../assets/images/real_carrot.jpg'),
     hasAlert: true,

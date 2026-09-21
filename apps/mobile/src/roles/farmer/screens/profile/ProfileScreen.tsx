@@ -3,7 +3,6 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   Share,
   StatusBar,
@@ -13,8 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polygon } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polygon } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
+import { logout } from '../../api/auth';
 import {
   getMyFarmerProfile,
   maskAadhaar,
@@ -25,6 +25,34 @@ import { LOCALES, setLocale, type Locale } from '../../../../i18n/farmer';
 import { colors, authPalette as P } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 
+function LogoutIcon({ size = 18, color = P.twRed600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 17l5-5-5-5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M21 12H9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 interface ProfileScreenProps {
   onNavigateToHome?: () => void;
   onNavigateToCertifications?: () => void;
@@ -34,8 +62,10 @@ interface ProfileScreenProps {
   onNavigateToAudits?: () => void;
   onNavigateToFarmRatings?: () => void;
   onNavigateToSoilTest?: () => void;
-  onNavigateToSettings?: (() => void) | undefined;
-  onNavigateToAboutSupport?: (() => void) | undefined;
+  onNavigateToSettings?: () => void;
+  onNavigateToAboutSupport?: () => void;
+  onNavigateToBankPayment?: () => void;
+  onLogout?: () => void;
 }
 
 interface PersonalDetailsData {
@@ -68,6 +98,8 @@ export function ProfileScreen({
   onNavigateToSoilTest,
   onNavigateToSettings,
   onNavigateToAboutSupport,
+  onNavigateToBankPayment,
+  onLogout,
 }: ProfileScreenProps): React.JSX.Element {
   // --- Profile State ---
   const [personalDetails, setPersonalDetails] = useState<PersonalDetailsData>({
@@ -218,1132 +250,473 @@ export function ProfileScreen({
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out of your TOHFA account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch {
+              // Ignore network error on logout
+            }
+            if (onNavigateToHome) {
+              onNavigateToHome();
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+    <View style={styles.screen}>
+      <View style={styles.screen}>
+        <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ================= HEADER SECTION ================= */}
-        <View style={styles.headerBanner}>
-          {/* Top Bar Navigation */}
-          <View style={styles.headerNavRow}>
-            <TouchableOpacity
-              style={styles.navCircleButton}
-              onPress={onNavigateToHome}
-              accessibilityLabel="Back to home"
-              activeOpacity={0.7}
-            >
-              <Icon name="arrow_back" size={26} color={colors.white} style={styles.navBackIcon} />
-            </TouchableOpacity>
-
-            <Text style={styles.navTitle}>Profile</Text>
-
-            <View style={styles.navRightActions}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ================= HEADER SECTION ================= */}
+          <View style={styles.headerBanner}>
+            {/* Top Bar Navigation */}
+            <View style={styles.headerNavRow}>
               <TouchableOpacity
                 style={styles.navCircleButton}
-                onPress={handleShareProfile}
-                accessibilityLabel="Share profile"
+                onPress={onNavigateToHome}
+                accessibilityLabel="Back to home"
                 activeOpacity={0.7}
               >
-                <Icon name="share" size={16} color={colors.white} />
+                <Icon name="arrow_back" size={26} color={colors.white} style={styles.navBackIcon} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.navCircleButton}
-                onPress={() => {
-                  if (onNavigateToSettings) {
-                    onNavigateToSettings();
-                  } else {
-                    setIsSettingsModalVisible(true);
-                  }
-                }}
-                accessibilityLabel="Settings"
-                activeOpacity={0.7}
-              >
-                <Icon name="settings" size={16} color={colors.white} />
-              </TouchableOpacity>
+              <Text style={styles.navTitle}>Profile</Text>
+
+              <View style={styles.navRightActions}>
+                <TouchableOpacity
+                  style={styles.navCircleButton}
+                  onPress={handleShareProfile}
+                  accessibilityLabel="Share profile"
+                  activeOpacity={0.7}
+                >
+                  <Icon name="share" size={16} color={colors.white} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.navCircleButton}
+                  onPress={() => {
+                    if (onNavigateToSettings) {
+                      onNavigateToSettings();
+                    } else {
+                      setIsSettingsModalVisible(true);
+                    }
+                  }}
+                  accessibilityLabel="Settings"
+                  activeOpacity={0.7}
+                >
+                  <Icon name="settings" size={16} color={colors.white} />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          {/* Farmer Avatar & Basic Info */}
-          <View style={styles.profileHero}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={farmerAvatar}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
+            {/* Farmer Avatar & Basic Info */}
+            <View style={styles.profileHero}>
+              <View style={styles.avatarContainer}>
+                <Image
+                  source={farmerAvatar}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity
+                  style={styles.avatarEditBadge}
+                  onPress={() => (onNavigateToPersonalDetails ? onNavigateToPersonalDetails() : openPersonalEdit())}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Edit profile picture"
+                >
+                  <Icon name="edit" size={14} color={colors.brandGreen} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.farmerName}>{personalDetails.fullName}</Text>
+
+              <View style={styles.idBadgePill}>
+                <Text style={styles.idBadgeText}>{farmerId}</Text>
+              </View>
+
+              <Text style={styles.farmNameText}>{personalDetails.farmName}</Text>
+              <View style={styles.iconTextRow}>
+                <Icon name="place" size={12} color={P.green100} />
+                <Text style={styles.locationText}>{personalDetails.location}</Text>
+              </View>
+            </View>
+
+            {/* 4 Quick Stat Cards Overlapping Header */}
+            <View style={styles.quickStatsRow}>
+              <View style={styles.quickStatCard}>
+                <Icon name="shield" size={18} color={colors.brandGreen} style={styles.statEmoji} />
+                <Text style={[styles.statValue, { color: colors.brandGreen }]}>Valid</Text>
+                <Text style={styles.statLabel}>CERT</Text>
+              </View>
+
               <TouchableOpacity
-                style={styles.avatarEditBadge}
-                onPress={() => (onNavigateToPersonalDetails ? onNavigateToPersonalDetails() : openPersonalEdit())}
+                style={styles.quickStatCard}
+                onPress={() => (onNavigateToFarmRatings ? onNavigateToFarmRatings() : setIsRatingModalVisible(true))}
                 activeOpacity={0.8}
-                accessibilityLabel="Edit profile picture"
               >
-                <Icon name="edit" size={14} color={colors.brandGreen} />
+                <Icon name="star" size={18} color={P.deepGreen} style={styles.statEmoji} />
+                <Text style={[styles.statValue, { color: P.deepGreen }]}>82</Text>
+                <Text style={styles.statLabel}>RATING</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickStatCard}
+                onPress={() => setIsAuditsModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Icon name="calendar_today" size={18} color={P.orange900} style={styles.statEmoji} />
+                <Text style={[styles.statValue, { color: P.orange900 }]}>12d</Text>
+                <Text style={styles.statLabel}>AUDIT</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickStatCard}
+                onPress={openFarmEdit}
+                activeOpacity={0.8}
+              >
+                <Icon name="eco" size={18} color={P.deepGreen} style={styles.statEmoji} />
+                <Text style={[styles.statValue, { color: P.deepGreen }]}>{farmDetails.acres}</Text>
+                <Text style={styles.statLabel}>ACRES</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Success Toast */}
+          {saveSuccessMsg ? (
+            <View style={[styles.toastSuccess, styles.toastSuccessRow]}>
+              <Icon name="check_circle" size={14} color={P.deepGreen} />
+              <Text style={styles.toastSuccessText}>{saveSuccessMsg}</Text>
+            </View>
+          ) : null}
+
+          {/* ================= CARD 1: PERSONAL DETAILS ================= */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: P.violetTint }]}>
+                <Icon name="person" size={18} color={P.violetAccent} />
+              </View>
+              <View style={styles.cardHeaderTitleBox}>
+                <Text style={styles.cardTitle}>Personal Details</Text>
+                <Text style={styles.cardSubtitle}>Identity & contact info</Text>
+              </View>
+              <TouchableOpacity onPress={() => (onNavigateToPersonalDetails ? onNavigateToPersonalDetails() : openPersonalEdit())} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.cardActionLink}>Edit</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.farmerName}>{personalDetails.fullName}</Text>
-
-            <View style={styles.idBadgePill}>
-              <Text style={styles.idBadgeText}>{farmerId}</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Full Name</Text>
+              <Text style={styles.detailValue}>{personalDetails.fullName}</Text>
             </View>
 
-            <Text style={styles.farmNameText}>{personalDetails.farmName}</Text>
-            <View style={styles.iconTextRow}>
-              <Icon name="place" size={12} color={P.green100} />
-              <Text style={styles.locationText}>{personalDetails.location}</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Date of Birth</Text>
+              <Text style={styles.detailValue}>{personalDetails.dob}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Mobile</Text>
+              <Text style={styles.detailValue}>{personalDetails.mobile}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Aadhaar</Text>
+              <Text style={styles.detailValue}>{personalDetails.aadhaar}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Years in Organic</Text>
+              <Text style={styles.detailValue}>{personalDetails.yearsInOrganic}</Text>
+            </View>
+
+            <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.detailLabel}>Farming Type</Text>
+              <View style={styles.iconTextRow}>
+                <Icon name="eco" size={13} color={colors.brandGreen} />
+                <Text style={[styles.detailValue, { color: colors.brandGreen }]}>
+                  {personalDetails.farmingType}
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* 4 Quick Stat Cards Overlapping Header */}
-          <View style={styles.quickStatsRow}>
-            <View style={styles.quickStatCard}>
-              <Icon name="shield" size={18} color={colors.brandGreen} style={styles.statEmoji} />
-              <Text style={[styles.statValue, { color: colors.brandGreen }]}>Valid</Text>
-              <Text style={styles.statLabel}>CERT</Text>
+          {/* ================= CARD 2: FARM & FMB ================= */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: colors.brandGreenLight }]}>
+                <Icon name="shield" size={18} color={colors.brandGreen} />
+              </View>
+              <View style={styles.cardHeaderTitleBox}>
+                <Text style={styles.cardTitle}>Farm & FMB</Text>
+                <Text style={styles.cardSubtitle}>Boundary & land context</Text>
+              </View>
+              <TouchableOpacity onPress={openFarmEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.cardActionLink}>Edit</Text>
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.quickStatCard}
-              onPress={() => (onNavigateToFarmRatings ? onNavigateToFarmRatings() : setIsRatingModalVisible(true))}
-              activeOpacity={0.8}
-            >
-              <Icon name="star" size={18} color={P.deepGreen} style={styles.statEmoji} />
-              <Text style={[styles.statValue, { color: P.deepGreen }]}>82</Text>
-              <Text style={styles.statLabel}>RATING</Text>
-            </TouchableOpacity>
+            {/* FMB Interactive / Vector Map Preview */}
+            <View style={styles.fmbMapContainer}>
+              <Svg width="100%" height="135" viewBox="0 0 320 135">
+                {/* Background Grid Lines */}
+                <Line x1="0" y1="67" x2="320" y2="67" stroke={P.slate200} strokeWidth="1" strokeDasharray="4,4" />
+                <Line x1="160" y1="0" x2="160" y2="135" stroke={P.slate200} strokeWidth="1" strokeDasharray="4,4" />
 
-            <TouchableOpacity
-              style={styles.quickStatCard}
-              onPress={() => setIsAuditsModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Icon name="calendar_today" size={18} color={P.orange900} style={styles.statEmoji} />
-              <Text style={[styles.statValue, { color: P.orange900 }]}>12d</Text>
-              <Text style={styles.statLabel}>AUDIT</Text>
-            </TouchableOpacity>
+                {/* FMB Cadastral Boundary Polygon */}
+                <Polygon
+                  points="45,40 270,30 250,110 65,115"
+                  fill="rgba(165, 214, 167, 0.55)"
+                  stroke={colors.brandGreen}
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                />
 
-            <TouchableOpacity
-              style={styles.quickStatCard}
-              onPress={openFarmEdit}
-              activeOpacity={0.8}
-            >
-              <Icon name="eco" size={18} color={P.deepGreen} style={styles.statEmoji} />
-              <Text style={[styles.statValue, { color: P.deepGreen }]}>{farmDetails.acres}</Text>
-              <Text style={styles.statLabel}>ACRES</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                {/* Inner Center Plot Marker */}
+                <Circle cx="158" cy="68" r="7" fill={P.orange600} stroke={colors.white} strokeWidth="2.5" />
+              </Svg>
 
-        {/* Success Toast */}
-        {saveSuccessMsg ? (
-          <View style={[styles.toastSuccess, styles.toastSuccessRow]}>
-            <Icon name="check_circle" size={14} color={P.deepGreen} />
-            <Text style={styles.toastSuccessText}>{saveSuccessMsg}</Text>
-          </View>
-        ) : null}
-
-        {/* ================= CARD 1: PERSONAL DETAILS ================= */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.cardIconBox, { backgroundColor: P.violetTint }]}>
-              <Icon name="person" size={18} color={P.violetAccent} />
+              {/* GPS Tag */}
+              <View style={styles.gpsCoordinatesBadge}>
+                <Text style={styles.gpsCoordinatesText}>11.4064° N, 76.6932° E</Text>
+              </View>
             </View>
-            <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Personal Details</Text>
-              <Text style={styles.cardSubtitle}>Identity & contact info</Text>
+
+            {/* 4 Metrics Strip */}
+            <View style={styles.fmbMetricsStrip}>
+              <View style={styles.fmbMetricItem}>
+                <Text style={styles.fmbMetricValue}>{farmDetails.acres}</Text>
+                <Text style={styles.fmbMetricLabel}>ACRES</Text>
+              </View>
+              <View style={styles.fmbMetricDivider} />
+              <View style={styles.fmbMetricItem}>
+                <Text style={styles.fmbMetricValue}>{farmDetails.zones}</Text>
+                <Text style={styles.fmbMetricLabel}>ZONES</Text>
+              </View>
+              <View style={styles.fmbMetricDivider} />
+              <View style={styles.fmbMetricItem}>
+                <Text style={styles.fmbMetricValue}>{farmDetails.farms}</Text>
+                <Text style={styles.fmbMetricLabel}>FARMS</Text>
+              </View>
+              <View style={styles.fmbMetricDivider} />
+              <View style={styles.fmbMetricItem}>
+                <Text style={styles.fmbMetricValue}>{farmDetails.fmbPts}</Text>
+                <Text style={styles.fmbMetricLabel}>FMB PTS</Text>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => (onNavigateToPersonalDetails ? onNavigateToPersonalDetails() : openPersonalEdit())} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>Edit</Text>
-            </TouchableOpacity>
+
+            {/* Water Source Row */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Water Source</Text>
+              <Text style={styles.detailValue}>{farmDetails.waterSource}</Text>
+            </View>
+
+            {/* Land Context Pills */}
+            <View style={styles.tagPillContainer}>
+              <View style={[styles.tagPill, styles.iconTextRow, { backgroundColor: colors.brandGreenLight }]}>
+                <Icon name="park" size={11} color={colors.brandGreen} />
+                <Text style={[styles.tagPillText, { color: colors.brandGreen }]}>Forest boundary</Text>
+              </View>
+              <View style={[styles.tagPill, styles.iconTextRow, { backgroundColor: colors.brandGreenLight }]}>
+                <Icon name="terrain" size={11} color={colors.brandGreen} />
+                <Text style={[styles.tagPillText, { color: colors.brandGreen }]}>Upper hill</Text>
+              </View>
+              <View style={[styles.tagPill, styles.iconTextRow, { backgroundColor: P.red50 }]}>
+                <Icon name="eco" size={11} color={P.red800} />
+                <Text style={[styles.tagPillText, { color: P.red800 }]}>Wildlife zone</Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Full Name</Text>
-            <Text style={styles.detailValue}>{personalDetails.fullName}</Text>
-          </View>
+          {/* ================= CARD 3: CERTIFICATIONS ================= */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: P.blue50 }]}>
+                <Icon name="military_tech" size={18} color={P.blue700} />
+              </View>
+              <View style={styles.cardHeaderTitleBox}>
+                <Text style={styles.cardTitle}>Certifications</Text>
+                <Text style={styles.cardSubtitle}>PGS & NPOP status</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => onNavigateToCertifications?.()}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.cardActionLink}>Manage</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Date of Birth</Text>
-            <Text style={styles.detailValue}>{personalDetails.dob}</Text>
-          </View>
+            {/* 2 Certification Badges side-by-side */}
+            <View style={styles.certCardsRow}>
+              {/* PGS Card */}
+              <TouchableOpacity
+                style={[styles.certSubCard, { backgroundColor: P.certCardBg, borderColor: P.sageTintBg }]}
+                onPress={() => onNavigateToCertifications?.()}
+                activeOpacity={0.8}
+              >
+                <View style={styles.certCardTop}>
+                  <Icon name="eco" size={22} color={colors.brandGreen} />
+                  <View style={styles.greenCheckmarkCircle}>
+                    <Icon name="check" size={11} color={colors.white} />
+                  </View>
+                </View>
+                <Text style={styles.certTitle}>PGS Organic</Text>
+                <Text style={[styles.certStatusText, { color: colors.brandGreen }]}>Valid</Text>
+                <Text style={styles.certRenewText}>Renews in 214 days</Text>
+              </TouchableOpacity>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Mobile</Text>
-            <Text style={styles.detailValue}>{personalDetails.mobile}</Text>
-          </View>
+              {/* NPOP Card */}
+              <TouchableOpacity
+                style={[styles.certSubCard, { backgroundColor: P.warnCardBg, borderColor: P.warnCardBorder }]}
+                onPress={() => onNavigateToCertifications?.()}
+                activeOpacity={0.8}
+              >
+                <View style={styles.certCardTop}>
+                  <Icon name="storefront" size={22} color={P.orange900} />
+                  <View style={styles.orangeExclamationCircle}>
+                    <Text style={styles.orangeExclamationText}>!</Text>
+                  </View>
+                </View>
+                <Text style={styles.certTitle}>NPOP</Text>
+                <Text style={[styles.certStatusText, { color: P.orange900 }]}>Expiring</Text>
+                <Text style={styles.certRenewText}>Renews in 24 days</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Aadhaar</Text>
-            <Text style={styles.detailValue}>{personalDetails.aadhaar}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Years in Organic</Text>
-            <Text style={styles.detailValue}>{personalDetails.yearsInOrganic}</Text>
-          </View>
-
-          <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.detailLabel}>Farming Type</Text>
-            <View style={styles.iconTextRow}>
-              <Icon name="eco" size={13} color={colors.brandGreen} />
-              <Text style={[styles.detailValue, { color: colors.brandGreen }]}>
-                {personalDetails.farmingType}
+            {/* Expiry Warning Notice */}
+            <View style={styles.warningNoticeBox}>
+              <Icon name="warning" size={16} color={P.amberDeep} />
+              <Text style={styles.warningNoticeText}>
+                NPOP certificate expires soon. Renew to keep market listings active.
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* ================= CARD 2: FARM & FMB ================= */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.cardIconBox, { backgroundColor: colors.brandGreenLight }]}>
-              <Icon name="shield" size={18} color={colors.brandGreen} />
-            </View>
-            <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Farm & FMB</Text>
-              <Text style={styles.cardSubtitle}>Boundary & land context</Text>
-            </View>
-            <TouchableOpacity onPress={openFarmEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* FMB Interactive / Vector Map Preview */}
-          <View style={styles.fmbMapContainer}>
-            <Svg width="100%" height="135" viewBox="0 0 320 135">
-              {/* Background Grid Lines */}
-              <Line x1="0" y1="67" x2="320" y2="67" stroke={P.slate200} strokeWidth="1" strokeDasharray="4,4" />
-              <Line x1="160" y1="0" x2="160" y2="135" stroke={P.slate200} strokeWidth="1" strokeDasharray="4,4" />
-
-              {/* FMB Cadastral Boundary Polygon */}
-              <Polygon
-                points="45,40 270,30 250,110 65,115"
-                fill="rgba(165, 214, 167, 0.55)"
-                stroke={colors.brandGreen}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-              />
-
-              {/* Inner Center Plot Marker */}
-              <Circle cx="158" cy="68" r="7" fill={P.orange600} stroke={colors.white} strokeWidth="2.5" />
-            </Svg>
-
-            {/* GPS Tag */}
-            <View style={styles.gpsCoordinatesBadge}>
-              <Text style={styles.gpsCoordinatesText}>11.4064° N, 76.6932° E</Text>
-            </View>
-          </View>
-
-          {/* 4 Metrics Strip */}
-          <View style={styles.fmbMetricsStrip}>
-            <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.acres}</Text>
-              <Text style={styles.fmbMetricLabel}>ACRES</Text>
-            </View>
-            <View style={styles.fmbMetricDivider} />
-            <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.zones}</Text>
-              <Text style={styles.fmbMetricLabel}>ZONES</Text>
-            </View>
-            <View style={styles.fmbMetricDivider} />
-            <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.farms}</Text>
-              <Text style={styles.fmbMetricLabel}>FARMS</Text>
-            </View>
-            <View style={styles.fmbMetricDivider} />
-            <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.fmbPts}</Text>
-              <Text style={styles.fmbMetricLabel}>FMB PTS</Text>
-            </View>
-          </View>
-
-          {/* Water Source Row */}
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Water Source</Text>
-            <Text style={styles.detailValue}>{farmDetails.waterSource}</Text>
-          </View>
-
-          {/* Land Context Pills */}
-          <View style={styles.tagPillContainer}>
-            <View style={[styles.tagPill, styles.iconTextRow, { backgroundColor: colors.brandGreenLight }]}>
-              <Icon name="park" size={11} color={colors.brandGreen} />
-              <Text style={[styles.tagPillText, { color: colors.brandGreen }]}>Forest boundary</Text>
-            </View>
-            <View style={[styles.tagPill, styles.iconTextRow, { backgroundColor: colors.brandGreenLight }]}>
-              <Icon name="terrain" size={11} color={colors.brandGreen} />
-              <Text style={[styles.tagPillText, { color: colors.brandGreen }]}>Upper hill</Text>
-            </View>
-            <View style={[styles.tagPill, styles.iconTextRow, { backgroundColor: P.red50 }]}>
-              <Icon name="eco" size={11} color={P.red800} />
-              <Text style={[styles.tagPillText, { color: P.red800 }]}>Wildlife zone</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ================= CARD 3: CERTIFICATIONS ================= */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.cardIconBox, { backgroundColor: P.blue50 }]}>
-              <Icon name="military_tech" size={18} color={P.blue700} />
-            </View>
-            <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Certifications</Text>
-              <Text style={styles.cardSubtitle}>PGS & NPOP status</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => onNavigateToCertifications?.()}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.cardActionLink}>Manage</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 2 Certification Badges side-by-side */}
-          <View style={styles.certCardsRow}>
-            {/* PGS Card */}
-            <TouchableOpacity
-              style={[styles.certSubCard, { backgroundColor: P.certCardBg, borderColor: P.sageTintBg }]}
-              onPress={() => onNavigateToCertifications?.()}
-              activeOpacity={0.8}
-            >
-              <View style={styles.certCardTop}>
-                <Icon name="eco" size={22} color={colors.brandGreen} />
-                <View style={styles.greenCheckmarkCircle}>
-                  <Icon name="check" size={11} color={colors.white} />
-                </View>
+          {/* ================= CARD 4: AUDITS ================= */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: P.lightBlue50 }]}>
+                <Icon name="assignment" size={18} color={P.lightBlue700} />
               </View>
-              <Text style={styles.certTitle}>PGS Organic</Text>
-              <Text style={[styles.certStatusText, { color: colors.brandGreen }]}>Valid</Text>
-              <Text style={styles.certRenewText}>Renews in 214 days</Text>
-            </TouchableOpacity>
-
-            {/* NPOP Card */}
-            <TouchableOpacity
-              style={[styles.certSubCard, { backgroundColor: P.warnCardBg, borderColor: P.warnCardBorder }]}
-              onPress={() => onNavigateToCertifications?.()}
-              activeOpacity={0.8}
-            >
-              <View style={styles.certCardTop}>
-                <Icon name="storefront" size={22} color={P.orange900} />
-                <View style={styles.orangeExclamationCircle}>
-                  <Text style={styles.orangeExclamationText}>!</Text>
-                </View>
+              <View style={styles.cardHeaderTitleBox}>
+                <Text style={styles.cardTitle}>Audits</Text>
+                <Text style={styles.cardSubtitle}>Quarterly inspections</Text>
               </View>
-              <Text style={styles.certTitle}>NPOP</Text>
-              <Text style={[styles.certStatusText, { color: P.orange900 }]}>Expiring</Text>
-              <Text style={styles.certRenewText}>Renews in 24 days</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Expiry Warning Notice */}
-          <View style={styles.warningNoticeBox}>
-            <Icon name="warning" size={16} color={P.amberDeep} />
-            <Text style={styles.warningNoticeText}>
-              NPOP certificate expires soon. Renew to keep market listings active.
-            </Text>
-          </View>
-        </View>
-
-        {/* ================= CARD 4: AUDITS ================= */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.cardIconBox, { backgroundColor: P.lightBlue50 }]}>
-              <Icon name="assignment" size={18} color={P.lightBlue700} />
-            </View>
-            <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Audits</Text>
-              <Text style={styles.cardSubtitle}>Quarterly inspections</Text>
-            </View>
-            <TouchableOpacity onPress={() => setIsAuditsModalVisible(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>View All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Next Audit Banner */}
-          <View style={styles.nextAuditBanner}>
-            <View style={styles.auditProgressSquare}>
-              <Text style={styles.auditProgressFraction}>3/4</Text>
-              <Text style={styles.auditProgressDone}>DONE</Text>
-            </View>
-            <View style={styles.nextAuditDetails}>
-              <Text style={styles.nextAuditSubLabel}>Next audit</Text>
-              <Text style={styles.nextAuditDateText}>May 26, 2026 · External</Text>
-            </View>
-            <View style={styles.auditDueRedPill}>
-              <Text style={styles.auditDueRedText}>12d</Text>
-            </View>
-          </View>
-
-          {/* Past Audits List */}
-          <View style={styles.auditList}>
-            <View style={styles.auditItemRow}>
-              <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Apr 20, 2026 · External</Text>
-                <Text style={styles.auditItemSubtext}>0 major · 1 minor · Passed</Text>
-              </View>
-              <Text style={[styles.auditScore, { color: colors.brandGreen }]}>88</Text>
-            </View>
-
-            <View style={styles.auditItemRow}>
-              <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Jan 18, 2026 · Internal</Text>
-                <Text style={styles.auditItemSubtext}>0 major · 3 minor · Passed w/ issues</Text>
-              </View>
-              <Text style={[styles.auditScore, { color: P.orange800 }]}>74</Text>
-            </View>
-
-            <View style={[styles.auditItemRow, { borderBottomWidth: 0 }]}>
-              <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Oct 12, 2025 · External</Text>
-                <Text style={styles.auditItemSubtext}>0 major · 0 minor · Passed</Text>
-              </View>
-              <Text style={[styles.auditScore, { color: colors.brandGreen }]}>91</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ================= CARD 5: FARM RATING ================= */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.cardIconBox, { backgroundColor: colors.brandGreenLight }]}>
-              <Icon name="star" size={18} color={colors.brandGreen} />
-            </View>
-            <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Farm Rating</Text>
-              <Text style={styles.cardSubtitle}>10-category framework</Text>
-            </View>
-            <TouchableOpacity onPress={() => (onNavigateToFarmRatings ? onNavigateToFarmRatings() : setIsRatingModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>Details</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Rating Circle and Status */}
-          <View style={styles.ratingHeroRow}>
-            <View style={styles.ratingGaugeContainer}>
-              <Svg width="86" height="86" viewBox="0 0 100 100">
-                <Circle cx="50" cy="50" r="40" stroke={colors.brandGreenLight} strokeWidth="8" fill="none" />
-                <Circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  stroke={colors.brandGreen}
-                  strokeWidth="8"
-                  fill="none"
-                  strokeDasharray={2 * Math.PI * 40}
-                  strokeDashoffset={2 * Math.PI * 40 * (1 - 0.82)}
-                  strokeLinecap="round"
-                  transform="rotate(-90 50 50)"
-                />
-              </Svg>
-              <View style={styles.ratingGaugeCenterText}>
-                <Text style={styles.ratingGaugeScore}>82</Text>
-                <Text style={styles.ratingGaugeMax}>/100</Text>
-              </View>
-            </View>
-
-            <View style={styles.ratingStatusDetails}>
-              <Text style={styles.ratingStatusTitle}>Excellent</Text>
-              <View style={[styles.ratingDeltaPill, styles.iconTextRow]}>
-                <Icon name="trending_up" size={11} color={colors.brandGreen} />
-                <Text style={styles.ratingDeltaText}>+4 this month</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Rating Category Progress Bars */}
-          <View style={styles.ratingBarsList}>
-            <View style={styles.barItem}>
-              <View style={styles.barHeader}>
-                <Text style={styles.barTitle}>Certification & Compliance</Text>
-                <Text style={[styles.barScore, { color: colors.brandGreen }]}>9/10</Text>
-              </View>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '90%', backgroundColor: colors.brandGreen }]} />
-              </View>
-            </View>
-
-            <View style={styles.barItem}>
-              <View style={styles.barHeader}>
-                <Text style={styles.barTitle}>Environmental Sustainability</Text>
-                <Text style={[styles.barScore, { color: colors.brandGreen }]}>9/10</Text>
-              </View>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '90%', backgroundColor: colors.brandGreen }]} />
-              </View>
-            </View>
-
-            <View style={styles.barItem}>
-              <View style={styles.barHeader}>
-                <Text style={styles.barTitle}>Farming Practices</Text>
-                <Text style={[styles.barScore, { color: colors.brandGreen }]}>8/10</Text>
-              </View>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '80%', backgroundColor: P.green700 }]} />
-              </View>
-            </View>
-
-            <View style={styles.barItem}>
-              <View style={styles.barHeader}>
-                <Text style={styles.barTitle}>Market & Buyer Relations</Text>
-                <Text style={[styles.barScore, { color: P.orange900 }]}>6/10</Text>
-              </View>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '60%', backgroundColor: P.orange700 }]} />
-              </View>
-            </View>
-
-            <View style={styles.barItem}>
-              <View style={styles.barHeader}>
-                <Text style={styles.barTitle}>Innovation & Improvement</Text>
-                <Text style={[styles.barScore, { color: P.red700 }]}>5/10</Text>
-              </View>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '50%', backgroundColor: P.red600 }]} />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* ================= CARD 6: SOIL TEST ================= */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.cardIconBox, { backgroundColor: P.amber50 }]}>
-              <Icon name="science" size={18} color={P.yellow900} />
-            </View>
-            <View style={styles.cardHeaderTitleBox}>
-              <Text style={styles.cardTitle}>Soil Test</Text>
-              <Text style={styles.cardSubtitle}>Annual analysis</Text>
-            </View>
-            <TouchableOpacity onPress={() => (onNavigateToSoilTest ? onNavigateToSoilTest() : setIsSoilModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cardActionLink}>History</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Test Dates Strip */}
-          <View style={styles.soilDateStrip}>
-            <View>
-              <Text style={styles.soilDateLabel}>Last tested</Text>
-              <Text style={styles.soilDateValue}>08 Jan 2026</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.soilDateLabel}>Next due</Text>
-              <Text style={styles.soilDateValue}>Jan 2027</Text>
-            </View>
-          </View>
-
-          {/* 4 Soil Metric Tiles (2x2) */}
-          <View style={styles.soilGridContainer}>
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>Organic Carbon</Text>
-              <Text style={styles.soilTileValue}>0.68%</Text>
-              <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>pH Value</Text>
-              <Text style={styles.soilTileValue}>5.6</Text>
-              <View style={[styles.soilBadge, { backgroundColor: P.red50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.red800 }]}>Acidic</Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
-              <Text style={styles.soilTileValue}>0.42</Text>
-              <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>Water TDS (ppm)</Text>
-              <Text style={styles.soilTileValue}>610</Text>
-              <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>High</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Soil Advisory Recommendation */}
-          <View style={styles.soilAdvisoryBox}>
-            <Icon name="warning" size={16} color={P.red800} />
-            <Text style={styles.soilAdvisoryText}>
-              Soil pH is acidic. Consider lime application to bring pH between 6.0–7.5.
-            </Text>
-          </View>
-        </View>
-
-        {/* ================= CARD 7: MENU / ACTION LIST ================= */}
-        <View style={[styles.cardContainer, { paddingVertical: 6 }]}>
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => setIsDocumentsModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.violetTint }]}>
-              <Icon name="description" size={18} color={P.violetAccent} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>My Documents</Text>
-              <Text style={styles.menuSubtitle}>ID proof, farm docs, certificates</Text>
-            </View>
-            <View style={styles.menuRedBadge}>
-              <Text style={styles.menuRedBadgeText}>1</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => setIsBankModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: colors.brandGreenLight }]}>
-              <Icon name="credit_card" size={18} color={colors.brandGreen} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Bank & Payment</Text>
-              <Text style={styles.menuSubtitle}>Bank account · UPI ID · payout history</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => {
-              if (onNavigateToSettings) {
-                onNavigateToSettings();
-              } else {
-                setIsSettingsModalVisible(true);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.sky100 }]}>
-              <Icon name="settings" size={18} color={P.sky600} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Settings</Text>
-              <Text style={styles.menuSubtitle}>Language, notifications, privacy</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => {
-              if (onNavigateToAboutSupport) {
-                onNavigateToAboutSupport();
-              } else {
-                Alert.alert(
-                  'TOHFA Help & Support',
-                  'Toll-Free Support: 1800-425-8643\nWhatsApp: +91 94432 12345\nEmail: support@tohfa.in',
-                  [{ text: 'OK' }]
-                );
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.twOrange50 }]}>
-              <Icon name="help" size={18} color={P.twOrange600} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Help & Support</Text>
-              <Text style={styles.menuSubtitle}>FAQs, contact TOHFA, feedback</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 36 }} />
-      </ScrollView>
-
-      {/* ================= MODAL: EDIT PERSONAL DETAILS ================= */}
-      <Modal
-        visible={isEditPersonalModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsEditPersonalModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Personal Details</Text>
-              <TouchableOpacity onPress={() => setIsEditPersonalModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+              <TouchableOpacity onPress={() => setIsAuditsModalVisible(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.cardActionLink}>View All</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Full Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempFullName}
-                onChangeText={setTempFullName}
-                placeholder="Full Name"
-              />
-
-              <Text style={styles.inputLabel}>Date of Birth</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempDob}
-                onChangeText={setTempDob}
-                placeholder="DD Mon YYYY"
-              />
-
-              <Text style={styles.inputLabel}>Years in Organic Farming</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempYearsInOrganic}
-                onChangeText={setTempYearsInOrganic}
-                keyboardType="numeric"
-                placeholder="e.g. 14"
-              />
-
-              <Text style={styles.inputLabel}>Farming Type</Text>
-              <View style={styles.chipsRow}>
-                {['Organic', 'Natural', 'Biodynamic'].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.choiceChip,
-                      tempFarmingType === type && styles.choiceChipActive,
-                    ]}
-                    onPress={() => setTempFarmingType(type)}
-                  >
-                    <Text
-                      style={[
-                        styles.choiceChipText,
-                        tempFarmingType === type && styles.choiceChipTextActive,
-                      ]}
-                    >
-                      {type}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Next Audit Banner */}
+            <View style={styles.nextAuditBanner}>
+              <View style={styles.auditProgressSquare}>
+                <Text style={styles.auditProgressFraction}>3/4</Text>
+                <Text style={styles.auditProgressDone}>DONE</Text>
               </View>
-
-              <Text style={styles.inputLabel}>Farm Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempFarmName}
-                onChangeText={setTempFarmName}
-                placeholder="Farm Name"
-              />
-
-              <Text style={styles.inputLabel}>Farm Location / Village</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempLocation}
-                onChangeText={setTempLocation}
-                placeholder="Village, Taluk, District"
-              />
-
-              <View style={styles.lockedSection}>
-                <View style={[styles.iconTextRow, { marginBottom: 4 }]}>
-                  <Icon name="lock" size={12} color={P.slate800} />
-                  <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Verified KYC Details (Protected)</Text>
-                </View>
-                <Text style={styles.lockedSectionSubtitle}>
-                  Mobile ({personalDetails.mobile}) & Aadhaar ({personalDetails.aadhaar}) are locked by TOHFA verification.
-                  Contact field support to request updates.
-                </Text>
+              <View style={styles.nextAuditDetails}>
+                <Text style={styles.nextAuditSubLabel}>Next audit</Text>
+                <Text style={styles.nextAuditDateText}>May 26, 2026 · External</Text>
               </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setIsEditPersonalModalVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleSavePersonalDetails}
-                disabled={saving}
-              >
-                <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= MODAL: EDIT FARM & FMB ================= */}
-      <Modal
-        visible={isEditFarmModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsEditFarmModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Farm & Land Details</Text>
-              <TouchableOpacity onPress={() => setIsEditFarmModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Total Land Area (Acres)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempAcres}
-                onChangeText={setTempAcres}
-                keyboardType="decimal-pad"
-                placeholder="e.g. 2.5"
-              />
-
-              <Text style={styles.inputLabel}>Cultivation Zones Count</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempZones}
-                onChangeText={setTempZones}
-                keyboardType="numeric"
-                placeholder="e.g. 3"
-              />
-
-              <Text style={styles.inputLabel}>Water Source</Text>
-              <TextInput
-                style={styles.textInput}
-                value={tempWaterSource}
-                onChangeText={setTempWaterSource}
-                placeholder="e.g. Borewell + Rainwater"
-              />
-
-              <View style={styles.lockedSection}>
-                <View style={[styles.iconTextRow, { marginBottom: 4 }]}>
-                  <Icon name="place" size={12} color={P.slate800} />
-                  <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Cadastral Survey FMB</Text>
-                </View>
-                <Text style={styles.lockedSectionSubtitle}>
-                  FMB boundary points (8 points) verified by Department of Land Survey, Ooty. Coordinates: 11.4064° N, 76.6932° E.
-                </Text>
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setIsEditFarmModalVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveFarmDetails}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= MODAL: MY DOCUMENTS ================= */}
-      <Modal
-        visible={isDocumentsModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsDocumentsModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>My Documents</Text>
-              <TouchableOpacity onPress={() => setIsDocumentsModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <View style={styles.docItemCard}>
-                <Icon name="badge" size={24} color={P.slate600} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>Aadhaar Card</Text>
-                  <View style={[styles.iconTextRow, { marginTop: 2 }]}>
-                    <Icon name="check_circle" size={11} color={colors.brandGreen} />
-                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Verified</Text>
-                  </View>
-                </View>
-                <Text style={styles.docActionText}>View</Text>
-              </View>
-
-              <View style={styles.docItemCard}>
-                <Icon name="description" size={24} color={P.slate600} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>Land Patta / FMB Map</Text>
-                  <View style={[styles.iconTextRow, { marginTop: 2 }]}>
-                    <Icon name="check_circle" size={11} color={colors.brandGreen} />
-                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Verified</Text>
-                  </View>
-                </View>
-                <Text style={styles.docActionText}>View</Text>
-              </View>
-
-              <View style={styles.docItemCard}>
-                <Icon name="military_tech" size={24} color={P.blue700} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>PGS Scope Certificate</Text>
-                  <View style={[styles.iconTextRow, { marginTop: 2 }]}>
-                    <Icon name="check_circle" size={11} color={colors.brandGreen} />
-                    <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Valid</Text>
-                  </View>
-                </View>
-                <Text style={styles.docActionText}>Download</Text>
-              </View>
-
-              <View style={[styles.docItemCard, { borderColor: P.orange400, backgroundColor: P.alertBgCream }]}>
-                <Icon name="water_drop" size={24} color={P.lightBlue700} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.docTitle}>Annual Soil & Water Health Card</Text>
-                  <View style={[styles.iconTextRow, { marginTop: 2 }]}>
-                    <Icon name="warning" size={11} color={P.orange900} />
-                    <Text style={[styles.docStatusGreen, { color: P.orange900, marginTop: 0 }]}>Action needed (Expiring)</Text>
-                  </View>
-                </View>
-                <TouchableOpacity style={styles.docUploadBtn}>
-                  <Text style={styles.docUploadBtnText}>Upload</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => setIsDocumentsModalVisible(false)}
-              >
-                <Text style={styles.saveBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= MODAL: BANK & PAYMENTS ================= */}
-      <Modal
-        visible={isBankModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsBankModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bank & Payout Details</Text>
-              <TouchableOpacity onPress={() => setIsBankModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <View style={styles.bankCardPreview}>
-                <Text style={styles.bankName}>State Bank of India</Text>
-                <Text style={styles.bankBranch}>Ooty Main Branch</Text>
-                <Text style={styles.bankAccountNum}>•••• •••• •••• 5821</Text>
-                <View style={styles.bankFooterRow}>
-                  <Text style={styles.bankIfsc}>IFSC: SBIN0000843</Text>
-                  <Text style={styles.bankHolder}>Kumar</Text>
-                </View>
-              </View>
-
-              <View style={[styles.detailRow, { marginTop: 16 }]}>
-                <Text style={styles.detailLabel}>Registered UPI ID</Text>
-                <Text style={styles.detailValue}>kumar.farmer@sbi</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Payout Schedule</Text>
-                <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Instant Direct Credit (T+1)</Text>
-              </View>
-              <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.detailLabel}>Last Payout</Text>
-                <Text style={styles.detailValue}>₹18,400 on 02 Sep 2026</Text>
+              <View style={styles.auditDueRedPill}>
+                <Text style={styles.auditDueRedText}>12d</Text>
               </View>
             </View>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => setIsBankModalVisible(false)}
-              >
-                <Text style={styles.saveBtnText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= MODAL: SETTINGS ================= */}
-      <Modal
-        visible={isSettingsModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsSettingsModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Settings</Text>
-              <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>App Language</Text>
-              <View style={styles.chipsRow}>
-                {LOCALES.map((code) => (
-                  <TouchableOpacity
-                    key={code}
-                    style={[
-                      styles.choiceChip,
-                      selectedLocale === code && styles.choiceChipActive,
-                    ]}
-                    onPress={() => {
-                      setSelectedLocale(code);
-                      setLocale(code);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.choiceChipText,
-                        selectedLocale === code && styles.choiceChipTextActive,
-                      ]}
-                    >
-                      {code === 'ta' ? 'தமிழ் (Tamil)' : 'English'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={[styles.detailRow, { marginTop: 20 }]}>
-                <Text style={styles.detailLabel}>SMS Market Notifications</Text>
-                <View style={styles.iconTextRow}>
-                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Enabled</Text>
-                  <Icon name="check_circle" size={13} color={colors.brandGreen} />
-                </View>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>FMB Boundary Geofence Alerts</Text>
-                <View style={styles.iconTextRow}>
-                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Enabled</Text>
-                  <Icon name="check_circle" size={13} color={colors.brandGreen} />
-                </View>
-              </View>
-              <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.detailLabel}>App Version</Text>
-                <Text style={styles.detailValue}>v0.1.0 (Production)</Text>
-              </View>
-            </View>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => setIsSettingsModalVisible(false)}
-              >
-                <Text style={styles.saveBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= MODAL: AUDITS ================= */}
-      <Modal
-        visible={isAuditsModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsAuditsModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Audit Inspection History</Text>
-              <TouchableOpacity onPress={() => setIsAuditsModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+            {/* Past Audits List */}
+            <View style={styles.auditList}>
               <View style={styles.auditItemRow}>
                 <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
                 <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Apr 20, 2026 · External Certification</Text>
-                  <Text style={styles.auditItemSubtext}>Auditor: Dr. S. Ramanathan · 0 major · 1 minor</Text>
+                  <Text style={styles.auditItemDate}>Apr 20, 2026 · External</Text>
+                  <Text style={styles.auditItemSubtext}>0 major · 1 minor · Passed</Text>
                 </View>
-                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>88/100</Text>
+                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>88</Text>
               </View>
 
               <View style={styles.auditItemRow}>
                 <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
                 <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Jan 18, 2026 · Internal Peer Audit</Text>
-                  <Text style={styles.auditItemSubtext}>Auditor: Nilgiris Organic Local Group</Text>
+                  <Text style={styles.auditItemDate}>Jan 18, 2026 · Internal</Text>
+                  <Text style={styles.auditItemSubtext}>0 major · 3 minor · Passed w/ issues</Text>
                 </View>
-                <Text style={[styles.auditScore, { color: P.orange800 }]}>74/100</Text>
+                <Text style={[styles.auditScore, { color: P.orange800 }]}>74</Text>
               </View>
 
-              <View style={styles.auditItemRow}>
+              <View style={[styles.auditItemRow, { borderBottomWidth: 0 }]}>
                 <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
                 <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Oct 12, 2025 · Annual NPOP Audit</Text>
-                  <Text style={styles.auditItemSubtext}>Indocert Inspection Agency · 0 findings</Text>
+                  <Text style={styles.auditItemDate}>Oct 12, 2025 · External</Text>
+                  <Text style={styles.auditItemSubtext}>0 major · 0 minor · Passed</Text>
                 </View>
-                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>91/100</Text>
+                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>91</Text>
               </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => {
-                  setIsAuditsModalVisible(false);
-                  onNavigateToAudits?.();
-                }}
-              >
-                <Text style={styles.saveBtnText}>View Details</Text>
-              </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
 
-      {/* ================= MODAL: FARM RATING ================= */}
-      <Modal
-        visible={isRatingModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsRatingModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Farm Rating Framework</Text>
-              <TouchableOpacity onPress={() => setIsRatingModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+          {/* ================= CARD 5: FARM RATING ================= */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: colors.brandGreenLight }]}>
+                <Icon name="star" size={18} color={colors.brandGreen} />
+              </View>
+              <View style={styles.cardHeaderTitleBox}>
+                <Text style={styles.cardTitle}>Farm Rating</Text>
+                <Text style={styles.cardSubtitle}>10-category framework</Text>
+              </View>
+              <TouchableOpacity onPress={() => (onNavigateToFarmRatings ? onNavigateToFarmRatings() : setIsRatingModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.cardActionLink}>Details</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={{ fontSize: 13, color: P.slate500, marginBottom: 14 }}>
-                The TOHFA 10-category framework ranks organic purity, land management, and fair marketplace behavior.
-              </Text>
+            {/* Rating Circle and Status */}
+            <View style={styles.ratingHeroRow}>
+              <View style={styles.ratingGaugeContainer}>
+                <Svg width="86" height="86" viewBox="0 0 100 100">
+                  <Circle cx="50" cy="50" r="40" stroke={colors.brandGreenLight} strokeWidth="8" fill="none" />
+                  <Circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke={colors.brandGreen}
+                    strokeWidth="8"
+                    fill="none"
+                    strokeDasharray={2 * Math.PI * 40}
+                    strokeDashoffset={2 * Math.PI * 40 * (1 - 0.82)}
+                    strokeLinecap="round"
+                    transform="rotate(-90 50 50)"
+                  />
+                </Svg>
+                <View style={styles.ratingGaugeCenterText}>
+                  <Text style={styles.ratingGaugeScore}>82</Text>
+                  <Text style={styles.ratingGaugeMax}>/100</Text>
+                </View>
+              </View>
 
+              <View style={styles.ratingStatusDetails}>
+                <Text style={styles.ratingStatusTitle}>Excellent</Text>
+                <View style={[styles.ratingDeltaPill, styles.iconTextRow]}>
+                  <Icon name="trending_up" size={11} color={colors.brandGreen} />
+                  <Text style={styles.ratingDeltaText}>+4 this month</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Rating Category Progress Bars */}
+            <View style={styles.ratingBarsList}>
               <View style={styles.barItem}>
                 <View style={styles.barHeader}>
                   <Text style={styles.barTitle}>Certification & Compliance</Text>
@@ -1366,7 +739,7 @@ export function ProfileScreen({
 
               <View style={styles.barItem}>
                 <View style={styles.barHeader}>
-                  <Text style={styles.barTitle}>Farming Practices & Soil Health</Text>
+                  <Text style={styles.barTitle}>Farming Practices</Text>
                   <Text style={[styles.barScore, { color: colors.brandGreen }]}>8/10</Text>
                 </View>
                 <View style={styles.barTrack}>
@@ -1386,101 +759,764 @@ export function ProfileScreen({
 
               <View style={styles.barItem}>
                 <View style={styles.barHeader}>
-                  <Text style={styles.barTitle}>Innovation & Water Conservation</Text>
+                  <Text style={styles.barTitle}>Innovation & Improvement</Text>
                   <Text style={[styles.barScore, { color: P.red700 }]}>5/10</Text>
                 </View>
                 <View style={styles.barTrack}>
                   <View style={[styles.barFill, { width: '50%', backgroundColor: P.red600 }]} />
                 </View>
               </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => setIsRatingModalVisible(false)}
-              >
-                <Text style={styles.saveBtnText}>Close</Text>
-              </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
 
-      {/* ================= MODAL: SOIL TEST ================= */}
-      <Modal
-        visible={isSoilModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsSoilModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Soil Health Card Analysis</Text>
-              <TouchableOpacity onPress={() => setIsSoilModalVisible(false)}>
-                <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+          {/* ================= CARD 6: SOIL TEST ================= */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBox, { backgroundColor: P.amber50 }]}>
+                <Icon name="science" size={18} color={P.yellow900} />
+              </View>
+              <View style={styles.cardHeaderTitleBox}>
+                <Text style={styles.cardTitle}>Soil Test</Text>
+                <Text style={styles.cardSubtitle}>Annual analysis</Text>
+              </View>
+              <TouchableOpacity onPress={() => (onNavigateToSoilTest ? onNavigateToSoilTest() : setIsSoilModalVisible(true))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.cardActionLink}>History</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <View style={styles.soilDateStrip}>
-                <View>
-                  <Text style={styles.soilDateLabel}>Sample ID</Text>
-                  <Text style={styles.soilDateValue}>SHC-2026-0814</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.soilDateLabel}>Testing Lab</Text>
-                  <Text style={styles.soilDateValue}>TNAU Ooty Research Lab</Text>
+            {/* Test Dates Strip */}
+            <View style={styles.soilDateStrip}>
+              <View>
+                <Text style={styles.soilDateLabel}>Last tested</Text>
+                <Text style={styles.soilDateValue}>08 Jan 2026</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.soilDateLabel}>Next due</Text>
+                <Text style={styles.soilDateValue}>Jan 2027</Text>
+              </View>
+            </View>
+
+            {/* 4 Soil Metric Tiles (2x2) */}
+            <View style={styles.soilGridContainer}>
+              <View style={styles.soilGridTile}>
+                <Text style={styles.soilTileLabel}>Organic Carbon</Text>
+                <Text style={styles.soilTileValue}>0.68%</Text>
+                <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
+                  <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
                 </View>
               </View>
 
-              <View style={styles.soilGridContainer}>
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>Organic Carbon</Text>
-                  <Text style={styles.soilTileValue}>0.68%</Text>
-                  <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Ideal range: 0.5–0.75%</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>pH Value</Text>
-                  <Text style={styles.soilTileValue}>5.6</Text>
-                  <Text style={{ fontSize: 11, color: P.red800, marginTop: 4 }}>Acidic (Ideal: 6.0–7.5)</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
-                  <Text style={styles.soilTileValue}>0.42</Text>
-                  <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Normal electrical cond.</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>Water TDS</Text>
-                  <Text style={styles.soilTileValue}>610 ppm</Text>
-                  <Text style={{ fontSize: 11, color: P.orange900, marginTop: 4 }}>High mineral hardness</Text>
+              <View style={styles.soilGridTile}>
+                <Text style={styles.soilTileLabel}>pH Value</Text>
+                <Text style={styles.soilTileValue}>5.6</Text>
+                <View style={[styles.soilBadge, { backgroundColor: P.red50 }]}>
+                  <Text style={[styles.soilBadgeText, { color: P.red800 }]}>Acidic</Text>
                 </View>
               </View>
 
-              <View style={styles.soilAdvisoryBox}>
-                <Icon name="lightbulb" size={16} color={P.red800} />
-                <Text style={styles.soilAdvisoryText}>
-                  Recommendation: Apply 150 kg/acre agricultural dolomite or slaked lime prior to pre-monsoon planting to balance soil acidity.
+              <View style={styles.soilGridTile}>
+                <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
+                <Text style={styles.soilTileValue}>0.42</Text>
+                <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
+                  <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
+                </View>
+              </View>
+
+              <View style={styles.soilGridTile}>
+                <Text style={styles.soilTileLabel}>Water TDS (ppm)</Text>
+                <Text style={styles.soilTileValue}>610</Text>
+                <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
+                  <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>High</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Soil Advisory Recommendation */}
+            <View style={styles.soilAdvisoryBox}>
+              <Icon name="warning" size={16} color={P.red800} />
+              <Text style={styles.soilAdvisoryText}>
+                Soil pH is acidic. Consider lime application to bring pH between 6.0–7.5.
+              </Text>
+            </View>
+          </View>
+
+          {/* ================= CARD 7: MENU / ACTION LIST ================= */}
+          <View style={styles.menuCardContainer}>
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                if (onNavigateToBankPayment) {
+                  onNavigateToBankPayment();
+                } else {
+                  setIsBankModalVisible(true);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuIconBox, { backgroundColor: colors.brandGreenLight, borderColor: P.twGreen100 }]}>
+                <Icon name="credit_card" size={20} color={colors.brandGreen} />
+              </View>
+              <View style={styles.menuTitleBox}>
+                <Text style={styles.menuTitle}>Bank & Payment</Text>
+                <Text style={styles.menuSubtitle}>Bank account · UPI ID · payout history</Text>
+              </View>
+              <View style={styles.menuChevronCircle}>
+                <Icon name="chevron_right" size={16} color={P.slate400} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                if (onNavigateToAboutSupport) {
+                  onNavigateToAboutSupport();
+                } else {
+                  Alert.alert(
+                    'TOHFA Help & Support',
+                    'Toll-Free Support: 1800-425-8643\nWhatsApp: +91 94432 12345\nEmail: support@tohfa.in',
+                    [{ text: 'OK' }]
+                  );
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.menuIconBox, { backgroundColor: P.twOrange50, borderColor: P.twOrange100 }]}>
+                <Icon name="help" size={20} color={P.twOrange600} />
+              </View>
+              <View style={styles.menuTitleBox}>
+                <Text style={styles.menuTitle}>Help & Support</Text>
+                <Text style={styles.menuSubtitle}>FAQs, contact TOHFA, feedback</Text>
+              </View>
+              <View style={styles.menuChevronCircle}>
+                <Icon name="chevron_right" size={16} color={P.slate400} />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ================= LOGOUT BUTTON ================= */}
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.75}
+            accessibilityLabel="Log out of your account"
+          >
+            <View style={styles.logoutIconCircle}>
+              <LogoutIcon size={16} color={P.twRed600} />
+            </View>
+            <Text style={styles.logoutButtonText}>Log Out</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* ================= MODAL: EDIT PERSONAL DETAILS ================= */}
+        <Modal
+          visible={isEditPersonalModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsEditPersonalModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Personal Details</Text>
+                <TouchableOpacity onPress={() => setIsEditPersonalModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                <Text style={styles.inputLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempFullName}
+                  onChangeText={setTempFullName}
+                  placeholder="Full Name"
+                />
+
+                <Text style={styles.inputLabel}>Date of Birth</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempDob}
+                  onChangeText={setTempDob}
+                  placeholder="DD Mon YYYY"
+                />
+
+                <Text style={styles.inputLabel}>Years in Organic Farming</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempYearsInOrganic}
+                  onChangeText={setTempYearsInOrganic}
+                  keyboardType="numeric"
+                  placeholder="e.g. 14"
+                />
+
+                <Text style={styles.inputLabel}>Farming Type</Text>
+                <View style={styles.chipsRow}>
+                  {['Organic', 'Natural', 'Biodynamic'].map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.choiceChip,
+                        tempFarmingType === type && styles.choiceChipActive,
+                      ]}
+                      onPress={() => setTempFarmingType(type)}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceChipText,
+                          tempFarmingType === type && styles.choiceChipTextActive,
+                        ]}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.inputLabel}>Farm Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempFarmName}
+                  onChangeText={setTempFarmName}
+                  placeholder="Farm Name"
+                />
+
+                <Text style={styles.inputLabel}>Farm Location / Village</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempLocation}
+                  onChangeText={setTempLocation}
+                  placeholder="Village, Taluk, District"
+                />
+
+                <View style={styles.lockedSection}>
+                  <View style={[styles.iconTextRow, { marginBottom: 4 }]}>
+                    <Icon name="lock" size={12} color={P.slate800} />
+                    <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Verified KYC Details (Protected)</Text>
+                  </View>
+                  <Text style={styles.lockedSectionSubtitle}>
+                    Mobile ({personalDetails.mobile}) & Aadhaar ({personalDetails.aadhaar}) are locked by TOHFA verification.
+                    Contact field support to request updates.
+                  </Text>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setIsEditPersonalModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleSavePersonalDetails}
+                  disabled={saving}
+                >
+                  <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ================= MODAL: EDIT FARM & FMB ================= */}
+        <Modal
+          visible={isEditFarmModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsEditFarmModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Farm & Land Details</Text>
+                <TouchableOpacity onPress={() => setIsEditFarmModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                <Text style={styles.inputLabel}>Total Land Area (Acres)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempAcres}
+                  onChangeText={setTempAcres}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 2.5"
+                />
+
+                <Text style={styles.inputLabel}>Cultivation Zones Count</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempZones}
+                  onChangeText={setTempZones}
+                  keyboardType="numeric"
+                  placeholder="e.g. 3"
+                />
+
+                <Text style={styles.inputLabel}>Water Source</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={tempWaterSource}
+                  onChangeText={setTempWaterSource}
+                  placeholder="e.g. Borewell + Rainwater"
+                />
+
+                <View style={styles.lockedSection}>
+                  <View style={[styles.iconTextRow, { marginBottom: 4 }]}>
+                    <Icon name="place" size={12} color={P.slate800} />
+                    <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Cadastral Survey FMB</Text>
+                  </View>
+                  <Text style={styles.lockedSectionSubtitle}>
+                    FMB boundary points (8 points) verified by Department of Land Survey, Ooty. Coordinates: 11.4064° N, 76.6932° E.
+                  </Text>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setIsEditFarmModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveFarmDetails}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ================= MODAL: MY DOCUMENTS ================= */}
+        <Modal
+          visible={isDocumentsModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsDocumentsModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>My Documents</Text>
+                <TouchableOpacity onPress={() => setIsDocumentsModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                <View style={styles.docItemCard}>
+                  <Icon name="badge" size={24} color={P.slate600} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docTitle}>Aadhaar Card</Text>
+                    <View style={[styles.iconTextRow, { marginTop: 2 }]}>
+                      <Icon name="check_circle" size={11} color={colors.brandGreen} />
+                      <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Verified</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.docActionText}>View</Text>
+                </View>
+
+                <View style={styles.docItemCard}>
+                  <Icon name="description" size={24} color={P.slate600} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docTitle}>Land Patta / FMB Map</Text>
+                    <View style={[styles.iconTextRow, { marginTop: 2 }]}>
+                      <Icon name="check_circle" size={11} color={colors.brandGreen} />
+                      <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Verified</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.docActionText}>View</Text>
+                </View>
+
+                <View style={styles.docItemCard}>
+                  <Icon name="military_tech" size={24} color={P.blue700} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docTitle}>PGS Scope Certificate</Text>
+                    <View style={[styles.iconTextRow, { marginTop: 2 }]}>
+                      <Icon name="check_circle" size={11} color={colors.brandGreen} />
+                      <Text style={[styles.docStatusGreen, { marginTop: 0 }]}>Valid</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.docActionText}>Download</Text>
+                </View>
+
+                <View style={[styles.docItemCard, { borderColor: P.orange400, backgroundColor: P.alertBgCream }]}>
+                  <Icon name="water_drop" size={24} color={P.lightBlue700} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docTitle}>Annual Soil & Water Health Card</Text>
+                    <View style={[styles.iconTextRow, { marginTop: 2 }]}>
+                      <Icon name="warning" size={11} color={P.orange900} />
+                      <Text style={[styles.docStatusGreen, { color: P.orange900, marginTop: 0 }]}>Action needed (Expiring)</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.docUploadBtn}>
+                    <Text style={styles.docUploadBtnText}>Upload</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { width: '100%' }]}
+                  onPress={() => setIsDocumentsModalVisible(false)}
+                >
+                  <Text style={styles.saveBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ================= MODAL: BANK & PAYMENTS ================= */}
+        <Modal
+          visible={isBankModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsBankModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Bank & Payout Details</Text>
+                <TouchableOpacity onPress={() => setIsBankModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <View style={styles.bankCardPreview}>
+                  <Text style={styles.bankName}>State Bank of India</Text>
+                  <Text style={styles.bankBranch}>Ooty Main Branch</Text>
+                  <Text style={styles.bankAccountNum}>•••• •••• •••• 5821</Text>
+                  <View style={styles.bankFooterRow}>
+                    <Text style={styles.bankIfsc}>IFSC: SBIN0000843</Text>
+                    <Text style={styles.bankHolder}>Kumar</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.detailRow, { marginTop: 16 }]}>
+                  <Text style={styles.detailLabel}>Registered UPI ID</Text>
+                  <Text style={styles.detailValue}>kumar.farmer@sbi</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Payout Schedule</Text>
+                  <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Instant Direct Credit (T+1)</Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.detailLabel}>Last Payout</Text>
+                  <Text style={styles.detailValue}>₹18,400 on 02 Sep 2026</Text>
+                </View>
+              </View>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { width: '100%' }]}
+                  onPress={() => setIsBankModalVisible(false)}
+                >
+                  <Text style={styles.saveBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ================= MODAL: SETTINGS ================= */}
+        <Modal
+          visible={isSettingsModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsSettingsModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Settings</Text>
+                <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.inputLabel}>App Language</Text>
+                <View style={styles.chipsRow}>
+                  {LOCALES.map((code) => (
+                    <TouchableOpacity
+                      key={code}
+                      style={[
+                        styles.choiceChip,
+                        selectedLocale === code && styles.choiceChipActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedLocale(code);
+                        setLocale(code);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceChipText,
+                          selectedLocale === code && styles.choiceChipTextActive,
+                        ]}
+                      >
+                        {code === 'ta' ? 'தமிழ் (Tamil)' : 'English'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={[styles.detailRow, { marginTop: 20 }]}>
+                  <Text style={styles.detailLabel}>SMS Market Notifications</Text>
+                  <View style={styles.iconTextRow}>
+                    <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Enabled</Text>
+                    <Icon name="check_circle" size={13} color={colors.brandGreen} />
+                  </View>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>FMB Boundary Geofence Alerts</Text>
+                  <View style={styles.iconTextRow}>
+                    <Text style={[styles.detailValue, { color: colors.brandGreen }]}>Enabled</Text>
+                    <Icon name="check_circle" size={13} color={colors.brandGreen} />
+                  </View>
+                </View>
+                <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.detailLabel}>App Version</Text>
+                  <Text style={styles.detailValue}>v0.1.0 (Production)</Text>
+                </View>
+              </View>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { width: '100%' }]}
+                  onPress={() => setIsSettingsModalVisible(false)}
+                >
+                  <Text style={styles.saveBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ================= MODAL: AUDITS ================= */}
+        <Modal
+          visible={isAuditsModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsAuditsModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Audit Inspection History</Text>
+                <TouchableOpacity onPress={() => setIsAuditsModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                <View style={styles.auditItemRow}>
+                  <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
+                  <View style={styles.auditItemInfo}>
+                    <Text style={styles.auditItemDate}>Apr 20, 2026 · External Certification</Text>
+                    <Text style={styles.auditItemSubtext}>Auditor: Dr. S. Ramanathan · 0 major · 1 minor</Text>
+                  </View>
+                  <Text style={[styles.auditScore, { color: colors.brandGreen }]}>88/100</Text>
+                </View>
+
+                <View style={styles.auditItemRow}>
+                  <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
+                  <View style={styles.auditItemInfo}>
+                    <Text style={styles.auditItemDate}>Jan 18, 2026 · Internal Peer Audit</Text>
+                    <Text style={styles.auditItemSubtext}>Auditor: Nilgiris Organic Local Group</Text>
+                  </View>
+                  <Text style={[styles.auditScore, { color: P.orange800 }]}>74/100</Text>
+                </View>
+
+                <View style={styles.auditItemRow}>
+                  <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
+                  <View style={styles.auditItemInfo}>
+                    <Text style={styles.auditItemDate}>Oct 12, 2025 · Annual NPOP Audit</Text>
+                    <Text style={styles.auditItemSubtext}>Indocert Inspection Agency · 0 findings</Text>
+                  </View>
+                  <Text style={[styles.auditScore, { color: colors.brandGreen }]}>91/100</Text>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { width: '100%' }]}
+                  onPress={() => {
+                    setIsAuditsModalVisible(false);
+                    onNavigateToAudits?.();
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>View Details</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ================= MODAL: FARM RATING ================= */}
+        <Modal
+          visible={isRatingModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsRatingModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Farm Rating Framework</Text>
+                <TouchableOpacity onPress={() => setIsRatingModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                <Text style={{ fontSize: 13, color: P.slate500, marginBottom: 14 }}>
+                  The TOHFA 10-category framework ranks organic purity, land management, and fair marketplace behavior.
                 </Text>
-              </View>
-            </ScrollView>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => setIsSoilModalVisible(false)}
-              >
-                <Text style={styles.saveBtnText}>Close</Text>
-              </TouchableOpacity>
+                <View style={styles.barItem}>
+                  <View style={styles.barHeader}>
+                    <Text style={styles.barTitle}>Certification & Compliance</Text>
+                    <Text style={[styles.barScore, { color: colors.brandGreen }]}>9/10</Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: '90%', backgroundColor: colors.brandGreen }]} />
+                  </View>
+                </View>
+
+                <View style={styles.barItem}>
+                  <View style={styles.barHeader}>
+                    <Text style={styles.barTitle}>Environmental Sustainability</Text>
+                    <Text style={[styles.barScore, { color: colors.brandGreen }]}>9/10</Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: '90%', backgroundColor: colors.brandGreen }]} />
+                  </View>
+                </View>
+
+                <View style={styles.barItem}>
+                  <View style={styles.barHeader}>
+                    <Text style={styles.barTitle}>Farming Practices & Soil Health</Text>
+                    <Text style={[styles.barScore, { color: colors.brandGreen }]}>8/10</Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: '80%', backgroundColor: P.green700 }]} />
+                  </View>
+                </View>
+
+                <View style={styles.barItem}>
+                  <View style={styles.barHeader}>
+                    <Text style={styles.barTitle}>Market & Buyer Relations</Text>
+                    <Text style={[styles.barScore, { color: P.orange900 }]}>6/10</Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: '60%', backgroundColor: P.orange700 }]} />
+                  </View>
+                </View>
+
+                <View style={styles.barItem}>
+                  <View style={styles.barHeader}>
+                    <Text style={styles.barTitle}>Innovation & Water Conservation</Text>
+                    <Text style={[styles.barScore, { color: P.red700 }]}>5/10</Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: '50%', backgroundColor: P.red600 }]} />
+                  </View>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { width: '100%' }]}
+                  onPress={() => setIsRatingModalVisible(false)}
+                >
+                  <Text style={styles.saveBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+
+        {/* ================= MODAL: SOIL TEST ================= */}
+        <Modal
+          visible={isSoilModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsSoilModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Soil Health Card Analysis</Text>
+                <TouchableOpacity onPress={() => setIsSoilModalVisible(false)}>
+                  <Icon name="close" size={18} color={P.slate400} style={styles.modalCloseText} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+                <View style={styles.soilDateStrip}>
+                  <View>
+                    <Text style={styles.soilDateLabel}>Sample ID</Text>
+                    <Text style={styles.soilDateValue}>SHC-2026-0814</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.soilDateLabel}>Testing Lab</Text>
+                    <Text style={styles.soilDateValue}>TNAU Ooty Research Lab</Text>
+                  </View>
+                </View>
+
+                <View style={styles.soilGridContainer}>
+                  <View style={styles.soilGridTile}>
+                    <Text style={styles.soilTileLabel}>Organic Carbon</Text>
+                    <Text style={styles.soilTileValue}>0.68%</Text>
+                    <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Ideal range: 0.5–0.75%</Text>
+                  </View>
+
+                  <View style={styles.soilGridTile}>
+                    <Text style={styles.soilTileLabel}>pH Value</Text>
+                    <Text style={styles.soilTileValue}>5.6</Text>
+                    <Text style={{ fontSize: 11, color: P.red800, marginTop: 4 }}>Acidic (Ideal: 6.0–7.5)</Text>
+                  </View>
+
+                  <View style={styles.soilGridTile}>
+                    <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
+                    <Text style={styles.soilTileValue}>0.42</Text>
+                    <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Normal electrical cond.</Text>
+                  </View>
+
+                  <View style={styles.soilGridTile}>
+                    <Text style={styles.soilTileLabel}>Water TDS</Text>
+                    <Text style={styles.soilTileValue}>610 ppm</Text>
+                    <Text style={{ fontSize: 11, color: P.orange900, marginTop: 4 }}>High mineral hardness</Text>
+                  </View>
+                </View>
+
+                <View style={styles.soilAdvisoryBox}>
+                  <Icon name="lightbulb" size={16} color={P.red800} />
+                  <Text style={styles.soilAdvisoryText}>
+                    Recommendation: Apply 150 kg/acre agricultural dolomite or slaked lime prior to pre-monsoon planting to balance soil acidity.
+                  </Text>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { width: '100%' }]}
+                  onPress={() => setIsSoilModalVisible(false)}
+                >
+                  <Text style={styles.saveBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </View>
   );
 }
 
@@ -1490,7 +1526,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.paleSurface,
   },
   scrollContainer: {
-    paddingBottom: 40,
+    paddingBottom: 28,
   },
 
   // --- HEADER SECTION ---
@@ -2123,32 +2159,57 @@ const styles = StyleSheet.create({
   },
 
   // --- MENU / ACTION LIST ---
+  menuCardContainer: {
+    backgroundColor: colors.white,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 8,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: P.slate100,
+  },
   menuItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
   },
   menuIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   menuTitleBox: {
     flex: 1,
   },
   menuTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: P.slate800,
   },
   menuSubtitle: {
-    fontSize: 11,
-    color: P.slate400,
-    marginTop: 1,
+    fontSize: 12,
+    color: P.slate500,
+    marginTop: 2,
+  },
+  menuChevronCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: P.slate50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuRedBadge: {
     backgroundColor: P.twRed500,
@@ -2167,8 +2228,40 @@ const styles = StyleSheet.create({
   },
   menuDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: P.slate100,
-    marginLeft: 54,
+    backgroundColor: P.slate200,
+    marginLeft: 56,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: P.twRed100,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  logoutIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: P.twRed50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: P.twRed600,
   },
 
   // --- MODALS ---

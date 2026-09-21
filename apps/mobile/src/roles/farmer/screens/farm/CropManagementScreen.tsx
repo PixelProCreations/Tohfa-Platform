@@ -80,10 +80,7 @@ function SoilTerrainIcon({ size = 26, color = P.white }: { size?: number; color?
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M2.5 18.5L8.5 7.5L13.5 14.5L16.5 10L21.5 18.5H2.5Z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fill={color}
       />
     </Svg>
   );
@@ -146,7 +143,7 @@ const MODULES: ManagementModule[] = [
     code: 'FR-F06',
     title: 'Soil Management',
     description: 'Soil tests, health tracker, amendments, rotation',
-    bgColor: P.twAmber800,
+    bgColor: P.earthBrown,
     icon: (color) => <SoilTerrainIcon size={26} color={color} />,
   },
   {
@@ -154,7 +151,7 @@ const MODULES: ManagementModule[] = [
     code: 'FR-F07',
     title: 'Pest Management',
     description: 'Detection log, pest library, treatment schedule',
-    bgColor: P.red700,
+    bgColor: P.twRed600,
     icon: (color) => <PestBugIcon size={26} color={color} />,
   },
 ];
@@ -286,7 +283,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 28,
   },
   topBar: {
     paddingHorizontal: 20,
@@ -294,9 +291,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: P.twGray200,
     backgroundColor: P.white,
@@ -311,36 +308,36 @@ const styles = StyleSheet.create({
   headerContainer: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    marginTop: 16,
+    marginTop: 10,
   },
   leafCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.brandGreenLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: P.twGray900,
-    marginTop: 18,
+    fontSize: 21,
+    fontWeight: '800',
+    color: P.deepGreen,
+    marginTop: 12,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 13.5,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: P.twGray500,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 6,
     paddingHorizontal: 16,
   },
   modulesList: {
-    marginTop: 28,
+    marginTop: 20,
     paddingHorizontal: 20,
-    gap: 14,
+    gap: 12,
   },
   card: {
     flexDirection: 'row',
