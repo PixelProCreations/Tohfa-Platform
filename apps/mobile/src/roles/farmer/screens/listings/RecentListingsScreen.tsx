@@ -165,6 +165,8 @@ export interface RecentListingsScreenProps {
   onNavigateToListingDetail?: (item: ListingItem) => void;
   onNavigateToCounterOffer?: (item: ListingItem) => void;
   onNavigateToCreateListing?: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
 export function RecentListingsScreen({
@@ -172,6 +174,8 @@ export function RecentListingsScreen({
   onNavigateToListingDetail,
   onNavigateToCounterOffer,
   onNavigateToCreateListing,
+  title = 'Recent Listings',
+  subtitle,
 }: RecentListingsScreenProps): React.JSX.Element {
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -202,9 +206,9 @@ export function RecentListingsScreen({
             <ChevronLeft />
           </TouchableOpacity>
           <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Recent Listings</Text>
+            <Text style={styles.headerTitle}>{title}</Text>
             <Text style={styles.headerSub}>
-              {RECENT_LISTINGS_DATA.length} listings · all recent harvests
+              {subtitle || `${RECENT_LISTINGS_DATA.length} listings · all recent harvests`}
             </Text>
           </View>
         </View>

@@ -151,7 +151,6 @@ export function NewFarmDiaryEntryStep2Screen({
             style={styles.backBtn}
             onPress={onBack}
             activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -159,9 +158,24 @@ export function NewFarmDiaryEntryStep2Screen({
           </TouchableOpacity>
 
           <View style={styles.headerTitleGroup}>
-            <Text style={styles.headerTitle}>Add Diary Entry</Text>
-            <Text style={styles.headerSubtitle}>{subtitle}</Text>
+            <Text style={styles.headerTitle}>New Entry</Text>
+            <Text style={styles.headerSubtitle}>Step 2 of 3 · Activity Type</Text>
           </View>
+
+          <TouchableOpacity
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 3-Step Progress Bar */}
+        <View style={styles.progressBarRow}>
+          <View style={[styles.progressSegment, styles.progressActive]} />
+          <View style={[styles.progressSegment, styles.progressActive]} />
+          <View style={[styles.progressSegment, styles.progressInactive]} />
         </View>
       </View>
 
@@ -456,6 +470,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 1,
+  },
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    paddingHorizontal: 4,
+  },
+  progressBarRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 3.5,
+    borderRadius: 2,
+  },
+  progressActive: {
+    backgroundColor: '#166534',
+  },
+  progressInactive: {
+    backgroundColor: '#E5E7EB',
   },
   scrollContainer: {
     flex: 1,

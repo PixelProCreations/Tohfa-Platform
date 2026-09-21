@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   evalCertificateWarning,
   evalMarketBlock,
@@ -48,6 +48,72 @@ function HeaderBellIcon({ size = 19, color = colors.white }: { size?: number; co
       />
       <Path
         d="M13.73 21a2 2 0 0 1-3.46 0"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function FarmDiaryIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M7 7H17M7 11H17M7 15H13"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function MyListingsIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Rect x="9" y="3" width="6" height="4" rx="1" stroke={color} strokeWidth="2" />
+      <Path d="M9 12H15M9 16H13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function AttendanceIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45768C17.623 10.1593 16.8604 10.6597 16 10.88"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -750,16 +816,22 @@ export function DashboardScreen({
 
           {/* Action Buttons */}
           <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToFarmDiary}>
-              <Icon name="edit_note" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
+            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToFarmDiary} activeOpacity={0.75}>
+              <View style={styles.actionButtonIcon}>
+                <FarmDiaryIcon size={22} color={colors.brandGreen} />
+              </View>
               <Text style={styles.actionButtonText}>Farm Diary</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToMyListings}>
-              <Icon name="assignment" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
+            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToMyListings} activeOpacity={0.75}>
+              <View style={styles.actionButtonIcon}>
+                <MyListingsIcon size={22} color={colors.brandGreen} />
+              </View>
               <Text style={styles.actionButtonText}>My Listings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToAttendance}>
-              <Icon name="groups" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
+            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToAttendance} activeOpacity={0.75}>
+              <View style={styles.actionButtonIcon}>
+                <AttendanceIcon size={22} color={colors.brandGreen} />
+              </View>
               <Text style={styles.actionButtonText}>Attendance</Text>
             </TouchableOpacity>
           </View>

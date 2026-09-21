@@ -12,8 +12,173 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
+import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
 import { type CounterOffer, type Listing } from '../../api/listings';
-import { Icon } from '@tohfa/mobile-ui';
+import { authPalette as P } from '../../theme';
+
+// ─────────────────────────────────────────────
+// Pure Vector Icons (Zero missing codepoint errors)
+// ─────────────────────────────────────────────
+
+function ArrowBackIcon({ size = 20, color = P.twGreen800 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M5 12L12 19M5 12L12 5"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ScheduleIcon({ size = 24, color = '#d85b3b' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7V12L15 14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function InfoIcon({ size = 18, color = '#757575' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Line x1="12" y1="8" x2="12" y2="8.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Path d="M12 11V16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function EyeIcon({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon({ size = 20, color = '#bdbdbd' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18L15 12L9 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CameraIcon({ size = 20, color = '#2e7d32' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="13" r="4" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function PhotoUploadIcon({ size = 22, color = '#2e7d32' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M17 8L12 3M12 3L7 8M12 3V15"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function GalleryIcon({ size = 20, color = '#1976d2' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Circle cx="8.5" cy="8.5" r="1.5" fill={color} />
+      <Path d="M21 15l-5-5L5 21" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SampleBatchIcon({ size = 20, color = '#7b1fa2' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2L2 7L12 12L22 7L12 2Z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M2 17L12 22L22 17"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M2 12L12 17L22 12"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckIcon({ size = 14, color = '#ffffff' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17L4 12" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CloseIcon({ size = 18, color = '#616161' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6L18 18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SwapIcon({ size = 18, color = '#673ab7' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M8 7H20M20 7L16 3M20 7L16 11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 17H4M4 17L8 21M4 17L8 13" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
 
 export interface CounterOfferScreenProps {
   listing?: Listing | null | undefined;
@@ -77,6 +242,33 @@ export function CounterOfferScreen({
 
   const adminPhotoSource = require('../../../../assets/images/real_carrot.jpg');
 
+  // Pick Document / Image directly from device
+  const handlePickFromDevice = async () => {
+    setShowUploadPicker(false);
+    try {
+      const res = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.images],
+      });
+      const now = new Date();
+      const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} ${now.getHours() >= 12 ? 'PM' : 'AM'}`;
+      const newPhoto: UploadedPhoto = {
+        id: `photo_${Date.now()}`,
+        uri: res.uri ? { uri: res.uri } : require('../../../../assets/images/real_carrot.jpg'),
+        name: res.name || 'BATCH_EVIDENCE.jpg',
+        size: res.size ? `${(res.size / (1024 * 1024)).toFixed(1)} MB` : '2.1 MB',
+        timestamp: `Uploaded today at ${timeStr}`,
+        sourceType: 'gallery',
+      };
+      setUploadedPhotos((prev) => [newPhoto, ...prev]);
+      Alert.alert('Photo Attached', `${res.name || 'Photo'} has been attached as counter-evidence.`);
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        // Fallback for mock environments
+        handleSelectUploadOption('gallery');
+      }
+    }
+  };
+
   const handleSelectUploadOption = (option: 'camera' | 'gallery' | 'sample') => {
     setShowUploadPicker(false);
     const now = new Date();
@@ -115,7 +307,7 @@ export function CounterOfferScreen({
       Alert.alert('Sample Attached', 'Batch quality sample photo attached.');
     }
 
-    setUploadedPhotos([newPhoto, ...uploadedPhotos]);
+    setUploadedPhotos((prev) => [newPhoto, ...prev]);
   };
 
   const handleRemovePhoto = (id: string) => {
@@ -135,7 +327,7 @@ export function CounterOfferScreen({
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={onCancel}>
-            <Icon name="arrow_back" size={20} color="#2e7d32" />
+            <ArrowBackIcon size={20} color={P.twGreen800} />
           </Pressable>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Counter-Offer</Text>
@@ -147,7 +339,7 @@ export function CounterOfferScreen({
           {/* Timer Banner */}
           <View style={styles.timerBanner}>
             <View style={styles.timerLeft}>
-              <Icon name="schedule" size={28} color="#d85b3b" />
+              <ScheduleIcon size={28} color="#d85b3b" />
               <View style={styles.timerTextContainer}>
                 <Text style={styles.timerTopLabel}>TIME TO RESPOND</Text>
                 <Text style={styles.timerMainValue}>
@@ -164,7 +356,7 @@ export function CounterOfferScreen({
           {/* COMPARE THE TERMS Header */}
           <View style={styles.termsHeaderRow}>
             <Text style={styles.sectionHeader}>COMPARE THE TERMS</Text>
-            <Text style={styles.tapToSelectHint}>Tap a tab to review</Text>
+            <Text style={styles.tapToSelectHint}>Tap a tab to select</Text>
           </View>
 
           {/* Interactive Cards / Tabs Row */}
@@ -187,7 +379,7 @@ export function CounterOfferScreen({
                 </Text>
                 {selectedTerm === 'ask' && (
                   <View style={styles.selectedBadgeGreen}>
-                    <Icon name="check" size={12} color="#1b5e20" />
+                    <CheckIcon size={11} color="#1b5e20" />
                   </View>
                 )}
               </View>
@@ -268,7 +460,7 @@ export function CounterOfferScreen({
                 <Text style={styles.cardHeaderCounter}>ADMIN COUNTER</Text>
                 {selectedTerm === 'counter' && (
                   <View style={styles.selectedBadgePurple}>
-                    <Icon name="check" size={12} color="#55348b" />
+                    <CheckIcon size={11} color="#55348b" />
                   </View>
                 )}
               </View>
@@ -294,7 +486,7 @@ export function CounterOfferScreen({
           {/* Admin Reason */}
           <View style={styles.reasonCard}>
             <View style={styles.reasonHeaderRow}>
-              <Icon name="info" size={18} color="#757575" />
+              <InfoIcon size={18} color="#757575" />
               <Text style={styles.reasonHeader}>Admin's reason</Text>
             </View>
             <Text style={styles.reasonText}>
@@ -303,7 +495,7 @@ export function CounterOfferScreen({
           </View>
 
           {/* Inspection Photo (Tap to view admin quality evidence) */}
-          <Pressable
+          <TouchableOpacity
             style={styles.photoCard}
             onPress={() => setShowAdminPhotoModal(true)}
             activeOpacity={0.7}
@@ -311,7 +503,7 @@ export function CounterOfferScreen({
             <View style={styles.photoThumbnailBox}>
               <Image source={adminPhotoSource} style={styles.photoThumbnailImg} resizeMode="cover" />
               <View style={styles.photoEyeOverlay}>
-                <Icon name="visibility" size={16} color="#ffffff" />
+                <EyeIcon size={16} color="#ffffff" />
               </View>
             </View>
             <View style={styles.photoTextContainer}>
@@ -323,8 +515,8 @@ export function CounterOfferScreen({
               </View>
               <Text style={styles.photoSubtitle}>Admin's quality evidence · tap to view</Text>
             </View>
-            <Icon name="chevron_right" size={24} color="#bdbdbd" />
-          </Pressable>
+            <ChevronRightIcon size={20} color="#bdbdbd" />
+          </TouchableOpacity>
 
           {/* ── Farmer Counter-Evidence Photo Upload Section ── */}
           <View style={styles.uploadSection}>
@@ -335,7 +527,7 @@ export function CounterOfferScreen({
                 onPress={() => setShowUploadPicker(true)}
                 activeOpacity={0.7}
               >
-                <Icon name="add_a_photo" size={16} color="#2e7d32" />
+                <CameraIcon size={15} color="#2e7d32" />
                 <Text style={styles.addPhotoBtnText}>Upload Photo</Text>
               </TouchableOpacity>
             </View>
@@ -347,7 +539,7 @@ export function CounterOfferScreen({
                 activeOpacity={0.7}
               >
                 <View style={styles.uploadIconCircle}>
-                  <Icon name="add_a_photo" size={22} color="#2e7d32" />
+                  <PhotoUploadIcon size={22} color="#2e7d32" />
                 </View>
                 <View style={styles.uploadEmptyTextGroup}>
                   <Text style={styles.uploadEmptyTitle}>Upload Inspection / Batch Photo</Text>
@@ -374,7 +566,7 @@ export function CounterOfferScreen({
                     >
                       <Image source={photo.uri} style={styles.uploadedPhotoThumb} resizeMode="cover" />
                       <View style={styles.uploadedPhotoOverlay}>
-                        <Icon name="visibility" size={14} color="#ffffff" />
+                        <EyeIcon size={14} color="#ffffff" />
                       </View>
                     </TouchableOpacity>
 
@@ -434,7 +626,7 @@ export function CounterOfferScreen({
             }}
           >
             <View style={styles.btnAcceptIconContainer}>
-              <Icon name="check" size={14} color="#2e7d32" />
+              <CheckIcon size={12} color="#2e7d32" />
             </View>
             <Text style={styles.btnAcceptText}>Accept</Text>
           </Pressable>
@@ -445,7 +637,7 @@ export function CounterOfferScreen({
               else if (onCancel) onCancel();
             }}
           >
-            <Icon name="swap_horiz" size={18} color="#673ab7" />
+            <SwapIcon size={18} color="#673ab7" />
             <Text style={styles.btnCounterText}>Counter back</Text>
           </Pressable>
           <Pressable
@@ -455,7 +647,7 @@ export function CounterOfferScreen({
               else if (onCancel) onCancel();
             }}
           >
-            <Icon name="close" size={18} color="#616161" />
+            <CloseIcon size={18} color="#616161" />
             <Text style={styles.btnWithdrawText}>Withdraw</Text>
           </Pressable>
         </View>
@@ -473,7 +665,7 @@ export function CounterOfferScreen({
                   style={styles.closeModalBtn}
                   onPress={() => setShowAdminPhotoModal(false)}
                 >
-                  <Icon name="close" size={20} color="#424242" />
+                  <CloseIcon size={18} color="#424242" />
                 </TouchableOpacity>
               </View>
 
@@ -518,7 +710,7 @@ export function CounterOfferScreen({
                 onPress={() => handleSelectUploadOption('camera')}
               >
                 <View style={[styles.pickerOptionIconBox, { backgroundColor: '#e8f5e9' }]}>
-                  <Icon name="photo_camera" size={22} color="#2e7d32" />
+                  <CameraIcon size={22} color="#2e7d32" />
                 </View>
                 <View style={styles.pickerOptionTextContainer}>
                   <Text style={styles.pickerOptionLabel}>Take Photo with Camera</Text>
@@ -528,14 +720,14 @@ export function CounterOfferScreen({
 
               <TouchableOpacity
                 style={styles.pickerSheetOption}
-                onPress={() => handleSelectUploadOption('gallery')}
+                onPress={handlePickFromDevice}
               >
                 <View style={[styles.pickerOptionIconBox, { backgroundColor: '#e3f2fd' }]}>
-                  <Icon name="photo_library" size={22} color="#1976d2" />
+                  <GalleryIcon size={22} color="#1976d2" />
                 </View>
                 <View style={styles.pickerOptionTextContainer}>
                   <Text style={styles.pickerOptionLabel}>Choose from Device Gallery</Text>
-                  <Text style={styles.pickerOptionDesc}>Select high quality harvest image from phone</Text>
+                  <Text style={styles.pickerOptionDesc}>Browse phone files and select batch image</Text>
                 </View>
               </TouchableOpacity>
 
@@ -544,7 +736,7 @@ export function CounterOfferScreen({
                 onPress={() => handleSelectUploadOption('sample')}
               >
                 <View style={[styles.pickerOptionIconBox, { backgroundColor: '#f3e5f5' }]}>
-                  <Icon name="visibility" size={22} color="#7b1fa2" />
+                  <SampleBatchIcon size={22} color="#7b1fa2" />
                 </View>
                 <View style={styles.pickerOptionTextContainer}>
                   <Text style={styles.pickerOptionLabel}>Attach Quality Batch Sample</Text>
@@ -575,7 +767,7 @@ export function CounterOfferScreen({
                   style={styles.closeModalBtn}
                   onPress={() => setPreviewPhoto(null)}
                 >
-                  <Icon name="close" size={20} color="#424242" />
+                  <CloseIcon size={18} color="#424242" />
                 </TouchableOpacity>
               </View>
 

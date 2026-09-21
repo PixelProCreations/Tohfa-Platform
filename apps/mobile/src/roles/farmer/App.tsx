@@ -671,7 +671,7 @@ export default function App(): React.JSX.Element {
           <CropDiaryEntriesScreen
             crop={selectedCrop}
             onBack={() => goBack('CropDetail')}
-            onNewEntry={() => navigate('AddInputApplied', { fromDiary: '1', initialInputType: 'Fertigation' })}
+            onNewEntry={() => navigate('NewFarmDiaryEntry')}
           />
         ) : screen === 'CropInputsApplied' ? (
           <CropInputsAppliedScreen
@@ -815,9 +815,12 @@ export default function App(): React.JSX.Element {
             crop={selectedCrop}
             selectedCategory={typeof params['diaryCategory'] === 'string' ? params['diaryCategory'] : 'Crop Care'}
             onBack={goBack}
-            onNext={(cat) => {
-              setParams((prev) => ({ ...prev, diaryCategory: cat }));
-              navigate('NewFarmDiaryEntryStep2', { diaryCategory: cat });
+            onNext={(data: any) => {
+              const cat = typeof data === 'string' ? data : (data?.category || 'Crop Care');
+              const field = typeof data === 'object' ? data.field : undefined;
+              const cropName = typeof data === 'object' ? data.cropName : undefined;
+              setParams((prev) => ({ ...prev, diaryCategory: cat, diaryField: field, diaryCrop: cropName }));
+              navigate('NewFarmDiaryEntryStep2', { diaryCategory: cat, diaryField: field, diaryCrop: cropName });
             }}
           />
         ) : screen === 'NewFarmDiaryEntryStep2' ? (
@@ -916,7 +919,54 @@ export default function App(): React.JSX.Element {
           <ActiveCropsScreen
             onNavigateBack={goBack}
           />
-        ) : screen === 'RecentListings' || screen === 'MyListings' ? (
+        ) : screen === 'MyListings' ? (
+          <MyListingsScreen
+            onNavigateBack={goBack}
+            onNavigateToCreateListing={() => navigate('CreateListing')}
+            onNavigateToListingDetail={(item) => {
+              if (item) {
+                setSelectedListing({
+                  id: item.id,
+                  listingNumber: item.listingNumber,
+                  cropName: `${item.cropName} - ${item.cropVariety}`,
+                  quantityKg: item.quantityKg,
+                  askingPricePerKg: item.askingPricePerKg,
+                  ceilingPricePerKg: item.askingPricePerKg,
+                  status: item.status,
+                  grade: item.grade,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                } as any);
+              }
+              navigate('ListingDetail');
+            }}
+            onNavigateToCounterOffer={(item) => {
+              setSelectedListing({
+                id: item?.id || 'dummy-listing',
+                listingNumber: item?.listingNumber || 'L-9821',
+                cropName: 'Carrot - Ooty - Grade 1',
+                quantityKg: '150',
+                askingPricePerKg: '40',
+                ceilingPricePerKg: '45',
+                status: 'COUNTER_OFFER',
+                grade: 'Grade 1',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                activeCounterOffer: {
+                  id: 'dummy-offer',
+                  pricePerKg: '34',
+                  quantityKg: '150',
+                  message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
+                  round: 1,
+                  expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+              } as any);
+              navigate('CounterOffer');
+            }}
+          />
+        ) : screen === 'RecentListings' ? (
           <RecentListingsScreen
             onNavigateBack={goBack}
             onNavigateToCreateListing={() => navigate('CreateListing')}
@@ -1216,7 +1266,7 @@ export default function App(): React.JSX.Element {
                   onNavigateToWeather={() => navigate('Weather')}
                   onNavigateToActiveCrops={() => navigate('ActiveCrops')}
                   onNavigateToFarmDiary={() => navigate('FarmDiary')}
-                  onNavigateToMyListings={() => navigate('RecentListings')}
+                  onNavigateToMyListings={() => navigate('MyListings')}
                   onNavigateToAttendance={() => navigate('DailyAttendance')}
                   onNavigateToTohfaCalendar={() => navigate('TohfaCalendar')}
                   onNavigateToInventory={() => navigate('FarmInventory')}
@@ -1258,7 +1308,7 @@ export default function App(): React.JSX.Element {
               ) : currentTab === 'Listings' ? (
                 <ListingsScreen
                   onNavigateBack={() => setCurrentTab('Home')}
-                  onNavigateToMyListings={() => navigate('RecentListings')}
+                  onNavigateToMyListings={() => navigate('MyListings')}
                   onNavigateToCreateListing={() => navigate('CreateListing')}
                   onNavigateToListingDetail={(item) => {
                     if (item) {

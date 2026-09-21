@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, colors } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,14 @@ function SearchIcon({ size = 18, color = '#8C9088' }: { size?: number; color?: s
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
       <Path d="M20 20L16 16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function PlayTriangleFilledIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M8 5v14l11-7L8 5z" fill={color} />
     </Svg>
   );
 }
@@ -490,6 +498,31 @@ export function LearningHubScreen({
     );
   };
 
+  const handleOpenTrainingVideo = (training: TrainingWorkshop) => {
+    const detailItem: ContentDetailItem = {
+      id: `training-${training.id}`,
+      title: training.title,
+      author: training.instructor,
+      date: training.date,
+      duration: training.mode === 'Online Webinar' ? '45:00' : '1:15:00',
+      type: 'Video',
+      bgColor: training.mode === 'Online Webinar' ? '#1E3A8A' : '#2E7D32',
+      paragraphs: [
+        `Complete recorded session of "${training.title}" hosted by ${training.instructor}.`,
+        `Format: ${training.mode} · Location: ${training.location} · Timing: ${training.time}.`,
+        'Watch the high-definition practical demonstration, instructor guidance, and step-by-step methods for organic agricultural plots.',
+      ],
+      likesCount: 54,
+      commentsCount: 9,
+    };
+
+    if (onNavigateToContentDetail) {
+      onNavigateToContentDetail(detailItem);
+    } else {
+      setActiveContentDetail(detailItem);
+    }
+  };
+
   const toggleTrainingRegistration = (trainingId: string) => {
     setTrainings((prev) =>
       prev.map((t) => (t.id === trainingId ? { ...t, isRegistered: !t.isRegistered } : t))
@@ -763,21 +796,14 @@ export function LearningHubScreen({
                 <Text style={styles.trainingInstructorText}>Instructor: {training.instructor}</Text>
 
                 <TouchableOpacity
-                  style={[
-                    styles.trainingRegisterBtn,
-                    training.isRegistered && styles.trainingRegisteredBtn,
-                  ]}
-                  onPress={() => toggleTrainingRegistration(training.id)}
+                  style={styles.trainingPlayBtn}
+                  onPress={() => handleOpenTrainingVideo(training)}
                   activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Play video for ${training.title}`}
                 >
-                  <Text
-                    style={[
-                      styles.trainingRegisterBtnText,
-                      training.isRegistered && styles.trainingRegisteredBtnText,
-                    ]}
-                  >
-                    {training.isRegistered ? '✓ Registered' : 'Register for Session'}
-                  </Text>
+                  <PlayTriangleFilledIcon size={16} color="#FFFFFF" />
+                  <Text style={styles.trainingPlayBtnText}>Play Session Video</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -891,16 +917,18 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3EFE6',
-    borderRadius: 14,
+    backgroundColor: P.twGray50,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    height: 46,
+    height: 44,
     marginBottom: 14,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1A2E1A',
+    color: P.twGray900,
     marginLeft: 10,
     paddingVertical: 0,
   },
@@ -911,9 +939,9 @@ const styles = StyleSheet.create({
   // Segmented Tabs Bar
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#F3EFE6',
-    borderRadius: 22,
-    padding: 3,
+    backgroundColor: P.twGray100,
+    borderRadius: 14,
+    padding: 4,
     marginBottom: 18,
   },
   tabItem: {
@@ -921,24 +949,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
+    borderRadius: 10,
   },
   tabItemActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: colors.brandGreen,
+    shadowColor: colors.brandGreen,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.18,
     shadowRadius: 3,
     elevation: 2,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: P.twGray600,
   },
   tabTextActive: {
-    color: '#1A2E1A',
-    fontWeight: '800',
+    color: colors.white,
+    fontWeight: '700',
   },
 
   // Featured Video Card
@@ -1320,22 +1348,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 12,
   },
-  trainingRegisterBtn: {
+  trainingPlayBtn: {
     backgroundColor: '#2E7D32',
-    paddingVertical: 10,
-    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  trainingRegisteredBtn: {
-    backgroundColor: '#EAF3DE',
-  },
-  trainingRegisterBtnText: {
+  trainingPlayBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
-  },
-  trainingRegisteredBtnText: {
-    color: '#2E7D32',
   },
 
   // Video Player Modal
