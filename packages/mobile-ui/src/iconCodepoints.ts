@@ -94,15 +94,12 @@ export const ICON_CODEPOINTS: Readonly<Record<string, number>> = {
  *   filled/outlined distinction into the `FILL` variable-font axis, so the
  *   single `error` glyph in the Outlined family IS the outline glyph
  *   `error_outline` used to point to — this is not a different icon.
- *
- * Deliberately NOT aliased here (no unambiguous replacement found in the
- * current Material Symbols catalog — see Icon.tsx's fallback behavior and
- * the bug-fix report for these two):
- * - `gps_fixed` (used in Step3Location.tsx, FieldContextScreen.tsx,
- *   FMBSketchScreen.tsx)
+ * - `terrain` mapped to `park` (landscape/outdoor glyph in font subset).
+ * - `gps_fixed` mapped to `place` (location pin glyph in font subset).
  */
 export const ICON_ALIASES: Readonly<Record<string, string>> = {
   error_outline: 'error',
   terrain: 'park',
+  gps_fixed: 'place',
 };
 

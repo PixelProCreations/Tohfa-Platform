@@ -13,8 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polygon } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polygon } from 'react-native-svg';
 import { Icon, Skeleton } from '@tohfa/mobile-ui';
+import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,
   evalCertificateWarning,
@@ -44,6 +45,21 @@ interface ProfileScreenProps {
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToAboutSupport?: (() => void) | undefined;
   onNavigateToBankPayment?: () => void;
+  onSignOut?: () => void;
+}
+
+function SignOutIcon({ size = 18, color = P.red600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 interface PersonalDetailsData {
@@ -122,6 +138,7 @@ export function ProfileScreen({
   onNavigateToSettings,
   onNavigateToAboutSupport,
   onNavigateToBankPayment,
+  onSignOut,
 }: ProfileScreenProps): React.JSX.Element {
   // --- Profile State ---
   const [personalDetails, setPersonalDetails] = useState<PersonalDetailsData>({
@@ -1043,6 +1060,37 @@ export function ProfileScreen({
             <View style={styles.menuTitleBox}>
               <Text style={styles.menuTitle}>Help & Support</Text>
               <Text style={styles.menuSubtitle}>FAQs, contact TOHFA, feedback</Text>
+            </View>
+            <Icon name="chevron_right" size={18} color={P.slate400} />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          <TouchableOpacity
+            style={styles.menuItemRow}
+            onPress={() => {
+              Alert.alert('Sign Out', 'Are you sure you want to sign out of TOHFA?', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Sign Out',
+                  style: 'destructive',
+                  onPress: () => {
+                    void (async () => {
+                      await logout();
+                      onSignOut?.();
+                    })();
+                  },
+                },
+              ]);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: P.red50, borderColor: P.red100, borderWidth: 1 }]}>
+              <SignOutIcon size={18} color={P.red600} />
+            </View>
+            <View style={styles.menuTitleBox}>
+              <Text style={[styles.menuTitle, { color: P.red600 }]}>Sign Out</Text>
+              <Text style={styles.menuSubtitle}>Log out of your farmer account</Text>
             </View>
             <Icon name="chevron_right" size={18} color={P.slate400} />
           </TouchableOpacity>

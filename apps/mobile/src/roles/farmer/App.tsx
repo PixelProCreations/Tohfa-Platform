@@ -1342,7 +1342,8 @@ export default function App(): React.JSX.Element {
                   onNavigateToSoilTest={() => navigate('SoilTest')}
                   onNavigateToSettings={() => navigate('Settings')}
                   onNavigateToAboutSupport={() => navigate('AboutSupport')}
-                  onNavigateToBankPayment={() => navigate('BankAccount')}
+                  onNavigateToBankPayment={() => navigate('BankPayment')}
+                  onSignOut={() => navigate('Welcome')}
                 />
               )}
             </View>

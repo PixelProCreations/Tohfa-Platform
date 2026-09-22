@@ -92,7 +92,7 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                 strokeWidth="2"
               />
               <Circle cx="155" cy="65" r="12" fill={P.deepGreen} stroke={colors.white} strokeWidth="2" />
-              <Text style={{position: 'absolute', top: 56, left: 150, color: colors.white, fontWeight: '800', fontSize: 12}}>A</Text>
+              <Text style={{ position: 'absolute', top: 56, left: 150, color: colors.white, fontWeight: '800', fontSize: 12 }}>A</Text>
 
               {/* Zone B (Orange) */}
               <Polygon
@@ -102,7 +102,7 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                 strokeWidth="2"
               />
               <Circle cx="160" cy="140" r="12" fill={P.orange900} stroke={colors.white} strokeWidth="2" />
-              <Text style={{position: 'absolute', top: 131, left: 155, color: colors.white, fontWeight: '800', fontSize: 12}}>B</Text>
+              <Text style={{ position: 'absolute', top: 131, left: 155, color: colors.white, fontWeight: '800', fontSize: 12 }}>B</Text>
 
               {/* Zone C (Purple) */}
               <Polygon
@@ -112,7 +112,7 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                 strokeWidth="2"
               />
               <Circle cx="155" cy="215" r="12" fill={P.deepPurple800} stroke={colors.white} strokeWidth="2" />
-              <Text style={{position: 'absolute', top: 206, left: 150, color: colors.white, fontWeight: '800', fontSize: 12}}>C</Text>
+              <Text style={{ position: 'absolute', top: 206, left: 150, color: colors.white, fontWeight: '800', fontSize: 12 }}>C</Text>
             </Svg>
           </View>
 
