@@ -51,26 +51,25 @@ try {
   isMapboxAvailable = false;
 }
 
-// MAPBOX_ACCESS_TOKEN (imported above from '@env') is TOHFA's real Mapbox
-// public token (`pk.…`, Mapbox account "tohfa"), inlined at bundle time by
-// react-native-dotenv from apps/mobile/.env (gitignored -- see
-// apps/mobile/.env.example) via apps/mobile/babel.config.js. Public tokens
-// are designed to ship embedded in client apps and are not secret, unlike
-// RNMBX_MAPS_DOWNLOAD_TOKEN (kept in ~/.zshrc, never in a repo file).
-//
-// This must always resolve to a real, non-empty string: @rnmapbox/maps'
-// native Android SDK throws MapboxConfigurationException and crashes the
-// whole app the instant a MapView mounts with no token set -- confirmed via
-// adb logcat. `safe: false, allowUndefined: false` in babel.config.js make a
-// missing .env entry fail the build loudly instead of silently inlining ''.
+const PUBLIC_MAPBOX_TOKEN =
+  typeof MAPBOX_ACCESS_TOKEN === 'string' ? MAPBOX_ACCESS_TOKEN : '';
 
 let mapboxConfigured = false;
 
+if (isMapboxAvailable && Mapbox && typeof Mapbox.setAccessToken === 'function') {
+  try {
+    Mapbox.setAccessToken(PUBLIC_MAPBOX_TOKEN);
+    mapboxConfigured = true;
+  } catch {
+    // Handled in ensureMapboxConfigured
+  }
+}
+
 /** Idempotent — safe to call from every mount of every map on screen. */
 function ensureMapboxConfigured(): void {
-  if (!MAPBOX_ACCESS_TOKEN || mapboxConfigured || !isMapboxAvailable) return;
+  if (mapboxConfigured || !isMapboxAvailable || !Mapbox) return;
   try {
-    Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+    Mapbox.setAccessToken(PUBLIC_MAPBOX_TOKEN);
     mapboxConfigured = true;
   } catch {
     isMapboxAvailable = false;
@@ -291,7 +290,7 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
         try {
           const url =
             `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json` +
-            `?access_token=${encodeURIComponent(MAPBOX_ACCESS_TOKEN)}&limit=1`;
+            `?access_token=${encodeURIComponent(PUBLIC_MAPBOX_TOKEN)}&limit=1`;
           const response = await fetch(url);
           if (!response.ok) return false;
           const body = (await response.json()) as { features?: Array<{ center?: number[] }> };

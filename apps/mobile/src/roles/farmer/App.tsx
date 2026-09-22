@@ -666,7 +666,7 @@ export default function App(): React.JSX.Element {
             crop={selectedCrop}
             onBack={() => goBack('ProduceCalendar')}
             onEdit={() => navigate('NewCrop')}
-            onNavigateToDiary={() => navigate('CropDiaryEntries')}
+            onNavigateToDiary={() => navigate('FarmDiary')}
             onNavigateToInputs={() => navigate('CropInputsApplied')}
             onNavigateToWorkforce={() => navigate('CropWorkforceHours')}
             onNavigateToNPK={() => navigate('CropNPKContribution')}
@@ -818,24 +818,23 @@ export default function App(): React.JSX.Element {
           <NewFarmDiaryEntryScreen
             crop={selectedCrop}
             onBack={goBack}
-            onNext={(cat) => {
-              setParams((prev) => ({ ...prev, diaryCategory: cat }));
-              if (cat.toLowerCase() === 'nutrients') {
-                navigate('AddInputApplied', { initialInputType: 'Fertigation', fromDiary: '1' });
-              } else if (cat.toLowerCase() === 'crop care') {
-                navigate('AddInputApplied', { initialInputType: 'Pest Treatment', fromDiary: '1' });
-              } else {
-                navigate('NewFarmDiaryEntryStep2', { diaryCategory: cat });
-              }
+            onCancel={() => navigate('FarmDiary')}
+            onNext={(data) => {
+              setParams((prev) => ({ ...prev, ...(typeof data === 'object' ? data : { diaryCategory: data }) }));
+              navigate('NewFarmDiaryEntryStep2', typeof data === 'object' ? data : { diaryCategory: data });
             }}
           />
         ) : screen === 'NewFarmDiaryEntryStep2' ? (
           <NewFarmDiaryEntryStep2Screen
             crop={selectedCrop}
-            category={typeof params['diaryCategory'] === 'string' ? params['diaryCategory'] : 'Crop Care'}
+            category={typeof params['category'] === 'string' ? params['category'] : (typeof params['diaryCategory'] === 'string' ? params['diaryCategory'] : 'Water Mgmt')}
             onChangeCategory={goBack}
             onBack={goBack}
-            onNext={() => navigate('NewFarmDiaryEntryStep3')}
+            onCancel={() => navigate('FarmDiary')}
+            onNext={(entryData) => {
+              setParams((prev) => ({ ...prev, ...entryData }));
+              navigate('NewFarmDiaryEntryStep3');
+            }}
           />
         ) : screen === 'NewFarmDiaryEntryStep3' ? (
           <NewFarmDiaryEntryStep3Screen
@@ -911,6 +910,7 @@ export default function App(): React.JSX.Element {
           <UploadNewSoilTestScreen
             onBack={goBack}
             onSave={goBack}
+            onNavigateToFieldContext={() => navigate('FieldContext')}
           />
         ) : screen === 'SoilTest' ? (
           <SoilTestScreen
@@ -1282,6 +1282,7 @@ export default function App(): React.JSX.Element {
                   onNavigateToTohfaCalendar={() => navigate('TohfaCalendar')}
                   onNavigateToLearningHub={() => navigate('LearningHub')}
                   onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
+                  onNavigateToInventory={() => navigate('FarmInventory')}
                   onNavigateToCropDetail={(cropName: string) => {
                     const found = localProduceCropsCache.find(
                       (c: CropItem) => c.name.toLowerCase() === cropName.toLowerCase(),

@@ -836,10 +836,9 @@ const styles = StyleSheet.create({
   // Floating CTA
   floatingContainer: {
     position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    bottom: 20,
+    right: 16,
+    alignItems: 'flex-end',
   },
   floatingBtn: {
     flexDirection: 'row',

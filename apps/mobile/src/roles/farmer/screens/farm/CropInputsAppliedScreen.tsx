@@ -228,7 +228,12 @@ export function CropInputsAppliedScreen({
           </View>
 
           {/* ── Filter Pills ── */}
-          <View style={styles.filterRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+            style={styles.filterScrollView}
+          >
             {(['All', 'Fertigation', 'Pest Treatment'] as const).map((filter) => {
               const isSelected = activeFilter === filter;
               return (
@@ -252,7 +257,7 @@ export function CropInputsAppliedScreen({
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
 
           {/* ── Inputs Activity Cards List ── */}
           <View style={styles.inputsList}>
@@ -421,10 +426,13 @@ const styles = StyleSheet.create({
     color: P.twGray500,
     marginTop: 2,
   },
+  filterScrollView: {
+    marginBottom: 16,
+  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingBottom: 16,
+    paddingRight: 16,
   },
   filterChip: {
     paddingHorizontal: 18,

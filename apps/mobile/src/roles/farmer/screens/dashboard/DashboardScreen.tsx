@@ -94,6 +94,7 @@ interface DashboardScreenProps {
   onNavigateToProduceCalendar?: () => void;
   onNavigateToCropDetail?: (cropName: string) => void;
   onNavigateToCounterOffer?: (listing?: Listing) => void;
+  onNavigateToInventory?: () => void;
 }
 
 export function DashboardScreen({
@@ -115,6 +116,7 @@ export function DashboardScreen({
   onNavigateToLearningHub,
   onNavigateToProduceCalendar,
   onNavigateToCropDetail,
+  onNavigateToInventory,
 }: DashboardScreenProps): React.JSX.Element {
   const [profile, setProfile] = useState<FarmerProfile | null>(null);
   const [certs, setCerts] = useState<Certification[]>([]);
@@ -326,10 +328,10 @@ export function DashboardScreen({
       icon: 'inventory_2',
       iconBg: P.paleSkyBg,
       iconColor: P.blue700,
-      keywords: ['inventory', 'tractor', 'equipment', 'tools', 'machinery', 'service', 'supplies', 'seeds'],
+      keywords: ['inventory', 'tractor', 'equipment', 'tools', 'machinery', 'service', 'supplies', 'seeds', 'farm inventory'],
       action: () => {
         setShowSearch(false);
-        onNavigateToFarmManagement?.();
+        (onNavigateToInventory ?? onNavigateToFarmManagement)?.();
       },
     },
     {
@@ -801,7 +803,13 @@ export function DashboardScreen({
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.gridCard}>
+            <TouchableOpacity
+              style={styles.gridCard}
+              onPress={onNavigateToInventory}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Inventory"
+            >
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleSkyBg }]}>
                 <Icon name="inventory_2" size={20} color={P.blue700} />
               </View>
@@ -1288,10 +1296,11 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 15,
+    justifyContent: 'space-between',
+    rowGap: 14,
   },
   gridCard: {
-    width: '47%',
+    width: '48%',
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 16,

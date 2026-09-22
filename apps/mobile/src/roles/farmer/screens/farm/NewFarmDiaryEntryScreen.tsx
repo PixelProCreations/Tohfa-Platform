@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Platform,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,14 +14,14 @@ import { authPalette as P } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
-// Inline Vector Icons (strictly no emoji, no raw hex)
+// Inline Vector Icons
 // ─────────────────────────────────────────────
 
-function CloseIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 20, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M18 6L6 18M6 6l12 12"
+        d="M19 12H5M5 12L12 19M5 12L12 5"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -31,59 +31,47 @@ function CloseIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: 
   );
 }
 
-function LandPrepIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M3 17l6-6 4 4 8-8"
+        d="M5 12H19M19 12L12 5M19 12L12 19"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
-      />
-      <Path
-        d="M14 7h7v7"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M3 21h18"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
       />
     </Svg>
   );
 }
 
-function SowingIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 18, color = P.twGray500 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 21V10M12 10c0-4 3-6 7-6 0 4-2 7-7 6zM12 14c0-3.5-2.5-5-6-5 0 3.5 2 5.5 6 5z"
+        d="M6 9l6 6 6-6"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
-      />
-      <Path
-        d="M5 21h14"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
       />
     </Svg>
   );
 }
 
-function NutrientsIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+function FieldSquareIcon({ size = 16, color = P.twGreen800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="2.2" />
+    </Svg>
+  );
+}
+
+function CropSproutIcon({ size = 16, color = P.twGreen800 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 7c-2 2-3 4-3 5.5a3 3 0 006 0C15 11 14 9 12 7z"
+        d="M12 21v-8M12 13c-2-3-6-2.5-7-2 0 4 3 6 7 2zM12 11c2-3 6-2.5 7-2 0 4-3 6-7 2z"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -93,7 +81,7 @@ function NutrientsIcon({ size = 22, color = P.twGreen700 }: { size?: number; col
   );
 }
 
-function CropCareIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+function LeafOutlineIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -114,111 +102,82 @@ function CropCareIcon({ size = 22, color = P.twGreen700 }: { size?: number; colo
   );
 }
 
-function MonitoringIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+function CalendarBoxIcon({ size = 22, color = P.twGray500 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="18" y1="20" x2="18" y2="10" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Line x1="12" y1="20" x2="12" y2="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Line x1="6" y1="20" x2="6" y2="14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Path
-        d="M4 11l4-4 4 4 7-7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function HarvestingIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="7" cy="17" r="3" stroke={color} strokeWidth="2" />
-      <Circle cx="17" cy="17" r="3" stroke={color} strokeWidth="2" />
-      <Path
-        d="M4 17H2V9h5v8M10 17h4M14 9h7v8M9 9h5v8M14 12h7M14 9l2-4h3l2 4"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function MaintenanceIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function OtherIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="2" />
-      <Line x1="8" y1="9" x2="16" y2="9" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="8" y1="13" x2="16" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="8" y1="17" x2="12" y2="17" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="1.8" />
     </Svg>
   );
 }
 
 // ─────────────────────────────────────────────
-// Categories Data
+// Options
 // ─────────────────────────────────────────────
 
-interface CategoryItem {
-  id: string;
-  label: string;
-  count: string;
-  IconComponent: React.ComponentType<{ size?: number; color?: string }>;
-}
-
-const CATEGORIES: CategoryItem[] = [
-  { id: 'land_prep', label: 'Land Prep', count: '4 activity types', IconComponent: LandPrepIcon },
-  { id: 'sowing', label: 'Sowing', count: '3 activity types', IconComponent: SowingIcon },
-  { id: 'nutrients', label: 'Nutrients', count: '3 activity types', IconComponent: NutrientsIcon },
-  { id: 'crop_care', label: 'Crop Care', count: '5 activity types', IconComponent: CropCareIcon },
-  { id: 'monitoring', label: 'Monitoring', count: '3 activity types', IconComponent: MonitoringIcon },
-  { id: 'harvesting', label: 'Harvesting', count: '2 activity types', IconComponent: HarvestingIcon },
-  { id: 'maintenance', label: 'Maintenance', count: '2 activity types', IconComponent: MaintenanceIcon },
-  { id: 'other', label: 'Other', count: '1 activity type', IconComponent: OtherIcon },
+const FIELD_OPTIONS = [
+  'Zone 1 — Upper Field',
+  'Zone 2 — Lower Slope',
+  'Zone 3 — Terrace Field',
 ];
 
+const CROP_OPTIONS_BY_FIELD: Record<string, string[]> = {
+  'Zone 1 — Upper Field': ['Beans', 'Potato'],
+  'Zone 2 — Lower Slope': ['Tomato'],
+  'Zone 3 — Terrace Field': ['Carrot', 'Cabbage'],
+};
+
 // ─────────────────────────────────────────────
-// Component
+// Props & Component
 // ─────────────────────────────────────────────
 
 export interface NewFarmDiaryEntryScreenProps {
   crop?: CropItem | null;
-  selectedCategory?: string;
   onBack?: () => void;
-  onNext?: (category: string) => void;
+  onCancel?: () => void;
+  onNext?: (data?: { field: string; crop: string; date: string }) => void;
 }
 
 export function NewFarmDiaryEntryScreen({
-  crop: _crop,
-  selectedCategory: initialCategory = 'Crop Care',
+  crop,
   onBack,
+  onCancel,
   onNext,
 }: NewFarmDiaryEntryScreenProps): React.JSX.Element {
-  const [selectedCat, setSelectedCat] = useState<string>(initialCategory);
+  const initialField = crop?.zoneShort === 'Zone 1' ? 'Zone 1 — Upper Field' : 'Zone 2 — Lower Slope';
+  const [selectedField, setSelectedField] = useState<string>(initialField);
+  const [selectedCrop, setSelectedCrop] = useState<string>(crop?.name ?? 'Tomato');
 
-  const handleSelect = (category: CategoryItem) => {
-    setSelectedCat(category.label);
+  const [isFieldModalOpen, setIsFieldModalOpen] = useState<boolean>(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
+
+  const availableCrops = CROP_OPTIONS_BY_FIELD[selectedField] || ['Tomato', 'Carrot', 'Beans'];
+
+  const handleFieldChange = (field: string) => {
+    setSelectedField(field);
+    const crops = CROP_OPTIONS_BY_FIELD[field] || ['Tomato'];
+    setSelectedCrop(crops[0] ?? 'Tomato');
+    setIsFieldModalOpen(false);
+  };
+
+  const handleCropChange = (cropName: string) => {
+    setSelectedCrop(cropName);
+    setIsCropModalOpen(false);
+  };
+
+  const handleProceed = () => {
     if (onNext) {
-      onNext(category.label);
+      onNext({
+        field: selectedField,
+        crop: selectedCrop,
+        date: 'Today · 16 Jul 2026',
+      });
     }
   };
+
+  const handleExit = onCancel ?? onBack;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -228,77 +187,207 @@ export function NewFarmDiaryEntryScreen({
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            style={styles.closeBtn}
+            style={styles.navCircleButton}
             onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowBackIcon size={18} color={P.twGreen700} />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleBox}>
+            <Text style={styles.headerTitle}>New Entry</Text>
+            <Text style={styles.headerSubtitle}>Step 1 of 3 · Field & Crop</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleExit}
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Close"
+            accessibilityLabel="Cancel"
           >
-            <CloseIcon size={18} color={P.twGray800} />
+            <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
+        </View>
 
-          <View style={styles.headerTitleGroup}>
-            <Text style={styles.headerTitle}>New Diary Entry</Text>
-            <Text style={styles.headerSubtitle}>Choose a category</Text>
-          </View>
+        {/* ── 3-Segment Progress Bar ── */}
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressSegment, styles.progressActive]} />
+          <View style={[styles.progressSegment, styles.progressInactive]} />
+          <View style={[styles.progressSegment, styles.progressInactive]} />
         </View>
       </View>
 
-      {/* ── 2-Column Categories Grid ── */}
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.grid}>
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCat.toLowerCase() === cat.label.toLowerCase();
-            const Icon = cat.IconComponent;
+        {/* ── Subtitle Instruction ── */}
+        <Text style={styles.introInstruction}>
+          Pick the field and crop this entry belongs to. Everything after this is scoped to your choice.
+        </Text>
 
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryCard,
-                  isSelected ? styles.categoryCardSelected : styles.categoryCardUnselected,
-                ]}
-                activeOpacity={0.85}
-                onPress={() => handleSelect(cat)}
-                accessibilityRole="button"
-                accessibilityLabel={`${cat.label}, ${cat.count}`}
-              >
-                <View
-                  style={[
-                    styles.iconBox,
-                    isSelected ? styles.iconBoxSelected : styles.iconBoxUnselected,
-                  ]}
-                >
-                  <Icon size={22} color={isSelected ? P.deepGreen : P.twGreen700} />
-                </View>
+        {/* ── 1. Field Dropdown ── */}
+        <View style={styles.fieldGroup}>
+          <View style={styles.labelRow}>
+            <FieldSquareIcon size={15} color={P.twGreen800} />
+            <Text style={styles.labelTitle}> Field </Text>
+            <Text style={styles.requiredAsterisk}>*</Text>
+          </View>
 
-                <Text
-                  style={[
-                    styles.categoryTitle,
-                    isSelected ? styles.categoryTitleSelected : styles.categoryTitleUnselected,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
+          <TouchableOpacity
+            style={[styles.dropdownBox, styles.dropdownBoxActive]}
+            activeOpacity={0.8}
+            onPress={() => setIsFieldModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Select Field"
+          >
+            <Text style={styles.dropdownSelectedText}>{selectedField}</Text>
+            <ChevronDownIcon size={18} color={P.twGreen700} />
+          </TouchableOpacity>
 
-                <Text
-                  style={[
-                    styles.categoryCount,
-                    isSelected ? styles.categoryCountSelected : styles.categoryCountUnselected,
-                  ]}
-                >
-                  {cat.count}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          <Text style={styles.helperNote}>From your registered FMB zones (Screen 19).</Text>
+        </View>
+
+        {/* ── 2. Crop Dropdown ── */}
+        <View style={styles.fieldGroup}>
+          <View style={styles.labelRow}>
+            <CropSproutIcon size={16} color={P.twGreen800} />
+            <Text style={styles.labelTitle}> Crop </Text>
+            <Text style={styles.requiredAsterisk}>*</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            activeOpacity={0.8}
+            onPress={() => setIsCropModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Select Crop"
+          >
+            <Text style={styles.dropdownSelectedText}>{selectedCrop}</Text>
+            <ChevronDownIcon size={18} color={P.twGray500} />
+          </TouchableOpacity>
+
+          <Text style={styles.helperNote}>Enabled once a field is chosen — this zone has one active crop.</Text>
+        </View>
+
+        {/* ── 3. Crop Duration Card ── */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconBox}>
+            <LeafOutlineIcon size={22} color={P.twGreen700} />
+          </View>
+          <View style={styles.infoCardContent}>
+            <Text style={styles.infoCardLabel}>CROP DURATION</Text>
+            <Text style={styles.infoCardValue}>62 days old</Text>
+            <Text style={styles.infoCardSub}>Planted 15 May · harvest ~24 Jul 2026</Text>
+          </View>
+        </View>
+
+        {/* ── 4. Date Card ── */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconBox}>
+            <CalendarBoxIcon size={22} color={P.twGray500} />
+          </View>
+          <View style={styles.infoCardContent}>
+            <Text style={styles.infoCardLabel}>DATE</Text>
+            <Text style={styles.infoCardValue}>Today · 16 Jul 2026</Text>
+          </View>
+          <View style={styles.autoBadge}>
+            <Text style={styles.autoBadgeText}>AUTO</Text>
+          </View>
         </View>
       </ScrollView>
+
+      {/* ── Bottom Sticky Action Button ── */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.activityTypeBtn}
+          onPress={handleProceed}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Proceed to Activity Type"
+        >
+          <Text style={styles.activityTypeBtnText}>Activity Type</Text>
+          <ArrowRightIcon size={18} color={P.white} />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Field Selection Modal ── */}
+      <Modal
+        visible={isFieldModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsFieldModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsFieldModalOpen(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalHeading}>Select Field Zone</Text>
+            {FIELD_OPTIONS.map((field) => (
+              <TouchableOpacity
+                key={field}
+                style={[
+                  styles.modalOption,
+                  selectedField === field ? styles.modalOptionSelected : undefined,
+                ]}
+                onPress={() => handleFieldChange(field)}
+              >
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    selectedField === field ? styles.modalOptionTextSelected : undefined,
+                  ]}
+                >
+                  {field}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Crop Selection Modal ── */}
+      <Modal
+        visible={isCropModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCropModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsCropModalOpen(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalHeading}>Select Crop</Text>
+            {availableCrops.map((cropName) => (
+              <TouchableOpacity
+                key={cropName}
+                style={[
+                  styles.modalOption,
+                  selectedCrop === cropName ? styles.modalOptionSelected : undefined,
+                ]}
+                onPress={() => handleCropChange(cropName)}
+              >
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    selectedCrop === cropName ? styles.modalOptionTextSelected : undefined,
+                  ]}
+                >
+                  {cropName}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -314,122 +403,243 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: P.white,
     borderBottomWidth: 1,
-    borderBottomColor: P.twGray100,
+    borderBottomColor: P.slate100,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  navCircleButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.slate200,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.twGray50,
-    borderWidth: 1,
-    borderColor: P.twGray200,
   },
-  headerTitleGroup: {
+  headerTitleBox: {
     flex: 1,
+    marginLeft: 14,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: P.twGray900,
-    letterSpacing: -0.2,
+    color: P.slate900,
+    fontSize: 17,
+    fontWeight: '700',
   },
   headerSubtitle: {
+    color: P.slate500,
     fontSize: 12,
-    fontWeight: '500',
-    color: P.twGray500,
-    marginTop: 1,
+    marginTop: 2,
   },
+  cancelBtnText: {
+    color: P.slate600,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  /* 3-Segment Progress */
+  progressContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 3.5,
+    borderRadius: 2,
+  },
+  progressActive: {
+    backgroundColor: P.twGreen700,
+  },
+  progressInactive: {
+    backgroundColor: P.slate200,
+  },
+
   scrollContainer: {
     flex: 1,
     backgroundColor: P.white,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 100,
   },
-  grid: {
+
+  introInstruction: {
+    fontSize: 13,
+    color: P.slate500,
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+
+  fieldGroup: {
+    marginBottom: 18,
+  },
+  labelRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  categoryCard: {
-    width: '48%',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryCardUnselected: {
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  categoryCardSelected: {
-    backgroundColor: P.mintTintBg,
-    borderWidth: 2,
-    borderColor: P.deepGreen,
-    shadowColor: P.deepGreen,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 8,
   },
-  iconBoxUnselected: {
+  labelTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: P.slate800,
+  },
+  requiredAsterisk: {
+    color: P.twRed500,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  dropdownBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: P.slate200,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 50,
+    backgroundColor: P.white,
+  },
+  dropdownBoxActive: {
+    borderColor: P.twGreen600,
+    borderWidth: 1.5,
+  },
+  dropdownSelectedText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: P.slate900,
+  },
+  helperNote: {
+    fontSize: 11,
+    color: P.slate400,
+    marginTop: 6,
+  },
+
+  /* Info Cards */
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: P.slate50,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  infoIconBox: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoCardContent: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  infoCardLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: P.twGray500,
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  infoCardValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: P.slate900,
+  },
+  infoCardSub: {
+    fontSize: 11.5,
+    color: P.slate500,
+    marginTop: 2,
+  },
+  autoBadge: {
+    backgroundColor: P.slate200,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  autoBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: P.slate600,
+    letterSpacing: 0.4,
+  },
+
+  /* Bottom Sticky Bar */
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: P.white,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: P.slate100,
+  },
+  activityTypeBtn: {
+    height: 48,
+    backgroundColor: P.primary,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  activityTypeBtnText: {
+    color: P.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Modals */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: P.white,
+    borderRadius: 14,
+    padding: 16,
+    elevation: 6,
+  },
+  modalHeading: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: P.slate900,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  modalOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  modalOptionSelected: {
     backgroundColor: P.twGreen50,
   },
-  iconBoxSelected: {
-    backgroundColor: P.twGreen100,
-  },
-  categoryTitle: {
+  modalOptionText: {
     fontSize: 14,
-    textAlign: 'center',
-  },
-  categoryTitleUnselected: {
-    fontWeight: '700',
-    color: P.twGray900,
-  },
-  categoryTitleSelected: {
-    fontWeight: '800',
-    color: P.deepGreen,
-  },
-  categoryCount: {
-    fontSize: 11,
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  categoryCountUnselected: {
+    color: P.slate800,
     fontWeight: '500',
-    color: P.twGray500,
   },
-  categoryCountSelected: {
-    fontWeight: '600',
+  modalOptionTextSelected: {
     color: P.twGreen700,
+    fontWeight: '700',
   },
 });

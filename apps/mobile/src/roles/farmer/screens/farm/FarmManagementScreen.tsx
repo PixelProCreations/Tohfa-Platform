@@ -53,6 +53,15 @@ function PencilEditIcon({ size = 20, color = P.twOrange600 }: { size?: number; c
   );
 }
 
+function PlusIcon({ size = 14, color = P.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function CloudWeatherIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -61,7 +70,7 @@ function CloudWeatherIcon({ size = 22, color = P.sky600 }: { size?: number; colo
   );
 }
 
-function SnowflakeIcon({ size = 12, color = P.sky600 }: { size?: number; color?: string }) {
+function SnowflakeIcon({ size = 12, color = P.deepPurple800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="12" y1="2" x2="12" y2="22" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -328,6 +337,7 @@ export function FarmManagementScreen({
               onPress={onNavigateToDiary ? onNavigateToDiary : () => setIsDiaryModalOpen(true)}
               accessibilityRole="button"
             >
+              <PlusIcon size={13} color={P.white} />
               <Text style={styles.logEntryBtnText}>{t('farmer.farmManagement.module.diary.logEntry')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -357,7 +367,7 @@ export function FarmManagementScreen({
               onPress={onNavigateToWeather}
               accessibilityRole="button"
             >
-              <SnowflakeIcon size={12} color={P.twBlue700} />
+              <SnowflakeIcon size={12} color={P.deepPurple800} />
               <Text style={styles.weatherRiskText}>{t('farmer.farmManagement.module.weather.frostRisk')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -703,11 +713,14 @@ const styles = StyleSheet.create({
 
   /* Card Bottom Actions */
   logEntryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: P.twGreen700,
     borderRadius: 10,
     paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   logEntryBtnText: {
     fontSize: 13,
@@ -718,7 +731,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: P.twBlue50,
+    backgroundColor: P.violetTint2,
     borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 8,
@@ -726,7 +739,7 @@ const styles = StyleSheet.create({
   weatherRiskText: {
     fontSize: 11,
     fontWeight: '700',
-    color: P.twBlue700,
+    color: P.deepPurple800,
   },
   producePill: {
     flexDirection: 'row',

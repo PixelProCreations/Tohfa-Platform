@@ -565,7 +565,13 @@ export function CropDetailScreen({
 
           <View style={styles.recentDiaryList}>
             {/* Entry 1 */}
-            <View style={styles.recentDiaryItem}>
+            <TouchableOpacity
+              style={styles.recentDiaryItem}
+              onPress={onNavigateToDiary}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="View Weeding diary entry"
+            >
               <View style={[styles.diaryIconBadge, { backgroundColor: P.twGreen100 }]}>
                 <SproutDiaryIcon size={16} color={P.twGreen700} />
               </View>
@@ -576,10 +582,16 @@ export function CropDetailScreen({
               </View>
 
               <Text style={styles.diaryDurationText}>50m</Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Entry 2 */}
-            <View style={styles.recentDiaryItem}>
+            <TouchableOpacity
+              style={styles.recentDiaryItem}
+              onPress={onNavigateToDiary}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="View Manure application diary entry"
+            >
               <View style={[styles.diaryIconBadge, { backgroundColor: P.twGreen100 }]}>
                 <CompostIcon size={16} color={P.twGreen700} />
               </View>
@@ -590,7 +602,7 @@ export function CropDetailScreen({
               </View>
 
               <Text style={styles.diaryDurationText}>1h 15m</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.bottomSpacer} />

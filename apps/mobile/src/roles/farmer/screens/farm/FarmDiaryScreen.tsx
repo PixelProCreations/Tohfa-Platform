@@ -229,6 +229,15 @@ const BASE_ENTRIES: DiaryEntryItem[] = [
     bg: P.twPurple100,
     Icon: BugIcon,
     expanded: false,
+    details: {
+      method: 'Neem Oil Spray · Manual',
+      labour: '1 labour',
+      description: 'Checked underleaf aphid counts across rows 1-12; installed 4 yellow sticky traps along the boundary ridge.',
+      images: [
+        'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400&q=80',
+        'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=400&q=80',
+      ],
+    },
   },
   {
     id: '3',
@@ -241,6 +250,15 @@ const BASE_ENTRIES: DiaryEntryItem[] = [
     bg: P.twGreen50,
     Icon: LeafIcon,
     expanded: false,
+    details: {
+      method: 'Vermicompost · 50 kg/bed',
+      labour: '3 labour',
+      description: 'Broadcasting mature organic vermicompost and Jeevamrutha mix along raised beds prior to root bulking stage.',
+      images: [
+        'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
+        'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
+      ],
+    },
   },
   {
     id: '4',
@@ -258,8 +276,8 @@ const BASE_ENTRIES: DiaryEntryItem[] = [
       labour: '4 labour',
       description: 'Morning harvest across Zone 1. Total 85 kg harvested, cleaned, and sorted into crates for dispatch weighing.',
       images: [
-        'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=400&q=80', // green beans harvest
-        'https://images.unsplash.com/photo-1500651230702-0e2d8a49d4ad?w=400&q=80', // crates in field
+        'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=400&q=80',
+        'https://images.unsplash.com/photo-1500651230702-0e2d8a49d4ad?w=400&q=80',
       ],
     },
   },
@@ -286,7 +304,10 @@ const DIARY_ENTRIES_BY_DAY: Record<number, DiaryEntryItem[]> = {
         method: 'Method - Drip',
         labour: '1 labour',
         description: 'Scheduled regular irrigation cycle for tomato zone.',
-        images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80'],
+        images: [
+          'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
+          'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
+        ],
       },
     },
     {
@@ -300,6 +321,15 @@ const DIARY_ENTRIES_BY_DAY: Record<number, DiaryEntryItem[]> = {
       bg: P.twGreen50,
       Icon: LeafIcon,
       expanded: false,
+      details: {
+        method: 'Manual Weeding · Hand Hoe',
+        labour: '2 labour',
+        description: 'Inter-row weeding and soil loosening along carrot seedbeds.',
+        images: [
+          'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
+          'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
+        ],
+      },
     },
   ],
   15: [
@@ -314,6 +344,15 @@ const DIARY_ENTRIES_BY_DAY: Record<number, DiaryEntryItem[]> = {
       bg: P.twGreen50,
       Icon: LeafIcon,
       expanded: false,
+      details: {
+        method: 'Organic FYM · Ring Method',
+        labour: '2 labour',
+        description: 'Incorporated well-decomposed farmyard manure into soil beds.',
+        images: [
+          'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
+          'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
+        ],
+      },
     },
   ],
   14: [
@@ -328,6 +367,15 @@ const DIARY_ENTRIES_BY_DAY: Record<number, DiaryEntryItem[]> = {
       bg: P.violetTint,
       Icon: BugIcon,
       expanded: false,
+      details: {
+        method: 'Visual Scouting & Traps',
+        labour: '1 labour',
+        description: 'Routine morning insect count across Zone 2. Pest levels well within economic threshold limit.',
+        images: [
+          'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=400&q=80',
+          'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
+        ],
+      },
     },
   ],
 };
@@ -369,7 +417,7 @@ interface FarmDiaryScreenProps {
 export function FarmDiaryScreen({
   onBack,
   onNavigateToNewEntry,
-  onNavigateToCalendar: _onNavigateToCalendar,
+  onNavigateToCalendar,
 }: FarmDiaryScreenProps): React.JSX.Element {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 6, 16));
   const [selectedField, setSelectedField] = useState<string>('All fields');
@@ -455,6 +503,15 @@ export function FarmDiaryScreen({
           bg: P.twBlue50,
           Icon: WaterDropIcon,
           expanded: false,
+          details: {
+            method: 'Routine Walkthrough',
+            labour: '1 labour',
+            description: 'Inspected soil moisture, weed growth, and plant vigour across field beds.',
+            images: [
+              'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
+              'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
+            ],
+          },
         },
         {
           id: `d-${dayKey}-2`,
@@ -467,6 +524,15 @@ export function FarmDiaryScreen({
           bg: P.twGreen50,
           Icon: LeafIcon,
           expanded: false,
+          details: {
+            method: 'Manual Hoeing',
+            labour: '2 labour',
+            description: 'Cleared invasive wild grasses and thinned seed beds for optimal tuber expansion.',
+            images: [
+              'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
+              'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
+            ],
+          },
         },
       ]);
 
@@ -519,7 +585,13 @@ export function FarmDiaryScreen({
           <TouchableOpacity
             style={styles.calendarBtn}
             activeOpacity={0.7}
-            onPress={openDatePicker}
+            onPress={() => {
+              if (onNavigateToCalendar) {
+                onNavigateToCalendar();
+              } else {
+                openDatePicker();
+              }
+            }}
             accessibilityRole="button"
             accessibilityLabel="Open diary calendar"
           >

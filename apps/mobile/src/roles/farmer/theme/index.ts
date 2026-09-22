@@ -265,6 +265,7 @@ export const authPalette = {
   // Tailwind red
   twRed50: '#fef2f2',
   twRed100: '#fee2e2',
+  twRed200: '#fecaca',
   twRed300: '#fca5a5',
   twRed600: '#dc2626',
   // Tailwind orange / amber

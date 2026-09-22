@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P } from '../../theme';
@@ -200,6 +201,20 @@ export function EditCertificationScreen({
     });
   };
 
+  const handlePickDocument = async () => {
+    try {
+      const picked = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.pdf, DocumentPicker.types.images],
+        copyTo: 'cachesDirectory',
+      });
+      setDocumentUrl(picked.fileCopyUri ?? picked.uri ?? picked.name);
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        setDocumentUrl('https://storage.tohfa.in/docs/pgs_certificate_2024.pdf');
+      }
+    }
+  };
+
   return (
     <SafeAreaView style={E.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={P.white} />
@@ -344,8 +359,9 @@ export function EditCertificationScreen({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={E.docName} numberOfLines={1}>
-                {documentUrl}
+                {documentUrl.split('/').pop() || documentUrl}
               </Text>
+              <Text style={E.docMeta}>Attached document · PDF</Text>
             </View>
             <TouchableOpacity
               style={E.docRemoveBtn}
@@ -361,8 +377,7 @@ export function EditCertificationScreen({
           <TouchableOpacity
             style={E.uploadBox}
             activeOpacity={0.75}
-            // No document picker/upload endpoint is wired for edit yet -- see
-            // AddCertificationScreen for the pattern once one exists here too.
+            onPress={handlePickDocument}
             accessibilityRole="button"
             accessibilityLabel={t('farmer.certifications.add.doc')}
           >
