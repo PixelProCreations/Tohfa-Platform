@@ -314,6 +314,7 @@ export const authPalette = {
   mossGreen: '#4b9b63',
   coralRed: '#e24b4a',
   tanBrown: '#d4a373',
+  earthBrown: '#8a4b1a',
   stoneMuted: '#8a927f',
   // Weather scene and alert palette tokens (Screen 33)
   weatherSceneMorningTop: '#0288D1',

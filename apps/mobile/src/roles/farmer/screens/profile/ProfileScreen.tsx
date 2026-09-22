@@ -43,6 +43,7 @@ interface ProfileScreenProps {
   onNavigateToSoilTest?: () => void;
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToAboutSupport?: (() => void) | undefined;
+  onNavigateToBankPayment?: () => void;
 }
 
 interface PersonalDetailsData {
@@ -120,6 +121,7 @@ export function ProfileScreen({
   onNavigateToSoilTest,
   onNavigateToSettings,
   onNavigateToAboutSupport,
+  onNavigateToBankPayment,
 }: ProfileScreenProps): React.JSX.Element {
   // --- Profile State ---
   const [personalDetails, setPersonalDetails] = useState<PersonalDetailsData>({
@@ -976,7 +978,13 @@ export function ProfileScreen({
 
           <TouchableOpacity
             style={styles.menuItemRow}
-            onPress={() => setIsBankModalVisible(true)}
+            onPress={() => {
+              if (onNavigateToBankPayment) {
+                onNavigateToBankPayment();
+              } else {
+                setIsBankModalVisible(true);
+              }
+            }}
             activeOpacity={0.7}
           >
             <View style={[styles.menuIconBox, { backgroundColor: colors.brandGreenLight }]}>

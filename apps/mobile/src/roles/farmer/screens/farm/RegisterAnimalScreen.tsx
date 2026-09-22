@@ -78,6 +78,101 @@ function ChevronDownIcon({ size = 16, color = P.twGray500 }: { size?: number; co
   );
 }
 
+function ChevronLeftIcon({ size = 18, color = P.deepGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon({ size = 18, color = P.deepGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CheckIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 13l4 4L19 7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CloseIcon({ size = 18, color = P.twGray500 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// ── Date Helpers ─────────────────────────────────────────────────────────────
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+const MONTHS_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+] as const;
+
+function parseDisplayDate(str: string): Date {
+  if (!str) return new Date();
+  const parts = str.trim().split(/\s+/);
+  const part0 = parts[0];
+  const part1 = parts[1];
+  const part2 = parts[2];
+  if (parts.length === 3 && part0 && part1 && part2) {
+    const day = parseInt(part0, 10);
+    const monthIdx = MONTHS_SHORT.findIndex((m) => m.toLowerCase() === part1.toLowerCase().slice(0, 3));
+    const year = parseInt(part2, 10);
+    if (!isNaN(day) && monthIdx !== -1 && !isNaN(year)) {
+      return new Date(year, monthIdx, day);
+    }
+  }
+  const fallback = new Date(str);
+  return isNaN(fallback.getTime()) ? new Date() : fallback;
+}
+
+function formatDisplayDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = MONTHS_SHORT[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+function computeAgeLabel(dateStr: string): string {
+  const birth = parseDisplayDate(dateStr);
+  const now = new Date();
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+  if (now.getDate() < birth.getDate()) {
+    months -= 1;
+  }
+  if (months < 0) {
+    return 'Upcoming / Newborn';
+  }
+  if (months === 0) {
+    const msDiff = now.getTime() - birth.getTime();
+    const days = Math.max(0, Math.floor(msDiff / (1000 * 60 * 60 * 24)));
+    if (days <= 0) return 'Born today';
+    if (days === 1) return '≈ 1 day old';
+    if (days < 7) return `≈ ${days} days old`;
+    const weeks = Math.floor(days / 7);
+    return `≈ ${weeks} ${weeks === 1 ? 'week' : 'weeks'} old`;
+  }
+  if (months < 12) {
+    return `≈ ${months} ${months === 1 ? 'month' : 'months'} old`;
+  }
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  if (remMonths === 0) {
+    return `≈ ${years} ${years === 1 ? 'year' : 'years'} old`;
+  }
+  return `≈ ${years} yr ${remMonths} mo old`;
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface AnimalFormData {
@@ -125,6 +220,53 @@ export function RegisterAnimalScreen({
   const [isSpeciesPickerOpen, setIsSpeciesPickerOpen] = useState(false);
   const [isGenderPickerOpen, setIsGenderPickerOpen] = useState(false);
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+
+  // Dynamic Date Picker state (supports both Date of Birth & Purchase Date)
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [activeDateField, setActiveDateField] = useState<'dob' | 'purchaseDate'>('dob');
+  const [calendarDate, setCalendarDate] = useState<Date>(() => parseDisplayDate(dob));
+  const [calendarYear, setCalendarYear] = useState<number>(() => parseDisplayDate(dob).getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState<number>(() => parseDisplayDate(dob).getMonth());
+  const [isYearPickerOpen, setIsYearPickerOpen] = useState(false);
+
+  const openDatePicker = (field: 'dob' | 'purchaseDate') => {
+    setActiveDateField(field);
+    const val = field === 'dob' ? dob : purchaseDate;
+    const parsed = parseDisplayDate(val);
+    setCalendarDate(parsed);
+    setCalendarYear(parsed.getFullYear());
+    setCalendarMonth(parsed.getMonth());
+    setIsYearPickerOpen(false);
+    setIsDatePickerOpen(true);
+  };
+
+  const handlePrevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear((y) => y - 1);
+    } else {
+      setCalendarMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear((y) => y + 1);
+    } else {
+      setCalendarMonth((m) => m + 1);
+    }
+  };
+
+  const handleConfirmDate = () => {
+    const formatted = formatDisplayDate(calendarDate);
+    if (activeDateField === 'dob') {
+      setDob(formatted);
+    } else {
+      setPurchaseDate(formatted);
+    }
+    setIsDatePickerOpen(false);
+  };
 
   const speciesOptions = ['Cattle', 'Buffalo', 'Goat', 'Poultry', 'Sheep'];
   const genderOptions: ('Female' | 'Male')[] = ['Female', 'Male'];
@@ -304,18 +446,12 @@ export function RegisterAnimalScreen({
               <TouchableOpacity
                 style={styles.pickerInputBox}
                 activeOpacity={0.8}
-                onPress={() => {
-                  Alert.prompt
-                    ? Alert.prompt('Date of Birth', 'Enter birth date (DD Mon YYYY):', (val) => {
-                        if (val) setDob(val);
-                      })
-                    : null;
-                }}
+                onPress={() => openDatePicker('dob')}
               >
                 <Text style={styles.pickerValueText}>{dob}</Text>
                 <CalendarIcon size={18} color={P.twGray400} />
               </TouchableOpacity>
-              <Text style={styles.ageHelperText}>≈ 4 months old</Text>
+              <Text style={styles.ageHelperText}>{computeAgeLabel(dob)}</Text>
             </View>
 
             {/* ── Source Section ── */}
@@ -369,13 +505,7 @@ export function RegisterAnimalScreen({
                   <TouchableOpacity
                     style={styles.pickerInputBox}
                     activeOpacity={0.8}
-                    onPress={() => {
-                      Alert.prompt
-                        ? Alert.prompt('Purchase Date', 'Enter purchase date (DD Mon YYYY):', (val) => {
-                            if (val) setPurchaseDate(val);
-                          })
-                        : null;
-                    }}
+                    onPress={() => openDatePicker('purchaseDate')}
                   >
                     <Text style={styles.pickerValueText}>{purchaseDate}</Text>
                     <CalendarIcon size={18} color={P.twGray400} />
@@ -438,37 +568,51 @@ export function RegisterAnimalScreen({
           animationType="fade"
           onRequestClose={() => setIsSpeciesPickerOpen(false)}
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setIsSpeciesPickerOpen(false)}
-          >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsSpeciesPickerOpen(false)}
+            />
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Species</Text>
-              {speciesOptions.map((opt) => (
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Species</Text>
                 <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.modalOption,
-                    species === opt && styles.modalOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSpecies(opt);
-                    setIsSpeciesPickerOpen(false);
-                  }}
+                  onPress={() => setIsSpeciesPickerOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      species === opt && styles.modalOptionTextSelected,
-                    ]}
-                  >
-                    {opt}
-                  </Text>
+                  <CloseIcon size={18} color={P.twGray400} />
                 </TouchableOpacity>
-              ))}
+              </View>
+              {speciesOptions.map((opt) => {
+                const isSelected = species === opt;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setSpecies(opt);
+                      setIsSpeciesPickerOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
         {/* Gender Picker Modal */}
@@ -478,37 +622,51 @@ export function RegisterAnimalScreen({
           animationType="fade"
           onRequestClose={() => setIsGenderPickerOpen(false)}
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setIsGenderPickerOpen(false)}
-          >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsGenderPickerOpen(false)}
+            />
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Gender</Text>
-              {genderOptions.map((opt) => (
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Gender</Text>
                 <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.modalOption,
-                    gender === opt && styles.modalOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setGender(opt);
-                    setIsGenderPickerOpen(false);
-                  }}
+                  onPress={() => setIsGenderPickerOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      gender === opt && styles.modalOptionTextSelected,
-                    ]}
-                  >
-                    {opt}
-                  </Text>
+                  <CloseIcon size={18} color={P.twGray400} />
                 </TouchableOpacity>
-              ))}
+              </View>
+              {genderOptions.map((opt) => {
+                const isSelected = gender === opt;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setGender(opt);
+                      setIsGenderPickerOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
         {/* Status Picker Modal */}
@@ -518,37 +676,217 @@ export function RegisterAnimalScreen({
           animationType="fade"
           onRequestClose={() => setIsStatusPickerOpen(false)}
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setIsStatusPickerOpen(false)}
-          >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsStatusPickerOpen(false)}
+            />
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Organic Status</Text>
-              {statusOptions.map((opt) => (
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Select Organic Status</Text>
                 <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.modalOption,
-                    organicStatus === opt && styles.modalOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setOrganicStatus(opt);
-                    setIsStatusPickerOpen(false);
-                  }}
+                  onPress={() => setIsStatusPickerOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      organicStatus === opt && styles.modalOptionTextSelected,
-                    ]}
-                  >
-                    {opt}
-                  </Text>
+                  <CloseIcon size={18} color={P.twGray400} />
                 </TouchableOpacity>
-              ))}
+              </View>
+              {statusOptions.map((opt) => {
+                const isSelected = organicStatus === opt;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setOrganicStatus(opt);
+                      setIsStatusPickerOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* Dynamic Date Picker Modal (Date of Birth / Purchase Date) */}
+        <Modal
+          visible={isDatePickerOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsDatePickerOpen(false)}
+        >
+          <View style={styles.calModalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsDatePickerOpen(false)}
+            />
+            <View style={styles.calModalCard}>
+              {/* Header */}
+              <View style={styles.calHeader}>
+                <Text style={styles.calFieldBadge}>
+                  {activeDateField === 'dob' ? 'Date of Birth' : 'Purchase Date'}
+                </Text>
+                <Text style={styles.calSelectedDateTitle}>
+                  {calendarDate.getDate()} {MONTHS_FULL[calendarDate.getMonth()]} {calendarDate.getFullYear()}
+                </Text>
+              </View>
+
+              {/* Navigation Row */}
+              <View style={styles.calMonthNav}>
+                <TouchableOpacity
+                  style={styles.calNavBtn}
+                  onPress={handlePrevMonth}
+                  accessibilityLabel="Previous month"
+                >
+                  <ChevronLeftIcon size={18} color={P.deepGreen} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.calMonthYearBtn}
+                  onPress={() => setIsYearPickerOpen(!isYearPickerOpen)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.calMonthYearLabel}>
+                    {MONTHS_FULL[calendarMonth]} {calendarYear}
+                  </Text>
+                  <ChevronDownIcon size={14} color={P.deepGreen} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.calNavBtn}
+                  onPress={handleNextMonth}
+                  accessibilityLabel="Next month"
+                >
+                  <ChevronRightIcon size={18} color={P.deepGreen} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Year Quick Selector View */}
+              {isYearPickerOpen ? (
+                <View style={styles.yearGridContainer}>
+                  <ScrollView style={styles.yearScrollView} showsVerticalScrollIndicator={true}>
+                    <View style={styles.yearGrid}>
+                      {Array.from({ length: 75 }).map((_, i) => {
+                        const y = 2026 - i;
+                        const isSel = calendarYear === y;
+                        return (
+                          <TouchableOpacity
+                            key={`yr-${y}`}
+                            style={[styles.yearChip, isSel && styles.yearChipActive]}
+                            onPress={() => {
+                              setCalendarYear(y);
+                              setCalendarDate(
+                                new Date(
+                                  y,
+                                  calendarMonth,
+                                  Math.min(
+                                    calendarDate.getDate(),
+                                    new Date(y, calendarMonth + 1, 0).getDate(),
+                                  ),
+                                ),
+                              );
+                              setIsYearPickerOpen(false);
+                            }}
+                          >
+                            <Text style={[styles.yearChipText, isSel && styles.yearChipTextActive]}>
+                              {y}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+              ) : (
+                <>
+                  {/* Weekdays Row */}
+                  <View style={styles.calWeekdaysRow}>
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayName, idx) => (
+                      <Text key={`${dayName}-${idx}`} style={styles.calWeekdayText}>
+                        {dayName}
+                      </Text>
+                    ))}
+                  </View>
+
+                  {/* Days Grid */}
+                  <View style={styles.calDaysGrid}>
+                    {Array.from({ length: new Date(calendarYear, calendarMonth, 1).getDay() }).map((_, idx) => (
+                      <View key={`empty-${idx}`} style={styles.calDayCellEmpty} />
+                    ))}
+                    {Array.from({ length: new Date(calendarYear, calendarMonth + 1, 0).getDate() }).map((_, idx) => {
+                      const day = idx + 1;
+                      const isSelected =
+                        calendarDate.getFullYear() === calendarYear &&
+                        calendarDate.getMonth() === calendarMonth &&
+                        calendarDate.getDate() === day;
+                      const isToday =
+                        new Date().getFullYear() === calendarYear &&
+                        new Date().getMonth() === calendarMonth &&
+                        new Date().getDate() === day;
+
+                      return (
+                        <TouchableOpacity
+                          key={`day-${day}`}
+                          style={styles.calDayCell}
+                          onPress={() => setCalendarDate(new Date(calendarYear, calendarMonth, day))}
+                        >
+                          <View
+                            style={[
+                              styles.calDayInner,
+                              isSelected && styles.calDayInnerSelected,
+                              !isSelected && isToday && styles.calDayInnerToday,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.calDayText,
+                                isSelected && styles.calDayTextSelected,
+                                !isSelected && isToday && styles.calDayTextToday,
+                              ]}
+                            >
+                              {day}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {/* Actions */}
+              <View style={styles.calFooterActions}>
+                <TouchableOpacity
+                  style={styles.calCancelBtn}
+                  onPress={() => setIsDatePickerOpen(false)}
+                >
+                  <Text style={styles.calCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.calApplyBtn}
+                  onPress={handleConfirmDate}
+                >
+                  <Text style={styles.calApplyBtnText}>Apply Date</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -808,19 +1146,27 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
   modalTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: P.nearBlack,
-    marginBottom: 14,
   },
   modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 13,
     paddingHorizontal: 12,
     borderRadius: 10,
   },
   modalOptionSelected: {
-    backgroundColor: P.twGreen100,
+    backgroundColor: P.twGreen50,
   },
   modalOptionText: {
     fontSize: 15,
@@ -829,5 +1175,197 @@ const styles = StyleSheet.create({
   modalOptionTextSelected: {
     fontWeight: '700',
     color: P.twGreen800,
+  },
+  // Calendar Modal Styles
+  calModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  calModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: P.white,
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  calHeader: {
+    borderBottomWidth: 1,
+    borderColor: P.twGray100,
+    paddingBottom: 14,
+    marginBottom: 14,
+  },
+  calFieldBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.brandGreen,
+    marginBottom: 4,
+  },
+  calSelectedDateTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: P.nearBlack,
+  },
+  calMonthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  calNavBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: P.twGray100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calMonthYearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: P.twGray100,
+  },
+  calMonthYearLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: P.deepGreen,
+  },
+  yearGridContainer: {
+    height: 220,
+  },
+  yearScrollView: {
+    flex: 1,
+  },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  yearChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: P.twGray100,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    minWidth: 62,
+    alignItems: 'center',
+  },
+  yearChipActive: {
+    backgroundColor: P.deepGreen,
+    borderColor: P.deepGreen,
+  },
+  yearChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: P.twGray800,
+  },
+  yearChipTextActive: {
+    color: P.white,
+    fontWeight: '700',
+  },
+  calWeekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  calWeekdayText: {
+    width: '14.28%',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: P.twGray400,
+  },
+  calDaysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calDayCell: {
+    width: '14.28%',
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDayCellEmpty: {
+    width: '14.28%',
+    height: 40,
+  },
+  calDayInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDayInnerSelected: {
+    backgroundColor: P.deepGreen,
+  },
+  calDayInnerToday: {
+    borderWidth: 1.5,
+    borderColor: P.twGreen700,
+  },
+  calDayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: P.twGray800,
+  },
+  calDayTextSelected: {
+    fontWeight: '700',
+    color: P.white,
+  },
+  calDayTextToday: {
+    color: P.twGreen700,
+    fontWeight: '700',
+  },
+  calFooterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 18,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderColor: P.twGray200,
+  },
+  calCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: P.white,
+  },
+  calCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: P.twGray700,
+  },
+  calApplyBtn: {
+    flex: 1.4,
+    backgroundColor: P.deepGreen,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  calApplyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: P.white,
   },
 });

@@ -27,15 +27,15 @@ const PhotoIcon = () => (
 
 const ShieldCheckOrange = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke={P.deepOrange800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M9 12L11 14L15 10" stroke={P.deepOrange800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke={P.deepOrange800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M9 12L11 14L15 10" stroke={P.deepOrange800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const ShieldCheckGreen = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M9 12L11 14L15 10" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 22S4 18 4 12V6L12 2L20 6V12C20 18 12 22 12 22Z" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M9 12L11 14L15 10" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -77,13 +77,20 @@ export function CreateListingStep2Screen({
   onCancel,
   onBack,
 }: CreateListingStep2ScreenProps): React.JSX.Element {
-  
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <ChevronLeft />
           </TouchableOpacity>
           <View style={styles.headerTextCol}>
@@ -103,7 +110,7 @@ export function CreateListingStep2Screen({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Crop Card */}
         <View style={styles.cropCard}>
           <View style={styles.photoBox}>
@@ -130,14 +137,14 @@ export function CreateListingStep2Screen({
             <ShieldCheckOrange />
           </View>
           <Text style={styles.alertText}>
-            Grade 1 is <Text style={{fontWeight: '700'}}>your claim.</Text> TOHFA verifies grade on inspection — a counter-offer on grade is normal, not a rejection.
+            Grade 1 is <Text style={{ fontWeight: '700' }}>your claim.</Text> TOHFA verifies grade on inspection — a counter-offer on grade is normal, not a rejection.
           </Text>
         </View>
 
         {/* Quantity Input */}
         <View style={styles.inputSection}>
           <View style={styles.labelRow}>
-            <Text style={styles.inputLabel}>Quantity to sell (kg) <Text style={{color: P.red700}}>*</Text></Text>
+            <Text style={styles.inputLabel}>Quantity to sell (kg) <Text style={{ color: P.red700 }}>*</Text></Text>
             <Text style={styles.inputLabelRight}>180 kg available</Text>
           </View>
           <View style={styles.inputWrapper}>
@@ -173,7 +180,7 @@ export function CreateListingStep2Screen({
 
         {/* Asking Price Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Your asking price (₹/kg) <Text style={{color: P.red700}}>*</Text></Text>
+          <Text style={styles.inputLabel}>Your asking price (₹/kg) <Text style={{ color: P.red700 }}>*</Text></Text>
           <View style={[styles.inputWrapper, { borderColor: colors.brandGreen }]}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput
@@ -199,7 +206,7 @@ export function CreateListingStep2Screen({
           <Text style={styles.saleValueAmount}>₹4,560</Text>
         </View>
 
-        <View style={{height: 40}} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       {/* Footer / Submit Button */}
@@ -233,7 +240,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: P.grey300,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
