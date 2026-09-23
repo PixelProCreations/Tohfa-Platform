@@ -154,6 +154,51 @@ export function SoilTestScreen({ onNavigateBack, onNavigateToNewSoilTest }: Soil
           </View>
           <View style={styles.divider} />
 
+          {/* Result Item: Nitrogen (N) */}
+          <View style={styles.resultItem}>
+            <View style={styles.resultInfo}>
+              <Text style={styles.resultName}>Available Nitrogen (N)</Text>
+              <Text style={styles.resultIdeal}>Ideal 280–560 kg/ha</Text>
+            </View>
+            <View style={styles.resultValueBox}>
+              <Text style={styles.resultValue}>280<Text style={styles.resultUnit}>kg/ha</Text></Text>
+              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
+                <Text style={[styles.badgeText, { color: P.primary }]}>{t('farmer.profile.soil.good')}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.divider} />
+
+          {/* Result Item: Phosphorus (P) */}
+          <View style={styles.resultItem}>
+            <View style={styles.resultInfo}>
+              <Text style={styles.resultName}>Available Phosphorus (P)</Text>
+              <Text style={styles.resultIdeal}>Ideal 10–25 kg/ha</Text>
+            </View>
+            <View style={styles.resultValueBox}>
+              <Text style={styles.resultValue}>24<Text style={styles.resultUnit}>kg/ha</Text></Text>
+              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
+                <Text style={[styles.badgeText, { color: P.primary }]}>{t('farmer.profile.soil.good')}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.divider} />
+
+          {/* Result Item: Potassium (K) */}
+          <View style={styles.resultItem}>
+            <View style={styles.resultInfo}>
+              <Text style={styles.resultName}>Available Potassium (K)</Text>
+              <Text style={styles.resultIdeal}>Ideal 110–280 kg/ha</Text>
+            </View>
+            <View style={styles.resultValueBox}>
+              <Text style={styles.resultValue}>195<Text style={styles.resultUnit}>kg/ha</Text></Text>
+              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
+                <Text style={[styles.badgeText, { color: P.primary }]}>{t('farmer.profile.soil.good')}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.divider} />
+
           {/* Result Item 4 */}
           <View style={styles.resultItem}>
             <View style={styles.resultInfo}>

@@ -111,7 +111,7 @@ function formatDisplayDate(date: Date): string {
   return `${day} ${month} ${year}`;
 }
 
-function SproutIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?: string }) {
+function SproutIcon({ size = 18, color = colors.brandGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -125,7 +125,7 @@ function SproutIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?
   );
 }
 
-function SubCategoryIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?: string }) {
+function SubCategoryIcon({ size = 18, color = colors.brandGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="6" height="6" rx="1.5" stroke={color} strokeWidth="1.8" />
@@ -136,7 +136,7 @@ function SubCategoryIcon({ size = 18, color = P.twGreen700 }: { size?: number; c
   );
 }
 
-function ZoneFieldIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?: string }) {
+function ZoneFieldIcon({ size = 18, color = colors.brandGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -159,7 +159,7 @@ function CalendarIcon({ size = 18, color = P.twGreen700 }: { size?: number; colo
   );
 }
 
-function SparkleIcon({ size = 15, color = P.twGreen700 }: { size?: number; color?: string }) {
+function SparkleIcon({ size = 15, color = colors.brandGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -464,15 +464,40 @@ export function NewCropScreen({
             {/* Step hint banner */}
             <View style={styles.hintBanner}>
               <Text style={styles.hintBannerText}>
-                Step 2 attaches it to a zone and timeline.
+                Step 2 sets plantation timeline, expected harvest & yield.
               </Text>
               <InfoTriangleIcon size={12} color={P.twGray500} />
+            </View>
+
+            {/* Field: Farm Zone * (FIRST) */}
+            <View style={styles.formGroup}>
+              <View style={styles.fieldLabelRow}>
+                <ZoneFieldIcon size={16} color={colors.brandGreen} />
+                <Text style={styles.fieldLabel}>
+                  Farm Zone <Text style={styles.requiredStar}>*</Text>
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.selectorInput, styles.selectorInputActive]}
+                onPress={() => setShowZonePicker(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Select Farm Zone"
+              >
+                <Text style={styles.selectorInputText}>{selectedZone}</Text>
+                <ChevronDownIcon size={18} color={colors.brandGreen} />
+              </TouchableOpacity>
+
+              <Text style={styles.helpText}>
+                Farm zone or parcel where this crop is planted ({areaHa} ha).
+              </Text>
             </View>
 
             {/* Field: Crop name * */}
             <View style={styles.formGroup}>
               <View style={styles.fieldLabelRow}>
-                <SproutIcon size={16} color={P.twGreen700} />
+                <SproutIcon size={16} color={colors.brandGreen} />
                 <Text style={styles.fieldLabel}>
                   Crop name <Text style={styles.requiredStar}>*</Text>
                 </Text>
@@ -484,7 +509,7 @@ export function NewCropScreen({
                 activeOpacity={0.8}
               >
                 <Text style={styles.selectorInputText}>{cropName}</Text>
-                <ChevronDownIcon size={18} color={P.twGreen700} />
+                <ChevronDownIcon size={18} color={colors.brandGreen} />
               </TouchableOpacity>
 
               <Text style={styles.helpText}>
@@ -495,7 +520,7 @@ export function NewCropScreen({
             {/* Field: Sub-category */}
             <View style={styles.formGroup}>
               <View style={styles.fieldLabelRow}>
-                <SubCategoryIcon size={16} color={P.twGreen700} />
+                <SubCategoryIcon size={16} color={colors.brandGreen} />
                 <Text style={styles.fieldLabel}>Sub-category</Text>
               </View>
 

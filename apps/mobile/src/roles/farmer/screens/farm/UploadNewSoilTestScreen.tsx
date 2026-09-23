@@ -183,6 +183,9 @@ export function UploadNewSoilTestScreen({
   const [ph, setPh] = useState('5.8');
   const [ec, setEc] = useState('0.7');
   const [tds, setTds] = useState('312');
+  const [nitrogen, setNitrogen] = useState('280');
+  const [phosphorus, setPhosphorus] = useState('24');
+  const [potassium, setPotassium] = useState('195');
   const [limeStatus, setLimeStatus] = useState('Harmless');
 
   const [limePickerVisible, setLimePickerVisible] = useState(false);
@@ -258,6 +261,10 @@ export function UploadNewSoilTestScreen({
   const isPhAcidic = phVal > 0 && phVal < 6.0;
   const isPhGood = phVal >= 6.0 && phVal <= 7.5;
   const isPhAlkaline = phVal > 7.5;
+
+  const nVal = parseFloat(nitrogen) || 0;
+  const pVal = parseFloat(phosphorus) || 0;
+  const kVal = parseFloat(potassium) || 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -426,6 +433,111 @@ export function UploadNewSoilTestScreen({
           <View style={styles.badgeRow}>
             <CheckCircleIcon size={14} color={P.twGreen600} />
             <Text style={styles.successText}>Good — within 0–500 ppm</Text>
+          </View>
+        </View>
+
+        {/* ── Section Heading: NPK Primary Nutrients ── */}
+        <Text style={[styles.sectionHeading, { marginTop: 18 }]}>PRIMARY NUTRIENTS (NPK)</Text>
+
+        {/* ── Available Nitrogen (N) ── */}
+        <View style={styles.fieldContainer}>
+          <View style={styles.labelRow}>
+            <Text style={styles.inputLabel}>Available Nitrogen (N) (kg/ha) </Text>
+            <Text style={styles.optionalText}>optional</Text>
+          </View>
+          <TextInput
+            style={styles.textInput}
+            value={nitrogen}
+            onChangeText={setNitrogen}
+            keyboardType="decimal-pad"
+            placeholder="280"
+            placeholderTextColor={P.twGray400}
+          />
+          <View style={styles.badgeRow}>
+            {nVal > 0 && nVal < 280 ? (
+              <>
+                <WarningTriangleIcon size={14} color={P.twRed600} />
+                <Text style={styles.errorText}>Low — below 280 kg/ha ideal range</Text>
+              </>
+            ) : nVal >= 280 && nVal <= 560 ? (
+              <>
+                <CheckCircleIcon size={14} color={P.twGreen600} />
+                <Text style={styles.successText}>Medium / Good — within 280–560 kg/ha range</Text>
+              </>
+            ) : nVal > 560 ? (
+              <>
+                <InfoCircleIcon size={14} color={P.deepPurple800} />
+                <Text style={styles.infoText}>High — above 560 kg/ha</Text>
+              </>
+            ) : null}
+          </View>
+        </View>
+
+        {/* ── Available Phosphorus (P) ── */}
+        <View style={styles.fieldContainer}>
+          <View style={styles.labelRow}>
+            <Text style={styles.inputLabel}>Available Phosphorus (P) (kg/ha) </Text>
+            <Text style={styles.optionalText}>optional</Text>
+          </View>
+          <TextInput
+            style={styles.textInput}
+            value={phosphorus}
+            onChangeText={setPhosphorus}
+            keyboardType="decimal-pad"
+            placeholder="24"
+            placeholderTextColor={P.twGray400}
+          />
+          <View style={styles.badgeRow}>
+            {pVal > 0 && pVal < 10 ? (
+              <>
+                <WarningTriangleIcon size={14} color={P.twRed600} />
+                <Text style={styles.errorText}>Low — below 10 kg/ha ideal range</Text>
+              </>
+            ) : pVal >= 10 && pVal <= 25 ? (
+              <>
+                <CheckCircleIcon size={14} color={P.twGreen600} />
+                <Text style={styles.successText}>Medium / Good — within 10–25 kg/ha range</Text>
+              </>
+            ) : pVal > 25 ? (
+              <>
+                <CheckCircleIcon size={14} color={P.twGreen600} />
+                <Text style={styles.successText}>High — above 25 kg/ha</Text>
+              </>
+            ) : null}
+          </View>
+        </View>
+
+        {/* ── Available Potassium (K) ── */}
+        <View style={styles.fieldContainer}>
+          <View style={styles.labelRow}>
+            <Text style={styles.inputLabel}>Available Potassium (K) (kg/ha) </Text>
+            <Text style={styles.optionalText}>optional</Text>
+          </View>
+          <TextInput
+            style={styles.textInput}
+            value={potassium}
+            onChangeText={setPotassium}
+            keyboardType="decimal-pad"
+            placeholder="195"
+            placeholderTextColor={P.twGray400}
+          />
+          <View style={styles.badgeRow}>
+            {kVal > 0 && kVal < 110 ? (
+              <>
+                <WarningTriangleIcon size={14} color={P.twRed600} />
+                <Text style={styles.errorText}>Low — below 110 kg/ha ideal range</Text>
+              </>
+            ) : kVal >= 110 && kVal <= 280 ? (
+              <>
+                <CheckCircleIcon size={14} color={P.twGreen600} />
+                <Text style={styles.successText}>Good — within 110–280 kg/ha range</Text>
+              </>
+            ) : kVal > 280 ? (
+              <>
+                <CheckCircleIcon size={14} color={P.twGreen600} />
+                <Text style={styles.successText}>High — above 280 kg/ha</Text>
+              </>
+            ) : null}
           </View>
         </View>
 
