@@ -218,14 +218,21 @@ async function runDemoSeed() {
     for (const [cropSlug, cropId] of [[ 'carrot', carrotId ], [ 'potato', potatoId ], [ 'beetroot', beetrootId ]]) {
       for (const grade of ['GRADE_1', 'GRADE_2']) {
         const ceiling = grade === 'GRADE_1' ? (cropSlug === 'carrot' ? '80.00' : '65.00') : '50.00';
-        const fpRes = await client.query(
-          `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
-           VALUES ($1, $2, $3, CURRENT_DATE - 30, $4)
-           ON CONFLICT (crop_id, grade, effective_from) DO UPDATE SET ceiling_price = EXCLUDED.ceiling_price
-           RETURNING id`,
-          [cropId, grade, ceiling, superAdminUserId],
+        const existingFp = await client.query(
+          `SELECT id FROM fair_prices WHERE crop_id = $1 AND grade = $2 AND effective_to IS NULL LIMIT 1`,
+          [cropId, grade],
         );
-        fairPriceIds[`${cropSlug}_${grade}`] = fpRes.rows[0]?.id;
+        if (existingFp.rows.length > 0) {
+          fairPriceIds[`${cropSlug}_${grade}`] = existingFp.rows[0].id;
+        } else {
+          const fpRes = await client.query(
+            `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
+             VALUES ($1, $2, $3, CURRENT_DATE - 30, $4)
+             RETURNING id`,
+            [cropId, grade, ceiling, superAdminUserId],
+          );
+          fairPriceIds[`${cropSlug}_${grade}`] = fpRes.rows[0]?.id;
+        }
       }
     }
 

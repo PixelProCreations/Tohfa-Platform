@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { setOnAuthFailure } from './api/client';
+import { logout } from './api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -114,6 +115,7 @@ import {
 } from './api/farmer';
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
+import { SuperAdminDashboardScreen } from './screens/admin/SuperAdminDashboardScreen';
 
 export type ScreenName =
   | 'Splash'
@@ -127,6 +129,7 @@ export type ScreenName =
   | 'PasswordChangedSuccess'
   | 'ApplicationStatus'
   | 'MainTabs'
+  | 'AdminMain'
   | 'CustomerMain'
   | 'Unsupported'
   | 'Certifications'
@@ -412,11 +415,38 @@ export default function App(): React.JSX.Element {
             applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
             onNavigate={(s) => navigate(s)}
           />
+        ) : screen === 'AdminMain' ? (
+          <SuperAdminDashboardScreen onSignOut={() => navigate('Welcome')} />
         ) : screen === 'CustomerMain' ? (
           <CustomerMainApp onSignOut={() => navigate('Welcome')} />
         ) : screen === 'Unsupported' ? (
           <View style={styles.unsupportedContainer}>
+            <Icon name="block" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
             <Text style={styles.unsupportedText}>{t('farmer.app.unsupportedRole')}</Text>
+            <Text style={{ fontSize: typography.caption, color: colors.textMuted, textAlign: 'center', marginTop: 10, marginBottom: 24, paddingHorizontal: 20 }}>
+              This mobile application is built for Farmers and Customers. Administrative and Warehouse accounts operate through the Web Admin Portal.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                {
+                  backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+                  paddingHorizontal: 28,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  elevation: 2,
+                },
+              ]}
+              onPress={() => {
+                void (async () => {
+                  await logout();
+                  navigate('Welcome');
+                })();
+              }}
+            >
+              <Text style={{ color: colors.white, fontWeight: '700', fontSize: typography.body }}>
+                Sign Out & Return to Login
+              </Text>
+            </Pressable>
           </View>
         ) : screen === 'Certifications' ? (
           <CertificationsScreen

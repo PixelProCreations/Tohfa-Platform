@@ -41,10 +41,24 @@ export interface UserMe {
  * CUSTOMER lands in the customer screens. Anything else (warehouse/super/
  * tohfa admin roles) has no screens in this app yet.
  */
-export type ResolvedAppRole = 'FARMER' | 'CUSTOMER' | 'UNSUPPORTED';
+export type ResolvedAppRole = 'FARMER' | 'CUSTOMER' | 'ADMIN' | 'UNSUPPORTED';
+
+/** Admin role codes that get their own admin dashboard on mobile. */
+const ADMIN_ROLE_CODES = [
+  'SUPER_ADMIN',
+  'TOHFA_ADMIN',
+  'MAIN_WH_ADMIN',
+  'SUB_WH_ADMIN',
+  'FARMER_ADMIN',
+] as const;
 
 export function resolveAppRole(roles: UserRole[]): ResolvedAppRole {
-  if (roles.some((r) => r.code === 'FARMER' || r.code === 'FARMER_ADMIN')) {
+  // Admin roles take highest priority so an account that has both SUPER_ADMIN
+  // and a secondary FARMER role still lands on the admin dashboard.
+  if (roles.some((r) => ADMIN_ROLE_CODES.includes(r.code as typeof ADMIN_ROLE_CODES[number]))) {
+    return 'ADMIN';
+  }
+  if (roles.some((r) => r.code === 'FARMER')) {
     return 'FARMER';
   }
   if (roles.some((r) => r.code === 'CUSTOMER')) {
@@ -200,10 +214,13 @@ export function renderOtpState(input: RenderOtpStateInput): RenderOtpStateResult
 }
 
 export function resolveRouteAfterAuth(me: UserMe): {
-  name: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'Unsupported';
+  name: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'AdminMain' | 'Unsupported';
   params?: { applicationId: string };
 } {
   const role = resolveAppRole(me.roles);
+  if (role === 'ADMIN') {
+    return { name: 'AdminMain' };
+  }
   if (role === 'CUSTOMER') {
     return { name: 'CustomerMain' };
   }
