@@ -52,6 +52,28 @@ VALUES
         'en',
         'ADMIN',
         'ACTIVE'
+    ),
+    -- 5. Main Warehouse Admin
+    (
+        '00000000-0000-0000-0000-000000000005',
+        '+919800000005',
+        'warehouseadmin@tohfa.test',
+        '$2b$12$IxUFcyqODhx.hqBaTL7uy.JWfoY2BFP2sKst6BCBYv5gV6qLE5pbi',
+        'Main Warehouse Admin',
+        'en',
+        'ADMIN',
+        'ACTIVE'
+    ),
+    -- 6. Sub Warehouse Admin (Coonoor)
+    (
+        '00000000-0000-0000-0000-000000000006',
+        '+919800000006',
+        'subwarehouseadmin@tohfa.test',
+        '$2b$12$IxUFcyqODhx.hqBaTL7uy.JWfoY2BFP2sKst6BCBYv5gV6qLE5pbi',
+        'Sub Warehouse Admin (Coonoor)',
+        'en',
+        'ADMIN',
+        'ACTIVE'
     )
 ON CONFLICT (id) DO UPDATE
     SET mobile = EXCLUDED.mobile,
@@ -61,37 +83,123 @@ ON CONFLICT (id) DO UPDATE
         full_name = EXCLUDED.full_name;
 
 -- Assign Roles
-INSERT INTO user_roles (user_id, role_id, role_code)
+INSERT INTO user_roles (user_id, role_id, role_code, warehouse_id)
 VALUES
     -- Super Admin
     (
         '00000000-0000-0000-0000-000000000001',
         (SELECT id FROM roles WHERE code = 'SUPER_ADMIN'),
-        'SUPER_ADMIN'
+        'SUPER_ADMIN',
+        NULL
     ),
     -- Tohfa Admin
     (
         '00000000-0000-0000-0000-000000000002',
         (SELECT id FROM roles WHERE code = 'TOHFA_ADMIN'),
-        'TOHFA_ADMIN'
+        'TOHFA_ADMIN',
+        NULL
     ),
     -- Farmer Admin
     (
         '00000000-0000-0000-0000-000000000003',
         (SELECT id FROM roles WHERE code = 'FARMER_ADMIN'),
-        'FARMER_ADMIN'
+        'FARMER_ADMIN',
+        NULL
     ),
     -- Multi-Role User (TOHFA_ADMIN)
     (
         '00000000-0000-0000-0000-000000000004',
         (SELECT id FROM roles WHERE code = 'TOHFA_ADMIN'),
-        'TOHFA_ADMIN'
+        'TOHFA_ADMIN',
+        NULL
     ),
     -- Multi-Role User (FARMER_ADMIN)
     (
         '00000000-0000-0000-0000-000000000004',
         (SELECT id FROM roles WHERE code = 'FARMER_ADMIN'),
-        'FARMER_ADMIN'
+        'FARMER_ADMIN',
+        NULL
+    ),
+    -- Main Warehouse Admin (MAIN_WH_ADMIN)
+    (
+        '00000000-0000-0000-0000-000000000005',
+        (SELECT id FROM roles WHERE code = 'MAIN_WH_ADMIN'),
+        'MAIN_WH_ADMIN',
+        NULL
+    ),
+    -- Main Warehouse Admin (FARMER role for mobile access)
+    (
+        '00000000-0000-0000-0000-000000000005',
+        (SELECT id FROM roles WHERE code = 'FARMER'),
+        'FARMER',
+        NULL
+    ),
+    -- Sub Warehouse Admin (SUB_WH_ADMIN for WH-COON)
+    (
+        '00000000-0000-0000-0000-000000000006',
+        (SELECT id FROM roles WHERE code = 'SUB_WH_ADMIN'),
+        'SUB_WH_ADMIN',
+        (SELECT id FROM warehouses WHERE code = 'WH-COON')
+    ),
+    -- Sub Warehouse Admin (FARMER role for mobile access)
+    (
+        '00000000-0000-0000-0000-000000000006',
+        (SELECT id FROM roles WHERE code = 'FARMER'),
+        'FARMER',
+        NULL
+    ),
+    -- Super Admin (FARMER role for mobile access)
+    (
+        '00000000-0000-0000-0000-000000000001',
+        (SELECT id FROM roles WHERE code = 'FARMER'),
+        'FARMER',
+        NULL
+    ),
+    -- Tohfa Admin (FARMER role for mobile access)
+    (
+        '00000000-0000-0000-0000-000000000002',
+        (SELECT id FROM roles WHERE code = 'FARMER'),
+        'FARMER',
+        NULL
     )
 ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
 DO NOTHING;
+
+-- Seed approved farmer profiles for dev admin users so mobile app operates smoothly
+INSERT INTO farmers (
+    id, user_id, tohfa_farmer_id, application_status, kyc_status, is_market_blocked, address_line1, district
+) VALUES
+    (
+        '20000000-0000-0000-0001-000000000005',
+        '00000000-0000-0000-0000-000000000005',
+        'TOHFA-F-0005',
+        'APPROVED',
+        'VERIFIED',
+        false,
+        'Ooty Main Bazaar Road, Udhagamandalam',
+        'The Nilgiris'
+    ),
+    (
+        '20000000-0000-0000-0001-000000000006',
+        '00000000-0000-0000-0000-000000000006',
+        'TOHFA-F-0006',
+        'APPROVED',
+        'VERIFIED',
+        false,
+        'Mount Road, Coonoor',
+        'The Nilgiris'
+    ),
+    (
+        '20000000-0000-0000-0001-000000000002',
+        '00000000-0000-0000-0000-000000000002',
+        'TOHFA-F-0002',
+        'APPROVED',
+        'VERIFIED',
+        false,
+        'Commercial Road, Ooty',
+        'The Nilgiris'
+    )
+ON CONFLICT (user_id) DO UPDATE SET
+    application_status = 'APPROVED',
+    kyc_status = 'VERIFIED';
+
