@@ -553,9 +553,9 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
 
   const greetKey = getGreetingKey();
   const greeting =
-    isFarmerAdmin                     ? 'Vanakkam,'
-    : greetKey === 'greeting.morning'   ? 'Good morning,'
-    : greetKey === 'greeting.afternoon' ? 'Good afternoon,'
+    isFarmerAdmin                                  ? 'Vanakkam,'
+    : greetKey === 'farmer.dashboard.greeting.morning'   ? 'Good morning,'
+    : greetKey === 'farmer.dashboard.greeting.afternoon' ? 'Good afternoon,'
     : 'Good evening,';
 
   useEffect(() => {

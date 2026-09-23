@@ -109,6 +109,7 @@ interface LoginScreenProps {
       | 'ForgotPassword'
       | 'ApplicationStatus'
       | 'MainTabs'
+      | 'AdminMain'
       | 'CustomerMain'
       | 'Unsupported'
       | 'Register',

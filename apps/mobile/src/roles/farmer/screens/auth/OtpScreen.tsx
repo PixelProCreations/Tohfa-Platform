@@ -46,7 +46,7 @@ interface OtpScreenProps {
    */
   linkToken?: string | undefined;
   onNavigate: (
-    screen: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
+    screen: 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
     params?: Record<string, string | number | undefined>
   ) => void;
 }

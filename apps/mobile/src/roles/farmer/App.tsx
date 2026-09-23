@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { setOnAuthFailure } from './api/client';
+import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
+import { tokenStorage } from './storage/tokenStorage';
 import { logout } from './api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
