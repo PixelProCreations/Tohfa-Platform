@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Defs, Pattern, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
@@ -18,8 +21,167 @@ interface ZonesScreenProps {
   onSave: () => void;
 }
 
+interface FarmOption {
+  id: string;
+  name: string;
+  totalAcres: number;
+}
+
+const FARMS_LIST: FarmOption[] = [
+  { id: 'farm_1', name: 'Your Farm', totalAcres: 2.50 },
+  { id: 'farm_2', name: 'Farm 2 · East Field', totalAcres: 1.80 },
+  { id: 'farm_3', name: 'Farm 3 · Riverside Plot', totalAcres: 3.20 },
+];
+
+interface ZoneItem {
+  id: string;
+  letter: string;
+  name: string;
+  area: number;
+  points: number;
+  color: string;
+  borderColor: string;
+  bgColor: string;
+  soil: string;
+  exposure: string;
+  irrigation: string;
+  crop?: {
+    name: string;
+    day: number;
+  } | undefined;
+}
+
+const INITIAL_ZONES: ZoneItem[] = [
+  {
+    id: 'zone_a',
+    letter: 'A',
+    name: 'Zone A · North Plot',
+    area: 0.90,
+    points: 5,
+    color: P.deepGreen,
+    borderColor: P.deepGreen,
+    bgColor: 'rgba(27, 94, 32, 0.6)',
+    soil: 'Loamy',
+    exposure: 'Full sun',
+    irrigation: 'Drip',
+    crop: {
+      name: 'Tomato',
+      day: 62,
+    },
+  },
+  {
+    id: 'zone_b',
+    letter: 'B',
+    name: 'Zone B · Middle Terrace',
+    area: 0.85,
+    points: 4,
+    color: P.orange900,
+    borderColor: P.orange900,
+    bgColor: 'rgba(230, 81, 0, 0.6)',
+    soil: 'Sandy',
+    exposure: 'Partial',
+    irrigation: 'Sprinkler',
+    crop: {
+      name: 'Carrot',
+      day: 34,
+    },
+  },
+  {
+    id: 'zone_c',
+    letter: 'C',
+    name: 'Zone C · Lower Bed',
+    area: 0.55,
+    points: 4,
+    color: P.deepPurple600,
+    borderColor: P.deepPurple600,
+    bgColor: 'rgba(69, 39, 160, 0.6)',
+    soil: 'Red soil',
+    exposure: 'Full sun',
+    irrigation: 'Drip',
+  },
+];
+
+const SOIL_OPTIONS = ['Loamy', 'Sandy', 'Clay', 'Red soil', 'Black soil'];
+const EXPOSURE_OPTIONS = ['Full sun', 'Partial', 'Shade'];
+const IRRIGATION_OPTIONS = ['Drip', 'Sprinkler', 'Flood', 'Rainfed'];
+
 export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: ZonesScreenProps) {
   const { colors } = useTheme();
+
+  // Farm Selector state
+  const [selectedFarm, setSelectedFarm] = useState<FarmOption>(FARMS_LIST[0]!);
+  const [isFarmDropdownOpen, setIsFarmDropdownOpen] = useState(false);
+
+  // Zones state
+  const [zones, setZones] = useState<ZoneItem[]>(INITIAL_ZONES);
+
+  // Edit Zone Modal state
+  const [editingZone, setEditingZone] = useState<ZoneItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editSoil, setEditSoil] = useState('');
+  const [editExposure, setEditExposure] = useState('');
+  const [editIrrigation, setEditIrrigation] = useState('');
+  const [editCropName, setEditCropName] = useState('');
+  const [editCropDay, setEditCropDay] = useState('');
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+
+  // Dynamic calculations
+  const totalMarkedAcres = zones.reduce((acc, z) => acc + z.area, 0);
+  const unmarkedAcres = Math.max(0, selectedFarm.totalAcres - totalMarkedAcres);
+
+  const handleOpenEdit = (zone: ZoneItem) => {
+    setEditingZone(zone);
+    setEditName(zone.name);
+    setEditSoil(zone.soil);
+    setEditExposure(zone.exposure);
+    setEditIrrigation(zone.irrigation);
+    setEditCropName(zone.crop?.name || '');
+    setEditCropDay(zone.crop?.day ? String(zone.crop.day) : '');
+    setIsEditModalVisible(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingZone) return;
+
+    setZones(
+      zones.map((z) => {
+        if (z.id !== editingZone.id) return z;
+        return {
+          ...z,
+          name: editName.trim() || z.name,
+          soil: editSoil,
+          exposure: editExposure,
+          irrigation: editIrrigation,
+          crop: editCropName.trim()
+            ? {
+                name: editCropName.trim(),
+                day: parseInt(editCropDay, 10) || 1,
+              }
+            : undefined,
+        };
+      }),
+    );
+    setIsEditModalVisible(false);
+    setEditingZone(null);
+  };
+
+  const handleDeleteZone = (zoneId: string) => {
+    const target = zones.find((z) => z.id === zoneId);
+    Alert.alert(
+      'Delete Zone',
+      `Are you sure you want to delete ${target?.name || 'this zone'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setZones(zones.filter((z) => z.id !== zoneId));
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
@@ -39,19 +201,86 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-
-        {/* FARM SELECTOR */}
-        <View style={[styles.farmSelector, { borderColor: colors.borderLight }]}>
+      <ScrollView
+        style={styles.contentScroll}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* FARM SELECTOR TRIGGER */}
+        <TouchableOpacity
+          style={[
+            styles.farmSelector,
+            {
+              borderColor: isFarmDropdownOpen ? colors.brandGreen : colors.borderLight,
+            },
+          ]}
+          onPress={() => setIsFarmDropdownOpen(!isFarmDropdownOpen)}
+          activeOpacity={0.7}
+        >
           <View style={[styles.farmIconBox, { backgroundColor: colors.brandGreenLight }]}>
             <Icon name="place" size={16} color={colors.brandGreen} />
           </View>
           <View style={styles.farmSelectorText}>
-            <Text style={{ fontSize: 10, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 }}>MARKING ZONES FOR</Text>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textDark }}>Your Farm</Text>
+            <Text style={{ fontSize: 10, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 }}>
+              MARKING ZONES FOR
+            </Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textDark }}>
+              {selectedFarm.name}
+            </Text>
           </View>
-          <Icon name="expand_more" size={16} color={colors.textSubtle} />
-        </View>
+          <Icon
+            name={isFarmDropdownOpen ? 'expand_more' : 'expand_more'}
+            size={18}
+            color={colors.textSubtle}
+          />
+        </TouchableOpacity>
+
+        {/* FARM DROPDOWN LIST */}
+        {isFarmDropdownOpen && (
+          <View style={[styles.farmDropdownMenu, { borderColor: colors.borderLight }]}>
+            {FARMS_LIST.map((farm) => {
+              const isSelected = farm.id === selectedFarm.id;
+              return (
+                <TouchableOpacity
+                  key={farm.id}
+                  style={[
+                    styles.farmDropdownItem,
+                    isSelected && { backgroundColor: P.lightGreen50 },
+                  ]}
+                  onPress={() => {
+                    setSelectedFarm(farm);
+                    setIsFarmDropdownOpen(false);
+                  }}
+                >
+                  <View style={styles.farmDropdownItemLeft}>
+                    <Icon
+                      name="place"
+                      size={16}
+                      color={isSelected ? colors.brandGreen : colors.textSubtle}
+                    />
+                    <View>
+                      <Text
+                        style={[
+                          styles.farmDropdownItemText,
+                          {
+                            color: isSelected ? colors.brandGreen : colors.textDark,
+                            fontWeight: isSelected ? '700' : '500',
+                          },
+                        ]}
+                      >
+                        {farm.name}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+                        Total area: {farm.totalAcres.toFixed(2)} ac
+                      </Text>
+                    </View>
+                  </View>
+                  {isSelected && <Icon name="check" size={16} color={colors.brandGreen} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* INFO NOTICE */}
         <View style={styles.infoNoticeBox}>
@@ -85,34 +314,46 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
               />
 
               {/* Zone A (Green) */}
-              <Polygon
-                points="70,40 240,30 245,100 65,100"
-                fill="rgba(27, 94, 32, 0.6)"
-                stroke="rgba(27, 94, 32, 0.8)"
-                strokeWidth="2"
-              />
-              <Circle cx="155" cy="65" r="12" fill={P.deepGreen} stroke={colors.white} strokeWidth="2" />
-              <Text style={{position: 'absolute', top: 56, left: 150, color: colors.white, fontWeight: '800', fontSize: 12}}>A</Text>
+              {zones.some((z) => z.id === 'zone_a') && (
+                <>
+                  <Polygon
+                    points="70,40 240,30 245,100 65,100"
+                    fill="rgba(27, 94, 32, 0.6)"
+                    stroke="rgba(27, 94, 32, 0.8)"
+                    strokeWidth="2"
+                  />
+                  <Circle cx="155" cy="65" r="12" fill={P.deepGreen} stroke={colors.white} strokeWidth="2" />
+                  <Text style={{ position: 'absolute', top: 56, left: 150, color: colors.white, fontWeight: '800', fontSize: 12 }}>A</Text>
+                </>
+              )}
 
               {/* Zone B (Orange) */}
-              <Polygon
-                points="65,100 245,100 255,180 75,180"
-                fill="rgba(230, 81, 0, 0.6)"
-                stroke="rgba(230, 81, 0, 0.8)"
-                strokeWidth="2"
-              />
-              <Circle cx="160" cy="140" r="12" fill={P.orange900} stroke={colors.white} strokeWidth="2" />
-              <Text style={{position: 'absolute', top: 131, left: 155, color: colors.white, fontWeight: '800', fontSize: 12}}>B</Text>
+              {zones.some((z) => z.id === 'zone_b') && (
+                <>
+                  <Polygon
+                    points="65,100 245,100 255,180 75,180"
+                    fill="rgba(230, 81, 0, 0.6)"
+                    stroke="rgba(230, 81, 0, 0.8)"
+                    strokeWidth="2"
+                  />
+                  <Circle cx="160" cy="140" r="12" fill={P.orange900} stroke={colors.white} strokeWidth="2" />
+                  <Text style={{ position: 'absolute', top: 131, left: 155, color: colors.white, fontWeight: '800', fontSize: 12 }}>B</Text>
+                </>
+              )}
 
               {/* Zone C (Purple) */}
-              <Polygon
-                points="75,180 255,180 230,240 80,250"
-                fill="rgba(69, 39, 160, 0.6)"
-                stroke="rgba(69, 39, 160, 0.8)"
-                strokeWidth="2"
-              />
-              <Circle cx="155" cy="215" r="12" fill={P.deepPurple800} stroke={colors.white} strokeWidth="2" />
-              <Text style={{position: 'absolute', top: 206, left: 150, color: colors.white, fontWeight: '800', fontSize: 12}}>C</Text>
+              {zones.some((z) => z.id === 'zone_c') && (
+                <>
+                  <Polygon
+                    points="75,180 255,180 230,240 80,250"
+                    fill="rgba(69, 39, 160, 0.6)"
+                    stroke="rgba(69, 39, 160, 0.8)"
+                    strokeWidth="2"
+                  />
+                  <Circle cx="155" cy="215" r="12" fill={P.deepPurple800} stroke={colors.white} strokeWidth="2" />
+                  <Text style={{ position: 'absolute', top: 206, left: 150, color: colors.white, fontWeight: '800', fontSize: 12 }}>C</Text>
+                </>
+              )}
             </Svg>
           </View>
 
@@ -142,23 +383,23 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
         {/* METRICS ROW */}
         <View style={[styles.metricsRow, { borderColor: colors.borderLight }]}>
           <View style={[styles.metricCol, { borderRightWidth: 1, borderRightColor: colors.borderLight }]}>
-            <Text style={[styles.metricVal, { color: colors.textDark }]}>3</Text>
+            <Text style={[styles.metricVal, { color: colors.textDark }]}>{zones.length}</Text>
             <Text style={styles.metricLabel}>Total Zones</Text>
           </View>
           <View style={[styles.metricCol, { borderRightWidth: 1, borderRightColor: colors.borderLight }]}>
-            <Text style={[styles.metricVal, { color: colors.brandGreen }]}>2.30</Text>
+            <Text style={[styles.metricVal, { color: colors.brandGreen }]}>{totalMarkedAcres.toFixed(2)}</Text>
             <Text style={styles.metricLabel}>Marked ac</Text>
           </View>
           <View style={styles.metricCol}>
-            <Text style={[styles.metricVal, { color: colors.textSubtle }]}>0.20</Text>
+            <Text style={[styles.metricVal, { color: colors.textSubtle }]}>{unmarkedAcres.toFixed(2)}</Text>
             <Text style={styles.metricLabel}>Unmarked ac</Text>
           </View>
         </View>
 
-        {/* ALL ZONES LIST */}
+        {/* ALL ZONES LIST HEADER */}
         <View style={styles.listHeaderRow}>
           <View style={styles.listHeaderTitleRow}>
-            <Icon name="folder" size={12} color={colors.brandGreen} style={styles.listHeaderIcon} />
+            <Icon name="folder" size={14} color={colors.brandGreen} style={styles.listHeaderIcon} />
             <Text style={[styles.listHeaderTitle, { color: colors.brandGreen }]}>ALL ZONES</Text>
           </View>
           <TouchableOpacity onPress={onNavigateToAddZone}>
@@ -166,120 +407,77 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
           </TouchableOpacity>
         </View>
 
-        {/* ZONE A CARD */}
-        <View style={[styles.zoneCard, { borderColor: P.deepGreen }]}>
-          <View style={styles.zoneCardTop}>
-            <View style={[styles.zoneIcon, { backgroundColor: P.deepGreen }]}>
-              <Text style={styles.zoneIconText}>A</Text>
-            </View>
-            <View style={styles.zoneTitleCol}>
-              <Text style={[styles.zoneTitle, { color: colors.textDark }]}>Zone A · North Plot</Text>
-              <View style={styles.zoneSubRow}>
-                <Icon name="crop_free" size={12} color={colors.textSubtle} style={styles.zoneSubIcon} />
-                <Text style={[styles.zoneSub, { color: colors.textSubtle }]}>0.90 ac · 5 pts</Text>
+        {/* DYNAMIC ZONES LIST */}
+        {zones.map((zone) => (
+          <View
+            key={zone.id}
+            style={[
+              styles.zoneCard,
+              {
+                borderColor: zone.borderColor,
+              },
+            ]}
+          >
+            <View style={styles.zoneCardTop}>
+              <View style={[styles.zoneIcon, { backgroundColor: zone.color }]}>
+                <Text style={styles.zoneIconText}>{zone.letter}</Text>
+              </View>
+              <View style={styles.zoneTitleCol}>
+                <Text style={[styles.zoneTitle, { color: colors.textDark }]}>{zone.name}</Text>
+                <View style={styles.zoneSubRow}>
+                  <Icon name="crop_free" size={12} color={colors.textSubtle} style={styles.zoneSubIcon} />
+                  <Text style={[styles.zoneSub, { color: colors.textSubtle }]}>
+                    {zone.area.toFixed(2)} ac · {zone.points} pts
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.zoneActions}>
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => handleOpenEdit(zone)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityLabel="Edit Zone"
+                >
+                  <Icon name="edit" size={16} color={colors.brandGreen} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionDeleteBtn]}
+                  onPress={() => handleDeleteZone(zone.id)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityLabel="Delete Zone"
+                >
+                  <Icon name="delete" size={16} color={P.red500} />
+                </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.zoneActions}>
-              <TouchableOpacity style={styles.actionBtn}><Icon name="edit" size={16} color={P.black} /></TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: P.red50 }]}><Icon name="delete" size={16} color={P.red500} /></TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.zoneCardDetails}>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>SOIL</Text>
-              <Text style={styles.detailValue}>Loamy</Text>
-            </View>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>EXPOSURE</Text>
-              <Text style={styles.detailValue}>Full sun</Text>
-            </View>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>IRRIGATION</Text>
-              <Text style={styles.detailValue}>Drip</Text>
-            </View>
-          </View>
-          <View style={[styles.cropPill, { backgroundColor: colors.brandGreenLight }]}>
-            <View style={styles.cropPillRow}>
-              <Icon name="nutrition" size={12} color={P.deepGreen} style={styles.cropPillIcon} />
-              <Text style={[styles.cropPillText, { color: P.deepGreen }]}>Currently: Tomato · Day 62</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* ZONE B CARD */}
-        <View style={[styles.zoneCard, { borderColor: P.orange900 }]}>
-          <View style={styles.zoneCardTop}>
-            <View style={[styles.zoneIcon, { backgroundColor: P.orange900 }]}>
-              <Text style={styles.zoneIconText}>B</Text>
-            </View>
-            <View style={styles.zoneTitleCol}>
-              <Text style={[styles.zoneTitle, { color: colors.textDark }]}>Zone B · Middle Terrace</Text>
-              <View style={styles.zoneSubRow}>
-                <Icon name="crop_free" size={12} color={colors.textSubtle} style={styles.zoneSubIcon} />
-                <Text style={[styles.zoneSub, { color: colors.textSubtle }]}>0.85 ac · 4 pts</Text>
+            <View style={styles.zoneCardDetails}>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>SOIL</Text>
+                <Text style={styles.detailValue}>{zone.soil}</Text>
+              </View>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>EXPOSURE</Text>
+                <Text style={styles.detailValue}>{zone.exposure}</Text>
+              </View>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>IRRIGATION</Text>
+                <Text style={styles.detailValue}>{zone.irrigation}</Text>
               </View>
             </View>
-            <View style={styles.zoneActions}>
-              <TouchableOpacity style={styles.actionBtn}><Icon name="edit" size={16} color={P.black} /></TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: P.red50 }]}><Icon name="delete" size={16} color={P.red500} /></TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.zoneCardDetails}>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>SOIL</Text>
-              <Text style={styles.detailValue}>Sandy</Text>
-            </View>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>EXPOSURE</Text>
-              <Text style={styles.detailValue}>Partial</Text>
-            </View>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>IRRIGATION</Text>
-              <Text style={styles.detailValue}>Sprinkler</Text>
-            </View>
-          </View>
-          <View style={[styles.cropPill, { backgroundColor: P.lightGreen50 }]}>
-            <View style={styles.cropPillRow}>
-              <Icon name="nutrition" size={12} color={P.lightGreen900} style={styles.cropPillIcon} />
-              <Text style={[styles.cropPillText, { color: P.lightGreen900 }]}>Currently: Carrot · Day 34</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* ZONE C CARD */}
-        <View style={[styles.zoneCard, { borderColor: P.deepPurple600, marginBottom: 24 }]}>
-          <View style={styles.zoneCardTop}>
-            <View style={[styles.zoneIcon, { backgroundColor: P.deepPurple600 }]}>
-              <Text style={styles.zoneIconText}>C</Text>
-            </View>
-            <View style={styles.zoneTitleCol}>
-              <Text style={[styles.zoneTitle, { color: colors.textDark }]}>Zone C · Lower Bed</Text>
-              <View style={styles.zoneSubRow}>
-                <Icon name="crop_free" size={12} color={colors.textSubtle} style={styles.zoneSubIcon} />
-                <Text style={[styles.zoneSub, { color: colors.textSubtle }]}>0.55 ac · 4 pts</Text>
+            {zone.crop ? (
+              <View style={[styles.cropPill, { backgroundColor: colors.brandGreenLight }]}>
+                <View style={styles.cropPillRow}>
+                  <Icon name="eco" size={12} color={colors.brandGreen} style={styles.cropPillIcon} />
+                  <Text style={[styles.cropPillText, { color: colors.brandGreen }]}>
+                    Currently: {zone.crop.name} · Day {zone.crop.day}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.zoneActions}>
-              <TouchableOpacity style={styles.actionBtn}><Icon name="edit" size={16} color={P.black} /></TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: P.red50 }]}><Icon name="delete" size={16} color={P.red500} /></TouchableOpacity>
-            </View>
+            ) : null}
           </View>
-          <View style={styles.zoneCardDetails}>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>SOIL</Text>
-              <Text style={styles.detailValue}>Red soil</Text>
-            </View>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>EXPOSURE</Text>
-              <Text style={styles.detailValue}>Full sun</Text>
-            </View>
-            <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>IRRIGATION</Text>
-              <Text style={styles.detailValue}>Drip</Text>
-            </View>
-          </View>
-        </View>
-
+        ))}
       </ScrollView>
 
       {/* FOOTER */}
@@ -294,6 +492,153 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
           </View>
         </TouchableOpacity>
       </View>
+
+      {/* ================= EDIT ZONE MODAL ================= */}
+      <Modal
+        visible={isEditModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit {editingZone?.name || 'Zone'}</Text>
+              <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>
+                <Icon name="close" size={20} color={P.twGray500} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {/* ZONE NAME */}
+              <Text style={styles.inputLabel}>Zone Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Zone Name"
+                placeholderTextColor={P.twGray400}
+              />
+
+              {/* SOIL TYPE */}
+              <Text style={styles.inputLabel}>Soil Type</Text>
+              <View style={styles.chipsRow}>
+                {SOIL_OPTIONS.map((soil) => (
+                  <TouchableOpacity
+                    key={soil}
+                    style={[
+                      styles.chipBtn,
+                      editSoil === soil && {
+                        backgroundColor: P.lightGreen50,
+                        borderColor: colors.brandGreen,
+                      },
+                    ]}
+                    onPress={() => setEditSoil(soil)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        editSoil === soil && { color: colors.brandGreen, fontWeight: '700' },
+                      ]}
+                    >
+                      {soil}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* EXPOSURE */}
+              <Text style={styles.inputLabel}>Sun Exposure</Text>
+              <View style={styles.chipsRow}>
+                {EXPOSURE_OPTIONS.map((exp) => (
+                  <TouchableOpacity
+                    key={exp}
+                    style={[
+                      styles.chipBtn,
+                      editExposure === exp && {
+                        backgroundColor: P.lightGreen50,
+                        borderColor: colors.brandGreen,
+                      },
+                    ]}
+                    onPress={() => setEditExposure(exp)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        editExposure === exp && { color: colors.brandGreen, fontWeight: '700' },
+                      ]}
+                    >
+                      {exp}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* IRRIGATION */}
+              <Text style={styles.inputLabel}>Irrigation</Text>
+              <View style={styles.chipsRow}>
+                {IRRIGATION_OPTIONS.map((irr) => (
+                  <TouchableOpacity
+                    key={irr}
+                    style={[
+                      styles.chipBtn,
+                      editIrrigation === irr && {
+                        backgroundColor: P.lightGreen50,
+                        borderColor: colors.brandGreen,
+                      },
+                    ]}
+                    onPress={() => setEditIrrigation(irr)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        editIrrigation === irr && { color: colors.brandGreen, fontWeight: '700' },
+                      ]}
+                    >
+                      {irr}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* CROP DETAILS */}
+              <Text style={styles.inputLabel}>Current Crop (Optional)</Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TextInput
+                  style={[styles.textInput, { flex: 2 }]}
+                  value={editCropName}
+                  onChangeText={setEditCropName}
+                  placeholder="Crop Name (e.g. Tomato)"
+                  placeholderTextColor={P.twGray400}
+                />
+                <TextInput
+                  style={[styles.textInput, { flex: 1 }]}
+                  value={editCropDay}
+                  onChangeText={setEditCropDay}
+                  placeholder="Day"
+                  keyboardType="numeric"
+                  placeholderTextColor={P.twGray400}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveBtn, { backgroundColor: colors.brandGreen }]}
+                onPress={handleSaveEdit}
+              >
+                <Text style={styles.modalSaveBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -341,7 +686,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 8,
     backgroundColor: colors.white,
   },
   farmIconBox: {
@@ -354,11 +699,40 @@ const styles = StyleSheet.create({
   },
   farmSelectorText: { flex: 1 },
 
+  farmDropdownMenu: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 6,
+    marginBottom: 16,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  farmDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  farmDropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  farmDropdownItemText: {
+    fontSize: 14,
+  },
+
   infoNoticeBox: {
     flexDirection: 'row',
     backgroundColor: P.coolTintBg,
     borderRadius: 12,
     padding: 16,
+    marginTop: 8,
     marginBottom: 16,
   },
   infoNoticeIcon: { marginRight: 12, marginTop: 2 },
@@ -454,7 +828,7 @@ const styles = StyleSheet.create({
   addZoneBtnText: { fontSize: 14, fontWeight: '700' },
 
   zoneCard: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: 12,
     padding: 16,
     backgroundColor: colors.white,
@@ -466,8 +840,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   zoneIcon: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -481,12 +855,15 @@ const styles = StyleSheet.create({
   zoneSub: { fontSize: 12 },
   zoneActions: { flexDirection: 'row', gap: 8 },
   actionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: P.grey100,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: P.lightGreen50,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionDeleteBtn: {
+    backgroundColor: P.red50,
   },
 
   zoneCardDetails: {
@@ -509,6 +886,102 @@ const styles = StyleSheet.create({
   cropPillRow: { flexDirection: 'row', alignItems: 'center' },
   cropPillIcon: { marginRight: 4 },
   cropPillText: { fontSize: 12, fontWeight: '700' },
+
+  /* MODAL STYLES */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textDark,
+    marginBottom: 6,
+    marginTop: 6,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.textDark,
+    backgroundColor: colors.bgLight,
+    marginBottom: 10,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  chipBtn: {
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.bgLight,
+  },
+  chipText: {
+    fontSize: 13,
+    color: colors.textDark,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: colors.bgLight,
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSubtle,
+  },
+  modalSaveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+  },
 
   footer: {
     flexDirection: 'row',

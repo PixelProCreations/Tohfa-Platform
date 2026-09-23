@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,58 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Defs, Pattern, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P, useTheme } from '../../theme';
+import { authPalette as P, useTheme, colors } from '../../theme';
 
 interface AddZoneScreenProps {
   onNavigateBack: () => void;
   onSave: () => void;
 }
 
+const COLOR_PALETTE = [
+  { id: 'green', color: P.deepGreen },
+  { id: 'orange', color: P.orange900 },
+  { id: 'purple', color: P.deepPurple400 },
+  { id: 'red', color: P.red600 },
+  { id: 'brown', color: P.brown400 },
+  { id: 'blue', color: P.blue700 },
+];
+
+const SOIL_OPTIONS = ['Red soil', 'Loamy', 'Sandy', 'Clay', 'Black soil', 'Alluvial'];
+const EXPOSURE_OPTIONS = ['Full sun', 'Partial', 'Shade'];
+const IRRIGATION_OPTIONS = ['Drip', 'Sprinkler', 'Flood', 'Rainfed', 'Furrow'];
+
 export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
   const { colors } = useTheme();
+
+  const [zoneName, setZoneName] = useState('Lower Bed');
+  const [selectedColor, setSelectedColor] = useState<string>(P.deepPurple400);
+
+  const [soilType, setSoilType] = useState('Red soil');
+  const [isSoilOpen, setIsSoilOpen] = useState(false);
+
+  const [sunExposure, setSunExposure] = useState('Full sun');
+  const [isExposureOpen, setIsExposureOpen] = useState(false);
+
+  const [irrigationMethod, setIrrigationMethod] = useState('Drip');
+  const [isIrrigationOpen, setIsIrrigationOpen] = useState(false);
+
+  const toggleSoil = () => {
+    setIsSoilOpen(!isSoilOpen);
+    setIsExposureOpen(false);
+    setIsIrrigationOpen(false);
+  };
+
+  const toggleExposure = () => {
+    setIsExposureOpen(!isExposureOpen);
+    setIsSoilOpen(false);
+    setIsIrrigationOpen(false);
+  };
+
+  const toggleIrrigation = () => {
+    setIsIrrigationOpen(!isIrrigationOpen);
+    setIsSoilOpen(false);
+    setIsExposureOpen(false);
+  };
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
@@ -38,7 +81,7 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
               </Pattern>
             </Defs>
             <Rect width="100%" height="100%" fill="url(#grid)" />
-            
+
             {/* Farm Boundary (Dashed Yellow) */}
             <Polygon
               points="70,140 340,110 360,260 330,340 80,350 60,250"
@@ -48,17 +91,17 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
               strokeDasharray="10,8"
             />
 
-            {/* New Zone Drawing (Dashed Purple) */}
+            {/* New Zone Drawing (Dashed with Selected Color) */}
             <Polygon
               points="80,180 300,160 310,280 90,300"
               fill="rgba(69, 39, 160, 0.4)"
-              stroke={P.deepPurple400}
+              stroke={selectedColor}
               strokeWidth="3"
               strokeDasharray="8,6"
             />
             {/* Corner Markers */}
-            <Circle cx="80" cy="180" r="10" fill={colors.white} stroke={P.deepPurple400} strokeWidth="4" />
-            <Circle cx="300" cy="160" r="10" fill={colors.white} stroke={P.deepPurple400} strokeWidth="4" />
+            <Circle cx="80" cy="180" r="10" fill={colors.white} stroke={selectedColor} strokeWidth="4" />
+            <Circle cx="300" cy="160" r="10" fill={colors.white} stroke={selectedColor} strokeWidth="4" />
           </Svg>
         </View>
 
@@ -72,12 +115,16 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
       {/* BOTTOM SHEET FORM */}
       <View style={styles.bottomSheet}>
         <View style={styles.dragHandle} />
-        
-        <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          
+
+        <ScrollView
+          style={styles.contentScroll}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Header */}
           <View style={styles.sheetHeader}>
-            <Icon name="shield" size={24} color={colors.brandGreen} style={styles.sheetHeaderIcon} />
+            <Icon name="place" size={24} color={colors.brandGreen} style={styles.sheetHeaderIcon} />
             <View>
               <Text style={[styles.sheetTitle, { color: colors.textDark }]}>Name this zone</Text>
               <Text style={[styles.sheetSub, { color: colors.textSubtle }]}>Zone has 4 corners · 0.55 acres</Text>
@@ -89,69 +136,188 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
             # Zone Name <Text style={{ color: P.red500 }}>*</Text>
           </Text>
           <View style={[styles.inputBox, { borderColor: colors.borderLight }]}>
-            <TextInput 
+            <TextInput
               style={[styles.inputField, { color: colors.textDark }]}
-              value="Lower Bed"
+              value={zoneName}
+              onChangeText={setZoneName}
+              placeholder="Zone Name"
+              placeholderTextColor={P.twGray400}
             />
           </View>
 
           {/* Zone Color Picker */}
           <View style={styles.inputLabelRow}>
-            <Icon name="palette" size={13} color={colors.textDark} />
+            <Icon name="palette" size={14} color={colors.textDark} />
             <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}>
               {' '}Zone Color <Text style={{ color: P.red500 }}>*</Text>
             </Text>
           </View>
           <View style={styles.colorPickerRow}>
-            <View style={[styles.colorCircle, { backgroundColor: P.deepGreen }]} />
-            <View style={[styles.colorCircle, { backgroundColor: P.orange900 }]} />
-            {/* Active Color */}
-            <View style={[styles.colorCircleActive, { borderColor: P.deepPurple400 }]}>
-              <View style={[styles.colorCircle, { backgroundColor: P.deepPurple400, margin: 4 }]}>
-                <Icon name="check" size={16} color={colors.white} />
-              </View>
-            </View>
-            <View style={[styles.colorCircle, { backgroundColor: P.red600 }]} />
-            <View style={[styles.colorCircle, { backgroundColor: P.brown400 }]} />
-            <View style={[styles.colorCircle, { backgroundColor: P.blue700 }]} />
+            {COLOR_PALETTE.map((item) => {
+              const isSelected = selectedColor === item.color;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.colorCircleWrapper,
+                    isSelected && { borderColor: item.color, borderWidth: 2.5 },
+                  ]}
+                  onPress={() => setSelectedColor(item.color)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.colorCircle, { backgroundColor: item.color }]}>
+                    {isSelected && <Icon name="check" size={16} color={colors.white} />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
-          {/* Dropdowns Row 1 */}
+          {/* Dropdowns Row 1: Soil Type & Sun Exposure */}
           <View style={styles.dropdownRow}>
+            {/* Soil Type */}
             <View style={styles.dropdownCol}>
               <View style={styles.inputLabelRow}>
-                <Icon name="eco" size={13} color={colors.textDark} />
+                <Icon name="eco" size={14} color={colors.textDark} />
                 <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}> Soil Type</Text>
               </View>
-              <View style={[styles.dropdownBox, { borderColor: colors.borderLight }]}>
-                <Text style={[styles.dropdownText, { color: colors.textDark }]}>Red soil</Text>
-                <Icon name="expand_more" size={14} color={colors.textSubtle} />
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownBox,
+                  { borderColor: isSoilOpen ? colors.brandGreen : colors.borderLight },
+                ]}
+                onPress={toggleSoil}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dropdownText, { color: colors.textDark }]}>{soilType}</Text>
+                <Icon name={isSoilOpen ? 'expand_more' : 'expand_more'} size={16} color={colors.textSubtle} />
+              </TouchableOpacity>
+
+              {isSoilOpen && (
+                <View style={[styles.dropdownDropdownList, { borderColor: colors.borderLight }]}>
+                  {SOIL_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[
+                        styles.dropdownOptionItem,
+                        soilType === opt && { backgroundColor: P.lightGreen50 },
+                      ]}
+                      onPress={() => {
+                        setSoilType(opt);
+                        setIsSoilOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownOptionText,
+                          soilType === opt && { color: colors.brandGreen, fontWeight: '700' },
+                        ]}
+                      >
+                        {opt}
+                      </Text>
+                      {soilType === opt && <Icon name="check" size={14} color={colors.brandGreen} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
+
+            {/* Sun Exposure */}
             <View style={styles.dropdownCol}>
               <View style={styles.inputLabelRow}>
-                <Icon name="wb_sunny" size={13} color={colors.textDark} />
+                <Icon name="wb_sunny" size={14} color={colors.textDark} />
                 <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}> Sun Exposure</Text>
               </View>
-              <View style={[styles.dropdownBox, { borderColor: colors.borderLight }]}>
-                <Text style={[styles.dropdownText, { color: colors.textDark }]}>Full sun</Text>
-                <Icon name="expand_more" size={14} color={colors.textSubtle} />
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownBox,
+                  { borderColor: isExposureOpen ? colors.brandGreen : colors.borderLight },
+                ]}
+                onPress={toggleExposure}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dropdownText, { color: colors.textDark }]}>{sunExposure}</Text>
+                <Icon name={isExposureOpen ? 'expand_more' : 'expand_more'} size={16} color={colors.textSubtle} />
+              </TouchableOpacity>
+
+              {isExposureOpen && (
+                <View style={[styles.dropdownDropdownList, { borderColor: colors.borderLight }]}>
+                  {EXPOSURE_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[
+                        styles.dropdownOptionItem,
+                        sunExposure === opt && { backgroundColor: P.lightGreen50 },
+                      ]}
+                      onPress={() => {
+                        setSunExposure(opt);
+                        setIsExposureOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownOptionText,
+                          sunExposure === opt && { color: colors.brandGreen, fontWeight: '700' },
+                        ]}
+                      >
+                        {opt}
+                      </Text>
+                      {sunExposure === opt && <Icon name="check" size={14} color={colors.brandGreen} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
-          {/* Dropdowns Row 2 */}
-          <View style={styles.inputLabelRow}>
-            <Icon name="water_drop" size={13} color={colors.textDark} />
-            <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}> Irrigation Method</Text>
-          </View>
-          <View style={[styles.dropdownBox, { borderColor: colors.borderLight, marginBottom: 24 }]}>
-            <Text style={[styles.dropdownText, { color: colors.textDark }]}>Drip</Text>
-            <Icon name="expand_more" size={14} color={colors.textSubtle} />
-          </View>
+          {/* Dropdown Row 2: Irrigation Method */}
+          <View style={{ marginBottom: 24 }}>
+            <View style={styles.inputLabelRow}>
+              <Icon name="water_drop" size={14} color={colors.textDark} />
+              <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}> Irrigation Method</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.dropdownBox,
+                { borderColor: isIrrigationOpen ? colors.brandGreen : colors.borderLight },
+              ]}
+              onPress={toggleIrrigation}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownText, { color: colors.textDark }]}>{irrigationMethod}</Text>
+              <Icon name={isIrrigationOpen ? 'expand_more' : 'expand_more'} size={16} color={colors.textSubtle} />
+            </TouchableOpacity>
 
+            {isIrrigationOpen && (
+              <View style={[styles.dropdownDropdownList, { borderColor: colors.borderLight }]}>
+                {IRRIGATION_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[
+                      styles.dropdownOptionItem,
+                      irrigationMethod === opt && { backgroundColor: P.lightGreen50 },
+                    ]}
+                    onPress={() => {
+                      setIrrigationMethod(opt);
+                      setIsIrrigationOpen(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownOptionText,
+                        irrigationMethod === opt && { color: colors.brandGreen, fontWeight: '700' },
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {irrigationMethod === opt && <Icon name="check" size={14} color={colors.brandGreen} />}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         </ScrollView>
-        
+
         {/* FOOTER */}
         <View style={[styles.footer, { borderTopColor: colors.borderDivider, backgroundColor: colors.bgLight }]}>
           <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.borderLight }]} onPress={onNavigateBack}>
@@ -162,7 +328,6 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
             <Text style={styles.saveBtnText}>Save Zone</Text>
           </TouchableOpacity>
         </View>
-
       </View>
     </SafeAreaView>
   );
@@ -170,7 +335,7 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  
+
   mapContainer: {
     flex: 1,
     position: 'relative',
@@ -199,7 +364,7 @@ const styles = StyleSheet.create({
   drawingNoticeText: { color: P.white, fontSize: 13, fontWeight: '700' },
 
   bottomSheet: {
-    flex: 1.2,
+    flex: 1.25,
     backgroundColor: P.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -209,7 +374,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 16,
     overflow: 'hidden',
-    marginTop: -24, // Pull up over the map slightly
+    marginTop: -24,
   },
   dragHandle: {
     width: 40,
@@ -227,7 +392,7 @@ const styles = StyleSheet.create({
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sheetHeaderIcon: { marginRight: 12 },
   sheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
@@ -256,8 +421,15 @@ const styles = StyleSheet.create({
   colorPickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 20,
+  },
+  colorCircleWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   colorCircle: {
     width: 36,
@@ -266,19 +438,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  colorCircleActive: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   dropdownRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
+    gap: 14,
+    marginBottom: 16,
   },
   dropdownCol: { flex: 1 },
   dropdownBox: {
@@ -289,8 +453,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
+    backgroundColor: colors.white,
   },
-  dropdownText: { fontSize: 15 },
+  dropdownText: { fontSize: 14, fontWeight: '500' },
+
+  dropdownDropdownList: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 6,
+    paddingVertical: 4,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  dropdownOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  dropdownOptionText: {
+    fontSize: 13,
+    color: colors.textDark,
+  },
 
   footer: {
     flexDirection: 'row',
@@ -315,7 +504,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  saveBtnRow: { flexDirection: 'row' },
+  saveBtnRow: { flexDirection: 'row', alignItems: 'center' },
   saveBtnIcon: { marginRight: 6 },
   saveBtnText: { color: P.white, fontSize: 16, fontWeight: '700' },
 });

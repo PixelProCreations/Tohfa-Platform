@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
+  BackHandler,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -135,6 +136,17 @@ interface FarmInventoryScreenProps {
 }
 
 export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: FarmInventoryScreenProps): React.JSX.Element {
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (onNavigateBack) {
+        onNavigateBack();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [onNavigateBack]);
+
   return (
     <SafeAreaView style={styles.screen}>
       {/* Header */}

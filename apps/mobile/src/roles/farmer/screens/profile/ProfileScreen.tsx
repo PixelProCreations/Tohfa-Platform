@@ -13,8 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polygon } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polygon } from 'react-native-svg';
 import { Icon, Skeleton } from '@tohfa/mobile-ui';
+import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,
   evalCertificateWarning,
@@ -43,6 +44,22 @@ interface ProfileScreenProps {
   onNavigateToSoilTest?: () => void;
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToAboutSupport?: (() => void) | undefined;
+  onNavigateToBankPayment?: () => void;
+  onSignOut?: () => void;
+}
+
+function SignOutIcon({ size = 18, color = P.red600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 interface PersonalDetailsData {
@@ -120,6 +137,8 @@ export function ProfileScreen({
   onNavigateToSoilTest,
   onNavigateToSettings,
   onNavigateToAboutSupport,
+  onNavigateToBankPayment,
+  onSignOut,
 }: ProfileScreenProps): React.JSX.Element {
   // --- Profile State ---
   const [personalDetails, setPersonalDetails] = useState<PersonalDetailsData>({
@@ -956,27 +975,13 @@ export function ProfileScreen({
         <View style={[styles.cardContainer, { paddingVertical: 6 }]}>
           <TouchableOpacity
             style={styles.menuItemRow}
-            onPress={() => setIsDocumentsModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.violetTint }]}>
-              <Icon name="description" size={18} color={P.violetAccent} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>My Documents</Text>
-              <Text style={styles.menuSubtitle}>ID proof, farm docs, certificates</Text>
-            </View>
-            <View style={styles.menuRedBadge}>
-              <Text style={styles.menuRedBadgeText}>1</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => setIsBankModalVisible(true)}
+            onPress={() => {
+              if (onNavigateToBankPayment) {
+                onNavigateToBankPayment();
+              } else {
+                setIsBankModalVisible(true);
+              }
+            }}
             activeOpacity={0.7}
           >
             <View style={[styles.menuIconBox, { backgroundColor: colors.brandGreenLight }]}>
@@ -985,29 +990,6 @@ export function ProfileScreen({
             <View style={styles.menuTitleBox}>
               <Text style={styles.menuTitle}>Bank & Payment</Text>
               <Text style={styles.menuSubtitle}>Bank account · UPI ID · payout history</Text>
-            </View>
-            <Icon name="chevron_right" size={18} color={P.slate400} />
-          </TouchableOpacity>
-
-          <View style={styles.menuDivider} />
-
-          <TouchableOpacity
-            style={styles.menuItemRow}
-            onPress={() => {
-              if (onNavigateToSettings) {
-                onNavigateToSettings();
-              } else {
-                setIsSettingsModalVisible(true);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: P.sky100 }]}>
-              <Icon name="settings" size={18} color={P.sky600} />
-            </View>
-            <View style={styles.menuTitleBox}>
-              <Text style={styles.menuTitle}>Settings</Text>
-              <Text style={styles.menuSubtitle}>Language, notifications, privacy</Text>
             </View>
             <Icon name="chevron_right" size={18} color={P.slate400} />
           </TouchableOpacity>
@@ -1040,7 +1022,35 @@ export function ProfileScreen({
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 36 }} />
+        {/* Standalone Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => {
+            Alert.alert('Logout', 'Are you sure you want to log out of TOHFA?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Logout',
+                style: 'destructive',
+                onPress: () => {
+                  void (async () => {
+                    await logout();
+                    onSignOut?.();
+                  })();
+                },
+              },
+            ]);
+          }}
+          activeOpacity={0.8}
+        >
+          <SignOutIcon size={18} color={P.red600} />
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* Footer Info */}
+        <View style={styles.footerVersionBox}>
+          <Text style={styles.footerVersionText}>TOFHA v1.0.0 · Built for Nilgiris farmers</Text>
+          <Text style={styles.footerMemberText}>Member since March 2024</Text>
+        </View>
       </ScrollView>
 
       {/* ================= MODAL: EDIT PERSONAL DETAILS ================= */}
@@ -1648,7 +1658,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.paleSurface,
   },
   scrollContainer: {
-    paddingBottom: 40,
+    paddingBottom: 12,
   },
 
   // --- HEADER SECTION ---
@@ -2323,6 +2333,48 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: P.slate100,
     marginLeft: 54,
+  },
+
+  // --- STANDALONE LOGOUT & FOOTER ---
+  logoutButton: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: P.twRed100,
+    borderRadius: 16,
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  logoutButtonText: {
+    color: P.twRed500,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  footerVersionBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  footerVersionText: {
+    fontSize: 12,
+    color: P.twGray400,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  footerMemberText: {
+    fontSize: 12,
+    color: P.twGray400,
+    fontWeight: '500',
   },
 
   // --- MODALS ---

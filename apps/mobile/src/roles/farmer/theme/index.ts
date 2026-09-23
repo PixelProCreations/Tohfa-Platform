@@ -265,6 +265,7 @@ export const authPalette = {
   // Tailwind red
   twRed50: '#fef2f2',
   twRed100: '#fee2e2',
+  twRed200: '#fecaca',
   twRed300: '#fca5a5',
   twRed600: '#dc2626',
   // Tailwind orange / amber
@@ -314,6 +315,7 @@ export const authPalette = {
   mossGreen: '#4b9b63',
   coralRed: '#e24b4a',
   tanBrown: '#d4a373',
+  earthBrown: '#8a4b1a',
   stoneMuted: '#8a927f',
   // Weather scene and alert palette tokens (Screen 33)
   weatherSceneMorningTop: '#0288D1',

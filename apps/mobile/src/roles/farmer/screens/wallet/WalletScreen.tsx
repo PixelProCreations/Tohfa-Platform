@@ -1,445 +1,536 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  FlatList,
-  Pressable,
-  RefreshControl,
+  BackHandler,
+  Platform,
   SafeAreaView,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import {
-  downloadInvoice,
-  formatMoneyAmount,
-  getMyInvoices,
-  getMyWallet,
-  getMyWalletTransactions,
-  type Invoice,
-  type Wallet,
-  type WalletTransaction,
-  type WalletTransactionType,
-} from '../../api/wallet';
-import { Badge, Card, EmptyState, ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
-import { t, type TranslationKey } from '../../../../i18n/farmer';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { authPalette as P } from '../../theme';
+import type { WalletTransactionItem } from '../payment/WalletTransactionDetailScreen';
 
-import {
-  MIN_TOUCH_TARGET,
-  colors,
-  radius,
-  spacing,
-  typography,
-  weights,
-} from '../../theme';
+// ── SVG Icons ────────────────────────────────────────────────────────────────
 
-type TabKey = 'ALL' | 'CREDIT' | 'DEBIT' | 'ADJUST';
+function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M5 12L12 19M5 12L12 5"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
-export function WalletScreen(): React.JSX.Element {
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [selectedTab, setSelectedTab] = useState<TabKey>('ALL');
+function PlusCircleIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 8v8M8 12h8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
-  const [loadingWallet, setLoadingWallet] = useState<boolean>(true);
-  const [loadingTxns, setLoadingTxns] = useState<boolean>(false);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+function ArrowUpRightIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M7 17L17 7M7 7h10v10"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
-  // Load wallet balance
-  const loadWallet = useCallback(async () => {
-    try {
-      setError(null);
-      const [walletRes, invoicesRes] = await Promise.all([
-        getMyWallet(),
-        getMyInvoices(),
-      ]);
-      setWallet(walletRes);
-      setInvoices(invoicesRes.items);
-    } catch {
-      setError(t('error.generic'));
-    } finally {
-      setLoadingWallet(false);
-    }
-  }, []);
+function ReceiptIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="5" y="3" width="14" height="18" rx="2" stroke={color} strokeWidth="1.8" />
+      <Line x1="8.5" y1="8" x2="15.5" y2="8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8.5" y1="12" x2="15.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8.5" y1="16" x2="12.5" y2="16" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
-  // Re-query transactions from API on tab change (never filter client-side!)
-  const loadTransactions = useCallback(async (tab: TabKey) => {
-    try {
-      setLoadingTxns(true);
-      let queryType: WalletTransactionType | undefined;
-      if (tab === 'CREDIT') queryType = 'SALE_CREDIT';
-      else if (tab === 'DEBIT') queryType = 'PAYOUT_DEBIT';
-      else if (tab === 'ADJUST') queryType = 'ADJUSTMENT';
+function ArrowDownIcon({ size = 20, color = P.twGreen700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 4v16M18 14l-6 6-6-6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
-      const res = await getMyWalletTransactions({ type: queryType });
-      setTransactions(res.items);
-    } catch {
-      setError(t('error.generic'));
-    } finally {
-      setLoadingTxns(false);
-      setRefreshing(false);
-    }
-  }, []);
+function ArrowUpIcon({ size = 20, color = P.twRed600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20V4M6 10l6-6 6 6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
+function CreditCardMiniIcon({ size = 20, color = P.twBlue700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="5" width="18" height="14" rx="3" stroke={color} strokeWidth="1.8" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="1.8" />
+      <Circle cx="7" cy="15" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+// ── Default Transactions Data ────────────────────────────────────────────────
+
+const SAMPLE_TRANSACTIONS: WalletTransactionItem[] = [
+  {
+    id: 'tx-1',
+    title: 'Wallet Top-up — Razorpay',
+    type: 'credit',
+    amount: '+ ₹2,000',
+    date: '16 Sep 2026',
+    ref: 'Ref RZP-40219',
+    orderId: 'RZP-40219',
+    channel: 'Razorpay UPI',
+    creditedOn: '16 Sep 2026, 02:15 PM',
+    balanceAfter: '₹4,250',
+  },
+  {
+    id: 'tx-2',
+    title: 'Sale Settlement — Carrot',
+    type: 'credit',
+    amount: '+ ₹3,200',
+    date: '15 Sep 2026',
+    ref: 'Order #ORD-20260915',
+    orderId: '#ORD-20260915',
+    crop: 'Carrot — Nantes',
+    channel: 'Online',
+    creditedOn: '15 Sep 2026, 06:40 PM',
+    balanceAfter: '₹2,250',
+  },
+  {
+    id: 'tx-3',
+    title: 'Withdrawal to UPI',
+    type: 'debit',
+    amount: '- ₹4,400',
+    date: '17 Sep 2026',
+    ref: 'Ref TXN-91027',
+    orderId: 'TXN-91027',
+    channel: 'UPI Payout',
+    creditedOn: '17 Sep 2026, 09:20 AM',
+    balanceAfter: '₹-950',
+  },
+  {
+    id: 'tx-4',
+    title: 'Sale Settlement — Beetroot',
+    type: 'credit',
+    amount: '+ ₹1,450',
+    date: '10 Sep 2026',
+    ref: 'Order #ORD-20260910',
+    orderId: '#ORD-20260910',
+    crop: 'Beetroot — Detroit Dark Red',
+    channel: 'Online',
+    creditedOn: '10 Sep 2026, 04:30 PM',
+    balanceAfter: '₹3,450',
+  },
+];
+
+// ── Screen Component Props ───────────────────────────────────────────────────
+
+export interface WalletScreenProps {
+  onBack?: () => void;
+  onNavigateToAddMoney?: () => void;
+  onNavigateToWithdraw?: () => void;
+  onNavigateToPayoutHistory?: () => void;
+  onNavigateToTransactionDetail?: (txn: WalletTransactionItem) => void;
+}
+
+export function WalletScreen({
+  onBack,
+  onNavigateToAddMoney,
+  onNavigateToWithdraw,
+  onNavigateToPayoutHistory,
+  onNavigateToTransactionDetail,
+}: WalletScreenProps): React.JSX.Element {
   useEffect(() => {
-    void loadWallet();
-  }, [loadWallet]);
-
-  useEffect(() => {
-    void loadTransactions(selectedTab);
-  }, [selectedTab, loadTransactions]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    void loadWallet();
-    void loadTransactions(selectedTab);
-  }, [loadWallet, loadTransactions, selectedTab]);
-
-  const handleDownloadInvoice = async (invoiceId: string) => {
-    try {
-      const res = await downloadInvoice(invoiceId);
-      // Opens or provides download URL
-      if (res.downloadUrl) {
-        // Successfully fetched URL
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (onBack) {
+        onBack();
+        return true;
       }
-    } catch {
-      setError(t('error.generic'));
-    }
-  };
-
-  const renderTransactionItem = ({ item }: { item: WalletTransaction }) => {
-    const isCredit =
-      item.type === 'SALE_CREDIT' ||
-      item.type === 'TOPUP_CASH' ||
-      item.type === 'TOPUP_DIGITAL' ||
-      item.type === 'ORDER_REFUND';
-
-    return (
-      <View style={styles.txnRow}>
-        <View style={styles.txnIconContainer}>
-          <Icon
-            name={isCredit ? 'arrow_downward' : 'arrow_upward'}
-            size={20}
-            color={isCredit ? colors.primary : colors.danger}
-          />
-        </View>
-
-        <View style={styles.txnDetails}>
-          <Text style={styles.txnType}>
-            {t(`farmer.wallet.type.${item.type}` as TranslationKey) || item.type}
-          </Text>
-          <Text style={styles.txnDate}>
-            {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-
-
-        <View style={styles.txnAmounts}>
-          <Text
-            style={[
-              styles.txnAmount,
-              isCredit ? styles.txnAmountCredit : styles.txnAmountDebit,
-            ]}
-          >
-            {isCredit ? '+' : '-'}
-            {formatMoneyAmount(item.amount)}
-          </Text>
-          <Text style={styles.txnBalanceAfter}>
-            Bal: {formatMoneyAmount(item.balanceAfter)}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
-  if (loadingWallet) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{t('farmer.wallet.title')}</Text>
-          </View>
-          <View style={styles.skeletonContainer}>
-            <Skeleton height={120} width="100%" style={styles.skeletonCard} />
-            <Skeleton height={44} width="100%" style={styles.skeletonItem} />
-            <Skeleton height={80} width="100%" style={styles.skeletonCard} />
-            <Skeleton height={80} width="100%" style={styles.skeletonCard} />
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error && !wallet) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <ErrorState
-          error={error}
-          onRetry={() => {
-            setLoadingWallet(true);
-            void loadWallet();
-            void loadTransactions(selectedTab);
-          }}
-        />
-      </SafeAreaView>
-    );
-  }
+      return false;
+    });
+    return () => sub.remove();
+  }, [onBack]);
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('farmer.wallet.title')}</Text>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
-        {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* Balance Card: Formatted without float operations */}
-        <Card style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>{t('farmer.wallet.balance')}</Text>
-          <Text style={styles.balanceValue}>
-            {wallet ? formatMoneyAmount(wallet.balance) : '₹0.00'}
-          </Text>
-          <View style={styles.walletMetaRow}>
-            <Badge
-              label={wallet?.status ?? 'ACTIVE'}
-              variant={wallet?.status === 'ACTIVE' ? 'success' : 'danger'}
-            />
-            <Text style={styles.walletCurrency}>{wallet?.currency ?? 'INR'}</Text>
-          </View>
-        </Card>
-
-        {/* Re-querying Filter Tabs (ALL / CREDIT / DEBIT / ADJUST) */}
-        <View style={styles.tabsRow}>
-          {(['ALL', 'CREDIT', 'DEBIT', 'ADJUST'] as const).map((tab) => {
-            const tabKey =
-              tab === 'ALL'
-                ? 'farmer.wallet.tab.all'
-                : tab === 'CREDIT'
-                  ? 'farmer.wallet.tab.credit'
-                  : tab === 'DEBIT'
-                    ? 'farmer.wallet.tab.debit'
-                    : 'farmer.wallet.tab.adjust';
-
-            return (
-              <Pressable
-                key={tab}
-                style={[styles.tabButton, selectedTab === tab && styles.tabButtonActive]}
-                onPress={() => setSelectedTab(tab)}
-                accessibilityRole="tab"
-              >
-                <Text
-                  style={[
-                    styles.tabButtonText,
-                    selectedTab === tab && styles.tabButtonTextActive,
-                  ]}
-                >
-                  {t(tabKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-
-        {/* Transactions Ledger */}
-        <View style={styles.ledgerSection}>
-          {loadingTxns ? (
-            <View style={styles.skeletonContainer}>
-              <Skeleton height={56} width="100%" style={styles.skeletonItem} />
-              <Skeleton height={56} width="100%" style={styles.skeletonItem} />
-              <Skeleton height={56} width="100%" style={styles.skeletonItem} />
-            </View>
-          ) : (
-            <FlatList
-              data={transactions}
-              keyExtractor={(item) => item.id}
-              renderItem={renderTransactionItem}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  colors={[colors.primary]}
-                />
-              }
-              ListEmptyComponent={
-                <EmptyState
-                  title={t('farmer.wallet.transactions.empty') || 'No transactions found'}
-                  message="Produce sales and payouts will appear here."
-                  iconName="account_balance_wallet"
-                />
-              }
-              contentContainerStyle={styles.listContent}
-            />
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          {onBack && (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowBackIcon size={20} color={P.twGreen800} />
+            </TouchableOpacity>
           )}
+
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.headerTitle}>Wallet</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Dark Green Available Balance Card */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Available Balance</Text>
+          <Text style={styles.balanceValue}>₹4,250</Text>
+
+          <View style={styles.balanceDivider} />
+
+          <View style={styles.balanceStatsRow}>
+            <View style={styles.statCol}>
+              <Text style={styles.statValue}>₹28,600</Text>
+              <Text style={styles.statLabel}>Total Received</Text>
+            </View>
+
+            <View style={styles.statVerticalDivider} />
+
+            <View style={styles.statCol}>
+              <Text style={styles.statValue}>₹24,350</Text>
+              <Text style={styles.statLabel}>Total Withdrawn</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Invoices List */}
-        {invoices.length > 0 ? (
-          <View style={styles.invoicesSection}>
-            <Text style={styles.sectionTitle}>{t('farmer.wallet.invoices.title')}</Text>
-            {invoices.slice(0, 3).map((inv) => (
-              <View key={inv.id} style={styles.invoiceRow}>
-                <View style={styles.invoiceInfo}>
-                  <Text style={styles.invoiceNumber}>{inv.invoiceNumber}</Text>
-                  <Text style={styles.invoiceDate}>
-                    {new Date(inv.issuedAt).toLocaleDateString()}
-                  </Text>
-                </View>
-                <Text style={styles.invoiceAmount}>{formatMoneyAmount(inv.totalAmount)}</Text>
-                <Pressable
-                  style={styles.invoiceBtn}
-                  onPress={() => void handleDownloadInvoice(inv.id)}
+        {/* 3 Action Buttons Row */}
+        <View style={styles.actionRow}>
+          {/* Add Money */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onNavigateToAddMoney}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Add Money"
+          >
+            <View style={styles.actionIconCircle}>
+              <PlusCircleIcon size={22} color={P.twGreen700} />
+            </View>
+            <Text style={styles.actionCardText}>Add Money</Text>
+          </TouchableOpacity>
+
+          {/* Withdraw */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onNavigateToWithdraw}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Withdraw"
+          >
+            <View style={styles.actionIconCircle}>
+              <ArrowUpRightIcon size={22} color={P.twGreen700} />
+            </View>
+            <Text style={styles.actionCardText}>Withdraw</Text>
+          </TouchableOpacity>
+
+          {/* Payout History */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onNavigateToPayoutHistory}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Payout History"
+          >
+            <View style={styles.actionIconCircle}>
+              <ReceiptIcon size={22} color={P.twGreen700} />
+            </View>
+            <Text style={styles.actionCardText}>Payout History</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Recent Transactions Section */}
+        <View style={styles.txSection}>
+          <Text style={styles.sectionHeader}>RECENT TRANSACTIONS</Text>
+
+          <View style={styles.txList}>
+            {SAMPLE_TRANSACTIONS.map((item) => {
+              const isCredit = item.type === 'credit';
+              const isTopUp = item.title.includes('Top-up');
+
+              const iconBg = isTopUp
+                ? P.twBlue50
+                : isCredit
+                  ? P.twGreen50
+                  : P.twRed50;
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.txCard}
+                  onPress={() => onNavigateToTransactionDetail && onNavigateToTransactionDetail(item)}
+                  activeOpacity={0.75}
                   accessibilityRole="button"
+                  accessibilityLabel={`${item.title}, ${item.amount}`}
                 >
-                  <Icon name="download" size={18} color={colors.primary} />
-                </Pressable>
-              </View>
-            ))}
+                  <View style={[styles.txIconBox, { backgroundColor: iconBg }]}>
+                    {isTopUp ? (
+                      <CreditCardMiniIcon size={18} color={P.twBlue700} />
+                    ) : isCredit ? (
+                      <ArrowDownIcon size={18} color={P.twGreen700} />
+                    ) : (
+                      <ArrowUpIcon size={18} color={P.twRed600} />
+                    )}
+                  </View>
+
+                  <View style={styles.txContent}>
+                    <Text style={styles.txTitle}>{item.title}</Text>
+                    <Text style={styles.txSubtitle}>
+                      {item.date} · {item.ref}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.txAmount,
+                      { color: isCredit ? P.twGreen700 : P.twRed600 },
+                    ]}
+                  >
+                    {item.amount}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        ) : null}
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.surface },
-  centerContainer: { padding: spacing.xl, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, padding: spacing.lg, gap: spacing.md },
-  header: { gap: spacing.xs },
-  title: {
-    fontSize: typography.headline,
-    fontWeight: weights.bold,
-    color: colors.onSurface,
+  safeArea: {
+    flex: 1,
+    backgroundColor: P.white,
   },
-  errorBox: {
-    padding: spacing.md,
-    backgroundColor: colors.surfaceVariant,
-    borderColor: colors.danger,
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 6 : 4,
+    paddingBottom: 14,
+    backgroundColor: P.white,
+    borderBottomWidth: 1,
+    borderBottomColor: P.twGray100,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
-    borderRadius: radius.card,
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  errorText: { color: colors.danger, fontSize: typography.body },
+  headerTitleGroup: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: P.twGray900,
+    letterSpacing: -0.3,
+  },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: P.twGray50,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 36,
+    gap: 18,
+  },
   balanceCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.cardMax,
-    padding: spacing.xl,
-    gap: spacing.xs,
+    backgroundColor: P.deepGreen,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: P.deepGreen,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 3,
   },
   balanceLabel: {
-    fontSize: typography.body,
-    fontWeight: weights.medium,
-    color: colors.surface,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: P.green100,
   },
   balanceValue: {
     fontSize: 32,
-    fontWeight: weights.bold,
-    color: colors.white,
+    fontWeight: '800',
+    color: P.white,
+    marginTop: 6,
+    letterSpacing: -0.5,
   },
-  walletMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
-  walletCurrency: { color: colors.surface, fontSize: typography.caption },
-  tabsRow: { flexDirection: 'row', gap: spacing.xs },
-  tabButton: {
-    flex: 1,
-    minHeight: MIN_TOUCH_TARGET,
-    borderRadius: radius.pill,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.surfacePressed,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
+  balanceDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginVertical: 16,
   },
-  tabButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  tabButtonText: {
-    fontSize: typography.caption,
-    fontWeight: weights.medium,
-    color: colors.onSurface,
-  },
-  tabButtonTextActive: {
-    color: colors.white,
-    fontWeight: weights.bold,
-  },
-  ledgerSection: { flex: 1 },
-  listContent: { gap: spacing.sm, paddingBottom: spacing.lg },
-  txnRow: {
+  balanceStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    padding: spacing.md,
-    borderRadius: radius.card,
-    gap: spacing.sm,
   },
-  txnIconContainer: {
+  statCol: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: P.white,
+  },
+  statLabel: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: P.green100,
+    marginTop: 2,
+  },
+  statVerticalDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 14,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: P.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  actionIconCircle: {
     width: 36,
     height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceVariant,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
   },
-  txnDetails: { flex: 1, gap: 2 },
-  txnType: {
-    fontSize: typography.body,
-    fontWeight: weights.semibold,
-    color: colors.onSurface,
+  actionCardText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: P.twGray800,
+    textAlign: 'center',
   },
-  txnDate: {
-    fontSize: typography.caption,
-    color: colors.onSurfaceVariant,
+  txSection: {
+    marginTop: 4,
   },
-  txnAmounts: { alignItems: 'flex-end', gap: 2 },
-  txnAmount: {
-    fontSize: typography.body,
-    fontWeight: weights.bold,
+  sectionHeader: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: P.twGray500,
+    letterSpacing: 0.6,
+    marginBottom: 10,
   },
-  txnAmountCredit: { color: colors.primary },
-  txnAmountDebit: { color: colors.danger },
-  txnBalanceAfter: {
-    fontSize: typography.caption,
-    color: colors.onSurfaceVariant,
+  txList: {
+    backgroundColor: P.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    paddingVertical: 4,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  emptyContainer: { padding: spacing.xl, alignItems: 'center' },
-  emptyText: { color: colors.onSurfaceVariant, fontSize: typography.body },
-  invoicesSection: { gap: spacing.xs },
-  sectionTitle: {
-    fontSize: typography.title,
-    fontWeight: weights.bold,
-    color: colors.onSurface,
-  },
-  invoiceRow: {
+  txCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    padding: spacing.sm,
-    borderRadius: radius.card,
-    gap: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: P.twGray100,
   },
-  invoiceInfo: { flex: 1 },
-  invoiceNumber: { fontSize: typography.caption, fontWeight: weights.bold, color: colors.onSurface },
-  invoiceDate: { fontSize: typography.caption, color: colors.onSurfaceVariant },
-  invoiceAmount: { fontSize: typography.caption, fontWeight: weights.bold, color: colors.onSurface },
-  invoiceBtn: {
-    minWidth: MIN_TOUCH_TARGET,
-    minHeight: MIN_TOUCH_TARGET,
+  txIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  skeletonContainer: {
-    padding: spacing.md,
-    gap: spacing.md,
+  txContent: {
+    flex: 1,
+    paddingRight: 8,
   },
-  skeletonItem: {
-    borderRadius: radius.sm,
+  txTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: P.twGray900,
   },
-  skeletonCard: {
-    borderRadius: radius.card,
+  txSubtitle: {
+    fontSize: 12,
+    color: P.twGray500,
+    marginTop: 2,
+  },
+  txAmount: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

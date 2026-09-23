@@ -434,9 +434,8 @@ const styles = StyleSheet.create({
 
   profileHero: {
     alignItems: 'center',
-    paddingTop: 28, paddingBottom: 20,
-    backgroundColor: P.white,
-    borderBottomWidth: 1, borderBottomColor: P.surfaceMuted,
+    paddingTop: 20,
+    paddingBottom: 8,
   },
   avatarWrap: { position: 'relative', marginBottom: 12 },
   avatar: {
@@ -472,16 +471,16 @@ const styles = StyleSheet.create({
   },
 
   detailRow: {
-    flexDirection: 'row', alignItems: 'flex-start',
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 12,
   },
   detailRowLast: { paddingBottom: 14 },
-  detailRowSplit: { flexDirection: 'row', paddingVertical: 4 },
+  detailRowSplit: { flexDirection: 'row', paddingVertical: 4, alignItems: 'center' },
   splitCell: {
-    flex: 1, flexDirection: 'row', alignItems: 'flex-start',
+    flex: 1, flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 8,
   },
-  detailIcon: { marginTop: 2, marginRight: 12 },
+  detailIcon: { marginRight: 12, width: 20, alignItems: 'center', justifyContent: 'center' },
   detailContent: { flex: 1 },
   detailLabel: { fontSize: 12, color: P.twGray400, fontWeight: '500', marginBottom: 2 },
   detailValue: { fontSize: 15, fontWeight: '600', color: P.twGray900, lineHeight: 21 },

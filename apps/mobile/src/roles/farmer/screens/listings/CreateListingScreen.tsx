@@ -39,17 +39,17 @@ const EmptyCircle = () => (
 // Crop Icons
 const CropCarrot = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 2V4M9 2V4M15 2V4" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 2V4M9 2V4M15 2V4" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const CropCabbage = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12C12 12 8 16 6 12C4 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12C12 12 16 16 18 12C20 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <Path d="M12 12V22" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <Path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 12C12 12 8 16 6 12C4 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 12C12 12 16 16 18 12C20 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 12V22" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -79,9 +79,11 @@ export function CreateListingScreen({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity 
-            style={styles.backBtn} 
+          <TouchableOpacity
+            style={styles.backBtn}
             onPress={onCancel}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
@@ -91,7 +93,7 @@ export function CreateListingScreen({
             <Text style={styles.headerTitle}>Create Listing</Text>
             <Text style={styles.headerSub}>Step 1 of 2 · Pick crop</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={onCancel}
             accessibilityRole="button"
             accessibilityLabel="Cancel"
@@ -108,14 +110,14 @@ export function CreateListingScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Info Banner */}
         <View style={styles.infoBanner}>
           <View style={styles.infoIconBox}>
             <InfoCircle />
           </View>
           <Text style={styles.infoText}>
-            Only crops you marked <Text style={{fontWeight: '700'}}>harvest-ready</Text> in Produce Calendar can be listed. One listing sells one harvest batch.
+            Only crops you marked <Text style={{ fontWeight: '700' }}>harvest-ready</Text> in Produce Calendar can be listed. One listing sells one harvest batch.
           </Text>
         </View>
 
@@ -123,7 +125,7 @@ export function CreateListingScreen({
         <Text style={styles.sectionTitle}>HARVEST-READY CROPS</Text>
 
         {/* Crop Selection Cards */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.cropCard, selectedId === 'carrot' ? styles.cropCardSelected : null]}
           onPress={() => setSelectedId('carrot')}
           activeOpacity={0.8}
@@ -145,7 +147,7 @@ export function CreateListingScreen({
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.cropCard, selectedId === 'cabbage' ? styles.cropCardSelected : null]}
           onPress={() => setSelectedId('cabbage')}
           activeOpacity={0.8}
@@ -167,7 +169,7 @@ export function CreateListingScreen({
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.cropCard, selectedId === 'beetroot' ? styles.cropCardSelected : null]}
           onPress={() => setSelectedId('beetroot')}
           activeOpacity={0.8}
@@ -189,13 +191,13 @@ export function CreateListingScreen({
           </View>
         </TouchableOpacity>
 
-        <View style={{height: 100}} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Footer / Next Button */}
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.nextBtn} 
+        <TouchableOpacity
+          style={styles.nextBtn}
           onPress={onNext}
           accessibilityRole="button"
           accessibilityLabel="Next"
@@ -228,7 +230,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: P.grey300,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,

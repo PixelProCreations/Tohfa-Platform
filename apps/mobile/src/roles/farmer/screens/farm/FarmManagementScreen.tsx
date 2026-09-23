@@ -53,6 +53,15 @@ function PencilEditIcon({ size = 20, color = P.twOrange600 }: { size?: number; c
   );
 }
 
+function PlusIcon({ size = 14, color = P.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function CloudWeatherIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -61,7 +70,7 @@ function CloudWeatherIcon({ size = 22, color = P.sky600 }: { size?: number; colo
   );
 }
 
-function SnowflakeIcon({ size = 12, color = P.sky600 }: { size?: number; color?: string }) {
+function SnowflakeIcon({ size = 12, color = P.deepPurple800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="12" y1="2" x2="12" y2="22" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -97,13 +106,7 @@ function CalendarMiniIcon({ size = 12, color = P.deepGreen }: { size?: number; c
   );
 }
 
-function FlaskBeakerIcon({ size = 20, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+
 
 function UsersIcon({ size = 20, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
@@ -334,6 +337,7 @@ export function FarmManagementScreen({
               onPress={onNavigateToDiary ? onNavigateToDiary : () => setIsDiaryModalOpen(true)}
               accessibilityRole="button"
             >
+              <PlusIcon size={13} color={P.white} />
               <Text style={styles.logEntryBtnText}>{t('farmer.farmManagement.module.diary.logEntry')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -363,7 +367,7 @@ export function FarmManagementScreen({
               onPress={onNavigateToWeather}
               accessibilityRole="button"
             >
-              <SnowflakeIcon size={12} color={P.twBlue700} />
+              <SnowflakeIcon size={12} color={P.deepPurple800} />
               <Text style={styles.weatherRiskText}>{t('farmer.farmManagement.module.weather.frostRisk')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -471,31 +475,6 @@ export function FarmManagementScreen({
             <View style={styles.reviewNeededRow}>
               <Text style={styles.reviewNeededText}>{t('farmer.farmManagement.module.livestock.reviewNeeded')}</Text>
               <ChevronRightIcon size={14} color={P.twOrange600} />
-            </View>
-          </TouchableOpacity>
-
-          {/* 7. Soil Management (FR-F06) */}
-          <TouchableOpacity
-            style={styles.moduleCard}
-            activeOpacity={0.88}
-            onPress={onNavigateToSoilManagement}
-            accessibilityRole="button"
-            accessibilityLabel="Soil Management"
-          >
-            <View style={styles.moduleCardTop}>
-              <View style={[styles.iconBadge, { backgroundColor: P.mintTintBg }]}>
-                <FlaskBeakerIcon size={20} color={P.twGreen700} />
-              </View>
-            </View>
-
-            <View style={styles.moduleTextSection}>
-              <Text style={styles.moduleTitle}>Soil Management</Text>
-              <Text style={styles.moduleDesc}>pH 6.4 · Tests, health tracking & conservation</Text>
-            </View>
-
-            <View style={styles.statusRowGreen}>
-              <CheckmarkCircleIcon size={16} color={P.twGreen700} />
-              <Text style={styles.statusRowGreenText}>pH 6.4 Optimal</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -648,8 +627,8 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: 14,
+    paddingBottom: 28,
   },
 
   /* Attention Banner */
@@ -691,7 +670,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: P.twGray200,
     padding: 14,
-    minHeight: 180,
+    minHeight: 172,
     justifyContent: 'space-between',
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
@@ -734,11 +713,14 @@ const styles = StyleSheet.create({
 
   /* Card Bottom Actions */
   logEntryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: P.twGreen700,
     borderRadius: 10,
     paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   logEntryBtnText: {
     fontSize: 13,
@@ -749,7 +731,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: P.twBlue50,
+    backgroundColor: P.violetTint2,
     borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 8,
@@ -757,7 +739,7 @@ const styles = StyleSheet.create({
   weatherRiskText: {
     fontSize: 11,
     fontWeight: '700',
-    color: P.twBlue700,
+    color: P.deepPurple800,
   },
   producePill: {
     flexDirection: 'row',

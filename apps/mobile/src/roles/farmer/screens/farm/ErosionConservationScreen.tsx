@@ -32,14 +32,14 @@ function ArrowBackIcon({ size = 20, color = P.twGreen800 }: { size?: number; col
   );
 }
 
-function CheckCircleIcon({ size = 18, color = P.forestGreen }: { size?: number; color?: string }) {
+function CheckCircleIcon({ size = 16, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
       <Path
         d="M8 12l2.5 2.5L16 9"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -47,18 +47,18 @@ function CheckCircleIcon({ size = 18, color = P.forestGreen }: { size?: number; 
   );
 }
 
-function AlertTriangleIcon({ size = 18, color = P.red700 }: { size?: number; color?: string }) {
+function AlertTriangleIcon({ size = 16, color = P.twRed600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Line x1="12" y1="9" x2="12" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="12" cy="17" r="1" fill={color} />
+      <Line x1="12" y1="9" x2="12" y2="13" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="12" y1="17" x2="12.01" y2="17" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -212,20 +212,26 @@ export function ErosionConservationScreen({
           return (
             <View key={item.id} style={styles.zoneCard}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.zoneName}>{item.zoneName}</Text>
+                <View style={styles.cardTitleCol}>
+                  <Text style={styles.zoneName}>{item.zoneName}</Text>
+                  <Text style={styles.loggedTime}>{item.loggedTime}</Text>
+                </View>
+
                 <View style={[styles.badgeBase, badge.container]}>
                   <Text style={[styles.badgeTextBase, badge.text]}>{item.risk}</Text>
                 </View>
               </View>
 
-              <Text style={styles.loggedTime}>{item.loggedTime}</Text>
+              <View style={styles.cardDivider} />
 
               <View style={styles.practiceRow}>
-                {item.isWarning ? (
-                  <AlertTriangleIcon size={18} color={P.red700} />
-                ) : (
-                  <CheckCircleIcon size={18} color={P.forestGreen} />
-                )}
+                <View style={styles.practiceIconWrap}>
+                  {item.isWarning ? (
+                    <AlertTriangleIcon size={16} color={P.twRed600} />
+                  ) : (
+                    <CheckCircleIcon size={16} color={P.twGreen700} />
+                  )}
+                </View>
                 <Text
                   style={[
                     styles.practiceText,
@@ -329,77 +335,85 @@ const styles = StyleSheet.create({
   },
   zoneCard: {
     backgroundColor: P.white,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: P.twGray200,
     padding: 16,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 1,
   },
   cardHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
+  cardTitleCol: {
+    flex: 1,
+    marginRight: 10,
+  },
   zoneName: {
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '700',
-    color: P.twGray900,
+    color: P.ink,
+  },
+  loggedTime: {
+    fontSize: 12.5,
+    color: P.twGray400,
+    marginTop: 4,
   },
   badgeBase: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
   },
   badgeTextBase: {
     fontSize: 11.5,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   badgeLow: {
     backgroundColor: P.twGreen50,
-    borderColor: P.twGreen100,
   },
   badgeLowText: {
-    color: P.twGreen800,
+    color: P.twGreen700,
   },
   badgeModerate: {
-    backgroundColor: P.orange50,
-    borderColor: P.twOrange200,
+    backgroundColor: P.twAmber50,
   },
   badgeModerateText: {
     color: P.twAmber800,
   },
   badgeHigh: {
-    backgroundColor: P.red50,
-    borderColor: P.red100,
+    backgroundColor: P.twRed50,
   },
   badgeHighText: {
-    color: P.red700,
+    color: P.twRed600,
   },
-  loggedTime: {
-    fontSize: 12,
-    color: P.twGray400,
-    marginTop: 3,
-    marginBottom: 14,
+  cardDivider: {
+    height: 1,
+    backgroundColor: P.twGray100,
+    marginTop: 14,
+    marginBottom: 12,
   },
   practiceRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
   },
+  practiceIconWrap: {
+    marginTop: 2,
+  },
   practiceText: {
     flex: 1,
     fontSize: 13,
     fontWeight: '500',
-    color: P.twGray700,
+    color: P.twGray600,
     lineHeight: 18,
   },
   practiceTextWarning: {
-    color: P.red700,
+    color: P.twRed600,
   },
   bottomBar: {
     backgroundColor: P.white,
