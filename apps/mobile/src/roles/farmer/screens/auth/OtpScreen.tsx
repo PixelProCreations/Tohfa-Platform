@@ -14,6 +14,7 @@ import {
 import { authPalette as themeAuthPalette } from '../../theme';
 import { t } from '../../../../i18n/farmer';
 import { Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
 
@@ -205,13 +206,13 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         >
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('Login')}>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: themeAuthPalette.primary, marginTop: -2 }}>{'‹'}</Text>
+              <BackButtonIcon size={20} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.iconWrapper}>
             <View style={styles.iconCircle}>
-              <Icon name="mark_email_read" size={32} color={authPalette.primary} />
+              <LockIcon size={32} color={authPalette.primary} />
             </View>
           </View>
 

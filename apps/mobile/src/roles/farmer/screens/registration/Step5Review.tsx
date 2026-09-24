@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useTheme, authPalette as P } from '../../theme';
 import { ErrorState, Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon } from '../../assets/icons/AssetIcons';
 import { validateCrossStepSubmission } from './validation';
 import { useRegistrationDraftStore } from '../../storage/registrationDraft';
 import type { RegistrationDraft } from '../../storage/registrationDraft';
@@ -96,7 +97,7 @@ export const Step5Review: React.FC<Step5Props> = ({ draft, onSubmitSuccess, onBa
       <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.borderSoft }]}>
         <View style={styles.headerTitleRow}>
           <TouchableOpacity activeOpacity={0.7} style={[styles.backButtonCircle, { borderColor: colors.borderMedium, backgroundColor: colors.white }]} onPress={onBack}>
-            <Text style={[styles.backButtonArrow, { color: colors.brandGreen }]}>‹</Text>
+            <BackButtonIcon size={20} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: colors.textDark }]}>Review & Submit</Text>

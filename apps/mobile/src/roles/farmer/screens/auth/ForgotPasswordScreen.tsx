@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { t } from '../../../../i18n/farmer';
 import { Icon, ErrorState } from '@tohfa/mobile-ui';
+import { BackButtonIcon, CallIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { requestOtp } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
@@ -68,12 +69,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
           style={styles.backButton}
           onPress={() => onNavigate('Login')}
         >
-          <Text style={{ fontSize: 22, fontWeight: '700', color: P.primary, marginTop: -2 }}>{'‹'}</Text>
+          <BackButtonIcon size={20} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.iconCircle}>
-        <Icon name="lock" size={28} color={P.primary} />
+        <LockIcon size={28} color={P.primary} />
       </View>
 
       <Text style={styles.title}>Forgot Password</Text>
@@ -87,7 +88,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
 
       <Text style={styles.fieldLabel}>{t('farmer.auth.login.mobile')}</Text>
       <View style={styles.fieldRow}>
-        <Icon name="call" size={16} color={P.muted} />
+        <CallIcon size={16} color={P.muted} />
         <Text style={styles.prefix}>+91</Text>
         <TextInput
           style={styles.fieldInput}

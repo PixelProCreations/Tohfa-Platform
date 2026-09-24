@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -9,14 +11,42 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { fetchMe, logout, type UserMe } from '../../api/auth';
+import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { Icon } from '@tohfa/mobile-ui';
-import { colors } from '../../theme';
-import { getGreetingKey } from '../../utils/greeting';
+import Svg, { Path, Rect } from 'react-native-svg';
+import { colors } from '../../../farmer/theme';
+import { getGreetingKey } from '../../../farmer/utils/greeting';
+import { HomeIcon } from '../../../farmer/assets/icons/AssetIcons';
+
+const awardIconAsset = require('../../assets/images/award.png');
+const calendarIconAsset = require('../../assets/images/calendar.png');
+const inboxIconAsset = require('../../assets/images/inbox.png');
+const pinIconAsset = require('../../assets/images/pin.png');
+const telephoneIconAsset = require('../../assets/images/telephone.png');
+import {
+  AdminPendingApplicationsScreen,
+  type PendingApplicationItem,
+  DEMO_PENDING_APPLICATIONS,
+} from '../registration/AdminPendingApplicationsScreen';
+import { AdminApplicationDetailScreen } from '../registration/AdminApplicationDetailScreen';
+import {
+  AdminAllFarmersScreen,
+  type FarmerListItem,
+  DEMO_ALL_FARMERS,
+} from '../farmers/AdminAllFarmersScreen';
+import { AdminFarmerDetailScreen } from '../farmers/AdminFarmerDetailScreen';
+import { AdminFarmMapScreen } from '../farmers/AdminFarmMapScreen';
+import { AdminKycReviewScreen } from '../certifications/AdminKycReviewScreen';
+import { AdminCertVerificationScreen } from '../certifications/AdminCertVerificationScreen';
+import { AdminRatingScorecardScreen } from '../farmers/AdminRatingScorecardScreen';
+import { AdminComplianceTiersScreen } from '../certifications/AdminComplianceTiersScreen';
+import { AdminApplicationApproveScreen } from '../registration/AdminApplicationApproveScreen';
+import { AdminApplicationRejectScreen } from '../registration/AdminApplicationRejectScreen';
+import { AdminApplicationRequestInfoScreen } from '../registration/AdminApplicationRequestInfoScreen';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const A = {
-  orange:    '#E8562A',
+  orange:    '#F0562A',
   orangeBg:  '#FFECE8',
   green:     '#2E7D32',
   greenBg:   '#E8F5E9',
@@ -39,7 +69,7 @@ const A = {
   onDutyBg:  '#E8F5E9',
   onDutyText:'#2E7D32',
   absentBg:  '#FFECE8',
-  absentText:'#E8562A',
+  absentText:'#F0562A',
 };
 
 // ─── Role meta ────────────────────────────────────────────────────────────────
@@ -111,14 +141,14 @@ function tabsForRole(code: string) {
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 
 function SectionTitle({
-  text, action, onAction, accent = A.orange,
-}: { text: string; action?: string; onAction?: () => void; accent?: string }) {
+  text, action, onAction,
+}: { text: string; action?: string | undefined; onAction?: (() => void) | undefined }) {
   return (
     <View style={styles.sectionRow}>
-      <Text style={[styles.sectionTitle, { color: accent }]}>{text}</Text>
+      <Text style={styles.sectionTitle}>{text}</Text>
       {action ? (
         <TouchableOpacity onPress={onAction} activeOpacity={0.7}>
-          <Text style={[styles.sectionAction, { color: accent }]}>{action}</Text>
+          <Text style={styles.sectionAction}>{action}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -126,15 +156,19 @@ function SectionTitle({
 }
 
 function StatCard({
-  iconName, iconColor, iconBg, value, label, delta, deltaColor,
+  iconName, iconColor, iconBg, value, label, delta, deltaColor, imageSource,
 }: {
-  iconName: string; iconColor: string; iconBg: string;
-  value: string; label: string; delta?: string; deltaColor?: string;
+  iconName?: string; iconColor?: string; iconBg?: string;
+  value: string; label: string; delta?: string; deltaColor?: string; imageSource?: any;
 }) {
   return (
     <View style={styles.statCard}>
       <View style={[styles.statIconBox, { backgroundColor: iconBg }]}>
-        <Icon name={iconName} size={20} color={iconColor} />
+        {imageSource ? (
+          <Image source={imageSource} style={{ width: 20, height: 20 }} resizeMode="contain" />
+        ) : (
+          <Icon name={iconName!} size={20} color={iconColor!} />
+        )}
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
@@ -163,13 +197,17 @@ function ApprovalCard({
   );
 }
 
-function AlertCard({ title, subtitle, linkLabel }: {
-  title: string; subtitle: string; linkLabel: string;
+function AlertCard({ title, subtitle, linkLabel, imageSource }: {
+  title: string; subtitle: string; linkLabel: string; imageSource?: any;
 }) {
   return (
     <View style={styles.alertCard}>
       <View style={styles.alertRow}>
-        <Icon name="warning" size={16} color={A.orange} style={{ marginTop: 1 }} />
+        {imageSource ? (
+          <Image source={imageSource} style={{ width: 18, height: 18, marginRight: 6 }} resizeMode="contain" />
+        ) : (
+          <Icon name="warning" size={16} color={A.orange} style={{ marginTop: 1 }} />
+        )}
         <Text style={styles.alertTitle}>{title}</Text>
       </View>
       <Text style={styles.alertSub}>{subtitle}</Text>
@@ -191,20 +229,37 @@ function QuickBtn({
   );
 }
 
-function FarmerAppRow({ name, location, status }: {
-  name: string; location: string; status: string;
+function FarmerAppRow({ name, location, status, onPress }: {
+  name: string; location: string; status: string; onPress?: () => void;
 }) {
   return (
-    <View style={styles.farmerAppRow}>
-      <View style={[styles.farmerAppIcon, { backgroundColor: A.orangeBg }]}>
-        <Icon name="person" size={18} color={A.orange} />
+    <TouchableOpacity
+      style={styles.farmerAppRow}
+      activeOpacity={onPress ? 0.75 : 1}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <View style={styles.farmerAppIcon}>
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M19 20C19 16.6863 15.866 14 12 14C8.13401 14 5 16.6863 5 20"
+            stroke="#F0562A"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <Path
+            d="M12 11C13.933 11 15.5 9.433 15.5 7.5C15.5 5.567 13.933 4 12 4C10.067 4 8.5 5.567 8.5 7.5C8.5 9.433 10.067 11 12 11Z"
+            stroke="#F0562A"
+            strokeWidth="1.8"
+          />
+        </Svg>
       </View>
       <View style={styles.farmerAppText}>
         <Text style={styles.farmerAppName}>{name} — {location}</Text>
         <Text style={styles.farmerAppStatus}>{status}</Text>
       </View>
-      <Icon name="chevron_right" size={18} color={A.muted} />
-    </View>
+      <Icon name="chevron_right" size={20} color="#827871" />
+    </TouchableOpacity>
   );
 }
 
@@ -379,8 +434,8 @@ function SuperAdminDashboard() {
       </View>
       <SectionTitle text="Compliance alerts" />
       <View style={styles.cardStack}>
-        <AlertCard title="7 farms overdue for quarterly audit"        subtitle="Q3 audit window closes in 5 days across Coonoor and Kotagiri zones."   linkLabel="Review audit calendar" />
-        <AlertCard title="12 certifications expiring within 30 days" subtitle="PGS Organic renewals needed before listings are auto-blocked."            linkLabel="View farmers" />
+        <AlertCard imageSource={calendarIconAsset} title="7 farms overdue for quarterly audit" subtitle="Q3 audit window closes in 5 days across Coonoor and Kotagiri zones." linkLabel="Review audit calendar" />
+        <AlertCard imageSource={awardIconAsset} title="12 certifications expiring within 30 days" subtitle="PGS Organic renewals needed before listings are auto-blocked." linkLabel="View farmers" />
       </View>
       <SectionTitle text="Quick actions" />
       <View style={styles.quickRow}>
@@ -393,31 +448,264 @@ function SuperAdminDashboard() {
   );
 }
 
-function TohfaAdminDashboard() {
+function TohfaAdminDashboard({
+  onSeeAllPending,
+  onSelectPending,
+}: {
+  onSeeAllPending?: () => void;
+  onSelectPending?: (item: PendingApplicationItem) => void;
+}) {
+  const firstApp = DEMO_PENDING_APPLICATIONS[0]!;
+  const secondApp = DEMO_PENDING_APPLICATIONS[1]!;
+
   return (
     <>
-      <SectionTitle text="Today's operational snapshot" />
+      <SectionTitle text="Today’s operational snapshot" />
       <View style={styles.statsGrid}>
-        <StatCard iconName="person"        iconColor={A.orange}  iconBg={A.orangeBg} value="9"  label="Pending Applications" />
-        <StatCard iconName="storefront"    iconColor={A.blue}    iconBg={A.blueBg}   value="23" label="Listings to Approve"  />
-        <StatCard iconName="check_circle"  iconColor={A.amber}   iconBg={A.amberBg}  value="6"  label="Audits This Quarter"  />
-        <StatCard iconName="notifications" iconColor={A.purple}  iconBg={A.purpleBg} value="14" label="Open Support Tickets" />
+        {/* 1. Pending Applications */}
+        <View style={styles.statCard}>
+          <View style={[styles.statIconBox, { backgroundColor: '#FFF1EE' }]}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M15 19C15 16.7909 12.3137 15 9 15C5.68629 15 3 16.7909 3 19"
+                stroke="#F0562A"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <Path
+                d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z"
+                stroke="#F0562A"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <Path
+                d="M18 8V14M15 11H21"
+                stroke="#F0562A"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </Svg>
+          </View>
+          <Text style={styles.statValue}>9</Text>
+          <Text style={styles.statLabel}>Pending Applications</Text>
+        </View>
+
+        {/* 2. Listings to Approve */}
+        <View style={styles.statCard}>
+          <View style={[styles.statIconBox, { backgroundColor: '#EBF3FC' }]}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 2L3 7L12 12L21 7L12 2Z"
+                stroke="#1E65B8"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M3 7V17L12 22V12"
+                stroke="#1E65B8"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M21 7V17L12 22"
+                stroke="#1E65B8"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </View>
+          <Text style={styles.statValue}>23</Text>
+          <Text style={styles.statLabel}>Listings to Approve</Text>
+        </View>
+
+        {/* 3. Audits This Quarter */}
+        <View style={styles.statCard}>
+          <View style={[styles.statIconBox, { backgroundColor: '#FEF5E7' }]}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M9 12L11 14L15 9"
+                stroke="#B25E00"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M19 7V19C19 20.1 18.1 21 17 21H7C5.9 21 5 20.1 5 19V7C5 5.9 5.9 5 7 5H17C18.1 5 19 5.9 19 7Z"
+                stroke="#B25E00"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </View>
+          <Text style={styles.statValue}>6</Text>
+          <Text style={styles.statLabel}>Audits This Quarter</Text>
+        </View>
+
+        {/* 4. Open Support Tickets */}
+        <View style={styles.statCard}>
+          <View style={[styles.statIconBox, { backgroundColor: '#F0ECFC' }]}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2Z"
+                stroke="#5E35B1"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M19 10V11C19 14.87 15.87 18 12 18C8.13 18 5 14.87 5 11V10"
+                stroke="#5E35B1"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <Path
+                d="M12 18V22M8 22H16"
+                stroke="#5E35B1"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </Svg>
+          </View>
+          <Text style={styles.statValue}>14</Text>
+          <Text style={styles.statLabel}>Open Support Tickets</Text>
+        </View>
       </View>
-      <SectionTitle text="Pending farmer applications" action="See all" />
+
+      <SectionTitle
+        text="Pending farmer applications"
+        action="See all"
+        onAction={onSeeAllPending}
+      />
       <View style={styles.cardStack}>
-        <FarmerAppRow name="Muthukumar S." location="Kotagiri" status="Applied 2 days ago · Documents complete"  />
-        <FarmerAppRow name="Lakshmi R."    location="Ooty"     status="Applied 4 days ago · Awaiting KYC review" />
+        <FarmerAppRow
+          name="Muthukumar S."
+          location="Kotagiri"
+          status="Applied 2 days ago · Documents complete"
+          onPress={() => onSelectPending?.(firstApp)}
+        />
+        <FarmerAppRow
+          name="Lakshmi R."
+          location="Ooty"
+          status="Applied 4 days ago · Awaiting KYC review"
+          onPress={() => onSelectPending?.(secondApp)}
+        />
       </View>
+
       <SectionTitle text="Sales channel snapshot" />
       <View style={[styles.cardStack, { marginBottom: 20 }]}>
-        <InfoCard bold="Online 70% · Market 10% · Horeca/B2B 20%" sub="Current channel split is within the locked 70/10/10/10 allocation policy." />
+        <View style={styles.salesSnapshotCard}>
+          <View style={styles.salesSnapshotLeftBar} />
+          <View style={styles.salesSnapshotContent}>
+            <View style={styles.salesSnapshotHeaderRow}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 10 }}>
+                <Rect x="3" y="5" width="18" height="14" rx="2" stroke="#0E4473" strokeWidth="2" />
+                <Path d="M3 12H21" stroke="#0E4473" strokeWidth="2" />
+              </Svg>
+              <Text style={styles.salesSnapshotBold}>
+                Online 70% · Market 10% · Horeca/B2B 20%
+              </Text>
+            </View>
+            <Text style={styles.salesSnapshotSub}>
+              Current channel split is within the locked 70/10/10/10 allocation policy.
+            </Text>
+          </View>
+        </View>
       </View>
+
       <SectionTitle text="Quick actions" />
       <View style={styles.quickRow}>
-        <QuickBtn iconName="check_circle"   label={`Approve\nListings`} />
-        <QuickBtn iconName="calendar_month" label={`Schedule\nAudit`}   />
-        <QuickBtn iconName="help"           label="Support"             />
-        <QuickBtn iconName="assignment"     label="Reports"             />
+        <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.8}>
+          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M12 2L3 7L12 12L21 7L12 2Z"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d="M3 7V17L12 22V12"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d="M21 7V17L12 22"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={styles.quickActionLabel}>{`Approve\nListings`}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.8}>
+          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M19 4H5C3.89 4 3 4.89 3 6V20C3 21.1 3.89 22 5 22H19C20.1 22 21 21.1 21 20V6C21 4.89 20.1 4 19 4Z"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d="M16 2V6M8 2V6M3 10H21"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.quickActionLabel}>{`Schedule\nAudit`}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.8}>
+          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2Z"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d="M19 10V11C19 14.87 15.87 18 12 18C8.13 18 5 14.87 5 11V10"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <Path
+              d="M12 18V22M8 22H16"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.quickActionLabel}>Support</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.8}>
+          <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M18 20V10M12 20V4M6 20V14"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <Path
+              d="M3 20H21"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.quickActionLabel}>Reports</Text>
+        </TouchableOpacity>
       </View>
     </>
   );
@@ -569,7 +857,7 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
       .catch(() => {});
   }, []);
 
-  const displayName = user?.fullName ?? 'Administrator';
+  const displayName = user?.fullName || 'Ganga Devi';
   const tabs        = tabsForRole(roleCode);
 
   function handleSignOut() {
@@ -584,9 +872,24 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
           <Text style={styles.greetSmall}>{greeting}</Text>
           <Text style={styles.greetName}>{displayName}</Text>
           {/* Primary role badge */}
-          <View style={[styles.rolePill, { backgroundColor: accentBg }]}>
-            <Icon name={roleIcon} size={12} color={accent} />
-            <Text style={[styles.rolePillText, { color: accent }]}>{roleLabel}</Text>
+          <View style={styles.rolePill}>
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginRight: 4 }}>
+              <Path
+                d="M12 2L4 5V11.09C4 16.14 7.41 20.85 12 22C16.59 20.85 20 16.14 20 11.09V5L12 2Z"
+                stroke="#662208"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M9 11.5L11 13.5L15 9.5"
+                stroke="#662208"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            <Text style={styles.rolePillText}>{roleLabel}</Text>
           </View>
           {/* Sub WH Admin gets a second location badge */}
           {isSubWh ? (
@@ -596,9 +899,21 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
             </View>
           ) : null}
         </View>
-        <View style={[styles.avatarCircle, { backgroundColor: accentBg }]}>
-          <Icon name="person" size={22} color={accent} />
-        </View>
+        <TouchableOpacity style={styles.headerAvatarCircle} activeOpacity={0.8}>
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M19 20C19 16.6863 15.866 14 12 14C8.13401 14 5 16.6863 5 20"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <Path
+              d="M12 11C13.933 11 15.5 9.433 15.5 7.5C15.5 5.567 13.933 4 12 4C10.067 4 8.5 5.567 8.5 7.5C8.5 9.433 10.067 11 12 11Z"
+              stroke="#F0562A"
+              strokeWidth="1.8"
+            />
+          </Svg>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -644,6 +959,43 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
     );
   }
 
+  // Drill-down states for Tohfa Admin flows
+  const [currentView, setCurrentView] = useState<
+    | 'MAIN'
+    | 'PENDING_APPLICATIONS'
+    | 'APPLICATION_DETAIL'
+    | 'APPLICATION_APPROVE'
+    | 'APPLICATION_REJECT'
+    | 'APPLICATION_REQUEST_INFO'
+    | 'FARMER_DETAIL'
+    | 'FARM_MAP'
+    | 'KYC_REVIEW'
+    | 'CERT_VERIFICATION'
+    | 'RATING_SCORECARD'
+    | 'COMPLIANCE_TIERS'
+  >('MAIN');
+  const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | null>(null);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerDetailTab, setFarmerDetailTab] = useState<'Overview' | 'Farm' | 'KYC' | 'Ratings'>('Overview');
+
+  // When switching bottom tabs, reset drill-down view to MAIN
+  const handleTabPress = (tabName: AdminTab) => {
+    setActiveTab(tabName);
+    setCurrentView('MAIN');
+  };
+
+  if (currentView === 'PENDING_APPLICATIONS') {
+    return (
+      <AdminPendingApplicationsScreen
+        onBack={() => setCurrentView('MAIN')}
+        onSelectApplication={(app: PendingApplicationItem) => {
+          setSelectedPendingApp(app);
+          setCurrentView('APPLICATION_DETAIL');
+        }}
+      />
+    );
+  }
+
   function Placeholder({ label }: { label: string }) {
     return (
       <View style={styles.placeholder}>
@@ -654,27 +1006,276 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
     );
   }
 
+  if (currentView === 'APPLICATION_DETAIL' && selectedPendingApp) {
+    return (
+      <AdminApplicationDetailScreen
+        application={selectedPendingApp}
+        onBack={() => setCurrentView('PENDING_APPLICATIONS')}
+        onApprove={() => setCurrentView('APPLICATION_APPROVE')}
+        onReject={() => setCurrentView('APPLICATION_REJECT')}
+        onRequestMoreInfo={() => setCurrentView('APPLICATION_REQUEST_INFO')}
+      />
+    );
+  }
+
+  if (currentView === 'APPLICATION_APPROVE' && selectedPendingApp) {
+    return (
+      <AdminApplicationApproveScreen
+        application={selectedPendingApp}
+        onBack={() => setCurrentView('APPLICATION_DETAIL')}
+        onConfirmApprove={(notes: string) => {
+          Alert.alert(
+            'Application Approved',
+            `Farmer ${selectedPendingApp.name} has been onboarded to Tohfa Platform successfully!`,
+          );
+          setCurrentView('PENDING_APPLICATIONS');
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'APPLICATION_REJECT' && selectedPendingApp) {
+    return (
+      <AdminApplicationRejectScreen
+        application={selectedPendingApp}
+        onBack={() => setCurrentView('APPLICATION_DETAIL')}
+        onConfirmReject={(reason: string, details?: string) => {
+          Alert.alert(
+            'Application Rejected',
+            `Application for ${selectedPendingApp.name} was rejected.\nReason: ${reason}`,
+          );
+          setCurrentView('PENDING_APPLICATIONS');
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'APPLICATION_REQUEST_INFO' && selectedPendingApp) {
+    return (
+      <AdminApplicationRequestInfoScreen
+        application={selectedPendingApp}
+        onBack={() => setCurrentView('APPLICATION_DETAIL')}
+        onConfirmRequest={(items: string[], message: string) => {
+          Alert.alert(
+            'Information Requested',
+            `SMS & notification dispatched to ${selectedPendingApp.name} for ${items.length} requested item(s).`,
+          );
+          setCurrentView('PENDING_APPLICATIONS');
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'FARMER_DETAIL' && selectedFarmer) {
+    return (
+      <AdminFarmerDetailScreen
+        farmer={selectedFarmer}
+        initialTab={farmerDetailTab}
+        onTabChange={setFarmerDetailTab}
+        onBack={() => {
+          setFarmerDetailTab('Overview');
+          setCurrentView('MAIN');
+        }}
+        onEdit={() => {
+          Alert.alert('Edit', `Editing ${selectedFarmer.name}`);
+        }}
+        onDisable={() => {
+          Alert.alert('Disabled', `Farmer ${selectedFarmer.name} disabled.`);
+          setFarmerDetailTab('Overview');
+          setCurrentView('MAIN');
+        }}
+        onOpenFarmMap={() => {
+          setFarmerDetailTab('Farm');
+          setCurrentView('FARM_MAP');
+        }}
+        onOpenKycReview={() => {
+          setFarmerDetailTab('KYC');
+          setCurrentView('KYC_REVIEW');
+        }}
+        onOpenRatingScorecard={() => {
+          setFarmerDetailTab('Ratings');
+          setCurrentView('RATING_SCORECARD');
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'FARM_MAP' && selectedFarmer) {
+    return (
+      <AdminFarmMapScreen
+        farmer={selectedFarmer}
+        onBack={() => {
+          setFarmerDetailTab('Farm');
+          setCurrentView('FARMER_DETAIL');
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'KYC_REVIEW' && selectedFarmer) {
+    return (
+      <AdminKycReviewScreen
+        farmer={selectedFarmer}
+        onBack={() => {
+          setFarmerDetailTab('KYC');
+          setCurrentView('FARMER_DETAIL');
+        }}
+        onGoToCertificationVerification={() => setCurrentView('CERT_VERIFICATION')}
+      />
+    );
+  }
+
+  if (currentView === 'CERT_VERIFICATION' && selectedFarmer) {
+    return (
+      <AdminCertVerificationScreen
+        farmer={selectedFarmer}
+        onBack={() => setCurrentView('KYC_REVIEW')}
+        onVerified={() => {
+          setCurrentView('KYC_REVIEW');
+        }}
+        onUnverified={() => {
+          setCurrentView('KYC_REVIEW');
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'RATING_SCORECARD' && selectedFarmer) {
+    return (
+      <AdminRatingScorecardScreen
+        farmer={selectedFarmer}
+        onBack={() => {
+          setFarmerDetailTab('Ratings');
+          setCurrentView('FARMER_DETAIL');
+        }}
+        onOpenComplianceTiers={() => setCurrentView('COMPLIANCE_TIERS')}
+        onEditCategories={() => {
+          Alert.alert('Edit Categories', `Editing categories for ${selectedFarmer.name}`);
+        }}
+      />
+    );
+  }
+
+  if (currentView === 'COMPLIANCE_TIERS') {
+    return (
+      <AdminComplianceTiersScreen
+        onBack={() => setCurrentView('RATING_SCORECARD')}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={A.pageBg} />
       <View style={{ flex: 1 }}>
-        {activeTab === 'Dashboard' ? <DashboardContent /> :
-         activeTab === 'Profile'   ? <ProfileContent />  :
-         <Placeholder label={activeTab} />}
+        {activeTab === 'Dashboard' ? (
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
+            <PageHeader />
+            {roleCode === 'SUPER_ADMIN' ? (
+              <SuperAdminDashboard />
+            ) : roleCode === 'TOHFA_ADMIN' ? (
+              <TohfaAdminDashboard
+                onSeeAllPending={() => setCurrentView('PENDING_APPLICATIONS')}
+                onSelectPending={(app) => {
+                  setSelectedPendingApp(app);
+                  setCurrentView('APPLICATION_DETAIL');
+                }}
+              />
+            ) : roleCode === 'FARMER_ADMIN' ? (
+              <FarmerAdminDashboard />
+            ) : roleCode === 'MAIN_WH_ADMIN' ? (
+              <MainWhAdminDashboard />
+            ) : (
+              <SubWhAdminDashboard />
+            )}
+            <View style={{ height: 32 }} />
+          </ScrollView>
+        ) : activeTab === 'Farmers' ? (
+          <AdminAllFarmersScreen
+            onSelectFarmer={(farmer: FarmerListItem) => {
+              setSelectedFarmer(farmer);
+              setFarmerDetailTab('Overview');
+              setCurrentView('FARMER_DETAIL');
+            }}
+          />
+        ) : activeTab === 'Profile' ? (
+          <ProfileContent />
+        ) : (
+          <Placeholder label={activeTab} />
+        )}
       </View>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
           const active = activeTab === tab.name;
+          const color = active ? '#F0562A' : '#4A443F';
           return (
             <Pressable
               key={tab.name}
               style={styles.tabItem}
-              onPress={() => setActiveTab(tab.name)}
+              onPress={() => handleTabPress(tab.name)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
             >
-              <Icon name={tab.icon} size={24} color={active ? accent : A.muted} />
-              <Text style={[styles.tabLabel, active && { color: accent, fontWeight: '700' }]}>
+              {tab.name === 'Dashboard' ? (
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Rect x="3" y="3" width="7.5" height="7.5" rx="1.5" stroke={color} strokeWidth="2" />
+                  <Rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" stroke={color} strokeWidth="2" />
+                  <Rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" stroke={color} strokeWidth="2" />
+                  <Rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" stroke={color} strokeWidth="2" />
+                </Svg>
+              ) : tab.name === 'Farmers' ? (
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15C10.9391 15 9.92172 15.4214 9.17157 16.1716C8.42143 16.9217 8 17.9391 8 19V21"
+                    stroke={color}
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <Path
+                    d="M12 11C13.6569 11 15 9.65685 15 8C15 6.34315 13.6569 5 12 5C10.3431 5 9 6.34315 9 8C9 9.65685 10.3431 11 12 11Z"
+                    stroke={color}
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              ) : tab.name === 'Sales' ? (
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Rect x="3" y="5" width="18" height="14" rx="2" stroke={color} strokeWidth="1.8" />
+                  <Path d="M3 11H21" stroke={color} strokeWidth="1.8" />
+                </Svg>
+              ) : tab.name === 'Reports' ? (
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M18 20V10M12 20V4M6 20V14"
+                    stroke={color}
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <Path
+                    d="M3 20H21"
+                    stroke={color}
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              ) : (
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M19 20C19 16.6863 15.866 14 12 14C8.13401 14 5 16.6863 5 20"
+                    stroke={color}
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <Path
+                    d="M12 11C13.933 11 15.5 9.433 15.5 7.5C15.5 5.567 13.933 4 12 4C10.067 4 8.5 5.567 8.5 7.5C8.5 9.433 10.067 11 12 11Z"
+                    stroke={color}
+                    strokeWidth="1.8"
+                  />
+                </Svg>
+              )}
+              <Text style={[styles.tabLabel, active && { color: '#F0562A', fontWeight: '700' }]}>
                 {tab.label}
               </Text>
             </Pressable>
@@ -699,21 +1300,22 @@ const styles = StyleSheet.create({
   scrollPad: { paddingHorizontal: 20, paddingTop: 20 },
 
   pageHeader:   { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
-  greetSmall:   { fontSize: 13, color: A.muted, marginBottom: 2 },
-  greetName:    { fontSize: 24, fontWeight: '700', color: A.ink, marginBottom: 8, letterSpacing: -0.3 },
-  rolePill:     { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  rolePillText: { fontSize: 12, fontWeight: '600' },
+  greetSmall:   { fontSize: 13, color: '#78736E', marginBottom: 2 },
+  greetName:    { fontSize: 24, fontWeight: '800', color: '#1A1412', marginBottom: 8, letterSpacing: -0.3 },
+  rolePill:     { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#FFF2EE', borderWidth: 1, borderColor: '#F5DDD6', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  rolePillText: { fontSize: 12, fontWeight: '700', color: '#662208' },
   avatarCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  headerAvatarCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFF1EE', alignItems: 'center', justifyContent: 'center' },
 
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
-  sectionTitle: { fontSize: 15, fontWeight: '700' },
-  sectionAction:{ fontSize: 13, fontWeight: '600' },
+  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, marginTop: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#662208' },
+  sectionAction:{ fontSize: 13, fontWeight: '700', color: '#F0562A' },
 
   statsGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-  statCard:   { flex: 1, minWidth: '45%', backgroundColor: A.cardBg, borderRadius: CARD_RADIUS, padding: 14, ...CARD_SHADOW },
-  statIconBox:{ width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  statValue:  { fontSize: 22, fontWeight: '700', color: A.ink, marginBottom: 2, letterSpacing: -0.3 },
-  statLabel:  { fontSize: 12, color: A.body, marginBottom: 5 },
+  statCard:   { flex: 1, minWidth: '47%', backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1.5, borderColor: '#F0ECE4', padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  statIconBox:{ width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  statValue:  { fontSize: 26, fontWeight: '800', color: '#1A1412', marginBottom: 4, letterSpacing: -0.5 },
+  statLabel:  { fontSize: 13, fontWeight: '500', color: '#6B6560' },
   statDelta:  { fontSize: 11, fontWeight: '500' },
 
   cardStack: { gap: 10, marginBottom: 20 },
@@ -732,18 +1334,27 @@ const styles = StyleSheet.create({
   alertSub:  { fontSize: 12, color: A.body, lineHeight: 17, marginBottom: 8, paddingLeft: 22 },
   alertLink: { fontSize: 12, fontWeight: '600', color: A.orange, paddingLeft: 22 },
 
-  farmerAppRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: A.cardBg, borderRadius: CARD_RADIUS, padding: 14, gap: 12, ...CARD_SHADOW },
-  farmerAppIcon:   { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  farmerAppRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1.5, borderColor: '#F0ECE4', padding: 14, gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  farmerAppIcon:   { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF1EE', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   farmerAppText:   { flex: 1 },
-  farmerAppName:   { fontSize: 14, fontWeight: '600', color: A.ink, marginBottom: 3 },
-  farmerAppStatus: { fontSize: 12, color: A.body, lineHeight: 17 },
+  farmerAppName:   { fontSize: 15, fontWeight: '700', color: '#1A1412', marginBottom: 3 },
+  farmerAppStatus: { fontSize: 13, color: '#78736E', lineHeight: 18 },
+
+  salesSnapshotCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1.5, borderColor: '#F0ECE4', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  salesSnapshotLeftBar: { width: 5, backgroundColor: '#0E4473' },
+  salesSnapshotContent: { flex: 1, padding: 16 },
+  salesSnapshotHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  salesSnapshotBold: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1A1412' },
+  salesSnapshotSub: { fontSize: 13, color: '#78736E', lineHeight: 18 },
 
   infoCard:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: A.cardBg, borderRadius: CARD_RADIUS, padding: 14, borderLeftWidth: 3, ...CARD_SHADOW },
   infoIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   infoCardBold:{ fontSize: 13, fontWeight: '700', color: A.ink, marginBottom: 4, lineHeight: 18 },
   infoCardSub: { fontSize: 12, color: A.body, lineHeight: 17 },
 
-  quickRow:    { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  quickRow:    { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  quickActionCard: { flex: 1, height: 105, backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1.5, borderColor: '#F0ECE4', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 4, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  quickActionLabel: { fontSize: 12, fontWeight: '700', color: '#1A1412', textAlign: 'center', lineHeight: 16 },
   quickBtn:    { flex: 1, alignItems: 'center', gap: 8 },
   quickIconBox:{ width: 58, height: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...CARD_SHADOW },
   quickLabel:  { fontSize: 11, fontWeight: '600', color: A.ink, textAlign: 'center', lineHeight: 15 },

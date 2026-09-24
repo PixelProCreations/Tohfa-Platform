@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon } from '../../assets/icons/AssetIcons';
 import { useTheme } from '../../theme';
 import { Step1Personal } from './Step1Personal';
 import { Step2FarmDetails } from './Step2FarmDetails';
@@ -136,7 +137,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
               ]}
               onPress={handleBack}
             >
-              <Text style={[styles.backButtonArrow, { color: colors.brandGreen }]}>‹</Text>
+              <BackButtonIcon size={20} />
             </TouchableOpacity>
             <View>
               <Text style={[styles.headerTitle, { color: colors.textDark }]}>{stepTitle}</Text>
