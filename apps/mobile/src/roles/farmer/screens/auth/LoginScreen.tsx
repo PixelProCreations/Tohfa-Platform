@@ -84,6 +84,7 @@ interface LoginScreenProps {
       | 'MainTabs'
       | 'AdminMain'
       | 'CustomerMain'
+      | 'AdminMain'
       | 'Unsupported'
       | 'Register',
     params?: Record<string, string | number | undefined>,

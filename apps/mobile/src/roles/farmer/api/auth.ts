@@ -72,13 +72,24 @@ export interface UserMe {
 export type ResolvedAppRole = 'FARMER' | 'CUSTOMER' | 'ADMIN' | 'UNSUPPORTED';
 
 /** Admin role codes that get their own admin dashboard on mobile. */
-const ADMIN_ROLE_CODES = [
+export const ADMIN_ROLE_CODES = [
   'SUPER_ADMIN',
   'TOHFA_ADMIN',
   'MAIN_WH_ADMIN',
   'SUB_WH_ADMIN',
   'FARMER_ADMIN',
 ] as const;
+
+export type AdminRoleCode = (typeof ADMIN_ROLE_CODES)[number];
+
+export function getPrimaryAdminRole(roles: UserRole[]): AdminRoleCode | null {
+  if (roles.some((r) => r.code === 'SUPER_ADMIN')) return 'SUPER_ADMIN';
+  if (roles.some((r) => r.code === 'TOHFA_ADMIN')) return 'TOHFA_ADMIN';
+  if (roles.some((r) => r.code === 'FARMER_ADMIN')) return 'FARMER_ADMIN';
+  if (roles.some((r) => r.code === 'MAIN_WH_ADMIN')) return 'MAIN_WH_ADMIN';
+  if (roles.some((r) => r.code === 'SUB_WH_ADMIN')) return 'SUB_WH_ADMIN';
+  return null;
+}
 
 export function resolveAppRole(roles: UserRole[]): ResolvedAppRole {
   // Admin roles take highest priority so an account that has both SUPER_ADMIN
@@ -243,11 +254,12 @@ export function renderOtpState(input: RenderOtpStateInput): RenderOtpStateResult
 
 export function resolveRouteAfterAuth(me: UserMe): {
   name: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'AdminMain' | 'Unsupported';
-  params?: { applicationId: string };
+  params?: { applicationId?: string; adminRole?: AdminRoleCode };
 } {
   const role = resolveAppRole(me.roles);
   if (role === 'ADMIN') {
-    return { name: 'AdminMain' };
+    const adminRole = getPrimaryAdminRole(me.roles) ?? 'SUPER_ADMIN';
+    return { name: 'AdminMain', params: { adminRole } };
   }
   if (role === 'CUSTOMER') {
     return { name: 'CustomerMain' };
