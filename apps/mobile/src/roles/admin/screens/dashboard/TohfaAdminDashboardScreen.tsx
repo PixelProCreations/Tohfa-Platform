@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  Pressable,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,44 +11,58 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { colors } from '../../../farmer/theme';
+import {
+  AdminAllFarmersScreen,
+  AdminFarmerDetailScreen,
+  AdminFarmMapScreen,
+  AdminRatingScorecardScreen,
+  type FarmerListItem,
+} from '../farmers';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#7E2E11', // Deep terracotta heading color
-  orange:        '#E85226', // Vibrant signature orange
-  pageBg:        '#FAF8F5', // Warm light cream
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412', // Near-black text
-  labelMuted:    '#6D6761', // Secondary muted text
-  border:        '#ECE8E1', // Soft card border
-  peachBadge:    '#FDEEE9', // Soft peach pill background
-  peachText:     '#943818', // Deep terracotta pill text
-  peachIconBg:   '#FDEEE9',
-  blueIconBg:    '#EBF3FA',
-  blueText:      '#2563EB',
-  greenIconBg:   '#EAF5EA',
-  greenText:     '#2E7D32',
-  amberIconBg:   '#FEF3C7',
-  amberText:     '#B45309',
-  purpleIconBg:  '#F3E8FF',
-  purpleText:    '#7E22CE',
-  tabInactive:   '#6D6761',
-  tabBorder:     '#EDE8E0',
-  checkGreen:    '#0D8253',
+  pageBg: '#FFFFFF',
+  cardBg: '#FFFFFF',
+  textHeading: '#6B230B', // Dark chestnut / rust color for section titles
+  textPrimary: '#111827', // Crisp near-black for primary text & numbers
+  textSecondary: '#6B7280', // Neutral gray for secondary / timestamp text
+  textMuted: '#4B5563', // Slate gray for card labels
+  orangePrimary: '#D9532F', // Signature terracotta / orange
+  orangeLight: '#FFF1EB', // Soft peach icon & avatar background
+  borderSoft: '#F0ECE6', // Subtle warm card borders
+  badgeBg: '#FFF1EB',
+  badgeBorder: '#FAD9CC',
+  badgeText: '#8B2C0D', // Deep terracotta badge text
+  blueAccent: '#0A4A7A', // Deep navy for sales channel snapshot accent
+  blueIconBg: '#EBF3FA',
+  blueIcon: '#1D6399',
+  amberIconBg: '#FFF4E8',
+  amberIcon: '#C05621',
+  purpleIconBg: '#F0EEFC',
+  purpleIcon: '#5B45B2',
+  tabInactive: '#4B5563',
+  tabActive: '#D9532F',
+  tabBorder: '#ECE8E3',
 };
 
-type TohfaAdminTab = 'Dashboard' | 'Listings' | 'Pricing' | 'Allocations' | 'Profile';
+export type TohfaAdminTab = 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-function ShieldIcon() {
+function ShieldCheckIcon({ color = PALETTE.badgeText, size = 13 }: { color?: string; size?: number }) {
   return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke={PALETTE.peachText}
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 12l2 2 4-4"
+        stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -57,12 +71,21 @@ function ShieldIcon() {
   );
 }
 
-function PersonAvatarIcon() {
+function PersonAvatarIcon({ color = PALETTE.orangePrimary, size = 24 }: { color?: string; size?: number }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
-        stroke={PALETTE.orange}
+        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle
+        cx="12"
+        cy="7"
+        r="4"
+        stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -71,122 +94,268 @@ function PersonAvatarIcon() {
   );
 }
 
-function TagPriceIcon() {
+function UserPlusIcon({ color = PALETTE.orangePrimary, size = 18 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
+        d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"
+        stroke={color}
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="7" cy="7" r="1.5" fill={PALETTE.orange} />
+      <Circle
+        cx="8.5"
+        cy="7"
+        r="4"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line
+        x1="19"
+        y1="8"
+        x2="19"
+        y2="14"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line
+        x1="22"
+        y1="11"
+        x2="16"
+        y2="11"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function ListingsIcon() {
+function PackageCubeIcon({ color = PALETTE.blueIcon, size = 18 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={PALETTE.blueText} strokeWidth="2" />
-      <Path d="M7 8h10M7 12h10M7 16h6" stroke={PALETTE.blueText} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function AllocationsIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
-        stroke={PALETTE.greenText}
-        strokeWidth="2"
+        stroke={color}
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={PALETTE.greenText} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function WarehouseIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={PALETTE.amberText}
-        strokeWidth="2"
+        d="M3.27 6.96L12 12.01l8.73-5.05"
+        stroke={color}
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function TrendingUpIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M23 6l-9.5 9.5-5-5L1 18"
-        stroke={PALETTE.checkGreen}
-        strokeWidth="2.5"
+        d="M12 22.08V12"
+        stroke={color}
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M17 6h6v6" stroke={PALETTE.checkGreen} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function CheckCircleIcon() {
+function EditChecklistIcon({ color = PALETTE.amberIcon, size = 18 }: { color?: string; size?: number }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={PALETTE.checkGreen} strokeWidth="2" />
-      <Path d="M8 12l3 3 6-6" stroke={PALETTE.checkGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-// ─── Sub-Components ───────────────────────────────────────────────────────────
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function MicrophoneIcon({ color = PALETTE.purpleIcon, size = 18 }: { color?: string; size?: number }) {
   return (
-    <View style={styles.secHeader}>
-      <Text style={styles.secTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.secSubtitle}>{subtitle}</Text> : null}
-    </View>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 10v2a7 7 0 01-14 0v-2"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line
+        x1="12"
+        y1="19"
+        x2="12"
+        y2="22"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
 
-function StatCard({
-  iconBox,
-  value,
-  label,
-  delta,
-  deltaPositive = true,
-}: {
-  iconBox: React.ReactNode;
-  value: string;
-  label: string;
-  delta: string;
-  deltaPositive?: boolean;
-}) {
+function ChevronRightIcon({ color = PALETTE.textSecondary, size = 18 }: { color?: string; size?: number }) {
   return (
-    <View style={styles.statCard}>
-      <View style={styles.statTopRow}>
-        {iconBox}
-        <Text style={[styles.statDelta, { color: deltaPositive ? PALETTE.checkGreen : PALETTE.orange }]}>
-          {delta}
-        </Text>
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 18l6-6-6-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
 
+function WindowSplitIcon({ color = PALETTE.blueAccent, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="2.2" />
+      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function QuickHexagonCubeIcon({ color = PALETTE.orangePrimary, size = 26 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function QuickCalendarIcon({ color = PALETTE.orangePrimary, size = 26 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="2.2" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function QuickBarChartIcon({ color = PALETTE.orangePrimary, size = 26 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 20h18" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M7 20V14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M12 20V8" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M17 20V4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Bottom Navigation Icons ──────────────────────────────────────────────────
+function NavDashboardIcon({ color = PALETTE.tabActive, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+    </Svg>
+  );
+}
+
+function NavFarmersIcon({ color = PALETTE.tabInactive, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21v-2a4 4 0 00-3-3.87"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 21v-2a4 4 0 00-4-4H4a4 4 0 00-4 4v2"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M23 21v-2a4 4 0 00-3-3.87"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M16 3.13a4 4 0 010 7.75" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NavSalesIcon({ color = PALETTE.tabInactive, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2.2" />
+      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function NavReportsIcon({ color = PALETTE.tabInactive, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 20h18" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M7 20V14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M12 20V9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M17 20V5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function NavProfileIcon({ color = PALETTE.tabInactive, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// ─── Types & Props ────────────────────────────────────────────────────────────
 export interface TohfaAdminDashboardScreenProps {
-  onSignOut: () => void;
+  onSignOut?: () => void;
   onNavigate?: (screen: string) => void;
   onSwitchRole?: (role: string) => void;
 }
@@ -199,61 +368,20 @@ export function TohfaAdminDashboardScreen({
   const [activeTab, setActiveTab] = useState<TohfaAdminTab>('Dashboard');
   const [user, setUser] = useState<UserMe | null>(null);
 
-  // Mock interactive queue state
-  const [listings, setListings] = useState([
-    {
-      id: 'LST-902',
-      farmer: 'K. Ramasamy',
-      location: 'Coonoor Valley',
-      crop: 'Nilgiris CTC Tea (Leaf Grade A)',
-      qty: '2,400 kg',
-      askingPrice: 240,
-      fairPrice: 245,
-      status: 'PENDING',
-    },
-    {
-      id: 'LST-903',
-      farmer: 'M. Senthil',
-      location: 'Ooty Hills',
-      crop: 'Organic Hill Carrots',
-      qty: '1,800 kg',
-      askingPrice: 39,
-      fairPrice: 38,
-      status: 'PENDING',
-    },
-    {
-      id: 'LST-904',
-      farmer: 'S. Selvaraj',
-      location: 'Kotagiri Ridge',
-      crop: 'Table Beetroot (Grade A)',
-      qty: '3,200 kg',
-      askingPrice: 42,
-      fairPrice: 42,
-      status: 'PENDING',
-    },
-    {
-      id: 'LST-905',
-      farmer: 'P. Murugan',
-      location: 'Gudalur Lowlands',
-      crop: 'Nilgiris Special Garlic',
-      qty: '950 kg',
-      askingPrice: 175,
-      fairPrice: 180,
-      status: 'PENDING',
-    },
-  ]);
+  // Modal / Interaction states
+  const [activeModal, setActiveModal] = useState<
+    'approveListings' | 'scheduleAudit' | 'support' | null
+  >(null);
+  const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
 
-  // Fair price rates
-  const [prices, setPrices] = useState([
-    { id: '1', crop: 'Nilgiris CTC Tea (Grade A)', current: 245, prev: 238, change: '+₹7 (2.9%)', unit: '₹/kg' },
-    { id: '2', crop: 'Organic Nilgiris Carrots', current: 38, prev: 35, change: '+₹3 (8.5%)', unit: '₹/kg' },
-    { id: '3', crop: 'Table Beetroot (Grade A)', current: 42, prev: 42, change: '0.0%', unit: '₹/kg' },
-    { id: '4', crop: 'Hill Garlic (Super Grade)', current: 180, prev: 172, change: '+₹8 (4.6%)', unit: '₹/kg' },
-    { id: '5', crop: 'Nilgiris Potatoes (Kufri)', current: 28, prev: 29, change: '-₹1 (-3.4%)', unit: '₹/kg' },
-  ]);
-
-  const [priceModalCrop, setPriceModalCrop] = useState<string | null>(null);
-  const [newPriceInput, setNewPriceInput] = useState('');
+  // Operational snapshot dynamic counters
+  const [stats, setStats] = useState({
+    pendingApplications: 9,
+    listingsToApprove: 23,
+    auditsQuarter: 6,
+    openTickets: 14,
+  });
 
   useEffect(() => {
     fetchMe()
@@ -261,32 +389,22 @@ export function TohfaAdminDashboardScreen({
       .catch(() => {});
   }, []);
 
-  const displayName = user?.fullName ?? 'Tohfa Platform Admin';
+  const adminName = user?.fullName ?? 'Ganga Devi';
 
-  const handleApproveListing = (id: string) => {
-    setListings((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status: 'APPROVED' } : l))
-    );
-    Alert.alert('Listing Approved', `Listing #${id} is now active and allocated to B2B/B2C marketplace catalogs.`);
+  const handleOpenFarmers = () => {
+    if (onNavigate) {
+      onNavigate('AdminAllFarmers');
+    } else {
+      setActiveTab('Farmers');
+    }
   };
 
-  const handleUpdatePrice = () => {
-    if (!priceModalCrop || !newPriceInput) return;
-    const num = parseFloat(newPriceInput);
-    if (isNaN(num) || num <= 0) {
-      Alert.alert('Invalid Price', 'Please enter a valid positive number.');
-      return;
+  const handleOpenPendingApplications = () => {
+    if (onNavigate) {
+      onNavigate('AdminPendingApplications');
+    } else {
+      setActiveTab('Farmers');
     }
-    setPrices((prev) =>
-      prev.map((p) =>
-        p.crop === priceModalCrop
-          ? { ...p, prev: p.current, current: num, change: `${num >= p.current ? '+' : ''}${num - p.current} ₹/kg` }
-          : p
-      )
-    );
-    Alert.alert('Fair Price Updated', `Updated fair price for ${priceModalCrop} to ₹${num}/kg. Mandi parity recalculation complete.`);
-    setPriceModalCrop(null);
-    setNewPriceInput('');
   };
 
   return (
@@ -294,407 +412,625 @@ export function TohfaAdminDashboardScreen({
       <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       <View style={{ flex: 1 }}>
+        {/* ══════════════════════════════════════════════════════════════════════
+            DASHBOARD TAB (Main Screen matching user design 100%)
+           ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Dashboard' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <View style={styles.pageHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.greetSmall}>Platform Operations,</Text>
-                <Text style={styles.greetName}>{displayName}</Text>
-                <View style={styles.rolePill}>
-                  <ShieldIcon />
-                  <Text style={styles.rolePillText}>Tohfa Platform Admin</Text>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header: Greeting, Admin Name, Badge, Avatar */}
+            <View style={styles.headerRow}>
+              <View style={styles.headerLeftCol}>
+                <Text style={styles.greetingText}>Good morning,</Text>
+                <Text style={styles.adminNameText}>{adminName}</Text>
+                <View style={styles.adminBadge}>
+                  <ShieldCheckIcon />
+                  <Text style={styles.adminBadgeText}>TOHFA Admin</Text>
                 </View>
               </View>
+
               <TouchableOpacity
-                style={styles.avatarCircle}
+                style={styles.avatarButton}
                 onPress={() => setActiveTab('Profile')}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Admin Profile"
               >
                 <PersonAvatarIcon />
               </TouchableOpacity>
             </View>
 
-            {/* Live Metrics */}
-            <SectionHeader title="Market & Platform Overview" subtitle="Real-time Nilgiris produce exchange health" />
-            <View style={styles.statsGrid}>
-              <StatCard
-                iconBox={<View style={[styles.statIconBox, { backgroundColor: PALETTE.peachIconBg }]}><ListingsIcon /></View>}
-                value="142"
-                label="Active Listings"
-                delta="↑ +18 today"
-              />
-              <StatCard
-                iconBox={<View style={[styles.statIconBox, { backgroundColor: PALETTE.amberIconBg }]}><TagPriceIcon /></View>}
-                value="18"
-                label="Pending Approvals"
-                delta="Action req."
-                deltaPositive={false}
-              />
-              <StatCard
-                iconBox={<View style={[styles.statIconBox, { backgroundColor: PALETTE.greenIconBg }]}><AllocationsIcon /></View>}
-                value="₹245/kg"
-                label="Fair Price (Tea)"
-                delta="↑ +2.9% index"
-              />
-              <StatCard
-                iconBox={<View style={[styles.statIconBox, { backgroundColor: PALETTE.blueIconBg }]}><WarehouseIcon /></View>}
-                value="4 / 4"
-                label="Warehouses Active"
-                delta="✓ All online"
-              />
+            {/* Section 1: Today's operational snapshot */}
+            <Text style={styles.sectionHeading}>Today’s operational snapshot</Text>
+
+            {/* 2x2 Snapshot Grid */}
+            <View style={styles.snapshotGrid}>
+              {/* Row 1 */}
+              <View style={styles.gridRow}>
+                {/* Card 1: 9 Pending Applications */}
+                <TouchableOpacity
+                  style={styles.snapshotCard}
+                  onPress={handleOpenPendingApplications}
+                  activeOpacity={0.85}
+                >
+                  <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.orangeLight }]}>
+                    <UserPlusIcon color={PALETTE.orangePrimary} />
+                  </View>
+                  <Text style={styles.snapshotValue}>{stats.pendingApplications}</Text>
+                  <Text style={styles.snapshotLabel}>Pending Applications</Text>
+                </TouchableOpacity>
+
+                {/* Card 2: 23 Listings to Approve */}
+                <TouchableOpacity
+                  style={styles.snapshotCard}
+                  onPress={() => setActiveModal('approveListings')}
+                  activeOpacity={0.85}
+                >
+                  <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.blueIconBg }]}>
+                    <PackageCubeIcon color={PALETTE.blueIcon} />
+                  </View>
+                  <Text style={styles.snapshotValue}>{stats.listingsToApprove}</Text>
+                  <Text style={styles.snapshotLabel}>Listings to Approve</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 2 */}
+              <View style={styles.gridRow}>
+                {/* Card 3: 6 Audits This Quarter */}
+                <TouchableOpacity
+                  style={styles.snapshotCard}
+                  onPress={() => setActiveModal('scheduleAudit')}
+                  activeOpacity={0.85}
+                >
+                  <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.amberIconBg }]}>
+                    <EditChecklistIcon color={PALETTE.amberIcon} />
+                  </View>
+                  <Text style={styles.snapshotValue}>{stats.auditsQuarter}</Text>
+                  <Text style={styles.snapshotLabel}>Audits This Quarter</Text>
+                </TouchableOpacity>
+
+                {/* Card 4: 14 Open Support Tickets */}
+                <TouchableOpacity
+                  style={styles.snapshotCard}
+                  onPress={() => setActiveModal('support')}
+                  activeOpacity={0.85}
+                >
+                  <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.purpleIconBg }]}>
+                    <MicrophoneIcon color={PALETTE.purpleIcon} />
+                  </View>
+                  <Text style={styles.snapshotValue}>{stats.openTickets}</Text>
+                  <Text style={styles.snapshotLabel}>Open Support Tickets</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Quick Actions */}
-            <SectionHeader title="Platform Controls" />
-            <View style={styles.quickGrid}>
+            {/* Section 2: Pending farmer applications */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Pending farmer applications</Text>
               <TouchableOpacity
-                style={styles.quickActionTile}
-                onPress={() => setActiveTab('Pricing')}
-                activeOpacity={0.75}
+                onPress={handleOpenPendingApplications}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <View style={[styles.quickIconCircle, { backgroundColor: PALETTE.peachIconBg }]}>
-                  <TagPriceIcon />
-                </View>
-                <Text style={styles.quickActionTitle}>Fair Price Discovery</Text>
-                <Text style={styles.quickActionDesc}>Set benchmark rates & mandi parity</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionTile}
-                onPress={() => setActiveTab('Listings')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.quickIconCircle, { backgroundColor: PALETTE.blueIconBg }]}>
-                  <ListingsIcon />
-                </View>
-                <Text style={styles.quickActionTitle}>Listings Queue (18)</Text>
-                <Text style={styles.quickActionDesc}>Approve & grade verify batches</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionTile}
-                onPress={() => setActiveTab('Allocations')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.quickIconCircle, { backgroundColor: PALETTE.greenIconBg }]}>
-                  <AllocationsIcon />
-                </View>
-                <Text style={styles.quickActionTitle}>Channel Allocations</Text>
-                <Text style={styles.quickActionDesc}>B2B wholesale, retail & export</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionTile}
-                onPress={() => setActiveTab('Profile')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.quickIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                  <WarehouseIcon />
-                </View>
-                <Text style={styles.quickActionTitle}>Warehouse Network</Text>
-                <Text style={styles.quickActionDesc}>4 Hubs (Ooty, Coonoor, Gudalur, Kotagiri)</Text>
+                <Text style={styles.seeAllText}>See all</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Pending Approvals Spotlight */}
-            <SectionHeader title="Urgent: Listings Awaiting Approval" subtitle="Review farmer batch pricing & quality specs" />
-            <View style={styles.cardStack}>
-              {listings.slice(0, 2).map((item) => (
-                <View key={item.id} style={styles.listingCard}>
-                  <View style={styles.listingHeader}>
-                    <View>
-                      <Text style={styles.listingId}>{item.id} • {item.location}</Text>
-                      <Text style={styles.listingCrop}>{item.crop}</Text>
-                      <Text style={styles.listingFarmer}>Farmer: {item.farmer} • {item.qty}</Text>
-                    </View>
-                    <View style={styles.pricePill}>
-                      <Text style={styles.pricePillText}>₹{item.askingPrice}/kg</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.listingDivider} />
-
-                  <View style={styles.listingBottom}>
-                    <Text style={styles.fairPriceHint}>
-                      Fair Price Benchmark: <Text style={{ fontWeight: '700', color: PALETTE.titleRust }}>₹{item.fairPrice}/kg</Text>
-                    </Text>
-                    {item.status === 'APPROVED' ? (
-                      <View style={styles.approvedBadge}>
-                        <CheckCircleIcon />
-                        <Text style={styles.approvedText}>Approved</Text>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.approveBtn}
-                        onPress={() => handleApproveListing(item.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.approveBtnText}>Approve Batch</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-
-            {/* Warehouses Network Snapshot */}
-            <SectionHeader title="Regional Warehouse Network" />
-            <View style={styles.whGrid}>
-              <View style={styles.whCard}>
-                <Text style={styles.whCode}>WH-MAIN • OOTY</Text>
-                <Text style={styles.whCapacity}>82.4% Full (412 MT)</Text>
-                <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '82.4%' }]} /></View>
+            {/* Farmer Item 1: Muthukumar S. — Kotagiri */}
+            <TouchableOpacity
+              style={styles.farmerCard}
+              onPress={handleOpenPendingApplications}
+              activeOpacity={0.85}
+            >
+              <View style={styles.farmerIconBox}>
+                <PersonAvatarIcon size={22} color={PALETTE.orangePrimary} />
               </View>
-              <View style={styles.whCard}>
-                <Text style={styles.whCode}>WH-COON • COONOOR</Text>
-                <Text style={styles.whCapacity}>64.0% Full (128 MT)</Text>
-                <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '64%' }]} /></View>
+              <View style={styles.farmerInfoCol}>
+                <Text style={styles.farmerNameTitle}>Muthukumar S. — Kotagiri</Text>
+                <Text style={styles.farmerSubText}>Applied 2 days ago · Documents complete</Text>
               </View>
-              <View style={styles.whCard}>
-                <Text style={styles.whCode}>WH-GUDL • GUDALUR</Text>
-                <Text style={styles.whCapacity}>71.2% Full (142 MT)</Text>
-                <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '71.2%' }]} /></View>
+              <ChevronRightIcon color="#737373" size={18} />
+            </TouchableOpacity>
+
+            {/* Farmer Item 2: Lakshmi R. — Ooty */}
+            <TouchableOpacity
+              style={styles.farmerCard}
+              onPress={handleOpenPendingApplications}
+              activeOpacity={0.85}
+            >
+              <View style={styles.farmerIconBox}>
+                <PersonAvatarIcon size={22} color={PALETTE.orangePrimary} />
               </View>
-              <View style={styles.whCard}>
-                <Text style={styles.whCode}>WH-KOTA • KOTAGIRI</Text>
-                <Text style={styles.whCapacity}>58.0% Full (116 MT)</Text>
-                <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '58%' }]} /></View>
+              <View style={styles.farmerInfoCol}>
+                <Text style={styles.farmerNameTitle}>Lakshmi R. — Ooty</Text>
+                <Text style={styles.farmerSubText}>Applied 4 days ago · Awaiting KYC review</Text>
               </View>
-            </View>
-          </ScrollView>
-        )}
+              <ChevronRightIcon color="#737373" size={18} />
+            </TouchableOpacity>
 
-        {/* Listings Queue Tab */}
-        {activeTab === 'Listings' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <SectionHeader title="Farmer Listings Review Queue" subtitle="Verify batch quality, minimum guarantee & approve for sale" />
-            {listings.map((item) => (
-              <View key={item.id} style={styles.listingCard}>
-                <View style={styles.listingHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.listingId}>{item.id} • {item.location}</Text>
-                    <Text style={styles.listingCrop}>{item.crop}</Text>
-                    <Text style={styles.listingFarmer}>Farmer: {item.farmer} • Quantity: {item.qty}</Text>
-                  </View>
-                  <View style={styles.pricePill}>
-                    <Text style={styles.pricePillText}>₹{item.askingPrice}/kg</Text>
-                  </View>
-                </View>
+            {/* Section 3: Sales channel snapshot */}
+            <Text style={styles.sectionHeading}>Sales channel snapshot</Text>
 
-                <View style={styles.listingDivider} />
-
-                <View style={styles.listingBottom}>
-                  <Text style={styles.fairPriceHint}>
-                    Mandi Parity Benchmark: <Text style={{ fontWeight: '700', color: PALETTE.titleRust }}>₹{item.fairPrice}/kg</Text>
-                  </Text>
-                  {item.status === 'APPROVED' ? (
-                    <View style={styles.approvedBadge}>
-                      <CheckCircleIcon />
-                      <Text style={styles.approvedText}>Active in Catalog</Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity
-                        style={styles.approveBtn}
-                        onPress={() => handleApproveListing(item.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.approveBtnText}>Approve</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
+            <TouchableOpacity
+              style={styles.salesSnapshotCard}
+              onPress={() => setActiveTab('Sales')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.salesCardTopRow}>
+                <WindowSplitIcon color={PALETTE.blueAccent} size={22} />
+                <Text style={styles.salesCardTitle}>
+                  Online 70% · Market 10% · Horeca/B2B 20%
+                </Text>
               </View>
-            ))}
-          </ScrollView>
-        )}
+              <Text style={styles.salesCardSubtitle}>
+                Current channel split is within the locked 70/10/10/10 allocation policy.
+              </Text>
+            </TouchableOpacity>
 
-        {/* Fair Pricing Tab */}
-        {activeTab === 'Pricing' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <SectionHeader title="Daily Fair Price Discovery" subtitle="Minimum guaranteed farmer baseline rates across Nilgiris" />
-            
-            {prices.map((p) => (
-              <View key={p.id} style={styles.priceCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.priceCropName}>{p.crop}</Text>
-                  <Text style={styles.priceTrend}>{p.change} vs yesterday</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.priceAmount}>₹{p.current}<Text style={styles.priceUnit}> /kg</Text></Text>
-                  <TouchableOpacity
-                    style={styles.editPriceBtn}
-                    onPress={() => {
-                      setPriceModalCrop(p.crop);
-                      setNewPriceInput(String(p.current));
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.editPriceText}>Update Rate</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            {/* Section 4: Quick actions */}
+            <Text style={styles.sectionHeading}>Quick actions</Text>
 
-            {/* Price Edit Modal Inline */}
-            {priceModalCrop && (
-              <View style={styles.priceModalCard}>
-                <Text style={styles.priceModalTitle}>Update Benchmark for {priceModalCrop}</Text>
-                <Text style={styles.priceModalSub}>Enter new daily minimum guaranteed price in ₹/kg</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  keyboardType="numeric"
-                  value={newPriceInput}
-                  onChangeText={setNewPriceInput}
-                  placeholder="e.g. 248"
-                  placeholderTextColor={PALETTE.labelMuted}
-                />
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: '#F0ECE4' }]}
-                    onPress={() => setPriceModalCrop(null)}
-                  >
-                    <Text style={{ color: PALETTE.ink, fontWeight: '600' }}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: PALETTE.orange }]}
-                    onPress={handleUpdatePrice}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Save Price</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </ScrollView>
-        )}
-
-        {/* Allocations Tab */}
-        {activeTab === 'Allocations' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <SectionHeader title="Channel Demand & Allocations" subtitle="Live multi-channel distribution breakdown" />
-            
-            <View style={styles.allocationCard}>
-              <Text style={styles.allocTitle}>B2B Wholesale Channel</Text>
-              <Text style={styles.allocSub}>Institutional Buyers, Hotels, Bulk Packers</Text>
-              <View style={styles.allocMetricsRow}>
-                <Text style={styles.allocMetricVal}>24.5 MT (45%)</Text>
-                <Text style={styles.allocStatusOk}>✓ Optimal Stocking</Text>
-              </View>
-              <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '45%', backgroundColor: PALETTE.blueText }]} /></View>
-            </View>
-
-            <View style={styles.allocationCard}>
-              <Text style={styles.allocTitle}>B2C Consumer Direct</Text>
-              <Text style={styles.allocSub}>Tohfa Fresh Retail & Subscription Boxes</Text>
-              <View style={styles.allocMetricsRow}>
-                <Text style={styles.allocMetricVal}>16.2 MT (30%)</Text>
-                <Text style={styles.allocStatusOk}>✓ Fast Moving</Text>
-              </View>
-              <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '30%', backgroundColor: PALETTE.greenText }]} /></View>
-            </View>
-
-            <View style={styles.allocationCard}>
-              <Text style={styles.allocTitle}>Export & Premium Single-Estate</Text>
-              <Text style={styles.allocSub}>Specialty Tea & High-Elevation GI Crops</Text>
-              <View style={styles.allocMetricsRow}>
-                <Text style={styles.allocMetricVal}>13.5 MT (25%)</Text>
-                <Text style={styles.allocStatusOk}>✓ Premium Clearance</Text>
-              </View>
-              <View style={styles.whBarTrack}><View style={[styles.whBarFill, { width: '25%', backgroundColor: PALETTE.orange }]} /></View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* Profile Tab */}
-        {activeTab === 'Profile' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <View style={styles.profileHeaderCard}>
-              <View style={styles.bigAvatar}><PersonAvatarIcon /></View>
-              <Text style={styles.profName}>{displayName}</Text>
-              <Text style={styles.profRole}>Tohfa Platform Operations Administrator</Text>
-              <Text style={styles.profEmail}>{user?.email ?? 'admin@tohfa.test'}</Text>
-            </View>
-
-            <SectionHeader title="Administrative Account & Session" />
-            <View style={styles.cardStack}>
+            <View style={styles.quickActionsRow}>
+              {/* Action 1: Approve Listings */}
               <TouchableOpacity
-                style={styles.signOutCard}
-                onPress={async () => {
-                  await logout();
-                  onSignOut();
-                }}
+                style={styles.quickActionCard}
+                onPress={() => setActiveModal('approveListings')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.signOutText}>Sign Out of Platform Admin</Text>
+                <QuickHexagonCubeIcon color={PALETTE.orangePrimary} size={26} />
+                <Text style={styles.quickActionLabel}>Approve{'\n'}Listings</Text>
+              </TouchableOpacity>
+
+              {/* Action 2: Schedule Audit */}
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => setActiveModal('scheduleAudit')}
+                activeOpacity={0.8}
+              >
+                <QuickCalendarIcon color={PALETTE.orangePrimary} size={26} />
+                <Text style={styles.quickActionLabel}>Schedule{'\n'}Audit</Text>
+              </TouchableOpacity>
+
+              {/* Action 3: Support */}
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => setActiveModal('support')}
+                activeOpacity={0.8}
+              >
+                <MicrophoneIcon color={PALETTE.orangePrimary} size={26} />
+                <Text style={styles.quickActionLabelSingle}>Support</Text>
+              </TouchableOpacity>
+
+              {/* Action 4: Reports */}
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => setActiveTab('Reports')}
+                activeOpacity={0.8}
+              >
+                <QuickBarChartIcon color={PALETTE.orangePrimary} size={26} />
+                <Text style={styles.quickActionLabelSingle}>Reports</Text>
               </TouchableOpacity>
             </View>
+          </ScrollView>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            FARMERS TAB (Uses existing screens from Farmer management module)
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Farmers' && (
+          farmerSubScreen === 'map' && selectedAdminFarmer ? (
+            <AdminFarmMapScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+            />
+          ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
+            <AdminRatingScorecardScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+              onOpenComplianceTiers={() => {}}
+            />
+          ) : selectedAdminFarmer ? (
+            <AdminFarmerDetailScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setSelectedAdminFarmer(null)}
+              onOpenFarmMap={() => setFarmerSubScreen('map')}
+              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+            />
+          ) : (
+            <AdminAllFarmersScreen
+              onBack={() => setActiveTab('Dashboard')}
+              onSelectFarmer={(f) => {
+                if (onNavigate) {
+                  onNavigate('AdminFarmerDetail');
+                } else {
+                  setSelectedAdminFarmer(f);
+                }
+              }}
+            />
+          )
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            SALES TAB
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Sales' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.subPageHeader}>
+              <TouchableOpacity
+                onPress={() => setActiveTab('Dashboard')}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>← Dashboard</Text>
+              </TouchableOpacity>
+              <Text style={styles.subPageTitle}>Sales & Distribution Channels</Text>
+              <Text style={styles.subPageSubtitle}>
+                Live channel split allocation under the locked 70/10/10/10 policy
+              </Text>
+            </View>
+
+            <View style={styles.channelCard}>
+              <View style={styles.channelHeader}>
+                <Text style={styles.channelName}>Online Direct (B2C Tohfa App)</Text>
+                <Text style={styles.channelPct}>70%</Text>
+              </View>
+              <Text style={styles.channelDesc}>Fresh produce delivered straight to consumer households.</Text>
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: '70%', backgroundColor: PALETTE.orangePrimary }]} />
+              </View>
+            </View>
+
+            <View style={styles.channelCard}>
+              <View style={styles.channelHeader}>
+                <Text style={styles.channelName}>Horeca & Institutional B2B</Text>
+                <Text style={styles.channelPct}>20%</Text>
+              </View>
+              <Text style={styles.channelDesc}>Hotels, restaurants, cafes & wholesale Nilgiris packers.</Text>
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: '20%', backgroundColor: PALETTE.blueAccent }]} />
+              </View>
+            </View>
+
+            <View style={styles.channelCard}>
+              <View style={styles.channelHeader}>
+                <Text style={styles.channelName}>Local Mandi & Retail Outlets</Text>
+                <Text style={styles.channelPct}>10%</Text>
+              </View>
+              <Text style={styles.channelDesc}>Physical retail presence & local hill farmer markets.</Text>
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: '10%', backgroundColor: PALETTE.amberIcon }]} />
+              </View>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            REPORTS TAB
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Reports' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.subPageHeader}>
+              <TouchableOpacity
+                onPress={() => setActiveTab('Dashboard')}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>← Dashboard</Text>
+              </TouchableOpacity>
+              <Text style={styles.subPageTitle}>Operational Reports</Text>
+              <Text style={styles.subPageSubtitle}>Nilgiris regional exchange performance</Text>
+            </View>
+
+            <View style={styles.reportSummaryCard}>
+              <Text style={styles.reportCardTitle}>Quarterly Audit Progress</Text>
+              <Text style={styles.reportCardNumber}>6 / 8 Audits Completed</Text>
+              <Text style={styles.reportCardSub}>Kotagiri & Ooty warehouses 100% compliant with FSSAI & Organic certs.</Text>
+            </View>
+
+            <View style={styles.reportSummaryCard}>
+              <Text style={styles.reportCardTitle}>Mandi Parity Benchmark</Text>
+              <Text style={styles.reportCardNumber}>+8.4% Above Mandi Base</Text>
+              <Text style={styles.reportCardSub}>Farmers earned ₹14.8L more through Tohfa fair price discovery.</Text>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            PROFILE TAB
+           ══════════════════════════════════════════════════════════════════════ */}
+        {activeTab === 'Profile' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.subPageHeader}>
+              <TouchableOpacity
+                onPress={() => setActiveTab('Dashboard')}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>← Dashboard</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.profileCard}>
+              <View style={styles.bigAvatarCircle}>
+                <PersonAvatarIcon size={42} color={PALETTE.orangePrimary} />
+              </View>
+              <Text style={styles.profileName}>{adminName}</Text>
+              <View style={styles.adminBadge}>
+                <ShieldCheckIcon />
+                <Text style={styles.adminBadgeText}>TOHFA Admin</Text>
+              </View>
+              <Text style={styles.profileEmail}>{user?.email ?? 'ganga.devi@tohfa.test'}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.signOutButton}
+              onPress={async () => {
+                await logout();
+                onSignOut?.();
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.signOutButtonText}>Sign Out of TOHFA Admin</Text>
+            </TouchableOpacity>
           </ScrollView>
         )}
       </View>
 
-      {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
+      {/* ══════════════════════════════════════════════════════════════════════
+          BOTTOM NAVIGATION BAR (5 Tabs)
+         ══════════════════════════════════════════════════════════════════════ */}
+      <View style={styles.bottomNav}>
+        {/* Tab 1: Dashboard */}
         <TouchableOpacity
-          style={styles.tabItem}
+          style={styles.navTabItem}
           onPress={() => setActiveTab('Dashboard')}
           activeOpacity={0.7}
         >
-          <View style={activeTab === 'Dashboard' ? styles.tabIconActive : null}>
-            <ListingsIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Dashboard' && styles.tabLabelActive]}>Overview</Text>
+          <NavDashboardIcon
+            color={activeTab === 'Dashboard' ? PALETTE.tabActive : PALETTE.tabInactive}
+          />
+          <Text
+            style={[
+              styles.navTabLabel,
+              activeTab === 'Dashboard' && styles.navTabLabelActive,
+            ]}
+          >
+            Dashboard
+          </Text>
         </TouchableOpacity>
 
+        {/* Tab 2: Farmers */}
         <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Listings')}
+          style={styles.navTabItem}
+          onPress={handleOpenFarmers}
           activeOpacity={0.7}
         >
-          <View style={activeTab === 'Listings' ? styles.tabIconActive : null}>
-            <ListingsIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Listings' && styles.tabLabelActive]}>Listings</Text>
+          <NavFarmersIcon
+            color={activeTab === 'Farmers' ? PALETTE.tabActive : PALETTE.tabInactive}
+          />
+          <Text
+            style={[
+              styles.navTabLabel,
+              activeTab === 'Farmers' && styles.navTabLabelActive,
+            ]}
+          >
+            Farmers
+          </Text>
         </TouchableOpacity>
 
+        {/* Tab 3: Sales */}
         <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Pricing')}
+          style={styles.navTabItem}
+          onPress={() => setActiveTab('Sales')}
           activeOpacity={0.7}
         >
-          <View style={activeTab === 'Pricing' ? styles.tabIconActive : null}>
-            <TagPriceIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Pricing' && styles.tabLabelActive]}>Fair Price</Text>
+          <NavSalesIcon
+            color={activeTab === 'Sales' ? PALETTE.tabActive : PALETTE.tabInactive}
+          />
+          <Text
+            style={[
+              styles.navTabLabel,
+              activeTab === 'Sales' && styles.navTabLabelActive,
+            ]}
+          >
+            Sales
+          </Text>
         </TouchableOpacity>
 
+        {/* Tab 4: Reports */}
         <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Allocations')}
+          style={styles.navTabItem}
+          onPress={() => setActiveTab('Reports')}
           activeOpacity={0.7}
         >
-          <View style={activeTab === 'Allocations' ? styles.tabIconActive : null}>
-            <AllocationsIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Allocations' && styles.tabLabelActive]}>Allocations</Text>
+          <NavReportsIcon
+            color={activeTab === 'Reports' ? PALETTE.tabActive : PALETTE.tabInactive}
+          />
+          <Text
+            style={[
+              styles.navTabLabel,
+              activeTab === 'Reports' && styles.navTabLabelActive,
+            ]}
+          >
+            Reports
+          </Text>
         </TouchableOpacity>
 
+        {/* Tab 5: Profile */}
         <TouchableOpacity
-          style={styles.tabItem}
+          style={styles.navTabItem}
           onPress={() => setActiveTab('Profile')}
           activeOpacity={0.7}
         >
-          <View style={activeTab === 'Profile' ? styles.tabIconActive : null}>
-            <PersonAvatarIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Profile' && styles.tabLabelActive]}>Profile</Text>
+          <NavProfileIcon
+            color={activeTab === 'Profile' ? PALETTE.tabActive : PALETTE.tabInactive}
+          />
+          <Text
+            style={[
+              styles.navTabLabel,
+              activeTab === 'Profile' && styles.navTabLabelActive,
+            ]}
+          >
+            Profile
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          MODALS / ACTION SHEETS
+         ══════════════════════════════════════════════════════════════════════ */}
+      {/* Modal 1: Approve Listings */}
+      <Modal
+        visible={activeModal === 'approveListings'}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Listings to Approve (23)</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Pending farmer batch quality & grade verifications</Text>
+
+            <ScrollView style={{ maxHeight: 340 }}>
+              <View style={styles.modalItemCard}>
+                <Text style={styles.modalItemTitle}>LST-902 · Nilgiris CTC Tea (Leaf Grade A)</Text>
+                <Text style={styles.modalItemSub}>Farmer: K. Ramasamy · Coonoor Valley · 2,400 kg</Text>
+                <Text style={styles.modalItemPrice}>Asking: ₹240/kg · Mandi Parity: ₹245/kg</Text>
+                <TouchableOpacity
+                  style={styles.modalActionBtn}
+                  onPress={() => {
+                    setStats((s) => ({ ...s, listingsToApprove: Math.max(0, s.listingsToApprove - 1) }));
+                    Alert.alert('Approved', 'Batch LST-902 approved and released to catalog.');
+                  }}
+                >
+                  <Text style={styles.modalActionBtnText}>Approve Batch</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalItemCard}>
+                <Text style={styles.modalItemTitle}>LST-903 · Organic Hill Carrots</Text>
+                <Text style={styles.modalItemSub}>Farmer: M. Senthil · Ooty Hills · 1,800 kg</Text>
+                <Text style={styles.modalItemPrice}>Asking: ₹39/kg · Mandi Parity: ₹38/kg</Text>
+                <TouchableOpacity
+                  style={styles.modalActionBtn}
+                  onPress={() => {
+                    setStats((s) => ({ ...s, listingsToApprove: Math.max(0, s.listingsToApprove - 1) }));
+                    Alert.alert('Approved', 'Batch LST-903 approved and released to catalog.');
+                  }}
+                >
+                  <Text style={styles.modalActionBtnText}>Approve Batch</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalDoneBtn} onPress={() => setActiveModal(null)}>
+              <Text style={styles.modalDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 2: Schedule Audit */}
+      <Modal
+        visible={activeModal === 'scheduleAudit'}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Quarterly Quality Audits (6)</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Scheduled on-site farm inspections & organic testing</Text>
+
+            <ScrollView style={{ maxHeight: 300 }}>
+              <View style={styles.modalItemCard}>
+                <Text style={styles.modalItemTitle}>Kotagiri Ridge Estates (Audit #04)</Text>
+                <Text style={styles.modalItemSub}>Inspector: R. Rajesh · Scheduled: Tomorrow, 10:00 AM</Text>
+                <Text style={styles.modalItemPrice}>Scope: Soil purity, irrigation runoff & pesticide residue test</Text>
+              </View>
+              <View style={styles.modalItemCard}>
+                <Text style={styles.modalItemTitle}>Coonoor Valley Cooperative (Audit #05)</Text>
+                <Text style={styles.modalItemSub}>Inspector: S. Meenakshi · Scheduled: 28 Sep, 11:30 AM</Text>
+                <Text style={styles.modalItemPrice}>Scope: Tea leaf grading standard & weighing scale calibration</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalActionBtn}
+              onPress={() => {
+                Alert.alert('Schedule New Audit', 'Opening inspector dispatch form...');
+                setActiveModal(null);
+              }}
+            >
+              <Text style={styles.modalActionBtnText}>+ Schedule New Farm Audit</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 3: Support Tickets */}
+      <Modal
+        visible={activeModal === 'support'}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Open Support Tickets (14)</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>Voice & text tickets from Nilgiris farmers</Text>
+
+            <ScrollView style={{ maxHeight: 300 }}>
+              <View style={styles.modalItemCard}>
+                <Text style={styles.modalItemTitle}>TK-419 · Voice Message in Tamil</Text>
+                <Text style={styles.modalItemSub}>Farmer: Murugan P. · Gudalur</Text>
+                <Text style={styles.modalItemPrice}>"Inquiry regarding potato pickup scheduling for tomorrow morning."</Text>
+              </View>
+              <View style={styles.modalItemCard}>
+                <Text style={styles.modalItemTitle}>TK-418 · Payout Status Check</Text>
+                <Text style={styles.modalItemSub}>Farmer: Revathi S. · Kotagiri</Text>
+                <Text style={styles.modalItemPrice}>"Bank NEFT clearance confirmation for tea harvest batch #441."</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalDoneBtn} onPress={() => setActiveModal(null)}>
+              <Text style={styles.modalDoneBtnText}>Close Tickets</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Stylesheet ───────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -703,441 +1039,526 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
-  scrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 28,
   },
-  pageHeader: {
+
+  // Header Row
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  greetSmall: {
-    fontSize: 13,
-    color: PALETTE.labelMuted,
-    fontWeight: '500',
-  },
-  greetName: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: PALETTE.titleRust,
-    letterSpacing: -0.3,
-    marginTop: 1,
-    marginBottom: 5,
-  },
-  rolePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.peachBadge,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    gap: 5,
-  },
-  rolePillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.peachText,
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PALETTE.peachIconBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: PALETTE.border,
-  },
-  secHeader: {
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  secTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.ink,
-    letterSpacing: -0.2,
-  },
-  secSubtitle: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: 1,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statCard: {
-    width: '48.3%',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  statTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
   },
-  statIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
+  headerLeftCol: {
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 14.5,
+    color: PALETTE.textSecondary,
+    fontWeight: '400',
+    marginBottom: 3,
+  },
+  adminNameText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: PALETTE.textPrimary,
+    letterSpacing: -0.4,
+    marginBottom: 8,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: PALETTE.badgeBg,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    gap: 6,
+  },
+  adminBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PALETTE.badgeText,
+  },
+  avatarButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: PALETTE.orangeLight,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 4,
   },
-  statDelta: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statValue: {
+
+  // Section Headings
+  sectionHeading: {
     fontSize: 18,
     fontWeight: '800',
-    color: PALETTE.ink,
+    color: PALETTE.textHeading,
+    letterSpacing: -0.2,
+    marginTop: 24,
+    marginBottom: 14,
   },
-  statLabel: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  quickGrid: {
+  sectionHeaderRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    marginBottom: 0,
   },
-  quickActionTile: {
-    width: '48.3%',
+  seeAllText: {
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: PALETTE.orangePrimary,
+  },
+
+  // 2x2 Snapshot Grid
+  snapshotGrid: {
+    gap: 12,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  snapshotCard: {
+    flex: 1,
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: PALETTE.borderSoft,
+    padding: 16,
+    minHeight: 136,
+    justifyContent: 'flex-start',
   },
-  quickIconCircle: {
+  snapshotIconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  quickActionTitle: {
-    fontSize: 13,
+  snapshotValue: {
+    fontSize: 27,
+    fontWeight: '800',
+    color: PALETTE.textPrimary,
+    marginTop: 14,
+    marginBottom: 3,
+    letterSpacing: -0.5,
+  },
+  snapshotLabel: {
+    fontSize: 13.5,
+    color: PALETTE.textMuted,
+    fontWeight: '400',
+    lineHeight: 18,
+  },
+
+  // Farmer Application Cards
+  farmerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  farmerIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: PALETTE.orangeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  farmerInfoCol: {
+    flex: 1,
+  },
+  farmerNameTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: PALETTE.ink,
+    color: PALETTE.textPrimary,
   },
-  quickActionDesc: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
+  farmerSubText: {
+    fontSize: 12.5,
+    color: PALETTE.textSecondary,
     marginTop: 3,
-    lineHeight: 14,
   },
-  cardStack: {
-    gap: 10,
-  },
-  listingCard: {
+
+  // Sales Channel Snapshot Card
+  salesSnapshotCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 10,
+    borderColor: '#EEF2F6',
+    borderLeftWidth: 4,
+    borderLeftColor: PALETTE.blueAccent,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
   },
-  listingHeader: {
+  salesCardTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
-  listingId: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.labelMuted,
-  },
-  listingCrop: {
-    fontSize: 14,
+  salesCardTitle: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: '700',
-    color: PALETTE.ink,
-    marginTop: 2,
+    color: '#0F172A',
+    marginLeft: 12,
   },
-  listingFarmer: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: 2,
-  },
-  pricePill: {
-    backgroundColor: PALETTE.peachBadge,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  pricePillText: {
+  salesCardSubtitle: {
     fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.peachText,
+    color: '#64748B',
+    lineHeight: 18,
+    marginTop: 6,
+    marginLeft: 34,
   },
-  listingDivider: {
-    height: 1,
-    backgroundColor: PALETTE.border,
-    marginVertical: 10,
-  },
-  listingBottom: {
+
+  // Quick Actions Row
+  quickActionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  fairPriceHint: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-  },
-  approveBtn: {
-    backgroundColor: PALETTE.orange,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  approveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  approvedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: PALETTE.greenIconBg,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  approvedText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.greenText,
-  },
-  whGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
+    marginBottom: 16,
   },
-  whCard: {
-    width: '48.3%',
+  quickActionCard: {
+    flex: 1,
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  whCode: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.titleRust,
-  },
-  whCapacity: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
-    marginVertical: 4,
-  },
-  whBarTrack: {
-    height: 5,
-    backgroundColor: '#EFEAE3',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  whBarFill: {
-    height: '100%',
-    backgroundColor: PALETTE.orange,
-    borderRadius: 3,
-  },
-  priceCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderColor: '#F5EAE4',
+    paddingVertical: 18,
+    paddingHorizontal: 4,
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'center',
+    minHeight: 100,
   },
-  priceCropName: {
-    fontSize: 14,
+  quickActionLabel: {
+    fontSize: 12.5,
     fontWeight: '700',
-    color: PALETTE.ink,
-  },
-  priceTrend: {
-    fontSize: 11,
-    color: PALETTE.checkGreen,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  priceAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.titleRust,
-  },
-  priceUnit: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.labelMuted,
-  },
-  editPriceBtn: {
-    marginTop: 4,
-  },
-  editPriceText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.orange,
-  },
-  priceModalCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: PALETTE.orange,
+    color: PALETTE.textPrimary,
+    textAlign: 'center',
+    lineHeight: 16,
     marginTop: 10,
   },
-  priceModalTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.ink,
-  },
-  priceModalSub: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
-    marginTop: 2,
-    marginBottom: 8,
-  },
-  priceInput: {
-    height: 42,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: PALETTE.ink,
-    backgroundColor: '#FAF8F5',
-  },
-  modalBtn: {
-    flex: 1,
-    height: 38,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  allocationCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 10,
-  },
-  allocTitle: {
-    fontSize: 14,
+  quickActionLabelSingle: {
+    fontSize: 12.5,
     fontWeight: '700',
-    color: PALETTE.ink,
+    color: PALETTE.textPrimary,
+    textAlign: 'center',
+    marginTop: 10,
   },
-  allocSub: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
-    marginTop: 2,
-  },
-  allocMetricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  allocMetricVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.titleRust,
-  },
-  allocStatusOk: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.checkGreen,
-  },
-  profileHeaderCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 14,
-  },
-  bigAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: PALETTE.peachIconBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  profName: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: PALETTE.ink,
-  },
-  profRole: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: 2,
-  },
-  profEmail: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.titleRust,
-    marginTop: 2,
-  },
-  signOutCard: {
-    backgroundColor: '#FDEEE9',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F8D8CE',
-  },
-  signOutText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#943818',
-  },
-  tabBar: {
+
+  // Bottom Navigation Bar
+  bottomNav: {
     flexDirection: 'row',
     backgroundColor: PALETTE.cardBg,
     borderTopWidth: 1,
     borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 12,
     justifyContent: 'space-around',
+    alignItems: 'center',
   },
-  tabItem: {
+  navTabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
   },
-  tabIconActive: {
-    opacity: 1,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+  navTabLabel: {
+    fontSize: 11.5,
+    fontWeight: '500',
     color: PALETTE.tabInactive,
+    marginTop: 4,
+  },
+  navTabLabelActive: {
+    color: PALETTE.tabActive,
+    fontWeight: '600',
+  },
+
+  // Sub-pages (Farmers, Sales, Reports, Profile)
+  subPageHeader: {
+    marginBottom: 18,
+  },
+  backButton: {
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.orangePrimary,
+  },
+  subPageTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: PALETTE.textHeading,
+  },
+  subPageSubtitle: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
     marginTop: 3,
   },
-  tabLabelActive: {
-    color: PALETTE.orange,
+  farmerDetailCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    padding: 16,
+    marginBottom: 12,
+  },
+  farmerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusPill: {
+    backgroundColor: PALETTE.orangeLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PALETTE.orangePrimary,
+  },
+  farmerDetailRow: {
+    marginVertical: 12,
+    gap: 4,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+  },
+  detailValue: {
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+  },
+  farmerActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  outlineBtn: {
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  outlineBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+  },
+  primaryBtn: {
+    backgroundColor: PALETTE.orangePrimary,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  primaryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Sales Tab Cards
+  channelCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    padding: 16,
+    marginBottom: 12,
+  },
+  channelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  channelName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+  },
+  channelPct: {
+    fontSize: 16,
     fontWeight: '800',
+    color: PALETTE.textHeading,
+  },
+  channelDesc: {
+    fontSize: 12.5,
+    color: PALETTE.textSecondary,
+    marginVertical: 8,
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: '#F3EFEA',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+
+  // Report Cards
+  reportSummaryCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    padding: 16,
+    marginBottom: 12,
+  },
+  reportCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textSecondary,
+  },
+  reportCardNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: PALETTE.textPrimary,
+    marginVertical: 6,
+  },
+  reportCardSub: {
+    fontSize: 12.5,
+    color: PALETTE.textSecondary,
+    lineHeight: 18,
+  },
+
+  // Profile
+  profileCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  bigAvatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: PALETTE.orangeLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: PALETTE.textPrimary,
+    marginBottom: 6,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    marginTop: 8,
+  },
+  signOutButton: {
+    backgroundColor: '#FDEEE9',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FAD9CC',
+  },
+  signOutButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.badgeText,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: PALETTE.cardBg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 32,
+    maxHeight: '80%',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: PALETTE.textPrimary,
+  },
+  modalCloseText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.textSecondary,
+    padding: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+    marginBottom: 14,
+  },
+  modalItemCard: {
+    backgroundColor: '#FAF8F5',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.borderSoft,
+    padding: 12,
+    marginBottom: 10,
+  },
+  modalItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+  },
+  modalItemSub: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+  },
+  modalItemPrice: {
+    fontSize: 12,
+    color: PALETTE.textHeading,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  modalActionBtn: {
+    backgroundColor: PALETTE.orangePrimary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modalActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  modalDoneBtn: {
+    backgroundColor: '#F3EFEA',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalDoneBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
   },
 });
