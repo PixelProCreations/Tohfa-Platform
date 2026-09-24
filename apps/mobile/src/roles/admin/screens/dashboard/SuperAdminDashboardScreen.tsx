@@ -13,6 +13,13 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { colors } from '../../../farmer/theme';
+import {
+  AdminAllFarmersScreen,
+  AdminFarmerDetailScreen,
+  AdminFarmMapScreen,
+  AdminRatingScorecardScreen,
+  type FarmerListItem,
+} from '../farmers';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -291,6 +298,7 @@ function OverviewCard({
   delta,
   deltaColor,
   valueStyle,
+  onPress,
 }: {
   iconBox: React.ReactNode;
   value: string;
@@ -298,8 +306,9 @@ function OverviewCard({
   delta: string;
   deltaColor?: string;
   valueStyle?: object;
+  onPress?: () => void;
 }) {
-  return (
+  const content = (
     <View style={styles.overviewCard}>
       <View style={styles.cardTopRow}>{iconBox}</View>
       <Text style={[styles.statValue, valueStyle]}>{value}</Text>
@@ -307,6 +316,16 @@ function OverviewCard({
       <Text style={[styles.statDelta, { color: deltaColor ?? PALETTE.ink }]}>{delta}</Text>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={{ width: '48%' }}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
 }
 
 function ApprovalRow({
@@ -411,6 +430,8 @@ export function SuperAdminDashboardScreen({
 }: SuperAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('Dashboard');
   const [user, setUser]           = useState<UserMe | null>(null);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
 
   useEffect(() => {
     fetchMe()
@@ -467,6 +488,13 @@ export function SuperAdminDashboardScreen({
                 value="1,284"
                 label="Total Farmers"
                 delta="↑ +18 this month"
+                onPress={() => {
+                  if (onNavigate) {
+                    onNavigate('AdminAllFarmers');
+                  } else {
+                    setActiveTab('Farmers');
+                  }
+                }}
               />
               <OverviewCard
                 iconBox={
@@ -535,6 +563,13 @@ export function SuperAdminDashboardScreen({
                 subtitle="PGS Organic renewals needed before listings are auto-blocked."
                 linkLabel="View farmers"
                 accentColor={PALETTE.alertAmber}
+                onLinkPress={() => {
+                  if (onNavigate) {
+                    onNavigate('AdminAllFarmers');
+                  } else {
+                    setActiveTab('Farmers');
+                  }
+                }}
               />
             </View>
 
@@ -587,8 +622,39 @@ export function SuperAdminDashboardScreen({
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
           </View>
+        ) : activeTab === 'Farmers' ? (
+          farmerSubScreen === 'map' && selectedFarmer ? (
+            <AdminFarmMapScreen
+              farmer={selectedFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+            />
+          ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
+            <AdminRatingScorecardScreen
+              farmer={selectedFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+              onOpenComplianceTiers={() => {}}
+            />
+          ) : selectedFarmer ? (
+            <AdminFarmerDetailScreen
+              farmer={selectedFarmer}
+              onBack={() => setSelectedFarmer(null)}
+              onOpenFarmMap={() => setFarmerSubScreen('map')}
+              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+            />
+          ) : (
+            <AdminAllFarmersScreen
+              onBack={() => setActiveTab('Dashboard')}
+              onSelectFarmer={(f) => {
+                if (onNavigate) {
+                  onNavigate('AdminFarmerDetail');
+                } else {
+                  setSelectedFarmer(f);
+                }
+              }}
+            />
+          )
         ) : (
-          /* Blank screen for all other tabs (Farmers, Sales, Reports) */
+          /* Blank screen for all other tabs (Sales, Reports) */
           <View style={styles.blankPane} />
         )}
       </View>
@@ -614,7 +680,13 @@ export function SuperAdminDashboardScreen({
 
         <Pressable
           style={styles.tabItem}
-          onPress={() => setActiveTab('Farmers')}
+          onPress={() => {
+            if (onNavigate) {
+              onNavigate('AdminAllFarmers');
+            } else {
+              setActiveTab('Farmers');
+            }
+          }}
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'Farmers' }}
         >

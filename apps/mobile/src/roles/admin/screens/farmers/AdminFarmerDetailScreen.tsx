@@ -46,7 +46,7 @@ export type FarmerDetailTabType = 'Overview' | 'Farm' | 'KYC' | 'Ratings';
 interface Props {
   farmer: FarmerListItem;
   onBack: () => void;
-  onEdit?: () => void;
+  onEdit?: (currentTab: FarmerDetailTabType) => void;
   onDisable?: () => void;
   onOpenFarmMap?: () => void;
   onOpenKycReview?: () => void;
@@ -78,24 +78,17 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   };
 
   const handleBack = () => {
-    if (activeTab !== 'Overview') {
-      handleTabChange('Overview');
-    } else {
-      onBack();
-    }
+    onBack();
   };
 
   useEffect(() => {
     const onHardwareBack = () => {
-      if (activeTab !== 'Overview') {
-        handleTabChange('Overview');
-        return true;
-      }
-      return false;
+      onBack();
+      return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [activeTab]);
+  }, [onBack]);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -123,7 +116,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
         <TouchableOpacity
           style={styles.headerBtn}
-          onPress={onEdit}
+          onPress={() => onEdit?.(activeTab)}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Edit"
@@ -150,11 +143,15 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             </Text>
 
             {/* Rating pill */}
-            <View style={styles.ratingCapsule}>
+            <TouchableOpacity
+              style={styles.ratingCapsule}
+              onPress={onOpenRatingScorecard}
+              activeOpacity={0.8}
+            >
               <Text style={styles.ratingCapsuleText}>
                 ★ {farmer.rating ?? '782'} · {farmer.ratingTier ?? 'Excellent'}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
