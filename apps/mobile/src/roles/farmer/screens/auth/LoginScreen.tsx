@@ -22,7 +22,7 @@ import {
   isRoleSelectionRequired,
   type OAuthProviderCode,
 } from '../../api/auth';
-import { ApiError } from '../../../../shell/api/client';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
   signInWithFacebook,
@@ -210,18 +210,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         // The farmer closed the native sheet — not an error worth surfacing.
         return;
       }
-      if (err instanceof ApiError) {
-        setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
     } finally {
       setSocialLoading(null);
     }
   }
 
   async function handlePasswordLogin() {
-    if (!mobile.trim() || !password.trim()) return;
+    const rawMobile = mobile.replace(/\s+/g, '').trim();
+    if (!rawMobile) {
+      setErrorMsg('Please enter your mobile number.');
+      return;
+    }
+    if (rawMobile.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
 
@@ -257,12 +265,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
       console.error('[LoginScreen] Catch block hit:', err);
-      if (err instanceof ApiError) {
-        setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
-      } else {
-        console.error('[LoginScreen] Unknown error:', err);
-        setErrorMsg(t('error.generic'));
-      }
+      setErrorMsg(formatErrorMessage(err, 'Invalid credentials. Please check your mobile number and password.'));
     } finally {
       setLoading(false);
     }
