@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, colors } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; colo
   );
 }
 
-function PencilEditIcon({ size = 18, color = '#2D6A4F' }: { size?: number; color?: string }) {
+function PencilEditIcon({ size = 18, color = P.forestGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -67,7 +67,7 @@ function CheckmarkIcon({ size = 16, color = P.white }: { size?: number; color?: 
   );
 }
 
-function InfoCircleIcon({ size = 15, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 15, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.6" />
@@ -183,7 +183,7 @@ export function BankAccountScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* Top Header */}
       <View style={styles.header}>
@@ -211,7 +211,7 @@ export function BankAccountScreen({
               accessibilityLabel="Edit bank account details"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <PencilEditIcon size={18} color="#2D6A4F" />
+              <PencilEditIcon size={18} color={P.forestGreen} />
             </TouchableOpacity>
           ) : (
             <View style={styles.headerPlaceholder} />
@@ -268,7 +268,7 @@ export function BankAccountScreen({
                   value={draftHolder}
                   onChangeText={setDraftHolder}
                   placeholder="Full name as on passbook"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('holder')}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -293,7 +293,7 @@ export function BankAccountScreen({
                   value={draftBank}
                   onChangeText={setDraftBank}
                   placeholder="Bank name"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('bank')}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -318,7 +318,7 @@ export function BankAccountScreen({
                   value={draftNumber}
                   onChangeText={setDraftNumber}
                   placeholder="Account number"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('account')}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -343,7 +343,7 @@ export function BankAccountScreen({
                   value={draftIfsc}
                   onChangeText={(t) => setDraftIfsc(t.toUpperCase())}
                   placeholder="IFSC code"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={P.twGray400}
                   autoCapitalize="characters"
                   onFocus={() => setFocusedField('ifsc')}
                   onBlur={() => setFocusedField(null)}
@@ -367,7 +367,7 @@ export function BankAccountScreen({
                   value={draftBranch}
                   onChangeText={setDraftBranch}
                   placeholder="Branch name"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('branch')}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -381,7 +381,7 @@ export function BankAccountScreen({
             {/* Warning / Helper Note */}
             <View style={styles.warningNote}>
               <View style={styles.warningIconBox}>
-                <InfoCircleIcon size={16} color="#9CA3AF" />
+                <InfoCircleIcon size={16} color={P.twGray400} />
               </View>
               <Text style={styles.warningText}>
                 Editing any field sets this account back to Pending Verification until TOHFA Admin manually re-checks it.
@@ -410,7 +410,7 @@ export function BankAccountScreen({
               accessibilityRole="button"
               accessibilityLabel="Save Changes"
             >
-              <CheckmarkIcon size={16} color="#FFFFFF" />
+              <CheckmarkIcon size={16} color={P.white} />
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </TouchableOpacity>
           </View>
@@ -423,7 +423,7 @@ export function BankAccountScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
   },
   flexOne: {
     flex: 1,
@@ -432,9 +432,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 8 : 6,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: P.twGray100,
   },
   headerRow: {
     flexDirection: 'row',
@@ -446,11 +446,11 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F2E22',
+    color: P.ink,
     letterSpacing: -0.3,
     marginLeft: 14,
   },
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -487,20 +487,20 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   verifiedBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.brandGreenLight,
   },
   pendingBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: P.twAmber100,
   },
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '700',
   },
   verifiedBadgeText: {
-    color: '#1B5E20',
+    color: P.deepGreen,
   },
   pendingBadgeText: {
-    color: '#92400E',
+    color: P.twAmber800,
   },
   formContainer: {
     gap: 16,
@@ -511,40 +511,40 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: P.twGray700,
     letterSpacing: -0.1,
   },
   requiredStar: {
-    color: '#DC2626',
+    color: P.twRed600,
     fontWeight: '700',
   },
   viewBox: {
     height: 50,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
   viewBoxText: {
     fontSize: 14.5,
     fontWeight: '500',
-    color: '#111827',
+    color: P.twGray900,
   },
   input: {
     height: 50,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
     paddingHorizontal: 16,
     fontSize: 14.5,
     fontWeight: '500',
-    color: '#111827',
+    color: P.twGray900,
   },
   inputFocused: {
-    borderColor: '#0F5B47',
+    borderColor: P.twEmerald800,
     borderWidth: 1.5,
   },
   warningNote: {
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     lineHeight: 17,
-    color: '#6B7280',
+    color: P.twGray500,
     fontWeight: '400',
   },
   bottomBar: {
@@ -571,8 +571,8 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: Platform.OS === 'android' ? 16 : 14,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: P.twGray100,
+    backgroundColor: P.white,
     gap: 12,
   },
   cancelBtn: {
@@ -580,26 +580,26 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: P.twGray300,
+    backgroundColor: P.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1F2937',
+    color: P.twGray800,
   },
   saveBtn: {
     flex: 1.6,
     height: 50,
     borderRadius: 14,
-    backgroundColor: '#0F5B47',
+    backgroundColor: P.twEmerald800,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#0F5B47',
+    shadowColor: P.twEmerald800,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -608,6 +608,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: P.white,
   },
 });

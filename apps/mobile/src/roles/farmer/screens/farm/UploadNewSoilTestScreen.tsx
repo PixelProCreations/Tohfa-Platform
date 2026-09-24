@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: P.slate100,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
