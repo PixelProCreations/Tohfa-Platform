@@ -218,8 +218,8 @@ importers:
         specifier: ^1.23.1
         version: 1.24.0(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.26.9(@babel/core@7.29.7))(@types/react@18.3.31)(encoding@0.1.13)(react@18.2.0))
       '@react-native-community/datetimepicker':
-        specifier: ^8.2.0
-        version: 8.6.0(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.26.9(@babel/core@7.29.7))(@types/react@18.3.31)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
+        specifier: 8.2.0
+        version: 8.2.0(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.26.9(@babel/core@7.29.7))(@types/react@18.3.31)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
       '@react-native-google-signin/google-signin':
         specifier: ^16.1.5
         version: 16.1.5(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.26.9(@babel/core@7.29.7))(@types/react@18.3.31)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
@@ -2198,10 +2198,10 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@react-native-community/datetimepicker@8.6.0':
-    resolution: {integrity: sha512-yxPSqNfxgpGaqHQIpatqe6ykeBdU/1pdsk/G3x01mY2bpTflLpmVTLqFSJYd3MiZzxNZcMs/j1dQakUczSjcYA==}
+  '@react-native-community/datetimepicker@8.2.0':
+    resolution: {integrity: sha512-qrUPhiBvKGuG9Y+vOqsc56RPFcHa1SU2qbAMT0hfGkoFIj3FodE0VuPVrEa8fgy7kcD5NQmkZIKgHOBLV0+hWg==}
     peerDependencies:
-      expo: '>=52.0.0'
+      expo: '>=50.0.0'
       react: '*'
       react-native: '*'
       react-native-windows: '*'
@@ -10097,7 +10097,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@react-native-community/datetimepicker@8.6.0(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.26.9(@babel/core@7.29.7))(@types/react@18.3.31)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)':
+  '@react-native-community/datetimepicker@8.2.0(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.26.9(@babel/core@7.29.7))(@types/react@18.3.31)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)':
     dependencies:
       invariant: 2.2.4
       react: 18.2.0

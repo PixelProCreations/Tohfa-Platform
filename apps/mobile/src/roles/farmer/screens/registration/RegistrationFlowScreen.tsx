@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-import { useTheme } from '../../theme';
+import { useTheme, authPalette } from '../../theme';
 import { Step1Personal } from './Step1Personal';
 import { Step2FarmDetails } from './Step2FarmDetails';
 import { Step3Location } from './Step3Location';
@@ -12,6 +12,7 @@ import {
   createFarmerApplication,
   saveFarmerApplicationStep,
 } from '../../api/registration';
+import { formatErrorMessage } from '../../../../shell/api/client';
 
 interface RegistrationFlowProps {
   onNavigate: (screen: 'ApplicationStatus' | 'Welcome', params?: Record<string, string | number | undefined>) => void;
@@ -57,12 +58,14 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
         });
         if (appRes?.id) {
           currentAppId = appRes.id;
+          setApplicationId(currentAppId);
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to create application. Please check your connection and try again.';
+        const msg = formatErrorMessage(err, 'Failed to create application. Please check your connection and try again.');
         setApiError(msg);
-        // Still advance locally so user doesn't lose their data — server sync will retry on next step
         console.warn('createFarmerApplication failed:', err);
+        // Do not advance to Step 2 if server draft creation fails!
+        return;
       }
     }
 
@@ -76,7 +79,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
       try {
         await saveFarmerApplicationStep(currentAppId, step, payload);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : `Failed to save Step ${step}. Your data is kept locally.`;
+        const msg = formatErrorMessage(err, `Failed to save Step ${step}. Your data is kept locally.`);
         setApiError(msg);
         console.warn(`saveFarmerApplicationStep ${step} failed:`, err);
       }
@@ -105,11 +108,11 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
     <View style={[styles.container, { backgroundColor: colors.bgLight }]}>
       {/* API error banner — dismissible, shown above the step header */}
       {apiError ? (
-        <View style={[styles.apiBanner, { backgroundColor: '#FFF3CD', borderColor: '#FFCA2C' }]}>
-          <Icon name="warning" size={16} color="#856404" />
-          <Text style={styles.apiBannerText}>{apiError}</Text>
+        <View style={[styles.apiBanner, { backgroundColor: authPalette.amber50, borderColor: authPalette.amber200 }]}>
+          <Icon name="warning" size={16} color={authPalette.twAmber900} />
+          <Text style={[styles.apiBannerText, { color: authPalette.twAmber900 }]}>{apiError}</Text>
           <TouchableOpacity onPress={() => setApiError(null)}>
-            <Icon name="close" size={16} color="#856404" />
+            <Icon name="close" size={16} color={authPalette.twAmber900} />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -186,6 +189,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
           />
         ) : draft.currentStep === 4 ? (
           <Step4Documents
+            applicationId={draft.applicationId}
             initialData={draft.step4}
             onSave={(data) => updateStepAndAdvance(4, data)}
             onBack={handleBack}
@@ -269,7 +273,6 @@ const styles = StyleSheet.create({
   apiBannerText: {
     flex: 1,
     fontSize: 13,
-    color: '#856404',
     lineHeight: 18,
   },
 });

@@ -20,14 +20,25 @@ export interface FarmerApplicationResponse {
 
 export interface SignUploadPayload {
   purpose: 'FARMER_DOCUMENT' | 'CERTIFICATE';
-  filename: string;
+  fileName: string;
   contentType: string;
+  // Required by the server's signUploadBody schema (max 25 MiB) -- omitting it, or sending
+  // it under the wrong key, always 422s (`VALIDATION_FAILED`). This shape drifted from the
+  // schema before this session and was masked for months because /uploads/sign's 401 (no
+  // account yet during registration) short-circuited before the body was ever validated.
+  sizeBytes: number;
 }
 
 export interface SignUploadResponse {
   uploadUrl: string;
   fileUrl: string;
   resumable?: boolean;
+  // Mirrors apps/api/src/storage/blobStorage.ts's SignedUploadTarget, which the
+  // server always sends alongside uploadUrl/fileUrl/resumable. A real Azure
+  // block-blob upload requires the `x-ms-blob-type: BlockBlob` header carried in
+  // `headers`, so it has to reach the caller and not just be silently typed away.
+  method?: 'PUT' | 'POST';
+  headers?: Record<string, string>;
 }
 
 export async function createFarmerApplication(
@@ -73,4 +84,25 @@ export async function signUpload(
     method: 'POST',
     body,
   });
+}
+
+/**
+ * Registration-scoped sibling of `signUpload`, used by the Step 4 (documents) screen of the
+ * farmer application flow. A brand-new applicant has no account yet -- that's the whole point
+ * of registration -- so the authenticated `POST /uploads/sign` (`signUpload` above) 401s for
+ * them. This calls `POST /farmers/applications/:id/uploads/sign` instead, which trusts
+ * possession of the application's own unguessable UUID as the credential, the same pattern
+ * `saveFarmerApplicationStep` already uses. No `Authorization` header is required or sent.
+ */
+export async function signApplicationUpload(
+  applicationId: string,
+  body: SignUploadPayload,
+): Promise<SignUploadResponse> {
+  return await request<SignUploadResponse>(
+    `/farmers/applications/${applicationId}/uploads/sign`,
+    {
+      method: 'POST',
+      body,
+    },
+  );
 }

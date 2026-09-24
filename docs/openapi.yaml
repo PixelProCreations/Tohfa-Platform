@@ -666,9 +666,11 @@ paths:
       operationId: updateFarmerApplicationStep
       summary: Save one step of the 5-step application
       description: |
-        `step` is 1..5 — 1 personal, 2 farm details, 3 location (GPS auto-capture with a
-        manual lat/lng fallback and the FMB polygon), 4 documents, 5 review. Each step is
-        validated independently on save; cross-step validation happens at submit.
+        `step` is 1..5 — 1 personal, 2 farm details (the one farming operation), 3 location
+        (the land locations of that operation: one labelled parcel per entry, each with its
+        own acreage and its own GPS/FMB boundary — GPS auto-capture with a manual lat/lng
+        fallback), 4 documents, 5 review. Each step is validated independently on save;
+        cross-step validation happens at submit.
         Aadhaar and mobile become locked fields once the application is approved (BR-33).
       x-permission: farmer.application.manage_own
       x-business-rules: [BR-33]
@@ -685,16 +687,45 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/FarmerApplicationStepPayload' }
             example:
+              farm:
+                # Names the operation as a whole. The parcels below carry their own labels;
+                # "Great Earth Organic" is never one of them.
+                farmName: Great Earth Organic
+                typeOfFarming: Mixed vegetables
+                experienceYears: 12
+                # Stated from land records. The step-3 parcels below total 3.6 acres;
+                # the 0.4-acre gap is kept visible, not corrected away.
+                totalAreaAcres: 4.0
+                # Same land records say 3 plots, but only 2 are marked in step 3 below.
+                # That gap is likewise kept as-is — it is what a verifier goes looking at.
+                numberOfFarms: 3
+                waterSource: Borewell
+                primaryCrops: [Carrot, Cabbage]
               location:
-                gpsCaptured: true
-                latitude: 11.4102
-                longitude: 76.6950
-                fmbPolygon:
-                  type: Polygon
-                  coordinates: [[[76.6948, 11.4100], [76.6953, 11.4100], [76.6953, 11.4105], [76.6948, 11.4105], [76.6948, 11.4100]]]
-                village: Ithalar
-                taluk: Ooty
-                district: Nilgiris
+                locations:
+                  - id: loc-1
+                    label: Home plot
+                    areaAcres: 2.4
+                    gpsCaptured: true
+                    latitude: 11.4102
+                    longitude: 76.6950
+                    calculatedAreaAcres: 2.43
+                    calculatedAreaHectares: 0.98
+                    fmbPolygon:
+                      type: Polygon
+                      coordinates: [[[76.6948, 11.4100], [76.6953, 11.4100], [76.6953, 11.4105], [76.6948, 11.4105], [76.6948, 11.4100]]]
+                    village: Ithalar
+                    taluk: Ooty
+                    district: Nilgiris
+                  - id: loc-2
+                    label: Kotagiri hill parcel
+                    areaAcres: 1.2
+                    gpsCaptured: false
+                    latitude: 11.4256
+                    longitude: 76.7360
+                    village: Kotagiri
+                    taluk: Kotagiri
+                    district: Nilgiris
       responses:
         '200':
           description: Step saved.
@@ -707,6 +738,50 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/applications/{id}/uploads/sign:
+    post:
+      tags: [Farmer Onboarding]
+      operationId: signFarmerApplicationUpload
+      summary: Get a signed upload URL for a registration document, before an account exists
+      description: |
+        The registration-scoped sibling of `POST /uploads/sign`. A brand-new applicant filling
+        in Step 4 of the 5-step application has no user account yet — that is the entire point
+        of registration — so `POST /uploads/sign`'s `requireAuth` can never succeed for them.
+
+        This endpoint is deliberately auth-free: possession of the application's own
+        unguessable UUID is the credential, the same pattern `PATCH
+        /farmers/applications/{id}/steps/{step}` already uses, and it stays scoped to a live
+        (non-terminal) application — once APPROVED or REJECTED a real farmer account exists (or
+        never will), and uploads move to the authenticated `POST /uploads/sign` path instead. A
+        nonexistent id and a terminal-status id both return an identical 404, so a caller cannot
+        enumerate an application's status through this endpoint (the same enumeration-prevention
+        convention this module's BR-36 own-data checks use).
+
+        The resulting upload is recorded with `uploadedBy: null`, `entityType:
+        farmer_application`, `entityId: <id>` and `isPublic: false` — these are sensitive farm
+        documents, ID proofs and certificates, never a public asset.
+      security: []
+      x-permission: public
+      x-business-rules: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignUploadRequest' }
+            example: { purpose: FARMER_DOCUMENT, contentType: application/pdf, sizeBytes: 481203, fileName: patta.pdf }
+      responses:
+        '201':
+          description: Signed upload target.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignedUploadTarget' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/applications/{id}/submit:
@@ -3548,36 +3623,51 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [purpose, contentType, sizeBytes]
-              properties:
-                purpose:
-                  type: string
-                  enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO]
-                contentType: { type: string, examples: [image/jpeg, application/pdf] }
-                sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
-                fileName: { type: string, maxLength: 200 }
+            schema: { $ref: '#/components/schemas/SignUploadRequest' }
             example: { purpose: CERTIFICATE, contentType: application/pdf, sizeBytes: 481203, fileName: npop-2026.pdf }
       responses:
         '201':
           description: Signed upload target.
           content:
             application/json:
-              schema:
-                type: object
-                required: [uploadUrl, fileUrl, method, expiresAt]
-                properties:
-                  uploadUrl: { type: string, format: uri }
-                  fileUrl: { type: string, format: uri, description: The durable URL to send back to the API once the upload completes. }
-                  method: { type: string, enum: [PUT, POST] }
-                  headers: { type: object, additionalProperties: { type: string } }
-                  expiresAt: { type: string, format: date-time }
-                  resumable: { type: boolean }
+              schema: { $ref: '#/components/schemas/SignedUploadTarget' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
+
+  /uploads/mock/*:
+    put:
+      tags: [Platform]
+      operationId: mockUploadReceiver
+      summary: Dev/test-only receiving end of a mock signed upload URL
+      description: |
+        Not a real API endpoint for clients to call directly — it exists only because
+        `POST /uploads/sign` returns a real `uploadUrl` clients PUT the file bytes to next,
+        and in dev/test (`AZURE_STORAGE_CONNECTION_STRING` unset) that URL points back at
+        this app instead of a real Azure/Cloudinary host, since `createBlobStorage()` falls
+        back to `InMemoryBlobStorage`. A production deployment with real storage credentials
+        never mounts a URL under this path — the signed URL points at the real provider.
+        No auth: this stands in for a third-party storage provider whose real security is
+        the pre-signed URL's own time-limited secrecy, not this app's session.
+      x-permission: public
+      x-business-rules: []
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Bytes stored; returns the durable file URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fileUrl]
+                properties:
+                  fileUrl: { type: string, format: uri }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
 components:
   securitySchemes:
@@ -3788,6 +3878,7 @@ components:
         * `OTP_EXPIRED` — the OTP challenge is past its validity window (BR-32).
         * `OTP_LOCKED` — three failed attempts; a new challenge is required (BR-32).
         * `OTP_RESEND_TOO_SOON` — a resend was requested inside the 60-second window (BR-32).
+        * `OTP_SMS_DELIVERY_FAILED` — the configured SMS provider rejected or failed to send the OTP (BR-32).
         * `AUDIT_QUARTER_TAKEN` — that farmer already has an audit in this quarter (BR-03).
         * `SCORE_OUT_OF_RANGE` — a rating or audit category score is out of range (BR-06).
         * `FIELD_LOCKED` — Aadhaar or mobile may only be changed by a Super Admin (BR-33).
@@ -3850,6 +3941,35 @@ components:
           type: [string, 'null']
           description: Pass back as `cursor` to fetch the next page; null on the last page.
         hasMore: { type: boolean }
+
+    SignUploadRequest:
+      type: object
+      description: |
+        Request body shared by `POST /uploads/sign` (an authenticated user signing an upload)
+        and `POST /farmers/applications/{id}/uploads/sign` (its registration-scoped, auth-free
+        sibling for an applicant who has no account yet).
+      required: [purpose, contentType, sizeBytes]
+      properties:
+        purpose:
+          type: string
+          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO]
+        contentType: { type: string, examples: [image/jpeg, application/pdf] }
+        sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
+        fileName: { type: string, maxLength: 200 }
+
+    SignedUploadTarget:
+      type: object
+      description: |
+        A pre-signed direct-upload target, returned by `POST /uploads/sign` and its
+        registration-scoped sibling `POST /farmers/applications/{id}/uploads/sign`.
+      required: [uploadUrl, fileUrl, method, expiresAt]
+      properties:
+        uploadUrl: { type: string, format: uri }
+        fileUrl: { type: string, format: uri, description: The durable URL to send back to the API once the upload completes. }
+        method: { type: string, enum: [PUT, POST] }
+        headers: { type: object, additionalProperties: { type: string } }
+        expiresAt: { type: string, format: date-time }
+        resumable: { type: boolean }
 
     Money:
       type: string
@@ -4148,39 +4268,119 @@ components:
             fullName: { type: string, maxLength: 120 }
             dob: { type: string, format: date }
             gender: { type: string, enum: [MALE, FEMALE, OTHER] }
-            farmingExperienceYears: { type: integer, minimum: 0, maximum: 90 }
+            farmingExperienceYears:
+              type: integer
+              minimum: 0
+              maximum: 90
+              deprecated: true
+              description: |
+                Legacy. Experience is collected in step 2 (`farm.experienceYears`); this is
+                still accepted and still read on approval so applications that were in
+                flight before the move are not silently zeroed.
             address: { type: string, maxLength: 300 }
-            aadhaarNumber:
+            # BR-33b / Decision 8 (db/migrations/0003_farmers_and_farms.sql): the full
+            # Aadhaar number is never accepted by this API at all -- not stored, not
+            # returned, not logged. There is no server-side tokenization step in this
+            # codebase; a raw 12-digit `aadhaarNumber` here was legacy/aspirational
+            # documentation that no longer matches the implementation (updateStep
+            # actively strips it if a client still sends one). Only the last 4 digits,
+            # and an opaque token from an external KYC/tokenisation provider (if one is
+            # ever integrated upstream of this API), are accepted.
+            aadhaarLast4:
               type: string
-              pattern: '^[0-9]{12}$'
+              pattern: '^[0-9]{4}$'
               writeOnly: true
-              description: Write-only. Tokenized on receipt; only the last 4 digits are ever returned (BR-33).
+              description: Last 4 digits only, for human matching in the KYC queue. Never the full number (BR-33b).
+            aadhaarToken:
+              type: string
+              writeOnly: true
+              description: |
+                Opaque reference from an external KYC/tokenisation provider, if one has
+                already tokenized the farmer's Aadhaar upstream of this API. Not a
+                reversible encoding of the number; this API never derives it from a raw
+                Aadhaar itself (BR-33b).
         farm:
           type: object
+          description: |
+            The single farming operation — asked once, never repeated per parcel.
           properties:
-            name: { type: string, maxLength: 120 }
-            surveyNumber: { type: string, maxLength: 60 }
-            areaAcres: { type: number, minimum: 0.01 }
-            waterSources: { type: array, items: { type: string } }
-            tdsPpm: { type: integer, minimum: 0 }
-            crops: { type: array, items: { type: string, format: uuid } }
+            farmName:
+              type: string
+              minLength: 1
+              maxLength: 120
+              description: |
+                The name of the whole farming operation, e.g. "Great Earth Organic". Asked once,
+                for the operation. This is NOT a parcel name: each step-3 location carries its own
+                `label` ("Home plot", "River plot"), and it is that label — never this — that
+                becomes a `farms` row's name on approval. Stored as given in `step2_farm_details`;
+                it has no column of its own. Farm-identifying, so it never reaches a customer
+                response (BR-16).
+            typeOfFarming: { type: string }
+            experienceYears:
+              type: integer
+              minimum: 0
+              maximum: 120
+              description: |
+                Years of farming experience. Collected here, on the operation, and written to
+                `farmers.farming_experience_years` on approval.
+            totalAreaAcres:
+              type: number
+              exclusiveMinimum: 0
+              description: |
+                The farmer's STATED total land holding, typically taken from their patta/chitta
+                land records. It may legitimately differ from the sum of the step-3 `locations[].areaAcres`,
+                which are measured on the ground: unmarked land, stale records or an inflated
+                claim all show up as a gap. The server stores the claim as given — it is never
+                derived from, reconciled against, or validated to match the parcel sum, and a
+                mismatch never blocks submission. The discrepancy is signal for FARM_VERIFICATION.
+            numberOfFarms:
+              type: integer
+              minimum: 1
+              description: |
+                The farmer's STATED count of separate plots, taken from the same land records as
+                `totalAreaAcres`. It may legitimately differ from the number of step-3 `locations`,
+                which are the plots actually marked on the ground — a farmer who states 3 plots but
+                has marked 2 is exactly what FARM_VERIFICATION is there to look at. Stored as given
+                in `step2_farm_details`: never derived from `locations.length`, never validated to
+                match it, and never blocking. It has no column of its own and does not decide how
+                many farms are created on approval — that count comes from the step-3 locations.
+            waterSource: { type: string }
+            primaryCrops: { type: array, items: { type: string } }
         location:
           type: object
+          required: [locations]
           properties:
-            gpsCaptured: { type: boolean, description: False when the farmer fell back to manual lat/lng entry. }
-            latitude: { type: number, minimum: -90, maximum: 90 }
-            longitude: { type: number, minimum: -180, maximum: 180 }
-            fmbPolygon:
-              type: object
-              description: GeoJSON Polygon of the Farm Map Boundary drawn on the map.
-              properties:
-                type: { type: string, enum: [Polygon] }
-                coordinates:
-                  type: array
-                  items: { type: array, items: { type: array, items: { type: number }, minItems: 2, maxItems: 2 } }
-            village: { type: string }
-            taluk: { type: string }
-            district: { type: string }
+            locations:
+              type: array
+              minItems: 1
+              description: |
+                The land locations of the one farming operation — one labelled parcel per
+                entry, each with its own acreage and its own GPS/FMB boundary. Their
+                `areaAcres` sum is shown beside the farmer's stated `farm.totalAreaAcres`
+                so any gap is visible; it never overwrites it.
+              items:
+                type: object
+                required: [id, label, areaAcres]
+                properties:
+                  id: { type: string, minLength: 1, maxLength: 100, description: Client-generated key for this location. }
+                  label: { type: string, minLength: 1, maxLength: 120, description: Farmer-facing name for the parcel, e.g. "Home plot". }
+                  areaAcres: { type: number, exclusiveMinimum: 0, description: Farmer-stated acreage of this parcel. }
+                  gpsCaptured: { type: boolean, description: False when the farmer fell back to manual lat/lng entry. }
+                  latitude: { type: number, minimum: -90, maximum: 90 }
+                  longitude: { type: number, minimum: -180, maximum: 180 }
+                  calculatedAreaAcres: { type: number, minimum: 0, description: Server-derived from the polygon; overwrites any client value. }
+                  calculatedAreaHectares: { type: number, minimum: 0 }
+                  fmbPolygon:
+                    type: object
+                    description: GeoJSON Polygon of the Farm Map Boundary drawn on the map.
+                    properties:
+                      type: { type: string, enum: [Polygon] }
+                      coordinates:
+                        type: array
+                        items: { type: array, items: { type: array, items: { type: number }, minItems: 2, maxItems: 2 } }
+                  village: { type: string }
+                  taluk: { type: string }
+                  district: { type: string }
         documents:
           type: object
           properties:

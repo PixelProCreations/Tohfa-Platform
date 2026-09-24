@@ -28,6 +28,8 @@ export const step1PersonalSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNDISCLOSED']).optional(),
   aadhaarLast4: z.string().regex(aadhaarLast4Regex).optional(),
   aadhaarToken: z.string().optional(),
+  // Legacy: experience is collected in step 2 (`experienceYears`). Kept accepted so
+  // in-flight applications saved before that move are still readable on approval.
   farmingExperienceYears: z.number().int().min(0).max(120).optional(),
   addressLine1: z.string().optional(),
   addressLine2: z.string().optional(),
@@ -39,25 +41,57 @@ export const step1PersonalSchema = z.object({
 });
 export type Step1Personal = z.infer<typeof step1PersonalSchema>;
 
-export const farmItemSchema = z.object({
-  name: z.string().min(1),
-  totalAreaAcres: z.number().positive(),
-  organicSince: z.string().optional(),
+// One farming operation per farmer, so everything here is asked exactly once.
+//
+// `experienceYears` lives here, not in step 1: step 1 collects identity and address,
+// and the farmer-facing step-1 screen has no experience input at all. It is read on
+// approval into `farmers.farming_experience_years`.
+//
+// `totalAreaAcres` and `numberOfFarms` are the farmer's own STATED figures — usually
+// copied off their patta/chitta land records. They are deliberately NOT derived from
+// step 3, which is measured on the ground: `totalAreaAcres` is not the sum of the
+// parcels' `areaAcres`, and `numberOfFarms` is not `locations.length`. Each pair is
+// allowed to disagree, and that disagreement is the signal a verifier looks at during
+// FARM_VERIFICATION (unmarked land, stale records, or an inflated claim). Deriving one
+// from the other would make the gap mathematically invisible, so never overwrite either
+// with its step-3 counterpart.
+//
+// `numberOfFarms` is a claim stored in the `step2_farm_details` JSONB and nothing else.
+// It has no column, and it must never decide how many `farms` rows `approveApplication`
+// creates — that count comes from the actual step-3 `locations`.
+//
+// `farmName` names the whole OPERATION ("Great Earth Organic"). It is not a parcel name:
+// step 3's `locations[].label` names each parcel ("Home plot"), and it is that label —
+// never this — that becomes a `farms` row's `name` on approval. `farmName` is stored in
+// `step2_farm_details` and read nowhere else. It is farm-identifying data, so like every
+// other field here it must never reach a customer response (BR-16); the catalog
+// serializer's allow-list is what guarantees that.
+export const step2FarmDetailsSchema = z.object({
+  farmName: z.string().min(1).max(120).optional(),
+  typeOfFarming: z.string().optional(),
+  experienceYears: z.number().int().min(0).max(120).optional(),
+  totalAreaAcres: z.number().positive().optional(),
+  numberOfFarms: z.number().int().positive().optional(),
   waterSource: z.string().optional(),
   primaryCrops: z.array(z.string()).optional(),
 });
-export type FarmItem = z.infer<typeof farmItemSchema>;
-
-export const step2FarmDetailsSchema = z.object({
-  farms: z.array(farmItemSchema).min(1),
-});
 export type Step2FarmDetails = z.infer<typeof step2FarmDetailsSchema>;
 
-export const step3LocationSchema = z.object({
+// What repeats is a LAND LOCATION: one labelled parcel, its own acreage, its own
+// boundary. Each location is self-contained, so nothing has to be correlated back
+// to step 2. `areaAcres` here is the measured-on-the-ground parcel figure; the sum of
+// these is shown beside — never written over — the farmer's stated
+// `step2.totalAreaAcres`.
+export const farmLocationItemSchema = z.object({
+  // Client-generated opaque key, NOT an RFC4122 UUID: older Android devices in the
+  // field have no reliable crypto.randomUUID. It keys the location within the draft
+  // only; nothing outside step 3 references it.
+  id: z.string().min(1).max(100),
+  label: z.string().min(1).max(120),
+  areaAcres: z.number().positive(),
   gpsCaptured: z.boolean().optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
-  areaAcres: z.number().positive().optional(),
   calculatedAreaAcres: z.number().nonnegative().optional(),
   calculatedAreaHectares: z.number().nonnegative().optional(),
   fmbPolygon: z
@@ -70,12 +104,24 @@ export const step3LocationSchema = z.object({
   taluk: z.string().optional(),
   district: z.string().optional(),
 });
+export type FarmLocationItem = z.infer<typeof farmLocationItemSchema>;
+
+export const step3LocationSchema = z.object({
+  locations: z.array(farmLocationItemSchema).min(1),
+});
 export type Step3Location = z.infer<typeof step3LocationSchema>;
 
 export const documentItemSchema = z.object({
   docType: z.enum(['ID_PROOF', 'FARM_DOC', 'CERTIFICATE', 'OTHER']),
   fileUrl: z.string().url(),
   fileName: z.string().optional(),
+  // Which specific document this is (e.g. "Aadhaar Card", "Patta") -- deliberately a plain
+  // string, not an enum cross-validated against `docType`. The `/applications/:id/steps/:step`
+  // route does not Zod-validate its body (the service does its own defensive reshaping in
+  // `updateStep`); this schema exists for `docs/openapi.yaml` contract documentation and any
+  // future consumer, and constraining it more tightly here would police a boundary the mobile
+  // UI's fixed picker options already own.
+  docSubType: z.string().max(60).optional(),
 });
 export type DocumentItem = z.infer<typeof documentItemSchema>;
 
