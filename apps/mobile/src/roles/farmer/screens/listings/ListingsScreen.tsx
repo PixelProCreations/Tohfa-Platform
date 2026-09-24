@@ -10,11 +10,6 @@ const ChevronLeft = () => (
   </Svg>
 );
 
-const Beaker = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M19 21H5C4.4 21 4 20.6 4 20C4 19.8 4.1 19.6 4.2 19.4L9 12V5H8C7.4 5 7 4.6 7 4C7 3.4 7.4 3 8 3H16C16.6 3 17 3.4 17 4C17 4.6 16.6 5 16 5H15V12L19.8 19.4C20.1 19.8 20 20.4 19.6 20.8C19.4 20.9 19.2 21 19 21ZM10 13L6.1 19H17.9L14 13V5H10V13Z" fill={P.grey500} />
-  </Svg>
-);
 
 const BellAlert = () => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -94,36 +89,6 @@ export function ListingsScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Prototype Banner */}
-        <View style={styles.prototypeBanner}>
-          <View style={styles.protoRow}>
-            <Beaker />
-            <Text style={styles.protoText}>Prototype only · market-day state</Text>
-          </View>
-          <View style={styles.protoToggle}>
-            <View style={styles.protoToggleActive}>
-              <Text style={styles.protoToggleActiveText}>Open</Text>
-            </View>
-            <View style={styles.protoToggleInactive}>
-              <Text style={styles.protoToggleInactiveText}>Closed</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Alert Banner */}
-        <TouchableOpacity style={styles.alertBanner} onPress={() => onNavigateToCounterOffer?.({})}>
-          <View style={styles.alertIconBox}>
-            <BellAlert />
-          </View>
-          <View style={styles.alertTextCol}>
-            <Text style={styles.alertTitle}>1 listing needs your response</Text>
-            <Text style={styles.alertSub}>Carrot · counter-offer expires in 22h 30m</Text>
-          </View>
-          <View style={styles.alertChevron}>
-            <ChevronRight />
-          </View>
-        </TouchableOpacity>
 
         {/* Market Day Hero */}
         <View style={styles.heroCard}>
@@ -153,6 +118,20 @@ export function ListingsScreen({
             <Text style={styles.metricLabel}>Need{'\n'}reply</Text>
           </View>
         </View>
+
+        {/* Alert Banner / Notification */}
+        <TouchableOpacity style={styles.alertBanner} onPress={() => onNavigateToCounterOffer?.({})}>
+          <View style={styles.alertIconBox}>
+            <BellAlert />
+          </View>
+          <View style={styles.alertTextCol}>
+            <Text style={styles.alertTitle}>1 listing needs your response</Text>
+            <Text style={styles.alertSub}>Carrot · counter-offer expires in 22h 30m</Text>
+          </View>
+          <View style={styles.alertChevron}>
+            <ChevronRight />
+          </View>
+        </TouchableOpacity>
 
         {/* Recent Listings */}
         <View style={styles.sectionHeader}>
@@ -258,59 +237,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
   },
-  prototypeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: P.creamTint4,
-    borderWidth: 1,
-    borderColor: P.grey300,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  protoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  protoText: {
-    fontSize: 12,
-    color: P.grey600,
-    fontWeight: '600',
-  },
-  protoToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
-    borderRadius: 16,
-    padding: 2,
-    borderWidth: 1,
-    borderColor: P.grey300,
-  },
-  protoToggleActive: {
-    backgroundColor: colors.brandGreen,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 14,
-  },
-  protoToggleActiveText: {
-    color: P.weatherCloudWhite,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  protoToggleInactive: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  protoToggleInactiveText: {
-    color: P.grey500,
-    fontSize: 10,
-    fontWeight: '700',
-  },
+
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -386,7 +313,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 16,
   },
   metricCard: {
     flex: 1,

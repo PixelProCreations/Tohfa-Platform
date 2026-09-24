@@ -24,6 +24,7 @@ import { ActiveCropsScreen } from './screens/dashboard/ActiveCropsScreen';
 import { TohfaCalendarScreen } from './screens/dashboard/TohfaCalendarScreen';
 import { CropPlanningInsightScreen } from './screens/dashboard/CropPlanningInsightScreen';
 import { FarmManagementScreen } from './screens/farm/FarmManagementScreen';
+import { DairyProduceScreen } from './screens/farm/DairyProduceScreen';
 import { CropManagementScreen } from './screens/farm/CropManagementScreen';
 import { LivestockScreen } from './screens/farm/LivestockScreen';
 import { RegisterAnimalScreen } from './screens/farm/RegisterAnimalScreen';
@@ -42,6 +43,7 @@ import {
 } from './screens/farm/ProduceCalendarScreen';
 import { NewCropScreen } from './screens/farm/NewCropScreen';
 import { CropDetailScreen } from './screens/farm/CropDetailScreen';
+import { CropMilestonesScreen } from './screens/farm/CropMilestonesScreen';
 import { CropDiaryEntriesScreen } from './screens/farm/CropDiaryEntriesScreen';
 import { CropInputsAppliedScreen } from './screens/farm/CropInputsAppliedScreen';
 import { InputManagementScreen } from './screens/farm/InputManagementScreen';
@@ -160,12 +162,14 @@ export type ScreenName =
   | 'Audits'
   | 'AuditResult'
   | 'FarmManagement'
+  | 'DairyProduce'
   | 'CropManagement'
   | 'Livestock'
   | 'Workforce'
   | 'ProduceCalendar'
   | 'NewCrop'
   | 'CropDetail'
+  | 'CropMilestones'
   | 'FarmRatings'
   | 'SoilTest'
   | 'NewSoilTest'
@@ -649,9 +653,12 @@ export default function App(): React.JSX.Element {
             onNavigateToAttendance={() => navigate('DailyAttendance')}
             onNavigateToWorkforce={() => navigate('Workforce')}
             onNavigateToLivestock={() => navigate('Livestock')}
+            onNavigateToDairyProduce={() => navigate('DairyProduce')}
             onNavigateToLearningHub={() => navigate('LearningHub')}
             onNavigateToSoilManagement={() => navigate('SoilManagement')}
           />
+        ) : screen === 'DairyProduce' ? (
+          <DairyProduceScreen onBack={goBack} />
         ) : screen === 'ProduceCalendar' ? (
           <ProduceCalendarScreen
             onBack={() => goBack('FarmManagement')}
@@ -666,10 +673,16 @@ export default function App(): React.JSX.Element {
             crop={selectedCrop}
             onBack={() => goBack('ProduceCalendar')}
             onEdit={() => navigate('NewCrop')}
+            onNavigateToMilestones={() => navigate('CropMilestones')}
             onNavigateToDiary={() => navigate('FarmDiary')}
             onNavigateToInputs={() => navigate('CropInputsApplied')}
             onNavigateToWorkforce={() => navigate('CropWorkforceHours')}
             onNavigateToNPK={() => navigate('CropNPKContribution')}
+          />
+        ) : screen === 'CropMilestones' ? (
+          <CropMilestonesScreen
+            crop={selectedCrop}
+            onBack={() => goBack('CropDetail')}
           />
         ) : screen === 'CropDiaryEntries' ? (
           <CropDiaryEntriesScreen

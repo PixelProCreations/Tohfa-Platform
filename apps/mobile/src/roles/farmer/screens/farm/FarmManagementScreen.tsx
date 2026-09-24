@@ -157,6 +157,21 @@ function CheckmarkMiniIcon({ size = 14, color = P.twGreen700 }: { size?: number;
   );
 }
 
+function DropWaterIcon({ size = 22, color = '#0D9488', fill }: { size?: number; color?: string; fill?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill={fill || 'none'}
+      />
+    </Svg>
+  );
+}
+
 // ─────────────────────────────────────────────
 // Component Implementation
 // ─────────────────────────────────────────────
@@ -172,6 +187,7 @@ interface FarmManagementScreenProps {
   onNavigateToAttendance?: () => void;
   onNavigateToWorkforce?: () => void;
   onNavigateToLivestock?: () => void;
+  onNavigateToDairyProduce?: () => void;
   onNavigateToLearningHub?: () => void;
   onNavigateToCertifications?: () => void;
   onNavigateToProduceCalendar?: () => void;
@@ -189,6 +205,7 @@ export function FarmManagementScreen({
   onNavigateToAttendance,
   onNavigateToWorkforce,
   onNavigateToLivestock,
+  onNavigateToDairyProduce,
   onNavigateToLearningHub,
   onNavigateToCertifications,
   onNavigateToProduceCalendar,
@@ -478,6 +495,24 @@ export function FarmManagementScreen({
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* ── Dairy & Produce Card ── */}
+        <TouchableOpacity
+          style={styles.dairyProduceCard}
+          activeOpacity={0.85}
+          onPress={onNavigateToDairyProduce}
+          accessibilityRole="button"
+          accessibilityLabel="Dairy & Produce"
+        >
+          <View style={styles.dairyProduceIconBox}>
+            <DropWaterIcon size={22} color="#0D9488" fill="#0D9488" />
+          </View>
+          <View style={styles.dairyProduceTextCol}>
+            <Text style={styles.dairyProduceTitle}>Dairy & Produce</Text>
+            <Text style={styles.dairyProduceSubtitle}>18.5 L milk · 24 eggs today</Text>
+          </View>
+          <ChevronRightIcon size={18} color={P.twGray400} />
+        </TouchableOpacity>
 
         {/* ── Learning Hub Card ── */}
         <TouchableOpacity
@@ -793,6 +828,45 @@ const styles = StyleSheet.create({
     color: P.twOrange600,
   },
 
+  /* Dairy & Produce Card */
+  dairyProduceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: P.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    padding: 16,
+    gap: 12,
+    marginTop: 14,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  dairyProduceIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E6F5EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dairyProduceTextCol: {
+    flex: 1,
+  },
+  dairyProduceTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: P.twGray900,
+  },
+  dairyProduceSubtitle: {
+    fontSize: 12,
+    color: P.twGray500,
+    marginTop: 2,
+  },
+
   /* Learning Hub Card */
   learningHubCard: {
     flexDirection: 'row',
@@ -803,7 +877,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     padding: 16,
     gap: 12,
-    marginTop: 14,
+    marginTop: 10,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
