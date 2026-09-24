@@ -169,7 +169,10 @@ describeIfDatabase('walletService (integration)', () => {
     testZoneId = newId();
 
     const rand = Math.floor(100000 + Math.random() * 900000);
-    const mobileCust = `+919999${rand}`;
+    // Prefix is +919997, not +919999: at rand's top value (999999) a +919999
+    // prefix reproduces farmer-applications.test.ts's hardcoded '+919999999999'
+    // mobile character-for-character, colliding on uq_users_mobile_live.
+    const mobileCust = `+919997${rand}`;
     const mobileFarm = `+919998${rand}`;
     const customerCode = `CUST-W-${rand}`;
     const farmerIdCode = `TF-W-${rand}`;
@@ -334,7 +337,12 @@ describeIfDatabase('walletService (integration)', () => {
     const userId = newId();
     const customerId = newId();
     const randCode = Math.floor(100000 + Math.random() * 900000);
-    const mobile = `+919999999${Math.floor(100 + Math.random() * 900)}`;
+    // +9177 also appears in payouts.test.ts, but at a different total digit
+    // length (14 here vs its 12), so the strings can never match — don't
+    // shorten this suffix. Disjoint from the +9199... fixtures
+    // (mobileCust/mobileFarm above, topup.test.ts, farmer-applications'
+    // fixed mobile) via the differing 3rd/4th digit instead.
+    const mobile = `+9177${Date.now().toString().slice(-7)}${Math.floor(100 + Math.random() * 900)}`;
     const custCode = `CUST-OVERDRAW-${randCode}`;
     await pool.query(`
       INSERT INTO users (id, mobile, full_name, user_type, status)
