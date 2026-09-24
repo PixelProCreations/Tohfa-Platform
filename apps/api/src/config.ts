@@ -52,11 +52,10 @@ const envSchema = z.object({
   RAZORPAYX_ACCOUNT: z.string().default(''),
   PAYMENT_PROVIDER: z.enum(['mock', 'razorpay']).default('mock'),
 
-  SMS_PROVIDER: z.enum(['mock', 'msg91', 'twilio']).default('mock'),
+  SMS_PROVIDER: z.enum(['mock', 'msg91']).default('mock'),
   MSG91_AUTH_KEY: z.string().default(''),
-  TWILIO_ACCOUNT_SID: z.string().default(''),
-  TWILIO_AUTH_TOKEN: z.string().default(''),
-  TWILIO_FROM_NUMBER: z.string().default(''),
+  /** DLT-approved Flow template id for the OTP SMS (##OTP## variable). */
+  MSG91_OTP_TEMPLATE_ID: z.string().default(''),
   FCM_SERVER_KEY: z.string().default(''),
   SENTRY_DSN: z.string().default(''),
 
