@@ -9,6 +9,7 @@ import { pool, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
+import { smsTransport } from '../notifications/sms/index.js';
 import type {
   ForgotPasswordBody,
   LoginBody,
@@ -155,6 +156,28 @@ export function createAuthService(
         maxAttempts: config.OTP_MAX_ATTEMPTS, // 3 per BR-32
         expiresAt,
       });
+
+      // The challenge is already persisted at this point, so a failed SMS
+      // dispatch doesn't lose the code -- a client that has it some other
+      // way (or a resend once the provider recovers) can still verify. But
+      // the caller must be told delivery failed rather than being left
+      // thinking a text is on its way when none was ever sent.
+      const ttlMinutes = Math.round(config.OTP_TTL_SECONDS / 60);
+      const smsResult = await smsTransport.sendSms({
+        to: input.mobile,
+        // Used as-is by free-text transports (mock); msg91's Flow
+        // API ignores this and fills its own DLT-approved template instead
+        // (templateId + templateVars below) -- see SendSmsParams.
+        message: `Your TOHFA verification code is ${code}. It expires in ${ttlMinutes} minutes. Do not share this code with anyone.`,
+        templateId: config.MSG91_OTP_TEMPLATE_ID || undefined,
+        templateVars: { OTP: code },
+      });
+      if (smsResult.status === 'FAILED') {
+        throw new AppError('OTP_SMS_DELIVERY_FAILED', {
+          status: 502,
+          detail: 'Could not send the OTP SMS. Please try again in a moment.',
+        });
+      }
 
       return {
         challengeId: challenge.id,

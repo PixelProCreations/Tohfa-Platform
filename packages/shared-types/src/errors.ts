@@ -61,6 +61,8 @@ export const ErrorCode = {
   OTP_LOCKED: 'OTP_LOCKED',
   /** A resend was requested inside the 60-second window. */
   OTP_RESEND_TOO_SOON: 'OTP_RESEND_TOO_SOON',
+  /** The configured SMS provider rejected or failed to dispatch the OTP. */
+  OTP_SMS_DELIVERY_FAILED: 'OTP_SMS_DELIVERY_FAILED',
   /** A second audit was scheduled for a quarter that already has one. */
   AUDIT_QUARTER_TAKEN: 'AUDIT_QUARTER_TAKEN',
   /** A rating/audit category score falls outside its allowed range. */

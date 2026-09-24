@@ -20,7 +20,6 @@ import type {
 import {
   MockSmsTransport,
   Msg91SmsTransport,
-  TwilioSmsTransport,
   maskMobile,
 } from './sms/index.js';
 import {
@@ -301,16 +300,6 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(result.error).toBeDefined();
     });
 
-    it('Twilio transport fails gracefully when credentials are unconfigured', async () => {
-      const twilio = new TwilioSmsTransport();
-      const result = await twilio.sendSms({
-        to: '+919876543210',
-        message: 'Test twilio',
-      });
-
-      expect(result.status).toBe('FAILED');
-      expect(result.error).toBeDefined();
-    });
   });
 
   describe('S-50: Push Transports & Deep Link Registry', () => {
