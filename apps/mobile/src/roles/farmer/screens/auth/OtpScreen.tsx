@@ -12,7 +12,6 @@ import {
   Pressable,
 } from 'react-native';
 import { authPalette as themeAuthPalette } from '../../theme';
-import { t } from '../../../../i18n/farmer';
 import { Icon } from '@tohfa/mobile-ui';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
