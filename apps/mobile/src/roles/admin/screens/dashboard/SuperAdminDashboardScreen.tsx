@@ -217,10 +217,10 @@ function AlertCard({ title, subtitle, linkLabel, imageSource }: {
 }
 
 function QuickBtn({
-  iconName, label, accent = A.orange, bg = A.orangeBg,
-}: { iconName: string; label: string; accent?: string; bg?: string }) {
+  iconName, label, accent = A.orange, bg = A.orangeBg, onPress,
+}: { iconName: string; label: string; accent?: string; bg?: string; onPress?: () => void }) {
   return (
-    <TouchableOpacity style={styles.quickBtn} activeOpacity={0.75}>
+    <TouchableOpacity style={styles.quickBtn} activeOpacity={0.75} onPress={onPress}>
       <View style={[styles.quickIconBox, { backgroundColor: bg }]}>
         <Icon name={iconName} size={22} color={accent} />
       </View>
@@ -417,7 +417,7 @@ function ActionRow({
 
 // ─── Role-specific dashboard bodies ──────────────────────────────────────────
 
-function SuperAdminDashboard() {
+function SuperAdminDashboard({ onNavigate }: { onNavigate?: (screen: AdminScreenName, params?: Record<string, unknown>) => void }) {
   return (
     <>
       <SectionTitle text="System-wide overview" />
@@ -441,7 +441,7 @@ function SuperAdminDashboard() {
       <View style={styles.quickRow}>
         <QuickBtn iconName="person"        label="Create Admin"     />
         <QuickBtn iconName="settings"      label={`System\nConfig`} />
-        <QuickBtn iconName="edit"          label="Fair Price"       />
+        <QuickBtn iconName="trending_up"   label="Market & Pricing" onPress={() => onNavigate?.('MarketPricingHome')} />
         <QuickBtn iconName="verified_user" label="Finance"          />
       </View>
     </>
@@ -822,11 +822,21 @@ function SubWhAdminDashboard() {
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
+export type AdminScreenName =
+  | 'MarketPricingHome'
+  | 'FairPriceCeiling'
+  | 'UpdateFairPrice'
+  | 'BulkPriceUpdate'
+  | 'PriceHistory'
+  | 'MarketDaySchedule'
+  | 'ListingApprovalQueue';
+
 export interface SuperAdminDashboardScreenProps {
   onSignOut: () => void;
+  onNavigate?: (screen: AdminScreenName, params?: Record<string, unknown>) => void;
 }
 
-export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScreenProps) {
+export function SuperAdminDashboardScreen({ onSignOut, onNavigate }: SuperAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('Dashboard');
   const [user, setUser]           = useState<UserMe | null>(null);
   const [roleCode, setRoleCode]   = useState<string>('SUPER_ADMIN');
@@ -922,7 +932,7 @@ export function SuperAdminDashboardScreen({ onSignOut }: SuperAdminDashboardScre
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
         <PageHeader />
-        {roleCode === 'SUPER_ADMIN'   ? <SuperAdminDashboard />   :
+        {roleCode === 'SUPER_ADMIN'   ? <SuperAdminDashboard onNavigate={onNavigate} />   :
          roleCode === 'TOHFA_ADMIN'   ? <TohfaAdminDashboard />   :
          roleCode === 'FARMER_ADMIN'  ? <FarmerAdminDashboard />  :
          roleCode === 'MAIN_WH_ADMIN' ? <MainWhAdminDashboard />  :

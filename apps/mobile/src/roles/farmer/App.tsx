@@ -118,6 +118,14 @@ import {
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
 import { SuperAdminDashboardScreen } from '../admin/screens/dashboard/SuperAdminDashboardScreen';
+import { MarketPricingHomeScreen } from './screens/admin/MarketPricingHomeScreen';
+import { FairPriceCeilingScreen } from './screens/admin/FairPriceCeilingScreen';
+import { UpdateFairPriceScreen } from './screens/admin/UpdateFairPriceScreen';
+import { BulkPriceUpdateScreen } from './screens/admin/BulkPriceUpdateScreen';
+import { PriceHistoryScreen } from './screens/admin/PriceHistoryScreen';
+import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from './screens/admin/MarketDayScheduleScreen';
+import { AddMarketDayScreen } from './screens/admin/AddMarketDayScreen';
+import { ListingApprovalQueueScreen } from './screens/admin/ListingApprovalQueueScreen';
 
 export type ScreenName =
   | 'Splash'
@@ -216,7 +224,15 @@ export type ScreenName =
   | 'SoilMoistureTracking'
   | 'ErosionConservation'
   | 'ExportSoilReports'
-  | 'UploadNewSoilTest';
+  | 'UploadNewSoilTest'
+  | 'MarketPricingHome'
+  | 'FairPriceCeiling'
+  | 'UpdateFairPrice'
+  | 'BulkPriceUpdate'
+  | 'PriceHistory'
+  | 'MarketDaySchedule'
+  | 'AddMarketDay'
+  | 'ListingApprovalQueue';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -261,6 +277,7 @@ export default function App(): React.JSX.Element {
   const [selectedItemForRemove, setSelectedItemForRemove] = useState<RemoveItemData | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
+  const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, string | number | undefined> = {}) => {
@@ -422,7 +439,69 @@ export default function App(): React.JSX.Element {
             onNavigate={(s) => navigate(s)}
           />
         ) : screen === 'AdminMain' ? (
-          <SuperAdminDashboardScreen onSignOut={() => navigate('Welcome')} />
+          <SuperAdminDashboardScreen 
+            onSignOut={() => navigate('Welcome')} 
+            onNavigate={(s, p) => navigate(s as ScreenName, p)}
+          />
+        ) : screen === 'MarketPricingHome' ? (
+          <MarketPricingHomeScreen
+            onBack={() => goBack('AdminMain')}
+            onNavigateToFairPrice={() => navigate('FairPriceCeiling')}
+            onNavigateToMarketDay={() => navigate('MarketDaySchedule')}
+            onNavigateToListingApproval={() => navigate('ListingApprovalQueue')}
+          />
+        ) : screen === 'FairPriceCeiling' ? (
+          <FairPriceCeilingScreen
+            onBack={() => goBack('MarketPricingHome')}
+            onUpdatePrice={(item) => navigate('UpdateFairPrice', { itemName: item.name })}
+            onBulkUpdate={() => navigate('BulkPriceUpdate')}
+            onViewHistory={(item) => navigate('PriceHistory', { itemName: item.name })}
+          />
+        ) : screen === 'UpdateFairPrice' ? (
+          <UpdateFairPriceScreen
+            onBack={() => goBack('FairPriceCeiling')}
+            onSave={() => goBack('FairPriceCeiling')}
+            itemName={typeof params['itemName'] === 'string' ? params['itemName'] : 'Carrots'}
+          />
+        ) : screen === 'BulkPriceUpdate' ? (
+          <BulkPriceUpdateScreen
+            onBack={() => goBack('FairPriceCeiling')}
+            onApply={() => goBack('FairPriceCeiling')}
+          />
+        ) : screen === 'PriceHistory' ? (
+          <PriceHistoryScreen
+            onBack={() => goBack('FairPriceCeiling')}
+            itemName={typeof params['itemName'] === 'string' ? params['itemName'] : 'Carrots'}
+          />
+        ) : screen === 'MarketDaySchedule' ? (
+          <MarketDayScheduleScreen
+            onBack={() => goBack('MarketPricingHome')}
+            onAddMarketDay={() => navigate('AddMarketDay')}
+            onToggle={() => {}}
+            days={marketDays}
+            onDaysChange={setMarketDays}
+          />
+        ) : screen === 'AddMarketDay' ? (
+          <AddMarketDayScreen
+            onBack={() => goBack('MarketDaySchedule')}
+            onSave={(newDay) => {
+              const id = `${Date.now()}`;
+              const newMarketDay: MarketDay = {
+                ...newDay,
+                id,
+                isActive: true,
+              };
+              setMarketDays((prev) => [...prev, newMarketDay]);
+              goBack('MarketDaySchedule');
+            }}
+          />
+        ) : screen === 'ListingApprovalQueue' ? (
+          <ListingApprovalQueueScreen
+            onBack={() => goBack('MarketPricingHome')}
+            onApprove={() => {}}
+            onCounter={() => {}}
+            onReject={() => {}}
+          />
         ) : screen === 'CustomerMain' ? (
           <CustomerMainApp onSignOut={() => navigate('Welcome')} />
         ) : screen === 'Unsupported' ? (
