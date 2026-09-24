@@ -1,4 +1,28 @@
-import { request, setAccessToken } from '../../../shell/api/client';
+/**
+ * The customer role's auth boundary.
+ *
+ * Every HTTP round-trip below is delegated to `src/shell/auth/api.ts`, the one
+ * place that knows the `/v1/auth/*` paths and wire shapes. What stays here is
+ * what is genuinely customer-specific: the `+91` mobile normalization applied
+ * before anything reaches the wire, this role's own response types (a
+ * deliberate divergence from @tohfa/shared-types and from the farmer role's
+ * equally local shapes), and the token persistence side effects against this
+ * role's AsyncStorage-backed store.
+ *
+ * The `as unknown as` casts are that divergence made explicit; unifying the
+ * three response shapes is a separate, reviewed change.
+ */
+import { setAccessToken } from '../../../shell/api/client';
+import {
+  fetchCurrentUser as apiFetchCurrentUser,
+  forgotPassword as apiForgotPassword,
+  login as apiLogin,
+  logout as apiLogout,
+  registerCustomer as apiRegisterCustomer,
+  resetPassword as apiResetPassword,
+  sendOtp as apiSendOtp,
+  verifyOtp as apiVerifyOtp,
+} from '../../../shell/auth/api';
 import { saveTokens, clearTokens } from '../storage/tokenStorage';
 
 export interface CustomerUser {
@@ -113,35 +137,26 @@ export function renderOtpState(input: RenderOtpStateInput): RenderOtpStateResult
 
 export async function registerCustomer(input: RegisterCustomerInput): Promise<RegistrationAcceptedResponse> {
   const cleanMobile = input.mobile.startsWith('+') ? input.mobile.trim() : `+91${input.mobile.trim()}`;
-  return request<RegistrationAcceptedResponse>('/auth/register/customer', {
-    method: 'POST',
-    body: {
-      ...input,
-      mobile: cleanMobile,
-      preferredLocale: input.preferredLocale ?? 'en',
-    },
-  });
+  return (await apiRegisterCustomer({
+    ...input,
+    mobile: cleanMobile,
+    preferredLocale: input.preferredLocale ?? 'en',
+  })) as unknown as RegistrationAcceptedResponse;
 }
 
 export async function sendOtp(input: SendOtpInput): Promise<OtpChallengeResponse> {
   const cleanMobile = input.mobile.startsWith('+') ? input.mobile.trim() : `+91${input.mobile.trim()}`;
-  return request<OtpChallengeResponse>('/auth/otp/send', {
-    method: 'POST',
-    body: {
-      mobile: cleanMobile,
-      purpose: input.purpose,
-    },
-  });
+  return (await apiSendOtp({
+    mobile: cleanMobile,
+    purpose: input.purpose,
+  })) as unknown as OtpChallengeResponse;
 }
 
 export async function verifyOtp(input: VerifyOtpInput): Promise<AuthResponse> {
-  const res = await request<AuthResponse>('/auth/otp/verify', {
-    method: 'POST',
-    body: {
-      challengeId: input.challengeId,
-      code: input.code.trim(),
-    },
-  });
+  const res = (await apiVerifyOtp({
+    challengeId: input.challengeId,
+    code: input.code.trim(),
+  })) as unknown as AuthResponse;
 
   if (res.accessToken && res.refreshToken) {
     await saveTokens(res.accessToken, res.refreshToken);
@@ -153,13 +168,10 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<AuthResponse> {
 
 export async function loginWithPassword(input: LoginInput): Promise<AuthResponse> {
   const cleanMobile = input.mobile.startsWith('+') ? input.mobile.trim() : `+91${input.mobile.trim()}`;
-  const res = await request<AuthResponse>('/auth/login', {
-    method: 'POST',
-    body: {
-      mobile: cleanMobile,
-      password: input.password,
-    },
-  });
+  const res = (await apiLogin({
+    mobile: cleanMobile,
+    password: input.password,
+  })) as unknown as AuthResponse;
 
   if (res.accessToken && res.refreshToken) {
     await saveTokens(res.accessToken, res.refreshToken);
@@ -171,30 +183,24 @@ export async function loginWithPassword(input: LoginInput): Promise<AuthResponse
 
 export async function forgotPassword(input: ForgotPasswordInput): Promise<OtpChallengeResponse> {
   const cleanMobile = input.mobile.startsWith('+') ? input.mobile.trim() : `+91${input.mobile.trim()}`;
-  return request<OtpChallengeResponse>('/auth/forgot-password', {
-    method: 'POST',
-    body: { mobile: cleanMobile },
-  });
+  return (await apiForgotPassword({ mobile: cleanMobile })) as unknown as OtpChallengeResponse;
 }
 
 export async function resetPassword(input: ResetPasswordInput): Promise<void> {
-  await request<void>('/auth/reset-password', {
-    method: 'POST',
-    body: {
-      challengeId: input.challengeId,
-      code: input.code.trim(),
-      newPassword: input.newPassword,
-    },
+  await apiResetPassword({
+    challengeId: input.challengeId,
+    code: input.code.trim(),
+    newPassword: input.newPassword,
   });
 }
 
 export async function fetchMe(): Promise<CustomerUser> {
-  return request<CustomerUser>('/auth/me');
+  return (await apiFetchCurrentUser()) as unknown as CustomerUser;
 }
 
 export async function logout(): Promise<void> {
   try {
-    await request<void>('/auth/logout', { method: 'POST' });
+    await apiLogout();
   } catch {
     // Ignore network error on logout
   } finally {

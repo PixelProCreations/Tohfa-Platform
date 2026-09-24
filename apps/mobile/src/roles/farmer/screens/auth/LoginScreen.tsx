@@ -22,48 +22,21 @@ import {
   isRoleSelectionRequired,
   type OAuthProviderCode,
 } from '../../api/auth';
-import { ApiError } from '../../api/client';
+import { ApiError } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
   signInWithFacebook,
   SocialSignInCancelledError,
 } from '../../native/socialSignIn';
 import { authPalette as P, colors, typography, weights } from '../../theme';
+import { BackButtonIcon, CallIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import googleIcon from '../../assets/icons/googleee.png';
 import facebookIcon from '../../assets/icons/facebook.png';
 import tohfaLogo from '../../assets/tohfa-logo.png';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
-function PhoneIcon({ size = 18, color = P.greyMid1 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
-function LockIcon({ size = 20, color = P.greyMid1 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="10.5" width="14" height="10.5" rx="2.5" stroke={color} strokeWidth="2" />
-      <Path
-        d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="15.75" r="1.5" fill={color} />
-    </Svg>
-  );
-}
 
 function EyeIcon({ size = 18, color = P.greyMid1 }: { size?: number; color?: string }) {
   return (
@@ -109,6 +82,7 @@ interface LoginScreenProps {
       | 'ForgotPassword'
       | 'ApplicationStatus'
       | 'MainTabs'
+      | 'AdminMain'
       | 'CustomerMain'
       | 'Unsupported'
       | 'Register',
@@ -277,7 +251,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           style={styles.backButton}
           onPress={() => onNavigate('Welcome')}
         >
-          <Text style={{ fontSize: 22, fontWeight: '700', color: P.primary, marginTop: -2 }}>{'‹'}</Text>
+          <BackButtonIcon size={20} />
         </TouchableOpacity>
       </View>
 
@@ -294,7 +268,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         <Text style={styles.fieldLabel}>{t('farmer.auth.login.mobile')}</Text>
         <View style={[styles.fieldRow, isMobileFocused && styles.fieldRowFocused]}>
           <View style={styles.fieldIconWrap}>
-            <PhoneIcon size={18} color={isMobileFocused ? P.primary : P.greyMid2} />
+            <CallIcon size={18} color={isMobileFocused ? P.primary : P.greyMid2} />
           </View>
           <Text style={styles.prefix}>{MOBILE_PREFIX}</Text>
           <View style={styles.prefixDivider} />

@@ -1,5 +1,33 @@
+/**
+ * The farmer role's auth boundary.
+ *
+ * Every HTTP round-trip below is delegated to `src/shell/auth/api.ts`, which is
+ * the one place that knows the `/v1/auth/*` paths and wire shapes. What stays
+ * here is what is genuinely farmer-specific and must not be shared: this role's
+ * own response types (a deliberate divergence from @tohfa/shared-types — see
+ * `UserMe` below), the routing decisions built on them, and the token
+ * persistence side effects against this role's Keychain-backed store.
+ *
+ * The `as unknown as` casts at each call site are that divergence made
+ * explicit. They are not laziness: the shared module returns the canonical
+ * shape and this file re-declares a different one, so the adaptation has to
+ * happen somewhere and the boundary is the honest place for it. Unifying the
+ * two shapes is a separate, reviewed change — see the plan's "no type
+ * unification" note.
+ */
 import type { RoleCodeWithColor } from '@tohfa/design-tokens';
-import { request, setAccessToken } from './client';
+import type { LoginRequest } from '@tohfa/shared-types';
+import { request, setAccessToken } from '../../../shell/api/client';
+import {
+  fetchCurrentUser as apiFetchCurrentUser,
+  forgotPassword as apiForgotPassword,
+  login as apiLogin,
+  loginWithOAuth as apiLoginWithOAuth,
+  logout as apiLogout,
+  resetPassword as apiResetPassword,
+  sendOtp as apiSendOtp,
+  verifyOtp as apiVerifyOtp,
+} from '../../../shell/auth/api';
 import { saveTokens, clearTokens } from '../storage/tokenStorage';
 
 export interface UserRole {
@@ -250,10 +278,10 @@ export async function loginWithPassword(body: {
   password?: string;
   roleCode?: string;
 }): Promise<LoginOutcome> {
-  const res = await request<LoginOutcome>('/auth/login', {
-    method: 'POST',
-    body,
-  });
+  // `password` is optional here but required on `LoginRequest`, and `roleCode`
+  // is a plain string here but a `RoleCode` there — this role's looser shape,
+  // adapted at the boundary rather than tightened in place.
+  const res = (await apiLogin(body as unknown as LoginRequest)) as unknown as LoginOutcome;
   if (!isRoleSelectionRequired(res) && res.accessToken && res.refreshToken) {
     setAccessToken(res.accessToken);
     await saveTokens(res.accessToken, res.refreshToken);
@@ -278,10 +306,10 @@ export async function loginWithOAuth(
   opts?: { deviceId?: string; platform?: 'ios' | 'android' | 'web'; roleCode?: string },
 ): Promise<OAuthLoginOutcome> {
   const providerPath = provider === 'GOOGLE' ? 'google' : 'facebook';
-  const res = await request<OAuthLoginOutcome>(`/auth/oauth/${providerPath}`, {
-    method: 'POST',
-    body: { token, ...opts },
-  });
+  const res = (await apiLoginWithOAuth(providerPath, {
+    token,
+    ...opts,
+  })) as unknown as OAuthLoginOutcome;
   if (
     !isOAuthNotLinked(res) &&
     !isRoleSelectionRequired(res) &&
@@ -296,12 +324,9 @@ export async function loginWithOAuth(
 
 export async function requestOtp(body: {
   mobile: string;
-  purpose: 'LOGIN' | 'REGISTER' | 'PASSWORD_RESET';
+  purpose: 'LOGIN' | 'REGISTRATION' | 'PASSWORD_RESET';
 }): Promise<OtpResponse> {
-  return await request<OtpResponse>('/auth/otp/send', {
-    method: 'POST',
-    body,
-  });
+  return (await apiSendOtp(body)) as unknown as OtpResponse;
 }
 
 export async function verifyOtp(body: {
@@ -314,10 +339,9 @@ export async function verifyOtp(body: {
    */
   linkToken?: string;
 }): Promise<LoginOutcome> {
-  const res = await request<LoginOutcome>('/auth/otp/verify', {
-    method: 'POST',
-    body,
-  });
+  // `body` is forwarded by reference, not rebuilt, so an absent `linkToken`
+  // stays absent from the JSON rather than becoming an explicit null.
+  const res = (await apiVerifyOtp(body)) as unknown as LoginOutcome;
   if (!isRoleSelectionRequired(res) && res.accessToken && res.refreshToken) {
     setAccessToken(res.accessToken);
     await saveTokens(res.accessToken, res.refreshToken);
@@ -325,26 +349,33 @@ export async function verifyOtp(body: {
   return res;
 }
 
+/**
+ * Declared `{ message: string }`, but the server answers 202 with an OTP
+ * challenge (`challengeId`/`expiresAt`/`resendAvailableAt`/`attemptsRemaining`)
+ * and no `message` at all. Pre-existing drift, preserved verbatim here rather
+ * than corrected, because correcting it changes what the screens see and
+ * belongs with the type-unification change, not with this one.
+ */
 export async function forgotPassword(body: { mobile: string }): Promise<{ message: string }> {
-  return await request<{ message: string }>('/auth/forgot-password', {
-    method: 'POST',
-    body,
-  });
+  return (await apiForgotPassword(body)) as unknown as { message: string };
 }
 
+/**
+ * Same drift as `forgotPassword`, one step further: the server answers 204 with
+ * no body at all, so this has always resolved to `undefined` despite its
+ * declared type. Preserved as-is for the same reason.
+ */
 export async function resetPassword(body: {
   challengeId: string;
   code: string;
   newPassword: string;
 }): Promise<{ message: string }> {
-  return await request<{ message: string }>('/auth/reset-password', {
-    method: 'POST',
-    body,
-  });
+  await apiResetPassword(body);
+  return undefined as unknown as { message: string };
 }
 
 export async function fetchMe(): Promise<UserMe> {
-  return await request<UserMe>('/auth/me');
+  return (await apiFetchCurrentUser()) as unknown as UserMe;
 }
 
 export async function fetchApplicationStatus(
@@ -355,7 +386,7 @@ export async function fetchApplicationStatus(
 
 export async function logout(): Promise<void> {
   try {
-    await request<void>('/auth/logout', { method: 'POST' });
+    await apiLogout();
   } catch {
     // Ignore network error on logout — the user must always be able to log
     // out locally even if the server call fails (see customer role's logout

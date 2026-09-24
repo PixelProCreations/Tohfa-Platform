@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon } from '../../assets/icons/AssetIcons';
 import { useTheme } from '../../theme';
 import { Step1Personal } from './Step1Personal';
 import { Step2FarmDetails } from './Step2FarmDetails';
@@ -27,6 +29,7 @@ const STEP_TITLES: Record<number, string> = {
 export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavigate }) => {
   const theme = useTheme();
   const { colors } = theme;
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // `persist` restores `draft` from AsyncStorage asynchronously; `hasHydrated` flips true once
   // that restore has settled (found a draft, found nothing, or failed) -- see
@@ -42,12 +45,10 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
 
   async function updateStepAndAdvance(step: number, payload: unknown) {
     let currentAppId = draft.applicationId;
+    setApiError(null);
 
-    // When step 1 completes, create the real application draft on server with farmer's actual mobile & name
+    // When step 1 completes, create the real application draft on server
     if (step === 1 && (currentAppId === 'draft-temp' || currentAppId.startsWith('app-'))) {
-      // validateStep(1, ...) (screens/registration/validation.ts) already guarantees a
-      // non-empty, valid fullName/mobile before Step1Personal ever calls onSave, so the
-      // non-null assertions below are safe -- no fake fallback values needed.
       const step1 = payload as Step1PersonalData;
       try {
         const appRes = await createFarmerApplication({
@@ -59,7 +60,10 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
           currentAppId = appRes.id;
         }
       } catch (err) {
-        console.warn('createFarmerApplication caught:', err);
+        const msg = err instanceof Error ? err.message : 'Failed to create application. Please check your connection and try again.';
+        setApiError(msg);
+        // Still advance locally so user doesn't lose their data — server sync will retry on next step
+        console.warn('createFarmerApplication failed:', err);
       }
     }
 
@@ -68,12 +72,14 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
     }
     updateStepAndAdvanceInStore(step, payload);
 
-    // Persist step to server in background if valid app ID
+    // Persist step to server in background if we have a real app ID
     if (currentAppId !== 'draft-temp' && !currentAppId.startsWith('app-')) {
       try {
         await saveFarmerApplicationStep(currentAppId, step, payload);
       } catch (err) {
-        console.warn(`saveFarmerApplicationStep ${step} caught:`, err);
+        const msg = err instanceof Error ? err.message : `Failed to save Step ${step}. Your data is kept locally.`;
+        setApiError(msg);
+        console.warn(`saveFarmerApplicationStep ${step} failed:`, err);
       }
     }
   }
@@ -98,6 +104,16 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgLight }]}>
+      {/* API error banner — dismissible, shown above the step header */}
+      {apiError ? (
+        <View style={[styles.apiBanner, { backgroundColor: '#FFF3CD', borderColor: '#FFCA2C' }]}>
+          <Icon name="warning" size={16} color="#856404" />
+          <Text style={styles.apiBannerText}>{apiError}</Text>
+          <TouchableOpacity onPress={() => setApiError(null)}>
+            <Icon name="close" size={16} color="#856404" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {/* Branding Spec Header */}
       {draft.currentStep < 3 && (
         <View
@@ -121,7 +137,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
               ]}
               onPress={handleBack}
             >
-              <Text style={[styles.backButtonArrow, { color: colors.brandGreen }]}>‹</Text>
+              <BackButtonIcon size={20} />
             </TouchableOpacity>
             <View>
               <Text style={[styles.headerTitle, { color: colors.textDark }]}>{stepTitle}</Text>
@@ -242,5 +258,19 @@ const styles = StyleSheet.create({
   },
   stepContent: {
     flex: 1,
+  },
+  apiBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  apiBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#856404',
+    lineHeight: 18,
   },
 });

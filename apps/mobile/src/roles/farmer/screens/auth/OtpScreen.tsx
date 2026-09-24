@@ -14,8 +14,9 @@ import {
 import { authPalette as themeAuthPalette } from '../../theme';
 import { t } from '../../../../i18n/farmer';
 import { Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
-import { ApiError } from '../../api/client';
+import { ApiError } from '../../../../shell/api/client';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map
@@ -46,7 +47,7 @@ interface OtpScreenProps {
    */
   linkToken?: string | undefined;
   onNavigate: (
-    screen: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
+    screen: 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
     params?: Record<string, string | number | undefined>
   ) => void;
 }
@@ -205,13 +206,13 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         >
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('Login')}>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: themeAuthPalette.primary, marginTop: -2 }}>{'‹'}</Text>
+              <BackButtonIcon size={20} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.iconWrapper}>
             <View style={styles.iconCircle}>
-              <Icon name="mark_email_read" size={32} color={authPalette.primary} />
+              <LockIcon size={32} color={authPalette.primary} />
             </View>
           </View>
 

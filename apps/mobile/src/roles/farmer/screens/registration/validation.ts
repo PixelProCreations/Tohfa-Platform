@@ -28,8 +28,15 @@ export function validateStep(step: number, data: unknown): StepValidationResult 
       errors['mobile'] = 'Valid mobile number starting with +91 is required.';
     }
     const aadhaarInput = (s1.aadhaarNumber || s1.aadhaarLast4 || '').replace(/\s+/g, '').trim();
-    if (!aadhaarInput || aadhaarInput.length < 4) {
+    if (!aadhaarInput) {
       errors['aadhaarLast4'] = 'Aadhaar / ID Number is required.';
+    } else if (!/^\d{12}$/.test(aadhaarInput)) {
+      // Accept last-4 only when restoring a draft (aadhaarNumber not present)
+      if (!s1.aadhaarNumber && aadhaarInput.length === 4 && /^\d{4}$/.test(aadhaarInput)) {
+        // draft restored — last4 only, skip full check
+      } else {
+        errors['aadhaarLast4'] = 'Enter a valid 12-digit Aadhaar number.';
+      }
     }
     if (!s1.district || s1.district.trim().length === 0) {
       errors['district'] = 'District is required.';

@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api } from '../../../shell/api/client';
 
 export type Grade = 'GRADE_1' | 'GRADE_2' | 'GRADE_3' | 'REJECT';
 
