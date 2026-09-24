@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { t } from '../../../../i18n/farmer';
 import { Icon, ErrorState } from '@tohfa/mobile-ui';
+import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { resetPassword } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
@@ -58,12 +59,12 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ challe
           style={styles.backButton}
           onPress={() => onNavigate('Login')}
         >
-          <Text style={{ fontSize: 22, fontWeight: '700', color: P.primary, marginTop: -2 }}>{'‹'}</Text>
+          <BackButtonIcon size={20} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.iconCircle}>
-        <Icon name="lock_reset" size={32} color={P.primary} />
+        <LockIcon size={32} color={P.primary} />
       </View>
 
       <Text style={styles.title}>Create New Password</Text>
@@ -77,7 +78,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ challe
 
       <Text style={styles.fieldLabel}>New Password</Text>
       <View style={styles.fieldRow}>
-        <Icon name="lock" size={16} color={P.muted} />
+        <LockIcon size={16} color={P.muted} />
         <TextInput
           style={styles.fieldInput}
           value={password}
@@ -93,7 +94,7 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ challe
 
       <Text style={styles.fieldLabel}>Confirm Password</Text>
       <View style={styles.fieldRow}>
-        <Icon name="lock" size={16} color={P.muted} />
+        <LockIcon size={16} color={P.muted} />
         <TextInput
           style={styles.fieldInput}
           value={confirmPassword}

@@ -10,6 +10,7 @@ import {
 import DocumentPicker, { DocumentPickerResponse } from 'react-native-document-picker';
 import { useTheme, authPalette as P } from '../../theme';
 import { ErrorState, Icon } from '@tohfa/mobile-ui';
+import { BackButtonIcon } from '../../assets/icons/AssetIcons';
 import { validateStep } from './validation';
 import type { Step4DocumentsData } from '../../storage/registrationDraft';
 import { signUpload } from '../../api/registration';
@@ -171,7 +172,7 @@ export const Step4Documents: React.FC<Step4Props> = ({ initialData, onSave, onBa
             style={[styles.backButtonCircle, { borderColor: colors.borderMedium, backgroundColor: colors.white }]}
             onPress={onBack}
           >
-            <Text style={[styles.backButtonArrow, { color: colors.brandGreen }]}>‹</Text>
+            <BackButtonIcon size={20} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: colors.textDark }]}>Documents</Text>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { setOnAuthFailure } from './api/client';
+import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
+import { tokenStorage } from './storage/tokenStorage';
 import { logout } from './api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
@@ -12,6 +13,7 @@ import { OtpScreen } from './screens/auth/OtpScreen';
 import { ResetPasswordScreen } from './screens/auth/ResetPasswordScreen';
 import { PasswordChangedSuccessScreen } from './screens/auth/PasswordChangedSuccessScreen';
 import { RoleSelectionScreen } from './screens/auth/RoleSelectionScreen';
+import { HomeIcon } from './assets/icons/AssetIcons';
 import { SplashScreen } from './screens/auth/SplashScreen';
 import { WelcomeScreen } from './screens/auth/WelcomeScreen';
 import { AddCertificationScreen } from './screens/certifications/AddCertificationScreen';
@@ -115,7 +117,7 @@ import {
 } from './api/farmer';
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
-import { SuperAdminDashboardScreen } from './screens/admin/SuperAdminDashboardScreen';
+import { SuperAdminDashboardScreen } from '../admin/screens/dashboard/SuperAdminDashboardScreen';
 
 export type ScreenName =
   | 'Splash'
@@ -1271,7 +1273,7 @@ export default function App(): React.JSX.Element {
                 onPress={() => setCurrentTab('Home')}
                 accessibilityRole="tab"
               >
-                <Icon name="home" size={24} color={currentTab === 'Home' ? colors.brandGreen : colors.onSurfaceVariant} />
+                <HomeIcon size={24} color={currentTab === 'Home' ? colors.brandGreen : colors.onSurfaceVariant} />
                 <Text
                   style={[
                     styles.tabItemText,
