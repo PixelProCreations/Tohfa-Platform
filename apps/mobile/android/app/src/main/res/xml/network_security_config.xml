@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Scoped cleartext (plain HTTP) exception for local development only.
+
+  AndroidManifest.xml sets android:usesCleartextTraffic="false" as the
+  correct default: production traffic must be HTTPS. But that flag blocks
+  ALL cleartext for the whole app with no per-host exception, which also
+  silently breaks every local dev API call: `http://localhost:3000` (via
+  `adb reverse tcp:3000 tcp:3000`, real device) and `http://10.0.2.2:3000`
+  (Android emulator's host-loopback alias, see shell/api/client.ts) are both
+  plain HTTP. Without this file, a debug build can't reach a local API
+  server at all: the request fails with a bare NetworkError, not an
+  HTTP-scheme-specific one, which is easy to misdiagnose as a connectivity
+  problem rather than a manifest policy.
+
+  Only localhost/10.0.2.2 are allowlisted, and only cleartext: this does
+  not weaken anything for a real device talking to a real (HTTPS) backend.
+-->
+<network-security-config>
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">localhost</domain>
+    <domain includeSubdomains="false">10.0.2.2</domain>
+  </domain-config>
+</network-security-config>

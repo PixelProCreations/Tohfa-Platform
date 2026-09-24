@@ -18,6 +18,7 @@ import {
 import type { Feature, Point } from 'geojson';
 import { MAPBOX_ACCESS_TOKEN } from '@env';
 import { useTheme } from './theme';
+import { Icon } from './Icon';
 
 let Mapbox: any = null;
 let Camera: any = null;
@@ -99,6 +100,8 @@ export interface FarmBoundaryMapHandle {
    * camera on the first match. Resolves `true` if a match was found.
    */
   search: (query: string) => Promise<boolean>;
+  /** Animates the camera to the specified coordinate. */
+  flyTo: (center: LngLat, zoomLevel?: number, durationMs?: number) => void;
 }
 
 export interface FarmBoundaryMapProps {
@@ -110,10 +113,23 @@ export interface FarmBoundaryMapProps {
   onPolygonChange: (coordinates: LngLat[]) => void;
   /** Renders the boundary and satellite map with no draw/edit interaction and no search bar. */
   readOnly?: boolean;
+  /** Explicitly hides the place-name search bar even in interactive mode. */
+  hideSearchBar?: boolean;
   /** Placeholder text for the built-in place-name search bar. Caller supplies this via `t()`. */
   searchPlaceholder: string;
   /** Fires whenever draw/edit/view mode changes, so the caller's own buttons can reflect it. */
   onModeChange?: (mode: FarmBoundaryMapMode) => void;
+  /**
+   * A single non-draggable pin, for a coordinate that has no boundary of its own — e.g. a
+   * manually-typed lat/lng fallback (registration Step 3) when the farmer can't GPS-lock or draw
+   * a parcel. A manually-typed point has no polygon to render, so this is the only way to show
+   * the farmer that something is actually marked on the map.
+   *
+   * Ignored whenever there is a boundary shape (>= 3 vertices) — a drawn parcel already has its
+   * own fill/line visual, so the two are mutually exclusive rather than layered. `null`/`undefined`
+   * (the default) renders nothing, matching every existing caller that doesn't pass this prop.
+   */
+  markerCoordinate?: LngLat | null;
   testID?: string;
 }
 
@@ -165,8 +181,10 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
       initialPolygon = null,
       onPolygonChange,
       readOnly = false,
+      hideSearchBar = false,
       searchPlaceholder,
       onModeChange,
+      markerCoordinate = null,
       testID,
     },
     ref,
@@ -326,6 +344,13 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
         clear,
         locateMe,
         search: runSearch,
+        flyTo: (center: LngLat, zoomLevel = 17, durationMs = 1000) => {
+          cameraRef.current?.setCamera({
+            centerCoordinate: center,
+            zoomLevel,
+            animationDuration: durationMs,
+          });
+        },
       }),
       [clear, locateMe, readOnly, runSearch, setMode, undo, vertices.length],
     );
@@ -409,10 +434,29 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
                 </PointAnnotation>
               ))
             : null}
+
+          {/* Plain marker for a coordinate with no boundary of its own — see `markerCoordinate`
+              prop docs above. Never draggable/`onDragEnd`: unlike the vertex handles above, this
+              is not an editable boundary point, so it's styled distinctly (solid accent fill vs.
+              the vertex handle's hollow primary-bordered surface fill) to avoid looking like one.
+              Suppressed whenever a boundary shape exists, so the two are never shown at once. */}
+          {!boundaryShape && markerCoordinate ? (
+            <PointAnnotation id="manualMarker" coordinate={markerCoordinate}>
+              <View
+                style={[
+                  styles.markerDot,
+                  {
+                    backgroundColor: theme.colors.accent,
+                    borderColor: theme.colors.white,
+                  },
+                ]}
+              />
+            </PointAnnotation>
+          ) : null}
         </MapView>
 
         {/* Place-name geocoding search bar */}
-        {!readOnly ? (
+        {!readOnly && !hideSearchBar ? (
           <View
             style={[
               styles.searchBar,
@@ -423,6 +467,9 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
               },
             ]}
           >
+            <View style={styles.searchIconBox}>
+              <Icon name="search" size={18} color={theme.colors.onSurfaceVariant ?? '#64748B'} />
+            </View>
             <TextInput
               style={[
                 styles.searchInput,
@@ -463,22 +510,38 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 3,
   },
+  // Smaller and solid-filled, vs. the larger hollow-ringed `vertexHandle` above — deliberately
+  // reads as "a marked point" rather than "a draggable boundary vertex".
+  markerDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+  },
   searchBar: {
     position: 'absolute',
     top: 12,
-    left: 12,
-    right: 12,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     height: 44,
-    shadowOpacity: 0.15,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+    zIndex: 5,
+  },
+  searchIconBox: {
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchInput: {
     flex: 1,
     height: '100%',
+    paddingVertical: 0,
   },
   fallbackContainer: {
     backgroundColor: '#0f172a',

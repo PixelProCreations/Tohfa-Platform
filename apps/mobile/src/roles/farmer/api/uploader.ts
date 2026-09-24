@@ -13,6 +13,22 @@ export interface UploadOptions {
   chunkSize?: number | undefined;
   onProgress?: ((progressPct: number, uploadedBytes: number, totalBytes: number) => void) | undefined;
   abortSignal?: AbortSignal | undefined;
+  /**
+   * Extra headers the presigned target requires -- e.g. a real Azure block-blob
+   * upload needs `x-ms-blob-type: BlockBlob`, which `SignedUploadTarget.headers`
+   * (apps/api/src/storage/blobStorage.ts) already carries but this function used to
+   * ignore, hardcoding only Content-Type. Merged on top of the headers this function
+   * builds itself; Content-Range for a resumable chunk is still added afterwards so
+   * it can never be shadowed by a caller-supplied value.
+   */
+  headers?: Record<string, string> | undefined;
+  /**
+   * The HTTP method the presigned target expects. `SignedUploadTarget.method` is
+   * typed as `'PUT' | 'POST'`, though every signer in this codebase issues 'PUT'
+   * today -- defaults to 'PUT' to match that, and stays overridable in case a future
+   * signer varies it.
+   */
+  method?: string | undefined;
 }
 
 export interface UploadResult {
@@ -92,9 +108,13 @@ export async function uploadWithResume(options: UploadOptions): Promise<UploadRe
     const nextOffset = Math.min(currentOffset + chunkSize, totalBytes);
     const chunk = bytes.slice(currentOffset, nextOffset);
 
-    // Build headers for chunk upload
+    // Build headers for chunk upload. Caller-supplied headers (e.g. the presigned
+    // target's `x-ms-blob-type: BlockBlob`) are merged in first so they are never
+    // silently dropped; Content-Range is then always added/overwritten afterwards so
+    // a resumable chunk's own protocol header can never be shadowed by a caller value.
     const headers: Record<string, string> = {
       'Content-Type': contentType,
+      ...options.headers,
     };
 
     if (resumable) {
@@ -103,7 +123,7 @@ export async function uploadWithResume(options: UploadOptions): Promise<UploadRe
 
     try {
       const res = await fetch(uploadUrl, {
-        method: 'PUT',
+        method: options.method ?? 'PUT',
         headers,
         body: chunk,
         signal: abortSignal,

@@ -3,6 +3,7 @@ import { optionalAuth, requireActor, requireAuth } from '../../auth/requireAuth.
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission } from '../../rbac/requirePermission.js';
+import { signUploadBody } from '../uploads/uploads.schema.js';
 import {
   approveApplicationBody,
   createFarmerApplicationBody,
@@ -38,6 +39,22 @@ farmerApplicationsRouter.patch(
     const { id, step } = getValidated(req, 'params', updateStepParams);
     const result = await farmerApplicationsService.updateStep(req.actor, id, step, req.body);
     res.json(result);
+  }),
+);
+
+// Registration-scoped signed upload URL (public -- no account exists yet; see
+// uploads.routes.ts's authenticated POST /uploads/sign for the normal, logged-in
+// path). Mirrors steps/:step's wiring exactly: optionalAuth, no requirePermission,
+// ownership/liveness checked inside the service instead of via RBAC scope.
+farmerApplicationsRouter.post(
+  '/applications/:id/uploads/sign',
+  optionalAuth,
+  validate({ params: farmerApplicationIdParams, body: signUploadBody }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const body = getValidated(req, 'body', signUploadBody);
+    const result = await farmerApplicationsService.requestDocumentUploadUrl(id, body);
+    res.status(201).json(result);
   }),
 );
 

@@ -28,32 +28,68 @@ export interface FarmerApplicationDetail extends FarmerApplicationSummary {
     district?: string;
     pincode?: string;
   };
+  /**
+   * One farming operation per farmer, so these are singular properties of that
+   * operation — including years of experience, which is asked once here.
+   *
+   * `totalAreaAcres` and `numberOfFarms` are the farmer's OWN STATED figures, normally
+   * read off their land records (patta/chitta). Neither is derived from step 3 — not
+   * from the parcels' summed acreage, and not from how many parcels were marked, which
+   * are measured on the ground. Keeping each pair independent is the whole point: a
+   * derived figure always agrees with itself and so tells a verifier nothing.
+   *
+   * `farmName` names the whole operation ("Great Earth Organic"). It is not a parcel
+   * name — each step 3 location carries its own `label` — so do not read one as the
+   * other when reviewing an application.
+   */
   step2FarmDetails: {
-    farms?: Array<{
-      name: string;
-      totalAreaAcres: number;
-      organicSince?: string;
-      waterSource?: string;
-      primaryCrops?: string[];
-    }>;
+    farmName?: string;
+    typeOfFarming?: string;
+    experienceYears?: number;
+    totalAreaAcres?: number;
+    numberOfFarms?: number;
+    waterSource?: string;
+    primaryCrops?: string[];
   };
+  /**
+   * The operation's land sits in several physical places. Each location is
+   * self-contained — its own acreage and its own surveyed boundary — so there is
+   * no cross-step correlation key between step 2 and step 3 any more.
+   *
+   * The sum of `areaAcres` is the land actually marked. It is compared against the
+   * farmer's stated total from step 2, never substituted for it.
+   */
   step3Location: {
-    gpsCaptured?: boolean;
-    latitude?: number;
-    longitude?: number;
-    village?: string;
-    taluk?: string;
-    district?: string;
-    fmbPolygon?: {
-      type: 'Polygon';
-      coordinates: number[][][];
-    };
+    locations?: Array<{
+      id: string;
+      label: string;
+      areaAcres: number;
+      gpsCaptured?: boolean;
+      latitude?: number;
+      longitude?: number;
+      calculatedAreaAcres?: number;
+      calculatedAreaHectares?: number;
+      fmbPolygon?: {
+        type: 'Polygon';
+        coordinates: number[][][];
+      };
+      village?: string;
+      taluk?: string;
+      district?: string;
+    }>;
   };
   step4Documents: {
     documents?: Array<{
       docType: string;
       fileUrl: string;
       fileName?: string;
+      /**
+       * Which specific document this is (e.g. "Aadhaar Card" for an ID_PROOF row, "Patta" for
+       * a FARM_DOC row) -- without it a FARM_VERIFICATION reviewer has to open the file to
+       * find out what it is. Absent on documents saved before this field existed, and never
+       * set on CERTIFICATE/OTHER rows (the mobile picker only offers it for ID_PROOF/FARM_DOC).
+       */
+      docSubType?: string;
     }>;
   };
 }

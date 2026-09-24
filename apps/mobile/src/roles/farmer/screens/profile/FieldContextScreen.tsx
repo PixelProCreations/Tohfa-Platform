@@ -88,7 +88,7 @@ const BOUNDARY_OPTIONS: BoundaryOption[] = [
 ];
 
 /* Custom SVG Icons */
-function ForestIcon({ size = 22, color = '#15803d' }: { size?: number; color?: string }) {
+function ForestIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -109,7 +109,7 @@ function ForestIcon({ size = 22, color = '#15803d' }: { size?: number; color?: s
   );
 }
 
-function FireIcon({ size = 22, color = '#D97706' }: { size?: number; color?: string }) {
+function FireIcon({ size = 22, color = P.twAmber600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -123,7 +123,7 @@ function FireIcon({ size = 22, color = '#D97706' }: { size?: number; color?: str
   );
 }
 
-function PawIcon({ size = 22, color = '#B45309' }: { size?: number; color?: string }) {
+function PawIcon({ size = 22, color = P.twAmber700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <Circle cx="5" cy="9.5" r="2" />

@@ -7,7 +7,7 @@ import { InMemoryBlobStorage } from '../../storage/blobStorage.js';
 import { sniffMimeType, stripExifAndGps, type AllowedMimeType } from '../../storage/imageProcessor.js';
 import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
 import { createUploadsService } from './uploads.service.js';
-import type { UploadsRepo } from './uploads.repo.js';
+import type { CreateUploadParams, UploadsRepo } from './uploads.repo.js';
 
 function mockUploadsRepo(): UploadsRepo {
   return {
@@ -26,6 +26,24 @@ function mockUploadsRepo(): UploadsRepo {
     }),
     findByKey: async () => null,
     findById: async () => null,
+  };
+}
+
+/** Same shape as `mockUploadsRepo`, but also records every `createUpload` call so a test can
+ * assert on exactly what was persisted -- `signUpload`/`signUploadForOwner` only return the
+ * signed target, not the created row. */
+function recordingUploadsRepo(): { repo: UploadsRepo; calls: CreateUploadParams[] } {
+  const calls: CreateUploadParams[] = [];
+  const base = mockUploadsRepo();
+  return {
+    calls,
+    repo: {
+      ...base,
+      createUpload: async (db, params) => {
+        calls.push(params);
+        return base.createUpload(db, params);
+      },
+    },
   };
 }
 
@@ -119,6 +137,43 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
           contentType: 'text/html' as unknown as AllowedMimeType,
           sizeBytes: 1000,
         }),
+      ).rejects.toThrow(expect.objectContaining({ status: 422 }));
+    });
+  });
+
+  describe('signUploadForOwner (registration-scoped uploads with no Actor)', () => {
+    it('records a null uploaded_by and the given entity_type/entity_id, never a user id', async () => {
+      const storage = new InMemoryBlobStorage();
+      const { repo, calls } = recordingUploadsRepo();
+      const service = createUploadsService(storage, repo);
+      const applicationId = '11111111-1111-1111-1111-111111111111';
+
+      const target = await service.signUploadForOwner(
+        { entityType: 'farmer_application', entityId: applicationId, isPublic: false },
+        { purpose: 'FARMER_DOCUMENT', contentType: 'application/pdf', sizeBytes: 500000 },
+      );
+
+      expect(target.method).toBe('PUT');
+      expect(target.resumable).toBe(false);
+      expect(calls).toHaveLength(1);
+      // No Actor was ever involved -- uploaded_by must land as null (the column is
+      // nullable precisely for this case), never coerced to some placeholder id.
+      expect(calls[0]!.uploadedBy).toBeUndefined();
+      expect(calls[0]!.entityType).toBe('farmer_application');
+      expect(calls[0]!.entityId).toBe(applicationId);
+      expect(calls[0]!.isPublic).toBe(false);
+    });
+
+    it('still validates MIME type the same way signUpload does', async () => {
+      const storage = new InMemoryBlobStorage();
+      const { repo } = recordingUploadsRepo();
+      const service = createUploadsService(storage, repo);
+
+      await expect(
+        service.signUploadForOwner(
+          { entityType: 'farmer_application', entityId: '11111111-1111-1111-1111-111111111111', isPublic: false },
+          { purpose: 'FARMER_DOCUMENT', contentType: 'text/html' as unknown as AllowedMimeType, sizeBytes: 1000 },
+        ),
       ).rejects.toThrow(expect.objectContaining({ status: 422 }));
     });
   });

@@ -11,13 +11,21 @@
  * and shared transport code has no business hard-depending on one specific
  * role's copy of a token store anyway.
  */
+import { Platform } from 'react-native';
 import type { ErrorCode, Problem } from '@tohfa/shared-types';
 
+export { formatErrorMessage, extractFieldErrors } from './errorService';
+
 /**
- * TODO(STORY-MOB-01): move to react-native-config so the URL comes from the
- * build flavour. 10.0.2.2 is the Android emulator's view of the host machine.
+ * In development, `http://localhost:3000` works via `adb reverse tcp:3000 tcp:3000`
+ * on both physical Android devices and emulators, as well as iOS simulators.
+ * If running on an Android emulator without adb reverse, it falls back to 10.0.2.2:3000.
  */
-export const API_BASE_URL = 'http://10.0.2.2:3000';
+export let API_BASE_URL = 'http://localhost:3000';
+
+export function setApiBaseUrl(url: string): void {
+  API_BASE_URL = url;
+}
 
 export function resolveUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -187,7 +195,22 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
   } catch (error) {
-    throw new NetworkError(error);
+    if (API_BASE_URL.includes('localhost') && Platform.OS === 'android') {
+      try {
+        const fallbackUrl = resolveUrl(path).replace('localhost', '10.0.2.2');
+        response = await fetch(fallbackUrl, {
+          method: options.method ?? 'GET',
+          headers,
+          ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+        });
+        API_BASE_URL = 'http://10.0.2.2:3000';
+      } catch {
+        throw new NetworkError(error);
+      }
+    } else {
+      throw new NetworkError(error);
+    }
   }
 
   // Handle mid-session 401 token expiry with collapsed refresh and single retry

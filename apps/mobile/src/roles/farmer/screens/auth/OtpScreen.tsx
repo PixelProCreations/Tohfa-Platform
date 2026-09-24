@@ -12,10 +12,9 @@ import {
   Pressable,
 } from 'react-native';
 import { authPalette as themeAuthPalette } from '../../theme';
-import { t } from '../../../../i18n/farmer';
 import { Icon } from '@tohfa/mobile-ui';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
-import { ApiError } from '../../../../shell/api/client';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map
@@ -84,7 +83,14 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
   });
 
   async function handleVerify() {
-    if (code.length < 6 || otpState.isLocked) return;
+    if (code.length < 6) {
+      setErrorMsg('Please enter the complete 6-digit verification code.');
+      return;
+    }
+    if (otpState.isLocked) {
+      setErrorMsg('Too many failed attempts. Please try again later.');
+      return;
+    }
     if (purpose === 'PASSWORD_RESET') {
       onNavigate('ResetPassword', { challengeId: activeChallengeId, code });
       return;
@@ -116,16 +122,11 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         if (err.is('OTP_INVALID') || err.is('OTP_EXPIRED')) {
           const nextAttempts = Math.max(0, attemptsRemaining - 1);
           setAttemptsRemaining(nextAttempts);
-          setErrorMsg(t('error.OTP_INVALID'));
         } else if (err.is('OTP_LOCKED')) {
           setAttemptsRemaining(0);
-          setErrorMsg(t('error.OTP_LOCKED'));
-        } else {
-          setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
         }
-      } else {
-        setErrorMsg(t('error.generic'));
       }
+      setErrorMsg(formatErrorMessage(err, 'Verification failed. Please check the code and try again.'));
     } finally {
       setLoading(false);
     }
@@ -148,15 +149,7 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
       setAttemptsRemaining(res.attemptsRemaining);
       setCode('');
     } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        if (err.is('OTP_RESEND_TOO_SOON')) {
-          setErrorMsg(t('error.OTP_RESEND_TOO_SOON'));
-        } else {
-          setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
-        }
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      setErrorMsg(formatErrorMessage(err, 'Could not resend OTP. Please try again.'));
     } finally {
       setResendLoading(false);
     }

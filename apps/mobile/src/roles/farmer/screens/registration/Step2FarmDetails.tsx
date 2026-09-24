@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { useTheme } from '../../theme';
-import { ErrorState } from '@tohfa/mobile-ui';
+import { colors, spacing, typography, useTheme } from '../../theme';
+import { t } from '../../../../i18n/farmer';
 import { validateStep } from './validation';
-import type { Step2FarmData } from '../../storage/registrationDraft';
+import { AREA_COMPARISON_EPSILON_ACRES, roundAcresForDisplay } from './acreage';
+import { useRegistrationDraftStore } from '../../storage/registrationDraft';
+import type { FarmLocationData, Step2FarmData } from '../../storage/registrationDraft';
 
 interface Step2Props {
   initialData?: Step2FarmData | undefined;
@@ -18,55 +20,175 @@ interface Step2Props {
   onBack: () => void;
 }
 
+/**
+ * The GROUND-derived figure: the sum of the parcels the farmer has marked in Step 3
+ * (`FarmLocationData.areaAcres`). It is shown beside the farmer's own stated total, never as the
+ * total itself -- see `Step2FarmData`'s docblock for why the two are kept apart and allowed to
+ * disagree. `null` means no parcel has been added yet, which on the first pass through the
+ * stepper is the normal state and is rendered as nothing at all, not as "0 acres".
+ */
+function deriveTotalAreaAcres(locations: FarmLocationData[] | undefined): number | null {
+  if (!locations || locations.length === 0) return null;
+  const total = locations.reduce((sum, location) => sum + (location.areaAcres || 0), 0);
+  return total > 0 ? total : null;
+}
+
+/**
+ * "2.5 acres" in the active locale. The rounding lives in `./acreage` so this screen and the
+ * Step 5 review, which put the same comparison in front of the same farmer, cannot drift apart.
+ */
+function formatAcres(areaAcres: number): string {
+  return t('farmer.registration.step2.acresValue', { acres: roundAcresForDisplay(areaAcres) });
+}
+
+/**
+ * The GROUND-derived plot COUNT: how many parcels the farmer has actually marked in Step 3. It is
+ * the counterpart to their stated `numberOfFarms` in exactly the way the parcel-area sum is the
+ * counterpart to their stated `totalAreaAcres`, and it is shown beside that claim, never as it.
+ * `null` -- not 0 -- while nothing has been marked, because on the first pass through the stepper
+ * that is the normal state and must render as nothing at all.
+ */
+function deriveMarkedFarmCount(locations: FarmLocationData[] | undefined): number | null {
+  if (!locations || locations.length === 0) return null;
+  return locations.length;
+}
+
+/**
+ * "1 farm" / "3 farms" in the active locale. The i18n runtime is deliberately plural-free (see
+ * `src/i18n/runtime.ts`: no dependency is carried for `{{name}}` interpolation on low-end
+ * Android), so the singular and plural forms are two catalogue keys rather than a CLDR rule.
+ */
+function formatFarms(count: number): string {
+  return count === 1
+    ? t('farmer.registration.step2.farmCountOne')
+    : t('farmer.registration.step2.farmCountOther', { count });
+}
+
+/**
+ * An empty box means "not answered", which is not the same as zero -- and `Number('')` is 0, so
+ * the empty case has to be caught before parsing or a farmer who skipped the field would silently
+ * submit a 0. `undefined` is what `validateStep(2, ...)` reads as "required".
+ */
+function parseOptionalNumber(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return undefined;
+  return Number(trimmed);
+}
+
+/**
+ * The farming types, as {stored value, label key} pairs.
+ *
+ * `value` is what gets persisted and sent to the server as `typeOfFarming`; only `labelKey` is
+ * translated. Rendering the translated label as the stored value would mean a farmer who switched
+ * the app to Tamil submitted a different `typeOfFarming` string than one who did not, and the
+ * server would have two spellings of the same category.
+ */
+const FARMING_TYPES = [
+  { value: 'Natural', labelKey: 'farmer.registration.step2.farmingTypeNatural' },
+  { value: 'Organic', labelKey: 'farmer.registration.step2.farmingTypeOrganic' },
+  { value: 'Bio-dynamic', labelKey: 'farmer.registration.step2.farmingTypeBiodynamic' },
+  { value: 'Others', labelKey: 'farmer.registration.step2.farmingTypeOthers' },
+] as const;
+
+/**
+ * Step 2 describes the farmer's ONE farming operation. A farmer does not have N farms; they have
+ * one operation whose land sits in several physical places, and those places are Step 3's
+ * `FarmLocationData[]`. So every field here is asked exactly once, for the whole operation, and
+ * nothing repeats.
+ *
+ * All three numeric fields are held as text while the farmer types, not as numbers: a half-typed
+ * "2." or a cleared field has no numeric value, and `Number('')` is 0 -- which would make "not
+ * answered yet" indistinguishable from a real zero. They are parsed once, on Continue.
+ */
 export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, onBack }) => {
   const theme = useTheme();
   const { colors } = theme;
 
-  const existingFarm = initialData?.farms[0];
-  const [farmName, setFarmName] = useState(existingFarm?.name ?? '');
-  const [typeOfFarming, setTypeOfFarming] = useState(existingFarm?.typeOfFarming ?? 'Organic');
-  const [experienceYears, setExperienceYears] = useState(
-    existingFarm?.experienceYears ? String(existingFarm.experienceYears) : ''
+  const [farmName, setFarmName] = useState<string>(initialData?.farmName ?? '');
+  const [typeOfFarming, setTypeOfFarming] = useState<string>(
+    initialData?.typeOfFarming ?? 'Organic',
   );
-  const [acres, setAcres] = useState(
-    existingFarm?.totalAreaAcres ? String(existingFarm.totalAreaAcres) : ''
+  const [experienceText, setExperienceText] = useState<string>(
+    initialData?.experienceYears !== undefined ? String(initialData.experienceYears) : '',
   );
-  
-  const [numberOfFarms, setNumberOfFarms] = useState(
-    existingFarm?.numberOfFarms ? String(existingFarm.numberOfFarms) : '1'
+  const [totalAreaText, setTotalAreaText] = useState<string>(
+    initialData?.totalAreaAcres !== undefined ? String(initialData.totalAreaAcres) : '',
   );
-  const [showFarmsMenu, setShowFarmsMenu] = useState(false);
+  const [numberOfFarmsText, setNumberOfFarmsText] = useState<string>(
+    initialData?.numberOfFarms !== undefined ? String(initialData.numberOfFarms) : '',
+  );
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
-  const farmingTypes = ['Natural', 'Organic', 'Bio-dynamic', 'Others'];
-  const numFarmsOptions = ['1', '2', '3', '4', '5', 'More than 5'];
+  // Read-only view of the parcels Step 3 owns, so the figure shown alongside the farmer's stated
+  // total always reflects what they have actually marked rather than a copy taken when this
+  // screen last saved.
+  const locations = useRegistrationDraftStore((s) => s.draft.step3?.locations);
+  const markedAreaAcres = deriveTotalAreaAcres(locations);
+  const markedFarmCount = deriveMarkedFarmCount(locations);
+
+  const statedAreaAcres = parseOptionalNumber(totalAreaText);
+  const statedFarmCount = parseOptionalNumber(numberOfFarmsText);
+
+  // Informational only. It is shown when -- and only when -- the farmer has both stated a total
+  // and marked at least one parcel, so a farmer on their first pass (no parcels yet) is never
+  // told their figure disagrees with land they simply have not marked. It never blocks Continue
+  // and never rewrites what they typed; the gap is the signal FARM_VERIFICATION looks for.
+  const mismatchAgainstAcres =
+    markedAreaAcres !== null &&
+    statedAreaAcres !== undefined &&
+    Number.isFinite(statedAreaAcres) &&
+    Math.abs(statedAreaAcres - markedAreaAcres) > AREA_COMPARISON_EPSILON_ACRES
+      ? markedAreaAcres
+      : null;
+
+  // The same comparison, one step up: how many plots the farmer says they have against how many
+  // they have actually marked. Shown only once at least one parcel exists, for the same reason --
+  // a farmer who has not reached Step 3 yet has not contradicted anything. Both sides are whole
+  // plots, so unlike the acreage there is no float noise to absorb and no epsilon applies.
+  const mismatchAgainstFarmCount =
+    markedFarmCount !== null &&
+    statedFarmCount !== undefined &&
+    Number.isFinite(statedFarmCount) &&
+    statedFarmCount !== markedFarmCount
+      ? markedFarmCount
+      : null;
+
+  const farmNameError = fieldErrors['farmName'];
+  const typeError = fieldErrors['typeOfFarming'];
+  const experienceError = fieldErrors['experienceYears'];
+  const totalAreaError = fieldErrors['totalAreaAcres'];
+  const numberOfFarmsError = fieldErrors['numberOfFarms'];
 
   function handleContinue() {
-    const parsedAcres = parseFloat(acres);
-    const parsedExp = parseInt(experienceYears, 10);
-    const parsedFarms = parseInt(numberOfFarms, 10);
-
     const payload: Step2FarmData = {
-      farms: [
-        {
-          name: farmName.trim(),
-          totalAreaAcres: isNaN(parsedAcres) ? 0 : parsedAcres,
-          typeOfFarming: typeOfFarming.trim(),
-          experienceYears: isNaN(parsedExp) ? 0 : parsedExp,
-          numberOfFarms: isNaN(parsedFarms) ? 1 : parsedFarms,
-        },
-      ],
+      farmName: farmName.trim(),
+      typeOfFarming: typeOfFarming.trim(),
+      experienceYears: parseOptionalNumber(experienceText),
+      totalAreaAcres: parseOptionalNumber(totalAreaText),
+      numberOfFarms: parseOptionalNumber(numberOfFarmsText),
+      // Not collected by this screen; carried through so re-saving Step 2 does not wipe them.
+      ...(initialData?.waterSource !== undefined ? { waterSource: initialData.waterSource } : {}),
+      ...(initialData?.primaryCrops !== undefined
+        ? { primaryCrops: initialData.primaryCrops }
+        : {}),
     };
 
     const validation = validateStep(2, payload);
     if (!validation.valid) {
-      const firstError = Object.values(validation.errors)[0] ?? 'Validation failed';
-      setErrorMsg(firstError);
+      setFieldErrors(validation.errors);
       return;
     }
 
-    setErrorMsg(null);
+    setFieldErrors({});
     onSave(payload);
   }
 
@@ -77,16 +199,14 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {errorMsg ? (
-          <View style={styles.errorContainer}>
-            <ErrorState message={errorMsg} onRetry={() => setErrorMsg(null)} />
-          </View>
-        ) : null}
-
-        {/* Farm Name */}
+        {/* Farm Name — the whole OPERATION's name, asked once. Not a parcel name: Step 3's
+            per-location `label` names those. `validateStep(2, ...)` has required `farmName` since
+            the contract landed, so without this input Continue could never pass and the farmer was
+            stuck on this step with no visible reason. */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.textBody }]}>
-            Farm Name <Text style={{ color: colors.requiredRed }}>*</Text>
+            {t('farmer.registration.step2.farmNameLabel')}{' '}
+            <Text style={{ color: colors.requiredRed }}>*</Text>
           </Text>
           <TextInput
             style={[
@@ -96,25 +216,31 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
                 color: colors.textDark,
                 backgroundColor: colors.white,
               },
+              farmNameError ? styles.inputError : null,
             ]}
             value={farmName}
-            onChangeText={setFarmName}
-            placeholder="e.g. Great Earth Organic Farm"
+            onChangeText={(text) => {
+              setFarmName(text);
+              clearFieldError('farmName');
+            }}
+            placeholder={t('farmer.registration.step2.farmNamePlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
           />
+          {farmNameError ? <Text style={styles.fieldErrorText}>{farmNameError}</Text> : null}
         </View>
 
         {/* Type of Farming */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: colors.textBody, marginBottom: 8 }]}>
-            Type of Farming <Text style={{ color: colors.requiredRed }}>*</Text>
+          <Text style={[styles.label, { color: colors.textBody, marginBottom: spacing.sm }]}>
+            {t('farmer.registration.step2.typeOfFarmingLabel')}{' '}
+            <Text style={{ color: colors.requiredRed }}>*</Text>
           </Text>
           <View style={styles.gridContainer}>
-            {farmingTypes.map((type) => {
-              const isSelected = typeOfFarming === type;
+            {FARMING_TYPES.map((farmingType) => {
+              const isSelected = typeOfFarming === farmingType.value;
               return (
                 <TouchableOpacity
-                  key={type}
+                  key={farmingType.value}
                   activeOpacity={0.8}
                   style={[
                     styles.gridItem,
@@ -123,8 +249,15 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
                       borderColor: isSelected ? colors.brandGreen : colors.borderLight,
                       borderWidth: isSelected ? 2 : 1.5,
                     },
+                    typeError ? styles.inputError : null,
                   ]}
-                  onPress={() => setTypeOfFarming(type)}
+                  onPress={() => {
+                    // The stored value, never the translated label — see FARMING_TYPES.
+                    setTypeOfFarming(farmingType.value);
+                    // Only this field's error: the step now has five, and blanking the whole map
+                    // here would silently drop the experience, area and plot-count messages too.
+                    clearFieldError('typeOfFarming');
+                  }}
                 >
                   <Text
                     style={[
@@ -135,119 +268,153 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
                       },
                     ]}
                   >
-                    {type}
+                    {t(farmingType.labelKey)}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
+          {typeError ? <Text style={styles.fieldErrorText}>{typeError}</Text> : null}
         </View>
 
-        {/* Experience & Area Side-by-Side */}
-        <View style={styles.rowGrid}>
-          <View style={styles.gridCol}>
-            <Text style={[styles.label, { color: colors.textBody }]}>
-              Years of Experience <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.borderLight,
-                  color: colors.textDark,
-                  backgroundColor: colors.white,
-                },
-              ]}
-              value={experienceYears}
-              onChangeText={setExperienceYears}
-              keyboardType="number-pad"
-              placeholder="14"
-              placeholderTextColor={colors.textPlaceholder}
-            />
-          </View>
-
-          <View style={styles.gridCol}>
-            <Text style={[styles.label, { color: colors.textBody }]}>
-              Total Area (acres) <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.borderLight,
-                  color: colors.textDark,
-                  backgroundColor: colors.white,
-                },
-              ]}
-              value={acres}
-              onChangeText={setAcres}
-              keyboardType="decimal-pad"
-              placeholder="2.5"
-              placeholderTextColor={colors.textPlaceholder}
-            />
-          </View>
-        </View>
-
-        {/* Number of Separate Farms */}
+        {/* Years of Experience — the ONLY place the app collects this. Step 1 has no input for
+            it despite `Step1PersonalData.farmingExperienceYears` existing, so without this field
+            every approved farmer lands on farming_experience_years = 0 permanently. */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.label, { color: colors.textBody }]}>
-            Number of Separate Farms <Text style={{ color: colors.requiredRed }}>*</Text>
+            {t('farmer.registration.step2.experienceLabel')}{' '}
+            <Text style={{ color: colors.requiredRed }}>*</Text>
           </Text>
-          <View style={{ position: 'relative', zIndex: 10 }}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.dropdownSelect,
-                {
-                  borderColor: colors.borderLight,
-                  backgroundColor: colors.white,
-                },
-              ]}
-              onPress={() => setShowFarmsMenu(!showFarmsMenu)}
-            >
-              <Text style={[styles.dropdownText, { color: colors.onSurface }]}>
-                {numberOfFarms}
-              </Text>
-              <Text style={[styles.dropdownArrow, { color: colors.textSubtle }]}>▾</Text>
-            </TouchableOpacity>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                borderColor: colors.borderLight,
+                color: colors.textDark,
+                backgroundColor: colors.white,
+              },
+              experienceError ? styles.inputError : null,
+            ]}
+            value={experienceText}
+            onChangeText={(text) => {
+              // Whole years only, matching the server's `.int()` — strip anything the numeric
+              // keypad or a paste could still introduce rather than failing at submit time.
+              setExperienceText(text.replace(/[^0-9]/g, ''));
+              clearFieldError('experienceYears');
+            }}
+            keyboardType="number-pad"
+            placeholder={t('farmer.registration.step2.experiencePlaceholder')}
+            placeholderTextColor={colors.textPlaceholder}
+          />
+          {experienceError ? <Text style={styles.fieldErrorText}>{experienceError}</Text> : null}
+        </View>
 
-            {showFarmsMenu ? (
-              <View
-                style={[
-                  styles.dropdownMenu,
-                  {
-                    backgroundColor: colors.white,
-                    borderColor: colors.borderLight,
-                  },
-                ]}
-              >
-                {numFarmsOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[styles.dropdownOption, { borderBottomColor: colors.borderSoft }]}
-                    onPress={() => {
-                      setNumberOfFarms(opt);
-                      setShowFarmsMenu(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownOptionText,
-                        { color: colors.onSurface },
-                        opt === numberOfFarms && { fontWeight: '700', color: colors.brandGreen },
-                      ]}
-                    >
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+        {/* Total Land Area — the farmer's OWN stated holding, typically off their land records.
+            The sum of the parcels marked in Step 3 sits beside it as context, never as the value:
+            the two come from different sources and are meant to be comparable, not identical. */}
+        <View style={styles.fieldGroup}>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.textBody }]}>
+              {t('farmer.registration.step2.areaLabel')}{' '}
+              <Text style={{ color: colors.requiredRed }}>*</Text>
+            </Text>
+            {markedAreaAcres !== null ? (
+              <Text style={[styles.labelAside, { color: colors.textSubtle }]}>
+                {t('farmer.registration.step2.markedSoFar', {
+                  value: formatAcres(markedAreaAcres),
+                })}
+              </Text>
             ) : null}
           </View>
-          <Text style={[styles.helperText, { color: colors.textSubtle }]}>
-            You'll mark each farm's location on the map next
-          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                borderColor: colors.borderLight,
+                color: colors.textDark,
+                backgroundColor: colors.white,
+              },
+              totalAreaError ? styles.inputError : null,
+            ]}
+            value={totalAreaText}
+            onChangeText={(text) => {
+              setTotalAreaText(text.replace(/[^0-9.]/g, ''));
+              clearFieldError('totalAreaAcres');
+            }}
+            keyboardType="decimal-pad"
+            placeholder={t('farmer.registration.step2.areaPlaceholder')}
+            placeholderTextColor={colors.textPlaceholder}
+          />
+          {totalAreaError ? <Text style={styles.fieldErrorText}>{totalAreaError}</Text> : null}
+          {/* Deliberately styled as a neutral note, not an error: a farmer mid-registration
+              legitimately has land left to mark, so this must read as information and must not
+              stop them continuing. */}
+          {mismatchAgainstAcres !== null ? (
+            <Text style={[styles.helperText, { color: colors.textSubtle }]}>
+              {t('farmer.registration.step2.areaMismatchNote', {
+                value: formatAcres(mismatchAgainstAcres),
+              })}
+            </Text>
+          ) : null}
         </View>
+
+        {/* Number of Separate Farms — the farmer's OWN stated count of separate plots, off the
+            same land records as the total area. It is a claim, never `locations.length`: approval
+            still creates one `farms` row per Step 3 location, so nothing here decides how many
+            farms exist. The number marked so far sits beside it as context only. */}
+        <View style={styles.fieldGroup}>
+          <View style={styles.labelRow}>
+            <Text style={[styles.label, { color: colors.textBody }]}>
+              {t('farmer.registration.step2.numberOfFarmsLabel')}{' '}
+              <Text style={{ color: colors.requiredRed }}>*</Text>
+            </Text>
+            {markedFarmCount !== null ? (
+              <Text style={[styles.labelAside, { color: colors.textSubtle }]}>
+                {t('farmer.registration.step2.markedSoFar', {
+                  value: formatFarms(markedFarmCount),
+                })}
+              </Text>
+            ) : null}
+          </View>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                borderColor: colors.borderLight,
+                color: colors.textDark,
+                backgroundColor: colors.white,
+              },
+              numberOfFarmsError ? styles.inputError : null,
+            ]}
+            value={numberOfFarmsText}
+            onChangeText={(text) => {
+              // Whole plots only, matching the server's `.int().positive()` — half a plot is not
+              // a thing, so strip anything a paste could still introduce.
+              setNumberOfFarmsText(text.replace(/[^0-9]/g, ''));
+              clearFieldError('numberOfFarms');
+            }}
+            keyboardType="number-pad"
+            placeholder={t('farmer.registration.step2.numberOfFarmsPlaceholder')}
+            placeholderTextColor={colors.textPlaceholder}
+          />
+          {numberOfFarmsError ? (
+            <Text style={styles.fieldErrorText}>{numberOfFarmsError}</Text>
+          ) : null}
+          {/* Neutral note, not an error, and not a reason to stop: a farmer part-way through
+              marking their plots is in a normal state, and the gap is precisely what
+              FARM_VERIFICATION is meant to look at. */}
+          {mismatchAgainstFarmCount !== null ? (
+            <Text style={[styles.helperText, { color: colors.textSubtle }]}>
+              {t('farmer.registration.step2.farmCountMismatchNote', {
+                value: formatFarms(mismatchAgainstFarmCount),
+              })}
+            </Text>
+          ) : null}
+        </View>
+
+        <Text style={[styles.helperText, { color: colors.textSubtle }]}>
+          {t('farmer.registration.step2.numberOfFarmsHelper')}
+        </Text>
       </ScrollView>
 
       {/* Sticky Bottom Footer */}
@@ -269,9 +436,11 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
           ]}
           onPress={onBack}
         >
-          <Text style={[styles.footerBtnText, { color: colors.brandGreen }]}>Back</Text>
+          <Text style={[styles.footerBtnText, { color: colors.brandGreen }]}>
+            {t('farmer.registration.back')}
+          </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           activeOpacity={0.85}
           style={[
@@ -281,12 +450,23 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
           ]}
           onPress={handleContinue}
         >
-          <Text style={[styles.footerBtnText, { color: colors.white }]}>Next</Text>
+          <Text style={[styles.footerBtnText, { color: colors.white }]}>
+            {t('farmer.registration.step2.nextButton')}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 };
+
+/**
+ * The gap between a field's label and the control under it. The approved registration screens use
+ * 6dp here, which is between `spacing.xs` (4) and `spacing.sm` (8) and so has no step of its own
+ * in `@tohfa/design-tokens`; snapping it to either would shift every field on the screen. It is
+ * named once and shared by the label and the aside beside it so the two cannot drift onto
+ * different baselines, and is the one raw spacing value this screen still defines.
+ */
+const LABEL_BOTTOM_GAP = 6;
 
 const styles = StyleSheet.create({
   container: {
@@ -300,16 +480,25 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
   },
-  errorContainer: {
-    marginBottom: 16,
-  },
   fieldGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: LABEL_BOTTOM_GAP,
+  },
+  // Puts the ground-derived parcel sum on the same line as the label, so it reads as context for
+  // the figure below rather than as a second value competing with it.
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  labelAside: {
+    fontSize: typography.caption,
+    marginBottom: LABEL_BOTTOM_GAP,
   },
   input: {
     width: '100%',
@@ -332,47 +521,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gridItemText: {
-    fontSize: 14,
-  },
-  rowGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  gridCol: {
-    flex: 1,
-  },
-  dropdownSelect: {
-    height: 46,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dropdownText: {
-    fontSize: 15,
-  },
-  dropdownArrow: {
-    fontSize: 14,
-  },
-  dropdownMenu: {
-    marginTop: 8,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    zIndex: 100,
-  },
-  dropdownOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-  },
-  dropdownOptionText: {
     fontSize: 14,
   },
   helperText: {
@@ -403,5 +551,14 @@ const styles = StyleSheet.create({
   footerBtnText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  inputError: {
+    borderColor: colors.requiredRed,
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: colors.requiredRed,
+    fontSize: 12,
+    marginTop: 4,
   },
 });
