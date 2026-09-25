@@ -182,6 +182,7 @@ import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScree
 import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/screens/dashboard/MarketDayScheduleScreen';
 import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
+import { TohfaToast, type ToastData } from '../admin';
 
 export type ScreenName =
   | 'Splash'
@@ -376,7 +377,7 @@ interface StackEntry {
 }
 
 export default function App(): React.JSX.Element {
-  const [screen, setScreen] = useState<ScreenName>('Splash');
+  const [screen, setScreen] = useState<ScreenName>('SuperAdminDashboard');
   // Navigation history stack: keeps true chronological breadcrumbs so back buttons
   // always return to the actual prior screen without getting trapped in loops.
   const [history, setHistory] = useState<StackEntry[]>([]);
@@ -400,6 +401,7 @@ export default function App(): React.JSX.Element {
   const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
@@ -516,6 +518,8 @@ export default function App(): React.JSX.Element {
         barStyle="light-content"
         backgroundColor={isAuthLanding ? SPLASH_DARK : colors.primaryPressed}
       />
+
+      <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
 
       <View style={styles.content}>
         {screen === 'Splash' ? (
@@ -834,8 +838,14 @@ export default function App(): React.JSX.Element {
             farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
             initialTab={adminFarmerActiveTab}
             onBack={goBack}
-            onSave={(updated) => {
+            onSave={(updated, tab) => {
               setSelectedAdminFarmer(updated);
+              setAdminFarmerActiveTab(tab);
+              setToast({
+                type: 'approve',
+                title: 'Changes Saved',
+                message: `${tab} details for ${updated.name} updated successfully.`,
+              });
               goBack();
             }}
             onNavigateToEditCategories={() => navigate('AdminEditRatingCategories')}
@@ -905,7 +915,12 @@ export default function App(): React.JSX.Element {
             application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
             onBack={goBack}
             onConfirmApprove={() => {
-              Alert.alert('Approved', `Application for ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name} has been approved.`);
+              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
+              setToast({
+                type: 'approve',
+                title: 'Application Approved',
+                message: `${app.name} onboarded to Tohfa Platform successfully.`,
+              });
               goBack();
             }}
           />
@@ -914,7 +929,12 @@ export default function App(): React.JSX.Element {
             application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
             onBack={goBack}
             onConfirmReject={(reason) => {
-              Alert.alert('Rejected', `Application for ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name} was rejected: ${reason}`);
+              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
+              setToast({
+                type: 'reject',
+                title: 'Application Rejected',
+                message: `Notice sent to ${app.name}: ${reason}`,
+              });
               goBack();
             }}
           />
@@ -923,7 +943,12 @@ export default function App(): React.JSX.Element {
             application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
             onBack={goBack}
             onConfirmRequest={() => {
-              Alert.alert('Request Sent', `Information request sent to ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name}`);
+              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
+              setToast({
+                type: 'info_request',
+                title: 'Info Request Sent',
+                message: `Checklist sent to ${app.name} via SMS and notification.`,
+              });
               goBack();
             }}
           />

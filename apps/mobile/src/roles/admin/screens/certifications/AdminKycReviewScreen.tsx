@@ -8,9 +8,40 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import type { FarmerListItem } from '../farmers/AdminAllFarmersScreen';
+
+export function PgsAwardRibbonIcon({
+  size = 21,
+  color = '#4B5563',
+  style,
+}: {
+  size?: number;
+  color?: string;
+  style?: any;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Circle
+        cx="12"
+        cy="8.5"
+        r="5.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8.2 13.2L6.8 20.2L12 16.8L17.2 20.2L15.8 13.2"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 const P = {
   bg: '#FAF8F5',
@@ -108,7 +139,7 @@ export const AdminKycReviewScreen: React.FC<Props> = ({
         {/* Document 3: PGS Organic Certificate */}
         <View style={styles.docCard}>
           <View style={styles.docIconBox}>
-            <Icon name="military_tech" size={20} color={P.orange} />
+            <PgsAwardRibbonIcon size={22} color={P.orange} />
           </View>
           <View style={styles.docInfo}>
             <Text style={styles.docTitle}>PGS Organic Certificate</Text>
@@ -138,7 +169,7 @@ export const AdminKycReviewScreen: React.FC<Props> = ({
           activeOpacity={0.85}
           onPress={onGoToCertificationVerification}
         >
-          <Icon name="military_tech" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <PgsAwardRibbonIcon size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
           <Text style={styles.primaryBtnText}>Go to Certification Verification</Text>
         </TouchableOpacity>
 
@@ -223,36 +254,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   docTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.ink,
+    fontSize: 15.5,
+    fontWeight: '600',
+    color: '#374151',
     marginBottom: 3,
   },
   docSub: {
-    fontSize: 12,
-    color: P.subtitle,
+    fontSize: 13,
+    color: '#4B5563',
   },
   verifiedBadge: {
-    backgroundColor: P.verifiedBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#EAF7EE',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5.5,
   },
   verifiedText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: P.verifiedText,
+    color: '#166534',
   },
   pendingBadge: {
-    backgroundColor: P.pendingBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#FEF3E2',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5.5,
   },
   pendingText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: P.pendingText,
+    color: '#92400E',
   },
   warningBanner: {
     flexDirection: 'row',

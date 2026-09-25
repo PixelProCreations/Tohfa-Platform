@@ -123,23 +123,23 @@ export function PLStatementScreen({
         </TouchableOpacity>
 
         {/* Heading Next */}
-        <Text style={styles.screenTitle}>P&L Statement</Text>
-        <Text style={styles.screenSub}>September 2026 · SA/TA verified</Text>
+        <Text style={styles.screenTitle}>P&L Report</Text>
+        <Text style={styles.screenSub}>Comprehensive Platform Financial Report · September 2026 · SA/TA verified</Text>
 
-        {/* Primary Statement Card */}
+        {/* Primary Report Card */}
         <View style={styles.statementCard}>
           {/* Revenue Section */}
           <View style={styles.sectionHeaderRow}>
             <View style={styles.revenuePill}>
-              <Text style={styles.revenuePillText}>REVENUE STREAMS</Text>
+              <Text style={styles.revenuePillText}>REVENUE STREAMS REPORT</Text>
             </View>
-            <Text style={styles.periodText}>MTD Sep 2026</Text>
+            <Text style={styles.periodText}>MTD Sep 2026 · +14.2% MoM</Text>
           </View>
 
           <View style={styles.lineRow}>
             <View style={styles.lineLabelCol}>
               <Text style={styles.lineLabel}>Revenue — Online</Text>
-              <Text style={styles.lineSubLabel}>Direct consumer & app sales</Text>
+              <Text style={styles.lineSubLabel}>Direct consumer & app sales · 70.0% share</Text>
             </View>
             <Text style={styles.lineValue}>₹12,88,140</Text>
           </View>
@@ -147,7 +147,7 @@ export function PLStatementScreen({
           <View style={styles.lineRow}>
             <View style={styles.lineLabelCol}>
               <Text style={styles.lineLabel}>Revenue — Live Market</Text>
-              <Text style={styles.lineSubLabel}>Spot auction & daily mandi</Text>
+              <Text style={styles.lineSubLabel}>Spot auction & daily mandi · 10.0% share</Text>
             </View>
             <Text style={styles.lineValue}>₹1,84,020</Text>
           </View>
@@ -155,7 +155,7 @@ export function PLStatementScreen({
           <View style={styles.lineRow}>
             <View style={styles.lineLabelCol}>
               <Text style={styles.lineLabel}>Revenue — Horeca / B2B</Text>
-              <Text style={styles.lineSubLabel}>Contract institutional supply</Text>
+              <Text style={styles.lineSubLabel}>Contract institutional supply · 20.0% share</Text>
             </View>
             <Text style={styles.lineValue}>₹3,68,040</Text>
           </View>
@@ -171,15 +171,15 @@ export function PLStatementScreen({
           {/* Expenses Section */}
           <View style={styles.sectionHeaderRow}>
             <View style={styles.expensePill}>
-              <Text style={styles.expensePillText}>EXPENDITURES</Text>
+              <Text style={styles.expensePillText}>EXPENDITURES & OUTFLOW REPORT</Text>
             </View>
-            <Text style={styles.periodText}>Actuals Outflow</Text>
+            <Text style={styles.periodText}>Actuals Outflow · 61.5% OpEx</Text>
           </View>
 
           <View style={styles.lineRow}>
             <View style={styles.lineLabelCol}>
               <Text style={styles.lineLabel}>Farmer Payouts</Text>
-              <Text style={styles.lineSubLabel}>Direct farmgate procurement</Text>
+              <Text style={styles.lineSubLabel}>Direct farmgate procurement · 72.4% of OpEx</Text>
             </View>
             <Text style={styles.expenseVal}>-₹8,20,000</Text>
           </View>
@@ -187,7 +187,7 @@ export function PLStatementScreen({
           <View style={styles.lineRow}>
             <View style={styles.lineLabelCol}>
               <Text style={styles.lineLabel}>Warehouse Operations</Text>
-              <Text style={styles.lineSubLabel}>Cold storage, grading & packing</Text>
+              <Text style={styles.lineSubLabel}>Cold storage, grading & packing · 18.6% of OpEx</Text>
             </View>
             <Text style={styles.expenseVal}>-₹2,10,400</Text>
           </View>
@@ -195,7 +195,7 @@ export function PLStatementScreen({
           <View style={styles.lineRow}>
             <View style={styles.lineLabelCol}>
               <Text style={styles.lineLabel}>Staff & Payroll</Text>
-              <Text style={styles.lineSubLabel}>Logistics, QA & warehouse crew</Text>
+              <Text style={styles.lineSubLabel}>Logistics, QA & warehouse crew · 9.0% of OpEx</Text>
             </View>
             <Text style={styles.expenseVal}>-₹1,02,000</Text>
           </View>
@@ -211,11 +211,11 @@ export function PLStatementScreen({
           {/* Net Profit Highlight Banner */}
           <View style={styles.netProfitContainer}>
             <View>
-              <Text style={styles.netProfitSub}>NET PROFIT (EBITDA)</Text>
-              <Text style={styles.netProfitVal}>₹15,27,800</Text>
+              <Text style={styles.netProfitSub}>NET PROFIT (EBITDA) REPORT</Text>
+              <Text style={styles.netProfitVal}>₹7,07,800</Text>
             </View>
             <View style={styles.marginBadge}>
-              <Text style={styles.marginBadgeText}>83.0% Margin</Text>
+              <Text style={styles.marginBadgeText}>38.5% Margin</Text>
             </View>
           </View>
         </View>
@@ -229,7 +229,7 @@ export function PLStatementScreen({
         >
           <ExportDocIcon color="#FFFFFF" />
           <Text style={styles.exportBtnText}>
-            {isExporting ? 'Generating PDF Document...' : 'Export as PDF'}
+            {isExporting ? 'Generating PDF Document...' : 'Export P&L Report (PDF)'}
           </Text>
         </TouchableOpacity>
 
@@ -248,9 +248,9 @@ export function PLStatementScreen({
             <View style={styles.modalIconWrap}>
               <CheckCircleIcon />
             </View>
-            <Text style={styles.modalTitle}>Downloaded Properly</Text>
+            <Text style={styles.modalTitle}>Report Downloaded Successfully</Text>
             <Text style={styles.modalBody}>
-              The P&L Statement for September 2026 has been generated and downloaded properly to your device.
+              The comprehensive P&L Report for September 2026 has been generated and downloaded properly to your device.
             </Text>
             <TouchableOpacity
               style={styles.modalBtn}

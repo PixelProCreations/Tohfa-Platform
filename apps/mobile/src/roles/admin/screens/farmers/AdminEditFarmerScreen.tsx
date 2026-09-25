@@ -43,7 +43,7 @@ interface Props {
   farmer: FarmerListItem;
   initialTab?: FarmerDetailTabType;
   onBack: () => void;
-  onSave?: (updatedFarmer: FarmerListItem) => void;
+  onSave?: (updatedFarmer: FarmerListItem, activeTab: FarmerDetailTabType) => void;
   onNavigateToEditCategories?: () => void;
 }
 
@@ -54,7 +54,7 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
   onSave,
   onNavigateToEditCategories,
 }) => {
-  const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(initialTab);
+  const activeTab = initialTab;
 
   // Overview fields
   const [name, setName] = useState(farmer.name);
@@ -66,22 +66,36 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
   const [status, setStatus] = useState<'ACTIVE' | 'DISABLED'>(farmer.status);
 
   // Farm fields
-  const [farmSize, setFarmSize] = useState('2.8 acres');
-  const [fmbZones, setFmbZones] = useState('4 zones marked');
-  const [primaryCrops, setPrimaryCrops] = useState('Potato, Garlic, Nilgiris Carrots');
-  const [soilType, setSoilType] = useState('Red Humus Loam (High Organic Matter)');
-  const [irrigation, setIrrigation] = useState('Micro-Drip & Rainwater Harvesting Pit');
+  const [farmSize, setFarmSize] = useState(farmer.farmSize ?? '2.8 acres');
+  const [fmbZones, setFmbZones] = useState(farmer.fmbZones ?? '4 zones marked');
+  const [primaryCrops, setPrimaryCrops] = useState(farmer.primaryCrops ?? 'Potato, Garlic, Nilgiris Carrots');
+  const [soilType, setSoilType] = useState(farmer.soilType ?? 'Red Humus Loam (High Organic Matter)');
+  const [irrigation, setIrrigation] = useState(farmer.irrigation ?? 'Micro-Drip & Rainwater Harvesting Pit');
 
   // KYC fields
-  const [aadhaarStatus, setAadhaarStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>('Verified');
-  const [pattaStatus, setPattaStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>('Verified');
-  const [passbookStatus, setPassbookStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>('Verified');
-  const [certStatus, setCertStatus] = useState<'Verified' | 'Pending' | 'Expired'>('Verified');
-  const [kycNotes, setKycNotes] = useState('Identity and patta verified against Tamil Nadu Revenue Land Records.');
+  const [aadhaarStatus, setAadhaarStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>(farmer.aadhaarStatus ?? 'Verified');
+  const [pattaStatus, setPattaStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>(farmer.pattaStatus ?? 'Verified');
+  const [passbookStatus, setPassbookStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>(farmer.passbookStatus ?? 'Verified');
+  const [certStatus, setCertStatus] = useState<'Verified' | 'Pending' | 'Expired'>(farmer.certStatus ?? 'Verified');
+  const [kycNotes, setKycNotes] = useState(farmer.kycNotes ?? 'Identity and patta verified against Tamil Nadu Revenue Land Records.');
 
   // Ratings fields
   const [ratingScore, setRatingScore] = useState(String(farmer.rating ?? 718));
   const [ratingTier, setRatingTier] = useState(farmer.ratingTier ?? 'Good');
+
+  const getHeaderTitle = () => {
+    switch (activeTab) {
+      case 'Farm':
+        return 'Edit Farm Details';
+      case 'KYC':
+        return 'Edit KYC Documents';
+      case 'Ratings':
+        return 'Edit Ratings';
+      case 'Overview':
+      default:
+        return 'Edit Overview';
+    }
+  };
 
   const handleSave = () => {
     const updated: FarmerListItem = {
@@ -93,14 +107,24 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
       mobile,
       aadhaar,
       status,
+      farmSize,
+      fmbZones,
+      primaryCrops,
+      soilType,
+      irrigation,
+      aadhaarStatus,
+      pattaStatus,
+      passbookStatus,
+      certStatus,
+      kycNotes,
       rating: parseInt(ratingScore, 10) || farmer.rating,
       ratingTier,
     };
     if (onSave) {
-      onSave(updated);
+      onSave(updated, activeTab);
+    } else {
+      onBack();
     }
-    Alert.alert('Saved', `Farmer details for ${name} have been updated.`);
-    onBack();
   };
 
   return (
@@ -127,30 +151,11 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
           </Svg>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Edit Farmer</Text>
+        <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
 
         <TouchableOpacity style={styles.saveHeaderBtn} onPress={handleSave} activeOpacity={0.8}>
           <Text style={styles.saveHeaderBtnText}>Save</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Tab Segment (Overview, Farm, KYC, Ratings) */}
-      <View style={styles.tabContainer}>
-        {(['Overview', 'Farm', 'KYC', 'Ratings'] as FarmerDetailTabType[]).map((tab) => {
-          const isActive = activeTab === tab;
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tabButton, isActive && styles.tabButtonActive]}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
       </View>
 
       <ScrollView
@@ -395,7 +400,9 @@ export const AdminEditFarmerScreen: React.FC<Props> = ({
 
         {/* Bottom Save Action Button */}
         <TouchableOpacity style={styles.saveBottomBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Text style={styles.saveBottomBtnText}>Save {activeTab} Details</Text>
+          <Text style={styles.saveBottomBtnText}>
+            Save {activeTab === 'KYC' ? 'KYC Documents' : activeTab === 'Farm' ? 'Farm Details' : activeTab === 'Ratings' ? 'Rating Details' : 'Overview Details'}
+          </Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

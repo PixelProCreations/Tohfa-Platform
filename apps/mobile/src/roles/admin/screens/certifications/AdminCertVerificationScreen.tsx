@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,32 +9,101 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import type { FarmerListItem } from '../farmers/AdminAllFarmersScreen';
 
-const awardIconAsset = require('../../assets/images/award.png');
-const calendarIconAsset = require('../../assets/images/calendar.png');
+// Custom SVG Rosette Ribbon matching exact design reference
+function RosetteRibbonIcon({
+  size = 22,
+  color = '#4B5563',
+  style,
+}: {
+  size?: number;
+  color?: string;
+  style?: any;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Circle
+        cx="12"
+        cy="8.5"
+        r="5.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8.2 13.2L6.8 20.2L12 16.8L17.2 20.2L15.8 13.2"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// Custom SVG Calendar Icon matching exact design reference
+function CalendarOutlineIcon({
+  size = 20,
+  color = '#4B5563',
+  style,
+}: {
+  size?: number;
+  color?: string;
+  style?: any;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Rect
+        x="3"
+        y="4"
+        width="18"
+        height="17"
+        rx="3"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M16 2V6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M8 2V6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M3 10H21" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 const P = {
   bg: '#FAF8F5',
   cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
+  cardBorder: '#EFE8DE',
+  divider: '#F3EFE9',
+
+  // Exact typography colors from reference image
   titleBrown: '#662208',
   subtitle: '#827871',
-  textSecondary: '#6B6560',
-  verifiedBg: '#E8F5E9',
-  verifiedText: '#2E7D32',
-  pendingBg: '#FFF3E0',
-  pendingText: '#B25E00',
-  blockedBg: '#FCEBEA',
-  blockedText: '#C62828',
-  blockedIcon: '#D32F2F',
-  actionGreenBg: '#E8F5E9',
-  actionGreenText: '#2E7D32',
-  actionRedBg: '#FCEBEA',
-  actionRedText: '#D32F2F',
+  itemTitle: '#374151',
+  itemSubLabel: '#4B5563',
+  itemValue: '#111827',
+  iconColor: '#4B5563',
+
+  // Badges
+  verifiedBg: '#EAF7EE',
+  verifiedText: '#166534',
+  pendingBg: '#FEF3E2',
+  pendingText: '#92400E',
+
+  // Blocked banner & action buttons
+  blockedBg: '#FDF2F0',
+  blockedBorder: '#FADBD8',
+  blockedText: '#991B1B',
+  blockedIcon: '#DC2626',
+  actionGreenBg: '#EAF7EE',
+  actionGreenText: '#166534',
+  actionRedBg: '#FDF2F0',
+  actionRedText: '#DC2626',
 };
 
 interface Props {
@@ -105,7 +173,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
         <View style={styles.certCard}>
           <View style={styles.certRow}>
             <View style={styles.certLabelRow}>
-              <Image source={awardIconAsset} style={styles.certImgIcon} resizeMode="contain" />
+              <RosetteRibbonIcon size={22} color={P.iconColor} style={styles.certIcon} />
               <Text style={styles.certTitle}>PGS Organic</Text>
             </View>
             <View style={styles.verifiedBadge}>
@@ -117,7 +185,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
 
           <View style={styles.certRow}>
             <View style={styles.certLabelRow}>
-              <Image source={calendarIconAsset} style={styles.certImgIcon} resizeMode="contain" />
+              <CalendarOutlineIcon size={20} color={P.iconColor} style={styles.certIcon} />
               <Text style={styles.certSubLabel}>Valid until</Text>
             </View>
             <Text style={styles.certDateText}>Dec 2026</Text>
@@ -128,7 +196,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
         <View style={styles.certCard}>
           <View style={styles.certRow}>
             <View style={styles.certLabelRow}>
-              <Image source={awardIconAsset} style={styles.certImgIcon} resizeMode="contain" />
+              <RosetteRibbonIcon size={22} color={P.iconColor} style={styles.certIcon} />
               <Text style={styles.certTitle}>NPOP</Text>
             </View>
             <View
@@ -154,7 +222,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
 
           <View style={styles.certRow}>
             <View style={styles.certLabelRow}>
-              <Image source={calendarIconAsset} style={styles.certImgIcon} resizeMode="contain" />
+              <CalendarOutlineIcon size={20} color={P.iconColor} style={styles.certIcon} />
               <Text style={styles.certSubLabel}>Submitted</Text>
             </View>
             <Text style={styles.certDateText}>2 weeks ago</Text>
@@ -163,12 +231,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
 
         {/* Blocked Notification Banner */}
         <View style={styles.blockedBanner}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.blockedIcon}>
-            <Path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"
-              fill={P.blockedIcon}
-            />
-          </Svg>
+          <Icon name="block" size={20} color={P.blockedIcon} style={styles.blockedIcon} />
           <Text style={styles.blockedText}>
             New listings are blocked while NPOP verification is pending.
           </Text>
@@ -180,12 +243,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
           activeOpacity={0.8}
           onPress={handleMarkVerified}
         >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-            <Path
-              d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"
-              fill={P.actionGreenText}
-            />
-          </Svg>
+          <Icon name="check_circle" size={19} color={P.actionGreenText} style={{ marginRight: 8 }} />
           <Text style={styles.markVerifiedText}>Mark as Verified</Text>
         </TouchableOpacity>
 
@@ -195,12 +253,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
           activeOpacity={0.8}
           onPress={handleMarkUnverified}
         >
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-            <Path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"
-              fill={P.actionRedText}
-            />
-          </Svg>
+          <Icon name="block" size={19} color={P.actionRedText} style={{ marginRight: 8 }} />
           <Text style={styles.markUnverifiedText}>Mark as Unverified</Text>
         </TouchableOpacity>
 
@@ -234,7 +287,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 2,
-    cursor: 'pointer' as any,
   },
   container: {
     flex: 1,
@@ -258,73 +310,72 @@ const styles = StyleSheet.create({
   },
   certCard: {
     backgroundColor: P.cardBg,
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.2,
     borderColor: P.cardBorder,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 4,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.02,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 1,
   },
   certRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   certLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   certIcon: {
-    marginRight: 10,
-  },
-  certImgIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
+    marginRight: 12,
   },
   certTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    color: P.ink,
+    color: P.itemTitle,
+    letterSpacing: -0.1,
   },
   certSubLabel: {
-    fontSize: 13.5,
-    color: P.subtitle,
+    fontSize: 15.5,
+    fontWeight: '500',
+    color: P.itemSubLabel,
+    letterSpacing: -0.1,
   },
   certDateText: {
-    fontSize: 14,
+    fontSize: 16.5,
     fontWeight: '700',
-    color: P.ink,
+    color: P.itemValue,
+    letterSpacing: -0.2,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: P.cardBorder,
+    backgroundColor: P.divider,
   },
   verifiedBadge: {
     backgroundColor: P.verifiedBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5.5,
   },
   verifiedText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '700',
     color: P.verifiedText,
   },
   pendingBadge: {
     backgroundColor: P.pendingBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5.5,
   },
   pendingText: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '700',
     color: P.pendingText,
   },
@@ -333,9 +384,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: P.blockedBg,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.blockedBorder,
     padding: 14,
     marginTop: 4,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   blockedIcon: {
     marginRight: 10,
@@ -344,7 +397,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
-    color: '#8A1F1F',
+    color: P.blockedText,
     fontWeight: '500',
   },
   markVerifiedBtn: {
@@ -355,12 +408,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     height: 52,
     marginBottom: 12,
-    cursor: 'pointer' as any,
   },
   markVerifiedText: {
     color: P.actionGreenText,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
   },
   markUnverifiedBtn: {
     flexDirection: 'row',
@@ -369,11 +421,13 @@ const styles = StyleSheet.create({
     backgroundColor: P.actionRedBg,
     borderRadius: 16,
     height: 52,
-    cursor: 'pointer' as any,
+    marginBottom: 20,
   },
   markUnverifiedText: {
     color: P.actionRedText,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
   },
 });
+
+export default AdminCertVerificationScreen;
