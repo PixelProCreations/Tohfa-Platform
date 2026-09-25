@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useTheme, authPalette as P } from '../../theme';
 import { fetchApplicationStatus, logout, type ApplicationStatusResponse } from '../../api/auth';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
@@ -62,23 +62,23 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
         <Skeleton width="100%" height={200} borderRadius={16} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
         <ErrorState error={error} onRetry={loadStatus} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgLight }]}>
-      
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight }]}>
+
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Top Check Icon */}
@@ -168,22 +168,22 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
         </TouchableOpacity>
       </View>
 
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  safeArea: { flex: 1 },
   scrollArea: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 40, paddingBottom: 40, alignItems: 'center' },
   topIconContainer: { marginBottom: 20 },
   iconOuterCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
   iconInnerCircle: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 26, fontWeight: '800', textAlign: 'center', marginBottom: 12, lineHeight: 32 },
+  title: { fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12, lineHeight: 28 },
   subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   idCard: { width: '100%', borderWidth: 1, borderRadius: 12, paddingVertical: 20, alignItems: 'center', marginBottom: 32 },
   idLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  idValue: { fontSize: 22, fontWeight: '800', marginBottom: 8 },
+  idValue: { fontSize: 16, fontWeight: '800', marginBottom: 8 },
   idExpected: { fontSize: 13 },
   timeline: { width: '100%', paddingLeft: 10, marginBottom: 24 },
   timelineItem: { flexDirection: 'row', minHeight: 64 },
