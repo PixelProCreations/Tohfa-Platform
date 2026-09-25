@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
@@ -117,15 +117,49 @@ import {
 } from './api/farmer';
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
-import { SuperAdminDashboardScreen } from '../admin/screens/dashboard/SuperAdminDashboardScreen';
-import { MarketPricingHomeScreen } from './screens/admin/MarketPricingHomeScreen';
-import { FairPriceCeilingScreen } from './screens/admin/FairPriceCeilingScreen';
-import { UpdateFairPriceScreen } from './screens/admin/UpdateFairPriceScreen';
-import { BulkPriceUpdateScreen } from './screens/admin/BulkPriceUpdateScreen';
-import { PriceHistoryScreen } from './screens/admin/PriceHistoryScreen';
-import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from './screens/admin/MarketDayScheduleScreen';
-import { AddMarketDayScreen } from './screens/admin/AddMarketDayScreen';
-import { ListingApprovalQueueScreen } from './screens/admin/ListingApprovalQueueScreen';
+import {
+  SuperAdminDashboardScreen,
+  TohfaAdminDashboardScreen,
+  FarmerAdminDashboardScreen,
+  MainWarehouseAdminDashboardScreen,
+  SubWarehouseAdminDashboardScreen,
+  AuditCalendarScreen,
+  type AuditEntry,
+  ScheduleNewAuditScreen,
+  AuditInspectionScreen,
+  AuditReportScreen,
+  type AuditReportData,
+  FarmerAuditHistoryScreen,
+  BulkRescheduleAuditsScreen,
+  AuditPdfPreviewScreen,
+  AuditDetailRecordScreen,
+  ComplianceAlertResolutionScreen,
+  FinancialDashboardScreen,
+  PLStatementScreen,
+  FarmerPayoutDuesScreen,
+  PayoutProcessingScreen,
+  ExpensesScreen,
+  AddExpenseScreen,
+  GSTAccountingScreen,
+  GSTFilingReportDetailScreen,
+  BasicAccountingLedgerScreen,
+  AddManualJournalEntryScreen,
+  AdminAllFarmersScreen,
+  AdminFarmerDetailScreen,
+  AdminFarmMapScreen,
+  AdminRatingScorecardScreen,
+  AdminCertVerificationScreen,
+  AdminKycReviewScreen,
+  AdminComplianceTiersScreen,
+} from '../admin/screens';
+import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
+import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
+import { UpdateFairPriceScreen } from '../admin/screens/dashboard/UpdateFairPriceScreen';
+import { BulkPriceUpdateScreen } from '../admin/screens/dashboard/BulkPriceUpdateScreen';
+import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScreen';
+import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/screens/dashboard/MarketDayScheduleScreen';
+import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
+import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 
 export type ScreenName =
   | 'Splash'
@@ -140,6 +174,37 @@ export type ScreenName =
   | 'ApplicationStatus'
   | 'MainTabs'
   | 'AdminMain'
+  | 'SuperAdminDashboard'
+  | 'TohfaAdminDashboard'
+  | 'FarmerAdminDashboard'
+  | 'MainWarehouseAdminDashboard'
+  | 'SubWarehouseAdminDashboard'
+  | 'AuditCalendar'
+  | 'ScheduleNewAudit'
+  | 'AuditInspection'
+  | 'AuditReport'
+  | 'FarmerAuditHistory'
+  | 'AuditDetailRecord'
+  | 'BulkRescheduleAudits'
+  | 'AuditPdfPreview'
+  | 'ComplianceAlertResolution'
+  | 'FinancialDashboard'
+  | 'PLStatement'
+  | 'FarmerPayoutDues'
+  | 'PayoutProcessing'
+  | 'Expenses'
+  | 'AddExpense'
+  | 'GSTAccounting'
+  | 'GSTFilingReportDetail'
+  | 'BasicAccountingLedger'
+  | 'AddManualJournalEntry'
+  | 'AdminAllFarmers'
+  | 'AdminFarmerDetail'
+  | 'AdminFarmMap'
+  | 'AdminRatingScorecard'
+  | 'AdminCertVerification'
+  | 'AdminKycReview'
+  | 'AdminComplianceTiers'
   | 'CustomerMain'
   | 'Unsupported'
   | 'Certifications'
@@ -275,6 +340,11 @@ export default function App(): React.JSX.Element {
   const [selectedTreeForEdit, setSelectedTreeForEdit] = useState<TreePlantingItem | null>(null);
   const [selectedMachineryForEdit, setSelectedMachineryForEdit] = useState<MachineryItem | null>(null);
   const [selectedItemForRemove, setSelectedItemForRemove] = useState<RemoveItemData | null>(null);
+  const [selectedAuditEntry, setSelectedAuditEntry] = useState<AuditEntry | undefined>(undefined);
+  const [auditReportData, setAuditReportData] = useState<AuditReportData | undefined>(undefined);
+  const [selectedAuditHistoryRecord, setSelectedAuditHistoryRecord] = useState<any | undefined>(undefined);
+  const [selectedPayoutDue, setSelectedPayoutDue] = useState<any | undefined>(undefined);
+  const [selectedFarmer, setSelectedFarmer] = useState<any | undefined>(undefined);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
@@ -439,68 +509,317 @@ export default function App(): React.JSX.Element {
             onNavigate={(s) => navigate(s)}
           />
         ) : screen === 'AdminMain' ? (
-          <SuperAdminDashboardScreen 
-            onSignOut={() => navigate('Welcome')} 
-            onNavigate={(s, p) => navigate(s as ScreenName, p)}
+          params['adminRole'] === 'TOHFA_ADMIN' ? (
+            <TohfaAdminDashboardScreen
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : params['adminRole'] === 'FARMER_ADMIN' ? (
+            <FarmerAdminDashboardScreen
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : params['adminRole'] === 'MAIN_WH_ADMIN' ? (
+            <MainWarehouseAdminDashboardScreen
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : params['adminRole'] === 'SUB_WH_ADMIN' ? (
+            <SubWarehouseAdminDashboardScreen
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : (
+            <SuperAdminDashboardScreen
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          )
+        ) : screen === 'SuperAdminDashboard' ? (
+          <SuperAdminDashboardScreen
+            onSignOut={() => navigate('Welcome')}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'TohfaAdminDashboard' ? (
+          <TohfaAdminDashboardScreen
+            onSignOut={() => navigate('Welcome')}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'FarmerAdminDashboard' ? (
+          <FarmerAdminDashboardScreen
+            onSignOut={() => navigate('Welcome')}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'MainWarehouseAdminDashboard' ? (
+          <MainWarehouseAdminDashboardScreen
+            onSignOut={() => navigate('Welcome')}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'SubWarehouseAdminDashboard' ? (
+          <SubWarehouseAdminDashboardScreen
+            onSignOut={() => navigate('Welcome')}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'FinancialDashboard' ? (
+          <FinancialDashboardScreen
+            onBack={goBack}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'PLStatement' ? (
+          <PLStatementScreen
+            onBack={goBack}
+          />
+        ) : screen === 'FarmerPayoutDues' ? (
+          <FarmerPayoutDuesScreen
+            onBack={goBack}
+            onNavigateToProcessing={(due) => {
+              if (due) setSelectedPayoutDue(due);
+              navigate('PayoutProcessing');
+            }}
+          />
+        ) : screen === 'PayoutProcessing' ? (
+          <PayoutProcessingScreen
+            onBack={goBack}
+            payoutAmount={selectedPayoutDue?.amount ?? 15400}
+            farmerName={selectedPayoutDue?.farmerName ?? 'Ramasamy S.'}
+            farmerId={selectedPayoutDue?.farmId ?? '#TOHFA-F-00189'}
+            zone={selectedPayoutDue?.location ?? 'Coonoor'}
+            onApprovedSuccess={goBack}
+          />
+        ) : screen === 'Expenses' ? (
+          <ExpensesScreen
+            onBack={goBack}
+            onNavigateToAddExpense={() => navigate('AddExpense')}
+          />
+        ) : screen === 'AddExpense' ? (
+          <AddExpenseScreen
+            onBack={goBack}
+            onSuccess={goBack}
+          />
+        ) : screen === 'GSTAccounting' ? (
+          <GSTAccountingScreen
+            onBack={goBack}
+            onNavigateToReport={() => navigate('GSTFilingReportDetail')}
+            onNavigateToLedger={() => navigate('BasicAccountingLedger')}
+          />
+        ) : screen === 'GSTFilingReportDetail' ? (
+          <GSTFilingReportDetailScreen
+            onBack={goBack}
+          />
+        ) : screen === 'BasicAccountingLedger' ? (
+          <BasicAccountingLedgerScreen
+            onBack={goBack}
+            onNavigateToAddEntry={() => navigate('AddManualJournalEntry')}
+          />
+        ) : screen === 'AddManualJournalEntry' ? (
+          <AddManualJournalEntryScreen
+            onBack={goBack}
+            onSuccess={goBack}
+          />
+        ) : screen === 'AdminAllFarmers' ? (
+          <AdminAllFarmersScreen
+            onBack={goBack}
+            onSelectFarmer={(farmer) => {
+              setSelectedFarmer(farmer);
+              navigate('AdminFarmerDetail');
+            }}
+          />
+        ) : screen === 'AdminFarmerDetail' ? (
+          <AdminFarmerDetailScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+            onEdit={() => {
+              Alert.alert(
+                'Edit Farmer',
+                'Edit farmer screen is not yet implemented. This would allow editing farmer details like name, contact, farm info, etc.',
+                [{ text: 'OK' }]
+              );
+            }}
+            onDisable={() => {
+              Alert.alert(
+                'Disable Farmer Account',
+                `Are you sure you want to disable ${selectedFarmer?.name}'s account? They will not be able to access the platform.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Disable', 
+                    style: 'destructive',
+                    onPress: () => {
+                      Alert.alert('Success', 'Farmer account has been disabled.');
+                      goBack();
+                    }
+                  }
+                ]
+              );
+            }}
+            onOpenFarmMap={() => navigate('AdminFarmMap')}
+            onOpenKycReview={() => navigate('AdminKycReview')}
+            onOpenRatingScorecard={() => navigate('AdminRatingScorecard')}
+          />
+        ) : screen === 'AdminFarmMap' ? (
+          <AdminFarmMapScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+          />
+        ) : screen === 'AdminRatingScorecard' ? (
+          <AdminRatingScorecardScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
+            onEditCategories={() => {
+              Alert.alert(
+                'Edit Categories',
+                'Edit rating categories screen is not yet implemented. This would allow editing individual category scores.',
+                [{ text: 'OK' }]
+              );
+            }}
+          />
+        ) : screen === 'AdminCertVerification' ? (
+          <AdminCertVerificationScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+          />
+        ) : screen === 'AdminKycReview' ? (
+          <AdminKycReviewScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
+          />
+        ) : screen === 'AdminComplianceTiers' ? (
+          <AdminComplianceTiersScreen
+            onBack={goBack}
+          />
+        ) : screen === 'AuditCalendar' ? (
+          <AuditCalendarScreen
+            onBack={goBack}
+            onAddAudit={() => navigate('ScheduleNewAudit')}
+            onSelectAudit={(entry) => {
+              setSelectedAuditEntry(entry);
+              navigate('AuditInspection');
+            }}
+            onBulkReschedule={() => navigate('BulkRescheduleAudits')}
+            onResolveCompliance={() => navigate('ComplianceAlertResolution')}
+          />
+        ) : screen === 'ScheduleNewAudit' ? (
+          <ScheduleNewAuditScreen
+            onBack={goBack}
+            onSuccess={() => navigate('AuditCalendar')}
+          />
+        ) : screen === 'AuditInspection' ? (
+          <AuditInspectionScreen
+            onBack={goBack}
+            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+            zone={selectedAuditEntry?.location ?? 'Ooty'}
+            onSubmitted={(data: AuditReportData) => {
+              setAuditReportData(data);
+              navigate('AuditReport');
+            }}
+          />
+        ) : screen === 'AuditReport' ? (
+          <AuditReportScreen
+            onBack={goBack}
+            report={auditReportData}
+            onNavigateToPdfPreview={() => navigate('AuditPdfPreview')}
+            onNavigateToAuditHistory={() => navigate('FarmerAuditHistory')}
+          />
+        ) : screen === 'FarmerAuditHistory' ? (
+          <FarmerAuditHistoryScreen
+            onBack={goBack}
+            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+            zone={selectedAuditEntry?.location ?? 'Ooty'}
+            onSelectAuditRecord={(record: any) => {
+              setSelectedAuditHistoryRecord(record);
+              navigate('AuditDetailRecord');
+            }}
+          />
+        ) : screen === 'AuditDetailRecord' ? (
+          <AuditDetailRecordScreen
+            onBack={goBack}
+            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+            record={selectedAuditHistoryRecord}
+          />
+        ) : screen === 'BulkRescheduleAudits' ? (
+          <BulkRescheduleAuditsScreen
+            onBack={goBack}
+            onSuccess={() => navigate('AuditCalendar')}
+          />
+        ) : screen === 'AuditPdfPreview' ? (
+          <AuditPdfPreviewScreen
+            onBack={goBack}
+            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+            score={auditReportData?.totalScore ?? 86}
+          />
+        ) : screen === 'ComplianceAlertResolution' ? (
+          <ComplianceAlertResolutionScreen
+            onBack={goBack}
+            onSuccess={() => navigate('AuditCalendar')}
           />
         ) : screen === 'MarketPricingHome' ? (
           <MarketPricingHomeScreen
-            onBack={() => goBack('AdminMain')}
+            onBack={goBack}
             onNavigateToFairPrice={() => navigate('FairPriceCeiling')}
             onNavigateToMarketDay={() => navigate('MarketDaySchedule')}
             onNavigateToListingApproval={() => navigate('ListingApprovalQueue')}
           />
         ) : screen === 'FairPriceCeiling' ? (
           <FairPriceCeilingScreen
-            onBack={() => goBack('MarketPricingHome')}
-            onUpdatePrice={(item) => navigate('UpdateFairPrice', { itemName: item.name })}
+            onBack={goBack}
+            onUpdatePrice={(item) => navigate('UpdateFairPrice')}
             onBulkUpdate={() => navigate('BulkPriceUpdate')}
-            onViewHistory={(item) => navigate('PriceHistory', { itemName: item.name })}
+            onViewHistory={(item) => navigate('PriceHistory')}
           />
         ) : screen === 'UpdateFairPrice' ? (
           <UpdateFairPriceScreen
-            onBack={() => goBack('FairPriceCeiling')}
-            onSave={() => goBack('FairPriceCeiling')}
-            itemName={typeof params['itemName'] === 'string' ? params['itemName'] : 'Carrots'}
+            onBack={goBack}
+            onSave={(newPrice) => {
+              // Save logic here
+              goBack();
+            }}
           />
         ) : screen === 'BulkPriceUpdate' ? (
           <BulkPriceUpdateScreen
-            onBack={() => goBack('FairPriceCeiling')}
-            onApply={() => goBack('FairPriceCeiling')}
+            onBack={goBack}
           />
         ) : screen === 'PriceHistory' ? (
           <PriceHistoryScreen
-            onBack={() => goBack('FairPriceCeiling')}
-            itemName={typeof params['itemName'] === 'string' ? params['itemName'] : 'Carrots'}
+            onBack={goBack}
           />
         ) : screen === 'MarketDaySchedule' ? (
           <MarketDayScheduleScreen
-            onBack={() => goBack('MarketPricingHome')}
+            onBack={goBack}
             onAddMarketDay={() => navigate('AddMarketDay')}
-            onToggle={() => {}}
-            days={marketDays}
-            onDaysChange={setMarketDays}
+            onToggle={(id, value) => {
+              // Handle toggle
+            }}
+            days={MOCK_DAYS}
+            onDaysChange={(updatedDays) => {
+              // Handle days change
+            }}
           />
         ) : screen === 'AddMarketDay' ? (
           <AddMarketDayScreen
-            onBack={() => goBack('MarketDaySchedule')}
-            onSave={(newDay) => {
-              const id = `${Date.now()}`;
-              const newMarketDay: MarketDay = {
-                ...newDay,
-                id,
-                isActive: true,
-              };
-              setMarketDays((prev) => [...prev, newMarketDay]);
-              goBack('MarketDaySchedule');
+            onBack={goBack}
+            onSave={(marketDay) => {
+              // Save market day logic here
+              navigate('MarketDaySchedule');
             }}
           />
         ) : screen === 'ListingApprovalQueue' ? (
           <ListingApprovalQueueScreen
-            onBack={() => goBack('MarketPricingHome')}
-            onApprove={() => {}}
-            onCounter={() => {}}
-            onReject={() => {}}
+            onBack={goBack}
+            onApprove={(id) => {
+              // Handle approve
+            }}
+            onCounter={(id) => {
+              // Handle counter
+            }}
+            onReject={(id) => {
+              // Handle reject
+            }}
           />
         ) : screen === 'CustomerMain' ? (
           <CustomerMainApp onSignOut={() => navigate('Welcome')} />
@@ -1030,11 +1349,11 @@ export default function App(): React.JSX.Element {
             tool={
               selectedToolForEdit
                 ? {
-                    id: selectedToolForEdit.id,
-                    name: selectedToolForEdit.name,
-                    purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
-                    serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
-                  }
+                  id: selectedToolForEdit.id,
+                  name: selectedToolForEdit.name,
+                  purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
+                  serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1067,12 +1386,12 @@ export default function App(): React.JSX.Element {
             equipment={
               selectedEquipmentForEdit
                 ? {
-                    id: selectedEquipmentForEdit.id,
-                    name: selectedEquipmentForEdit.name,
-                    purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
-                    coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
-                    serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
-                  }
+                  id: selectedEquipmentForEdit.id,
+                  name: selectedEquipmentForEdit.name,
+                  purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
+                  coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
+                  serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1105,13 +1424,13 @@ export default function App(): React.JSX.Element {
             planting={
               selectedTreeForEdit
                 ? {
-                    id: selectedTreeForEdit.id,
-                    species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
-                    treeCount: selectedTreeForEdit.treeCount ?? 12,
-                    plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
-                    locationZone: selectedTreeForEdit.zoneInfo,
-                    purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
-                  }
+                  id: selectedTreeForEdit.id,
+                  species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
+                  treeCount: selectedTreeForEdit.treeCount ?? 12,
+                  plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
+                  locationZone: selectedTreeForEdit.zoneInfo,
+                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
@@ -1144,13 +1463,13 @@ export default function App(): React.JSX.Element {
             machinery={
               selectedMachineryForEdit
                 ? {
-                    id: selectedMachineryForEdit.id,
-                    name: selectedMachineryForEdit.name,
-                    makeModel: selectedMachineryForEdit.makeModel,
-                    purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
-                    fuelType: selectedMachineryForEdit.fuelType,
-                    serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
-                  }
+                  id: selectedMachineryForEdit.id,
+                  name: selectedMachineryForEdit.name,
+                  makeModel: selectedMachineryForEdit.makeModel,
+                  purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
+                  fuelType: selectedMachineryForEdit.fuelType,
+                  serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
+                }
                 : undefined
             }
             onNavigateBack={goBack}
