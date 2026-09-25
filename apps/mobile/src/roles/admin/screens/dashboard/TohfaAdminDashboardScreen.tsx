@@ -20,6 +20,19 @@ import {
   AdminRatingScorecardScreen,
   type FarmerListItem,
 } from '../farmers';
+import {
+  SalesChannelOverviewScreen,
+  SalesOnlineOrdersScreen,
+  SalesMarketDayScreen,
+  SalesHorecaOrdersScreen,
+  SalesB2BOrdersScreen,
+  SalesFulfillmentAssignmentScreen,
+  SalesInvoiceScreen,
+  SalesReturnsRefundsScreen,
+  type OnlineOrderItem,
+  type B2BAccount,
+} from '../sales';
+import { AdminProfileScreen } from './AdminProfileScreen';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -47,7 +60,7 @@ const PALETTE = {
   tabBorder: '#ECE8E3',
 };
 
-export type TohfaAdminTab = 'Dashboard' | 'Farmers' | 'Farmers' | 'Sales' | 'Reports' | 'Profile';
+export type TohfaAdminTab = 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function ShieldCheckIcon({ color = PALETTE.badgeText, size = 13 }: { color?: string; size?: number }) {
@@ -375,6 +388,13 @@ export function TohfaAdminDashboardScreen({
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
 
+  // Sales subscreen navigation state
+  const [salesSubScreen, setSalesSubScreen] = useState<
+    'overview' | 'online' | 'market' | 'horeca' | 'b2b' | 'fulfillment' | 'invoice' | 'returns'
+  >('overview');
+  const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
+  const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
+
   // Operational snapshot dynamic counters
   const [stats, setStats] = useState({
     pendingApplications: 9,
@@ -386,7 +406,7 @@ export function TohfaAdminDashboardScreen({
   useEffect(() => {
     fetchMe()
       .then((me) => setUser(me))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const adminName = user?.fullName ?? 'Ganga Devi';
@@ -556,7 +576,10 @@ export function TohfaAdminDashboardScreen({
 
             <TouchableOpacity
               style={styles.salesSnapshotCard}
-              onPress={() => setActiveTab('Sales')}
+              onPress={() => {
+                setSalesSubScreen('overview');
+                setActiveTab('Sales');
+              }}
               activeOpacity={0.85}
             >
               <View style={styles.salesCardTopRow}>
@@ -630,7 +653,7 @@ export function TohfaAdminDashboardScreen({
             <AdminRatingScorecardScreen
               farmer={selectedAdminFarmer}
               onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => {}}
+              onOpenComplianceTiers={() => { }}
             />
           ) : selectedAdminFarmer ? (
             <AdminFarmerDetailScreen
@@ -654,60 +677,62 @@ export function TohfaAdminDashboardScreen({
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
-            SALES TAB
+            SALES TAB (Screens 51 - 58)
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Sales' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.subPageHeader}>
-              <TouchableOpacity
-                onPress={() => setActiveTab('Dashboard')}
-                style={styles.backButton}
-              >
-                <Text style={styles.backButtonText}>← Dashboard</Text>
-              </TouchableOpacity>
-              <Text style={styles.subPageTitle}>Sales & Distribution Channels</Text>
-              <Text style={styles.subPageSubtitle}>
-                Live channel split allocation under the locked 70/10/10/10 policy
-              </Text>
-            </View>
-
-            <View style={styles.channelCard}>
-              <View style={styles.channelHeader}>
-                <Text style={styles.channelName}>Online Direct (B2C Tohfa App)</Text>
-                <Text style={styles.channelPct}>70%</Text>
-              </View>
-              <Text style={styles.channelDesc}>Fresh produce delivered straight to consumer households.</Text>
-              <View style={styles.progressBarTrack}>
-                <View style={[styles.progressBarFill, { width: '70%', backgroundColor: PALETTE.orangePrimary }]} />
-              </View>
-            </View>
-
-            <View style={styles.channelCard}>
-              <View style={styles.channelHeader}>
-                <Text style={styles.channelName}>Horeca & Institutional B2B</Text>
-                <Text style={styles.channelPct}>20%</Text>
-              </View>
-              <Text style={styles.channelDesc}>Hotels, restaurants, cafes & wholesale Nilgiris packers.</Text>
-              <View style={styles.progressBarTrack}>
-                <View style={[styles.progressBarFill, { width: '20%', backgroundColor: PALETTE.blueAccent }]} />
-              </View>
-            </View>
-
-            <View style={styles.channelCard}>
-              <View style={styles.channelHeader}>
-                <Text style={styles.channelName}>Local Mandi & Retail Outlets</Text>
-                <Text style={styles.channelPct}>10%</Text>
-              </View>
-              <Text style={styles.channelDesc}>Physical retail presence & local hill farmer markets.</Text>
-              <View style={styles.progressBarTrack}>
-                <View style={[styles.progressBarFill, { width: '10%', backgroundColor: PALETTE.amberIcon }]} />
-              </View>
-            </View>
-          </ScrollView>
+          salesSubScreen === 'online' ? (
+            <SalesOnlineOrdersScreen
+              onBack={() => setSalesSubScreen('overview')}
+              onSelectOrder={(ord) => {
+                setSelectedSalesOrder(ord);
+                setSalesSubScreen('fulfillment');
+              }}
+              onOpenInvoice={(ord) => {
+                setSelectedSalesOrder(ord);
+                setSalesSubScreen('invoice');
+              }}
+            />
+          ) : salesSubScreen === 'market' ? (
+            <SalesMarketDayScreen onBack={() => setSalesSubScreen('overview')} />
+          ) : salesSubScreen === 'horeca' ? (
+            <SalesHorecaOrdersScreen onBack={() => setSalesSubScreen('overview')} />
+          ) : salesSubScreen === 'b2b' ? (
+            <SalesB2BOrdersScreen
+              onBack={() => setSalesSubScreen('overview')}
+              onOpenInvoice={(acc) => {
+                setSelectedSalesB2B(acc);
+                setSalesSubScreen('invoice');
+              }}
+            />
+          ) : salesSubScreen === 'fulfillment' ? (
+            <SalesFulfillmentAssignmentScreen
+              orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
+              customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
+              onBack={() => setSalesSubScreen('overview')}
+              onNavigateToInvoice={() => setSalesSubScreen('invoice')}
+            />
+          ) : salesSubScreen === 'invoice' ? (
+            <SalesInvoiceScreen
+              orderNumber={
+                selectedSalesOrder?.orderNumber ??
+                (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
+              }
+              customerName={
+                selectedSalesOrder?.customerName ??
+                (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
+              }
+              onBack={() => setSalesSubScreen('overview')}
+            />
+          ) : salesSubScreen === 'returns' ? (
+            <SalesReturnsRefundsScreen onBack={() => setSalesSubScreen('overview')} />
+          ) : (
+            <SalesChannelOverviewScreen
+              onBack={() => setActiveTab('Dashboard')}
+              onSelectChannel={(ch) => setSalesSubScreen(ch)}
+              onOpenFulfillment={() => setSalesSubScreen('fulfillment')}
+              onOpenReturns={() => setSalesSubScreen('returns')}
+            />
+          )
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -748,43 +773,11 @@ export function TohfaAdminDashboardScreen({
             PROFILE TAB
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Profile' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.subPageHeader}>
-              <TouchableOpacity
-                onPress={() => setActiveTab('Dashboard')}
-                style={styles.backButton}
-              >
-                <Text style={styles.backButtonText}>← Dashboard</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.profileCard}>
-              <View style={styles.bigAvatarCircle}>
-                <PersonAvatarIcon size={42} color={PALETTE.orangePrimary} />
-              </View>
-              <Text style={styles.profileName}>{adminName}</Text>
-              <View style={styles.adminBadge}>
-                <ShieldCheckIcon />
-                <Text style={styles.adminBadgeText}>TOHFA Admin</Text>
-              </View>
-              <Text style={styles.profileEmail}>{user?.email ?? 'ganga.devi@tohfa.test'}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.signOutButton}
-              onPress={async () => {
-                await logout();
-                onSignOut?.();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.signOutButtonText}>Sign Out of TOHFA Admin</Text>
-            </TouchableOpacity>
-          </ScrollView>
+          <AdminProfileScreen
+            role="TOHFA_ADMIN"
+            onSignOut={onSignOut ?? (() => onNavigate?.('Welcome'))}
+            onBack={() => setActiveTab('Dashboard')}
+          />
         )}
       </View>
 
@@ -811,28 +804,6 @@ export function TohfaAdminDashboardScreen({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => onNavigate?.('AdminAllFarmers')}
-          activeOpacity={0.7}
-        >
-          <View style={activeTab === 'Farmers' ? styles.tabIconActive : null}>
-            <PersonAvatarIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
-        </TouchableOpacity>
-
-        {/* Tab 2: Farmers */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => onNavigate?.('AdminAllFarmers')}
-          activeOpacity={0.7}
-        >
-          <View style={activeTab === 'Farmers' ? styles.tabIconActive : null}>
-            <PersonAvatarIcon />
-          </View>
-          <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
-        </TouchableOpacity>
 
         {/* Tab 2: Farmers */}
         <TouchableOpacity
@@ -856,7 +827,10 @@ export function TohfaAdminDashboardScreen({
         {/* Tab 3: Sales */}
         <TouchableOpacity
           style={styles.navTabItem}
-          onPress={() => setActiveTab('Sales')}
+          onPress={() => {
+            setSalesSubScreen('overview');
+            setActiveTab('Sales');
+          }}
           activeOpacity={0.7}
         >
           <NavSalesIcon

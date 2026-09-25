@@ -13,6 +13,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { colors } from '../../../farmer/theme';
+import { AdminProfileScreen } from './AdminProfileScreen';
 
 // ─── Design Tokens (Matching Screen 12 Mockup) ────────────────────────────────
 const PALETTE = {
@@ -396,25 +397,11 @@ export function MainWarehouseAdminDashboardScreen({
 
         {/* Profile Tab */}
         {activeTab === 'Profile' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <View style={styles.profileBox}>
-              <View style={styles.bigAvatar}><PersonAvatarIcon /></View>
-              <Text style={styles.profName}>{displayName}</Text>
-              <Text style={styles.profRole}>Main Warehouse Operations Admin</Text>
-              <Text style={styles.profEmail}>{user?.email ?? 'warehouseadmin@tohfa.test'}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.signOutBtn}
-              onPress={async () => {
-                await logout();
-                onSignOut();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.signOutText}>Sign Out of Warehouse Admin</Text>
-            </TouchableOpacity>
-          </ScrollView>
+          <AdminProfileScreen
+            role="MAIN_WH_ADMIN"
+            onSignOut={onSignOut}
+            onBack={() => setActiveTab('Dashboard')}
+          />
         )}
       </View>
 

@@ -220,7 +220,7 @@ export function FairPriceCeilingScreen({
         {/* Action Buttons */}
         <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() => onUpdatePrice(MOCK_PRICES[0])}
+          onPress={() => onUpdatePrice(MOCK_PRICES[0]!)}
           activeOpacity={0.8}
         >
           <Icon name="edit" size={16} color="#FFFFFF" />
@@ -234,7 +234,7 @@ export function FairPriceCeilingScreen({
 
         <TouchableOpacity
           style={styles.secondaryBtn}
-          onPress={() => onViewHistory(MOCK_PRICES[0])}
+          onPress={() => onViewHistory(MOCK_PRICES[0]!)}
           activeOpacity={0.8}
         >
           <Icon name="trending_up" size={16} color={P.darkBrown} />
