@@ -23,10 +23,10 @@ uploadsRouter.post(
 );
 
 /**
- * Receiving end of InMemoryBlobStorage's mock signed-upload URL (see
- * `generateUploadTarget` in ../../storage/blobStorage.ts). Only ever hit in
- * dev/test, where AZURE_STORAGE_CONNECTION_STRING is unset and
- * createBlobStorage() falls back to the in-memory implementation -- a real
+ * Receiving end of LocalDiskBlobStorage's (and InMemoryBlobStorage's) mock
+ * signed-upload URL (see `generateUploadTarget` in ../../storage/blobStorage.ts).
+ * Only ever hit in dev/test, where AZURE_STORAGE_CONNECTION_STRING is unset
+ * and createBlobStorage() falls back to a local implementation -- a real
  * Azure/Cloudinary target is a pre-signed URL on a third-party host, never
  * this route.
  *
