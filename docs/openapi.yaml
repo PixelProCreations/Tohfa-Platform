@@ -104,6 +104,10 @@ tags:
     description: |
       The 10-category, 0-100 farm rating (BR-06): admin scoring and the farmer's own
       read-only view of it.
+  - name: Farms & Zones
+    description: |
+      A farmer's own land locations (`farms`) and their sub-divisions into zones
+      (`plots` — "zones" in the farm diary). Farm-anonymous: see BR-16.
   - name: Pricing
     description: Super-Admin fair price ceilings and admin retail prices.
   - name: Marketing
@@ -381,6 +385,36 @@ paths:
                 newPassword: { type: string, minLength: 10, maxLength: 128 }
       responses:
         '204': { description: Password reset; all existing sessions are revoked. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /auth/me/change-password:
+    post:
+      tags: [Auth]
+      operationId: changeOwnPassword
+      summary: Change your own password
+      description: |
+        Sets a new password for the authenticated caller after verifying their current
+        password, and terminates every active session for that account — including the
+        caller's own current session, exactly like `/auth/reset-password` — so every device
+        must re-authenticate with the new password.
+      x-permission: auth.password.change_own
+      x-business-rules: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, minLength: 1 }
+                newPassword: { type: string, minLength: 10, maxLength: 128 }
+      responses:
+        '204': { description: Password changed; all sessions for this account are revoked. }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -812,6 +846,39 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/applications/{id}:
+    get:
+      tags: [Farmer Onboarding]
+      operationId: getFarmerApplicationDraft
+      summary: Full application draft (steps 1-4 field values)
+      description: |
+        Returns the application's full stored draft data -- everything saved so far via
+        `PATCH /farmers/applications/{id}/steps/{step}` -- not just the lightweight status
+        timeline `GET /farmers/applications/{id}/status` returns. A farmer who lost their
+        local draft (app reinstalled, storage cleared, new device) uses this to recover it;
+        `POST /farmers/applications`'s `409 Conflict` response carries this same
+        `applicationId` in its `meta` when a live application already exists for the given
+        mobile number, so a client can route straight here.
+
+        Same auth posture as `/status`: possession of the application's own unguessable
+        UUID is the credential before an account exists. A nonexistent id and an id owned
+        by a different actor both return an identical 404 (BR-36-style enumeration
+        prevention).
+      x-permission: farmer.application.view_own
+      x-business-rules: [BR-36]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Full application draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplication' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/applications/{id}/status:
     get:
       tags: [Farmer Onboarding]
@@ -1190,6 +1257,296 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+
+  /farms:
+    get:
+      tags: [Farms & Zones]
+      operationId: listMyFarms
+      summary: List own land locations
+      description: |
+        Lists the caller's own land locations (`farms` rows), each with the number of
+        zones (`plots`) drawn under it. Ordered primary-first, then by creation order.
+        Cross-farmer rows are never returned, not even a count (BR-36).
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      responses:
+        '200':
+          description: The caller's own land locations.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FarmListItem' }
+              example:
+                items:
+                  - id: 7a1b2c3d-4e5f-4071-8899-aabbccddeeff
+                    name: Home plot
+                    surveyNumber: null
+                    areaAcres: 2.5
+                    centroidLat: 11.4102
+                    centroidLng: 76.695
+                    boundary: null
+                    boundaryAreaAcres: null
+                    boundaryDrawnBy: null
+                    boundaryDrawnAt: null
+                    boundaryVersion: 0
+                    address: null
+                    village: Kodanad
+                    taluk: Kotagiri
+                    district: The Nilgiris
+                    isPrimary: true
+                    waterSources: [Borewell]
+                    landBoundaryContext: [stand_alone]
+                    notes: null
+                    plotCount: 2
+                    createdAt: '2026-04-01T06:00:00Z'
+                    updatedAt: null
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farms & Zones]
+      operationId: createMyFarm
+      summary: Add a land location
+      description: |
+        Registers another land location for the caller's one farming operation (a
+        farmer is one operation with land in multiple locations, not several farms).
+        `isPrimary` is never settable here: only the farmer-application approval-time
+        backfill (farmer-applications.service.ts) sets the first location primary, and
+        `uq_farms_primary` rejects a second `is_primary = true` row outright.
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmCreate' }
+            example:
+              name: Second parcel
+              areaAcres: 1.2
+              village: Kodanad
+              taluk: Kotagiri
+              district: The Nilgiris
+      responses:
+        '201':
+          description: Land location created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Farm' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}:
+    patch:
+      tags: [Farms & Zones]
+      operationId: updateMyFarm
+      summary: Update a land location
+      description: |
+        Partial update of one of the caller's own land locations; only the fields
+        present in the body change. A farm id that does not exist, or belongs to
+        another farmer, 404s rather than 403 (BR-36).
+
+        When `boundary` is supplied as a GeoJSON Polygon, `boundaryAreaAcres` is taken
+        from `calculatedAreaAcres` in the same body (named to match `Step3Location.tsx`
+        / farmer-applications.schema.ts's `fmbPolygon` capture), `boundaryDrawnBy` is
+        set to the caller and `boundaryDrawnAt` to now, and `boundaryVersion` is
+        incremented. Sending `boundary: null` clears the boundary (and everything
+        derived from it) the same way; omitting `boundary` entirely leaves it untouched.
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmUpdate' }
+            example:
+              boundary:
+                type: Polygon
+                coordinates:
+                  - - [76.69, 11.41]
+                    - [76.7, 11.41]
+                    - [76.7, 11.42]
+                    - [76.69, 11.42]
+                    - [76.69, 11.41]
+              calculatedAreaAcres: 2.63
+      responses:
+        '200':
+          description: Updated land location.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Farm' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farms & Zones]
+      operationId: deleteMyFarm
+      summary: Remove a land location
+      description: |
+        Soft-deletes one of the caller's own land locations (`deleted_at`; its zones
+        cascade-delete at the database level). A farm id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Land location removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots:
+    get:
+      tags: [Farms & Zones]
+      operationId: listMyFarmPlots
+      summary: List a land location's zones
+      description: |
+        Lists the zones (`plots` — "zones" in the farm diary, db/migrations/0003) drawn
+        under one of the caller's own land locations. A farm id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The land location's zones.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Plot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farms & Zones]
+      operationId: createMyFarmPlot
+      summary: Add a zone to a land location
+      description: |
+        Sub-divides one of the caller's own land locations into a zone. A farm id that
+        does not exist, or belongs to another farmer, 404s rather than 403 (BR-36); a
+        zone name repeated on the same farm 409s (`plots_name_unique_per_farm`).
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlotCreate' }
+            example:
+              name: North bed
+              areaAcres: 0.4
+              soilType: Loam
+              sunExposure: Full sun
+              irrigationType: Drip
+      responses:
+        '201':
+          description: Zone created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Plot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}:
+    patch:
+      tags: [Farms & Zones]
+      operationId: updateMyFarmPlot
+      summary: Update a zone
+      description: |
+        Partial update of a zone nested under one of the caller's own land locations;
+        only the fields present in the body change. Ownership is checked by joining
+        through the parent farm (`plots.farm_id -> farms.farmer_id`); a farm or plot id
+        that does not exist, or belongs to another farmer, 404s rather than 403
+        (BR-36). Renaming to a name already used on the same farm 409s.
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlotUpdate' }
+            example:
+              sunExposure: Partial
+              irrigationType: Drip
+      responses:
+        '200':
+          description: Updated zone.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Plot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farms & Zones]
+      operationId: deleteMyFarmPlot
+      summary: Remove a zone
+      description: |
+        Hard-deletes a zone — the `plots` table has no `deleted_at` (db/migrations/0003).
+        A farm or plot id that does not exist, or belongs to another farmer, 404s rather
+        than 403 (BR-36).
+      x-permission: farmer.farm.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Zone removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/certifications/{id}/verify:
     post:
@@ -4641,6 +4998,128 @@ components:
         issuedOn: { type: string, format: date }
         expiresOn: { type: string, format: date }
         documentUrl: { type: string, format: uri }
+
+    GeoJsonPolygon:
+      type: object
+      required: [type, coordinates]
+      description: >-
+        GeoJSON Polygon, WGS84 (SRID 4326) — matches the `boundary` geography column on
+        both `farms` and `plots` (db/migrations/0003_farmers_and_farms.sql).
+      properties:
+        type: { type: string, enum: [Polygon] }
+        coordinates:
+          type: array
+          items: { type: array, items: { type: array, items: { type: number }, minItems: 2, maxItems: 2 } }
+
+    Farm:
+      type: object
+      description: One of a farmer's land locations. Farm-anonymous rule BR-16 applies — never reaches a customer response.
+      required: [id, name, boundaryVersion, district, isPrimary, waterSources, landBoundaryContext, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, maxLength: 120 }
+        surveyNumber: { type: [string, 'null'] }
+        areaAcres: { type: [number, 'null'] }
+        centroidLat: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        centroidLng: { type: [number, 'null'], minimum: -180, maximum: 180 }
+        boundary:
+          description: The drawn FMB polygon, or null when none has been drawn yet.
+          oneOf:
+            - { $ref: '#/components/schemas/GeoJsonPolygon' }
+            - type: 'null'
+        boundaryAreaAcres: { type: [number, 'null'], description: Server-derived from the polygon. }
+        boundaryDrawnBy: { type: [string, 'null'], format: uuid }
+        boundaryDrawnAt: { type: [string, 'null'], format: date-time }
+        boundaryVersion: { type: integer, minimum: 0 }
+        address: { type: [string, 'null'] }
+        village: { type: [string, 'null'] }
+        taluk: { type: [string, 'null'] }
+        district: { type: string }
+        isPrimary: { type: boolean, description: Set only by the farmer-application approval backfill; never client-settable. }
+        waterSources: { type: array, items: { type: string }, description: Mobile-constrained free text, e.g. Borewell. }
+        landBoundaryContext: { type: array, items: { type: string }, description: Mobile-constrained free text, e.g. stand_alone. }
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    FarmListItem:
+      allOf:
+        - $ref: '#/components/schemas/Farm'
+        - type: object
+          required: [plotCount]
+          properties:
+            plotCount: { type: integer, minimum: 0, description: Number of zones (plots) drawn under this farm. }
+
+    FarmCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        areaAcres: { type: number, exclusiveMinimum: 0 }
+        boundary: { $ref: '#/components/schemas/GeoJsonPolygon' }
+        village: { type: string, minLength: 1, maxLength: 120 }
+        taluk: { type: string, minLength: 1, maxLength: 120 }
+        district: { type: string, minLength: 1, maxLength: 120 }
+
+    FarmUpdate:
+      type: object
+      description: Every field is optional; only the keys present in the body change.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        areaAcres: { type: number, exclusiveMinimum: 0 }
+        boundary:
+          description: A GeoJSON Polygon to (re)draw the boundary, or null to clear it.
+          oneOf:
+            - { $ref: '#/components/schemas/GeoJsonPolygon' }
+            - type: 'null'
+        calculatedAreaAcres:
+          type: number
+          minimum: 0
+          description: >-
+            Server-derived acreage of `boundary`, named to match Step3Location.tsx /
+            farmer-applications.schema.ts's field of the same name. Only consulted when
+            `boundary` is also present in the same body.
+        village: { type: string, minLength: 1, maxLength: 120 }
+        taluk: { type: string, minLength: 1, maxLength: 120 }
+        district: { type: string, minLength: 1, maxLength: 120 }
+        waterSources: { type: array, items: { type: string, minLength: 1, maxLength: 60 } }
+        landBoundaryContext: { type: array, items: { type: string, minLength: 1, maxLength: 60 } }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    Plot:
+      type: object
+      description: A zone ("plots" in the farm diary) sub-dividing one of a farmer's land locations.
+      required: [id, farmId, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        name: { type: string, maxLength: 120 }
+        areaAcres: { type: [number, 'null'] }
+        soilType: { type: [string, 'null'] }
+        sunExposure: { type: [string, 'null'] }
+        irrigationType: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    PlotCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        areaAcres: { type: number, exclusiveMinimum: 0 }
+        soilType: { type: string, minLength: 1, maxLength: 60 }
+        sunExposure: { type: string, minLength: 1, maxLength: 60 }
+        irrigationType: { type: string, minLength: 1, maxLength: 60 }
+
+    PlotUpdate:
+      type: object
+      description: Every field is optional; only the keys present in the body change.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        areaAcres: { type: number, exclusiveMinimum: 0 }
+        soilType: { type: string, minLength: 1, maxLength: 60 }
+        sunExposure: { type: string, minLength: 1, maxLength: 60 }
+        irrigationType: { type: string, minLength: 1, maxLength: 60 }
 
     FairPrice:
       type: object

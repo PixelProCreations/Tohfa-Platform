@@ -82,6 +82,23 @@ farmerApplicationsRouter.get(
   }),
 );
 
+// Full draft (steps 1-4 field values) -- distinct from the lightweight /status
+// timeline above. Same optionalAuth + possession-of-UUID pattern as /status and
+// /uploads/sign: a pre-approval applicant has no account yet, so the id itself is
+// the credential. Lets a farmer who lost their local draft (reinstalled app,
+// cleared storage, new device) recover it using the `applicationId` now returned
+// in createDraft's 409 CONFLICT meta.
+farmerApplicationsRouter.get(
+  '/applications/:id',
+  optionalAuth,
+  validate({ params: farmerApplicationIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const result = await farmerApplicationsService.getFullDraft(req.actor, id);
+    res.json(result);
+  }),
+);
+
 // Own farmer profile
 farmerApplicationsRouter.get(
   '/me',

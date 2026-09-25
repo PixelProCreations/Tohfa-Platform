@@ -4,7 +4,10 @@ import {
   generateBlobSASQueryParameters,
   StorageSharedKeyCredential,
 } from '@azure/storage-blob';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { config } from '../config.js';
+import { LOCAL_UPLOADS_DIR } from '../paths.js';
 
 export interface SignedUploadTarget {
   uploadUrl: string;
@@ -73,6 +76,87 @@ export class InMemoryBlobStorage implements BlobStorage {
 
   clear(): void {
     this.store.clear();
+  }
+}
+
+/**
+ * Disk-backed stand-in for blob storage in local dev.
+ *
+ * `InMemoryBlobStorage` above stores bytes in a JS `Map`, which is wiped on
+ * every restart of the dev API process (tsx --watch reloads on every save,
+ * same as a real crash/redeploy would) -- a farmer's "successfully" uploaded
+ * registration document would silently vanish. Writing to real files under
+ * `LOCAL_UPLOADS_DIR` survives that restart the same way a real Azure blob
+ * would, without needing Azure credentials in local dev. Only the dev
+ * fallback changes; staging/production always use `AzureBlobStorage` the
+ * moment `AZURE_STORAGE_CONNECTION_STRING` is set.
+ */
+export class LocalDiskBlobStorage implements BlobStorage {
+  private readonly baseUrl: string;
+  private readonly rootDir: string;
+
+  constructor(baseUrl = 'http://localhost:3000', rootDir = LOCAL_UPLOADS_DIR) {
+    this.baseUrl = baseUrl;
+    this.rootDir = path.resolve(rootDir);
+  }
+
+  /**
+   * Resolves `key` to an absolute path under `rootDir`, refusing anything
+   * that would resolve outside of it (e.g. a `..`-laden key). Keys are
+   * server-generated UUIDs today (see uploads.service.ts's `signUploadForOwner`),
+   * never attacker-controlled, but this is what stores farmer document bytes
+   * on disk, so it does not lean on that invariant alone.
+   */
+  private resolvePath(key: string): string {
+    const resolved = path.resolve(this.rootDir, key);
+    const rootPrefix = this.rootDir.endsWith(path.sep) ? this.rootDir : `${this.rootDir}${path.sep}`;
+    if (resolved !== this.rootDir && !resolved.startsWith(rootPrefix)) {
+      throw new Error(`Refusing to store blob outside of the local upload root: ${key}`);
+    }
+    return resolved;
+  }
+
+  async generateUploadTarget(options: GenerateUploadOptions): Promise<SignedUploadTarget> {
+    const expiresAt = new Date(Date.now() + (options.expiresInMinutes ?? 15) * 60 * 1000).toISOString();
+    return {
+      uploadUrl: `${this.baseUrl}/v1/uploads/mock/${options.key}`,
+      fileUrl: this.getPublicUrl(options.key),
+      method: 'PUT',
+      headers: {
+        'Content-Type': options.contentType,
+        'x-ms-blob-type': 'BlockBlob',
+      },
+      expiresAt,
+      resumable: false,
+    };
+  }
+
+  getPublicUrl(key: string): string {
+    return `${this.baseUrl}/storage/${key}`;
+  }
+
+  async upload(key: string, data: Buffer, _contentType: string): Promise<string> {
+    const fullPath = this.resolvePath(key);
+    await mkdir(path.dirname(fullPath), { recursive: true });
+    await writeFile(fullPath, data);
+    return this.getPublicUrl(key);
+  }
+
+  async download(key: string): Promise<Buffer | null> {
+    try {
+      return await readFile(this.resolvePath(key));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw err;
+    }
+  }
+
+  async delete(key: string): Promise<void> {
+    try {
+      await rm(this.resolvePath(key));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
   }
 }
 
@@ -167,7 +251,9 @@ export function createBlobStorage(): BlobStorage {
       config.AZURE_BLOB_CONTAINER,
     );
   }
-  return new InMemoryBlobStorage();
+  // Disk-backed, not in-memory: see LocalDiskBlobStorage's docblock above --
+  // this is the instance that survives a dev server restart.
+  return new LocalDiskBlobStorage();
 }
 
 export const defaultBlobStorage = createBlobStorage();

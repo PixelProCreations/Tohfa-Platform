@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { type RoleCode } from '@tohfa/shared-types';
 import { signOAuthLinkToken, signTokenPair, verifyOAuthLinkToken, verifyRefreshToken } from '../../auth/jwt.js';
 import type { Actor } from '../../auth/requireAuth.js';
+import { markTokensInvalidBefore } from '../../auth/tokenInvalidation.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { config } from '../../config.js';
 import { pool, withTransaction } from '../../db/pool.js';
@@ -11,6 +12,7 @@ import { authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
 import { smsTransport } from '../notifications/sms/index.js';
 import type {
+  ChangePasswordBody,
   ForgotPasswordBody,
   LoginBody,
   OAuthLinkBody,
@@ -50,6 +52,7 @@ export interface AuthService {
   logout(actor: Actor): Promise<void>;
   forgotPassword(input: ForgotPasswordBody): Promise<unknown>;
   resetPassword(input: ResetPasswordBody): Promise<void>;
+  changePassword(actor: Actor, input: ChangePasswordBody): Promise<void>;
   terminateSession(actor: Actor, sessionId: string): Promise<void>;
   getMe(actor: Actor): Promise<unknown>;
   loginWithOAuth(
@@ -736,7 +739,45 @@ export function createAuthService(
           await repo.updateUserPassword(tx, user.id, passwordHash);
           await repo.revokeAllUserSessions(tx, user.id, user.id, 'PASSWORD_RESET_ALL_SESSIONS');
         });
+        // Redis isn't part of the Postgres transaction above -- only stamp
+        // the invalidation once the password change has actually committed.
+        // Closes the gap where an access token issued before the reset would
+        // otherwise keep working until it naturally expired (see
+        // auth/tokenInvalidation.ts).
+        await markTokensInvalidBefore(user.id);
       }
+    },
+
+    async changePassword(actor, input) {
+      const user = await repo.findUserById(pool, actor.userId);
+      if (user === null) {
+        // Defensive: an authenticated actor's user row should always exist.
+        throw new AppError('NOT_FOUND', { detail: 'User not found.' });
+      }
+
+      if (user.password_hash === null) {
+        throw new AppError('UNAUTHENTICATED', {
+          detail: "This account doesn't have a password set yet. Use 'Forgot password' instead.",
+        });
+      }
+
+      const valid = await bcrypt.compare(input.currentPassword, user.password_hash);
+      if (!valid) {
+        throw new AppError('UNAUTHENTICATED', { detail: 'Current password is incorrect.' });
+      }
+
+      const passwordHash = await bcrypt.hash(input.newPassword, 12);
+      await withTransaction(async (tx) => {
+        await repo.updateUserPassword(tx, user.id, passwordHash);
+        // Same all-sessions revocation as resetPassword, including the
+        // caller's own current session -- a password change is exactly the
+        // kind of event that should force every device to re-authenticate.
+        await repo.revokeAllUserSessions(tx, user.id, user.id, 'PASSWORD_CHANGED_ALL_SESSIONS');
+      });
+      // Same reasoning as resetPassword above: stamp AFTER the commit, so an
+      // already-issued access token stops working immediately instead of
+      // riding out its remaining TTL.
+      await markTokensInvalidBefore(user.id);
     },
 
     async terminateSession(actor, sessionId) {

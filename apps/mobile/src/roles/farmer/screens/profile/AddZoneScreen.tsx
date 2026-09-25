@@ -8,16 +8,23 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Defs, Pattern, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { authPalette as P, useTheme, colors } from '../../theme';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import { createPlot } from '../../api/farms';
 
 interface AddZoneScreenProps {
+  /** The farm this zone is added to, threaded from ZonesScreen via App.tsx's params. */
+  farmId: string;
   onNavigateBack: () => void;
   onSave: () => void;
 }
 
+// Decorative only -- `Plot` has no colour/geometry field on the backend (see the map notice
+// below), so this never leaves the device.
 const COLOR_PALETTE = [
   { id: 'green', color: P.deepGreen },
   { id: 'orange', color: P.orange900 },
@@ -31,10 +38,11 @@ const SOIL_OPTIONS = ['Red soil', 'Loamy', 'Sandy', 'Clay', 'Black soil', 'Alluv
 const EXPOSURE_OPTIONS = ['Full sun', 'Partial', 'Shade'];
 const IRRIGATION_OPTIONS = ['Drip', 'Sprinkler', 'Flood', 'Rainfed', 'Furrow'];
 
-export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
+export function AddZoneScreen({ farmId, onNavigateBack, onSave }: AddZoneScreenProps) {
   const { colors } = useTheme();
 
-  const [zoneName, setZoneName] = useState('Lower Bed');
+  const [zoneName, setZoneName] = useState('');
+  const [areaAcresText, setAreaAcresText] = useState('');
   const [selectedColor, setSelectedColor] = useState<string>(P.deepPurple400);
 
   const [soilType, setSoilType] = useState('Red soil');
@@ -45,6 +53,9 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
 
   const [irrigationMethod, setIrrigationMethod] = useState('Drip');
   const [isIrrigationOpen, setIsIrrigationOpen] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const toggleSoil = () => {
     setIsSoilOpen(!isSoilOpen);
@@ -64,14 +75,55 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
     setIsExposureOpen(false);
   };
 
+  async function handleSave() {
+    if (!farmId) {
+      setErrorMsg('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    const trimmedName = zoneName.trim();
+    if (!trimmedName) {
+      setErrorMsg('Zone name is required.');
+      return;
+    }
+    let areaAcres: number | undefined;
+    if (areaAcresText.trim()) {
+      const parsed = Number(areaAcresText.trim());
+      // The API requires a strictly positive area when one is sent at all (PlotCreate,
+      // docs/openapi.yaml) -- 0 is rejected the same as a negative number.
+      if (isNaN(parsed) || parsed <= 0) {
+        setErrorMsg('Enter a valid area in acres greater than zero.');
+        return;
+      }
+      areaAcres = parsed;
+    }
+
+    setSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await createPlot(farmId, {
+        name: trimmedName,
+        ...(areaAcres !== undefined ? { areaAcres } : {}),
+        soilType,
+        sunExposure,
+        irrigationType: irrigationMethod,
+      });
+      onSave();
+    } catch (err) {
+      setErrorMsg(formatErrorMessage(err, 'Could not add this zone.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
       <StatusBar barStyle="light-content" backgroundColor={P.oliveGreen} />
 
-      {/* TOP MAP AREA */}
+      {/* TOP MAP AREA — decorative: `Plot` has no boundary/geometry field on the backend yet, so
+          there is nothing real to draw or measure here. The zone's own details are entered
+          manually in the form below instead. */}
       <View style={styles.mapContainer}>
         <View style={[styles.mapBackground, { backgroundColor: P.oliveGreen }]}>
-          {/* Simulated map texture */}
           <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
             <Defs>
               <Pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -91,7 +143,7 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
               strokeDasharray="10,8"
             />
 
-            {/* New Zone Drawing (Dashed with Selected Color) */}
+            {/* Illustrative zone shape */}
             <Polygon
               points="80,180 300,160 310,280 90,300"
               fill="rgba(69, 39, 160, 0.4)"
@@ -99,16 +151,15 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
               strokeWidth="3"
               strokeDasharray="8,6"
             />
-            {/* Corner Markers */}
             <Circle cx="80" cy="180" r="10" fill={colors.white} stroke={selectedColor} strokeWidth="4" />
             <Circle cx="300" cy="160" r="10" fill={colors.white} stroke={selectedColor} strokeWidth="4" />
           </Svg>
         </View>
 
-        {/* Floating Drawing Notice */}
+        {/* Floating Notice */}
         <View style={styles.drawingNotice}>
-          <Icon name="place" size={16} color={colors.white} style={styles.drawingNoticeIcon} />
-          <Text style={styles.drawingNoticeText}>Drawing new zone — tap on map to add corners</Text>
+          <Icon name="info" size={16} color={colors.white} style={styles.drawingNoticeIcon} />
+          <Text style={styles.drawingNoticeText}>Zone boundary drawing isn't available yet — describe it below</Text>
         </View>
       </View>
 
@@ -127,7 +178,7 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
             <Icon name="place" size={24} color={colors.brandGreen} style={styles.sheetHeaderIcon} />
             <View>
               <Text style={[styles.sheetTitle, { color: colors.textDark }]}>Name this zone</Text>
-              <Text style={[styles.sheetSub, { color: colors.textSubtle }]}>Zone has 4 corners · 0.55 acres</Text>
+              <Text style={[styles.sheetSub, { color: colors.textSubtle }]}>Enter this zone's details below</Text>
             </View>
           </View>
 
@@ -140,7 +191,20 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
               style={[styles.inputField, { color: colors.textDark }]}
               value={zoneName}
               onChangeText={setZoneName}
-              placeholder="Zone Name"
+              placeholder="e.g. Lower Bed"
+              placeholderTextColor={P.twGray400}
+            />
+          </View>
+
+          {/* Area */}
+          <Text style={[styles.inputLabel, { color: colors.textDark }]}>Area (acres)</Text>
+          <View style={[styles.inputBox, { borderColor: colors.borderLight }]}>
+            <TextInput
+              style={[styles.inputField, { color: colors.textDark }]}
+              value={areaAcresText}
+              onChangeText={setAreaAcresText}
+              placeholder="e.g. 0.55"
+              keyboardType="decimal-pad"
               placeholderTextColor={P.twGray400}
             />
           </View>
@@ -149,7 +213,7 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
           <View style={styles.inputLabelRow}>
             <Icon name="palette" size={14} color={colors.textDark} />
             <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}>
-              {' '}Zone Color <Text style={{ color: P.red500 }}>*</Text>
+              {' '}Zone Color
             </Text>
           </View>
           <View style={styles.colorPickerRow}>
@@ -271,7 +335,7 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
           </View>
 
           {/* Dropdown Row 2: Irrigation Method */}
-          <View style={{ marginBottom: 24 }}>
+          <View style={{ marginBottom: 12 }}>
             <View style={styles.inputLabelRow}>
               <Icon name="water_drop" size={14} color={colors.textDark} />
               <Text style={[styles.inputLabel, { color: colors.textDark, marginBottom: 0 }]}> Irrigation Method</Text>
@@ -316,16 +380,32 @@ export function AddZoneScreen({ onNavigateBack, onSave }: AddZoneScreenProps) {
               </View>
             )}
           </View>
+
+          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
         </ScrollView>
 
         {/* FOOTER */}
         <View style={[styles.footer, { borderTopColor: colors.borderDivider, backgroundColor: colors.bgLight }]}>
-          <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.borderLight }]} onPress={onNavigateBack}>
+          <TouchableOpacity
+            style={[styles.cancelBtn, { borderColor: colors.borderLight }]}
+            onPress={onNavigateBack}
+            disabled={submitting}
+          >
             <Text style={[styles.cancelBtnText, { color: colors.textDark }]}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.saveBtn, styles.saveBtnRow, { backgroundColor: colors.brandGreen }]} onPress={onSave}>
-            <Icon name="check" size={16} color={colors.white} style={styles.saveBtnIcon} />
-            <Text style={styles.saveBtnText}>Save Zone</Text>
+          <TouchableOpacity
+            style={[styles.saveBtn, styles.saveBtnRow, { backgroundColor: colors.brandGreen, opacity: submitting ? 0.7 : 1 }]}
+            onPress={() => void handleSave()}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color={P.white} />
+            ) : (
+              <>
+                <Icon name="check" size={16} color={colors.white} style={styles.saveBtnIcon} />
+                <Text style={styles.saveBtnText}>Save Zone</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -361,7 +441,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   drawingNoticeIcon: { marginRight: 8 },
-  drawingNoticeText: { color: P.white, fontSize: 13, fontWeight: '700' },
+  drawingNoticeText: { color: P.white, fontSize: 13, fontWeight: '700', flex: 1 },
 
   bottomSheet: {
     flex: 1.25,
@@ -479,6 +559,14 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 13,
     color: colors.textDark,
+  },
+
+  errorText: {
+    color: P.red600,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 8,
   },
 
   footer: {

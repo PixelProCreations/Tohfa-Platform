@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,20 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, Skeleton } from '@tohfa/mobile-ui';
 import { useTheme, colors, authPalette as P } from '../../theme';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import { getFarms, updateFarm } from '../../api/farms';
 
 interface FieldContextScreenProps {
+  /** The farm this context belongs to — threaded from FMBSketchScreen via App.tsx's params. */
+  farmId: string;
   onNavigateBack: () => void;
-  onNavigateToZones: () => void;
+  /** Called with the same farmId once this farm's context has been saved. */
+  onNavigateToZones: (farmId: string) => void;
 }
 
 const AVAILABLE_WATER_SOURCES = [
@@ -135,24 +141,47 @@ function PawIcon({ size = 22, color = P.twAmber700 }: { size?: number; color?: s
   );
 }
 
-export function FieldContextScreen({ onNavigateBack, onNavigateToZones }: FieldContextScreenProps) {
+export function FieldContextScreen({ farmId, onNavigateBack, onNavigateToZones }: FieldContextScreenProps) {
   const { colors } = useTheme();
 
-  const [waterSources, setWaterSources] = useState<string[]>([
-    'Borewell',
-    'Rainwater harvesting',
-  ]);
+  const [waterSources, setWaterSources] = useState<string[]>([]);
   const [isWaterDropdownOpen, setIsWaterDropdownOpen] = useState(false);
+  const [selectedBoundaries, setSelectedBoundaries] = useState<string[]>([]);
+  const [farmNotes, setFarmNotes] = useState('');
 
-  const [selectedBoundaries, setSelectedBoundaries] = useState<string[]>([
-    'stand_alone',
-    'forest_boundaries',
-    'chemical_sprayed',
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [farmNotes, setFarmNotes] = useState(
-    'South-facing slope with natural drainage toward the eastern stream. Windbreak of silver oak along the northern edge.',
-  );
+  const loadFieldContext = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const farms = await getFarms();
+      const farm = farms.find((f) => f.id === farmId);
+      if (!farm) {
+        setLoadError('This farm could not be found. Go back and choose a farm first.');
+        return;
+      }
+      setWaterSources(farm.waterSources ?? []);
+      setSelectedBoundaries(farm.landBoundaryContext ?? []);
+      setFarmNotes(farm.notes ?? '');
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load field context.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadFieldContext();
+  }, [loadFieldContext]);
 
   const toggleBoundary = (id: string) => {
     if (selectedBoundaries.includes(id)) {
@@ -172,6 +201,27 @@ export function FieldContextScreen({ onNavigateBack, onNavigateToZones }: FieldC
   const handleRemoveWaterSource = (source: string) => {
     setWaterSources(waterSources.filter((s) => s !== source));
   };
+
+  async function handleSave() {
+    if (!farmId) {
+      setSaveError('No farm selected.');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateFarm(farmId, {
+        waterSources,
+        landBoundaryContext: selectedBoundaries,
+        notes: farmNotes,
+      });
+      onNavigateToZones(farmId);
+    } catch (err) {
+      setSaveError(formatErrorMessage(err, 'Could not save field context.'));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const renderOptionIcon = (option: BoundaryOption, isSelected: boolean) => {
     const iconColor = isSelected
@@ -227,6 +277,17 @@ export function FieldContextScreen({ onNavigateBack, onNavigateToZones }: FieldC
         </View>
       </View>
 
+      {loading ? (
+        <View style={styles.contentContainer}>
+          <Skeleton height={48} width="100%" style={{ marginBottom: 16 }} />
+          <Skeleton height={120} width="100%" style={{ marginBottom: 16 }} />
+          <Skeleton height={200} width="100%" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.contentContainer}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.contentScroll}
         contentContainerStyle={styles.contentContainer}
@@ -352,7 +413,9 @@ export function FieldContextScreen({ onNavigateBack, onNavigateToZones }: FieldC
           <View style={[styles.tdsInputContainer, { backgroundColor: P.grey100 }]}>
             <TextInput
               style={[styles.tdsInput, { color: colors.textSubtle }]}
-              value="312"
+              value=""
+              placeholder="Not available yet — pending soil test"
+              placeholderTextColor={colors.textSubtle}
               editable={false}
             />
           </View>
@@ -458,18 +521,30 @@ export function FieldContextScreen({ onNavigateBack, onNavigateToZones }: FieldC
         </View>
 
       </ScrollView>
+      )}
 
       {/* FOOTER */}
       <View style={[styles.footer, { borderTopColor: colors.borderDivider, backgroundColor: colors.bgLight }]}>
-        <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.borderLight }]} onPress={onNavigateBack}>
-          <Text style={[styles.cancelBtnText, { color: colors.textDark }]}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.brandGreen }]} onPress={onNavigateToZones}>
-          <View style={styles.saveBtnRow}>
-            <Icon name="check" size={16} color={colors.white} style={styles.saveBtnIcon} />
-            <Text style={styles.saveBtnText}>Save</Text>
-          </View>
-        </TouchableOpacity>
+        {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
+        <View style={styles.footerRow}>
+          <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.borderLight }]} onPress={onNavigateBack}>
+            <Text style={[styles.cancelBtnText, { color: colors.textDark }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: colors.brandGreen, opacity: saving || loading || !!loadError ? 0.7 : 1 }]}
+            onPress={() => void handleSave()}
+            disabled={saving || loading || !!loadError}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <View style={styles.saveBtnRow}>
+                <Icon name="check" size={16} color={colors.white} style={styles.saveBtnIcon} />
+                <Text style={styles.saveBtnText}>Save</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -501,6 +576,12 @@ const styles = StyleSheet.create({
 
   contentScroll: { flex: 1 },
   contentContainer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
+
+  loadErrorText: {
+    color: P.red600,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 
   infoNoticeBox: {
     flexDirection: 'row',
@@ -732,11 +813,20 @@ const styles = StyleSheet.create({
   },
 
   footer: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
+  },
+  footerRow: {
+    flexDirection: 'row',
     gap: 12,
+  },
+  saveErrorText: {
+    color: P.red600,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   cancelBtn: {
     flex: 1,

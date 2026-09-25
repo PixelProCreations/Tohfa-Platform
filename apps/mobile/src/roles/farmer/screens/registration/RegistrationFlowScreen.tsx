@@ -10,9 +10,10 @@ import { Step5Review } from './Step5Review';
 import { useRegistrationDraftStore, type Step1PersonalData } from '../../storage/registrationDraft';
 import {
   createFarmerApplication,
+  getFarmerApplicationDraft,
   saveFarmerApplicationStep,
 } from '../../api/registration';
-import { formatErrorMessage } from '../../../../shell/api/client';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 
 interface RegistrationFlowProps {
   onNavigate: (screen: 'ApplicationStatus' | 'Welcome', params?: Record<string, string | number | undefined>) => void;
@@ -42,6 +43,7 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
   const updateStepAndAdvanceInStore = useRegistrationDraftStore((s) => s.updateStepAndAdvance);
   const goToStep = useRegistrationDraftStore((s) => s.goToStep);
   const goBackInStore = useRegistrationDraftStore((s) => s.goBack);
+  const restoreFullDraft = useRegistrationDraftStore((s) => s.restoreFullDraft);
 
   async function updateStepAndAdvance(step: number, payload: unknown) {
     let currentAppId = draft.applicationId;
@@ -61,6 +63,54 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
           setApplicationId(currentAppId);
         }
       } catch (err) {
+        // A live (non-terminal) application already exists for this mobile number -- the
+        // farmer lost their local draft (reinstall, cleared storage, new device) and is
+        // re-registering. The server's 409 carries the existing application's id in
+        // `problem.meta` specifically so this path can recover it instead of dead-ending
+        // (see `getFarmerApplicationDraft`'s docblock in `api/registration.ts`).
+        const recoverableId =
+          err instanceof ApiError && err.is('CONFLICT') && typeof err.problem.meta?.['applicationId'] === 'string'
+            ? (err.problem.meta['applicationId'] as string)
+            : null;
+
+        if (recoverableId !== null) {
+          try {
+            const existingDraft = await getFarmerApplicationDraft(recoverableId);
+            restoreFullDraft({
+              applicationId: existingDraft.id,
+              currentStep: existingDraft.currentStep,
+              step1Personal: existingDraft.step1Personal,
+              step2FarmDetails: existingDraft.step2FarmDetails,
+              step3Location: existingDraft.step3Location,
+              step4Documents: existingDraft.step4Documents,
+            });
+
+            if (!existingDraft.isDraft) {
+              // `isDraft` false means the farmer already finished the 5-step form and called
+              // submit -- `status` has moved into the review pipeline (DOCS_REVIEW,
+              // FARM_VERIFICATION, ...) and there are no more steps to fill in. This mirrors
+              // exactly what Step5Review's own `onSubmitSuccess` does right after a real
+              // submit succeeds, just re-triggered from the recovered id instead of a fresh
+              // one. `status` itself is not the right signal here -- see
+              // `FullDraftResponse.isDraft`'s docblock for why.
+              onNavigate('ApplicationStatus', { applicationId: existingDraft.id });
+            }
+            // Still drafting: `restoreFullDraft` already set `draft.currentStep` to wherever
+            // the server left off, so this screen's own step-rendering below resumes there
+            // exactly as it would for a normal in-progress draft.
+            return;
+          } catch (recoverErr) {
+            console.warn('getFarmerApplicationDraft failed while recovering from CONFLICT:', recoverErr);
+            const msg = formatErrorMessage(
+              recoverErr,
+              'Failed to create application. Please check your connection and try again.',
+            );
+            setApiError(msg);
+            // Do not advance to Step 2 -- recovery failed and there is no usable application id.
+            return;
+          }
+        }
+
         const msg = formatErrorMessage(err, 'Failed to create application. Please check your connection and try again.');
         setApiError(msg);
         console.warn('createFarmerApplication failed:', err);

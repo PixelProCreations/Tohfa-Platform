@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   Platform,
   SafeAreaView,
@@ -13,6 +14,15 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P } from '../../theme';
 import type { WalletTransactionItem } from '../payment/WalletTransactionDetailScreen';
+import {
+  formatMoneyAmount,
+  getMyWallet,
+  getMyWalletTransactions,
+  type Wallet,
+  type WalletTransaction,
+  type WalletTransactionType,
+} from '../../api/wallet';
+import { formatErrorMessage } from '../../../../shell/api/client';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -102,60 +112,54 @@ function CreditCardMiniIcon({ size = 20, color = P.twBlue700 }: { size?: number;
   );
 }
 
-// ── Default Transactions Data ────────────────────────────────────────────────
+// ── Real Transaction Mapping ─────────────────────────────────────────────────
 
-const SAMPLE_TRANSACTIONS: WalletTransactionItem[] = [
-  {
-    id: 'tx-1',
-    title: 'Wallet Top-up — Razorpay',
-    type: 'credit',
-    amount: '+ ₹2,000',
-    date: '16 Sep 2026',
-    ref: 'Ref RZP-40219',
-    orderId: 'RZP-40219',
-    channel: 'Razorpay UPI',
-    creditedOn: '16 Sep 2026, 02:15 PM',
-    balanceAfter: '₹4,250',
-  },
-  {
-    id: 'tx-2',
-    title: 'Sale Settlement — Carrot',
-    type: 'credit',
-    amount: '+ ₹3,200',
-    date: '15 Sep 2026',
-    ref: 'Order #ORD-20260915',
-    orderId: '#ORD-20260915',
-    crop: 'Carrot — Nantes',
-    channel: 'Online',
-    creditedOn: '15 Sep 2026, 06:40 PM',
-    balanceAfter: '₹2,250',
-  },
-  {
-    id: 'tx-3',
-    title: 'Withdrawal to UPI',
-    type: 'debit',
-    amount: '- ₹4,400',
-    date: '17 Sep 2026',
-    ref: 'Ref TXN-91027',
-    orderId: 'TXN-91027',
-    channel: 'UPI Payout',
-    creditedOn: '17 Sep 2026, 09:20 AM',
-    balanceAfter: '₹-950',
-  },
-  {
-    id: 'tx-4',
-    title: 'Sale Settlement — Beetroot',
-    type: 'credit',
-    amount: '+ ₹1,450',
-    date: '10 Sep 2026',
-    ref: 'Order #ORD-20260910',
-    orderId: '#ORD-20260910',
-    crop: 'Beetroot — Detroit Dark Red',
-    channel: 'Online',
-    creditedOn: '10 Sep 2026, 04:30 PM',
-    balanceAfter: '₹3,450',
-  },
-];
+/** Human label for each ledger txnType. Purely display copy, not a business rule. */
+const TXN_TYPE_LABELS: Record<WalletTransactionType, string> = {
+  TOPUP_CASH: 'Cash Top-up',
+  TOPUP_DIGITAL: 'Wallet Top-up',
+  ORDER_DEBIT: 'Order Payment',
+  ORDER_REFUND: 'Order Refund',
+  PAYOUT_DEBIT: 'Withdrawal',
+  SALE_CREDIT: 'Sale Settlement',
+  SUBSCRIPTION_DEBIT: 'Subscription',
+  ADJUSTMENT: 'Adjustment',
+};
+
+function formatTxnDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatTxnDateTime(iso: string): string {
+  const time = new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${formatTxnDate(iso)}, ${time}`;
+}
+
+/**
+ * Maps a real ledger row to the UI's display shape. Credit vs. debit is read off the sign
+ * of `amount` -- docs/openapi.yaml documents it as "Signed: negative for debits" -- rather
+ * than a hardcoded guess at which txnType means which direction (ADJUSTMENT can be either).
+ */
+function toTransactionItem(tx: WalletTransaction): WalletTransactionItem {
+  const formattedAmount = formatMoneyAmount(tx.amount);
+  const isCredit = !formattedAmount.startsWith('-');
+  const amountDisplay = isCredit ? `+ ${formattedAmount}` : `- ${formattedAmount.slice(1)}`;
+  const label = TXN_TYPE_LABELS[tx.txnType] ?? 'Wallet Transaction';
+
+  return {
+    id: tx.id,
+    title: label,
+    type: isCredit ? 'credit' : 'debit',
+    amount: amountDisplay,
+    date: formatTxnDate(tx.performedAt),
+    ref: tx.remarks ?? label,
+    // exactOptionalPropertyTypes: omit the key entirely rather than set it to `undefined`.
+    ...(tx.refId !== null ? { orderId: tx.refId } : {}),
+    ...(tx.refType !== null ? { channel: tx.refType } : {}),
+    creditedOn: formatTxnDateTime(tx.performedAt),
+    balanceAfter: formatMoneyAmount(tx.balanceAfter),
+  };
+}
 
 // ── Screen Component Props ───────────────────────────────────────────────────
 
@@ -174,6 +178,32 @@ export function WalletScreen({
   onNavigateToPayoutHistory,
   onNavigateToTransactionDetail,
 }: WalletScreenProps): React.JSX.Element {
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadWallet = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [walletRes, transactionsRes] = await Promise.all([
+        getMyWallet(),
+        getMyWalletTransactions(),
+      ]);
+      setWallet(walletRes);
+      setTransactions(transactionsRes.items);
+    } catch (err) {
+      setError(formatErrorMessage(err, 'Could not load your wallet. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadWallet();
+  }, [loadWallet]);
+
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (onBack) {
@@ -210,133 +240,148 @@ export function WalletScreen({
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Dark Green Available Balance Card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <Text style={styles.balanceValue}>₹4,250</Text>
-
-          <View style={styles.balanceDivider} />
-
-          <View style={styles.balanceStatsRow}>
-            <View style={styles.statCol}>
-              <Text style={styles.statValue}>₹28,600</Text>
-              <Text style={styles.statLabel}>Total Received</Text>
-            </View>
-
-            <View style={styles.statVerticalDivider} />
-
-            <View style={styles.statCol}>
-              <Text style={styles.statValue}>₹24,350</Text>
-              <Text style={styles.statLabel}>Total Withdrawn</Text>
-            </View>
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={P.twGreen700} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorTitle}>Couldn't load your wallet</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => void loadWallet()}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Dark Green Available Balance Card */}
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>Available Balance</Text>
+            <Text style={styles.balanceValue}>
+              {wallet ? formatMoneyAmount(wallet.balance) : formatMoneyAmount('0')}
+            </Text>
           </View>
-        </View>
 
-        {/* 3 Action Buttons Row */}
-        <View style={styles.actionRow}>
-          {/* Add Money */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={onNavigateToAddMoney}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Add Money"
-          >
-            <View style={styles.actionIconCircle}>
-              <PlusCircleIcon size={22} color={P.twGreen700} />
-            </View>
-            <Text style={styles.actionCardText}>Add Money</Text>
-          </TouchableOpacity>
+          {/* 3 Action Buttons Row */}
+          <View style={styles.actionRow}>
+            {/* Add Money */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={onNavigateToAddMoney}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Add Money"
+            >
+              <View style={styles.actionIconCircle}>
+                <PlusCircleIcon size={22} color={P.twGreen700} />
+              </View>
+              <Text style={styles.actionCardText}>Add Money</Text>
+            </TouchableOpacity>
 
-          {/* Withdraw */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={onNavigateToWithdraw}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Withdraw"
-          >
-            <View style={styles.actionIconCircle}>
-              <ArrowUpRightIcon size={22} color={P.twGreen700} />
-            </View>
-            <Text style={styles.actionCardText}>Withdraw</Text>
-          </TouchableOpacity>
+            {/* Withdraw */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={onNavigateToWithdraw}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Withdraw"
+            >
+              <View style={styles.actionIconCircle}>
+                <ArrowUpRightIcon size={22} color={P.twGreen700} />
+              </View>
+              <Text style={styles.actionCardText}>Withdraw</Text>
+            </TouchableOpacity>
 
-          {/* Payout History */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={onNavigateToPayoutHistory}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Payout History"
-          >
-            <View style={styles.actionIconCircle}>
-              <ReceiptIcon size={22} color={P.twGreen700} />
-            </View>
-            <Text style={styles.actionCardText}>Payout History</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Recent Transactions Section */}
-        <View style={styles.txSection}>
-          <Text style={styles.sectionHeader}>RECENT TRANSACTIONS</Text>
-
-          <View style={styles.txList}>
-            {SAMPLE_TRANSACTIONS.map((item) => {
-              const isCredit = item.type === 'credit';
-              const isTopUp = item.title.includes('Top-up');
-
-              const iconBg = isTopUp
-                ? P.twBlue50
-                : isCredit
-                  ? P.twGreen50
-                  : P.twRed50;
-
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.txCard}
-                  onPress={() => onNavigateToTransactionDetail && onNavigateToTransactionDetail(item)}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.title}, ${item.amount}`}
-                >
-                  <View style={[styles.txIconBox, { backgroundColor: iconBg }]}>
-                    {isTopUp ? (
-                      <CreditCardMiniIcon size={18} color={P.twBlue700} />
-                    ) : isCredit ? (
-                      <ArrowDownIcon size={18} color={P.twGreen700} />
-                    ) : (
-                      <ArrowUpIcon size={18} color={P.twRed600} />
-                    )}
-                  </View>
-
-                  <View style={styles.txContent}>
-                    <Text style={styles.txTitle}>{item.title}</Text>
-                    <Text style={styles.txSubtitle}>
-                      {item.date} · {item.ref}
-                    </Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.txAmount,
-                      { color: isCredit ? P.twGreen700 : P.twRed600 },
-                    ]}
-                  >
-                    {item.amount}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {/* Payout History */}
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={onNavigateToPayoutHistory}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Payout History"
+            >
+              <View style={styles.actionIconCircle}>
+                <ReceiptIcon size={22} color={P.twGreen700} />
+              </View>
+              <Text style={styles.actionCardText}>Payout History</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Recent Transactions Section */}
+          <View style={styles.txSection}>
+            <Text style={styles.sectionHeader}>RECENT TRANSACTIONS</Text>
+
+            {transactions.length === 0 ? (
+              <View style={styles.emptyTxBox}>
+                <Text style={styles.emptyTxText}>
+                  No transactions yet. Top up your wallet or make a sale to see activity here.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.txList}>
+                {transactions.map((tx) => {
+                  const item = toTransactionItem(tx);
+                  const isCredit = item.type === 'credit';
+                  const isTopUp = item.title.includes('Top-up');
+
+                  const iconBg = isTopUp
+                    ? P.twBlue50
+                    : isCredit
+                      ? P.twGreen50
+                      : P.twRed50;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.txCard}
+                      onPress={() => onNavigateToTransactionDetail && onNavigateToTransactionDetail(item)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.title}, ${item.amount}`}
+                    >
+                      <View style={[styles.txIconBox, { backgroundColor: iconBg }]}>
+                        {isTopUp ? (
+                          <CreditCardMiniIcon size={18} color={P.twBlue700} />
+                        ) : isCredit ? (
+                          <ArrowDownIcon size={18} color={P.twGreen700} />
+                        ) : (
+                          <ArrowUpIcon size={18} color={P.twRed600} />
+                        )}
+                      </View>
+
+                      <View style={styles.txContent}>
+                        <Text style={styles.txTitle}>{item.title}</Text>
+                        <Text style={styles.txSubtitle}>
+                          {item.date} · {item.ref}
+                        </Text>
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.txAmount,
+                          { color: isCredit ? P.twGreen700 : P.twRed600 },
+                        ]}
+                      >
+                        {item.amount}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -415,34 +460,48 @@ const styles = StyleSheet.create({
     marginTop: 6,
     letterSpacing: -0.5,
   },
-  balanceDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginVertical: 16,
-  },
-  balanceStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statCol: {
+  centerContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    backgroundColor: P.twGray50,
   },
-  statValue: {
-    fontSize: 15,
+  errorTitle: {
+    fontSize: 16,
     fontWeight: '700',
+    color: P.twGray900,
+    marginBottom: 6,
+  },
+  errorText: {
+    fontSize: 14,
+    color: P.twGray500,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: P.deepGreen,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryButtonText: {
     color: P.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
-  statLabel: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: P.green100,
-    marginTop: 2,
+  emptyTxBox: {
+    backgroundColor: P.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
   },
-  statVerticalDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginHorizontal: 14,
+  emptyTxText: {
+    fontSize: 13,
+    color: P.twGray500,
+    textAlign: 'center',
   },
   actionRow: {
     flexDirection: 'row',

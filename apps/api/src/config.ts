@@ -33,13 +33,16 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  // Short on purpose: `requireAuth` only verifies the JWT signature/expiry, it
-  // never checks whether the session was revoked (see requireAuth.ts's
-  // docblock). Logout, password reset, and session-revocation all invalidate
-  // the *refresh* token immediately, but an access token already issued stays
-  // valid until it naturally expires — this TTL is that window. 5 minutes
-  // bounds it tightly without materially increasing refresh-endpoint traffic,
-  // since the client already refreshes transparently on a 401.
+  // Short on purpose: `requireAuth` verifies the JWT signature/expiry, plus a
+  // Redis-backed per-user "don't trust tokens issued before this moment"
+  // stamp (see auth/tokenInvalidation.ts) that password change/reset write.
+  // Ordinary logout and refresh-token rotation still only invalidate the
+  // *refresh* token immediately -- that is a deliberate, narrower scope (see
+  // tokenInvalidation.ts's docblock) -- so an access token already issued for
+  // those stays valid until it naturally expires. This TTL is that window.
+  // 5 minutes bounds it tightly without materially increasing
+  // refresh-endpoint traffic, since the client already refreshes
+  // transparently on a 401.
   JWT_ACCESS_TTL: z.string().min(1).default('5m'),
   JWT_REFRESH_TTL: z.string().min(1).default('30d'),
 

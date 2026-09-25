@@ -496,6 +496,21 @@
       "source": "matrix §9"
     },
     {
+      "code": "farmer.farm.manage_own",
+      "module": "Farmers Management",
+      "description": "Create, edit and delete own land locations (farms) and their zones (plots). One permission covers both tables — a plot is only ever reached through a farm the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "inferred — BR-36 (own-data ownership for farmers); db/migrations/0003_farmers_and_farms.sql farms/plots were modelled but never wired to an API before this module"
+    },
+    {
       "code": "certification.verify_via_portal",
       "module": "Farmers Management",
       "description": "Verify a certificate against the issuing body's official portal (manual).",
