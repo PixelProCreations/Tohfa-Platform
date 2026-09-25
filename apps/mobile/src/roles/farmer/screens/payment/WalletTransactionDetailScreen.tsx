@@ -74,24 +74,19 @@ export interface WalletTransactionDetailScreenProps {
   onBack?: () => void;
 }
 
+/**
+ * Shown for any field a real transaction genuinely has no value for (e.g. an ADJUSTMENT
+ * with no order reference). Previously this screen substituted plausible-looking fake data
+ * instead ('#ORD-20260915', 'Online', a fake date) -- on a screen that shows a specific
+ * money movement, that is worse than a blank: it invents evidence for a transaction that
+ * never had it. Same reasoning as Step5Review's NOT_PROVIDED.
+ */
+const NOT_AVAILABLE = '—';
+
 export function WalletTransactionDetailScreen({
   transaction,
   onBack,
 }: WalletTransactionDetailScreenProps): React.JSX.Element {
-  const current: WalletTransactionItem = transaction ?? {
-    id: 'tx-2',
-    title: 'Sale Settlement — Carrot',
-    type: 'credit',
-    amount: '+ ₹3,200',
-    date: '15 Sep 2026',
-    ref: 'Order #ORD-20260915',
-    orderId: '#ORD-20260915',
-    crop: 'Carrot — Nantes',
-    channel: 'Online',
-    creditedOn: '15 Sep 2026, 06:40 PM',
-    balanceAfter: '₹4,250',
-  };
-
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (onBack) {
@@ -103,7 +98,38 @@ export function WalletTransactionDetailScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const isCredit = current.type === 'credit';
+  // No transaction was threaded through navigation -- this screen has nothing of its own to
+  // fetch (WalletScreen already loaded the real object before navigating here), so there is
+  // nothing honest to show. Distinct from any field on a real transaction being empty, which
+  // is handled per-row below with NOT_AVAILABLE rather than invented data.
+  if (!transaction) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowBackIcon size={20} color={P.twGreen800} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleGroup}>
+              <Text style={styles.headerTitle}>Transaction Detail</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>This transaction could not be opened.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const isCredit = transaction.type === 'credit';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -143,10 +169,10 @@ export function WalletTransactionDetailScreen({
             )}
           </View>
           <Text style={[styles.amountText, { color: isCredit ? P.twGreen700 : P.twGray900 }]}>
-            {current.amount}
+            {transaction.amount}
           </Text>
           <Text style={styles.subtitle}>
-            {current.title} · {current.date}
+            {transaction.title} · {transaction.date}
           </Text>
         </View>
 
@@ -154,29 +180,29 @@ export function WalletTransactionDetailScreen({
         <View style={styles.detailsCard}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Order</Text>
-            <Text style={styles.detailValueMono}>{current.orderId ?? '#ORD-20260915'}</Text>
+            <Text style={styles.detailValueMono}>{transaction.orderId ?? NOT_AVAILABLE}</Text>
           </View>
 
-          {current.crop && (
+          {transaction.crop && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Crop</Text>
-              <Text style={styles.detailValue}>{current.crop}</Text>
+              <Text style={styles.detailValue}>{transaction.crop}</Text>
             </View>
           )}
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Channel</Text>
-            <Text style={styles.detailValue}>{current.channel ?? 'Online'}</Text>
+            <Text style={styles.detailValue}>{transaction.channel ?? NOT_AVAILABLE}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Credited On</Text>
-            <Text style={styles.detailValue}>{current.creditedOn ?? '15 Sep 2026, 06:40 PM'}</Text>
+            <Text style={styles.detailValue}>{transaction.creditedOn ?? NOT_AVAILABLE}</Text>
           </View>
 
           <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.detailLabel}>Wallet Balance After</Text>
-            <Text style={styles.detailValueBold}>{current.balanceAfter ?? '₹4,250'}</Text>
+            <Text style={styles.detailValueBold}>{transaction.balanceAfter ?? NOT_AVAILABLE}</Text>
           </View>
         </View>
       </ScrollView>
@@ -219,6 +245,17 @@ const styles = StyleSheet.create({
   },
   headerTitleGroup: {
     flex: 1,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: P.twGray500,
+    textAlign: 'center',
   },
   headerTitle: {
     fontSize: 20,
