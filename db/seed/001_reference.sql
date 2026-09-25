@@ -353,6 +353,105 @@ ON CONFLICT (slug) DO UPDATE SET
     updated_at      = now();
 
 -- -----------------------------------------------------------------------------
+-- Farm diary taxonomy — 12 activity categories, seeded reference data.
+-- Sourced from the farm diary taxonomy handed off for the diary API module;
+-- no BR-xx id exists for this yet (specification gap, flagged in
+-- db/migrations/0020_farm_diary.sql's header).
+-- -----------------------------------------------------------------------------
+INSERT INTO diary_activity_categories (key, name, sort_order, icon_key) VALUES
+    ('land_prep',         'Land Preparation',       1,  'mountain'),
+    ('sowing_planting',   'Sowing / Planting',      2,  'sowing_seed'),
+    ('nutrient_mgmt',     'Nutrient Management',    3,  'nutrients_circle'),
+    ('water_mgmt',        'Water Management',       4,  'water_droplet'),
+    ('weed_mgmt',         'Weed Management',        5,  'shield'),
+    ('pest_mgmt',         'Pest Management',        6,  'pest_bug'),
+    ('crop_care',         'Crop Care',              7,  'scissors'),
+    ('monitoring',        'Monitoring & Inspection',8,  'search'),
+    ('harvesting',        'Harvesting',             9,  'tractor_harvest'),
+    ('post_harvest',      'Post-Harvest & Storage', 10, 'crate_box'),
+    ('farm_maintenance',  'Farm Maintenance',       11, 'tools_hammer'),
+    ('livestock',         'Livestock',              12, 'paw')
+ON CONFLICT (key) DO UPDATE SET
+    name       = EXCLUDED.name,
+    sort_order = EXCLUDED.sort_order,
+    icon_key   = EXCLUDED.icon_key;
+
+-- -----------------------------------------------------------------------------
+-- Farm diary taxonomy — sub-activities within each category above.
+-- -----------------------------------------------------------------------------
+INSERT INTO diary_sub_activities (key, category_key, name, sort_order) VALUES
+    -- Land Preparation
+    ('land_prep.ploughing_tilling',          'land_prep',        'Ploughing/Tilling',                       1),
+    ('land_prep.bunding_leveling',           'land_prep',        'Bunding/Land leveling',                   2),
+    ('land_prep.soil_testing',               'land_prep',        'Soil testing',                            3),
+    ('land_prep.bed_formation',              'land_prep',        'Bed Formation',                           4),
+
+    -- Sowing / Planting
+    ('sowing_planting.seed_sowing',          'sowing_planting',  'Seed sowing',                             1),
+    ('sowing_planting.transplanting',        'sowing_planting',  'Transplanting (nursery to field)',        2),
+    ('sowing_planting.seed_treatment',       'sowing_planting',  'Seed treatment',                          3),
+
+    -- Nutrient Management
+    ('nutrient_mgmt.composting',             'nutrient_mgmt',    'Composting (preparation)',                1),
+    ('nutrient_mgmt.manure_application',     'nutrient_mgmt',    'Manure application',                      2),
+    ('nutrient_mgmt.biofertilizer_application', 'nutrient_mgmt', 'Bio-fertilizer application',               3),
+    ('nutrient_mgmt.green_manuring',         'nutrient_mgmt',    'Green manuring/Cover cropping',            4),
+    ('nutrient_mgmt.chemical_fertilizer_application', 'nutrient_mgmt', 'Fertilizer Application (Chemical)',  5),
+    ('nutrient_mgmt.foliar_spray',           'nutrient_mgmt',    'Foliar Spray',                            6),
+
+    -- Water Management
+    ('water_mgmt.irrigation',                'water_mgmt',       'Irrigation (drip/sprinkler/flood)',       1),
+    ('water_mgmt.water_source_check',        'water_mgmt',       'Water source check',                     2),
+    ('water_mgmt.rainwater_harvesting',      'water_mgmt',       'Rainwater harvesting activity',           3),
+
+    -- Weed Management
+    ('weed_mgmt.weeding',                    'weed_mgmt',        'Weeding (manual/mechanical)',             1),
+    ('weed_mgmt.mulching',                   'weed_mgmt',        'Mulching',                                2),
+    ('weed_mgmt.herbicide_application',      'weed_mgmt',        'Herbicide Application',                   3),
+
+    -- Pest Management
+    ('pest_mgmt.pest_scouting',              'pest_mgmt',        'Pest scouting/monitoring',                1),
+    ('pest_mgmt.biopesticide_application',   'pest_mgmt',        'Bio-pesticide/botanical spray application', 2),
+    ('pest_mgmt.trap_installation',          'pest_mgmt',        'Trap installation',                       3),
+
+    -- Crop Care
+    ('crop_care.pruning',                    'crop_care',        'Pruning',                                 1),
+    ('crop_care.staking_trellising',         'crop_care',        'Staking/Trellising',                     2),
+    ('crop_care.thinning',                   'crop_care',        'Thinning',                                3),
+    ('crop_care.intercultural_operations',   'crop_care',        'Intercultural operations',                4),
+
+    -- Monitoring & Inspection
+    ('monitoring.growth_stage_check',        'monitoring',       'Growth stage check',                     1),
+    ('monitoring.disease_pest_inspection',   'monitoring',       'Disease/pest inspection',                 2),
+    ('monitoring.soil_moisture_check',       'monitoring',       'Soil moisture check',                    3),
+    ('monitoring.germination_check',         'monitoring',       'Germination Check',                      4),
+
+    -- Harvesting
+    ('harvesting.harvesting',                'harvesting',       'Harvesting (quantity, method)',          1),
+    ('harvesting.sorting_grading',           'harvesting',       'Sorting/Grading',                        2),
+
+    -- Post-Harvest & Storage
+    ('post_harvest.drying',                  'post_harvest',     'Drying',                                  1),
+    ('post_harvest.packing',                 'post_harvest',     'Packing',                                 2),
+    ('post_harvest.storage_transfer',        'post_harvest',     'Storage transfer',                       3),
+    ('post_harvest.cleaning_washing',        'post_harvest',     'Cleaning/Washing',                       4),
+
+    -- Farm Maintenance
+    ('farm_maintenance.equipment_maintenance', 'farm_maintenance', 'Equipment/tool maintenance',            1),
+    ('farm_maintenance.fencing_boundary_work', 'farm_maintenance', 'Fencing/boundary work',                 2),
+    ('farm_maintenance.compost_pit_maintenance', 'farm_maintenance', 'Compost pit maintenance',             3),
+    ('farm_maintenance.irrigation_system_check', 'farm_maintenance', 'Irrigation System Check',             4),
+
+    -- Livestock
+    ('livestock.feeding',                    'livestock',        'Feeding',                                 1),
+    ('livestock.health_check_vaccination',   'livestock',        'Health check/vaccination',                2),
+    ('livestock.manure_collection',          'livestock',        'Manure collection',                      3)
+ON CONFLICT (key) DO UPDATE SET
+    category_key = EXCLUDED.category_key,
+    name         = EXCLUDED.name,
+    sort_order   = EXCLUDED.sort_order;
+
+-- -----------------------------------------------------------------------------
 -- Notification Templates — BR-38a: 11 golden-thread transactional events in en & ta
 -- -----------------------------------------------------------------------------
 INSERT INTO notification_templates (code, channel, locale, subject, body_template, is_active) VALUES
@@ -407,6 +506,8 @@ DECLARE
     v_rating_cat integer;
     v_alloc      numeric;
     v_crops      integer;
+    v_diary_cat  integer;
+    v_diary_sub  integer;
 BEGIN
     SELECT count(*) INTO v_roles      FROM roles;
     SELECT count(*) INTO v_warehouses FROM warehouses;
@@ -414,6 +515,8 @@ BEGIN
     SELECT count(*) INTO v_grades     FROM grades;
     SELECT count(*) INTO v_rating_cat FROM rating_categories;
     SELECT count(*) INTO v_crops      FROM crop_master;
+    SELECT count(*) INTO v_diary_cat  FROM diary_activity_categories;
+    SELECT count(*) INTO v_diary_sub  FROM diary_sub_activities;
     SELECT COALESCE(SUM(percentage), 0) INTO v_alloc
       FROM allocation_config WHERE effective_from = DATE '2025-01-01';
 
@@ -424,9 +527,11 @@ BEGIN
     IF v_rating_cat <> 10 THEN RAISE EXCEPTION 'BR-06: expected 10 rating categories, found %', v_rating_cat; END IF;
     IF v_alloc      <> 100 THEN RAISE EXCEPTION 'BR-12b: allocation percentages sum to %, must be 100', v_alloc; END IF;
     IF v_crops      < 30  THEN RAISE EXCEPTION 'seed: expected at least 30 crops, found %', v_crops; END IF;
+    IF v_diary_cat  <> 12 THEN RAISE EXCEPTION 'seed: expected 12 diary activity categories, found %', v_diary_cat; END IF;
+    IF v_diary_sub  <> 43 THEN RAISE EXCEPTION 'seed: expected 43 diary sub-activities, found %', v_diary_sub; END IF;
 
-    RAISE NOTICE 'seed 001: % roles, % warehouses, % categories, % grades, % rating categories, % crops, allocation sum %',
-        v_roles, v_warehouses, v_categories, v_grades, v_rating_cat, v_crops, v_alloc;
+    RAISE NOTICE 'seed 001: % roles, % warehouses, % categories, % grades, % rating categories, % crops, % diary categories, % diary sub-activities, allocation sum %',
+        v_roles, v_warehouses, v_categories, v_grades, v_rating_cat, v_crops, v_diary_cat, v_diary_sub, v_alloc;
 END
 $$;
 

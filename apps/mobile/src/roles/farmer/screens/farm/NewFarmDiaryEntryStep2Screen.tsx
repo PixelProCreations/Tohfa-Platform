@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { formatErrorMessage } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
+import { getDiaryTaxonomy, type DiaryCategory, type DiaryTaxonomy } from '../../api/farmDiary';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -213,195 +216,128 @@ function PawIcon({ size = 22, color = P.twGray700 }: { size?: number; color?: st
 }
 
 // ─────────────────────────────────────────────
-// Categories and Sub-Activities Data
+// Icon lookup (taxonomy `iconKey` → inline icon)
 // ─────────────────────────────────────────────
 
-interface CategoryMeta {
-  id: string;
-  label: string;
-  headerLabel: string;
-  IconComponent: React.ComponentType<{ size?: number; color?: string }>;
-  subActivities: string[];
+type IconComponentType = React.ComponentType<{ size?: number; color?: string }>;
+
+/**
+ * The taxonomy is admin-managed, so a category can arrive with an `iconKey`
+ * this build has never heard of (or none at all). Unknown keys fall back to
+ * FALLBACK_CATEGORY_ICON rather than crashing the grid.
+ */
+const CATEGORY_ICONS: Record<string, IconComponentType> = {
+  mountain: MountainIcon,
+  sowing_seed: SowingSeedIcon,
+  nutrients_circle: NutrientsCircleIcon,
+  water_droplet: WaterDropletIcon,
+  shield: ShieldIcon,
+  pest_bug: PestBugIcon,
+  scissors: ScissorsIcon,
+  search: SearchIcon,
+  tractor_harvest: TractorHarvestIcon,
+  crate_box: CrateBoxIcon,
+  tools_hammer: ToolsHammerIcon,
+  paw: PawIcon,
+};
+
+const FALLBACK_CATEGORY_ICON: IconComponentType = MountainIcon;
+
+function iconForCategory(iconKey: string | null): IconComponentType {
+  return (iconKey !== null ? CATEGORY_ICONS[iconKey] : undefined) ?? FALLBACK_CATEGORY_ICON;
 }
 
-const CATEGORIES_DATA: CategoryMeta[] = [
-  {
-    id: 'land_prep',
-    label: 'Land Prep',
-    headerLabel: 'LAND PREP',
-    IconComponent: MountainIcon,
-    subActivities: [
-      'Ploughing / Tilling',
-      'Bed Formation',
-      'Land Leveling',
-      'Base Manure Application',
-    ],
-  },
-  {
-    id: 'sowing',
-    label: 'Sowing',
-    headerLabel: 'SOWING',
-    IconComponent: SowingSeedIcon,
-    subActivities: [
-      'Seed Sowing / Transplanting',
-      'Seed Treatment',
-      'Germination Check',
-    ],
-  },
-  {
-    id: 'nutrients',
-    label: 'Nutrients',
-    headerLabel: 'NUTRIENTS',
-    IconComponent: NutrientsCircleIcon,
-    subActivities: [
-      'Fertilizer Application (Chemical)',
-      'Manure Application (Organic)',
-      'Foliar Spray',
-    ],
-  },
-  {
-    id: 'water_mgmt',
-    label: 'Water Mgmt',
-    headerLabel: 'WATER MGMT',
-    IconComponent: WaterDropletIcon,
-    subActivities: [
-      'Irrigation (drip / sprinkler / flood)',
-      'Water source check',
-      'Rainwater harvesting activity',
-    ],
-  },
-  {
-    id: 'weed_mgmt',
-    label: 'Weed Mgmt',
-    headerLabel: 'WEED MGMT',
-    IconComponent: ShieldIcon,
-    subActivities: [
-      'Manual Weeding',
-      'Herbicide Application',
-      'Mulching for Weed Suppression',
-    ],
-  },
-  {
-    id: 'pest_mgmt',
-    label: 'Pest Mgmt',
-    headerLabel: 'PEST MGMT',
-    IconComponent: PestBugIcon,
-    subActivities: [
-      'Pest Inspection',
-      'Pesticide / Bio-control Application',
-      'Trap Setting & Monitoring',
-    ],
-  },
-  {
-    id: 'crop_care',
-    label: 'Crop Care',
-    headerLabel: 'CROP CARE',
-    IconComponent: ScissorsIcon,
-    subActivities: [
-      'Staking / Training',
-      'Pruning',
-      'Thinning',
-    ],
-  },
-  {
-    id: 'monitoring',
-    label: 'Monitoring',
-    headerLabel: 'MONITORING',
-    IconComponent: SearchIcon,
-    subActivities: [
-      'Growth Stage Observation',
-      'Disease Check',
-      'Soil Moisture Check',
-    ],
-  },
-  {
-    id: 'harvesting',
-    label: 'Harvesting',
-    headerLabel: 'HARVESTING',
-    IconComponent: TractorHarvestIcon,
-    subActivities: [
-      'Harvest Picking',
-      'Grading / Sorting',
-    ],
-  },
-  {
-    id: 'post_harvest',
-    label: 'Post-Harvest',
-    headerLabel: 'POST-HARVEST',
-    IconComponent: CrateBoxIcon,
-    subActivities: [
-      'Cleaning / Washing',
-      'Packing',
-      'Storage Transfer',
-    ],
-  },
-  {
-    id: 'maintenance',
-    label: 'Maintenance',
-    headerLabel: 'MAINTENANCE',
-    IconComponent: ToolsHammerIcon,
-    subActivities: [
-      'Tool / Equipment Maintenance',
-      'Irrigation System Check',
-    ],
-  },
-  {
-    id: 'livestock',
-    label: 'Livestock',
-    headerLabel: 'LIVESTOCK',
-    IconComponent: PawIcon,
-    subActivities: [
-      'Feeding / Grazing',
-      'Health Check',
-      'Manure Collection',
-    ],
-  },
-];
+/** Active-only, sorted — inactive rows are excluded server-side too; this is defensive. */
+function activeCategories(taxonomy: DiaryTaxonomy): DiaryCategory[] {
+  return taxonomy.categories
+    .filter((c) => c.isActive)
+    .map((c) => ({
+      ...c,
+      subActivities: c.subActivities
+        .filter((s) => s.isActive && s.categoryKey === c.key)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 // ─────────────────────────────────────────────
 // Props & Component
 // ─────────────────────────────────────────────
 
+export interface NewFarmDiaryEntryStep2Data {
+  categoryKey: string;
+  categoryName: string;
+  subActivityKey: string;
+  subActivityName: string;
+}
+
 export interface NewFarmDiaryEntryStep2ScreenProps {
   crop?: CropItem | null;
-  category?: string;
+  /** Taxonomy key of the category to pre-select, if any. */
+  categoryKey?: string | undefined;
   onChangeCategory?: () => void;
   onBack?: () => void;
   onCancel?: () => void;
-  onNext?: (entryData?: any) => void;
+  onNext?: (entryData: NewFarmDiaryEntryStep2Data) => void;
 }
+
+type LoadState = 'loading' | 'error' | 'ready';
 
 export function NewFarmDiaryEntryStep2Screen({
   crop: _crop,
-  category: initialCategory = 'Land Prep',
+  categoryKey: initialCategoryKey,
   onBack,
   onCancel,
   onNext,
 }: NewFarmDiaryEntryStep2ScreenProps): React.JSX.Element {
-  // Find matching initial category or default to land_prep
-  const foundInitial = CATEGORIES_DATA.find(
-    (c) => c.label.toLowerCase() === (initialCategory || '').toLowerCase(),
-  );
-  const [selectedCatId, setSelectedCatId] = useState<string>(
-    foundInitial?.id || 'land_prep',
-  );
+  const [categories, setCategories] = useState<DiaryCategory[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [loadError, setLoadError] = useState<string>('');
+  const [reloadKey, setReloadKey] = useState<number>(0);
 
-  const activeCategory =
-    CATEGORIES_DATA.find((c) => c.id === selectedCatId) || CATEGORIES_DATA[0]!;
+  const [selectedCatKey, setSelectedCatKey] = useState<string | null>(null);
+  const [selectedSubActivityKey, setSelectedSubActivityKey] = useState<string | null>(null);
 
-  const [selectedSubActivity, setSelectedSubActivity] = useState<string>(
-    activeCategory.subActivities[0] ?? '',
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadState('loading');
+    getDiaryTaxonomy(controller.signal)
+      .then((taxonomy) => {
+        if (controller.signal.aborted) return;
+        const active = activeCategories(taxonomy);
+        setCategories(active);
+        const initial =
+          active.find((c) => initialCategoryKey !== undefined && c.key === initialCategoryKey) ??
+          active[0];
+        setSelectedCatKey(initial?.key ?? null);
+        setSelectedSubActivityKey(initial?.subActivities[0]?.key ?? null);
+        setLoadState('ready');
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setLoadError(formatErrorMessage(err, 'Could not load activity types.'));
+        setLoadState('error');
+      });
+    return () => controller.abort();
+  }, [reloadKey, initialCategoryKey]);
 
-  const handleSelectCategory = (cat: CategoryMeta) => {
-    setSelectedCatId(cat.id);
-    setSelectedSubActivity(cat.subActivities[0] ?? '');
+  const activeCategory = categories.find((c) => c.key === selectedCatKey) ?? null;
+  const selectedSubActivity =
+    activeCategory?.subActivities.find((s) => s.key === selectedSubActivityKey) ?? null;
+  const canProceed = activeCategory !== null && selectedSubActivity !== null;
+
+  const handleSelectCategory = (cat: DiaryCategory) => {
+    setSelectedCatKey(cat.key);
+    setSelectedSubActivityKey(cat.subActivities[0]?.key ?? null);
   };
 
   const handleProceed = () => {
+    if (!activeCategory || !selectedSubActivity) return;
     onNext?.({
-      category: activeCategory.label,
-      subActivity: selectedSubActivity,
+      categoryKey: activeCategory.key,
+      categoryName: activeCategory.name,
+      subActivityKey: selectedSubActivity.key,
+      subActivityName: selectedSubActivity.name,
     });
   };
 
@@ -453,89 +389,125 @@ export function NewFarmDiaryEntryStep2Screen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── 1. Category Section Heading ── */}
-        <Text style={styles.sectionHeading}>CATEGORY</Text>
+        {loadState === 'loading' ? (
+          <View style={styles.statusBox}>
+            <ActivityIndicator color={P.twGreen700} />
+            <Text style={styles.statusText}>Loading activity types…</Text>
+          </View>
+        ) : loadState === 'error' ? (
+          <View style={[styles.statusBox, styles.errorBox]}>
+            <Text style={styles.errorText}>{loadError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => setReloadKey((k) => k + 1)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading activity types"
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : categories.length === 0 ? (
+          <View style={styles.statusBox}>
+            <Text style={styles.statusText}>No activity types are available right now.</Text>
+          </View>
+        ) : (
+          <>
+            {/* ── 1. Category Section Heading ── */}
+            <Text style={styles.sectionHeading}>CATEGORY</Text>
 
-        {/* ── 3-Column Categories Grid (12 items) ── */}
-        <View style={styles.categoriesGrid}>
-          {CATEGORIES_DATA.map((cat) => {
-            const isSelected = selectedCatId === cat.id;
-            const Icon = cat.IconComponent;
-            const iconColor = isSelected ? P.twGreen800 : P.twGray700;
+            {/* ── 3-Column Categories Grid ── */}
+            <View style={styles.categoriesGrid}>
+              {categories.map((cat) => {
+                const isSelected = selectedCatKey === cat.key;
+                const Icon = iconForCategory(cat.iconKey);
+                const iconColor = isSelected ? P.twGreen800 : P.twGray700;
 
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryCard,
-                  isSelected && styles.categoryCardSelected,
-                ]}
-                activeOpacity={0.8}
-                onPress={() => handleSelectCategory(cat)}
-                accessibilityRole="button"
-                accessibilityLabel={cat.label}
-              >
-                {isSelected && <View style={styles.selectedDot} />}
-                <Icon size={24} color={iconColor} />
-                <Text
-                  style={[
-                    styles.categoryCardText,
-                    isSelected && styles.categoryCardTextSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {cat.label}
+                return (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      styles.categoryCard,
+                      isSelected && styles.categoryCardSelected,
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectCategory(cat)}
+                    accessibilityRole="button"
+                    accessibilityLabel={cat.name}
+                  >
+                    {isSelected && <View style={styles.selectedDot} />}
+                    <Icon size={24} color={iconColor} />
+                    <Text
+                      style={[
+                        styles.categoryCardText,
+                        isSelected && styles.categoryCardTextSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {activeCategory && (
+              <>
+                {/* ── 2. Sub-Activity Section Heading ── */}
+                <Text style={styles.sectionHeading}>
+                  SUB-ACTIVITY · {activeCategory.name.toUpperCase()}
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
-        {/* ── 2. Sub-Activity Section Heading ── */}
-        <Text style={styles.sectionHeading}>
-          SUB-ACTIVITY · {activeCategory.headerLabel}
-        </Text>
+                {/* ── Sub-Activity Radio Options List ── */}
+                <View style={styles.subActivityList}>
+                  {activeCategory.subActivities.length === 0 ? (
+                    <Text style={styles.statusText}>
+                      No sub-activities are available for this category.
+                    </Text>
+                  ) : (
+                    activeCategory.subActivities.map((subAct) => {
+                      const isSelected = selectedSubActivityKey === subAct.key;
 
-        {/* ── Sub-Activity Radio Options List ── */}
-        <View style={styles.subActivityList}>
-          {activeCategory.subActivities.map((subAct) => {
-            const isSelected = selectedSubActivity === subAct;
+                      return (
+                        <TouchableOpacity
+                          key={subAct.key}
+                          style={[
+                            styles.subActivityOption,
+                            isSelected && styles.subActivityOptionSelected,
+                          ]}
+                          activeOpacity={0.8}
+                          onPress={() => setSelectedSubActivityKey(subAct.key)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: isSelected }}
+                        >
+                          {/* Radio Circle */}
+                          <View
+                            style={[
+                              styles.radioOuter,
+                              isSelected && styles.radioOuterSelected,
+                            ]}
+                          >
+                            {isSelected && <View style={styles.radioInner} />}
+                          </View>
 
-            return (
-              <TouchableOpacity
-                key={subAct}
-                style={[
-                  styles.subActivityOption,
-                  isSelected && styles.subActivityOptionSelected,
-                ]}
-                activeOpacity={0.8}
-                onPress={() => setSelectedSubActivity(subAct)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: isSelected }}
-              >
-                {/* Radio Circle */}
-                <View
-                  style={[
-                    styles.radioOuter,
-                    isSelected && styles.radioOuterSelected,
-                  ]}
-                >
-                  {isSelected && <View style={styles.radioInner} />}
+                          {/* Sub-Activity Text */}
+                          <Text
+                            style={[
+                              styles.subActivityText,
+                              isSelected && styles.subActivityTextSelected,
+                            ]}
+                          >
+                            {subAct.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                 </View>
-
-                {/* Sub-Activity Text */}
-                <Text
-                  style={[
-                    styles.subActivityText,
-                    isSelected && styles.subActivityTextSelected,
-                  ]}
-                >
-                  {subAct}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
 
       {/* ── Bottom Sticky Action Buttons ── */}
@@ -552,11 +524,13 @@ export function NewFarmDiaryEntryStep2Screen({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.nextButton}
+          style={[styles.nextButton, !canProceed && styles.nextButtonDisabled]}
           onPress={handleProceed}
+          disabled={!canProceed}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Proceed to Next Details"
+          accessibilityState={{ disabled: !canProceed }}
         >
           <Text style={styles.nextButtonText}>Next · Details</Text>
           <ArrowRightIcon size={16} color={P.white} />
@@ -791,9 +765,49 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  nextButtonDisabled: {
+    opacity: 0.5,
+  },
   nextButtonText: {
     color: P.white,
     fontSize: 14.5,
     fontWeight: '700',
+  },
+
+  /* Loading / error / empty states */
+  statusBox: {
+    borderWidth: 1,
+    borderColor: P.slate200,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 18,
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusText: {
+    fontSize: 13,
+    color: P.slate500,
+  },
+  errorBox: {
+    backgroundColor: P.twRed50,
+    borderColor: P.twRed200,
+  },
+  errorText: {
+    fontSize: 13,
+    color: P.twRed700,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twRed200,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: P.twRed700,
   },
 });

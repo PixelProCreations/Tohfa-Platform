@@ -833,26 +833,50 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onCancel={() => navigate('FarmDiary')}
             onNext={(data) => {
-              setParams((prev) => ({ ...prev, ...(typeof data === 'object' ? data : { diaryCategory: data }) }));
-              navigate('NewFarmDiaryEntryStep2', typeof data === 'object' ? data : { diaryCategory: data });
+              // `navigate` replaces `params` with its second argument, so the
+              // accumulated entry state must be passed forward explicitly.
+              navigate('NewFarmDiaryEntryStep2', {
+                ...params,
+                plotId: data.plotId,
+                plotName: data.plotName,
+                farmCropId: data.farmCropId, // undefined clears a stale pick
+                cropName: data.cropName,
+                date: data.date,
+              });
             }}
           />
         ) : screen === 'NewFarmDiaryEntryStep2' ? (
           <NewFarmDiaryEntryStep2Screen
             crop={selectedCrop}
-            category={typeof params['category'] === 'string' ? params['category'] : (typeof params['diaryCategory'] === 'string' ? params['diaryCategory'] : 'Water Mgmt')}
+            categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
             onChangeCategory={goBack}
             onBack={goBack}
             onCancel={() => navigate('FarmDiary')}
             onNext={(entryData) => {
-              setParams((prev) => ({ ...prev, ...entryData }));
-              navigate('NewFarmDiaryEntryStep3');
+              navigate('NewFarmDiaryEntryStep3', {
+                ...params,
+                categoryKey: entryData.categoryKey,
+                categoryName: entryData.categoryName,
+                subActivityKey: entryData.subActivityKey,
+                subActivityName: entryData.subActivityName,
+              });
             }}
           />
         ) : screen === 'NewFarmDiaryEntryStep3' ? (
+          // Ids are passed through without fallbacks: a missing plotId/categoryKey/
+          // subActivityKey is a navigation bug that Step 3 surfaces, not something to mock.
           <NewFarmDiaryEntryStep3Screen
             crop={selectedCrop}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+            farmCropId={typeof params['farmCropId'] === 'string' ? params['farmCropId'] : undefined}
+            categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
+            subActivityKey={typeof params['subActivityKey'] === 'string' ? params['subActivityKey'] : undefined}
+            entryCategory={typeof params['categoryName'] === 'string' ? params['categoryName'] : undefined}
+            entrySubActivity={typeof params['subActivityName'] === 'string' ? params['subActivityName'] : undefined}
+            fieldZone={typeof params['plotName'] === 'string' ? params['plotName'] : undefined}
+            cropName={typeof params['cropName'] === 'string' ? params['cropName'] : undefined}
             onBack={goBack}
+            onCancel={() => navigate('FarmDiary')}
             onDone={() => {
               if (selectedCrop) {
                 navigate('CropDiaryEntries');

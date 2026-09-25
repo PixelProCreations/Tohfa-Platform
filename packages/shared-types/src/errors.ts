@@ -81,6 +81,16 @@ export const ErrorCode = {
   OAUTH_IDENTITY_ALREADY_LINKED: 'OAUTH_IDENTITY_ALREADY_LINKED',
   /** The `linkToken` passed to `/auth/otp/verify` is expired, malformed or tampered with (BR-39). */
   OAUTH_LINK_TOKEN_INVALID: 'OAUTH_LINK_TOKEN_INVALID',
+  /** The sub-activity does not belong to the given activity category (BR-42). */
+  DIARY_INVALID_SUB_ACTIVITY: 'DIARY_INVALID_SUB_ACTIVITY',
+  /** The plot has no farm_crops row in status GROWING (BR-42). */
+  DIARY_NO_ACTIVE_CROP: 'DIARY_NO_ACTIVE_CROP',
+  /** Diary entry time-spent minutes is missing or not greater than zero (BR-42). */
+  DIARY_MINUTES_REQUIRED: 'DIARY_MINUTES_REQUIRED',
+  /** A diary workforce entry's hoursWorked is not greater than 0 and at most 24 (BR-44). */
+  DIARY_WORKER_HOURS_INVALID: 'DIARY_WORKER_HOURS_INVALID',
+  /** A diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44). */
+  DIARY_WAGE_RATE_INVALID: 'DIARY_WAGE_RATE_INVALID',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

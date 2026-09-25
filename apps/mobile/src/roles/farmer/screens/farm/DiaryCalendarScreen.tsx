@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -9,8 +10,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { authPalette as P, colors } from '../../theme';
+import {
+  resolveDiaryEntry,
+  toIsoDate,
+  toIsoMonth,
+  useDiaryCalendarMonth,
+  useDiaryDayEntries,
+  useDiaryReferenceData,
+  type ResolvedDiaryEntry,
+} from './diaryLookups';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -52,160 +62,7 @@ function ChevronRightIcon({ size = 16, color = P.twGray700 }: { size?: number; c
   );
 }
 
-function WeedingPlantIcon({ size = 22, color = colors.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="1.8" />
-      <Path
-        d="M12 17v-5M12 12a3 3 0 0 1 3-3h1v1a3 3 0 0 1-3 3h-1zM12 13a3 3 0 0 0-3-3H8v1a3 3 0 0 0 3 3h1z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function WaterDropIcon({ size = 22, color = P.blue700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 21a7 7 0 0 0 7-7c0-2-3-7.5-7-11-4 3.5-7 9-7 11a7 7 0 0 0 7 7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function BugIcon({ size = 22, color = P.deepPurple600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 7.5a3 3 0 0 1 6 0v0.5H9V7.5z" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M8 4L6.5 2M16 4l1.5-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Rect x="7" y="8" width="10" height="11" rx="5" stroke={color} strokeWidth="1.8" />
-      <Line x1="12" y1="11" x2="12" y2="19" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Circle cx="12" cy="15" r="1.2" fill={color} />
-      <Path
-        d="M7 11.5H3.5M20.5 11.5H17M7 15H3.5M20.5 15H17M7 18.5l-3 1.5M20 20l-3-1.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-function TractorIcon({ size = 22, color = P.deepOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="6.5" cy="17" r="2.5" stroke={color} strokeWidth="1.8" />
-      <Circle cx="17.5" cy="15.5" r="4" stroke={color} strokeWidth="1.8" />
-      <Circle cx="17.5" cy="15.5" r="1.2" fill={color} />
-      <Path
-        d="M4 17H2.5v-4H8l2.5-4H15v6.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M10.5 9V5.5H14v3.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="5.5" y1="13" x2="5.5" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-// ── Types & Data ─────────────────────────────────────────────────────────────
-
-interface DiaryEntryItem {
-  id: string;
-  type: string;
-  crop: string;
-  zone: string;
-  time: string;
-  duration: string;
-  iconBg: string;
-  icon: () => React.ReactNode;
-}
-
-const DIARY_ENTRIES_BY_DAY: Record<number, DiaryEntryItem[]> = {
-  12: [
-    {
-      id: 'd-12-1',
-      type: 'Weeding',
-      crop: 'Carrot',
-      zone: 'Zone 3 — Terrace',
-      time: '06:45 AM',
-      duration: '50m',
-      iconBg: colors.brandGreenLight,
-      icon: () => <WeedingPlantIcon size={22} color={colors.brandGreen} />,
-    },
-    {
-      id: 'd-12-2',
-      type: 'Irrigation',
-      crop: 'Tomato',
-      zone: 'Zone 2 — Lower Slope',
-      time: '07:20 AM',
-      duration: '40m',
-      iconBg: P.blue50,
-      icon: () => <WaterDropIcon size={22} color={P.blue700} />,
-    },
-  ],
-  16: [
-    {
-      id: 'd-16-1',
-      type: 'Irrigation',
-      crop: 'Tomato',
-      zone: 'Zone 2 — Lower Slope',
-      time: '07:10 AM',
-      duration: '45m',
-      iconBg: P.blue50,
-      icon: () => <WaterDropIcon size={22} color={P.blue700} />,
-    },
-    {
-      id: 'd-16-2',
-      type: 'Pest scouting',
-      crop: 'Tomato',
-      zone: 'Zone 2 — Lower Slope',
-      time: '08:30 AM',
-      duration: '20m',
-      iconBg: P.violetTint,
-      icon: () => <BugIcon size={22} color={P.deepPurple600} />,
-    },
-    {
-      id: 'd-16-3',
-      type: 'Manure application',
-      crop: 'Carrot',
-      zone: 'Zone 3 — Terrace',
-      time: '11:00 AM',
-      duration: '1h 15m',
-      iconBg: colors.brandGreenLight,
-      icon: () => <WeedingPlantIcon size={22} color={colors.brandGreen} />,
-    },
-    {
-      id: 'd-16-4',
-      type: 'Harvesting',
-      crop: 'Beans',
-      zone: 'Zone 1 — Upper Field',
-      time: '02:15 PM',
-      duration: '1h',
-      iconBg: P.orange50,
-      icon: () => <TractorIcon size={22} color={P.deepOrange600} />,
-    },
-  ],
-};
-
-const DAYS_WITH_ENTRIES = new Set([1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16]);
-const TODAY_DAY = 16;
+// ── Constants ────────────────────────────────────────────────────────────────
 
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const MONTH_NAMES = [
@@ -213,8 +70,8 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const FIELDS_OPTIONS = ['All fields', 'Zone 1 — Upper Field', 'Zone 2 — Lower Slope', 'Zone 3 — Terrace'];
-const ACTIVITIES_OPTIONS = ['All activity', 'Irrigation', 'Weeding', 'Pest scouting', 'Manure application', 'Harvesting'];
+const ALL_FIELDS_LABEL = 'All fields';
+const ALL_ACTIVITY_LABEL = 'All activity';
 
 export interface DiaryCalendarScreenProps {
   onBack?: () => void;
@@ -225,44 +82,93 @@ export function DiaryCalendarScreen({
   onBack,
   onNavigateToEntryDetail: _onNavigateToEntryDetail,
 }: DiaryCalendarScreenProps): React.JSX.Element {
-  const [selectedDay, setSelectedDay] = useState<number>(12);
-  const [selectedField, setSelectedField] = useState<string>('All fields');
-  const [selectedActivity, setSelectedActivity] = useState<string>('All activity');
+  const [today] = useState<Date>(() => new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  /** Plot id, or null for "All fields". */
+  const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
+  /** Taxonomy category key, or null for "All activity". */
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState<'field' | 'activity' | null>(null);
 
-  // Month navigation state
-  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(6); // July (0-indexed)
-  const currentYear = 2026;
+  // Month navigation state (the month in view; 0-indexed month)
+  const [viewYear, setViewYear] = useState<number>(() => new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState<number>(() => new Date().getMonth());
 
-  // Calendar calculations for July 2026: starts Wednesday (col 3), 31 days
-  // Days of week: S=0, M=1, T=2, W=3, T=4, F=5, S=6
-  const startDayCol = 3;
-  const totalDays = 31;
+  // ── Server data ──
+  const ref = useDiaryReferenceData();
+  const monthData = useDiaryCalendarMonth(toIsoMonth(viewYear, viewMonth));
+  const day = useDiaryDayEntries(toIsoDate(selectedDate));
+
+  const startDayCol = new Date(viewYear, viewMonth, 1).getDay(); // S=0 … S=6
+  const totalDays = new Date(viewYear, viewMonth + 1, 0).getDate();
 
   const calendarDays: Array<number | null> = [];
   for (let i = 0; i < startDayCol; i++) {
     calendarDays.push(null);
   }
-  for (let day = 1; day <= totalDays; day++) {
-    calendarDays.push(day);
+  for (let d = 1; d <= totalDays; d++) {
+    calendarDays.push(d);
   }
 
-  // Calculate day name for selected date in July 2026
-  // July 1 is Wed (3). Day d is at (3 + d - 1) % 7
-  const dayOfWeekIndex = (startDayCol + (selectedDay - 1)) % 7;
-  const selectedDayOfWeekName = DAY_NAMES[dayOfWeekIndex];
-  const entriesForSelectedDay = DIARY_ENTRIES_BY_DAY[selectedDay] || (DAYS_WITH_ENTRIES.has(selectedDay) ? [
-    {
-      id: `d-${selectedDay}-1`,
-      type: 'Field inspection',
-      crop: 'Tomato',
-      zone: 'Zone 1 — Upper Field',
-      time: '08:00 AM',
-      duration: '30m',
-      iconBg: colors.brandGreenLight,
-      icon: () => <WeedingPlantIcon size={22} color={colors.brandGreen} />,
-    },
-  ] : []);
+  const isSameDate = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  // Moving the month also moves the selection into it, so the entry list
+  // below always belongs to the month on screen: today if it is the current
+  // month, otherwise the 1st.
+  const goToMonth = (delta: number) => {
+    const first = new Date(viewYear, viewMonth + delta, 1);
+    setViewYear(first.getFullYear());
+    setViewMonth(first.getMonth());
+    const isCurrentMonth =
+      first.getFullYear() === today.getFullYear() && first.getMonth() === today.getMonth();
+    setSelectedDate(isCurrentMonth ? new Date(today) : first);
+  };
+
+  const listState = ref.state === 'error' || day.state === 'error'
+    ? 'error'
+    : ref.state === 'loading' || day.state === 'loading'
+      ? 'loading'
+      : 'ready';
+  const listError = ref.state === 'error' ? ref.error : day.error;
+  const retryList = () => {
+    if (ref.state === 'error') ref.retry();
+    if (day.state === 'error') day.retry();
+  };
+
+  const { plotNameById, categoryByKey, subActivityByKey } = ref;
+  const resolvedEntries: ResolvedDiaryEntry[] = useMemo(
+    () =>
+      day.entries.map((e) =>
+        resolveDiaryEntry(e, { plotNameById, categoryByKey, subActivityByKey }, day.cropNameById),
+      ),
+    [day.entries, day.cropNameById, plotNameById, categoryByKey, subActivityByKey],
+  );
+
+  const entriesForSelectedDay = resolvedEntries.filter(
+    (r) =>
+      (selectedPlotId === null || r.entry.plotId === selectedPlotId) &&
+      (selectedCategoryKey === null || r.entry.categoryKey === selectedCategoryKey),
+  );
+
+  const fieldOptions: { value: string | null; label: string }[] = [
+    { value: null, label: ALL_FIELDS_LABEL },
+    ...ref.plots.map((p) => ({ value: p.id, label: p.name })),
+  ];
+  const activityOptions: { value: string | null; label: string }[] = [
+    { value: null, label: ALL_ACTIVITY_LABEL },
+    ...ref.activeCategories.map((c) => ({ value: c.key, label: c.name })),
+  ];
+
+  const selectedFieldLabel =
+    selectedPlotId === null ? ALL_FIELDS_LABEL : plotNameById.get(selectedPlotId) ?? ALL_FIELDS_LABEL;
+  const selectedActivityLabel =
+    selectedCategoryKey === null
+      ? ALL_ACTIVITY_LABEL
+      : categoryByKey.get(selectedCategoryKey)?.name ?? ALL_ACTIVITY_LABEL;
+
+  const selectedDayOfWeekName = DAY_NAMES[selectedDate.getDay()];
+  const selectedMonthName = (MONTH_NAMES[selectedDate.getMonth()] ?? '').toUpperCase();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -295,8 +201,10 @@ export function DiaryCalendarScreen({
             style={styles.filterPill}
             onPress={() => setFilterModalVisible('field')}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Filter by field"
           >
-            <Text style={styles.filterPillText} numberOfLines={1}>{selectedField}</Text>
+            <Text style={styles.filterPillText} numberOfLines={1}>{selectedFieldLabel}</Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
 
@@ -304,8 +212,10 @@ export function DiaryCalendarScreen({
             style={styles.filterPill}
             onPress={() => setFilterModalVisible('activity')}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Filter by activity"
           >
-            <Text style={styles.filterPillText} numberOfLines={1}>{selectedActivity}</Text>
+            <Text style={styles.filterPillText} numberOfLines={1}>{selectedActivityLabel}</Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
         </View>
@@ -316,24 +226,46 @@ export function DiaryCalendarScreen({
           <View style={styles.monthHeader}>
             <TouchableOpacity
               style={styles.monthNavBtn}
-              onPress={() => setCurrentMonthIndex((prev) => Math.max(0, prev - 1))}
+              onPress={() => goToMonth(-1)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
             >
               <ChevronLeftIcon size={16} color={P.twGray700} />
             </TouchableOpacity>
 
-            <Text style={styles.monthTitle}>
-              {MONTH_NAMES[currentMonthIndex]} {currentYear}
-            </Text>
+            <View style={styles.monthTitleRow}>
+              <Text style={styles.monthTitle}>
+                {MONTH_NAMES[viewMonth]} {viewYear}
+              </Text>
+              {monthData.state === 'loading' && (
+                <ActivityIndicator size="small" color={colors.brandGreen} />
+              )}
+            </View>
 
             <TouchableOpacity
               style={styles.monthNavBtn}
-              onPress={() => setCurrentMonthIndex((prev) => Math.min(11, prev + 1))}
+              onPress={() => goToMonth(1)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
             >
               <ChevronRightIcon size={16} color={P.twGray700} />
             </TouchableOpacity>
           </View>
+
+          {/* Entry dots are a hint — a failure here must not block the grid. */}
+          {monthData.state === 'error' && (
+            <TouchableOpacity
+              style={styles.monthErrorRow}
+              onPress={monthData.retry}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading days with entries"
+            >
+              <Text style={styles.monthErrorText}>{monthData.error} Tap to retry.</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Weekday Column Headers */}
           <View style={styles.weekdaysRow}>
@@ -346,20 +278,21 @@ export function DiaryCalendarScreen({
 
           {/* Calendar Grid of Days */}
           <View style={styles.daysGrid}>
-            {calendarDays.map((day, index) => {
-              if (day === null) {
+            {calendarDays.map((dayNum, index) => {
+              if (dayNum === null) {
                 return <View key={`empty-${index}`} style={styles.dayCell} />;
               }
 
-              const isSelected = day === selectedDay;
-              const isToday = day === TODAY_DAY;
-              const hasEntries = DAYS_WITH_ENTRIES.has(day);
+              const cellDate = new Date(viewYear, viewMonth, dayNum);
+              const isSelected = isSameDate(cellDate, selectedDate);
+              const isToday = isSameDate(cellDate, today);
+              const hasEntries = monthData.countsByDate.has(toIsoDate(cellDate));
 
               return (
                 <TouchableOpacity
-                  key={`day-${day}`}
+                  key={`day-${dayNum}`}
                   style={styles.dayCell}
-                  onPress={() => setSelectedDay(day)}
+                  onPress={() => setSelectedDate(cellDate)}
                   activeOpacity={0.75}
                 >
                   <View
@@ -377,7 +310,7 @@ export function DiaryCalendarScreen({
                         !hasEntries && !isSelected && !isToday && styles.dayNumberNoEntries,
                       ]}
                     >
-                      {day}
+                      {dayNum}
                     </Text>
                     {hasEntries ? (
                       <View
@@ -420,35 +353,61 @@ export function DiaryCalendarScreen({
         <View style={styles.entriesSection}>
           <View style={styles.entriesSectionHeader}>
             <Text style={styles.entriesSectionDate}>
-              {selectedDayOfWeekName}, {selectedDay} JULY
+              {selectedDayOfWeekName}, {selectedDate.getDate()} {selectedMonthName}
             </Text>
-            <Text style={styles.entriesCountText}>
-              {entriesForSelectedDay.length} {entriesForSelectedDay.length === 1 ? 'entry' : 'entries'}
-            </Text>
+            {listState === 'ready' && (
+              <Text style={styles.entriesCountText}>
+                {entriesForSelectedDay.length} {entriesForSelectedDay.length === 1 ? 'entry' : 'entries'}
+              </Text>
+            )}
           </View>
 
-          {entriesForSelectedDay.length === 0 ? (
+          {listState === 'loading' ? (
             <View style={styles.emptyEntriesBox}>
-              <Text style={styles.emptyEntriesText}>No entries logged for this date.</Text>
+              <ActivityIndicator color={colors.brandGreen} />
+              <Text style={[styles.emptyEntriesText, styles.statusTextSpaced]}>
+                Loading diary entries…
+              </Text>
+            </View>
+          ) : listState === 'error' ? (
+            <View style={[styles.emptyEntriesBox, styles.errorBox]}>
+              <Text style={styles.errorText}>{listError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={retryList}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading diary entries"
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : entriesForSelectedDay.length === 0 ? (
+            <View style={styles.emptyEntriesBox}>
+              <Text style={styles.emptyEntriesText}>
+                {day.entries.length > 0
+                  ? 'No entries match these filters for this date.'
+                  : 'No entries logged for this date.'}
+              </Text>
             </View>
           ) : (
-            entriesForSelectedDay.map((entry) => (
-              <View key={entry.id} style={styles.entryCard}>
-                <View style={[styles.entryIconBox, { backgroundColor: entry.iconBg }]}>
-                  {entry.icon()}
+            entriesForSelectedDay.map((r) => (
+              <View key={r.entry.id} style={styles.entryCard}>
+                <View style={styles.entryIconBox}>
+                  <r.Icon size={22} color={colors.brandGreen} />
                 </View>
 
                 <View style={styles.entryContent}>
                   <Text style={styles.entryTitle}>
-                    {entry.type} · {entry.crop}
+                    {r.categoryName} · {r.cropName}
                   </Text>
                   <Text style={styles.entrySubtitle}>
-                    {entry.zone} · {entry.time}
+                    {r.time !== '' ? `${r.plotName} · ${r.time}` : r.plotName}
                   </Text>
                 </View>
 
                 <View style={styles.entryRight}>
-                  <Text style={styles.entryDuration}>{entry.duration}</Text>
+                  <Text style={styles.entryDuration}>{r.duration}</Text>
                   <ChevronDownIcon size={18} color={P.twGray400} />
                 </View>
               </View>
@@ -473,27 +432,27 @@ export function DiaryCalendarScreen({
             <Text style={styles.modalTitle}>
               {filterModalVisible === 'field' ? 'Select Field' : 'Select Activity'}
             </Text>
-            {(filterModalVisible === 'field' ? FIELDS_OPTIONS : ACTIVITIES_OPTIONS).map((opt) => (
-              <TouchableOpacity
-                key={opt}
-                style={styles.modalOption}
-                onPress={() => {
-                  if (filterModalVisible === 'field') setSelectedField(opt);
-                  if (filterModalVisible === 'activity') setSelectedActivity(opt);
-                  setFilterModalVisible(null);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.modalOptionText,
-                    (filterModalVisible === 'field' ? selectedField === opt : selectedActivity === opt) &&
-                      styles.modalOptionTextActive,
-                  ]}
+            {(filterModalVisible === 'field' ? fieldOptions : activityOptions).map((opt) => {
+              const isActive =
+                filterModalVisible === 'field'
+                  ? selectedPlotId === opt.value
+                  : selectedCategoryKey === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value ?? '__all__'}
+                  style={styles.modalOption}
+                  onPress={() => {
+                    if (filterModalVisible === 'field') setSelectedPlotId(opt.value);
+                    if (filterModalVisible === 'activity') setSelectedCategoryKey(opt.value);
+                    setFilterModalVisible(null);
+                  }}
                 >
-                  {opt}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text style={[styles.modalOptionText, isActive && styles.modalOptionTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -607,10 +566,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monthTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   monthTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: P.twGray900,
+  },
+  monthErrorRow: {
+    marginTop: -6,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  monthErrorText: {
+    fontSize: 12,
+    color: P.twRed700,
+    textAlign: 'center',
   },
   weekdaysRow: {
     flexDirection: 'row',
@@ -770,6 +744,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    backgroundColor: colors.brandGreenLight,
   },
   entryContent: {
     flex: 1,
@@ -806,6 +781,33 @@ const styles = StyleSheet.create({
   emptyEntriesText: {
     fontSize: 13.5,
     color: P.twGray500,
+    textAlign: 'center',
+  },
+  statusTextSpaced: {
+    marginTop: 10,
+  },
+  errorBox: {
+    backgroundColor: P.twRed50,
+    borderColor: P.twRed200,
+  },
+  errorText: {
+    fontSize: 13,
+    color: P.twRed700,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  retryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twRed200,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: P.twRed700,
   },
 
   modalOverlay: {
