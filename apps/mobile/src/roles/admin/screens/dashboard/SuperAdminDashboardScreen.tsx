@@ -14,6 +14,13 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { colors } from '../../../farmer/theme';
+import {
+  AdminAllFarmersScreen,
+  AdminFarmerDetailScreen,
+  AdminFarmMapScreen,
+  AdminRatingScorecardScreen,
+  type FarmerListItem,
+} from '../farmers';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -529,6 +536,7 @@ function OverviewCard({
   delta,
   deltaColor,
   valueStyle,
+  onPress,
 }: {
   iconBox: React.ReactNode;
   value: string;
@@ -536,8 +544,9 @@ function OverviewCard({
   delta: string;
   deltaColor?: string;
   valueStyle?: object;
+  onPress?: () => void;
 }) {
-  return (
+  const content = (
     <View style={styles.overviewCard}>
       <View style={styles.cardTopRow}>{iconBox}</View>
       <Text style={[styles.statValue, valueStyle]}>{value}</Text>
@@ -545,6 +554,16 @@ function OverviewCard({
       <Text style={[styles.statDelta, { color: deltaColor ?? PALETTE.ink }]}>{delta}</Text>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={{ width: '48%' }}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
 }
 
 function ApprovalRow({
@@ -710,6 +729,8 @@ export function SuperAdminDashboardScreen({
 }: SuperAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('Dashboard');
   const [user, setUser]           = useState<UserMe | null>(null);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
 
   useEffect(() => {
     fetchMe()
@@ -717,355 +738,150 @@ export function SuperAdminDashboardScreen({
       .catch(() => {});
   }, []);
 
-  const displayName = user?.fullName || 'Ganga Devi';
-  const roleCode = user?.roleCode || 'SUPER_ADMIN';
-  const greeting = 'Good morning';
-  
-  // Role label mapping
-  const roleLabel = 
-    roleCode === 'SUPER_ADMIN' ? 'Super Admin' :
-    roleCode === 'TOHFA_ADMIN' ? 'Tohfa Admin' :
-    roleCode === 'FARMER_ADMIN' ? 'Farmer Admin' :
-    roleCode === 'MAIN_WH_ADMIN' ? 'Main Warehouse Admin' :
-    roleCode === 'SUB_WH_ADMIN' ? 'Sub Warehouse Admin' :
-    'Admin';
-  
-  const isSubWh = roleCode === 'SUB_WH_ADMIN';
-  
-  // Role styling
-  const roleIcon = 'shield';
-  const accent = PALETTE.orange;
-  const accentBg = PALETTE.peachBadge;
-
-  function handleSignOut() {
-    void (async () => { await logout(); onSignOut(); })();
-  }
-
-  /** Header — Sub WH Admin gets a second "warehouse location" badge */
-  function PageHeader() {
-    return (
-      <View style={styles.pageHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greetSmall}>{greeting}</Text>
-          <Text style={styles.greetName}>{displayName}</Text>
-          {/* Primary role badge */}
-          <View style={styles.rolePill}>
-            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" style={{ marginRight: 4 }}>
-              <Path
-                d="M12 2L4 5V11.09C4 16.14 7.41 20.85 12 22C16.59 20.85 20 16.14 20 11.09V5L12 2Z"
-                stroke="#662208"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M9 11.5L11 13.5L15 9.5"
-                stroke="#662208"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-            <Text style={styles.rolePillText}>{roleLabel}</Text>
-          </View>
-          {/* Sub WH Admin gets a second location badge */}
-          {isSubWh ? (
-            <View style={[styles.rolePill, { backgroundColor: A.blueBg, marginTop: 6 }]}>
-              <Icon name="place" size={12} color={A.blue} />
-              <Text style={[styles.rolePillText, { color: A.blue }]}>Coonoor Warehouse</Text>
-            </View>
-          ) : null}
-        </View>
-        <TouchableOpacity style={styles.headerAvatarCircle} activeOpacity={0.8}>
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M19 20C19 16.6863 15.866 14 12 14C8.13401 14 5 16.6863 5 20"
-              stroke="#F0562A"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-            />
-            <Path
-              d="M12 11C13.933 11 15.5 9.433 15.5 7.5C15.5 5.567 13.933 4 12 4C10.067 4 8.5 5.567 8.5 7.5C8.5 9.433 10.067 11 12 11Z"
-              stroke="#F0562A"
-              strokeWidth="1.8"
-            />
-          </Svg>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  function DashboardContent() {
-    return (
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-        <PageHeader />
-        {roleCode === 'SUPER_ADMIN'   ? <SuperAdminDashboard onNavigate={onNavigate} />   :
-         roleCode === 'TOHFA_ADMIN'   ? <TohfaAdminDashboard />   :
-         roleCode === 'FARMER_ADMIN'  ? <FarmerAdminDashboard />  :
-         roleCode === 'MAIN_WH_ADMIN' ? <MainWhAdminDashboard />  :
-         <SubWhAdminDashboard />}
-        <View style={{ height: 32 }} />
-      </ScrollView>
-    );
-  }
-
-  function ProfileContent() {
-    return (
-      <View style={styles.profilePane}>
-        <View style={[styles.avatarCircle, styles.profileAvatar, { backgroundColor: accentBg }]}>
-          <Icon name="person" size={44} color={accent} />
-        </View>
-        <Text style={styles.profileName}>{displayName}</Text>
-        <View style={[styles.rolePill, { backgroundColor: accentBg, alignSelf: 'center', marginBottom: isSubWh ? 6 : 32 }]}>
-          <Icon name={roleIcon} size={12} color={accent} />
-          <Text style={[styles.rolePillText, { color: accent }]}>{roleLabel}</Text>
-        </View>
-        {isSubWh ? (
-          <View style={[styles.rolePill, { backgroundColor: A.blueBg, alignSelf: 'center', marginBottom: 32 }]}>
-            <Icon name="place" size={12} color={A.blue} />
-            <Text style={[styles.rolePillText, { color: A.blue }]}>Coonoor Warehouse</Text>
-          </View>
-        ) : null}
-        {user?.email  ? <Text style={styles.profileMeta}>{user.email}</Text>  : null}
-        {user?.mobile ? <Text style={styles.profileMeta}>{user.mobile}</Text> : null}
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <Icon name="cancel" size={18} color={colors.danger} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Drill-down states for Tohfa Admin flows
-  const [currentView, setCurrentView] = useState<
-    | 'MAIN'
-    | 'PENDING_APPLICATIONS'
-    | 'APPLICATION_DETAIL'
-    | 'APPLICATION_APPROVE'
-    | 'APPLICATION_REJECT'
-    | 'APPLICATION_REQUEST_INFO'
-    | 'FARMER_DETAIL'
-    | 'FARM_MAP'
-    | 'KYC_REVIEW'
-    | 'CERT_VERIFICATION'
-    | 'RATING_SCORECARD'
-    | 'COMPLIANCE_TIERS'
-  >('MAIN');
-  const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | null>(null);
-  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
-  const [farmerDetailTab, setFarmerDetailTab] = useState<'Overview' | 'Farm' | 'KYC' | 'Ratings'>('Overview');
-
-  // When switching bottom tabs, reset drill-down view to MAIN
-  const handleTabPress = (tabName: AdminTab) => {
-    setActiveTab(tabName);
-    setCurrentView('MAIN');
-  };
-
-  if (currentView === 'PENDING_APPLICATIONS') {
-    return (
-      <AdminPendingApplicationsScreen
-        onBack={() => setCurrentView('MAIN')}
-        onSelectApplication={(app: PendingApplicationItem) => {
-          setSelectedPendingApp(app);
-          setCurrentView('APPLICATION_DETAIL');
-        }}
-      />
-    );
-  }
-
-  function Placeholder({ label }: { label: string }) {
-    return (
-      <View style={styles.placeholder}>
-        <Icon name="info" size={40} color={A.muted} />
-        <Text style={styles.placeholderTitle}>{label}</Text>
-        <Text style={styles.placeholderSub}>Manage this section on the Web Admin Portal.</Text>
-      </View>
-    );
-  }
-
-  if (currentView === 'APPLICATION_DETAIL' && selectedPendingApp) {
-    return (
-      <AdminApplicationDetailScreen
-        application={selectedPendingApp}
-        onBack={() => setCurrentView('PENDING_APPLICATIONS')}
-        onApprove={() => setCurrentView('APPLICATION_APPROVE')}
-        onReject={() => setCurrentView('APPLICATION_REJECT')}
-        onRequestMoreInfo={() => setCurrentView('APPLICATION_REQUEST_INFO')}
-      />
-    );
-  }
-
-  if (currentView === 'APPLICATION_APPROVE' && selectedPendingApp) {
-    return (
-      <AdminApplicationApproveScreen
-        application={selectedPendingApp}
-        onBack={() => setCurrentView('APPLICATION_DETAIL')}
-        onConfirmApprove={(notes: string) => {
-          Alert.alert(
-            'Application Approved',
-            `Farmer ${selectedPendingApp.name} has been onboarded to Tohfa Platform successfully!`,
-          );
-          setCurrentView('PENDING_APPLICATIONS');
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'APPLICATION_REJECT' && selectedPendingApp) {
-    return (
-      <AdminApplicationRejectScreen
-        application={selectedPendingApp}
-        onBack={() => setCurrentView('APPLICATION_DETAIL')}
-        onConfirmReject={(reason: string, details?: string) => {
-          Alert.alert(
-            'Application Rejected',
-            `Application for ${selectedPendingApp.name} was rejected.\nReason: ${reason}`,
-          );
-          setCurrentView('PENDING_APPLICATIONS');
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'APPLICATION_REQUEST_INFO' && selectedPendingApp) {
-    return (
-      <AdminApplicationRequestInfoScreen
-        application={selectedPendingApp}
-        onBack={() => setCurrentView('APPLICATION_DETAIL')}
-        onConfirmRequest={(items: string[], message: string) => {
-          Alert.alert(
-            'Information Requested',
-            `SMS & notification dispatched to ${selectedPendingApp.name} for ${items.length} requested item(s).`,
-          );
-          setCurrentView('PENDING_APPLICATIONS');
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'FARMER_DETAIL' && selectedFarmer) {
-    return (
-      <AdminFarmerDetailScreen
-        farmer={selectedFarmer}
-        initialTab={farmerDetailTab}
-        onTabChange={setFarmerDetailTab}
-        onBack={() => {
-          setFarmerDetailTab('Overview');
-          setCurrentView('MAIN');
-        }}
-        onEdit={() => {
-          Alert.alert('Edit', `Editing ${selectedFarmer.name}`);
-        }}
-        onDisable={() => {
-          Alert.alert('Disabled', `Farmer ${selectedFarmer.name} disabled.`);
-          setFarmerDetailTab('Overview');
-          setCurrentView('MAIN');
-        }}
-        onOpenFarmMap={() => {
-          setFarmerDetailTab('Farm');
-          setCurrentView('FARM_MAP');
-        }}
-        onOpenKycReview={() => {
-          setFarmerDetailTab('KYC');
-          setCurrentView('KYC_REVIEW');
-        }}
-        onOpenRatingScorecard={() => {
-          setFarmerDetailTab('Ratings');
-          setCurrentView('RATING_SCORECARD');
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'FARM_MAP' && selectedFarmer) {
-    return (
-      <AdminFarmMapScreen
-        farmer={selectedFarmer}
-        onBack={() => {
-          setFarmerDetailTab('Farm');
-          setCurrentView('FARMER_DETAIL');
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'KYC_REVIEW' && selectedFarmer) {
-    return (
-      <AdminKycReviewScreen
-        farmer={selectedFarmer}
-        onBack={() => {
-          setFarmerDetailTab('KYC');
-          setCurrentView('FARMER_DETAIL');
-        }}
-        onGoToCertificationVerification={() => setCurrentView('CERT_VERIFICATION')}
-      />
-    );
-  }
-
-  if (currentView === 'CERT_VERIFICATION' && selectedFarmer) {
-    return (
-      <AdminCertVerificationScreen
-        farmer={selectedFarmer}
-        onBack={() => setCurrentView('KYC_REVIEW')}
-        onVerified={() => {
-          setCurrentView('KYC_REVIEW');
-        }}
-        onUnverified={() => {
-          setCurrentView('KYC_REVIEW');
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'RATING_SCORECARD' && selectedFarmer) {
-    return (
-      <AdminRatingScorecardScreen
-        farmer={selectedFarmer}
-        onBack={() => {
-          setFarmerDetailTab('Ratings');
-          setCurrentView('FARMER_DETAIL');
-        }}
-        onOpenComplianceTiers={() => setCurrentView('COMPLIANCE_TIERS')}
-        onEditCategories={() => {
-          Alert.alert('Edit Categories', `Editing categories for ${selectedFarmer.name}`);
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'COMPLIANCE_TIERS') {
-    return (
-      <AdminComplianceTiersScreen
-        onBack={() => setCurrentView('RATING_SCORECARD')}
-      />
-    );
-  }
+  const displayName = user?.fullName ?? 'Rajesh Kumar';
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={A.pageBg} />
+      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+
+      {/* Main Content Area */}
       <View style={{ flex: 1 }}>
         {activeTab === 'Dashboard' ? (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <PageHeader />
-            {roleCode === 'SUPER_ADMIN' ? (
-              <SuperAdminDashboard onNavigate={onNavigate} />
-            ) : roleCode === 'TOHFA_ADMIN' ? (
-              <TohfaAdminDashboard
-                onSeeAllPending={() => setCurrentView('PENDING_APPLICATIONS')}
-                onSelectPending={(app) => {
-                  setSelectedPendingApp(app);
-                  setCurrentView('APPLICATION_DETAIL');
-                }}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollPad}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header: Greeting & Role */}
+            <View style={styles.pageHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.greetSmall}>Good morning,</Text>
+                <Text style={styles.greetName}>{displayName}</Text>
+
+                {/* Role Pill */}
+                <View style={styles.rolePill}>
+                  <ShieldIcon />
+                  <Text style={styles.rolePillText}>Super Admin</Text>
+                </View>
+              </View>
+
+              {/* Profile Avatar */}
+              <TouchableOpacity
+                style={styles.avatarCircle}
+                onPress={() => setActiveTab('Profile')}
+                activeOpacity={0.8}
+              >
+                <PersonAvatarIcon />
+              </TouchableOpacity>
+            </View>
+
+            {/* Section 1: System-wide overview */}
+            <SectionHeader title="System-wide overview" />
+            <View style={styles.statsGrid}>
+              <OverviewCard
+                iconBox={
+                  <View style={[styles.statIconBox, { backgroundColor: PALETTE.peachIconBg }]}>
+                    <FarmersGridIcon />
+                  </View>
+                }
+                value="1,284"
+                label="Total Farmers"
+                delta="↑ +18 this month"
               />
-            ) : roleCode === 'FARMER_ADMIN' ? (
-              <FarmerAdminDashboard />
-            ) : roleCode === 'MAIN_WH_ADMIN' ? (
-              <MainWhAdminDashboard />
-            ) : (
-              <SubWhAdminDashboard />
-            )}
-            <View style={{ height: 32 }} />
+              <OverviewCard
+                iconBox={
+                  <View style={[styles.statIconBox, { backgroundColor: PALETTE.blueIconBg }]}>
+                    <CustomersGridIcon />
+                  </View>
+                }
+                value="6,502"
+                label="Total Customers"
+                delta="↑ +142 this month"
+              />
+              <OverviewCard
+                iconBox={
+                  <View style={[styles.statIconBox, { backgroundColor: PALETTE.greenIconBg }]}>
+                    <RevenueGridIcon />
+                  </View>
+                }
+                value="₹18.4L"
+                label="Revenue (MTD)"
+                delta="↑ +6.2%"
+              />
+              <OverviewCard
+                iconBox={
+                  <View style={[styles.statIconBox, { backgroundColor: PALETTE.amberIconBg }]}>
+                    <WarehouseGridIcon />
+                  </View>
+                }
+                value="4 / 4"
+                valueStyle={styles.italicVal}
+                label="Warehouses Active"
+                delta="✓ All operational"
+                deltaColor={PALETTE.checkGreen}
+              />
+            </View>
+
+            {/* Section 2: Needs your approval */}
+            <SectionHeader title="Needs your approval" />
+            <View style={styles.cardStack}>
+              <ApprovalRow
+                icon={<CardPaymentIcon />}
+                title="Dual-approval payouts"
+                subtitle="3 payouts above ₹10,000 awaiting your sign-off"
+                badge={3}
+              />
+              <ApprovalRow
+                icon={<UserPlusIcon />}
+                title="New admin account requests"
+                subtitle="2 Sub Warehouse Admin accounts pending creation"
+                badge={2}
+              />
+            </View>
+
+            {/* Section 3: Compliance alerts */}
+            <SectionHeader title="Compliance alerts" />
+            <View style={styles.cardStack}>
+              {/* Only Audit module navigation is enabled */}
+              <ComplianceAlertCard
+                title="7 farms overdue for quarterly audit"
+                subtitle="Q3 audit window closes in 5 days across Coonoor and Kotagiri zones."
+                linkLabel="Review audit calendar"
+                accentColor={PALETTE.alertRed}
+                onLinkPress={() => onNavigate?.('AuditCalendar')}
+              />
+              <ComplianceAlertCard
+                title="12 certifications expiring within 30 days"
+                subtitle="PGS Organic renewals needed before listings are auto-blocked."
+                linkLabel="View farmers"
+                accentColor={PALETTE.alertAmber}
+              />
+            </View>
+
+            {/* Section 4: Quick actions */}
+            <SectionHeader title="Quick actions" />
+            <View style={styles.quickRow}>
+              <QuickActionCard
+                icon={<UserPlusIcon />}
+                label={'Create\nAdmin'}
+              />
+              <QuickActionCard
+                icon={<GearIcon />}
+                label={'System\nConfig'}
+              />
+              <QuickActionCard
+                icon={<GavelIcon />}
+                label="Fair Price"
+              />
+              {/* Only Finance module navigation is enabled */}
+              <QuickActionCard
+                icon={<BankIcon />}
+                label="Finance"
+                onPress={() => onNavigate?.('FinancialDashboard')}
+              />
+            </View>
+
+            <View style={{ height: 40 }} />
           </ScrollView>
         ) : activeTab === 'Profile' ? (
           <View style={styles.profilePane}>
@@ -1092,7 +908,7 @@ export function SuperAdminDashboardScreen({
             </TouchableOpacity>
           </View>
         ) : (
-          /* Blank screen for other tabs (Sales, Reports) */
+          /* Blank screen for all other tabs (Farmers, Sales, Reports) */
           <View style={styles.blankPane} />
         )}
       </View>
@@ -1118,7 +934,7 @@ export function SuperAdminDashboardScreen({
 
         <Pressable
           style={styles.tabItem}
-          onPress={() => onNavigate?.('AdminAllFarmers')}
+          onPress={() => setActiveTab('Farmers')}
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'Farmers' }}
         >

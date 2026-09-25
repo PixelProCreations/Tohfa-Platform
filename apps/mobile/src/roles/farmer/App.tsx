@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View, Alert } from 'react-native';
+import { Alert, BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
@@ -148,9 +148,21 @@ import {
   AdminFarmerDetailScreen,
   AdminFarmMapScreen,
   AdminRatingScorecardScreen,
+  AdminEditFarmerScreen,
+  AdminEditRatingCategoriesScreen,
+  type FarmerDetailTabType,
+  type FarmerListItem,
+  DEMO_ALL_FARMERS,
+  AdminPendingApplicationsScreen,
+  AdminApplicationDetailScreen,
+  type PendingApplicationItem,
+  DEMO_PENDING_APPLICATIONS,
+  AdminApplicationApproveScreen,
+  AdminApplicationRejectScreen,
+  AdminApplicationRequestInfoScreen,
   AdminCertVerificationScreen,
-  AdminKycReviewScreen,
   AdminComplianceTiersScreen,
+  AdminKycReviewScreen,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -202,9 +214,16 @@ export type ScreenName =
   | 'AdminFarmerDetail'
   | 'AdminFarmMap'
   | 'AdminRatingScorecard'
-  | 'AdminCertVerification'
-  | 'AdminKycReview'
+  | 'AdminEditFarmer'
+  | 'AdminEditRatingCategories'
   | 'AdminComplianceTiers'
+  | 'AdminKycReview'
+  | 'AdminCertVerification'
+  | 'AdminPendingApplications'
+  | 'AdminApplicationDetail'
+  | 'AdminApplicationApprove'
+  | 'AdminApplicationReject'
+  | 'AdminApplicationRequestInfo'
   | 'CustomerMain'
   | 'Unsupported'
   | 'Certifications'
@@ -344,7 +363,9 @@ export default function App(): React.JSX.Element {
   const [auditReportData, setAuditReportData] = useState<AuditReportData | undefined>(undefined);
   const [selectedAuditHistoryRecord, setSelectedAuditHistoryRecord] = useState<any | undefined>(undefined);
   const [selectedPayoutDue, setSelectedPayoutDue] = useState<any | undefined>(undefined);
-  const [selectedFarmer, setSelectedFarmer] = useState<any | undefined>(undefined);
+  const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | undefined>(undefined);
+  const [adminFarmerActiveTab, setAdminFarmerActiveTab] = useState<FarmerDetailTabType>('Overview');
+  const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
@@ -757,6 +778,136 @@ export default function App(): React.JSX.Element {
           <ComplianceAlertResolutionScreen
             onBack={goBack}
             onSuccess={() => navigate('AuditCalendar')}
+          />
+        ) : screen === 'AdminAllFarmers' ? (
+          <AdminAllFarmersScreen
+            onBack={goBack}
+            onSelectFarmer={(f) => {
+              setSelectedAdminFarmer(f);
+              setAdminFarmerActiveTab('Overview');
+              navigate('AdminFarmerDetail');
+            }}
+          />
+        ) : screen === 'AdminFarmerDetail' ? (
+          <AdminFarmerDetailScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            initialTab={adminFarmerActiveTab}
+            onTabChange={setAdminFarmerActiveTab}
+            onBack={goBack}
+            onEdit={(tab) => {
+              setAdminFarmerActiveTab(tab);
+              navigate('AdminEditFarmer');
+            }}
+            onOpenFarmMap={() => {
+              setAdminFarmerActiveTab('Farm');
+              navigate('AdminFarmMap');
+            }}
+            onOpenRatingScorecard={() => {
+              setAdminFarmerActiveTab('Ratings');
+              navigate('AdminRatingScorecard');
+            }}
+            onOpenKycReview={() => {
+              setAdminFarmerActiveTab('KYC');
+              navigate('AdminKycReview');
+            }}
+          />
+        ) : screen === 'AdminEditFarmer' ? (
+          <AdminEditFarmerScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            initialTab={adminFarmerActiveTab}
+            onBack={goBack}
+            onSave={(updated) => {
+              setSelectedAdminFarmer(updated);
+              goBack();
+            }}
+            onNavigateToEditCategories={() => navigate('AdminEditRatingCategories')}
+          />
+        ) : screen === 'AdminEditRatingCategories' ? (
+          <AdminEditRatingCategoriesScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            onBack={goBack}
+            onSave={(score, tier) => {
+              if (selectedAdminFarmer) {
+                setSelectedAdminFarmer({
+                  ...selectedAdminFarmer,
+                  rating: score,
+                  ratingTier: tier,
+                });
+              }
+              goBack();
+            }}
+          />
+        ) : screen === 'AdminFarmMap' ? (
+          <AdminFarmMapScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            onBack={goBack}
+          />
+        ) : screen === 'AdminRatingScorecard' ? (
+          <AdminRatingScorecardScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            onBack={goBack}
+            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
+            onEditCategories={() => navigate('AdminEditRatingCategories')}
+          />
+        ) : screen === 'AdminComplianceTiers' ? (
+          <AdminComplianceTiersScreen
+            onBack={goBack}
+          />
+        ) : screen === 'AdminKycReview' ? (
+          <AdminKycReviewScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            onBack={goBack}
+            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
+          />
+        ) : screen === 'AdminCertVerification' ? (
+          <AdminCertVerificationScreen
+            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+            onBack={goBack}
+            onVerified={goBack}
+            onUnverified={goBack}
+          />
+        ) : screen === 'AdminPendingApplications' ? (
+          <AdminPendingApplicationsScreen
+            onBack={goBack}
+            onSelectApplication={(item) => {
+              setSelectedPendingApp(item);
+              navigate('AdminApplicationDetail');
+            }}
+          />
+        ) : screen === 'AdminApplicationDetail' ? (
+          <AdminApplicationDetailScreen
+            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+            onBack={goBack}
+            onApprove={() => navigate('AdminApplicationApprove')}
+            onReject={() => navigate('AdminApplicationReject')}
+            onRequestMoreInfo={() => navigate('AdminApplicationRequestInfo')}
+          />
+        ) : screen === 'AdminApplicationApprove' ? (
+          <AdminApplicationApproveScreen
+            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+            onBack={goBack}
+            onConfirmApprove={() => {
+              Alert.alert('Approved', `Application for ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name} has been approved.`);
+              goBack();
+            }}
+          />
+        ) : screen === 'AdminApplicationReject' ? (
+          <AdminApplicationRejectScreen
+            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+            onBack={goBack}
+            onConfirmReject={(reason) => {
+              Alert.alert('Rejected', `Application for ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name} was rejected: ${reason}`);
+              goBack();
+            }}
+          />
+        ) : screen === 'AdminApplicationRequestInfo' ? (
+          <AdminApplicationRequestInfoScreen
+            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+            onBack={goBack}
+            onConfirmRequest={() => {
+              Alert.alert('Request Sent', `Information request sent to ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name}`);
+              goBack();
+            }}
           />
         ) : screen === 'MarketPricingHome' ? (
           <MarketPricingHomeScreen
