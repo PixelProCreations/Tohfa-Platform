@@ -39,6 +39,15 @@ const accessPayloadSchema = z.object({
   /** Denormalised for convenience; `null` for admin users with no farmer row. */
   farmerId: z.string().uuid().nullable().default(null),
   customerId: z.string().uuid().nullable().default(null),
+  /**
+   * Seconds-since-epoch this token was minted, set automatically by
+   * `jsonwebtoken` on every `sign()` call. Previously dropped by this schema;
+   * kept now so `requireAuth` can ask `tokenInvalidation.ts` whether the
+   * token predates a password change/reset for its subject. Never supplied by
+   * a caller of `signAccessToken` — see the `Omit<..., 'iat'>` on that
+   * function below.
+   */
+  iat: z.number(),
 });
 export type AccessPayload = z.infer<typeof accessPayloadSchema>;
 
@@ -65,7 +74,7 @@ function sign(payload: object, ttl: string): string {
   return jwt.sign(payload, config.JWT_SECRET, options);
 }
 
-export function signAccessToken(payload: Omit<AccessPayload, 'typ'>): string {
+export function signAccessToken(payload: Omit<AccessPayload, 'typ' | 'iat'>): string {
   return sign({ ...payload, typ: 'access' }, config.JWT_ACCESS_TTL);
 }
 
@@ -74,7 +83,7 @@ export function signRefreshToken(payload: Omit<RefreshPayload, 'typ'>): string {
 }
 
 export function signTokenPair(
-  access: Omit<AccessPayload, 'typ'>,
+  access: Omit<AccessPayload, 'typ' | 'iat'>,
   refresh: Omit<RefreshPayload, 'typ'>,
 ): TokenPair {
   return {

@@ -7,8 +7,10 @@
  */
 import type { RequestHandler } from 'express';
 import { type RoleCode } from '@tohfa/shared-types';
+import { asyncHandler } from '../http/asyncHandler.js';
 import { AppError } from '../http/problem.js';
 import { currentContext } from '../logger.js';
+import { isAccessTokenInvalidated } from './tokenInvalidation.js';
 import { verifyAccessToken, type RoleAssignment } from './jwt.js';
 
 /** The authenticated caller for the lifetime of one request. */
@@ -52,9 +54,24 @@ function bearerToken(header: string | undefined): string {
   return token;
 }
 
-export const requireAuth: RequestHandler = (req, _res, next) => {
+// asyncHandler-wrapped so we can `await` the tokenInvalidation.ts Redis check
+// below, while staying a drop-in RequestHandler for the dozens of routes that
+// already mount `requireAuth` bare (asyncHandler returns a synchronous-looking
+// `(req, res, next) => void` that fires the async work and wires `.catch(next)`
+// internally -- see http/asyncHandler.ts). `optionalAuth` below also relies on
+// this: it calls `requireAuth(req, _res, next)` directly rather than through
+// Express's dispatch, and that keeps working unchanged.
+export const requireAuth: RequestHandler = asyncHandler(async (req, _res, next) => {
   try {
     const payload = verifyAccessToken(bearerToken(req.header('authorization')));
+
+    // Password change/reset (auth.service.ts) revokes refresh tokens/sessions
+    // immediately but cannot recall an access token already handed out --
+    // this is the other half of that fix: reject it here if it was minted
+    // before the user's last credential change.
+    if (await isAccessTokenInvalidated(payload.sub, payload.iat)) {
+      throw new AppError('UNAUTHENTICATED', { detail: 'Session has been revoked. Please log in again.' });
+    }
 
     req.actor = {
       userId: payload.sub,
@@ -72,7 +89,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   } catch (error) {
     next(error);
   }
-};
+});
 
 /**
  * Attach `req.actor` when a token is present, but do not fail when it is not.

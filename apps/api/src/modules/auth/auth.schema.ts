@@ -84,3 +84,9 @@ export const terminateSessionParams = z.object({
   id: z.string().uuid(),
 });
 export type TerminateSessionParams = z.infer<typeof terminateSessionParams>;
+
+export const changePasswordBody = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(10).max(128),
+});
+export type ChangePasswordBody = z.infer<typeof changePasswordBody>;

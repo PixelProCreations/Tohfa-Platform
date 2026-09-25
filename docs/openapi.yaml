@@ -387,6 +387,36 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /auth/me/change-password:
+    post:
+      tags: [Auth]
+      operationId: changeOwnPassword
+      summary: Change your own password
+      description: |
+        Sets a new password for the authenticated caller after verifying their current
+        password, and terminates every active session for that account — including the
+        caller's own current session, exactly like `/auth/reset-password` — so every device
+        must re-authenticate with the new password.
+      x-permission: auth.password.change_own
+      x-business-rules: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, minLength: 1 }
+                newPassword: { type: string, minLength: 10, maxLength: 128 }
+      responses:
+        '204': { description: Password changed; all sessions for this account are revoked. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /auth/sessions/{id}/terminate:
     post:
       tags: [Auth]

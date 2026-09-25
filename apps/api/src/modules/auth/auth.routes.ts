@@ -5,6 +5,7 @@ import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission } from '../../rbac/requirePermission.js';
 import { authRateLimit } from '../../rate-limit/rateLimiter.js';
 import {
+  changePasswordBody,
   forgotPasswordBody,
   loginBody,
   oauthLinkBody,
@@ -104,6 +105,20 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const body = getValidated(req, 'body', resetPasswordBody);
     await authService.resetPassword(body);
+    res.status(204).send();
+  }),
+);
+
+authRouter.post(
+  '/me/change-password',
+  requireAuth,
+  requirePermission('auth.password.change_own'),
+  validate({ body: changePasswordBody }),
+  authRateLimit(),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const body = getValidated(req, 'body', changePasswordBody);
+    await authService.changePassword(actor, body);
     res.status(204).send();
   }),
 );

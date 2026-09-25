@@ -1233,7 +1233,7 @@ export default function App(): React.JSX.Element {
             onNavigateToPassword={() => navigate('ChangePassword')}
           />
         ) : screen === 'ChangePassword' ? (
-          <ChangePasswordScreen onBack={goBack} />
+          <ChangePasswordScreen onBack={goBack} onSuccess={() => navigate('PasswordChangedSuccess')} />
         ) : screen === 'Settings' ? (
           <SettingsScreen
             onBack={goBack}
