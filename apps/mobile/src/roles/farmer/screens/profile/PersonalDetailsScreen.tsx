@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -16,6 +17,14 @@ import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P } from '../../theme';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import {
+  getMyFarmerProfile,
+  updateMyFarmerProfile,
+  maskAadhaar,
+  maskMobile,
+  type FarmerProfile,
+} from '../../api/farmer';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SVG Icons
@@ -134,22 +143,102 @@ function LeafIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: s
 // Types
 // ──────────────────────────────────────────────────────────────────────────
 
+/**
+ * Only the fields `FarmerProfileUpdate` (docs/openapi.yaml) actually accepts.
+ * `aadhaar`/`mobile` are deliberately absent -- BR-33 locks them server-side,
+ * and the server itself never accepts them in a PATCH body. `altMobile`,
+ * `email` and `farmingType` are ALSO absent: `FarmerProfile` has no such
+ * fields at all (checked against docs/openapi.yaml's `FarmerProfile` /
+ * `FarmerProfileUpdate` schemas, not just this app's copy of the type) --
+ * there is nowhere on the server for an edit to those three to go. That is a
+ * specification gap (root CLAUDE.md §1), not a client bug, so those three
+ * rows below are rendered read-only instead of wired to fake state.
+ */
 interface PersonalData {
   fullName: string;
+  /** Display format `DD Mon YYYY`, matching `farmer.profile.dobPlaceholder`. */
   dob: string;
   gender: string;
-  aadhaar: string;
-  mobile: string;
-  altMobile: string;
-  email: string;
   address: string;
+  /** Digits only, e.g. "14" -- maps to `FarmerProfile.farmingExperienceYears`. */
   yearsInOrganic: string;
-  farmingType: string;
 }
 
 export interface PersonalDetailsScreenProps {
   onBack: () => void;
-  initialData?: Partial<PersonalData>;
+  /**
+   * Historically this screen seeded every field from this prop, and the prop
+   * was never actually passed by any call site -- that mismatch is what let
+   * this screen ship showing hardcoded demo data instead of the signed-in
+   * farmer's own. The screen now always fetches its own copy of the profile
+   * via `getMyFarmerProfile()` on mount and does not read from this prop.
+   * Kept in the signature only so an existing call site's prop, if any,
+   * still type-checks.
+   */
+  initialData?: Partial<PersonalData> | undefined;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * `FarmerProfile.dob` (docs/openapi.yaml) is an ISO `YYYY-MM-DD` date. Built
+ * from the string's parts, not `Date`, so a farmer's date of birth never
+ * shifts by a day across timezones the way `new Date(iso)` combined with
+ * locale formatting can.
+ */
+function formatDobDisplay(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  const monthIdx = Number(mo) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return iso;
+  return `${Number(d)} ${MONTHS[monthIdx]} ${y}`;
+}
+
+/**
+ * Inverse of `formatDobDisplay`. DOB feeds the same KYC record Aadhaar does
+ * (root CLAUDE.md §2.5 / BR-33 neighbourhood), so a typed value this can't
+ * losslessly round-trip back to `YYYY-MM-DD` is treated as invalid and
+ * blocks the save with a message, rather than being guessed at or dropped
+ * silently.
+ */
+function parseDobInput(text: string): string | null {
+  const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/.exec(text.trim());
+  if (!m) return null;
+  const [, dStr, moStr, yStr] = m;
+  if (!dStr || !moStr || !yStr) return null;
+  const monthIdx = MONTHS.findIndex((mo) => mo.toLowerCase() === moStr.toLowerCase());
+  if (monthIdx < 0) return null;
+  const day = Number(dStr);
+  if (day < 1 || day > 31) return null;
+  const mm = String(monthIdx + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  return `${yStr}-${mm}-${dd}`;
+}
+
+/** `FarmerProfile.gender` display, title-cased for the same free-text field
+ * the farmer edits (`normalizeGenderInput` below is the inverse). */
+function genderToDisplay(gender: FarmerProfile['gender']): string {
+  if (gender === 'MALE') return 'Male';
+  if (gender === 'FEMALE') return 'Female';
+  if (gender === 'OTHER') return 'Other';
+  return '';
+}
+
+/**
+ * `FarmerProfileUpdate.gender` only accepts the exact enum `MALE`/`FEMALE`/
+ * `OTHER` (docs/openapi.yaml). Rather than guess at anything that doesn't
+ * match one of those three (or their single-letter shorthand), this returns
+ * `null` and the caller blocks the save -- silently mapping an unrecognised
+ * typo to `OTHER` would misrecord the farmer's own answer.
+ */
+function normalizeGenderInput(raw: string): 'MALE' | 'FEMALE' | 'OTHER' | null {
+  const v = raw.trim().toUpperCase();
+  if (v === 'MALE' || v === 'M') return 'MALE';
+  if (v === 'FEMALE' || v === 'F') return 'FEMALE';
+  if (v === 'OTHER' || v === 'O') return 'OTHER';
+  return null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -158,40 +247,129 @@ export interface PersonalDetailsScreenProps {
 
 export function PersonalDetailsScreen({
   onBack,
-  initialData,
 }: PersonalDetailsScreenProps): React.JSX.Element {
-  const [data, setData] = useState<PersonalData>({
-    fullName: initialData?.fullName ?? 'Kumar',
-    dob: initialData?.dob ?? '12 Jun 1985',
-    gender: initialData?.gender ?? 'Male',
-    aadhaar: initialData?.aadhaar ?? 'XXXX XXXX 4210',
-    mobile: initialData?.mobile ?? '+91 98765 43210',
-    altMobile: initialData?.altMobile ?? '+91 91234 56780',
-    email: initialData?.email ?? 'kumar@example.com',
-    address: initialData?.address ?? 'Kotagiri Village, Kotagiri Taluk, The Nilgiris',
-    yearsInOrganic: initialData?.yearsInOrganic ?? '14 years',
-    farmingType: initialData?.farmingType ?? 'Organic',
-  });
+  const [profile, setProfile] = useState<FarmerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<PersonalData>(data);
+  const [draft, setDraft] = useState<PersonalData>({
+    fullName: '',
+    dob: '',
+    gender: '',
+    address: '',
+    yearsInOrganic: '',
+  });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await getMyFarmerProfile();
+      setProfile(res);
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, t('error.generic')));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
+  const data: PersonalData = {
+    fullName: profile?.fullName ?? '',
+    dob: formatDobDisplay(profile?.dob),
+    gender: genderToDisplay(profile?.gender),
+    address: profile?.address ?? '',
+    yearsInOrganic:
+      profile?.farmingExperienceYears != null
+        ? `${profile.farmingExperienceYears} ${profile.farmingExperienceYears === 1 ? 'year' : 'years'}`
+        : '',
+  };
+
+  const aadhaarDisplay = maskAadhaar(profile?.aadhaarLast4);
+  const mobileDisplay = maskMobile(profile?.mobile);
+  const notProvidedText = t('farmer.profile.personal.notProvided');
 
   const startEdit = () => {
-    setDraft({ ...data });
+    if (!profile) return;
+    setDraft({
+      fullName: profile.fullName ?? '',
+      dob: formatDobDisplay(profile.dob),
+      gender: genderToDisplay(profile.gender),
+      address: profile.address ?? '',
+      yearsInOrganic: profile.farmingExperienceYears != null ? String(profile.farmingExperienceYears) : '',
+    });
+    setSaveError(null);
     setIsEditing(true);
   };
 
-  const cancelEdit = () => setIsEditing(false);
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setSaveError(null);
+  };
+
+  const invalidField = (labelKey: Parameters<typeof t>[0]) => {
+    Alert.alert(t(labelKey), t('farmer.profile.personal.invalidFormat'));
+  };
 
   const saveEdit = async () => {
+    const fullName = draft.fullName.trim();
+    if (fullName.length < 2) {
+      invalidField('farmer.profile.fullName');
+      return;
+    }
+
+    let dob: string | undefined;
+    if (draft.dob.trim()) {
+      const parsed = parseDobInput(draft.dob);
+      if (!parsed) {
+        invalidField('farmer.profile.dob');
+        return;
+      }
+      dob = parsed;
+    }
+
+    let gender: 'MALE' | 'FEMALE' | 'OTHER' | undefined;
+    if (draft.gender.trim()) {
+      const normalized = normalizeGenderInput(draft.gender);
+      if (!normalized) {
+        invalidField('farmer.profile.personal.genderLabel');
+        return;
+      }
+      gender = normalized;
+    }
+
+    let farmingExperienceYears: number | undefined;
+    if (draft.yearsInOrganic.trim()) {
+      const n = Number(draft.yearsInOrganic.trim());
+      if (!Number.isInteger(n) || n < 0 || n > 90) {
+        invalidField('farmer.profile.yearsInOrganicLabel');
+        return;
+      }
+      farmingExperienceYears = n;
+    }
+
     setSaving(true);
+    setSaveError(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setData({ ...draft });
+      const updated = await updateMyFarmerProfile({
+        fullName,
+        address: draft.address.trim(),
+        ...(dob !== undefined ? { dob } : {}),
+        ...(gender !== undefined ? { gender } : {}),
+        ...(farmingExperienceYears !== undefined ? { farmingExperienceYears } : {}),
+      });
+      // Reflect what the server actually stored, not the local draft --
+      // matches the pattern in ZonesScreen/FieldContextScreen's save handlers.
+      setProfile(updated);
       setIsEditing(false);
-    } catch {
-      Alert.alert(t('farmer.profile.personal.saveErrorTitle'), t('error.generic'));
+    } catch (err) {
+      setSaveError(formatErrorMessage(err, t('error.generic')));
     } finally {
       setSaving(false);
     }
@@ -201,7 +379,7 @@ export function PersonalDetailsScreen({
   const field = (
     key: keyof PersonalData,
     placeholder: string,
-    opts?: { keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric'; multiline?: boolean; autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters' },
+    opts?: { keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric'; multiline?: boolean; autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'; maxLength?: number },
   ) =>
     isEditing ? (
       <TextInput
@@ -213,10 +391,13 @@ export function PersonalDetailsScreen({
         autoCapitalize={opts?.autoCapitalize ?? 'sentences'}
         multiline={opts?.multiline}
         textAlignVertical={opts?.multiline ? 'top' : 'center'}
+        maxLength={opts?.maxLength}
       />
     ) : (
-      <Text style={styles.detailValue}>{data[key]}</Text>
+      <Text style={styles.detailValue}>{data[key] || notProvidedText}</Text>
     );
+
+  const editBtnDisabled = saving || loading || !!loadError || !profile;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -233,15 +414,39 @@ export function PersonalDetailsScreen({
           <Text style={styles.headerSubtitle}>{t('farmer.profile.personal.subtitle')}</Text>
         </View>
 
-        <TouchableOpacity style={styles.editBtn} onPress={isEditing ? saveEdit : startEdit} accessibilityRole="button" accessibilityLabel={isEditing ? t('farmer.common.save') : t('farmer.common.edit')} activeOpacity={0.7} disabled={saving}>
+        <TouchableOpacity
+          style={[styles.editBtn, editBtnDisabled && !isEditing ? styles.editBtnDisabled : null]}
+          onPress={isEditing ? () => void saveEdit() : startEdit}
+          accessibilityRole="button"
+          accessibilityLabel={isEditing ? t('farmer.common.save') : t('farmer.common.edit')}
+          activeOpacity={0.7}
+          disabled={editBtnDisabled}
+        >
           {isEditing ? (
-            <Text style={styles.editBtnSaveText}>{saving ? '…' : t('farmer.common.save')}</Text>
+            saving ? (
+              <ActivityIndicator size="small" color={P.primary} />
+            ) : (
+              <Text style={styles.editBtnSaveText}>{t('farmer.common.save')}</Text>
+            )
           ) : (
             <PencilIcon />
           )}
         </TouchableOpacity>
       </View>
 
+      {loading ? (
+        <View style={styles.centerFill}>
+          <ActivityIndicator size="large" color={P.primary} />
+          <Text style={styles.loadingText}>{t('farmer.common.loading')}</Text>
+        </View>
+      ) : loadError ? (
+        <View style={styles.centerFill}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+          <TouchableOpacity onPress={() => void loadProfile()} activeOpacity={0.7} style={styles.retryBtn}>
+            <Text style={styles.retryBtnText}>{t('farmer.common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* ── Profile Hero ── */}
         <View style={styles.profileHero}>
@@ -252,9 +457,13 @@ export function PersonalDetailsScreen({
               <CameraIcon />
             </TouchableOpacity>
           </View>
-          <Text style={styles.heroName}>{data.fullName}</Text>
-          <Text style={styles.heroSub}>{t('farmer.profile.personal.heroRole', { location: 'Kotagiri' })}</Text>
+          <Text style={styles.heroName}>{data.fullName || notProvidedText}</Text>
+          {data.address ? (
+            <Text style={styles.heroSub}>{t('farmer.profile.personal.heroRole', { location: data.address })}</Text>
+          ) : null}
         </View>
+
+        {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
 
         {/* ── IDENTITY ── */}
         <View style={styles.sectionCard}>
@@ -265,7 +474,7 @@ export function PersonalDetailsScreen({
             <View style={styles.detailIcon}><UserIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.fullName')}</Text>
-              {field('fullName', t('farmer.profile.fullName'), { autoCapitalize: 'words' })}
+              {field('fullName', t('farmer.profile.fullName'), { autoCapitalize: 'words', maxLength: 120 })}
             </View>
           </View>
 
@@ -298,12 +507,12 @@ export function PersonalDetailsScreen({
 
           <View style={styles.rowDivider} />
 
-          {/* Aadhaar – always locked */}
+          {/* Aadhaar – locked server-side (BR-33) */}
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <View style={styles.detailIcon}><CardIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.aadhaar')}</Text>
-              <Text style={styles.detailValue}>{data.aadhaar}</Text>
+              <Text style={styles.detailValue}>{aadhaarDisplay}</Text>
             </View>
             <View style={styles.lockedBadge}>
               <Icon name="lock" size={11} color={P.twGray500} style={styles.lockedBadgeIcon} />
@@ -316,12 +525,12 @@ export function PersonalDetailsScreen({
         <View style={styles.sectionCard}>
           <Text style={styles.sectionLabel}>{t('farmer.profile.personal.sectionContact')}</Text>
 
-          {/* Mobile – verified, not editable */}
+          {/* Mobile – locked server-side (BR-33), not editable */}
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}><PhoneIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.personal.mobileNumber')}</Text>
-              <Text style={styles.detailValue}>{data.mobile}</Text>
+              <Text style={styles.detailValue}>{mobileDisplay}</Text>
             </View>
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedBadgeText}>✓ {t('farmer.profile.personal.verified')}</Text>
@@ -330,23 +539,25 @@ export function PersonalDetailsScreen({
 
           <View style={styles.rowDivider} />
 
-          {/* Alternate Mobile */}
+          {/* Alternate Mobile — no `FarmerProfile` field exists for this at all
+              (docs/openapi.yaml); spec gap, not a locked field, so it is shown
+              but never editable. See the PersonalData docblock above. */}
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}><PhonePlusIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.personal.altMobile')}</Text>
-              {field('altMobile', t('farmer.profile.personal.altMobilePlaceholder'), { keyboardType: 'phone-pad', autoCapitalize: 'none' })}
+              <Text style={styles.detailValue}>{notProvidedText}</Text>
             </View>
           </View>
 
           <View style={styles.rowDivider} />
 
-          {/* Email */}
+          {/* Email — same spec gap as Alternate Mobile above. */}
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}><MailIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.personal.email')}</Text>
-              {field('email', t('farmer.profile.personal.emailPlaceholder'), { keyboardType: 'email-address', autoCapitalize: 'none' })}
+              <Text style={styles.detailValue}>{notProvidedText}</Text>
             </View>
           </View>
 
@@ -357,7 +568,7 @@ export function PersonalDetailsScreen({
             <View style={styles.detailIcon}><HomeIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.personal.addressLabel')}</Text>
-              {field('address', t('farmer.profile.farmLocationPlaceholder'), { multiline: true })}
+              {field('address', t('farmer.profile.farmLocationPlaceholder'), { multiline: true, maxLength: 300 })}
             </View>
           </View>
         </View>
@@ -376,23 +587,28 @@ export function PersonalDetailsScreen({
 
           <View style={styles.rowDivider} />
 
+          {/* Type of Farming — same spec gap as Alternate Mobile/Email above:
+              collected once at registration (docs/openapi.yaml step2 `farm.typeOfFarming`)
+              but not persisted to any field `FarmerProfile` returns, so there is
+              nothing to fetch or save here post-registration. */}
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <View style={styles.detailIcon}><LeafIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.personal.typeOfFarming')}</Text>
-              {field('farmingType', t('farmer.profile.personal.farmingTypePlaceholder'))}
+              <Text style={styles.detailValue}>{notProvidedText}</Text>
             </View>
           </View>
         </View>
 
         {isEditing && (
-          <Pressable style={styles.cancelBtn} onPress={cancelEdit}>
+          <Pressable style={styles.cancelBtn} onPress={cancelEdit} disabled={saving}>
             <Text style={styles.cancelBtnText}>{t('farmer.common.cancel')}</Text>
           </Pressable>
         )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -428,7 +644,21 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
     alignItems: 'center', justifyContent: 'center',
   },
+  editBtnDisabled: { opacity: 0.5 },
   editBtnSaveText: { fontSize: 13, fontWeight: '700', color: P.primary },
+
+  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  loadingText: { marginTop: 12, fontSize: 13, color: P.twGray500 },
+  loadErrorText: { fontSize: 14, color: P.red600, textAlign: 'center', marginBottom: 12 },
+  retryBtn: {
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: P.twGreen50, borderWidth: 1, borderColor: P.twEmerald100,
+  },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: P.primary },
+  saveErrorText: {
+    fontSize: 13, color: P.red600, fontWeight: '600',
+    marginHorizontal: 16, marginTop: 12,
+  },
 
   scrollContent: { paddingBottom: 32 },
 
