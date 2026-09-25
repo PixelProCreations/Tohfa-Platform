@@ -113,7 +113,10 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
   { prefix: '/v1/farmers/me/weather', router: weatherFarmerRouter },
-5];
+  { prefix: '/v1/farmers/me/diary', router: farmDiaryRouter },
+  { prefix: '/v1/admin/diary', router: adminDiaryTaxonomyRouter },
+  { prefix: '/v1/farms', router: farmsRouter },
+];
 
 /**
  * Establishes the async-local logging context for the request. A client-supplied
