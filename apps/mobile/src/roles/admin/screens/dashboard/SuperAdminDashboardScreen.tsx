@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -44,6 +45,19 @@ const PALETTE = {
   tabInactive:   '#6D6761',
   tabBorder:     '#EDE8E0',
   checkGreen:    '#0D8253',
+};
+
+// Shorthand alias for colors used in components
+const A = {
+  orange:    PALETTE.orange,
+  orangeBg:  PALETTE.peachIconBg,
+  blue:      PALETTE.blueText,
+  blueBg:    PALETTE.blueIconBg,
+  greenBg:   PALETTE.greenIconBg,
+  amber:     PALETTE.amberText,
+  amberBg:   PALETTE.amberIconBg,
+  pageBg:    PALETTE.pageBg,
+  muted:     PALETTE.labelMuted,
 };
 
 // ─── Tab Bar Types ────────────────────────────────────────────────────────────
@@ -94,20 +108,65 @@ function FarmersGridIcon() {
 
 function CustomersGridIcon() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 8V6a6 6 0 0112 0v2m-14 2h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2v-8a2 2 0 012-2z"
-        stroke={PALETTE.blueText}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 12a2 2 0 100 4 2 2 0 000-4z"
-        stroke={PALETTE.blueText}
-        strokeWidth="1.8"
-      />
-    </Svg>
+    <View style={styles.alertCard}>
+      <View style={styles.alertRow}>
+        {imageSource ? (
+          <Image source={imageSource} style={{ width: 18, height: 18, marginRight: 6 }} resizeMode="contain" />
+        ) : (
+          <Icon name="warning" size={16} color={A.orange} style={{ marginTop: 1 }} />
+        )}
+        <Text style={styles.alertTitle}>{title}</Text>
+      </View>
+      <Text style={styles.alertSub}>{subtitle}</Text>
+      <Text style={styles.alertLink}>{linkLabel} →</Text>
+    </View>
+  );
+}
+
+function QuickBtn({
+  iconName, label, accent = A.orange, bg = A.orangeBg, onPress,
+}: { iconName: string; label: string; accent?: string; bg?: string; onPress?: () => void }) {
+  return (
+    <TouchableOpacity style={styles.quickCard} activeOpacity={0.75} onPress={onPress}>
+      <View style={[styles.quickIconWrap, { backgroundColor: bg }]}>
+        <Icon name={iconName} size={22} color={accent} />
+      </View>
+      <Text style={styles.quickLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function FarmerAppRow({ name, location, status, onPress }: {
+  name: string; location: string; status: string; onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.farmerAppRow}
+      activeOpacity={onPress ? 0.75 : 1}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <View style={styles.farmerAppIcon}>
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M19 20C19 16.6863 15.866 14 12 14C8.13401 14 5 16.6863 5 20"
+            stroke="#F0562A"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <Path
+            d="M12 11C13.933 11 15.5 9.433 15.5 7.5C15.5 5.567 13.933 4 12 4C10.067 4 8.5 5.567 8.5 7.5C8.5 9.433 10.067 11 12 11Z"
+            stroke="#F0562A"
+            strokeWidth="1.8"
+          />
+        </Svg>
+      </View>
+      <View style={styles.farmerAppText}>
+        <Text style={styles.farmerAppName}>{name} — {location}</Text>
+        <Text style={styles.farmerAppStatus}>{status}</Text>
+      </View>
+      <Icon name="chevron_right" size={20} color="#827871" />
+    </TouchableOpacity>
   );
 }
 
@@ -214,15 +273,194 @@ function AlertTriangleIcon({ color = PALETTE.orange }: { color?: string }) {
   );
 }
 
+// ─── UI Helper Components ─────────────────────────────────────────────────────
+// Using Icon component instead of PNG assets for mobile compatibility
+
+function SectionTitle({ text }: { text: string }) {
+  return (
+    <View style={{ marginTop: 24, marginBottom: 12 }}>
+      <Text style={styles.sectionTitle}>{text}</Text>
+    </View>
+  );
+}
+
+function StatCard({
+  iconName,
+  iconColor,
+  iconBg,
+  value,
+  label,
+  delta,
+  deltaColor,
+}: {
+  iconName: string;
+  iconColor: string;
+  iconBg: string;
+  value: string;
+  label: string;
+  delta: string;
+  deltaColor?: string;
+}) {
+  return (
+    <View style={styles.statCard}>
+      <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+        <Icon name={iconName} size={20} color={iconColor} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statDelta, { color: deltaColor || PALETTE.ink }]}>{delta}</Text>
+    </View>
+  );
+}
+
+function ApprovalCard({
+  iconName,
+  title,
+  subtitle,
+  badge,
+}: {
+  iconName: string;
+  title: string;
+  subtitle: string;
+  badge: number;
+}) {
+  return (
+    <TouchableOpacity style={styles.approvalCard} activeOpacity={0.7}>
+      <View style={[styles.iconBox, { backgroundColor: A.orangeBg }]}>
+        <Icon name={iconName} size={20} color={A.orange} />
+      </View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={styles.approvalTitle}>{title}</Text>
+        <Text style={styles.approvalSub}>{subtitle}</Text>
+      </View>
+      <View style={styles.badgeCircle}>
+        <Text style={styles.badgeText}>{badge}</Text>
+      </View>
+      <Icon name="chevron_right" size={20} color={PALETTE.labelMuted} />
+    </TouchableOpacity>
+  );
+}
+
+function AlertCard({
+  imageSource,
+  title,
+  subtitle,
+  linkLabel,
+  onPress,
+}: {
+  imageSource?: any;
+  title: string;
+  subtitle: string;
+  linkLabel: string;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.alertCard} activeOpacity={0.7} onPress={onPress}>
+      <View style={styles.alertRow}>
+        {imageSource ? (
+          <Image source={imageSource} style={{ width: 18, height: 18, marginRight: 6 }} resizeMode="contain" />
+        ) : (
+          <Icon name="warning" size={16} color={A.orange} style={{ marginTop: 1 }} />
+        )}
+        <Text style={styles.alertTitle}>{title}</Text>
+      </View>
+      <Text style={styles.alertSub}>{subtitle}</Text>
+      <Text style={styles.alertLink}>{linkLabel} →</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Dashboard Content Components ─────────────────────────────────────────────
+function SuperAdminDashboard({ onNavigate }: { onNavigate?: (screen: AdminScreenName, params?: Record<string, unknown>) => void }) {
+  return (
+    <>
+      <SectionTitle text="System-wide overview" />
+      <View style={styles.statsGrid}>
+        <StatCard iconName="groups"        iconColor={A.orange}         iconBg={A.orangeBg} value="1,284" label="Total Farmers"     delta="↑ +18 this month" />
+        <StatCard iconName="shopping_cart"  iconColor={A.blue}           iconBg={A.blueBg}   value="6,502" label="Total Customers"   delta="↑ +142 this month" />
+        <StatCard iconName="credit_card"    iconColor={colors.brandGreen} iconBg={A.greenBg} value="₹18.4L" label="Revenue (MTD)"   delta="↑ +6.2%" />
+        <StatCard iconName="inventory_2"    iconColor={A.amber}          iconBg={A.amberBg}  value="4 / 4" label="Warehouses Active" delta="✓ All operational" deltaColor={colors.brandGreen} />
+      </View>
+      <SectionTitle text="Needs your approval" />
+      <View style={styles.cardStack}>
+        <ApprovalCard iconName="credit_card" title="Dual-approval payouts"      subtitle="3 payouts above ₹10,000 awaiting your sign-off" badge={3} />
+        <ApprovalCard iconName="person"      title="New admin account requests" subtitle="2 Sub Warehouse Admin accounts pending creation"  badge={2} />
+      </View>
+      <SectionTitle text="Compliance alerts" />
+      <View style={styles.cardStack}>
+        <AlertCard 
+          title="7 farms overdue for quarterly audit" 
+          subtitle="Q3 audit window closes in 5 days across Coonoor and Kotagiri zones." 
+          linkLabel="Review audit calendar"
+          onPress={() => onNavigate?.('AuditCalendar')}
+        />
+        <AlertCard title="12 certifications expiring within 30 days" subtitle="PGS Organic renewals needed before listings are auto-blocked." linkLabel="View farmers" />
+      </View>
+      <SectionTitle text="Quick actions" />
+      <View style={styles.quickRow}>
+        <QuickBtn iconName="person"        label="Create Admin"     />
+        <QuickBtn iconName="settings"      label={`System\nConfig`} />
+        <QuickBtn iconName="trending_up"   label="Market & Pricing" onPress={() => onNavigate?.('MarketPricingHome')} />
+        <QuickBtn iconName="verified_user" label="Finance" onPress={() => onNavigate?.('FinancialDashboard')} />
+      </View>
+    </>
+  );
+}
+
+function TohfaAdminDashboard() {
+  return (
+    <>
+      <SectionTitle text="Tohfa Admin Dashboard" />
+      <View style={styles.statsGrid}>
+        <StatCard iconName="groups" iconColor={A.orange} iconBg={A.orangeBg} value="1,284" label="Total Farmers" delta="↑ +18 this month" />
+        <StatCard iconName="shopping_cart" iconColor={A.blue} iconBg={A.blueBg} value="6,502" label="Total Customers" delta="↑ +142 this month" />
+      </View>
+    </>
+  );
+}
+
+function FarmerAdminDashboard() {
+  return (
+    <>
+      <SectionTitle text="Farmer Admin Dashboard" />
+      <View style={styles.statsGrid}>
+        <StatCard iconName="groups" iconColor={A.orange} iconBg={A.orangeBg} value="184" label="Farmers Managed" delta="↑ +8 this month" />
+      </View>
+    </>
+  );
+}
+
+function MainWhAdminDashboard() {
+  return (
+    <>
+      <SectionTitle text="Main Warehouse Dashboard" />
+      <View style={styles.statsGrid}>
+        <StatCard iconName="inventory_2" iconColor={A.orange} iconBg={A.orangeBg} value="642" label="Items in Stock" delta="↑ +24 today" />
+      </View>
+    </>
+  );
+}
+
+function SubWhAdminDashboard() {
+  return (
+    <>
+      <SectionTitle text="Sub Warehouse Dashboard" />
+      <View style={styles.statsGrid}>
+        <StatCard iconName="inventory_2" iconColor={A.orange} iconBg={A.orangeBg} value="342" label="Items in Stock" delta="↑ +12 today" />
+      </View>
+    </>
+  );
+}
+
 // ─── Bottom Tab Icons ─────────────────────────────────────────────────────────
 function DashboardTabIcon({ active }: { active: boolean }) {
   const c = active ? PALETTE.orange : PALETTE.tabInactive;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={c} strokeWidth="2" />
-      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={c} strokeWidth="2" />
-      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={c} strokeWidth="2" />
-      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={c} strokeWidth="2" />
+      <Rect x="3" y="3" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
     </Svg>
   );
 }
@@ -411,17 +649,78 @@ function QuickActionCard({
     );
   }
   return (
-    <View style={styles.quickCard}>
-      <View style={styles.quickIconWrap}>{icon}</View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </View>
+    <>
+      {/* Section: Today at Coonoor */}
+      <SectionTitle text="Today at Coonoor" />
+      <View style={styles.statsGrid}>
+        {/* Receiving Today — orange truck on orange bg */}
+        <StatCard iconName="download"   iconColor={A.orange} iconBg={A.orangeBg} value="6"  label="Receiving Today"     />
+        {/* Pickups Ready — blue crop_free (scan grid) on blue bg */}
+        <StatCard iconName="crop_free"  iconColor={A.blue}   iconBg={A.blueBg}   value="14" label="Pickups Ready"       />
+        {/* Cash Top-Ups Pending — green credit card on green bg */}
+        <StatCard iconName="credit_card" iconColor={colors.brandGreen} iconBg={A.greenBg} value="3"  label="Cash Top-Ups Pending" />
+        {/* Low Stock Items — orange block on pink bg */}
+        <StatCard iconName="block"      iconColor={A.orange} iconBg={A.orangeBg} value="2"  label="Low Stock Items"     />
+      </View>
+
+      {/* Section: Pickup queue — verify OTP */}
+      <SectionTitle text="Pickup queue — verify OTP" />
+      <View style={[styles.cardStack, { marginBottom: 20 }]}>
+        <ActionRow
+          iconName="crop_free"
+          iconBg={A.orangeBg}
+          iconColor={A.orange}
+          title="Order #ORD-20260910-0091"
+          subtitle="Customer arriving — OTP not yet verified"
+        />
+      </View>
+
+      {/* Section: Cash top-up requests */}
+      <SectionTitle text="Cash top-up requests" />
+      <View style={[styles.cardStack, { marginBottom: 20 }]}>
+        <ActionRow
+          iconName="credit_card"
+          iconBg={A.orangeBg}
+          iconColor={A.orange}
+          title="₹2,000 — Divya Ramesh"
+          subtitle="Awaiting cash handover confirmation"
+        />
+      </View>
+
+      {/* Section: Quick actions */}
+      <SectionTitle text="Quick actions" />
+      <View style={[styles.quickRow, { justifyContent: 'flex-start', gap: 12 }]}>
+        <QuickBtn iconName="download"    label={`Receive\nGoods`}   />
+        <QuickBtn iconName="check_circle" label={`Quality\nCheck`} />
+        <QuickBtn iconName="inventory_2"  label="My Stock"          />
+      </View>
+    </>
   );
 }
 
-// ─── Main Screen Component ────────────────────────────────────────────────────
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
+export type AdminScreenName =
+  | 'MarketPricingHome'
+  | 'FairPriceCeiling'
+  | 'UpdateFairPrice'
+  | 'BulkPriceUpdate'
+  | 'PriceHistory'
+  | 'MarketDaySchedule'
+  | 'ListingApprovalQueue'
+  | 'AuditCalendar'
+  | 'FinancialDashboard'
+  | 'AdminAllFarmers'
+  | 'AdminFarmerDetail'
+  | 'AdminFarmMap'
+  | 'AdminRatingScorecard'
+  | 'AdminCertVerification'
+  | 'AdminKycReview'
+  | 'AdminComplianceTiers';
+
 export interface SuperAdminDashboardScreenProps {
   onSignOut: () => void;
-  onNavigate?: (screen: string) => void;
+  onNavigate?: (screen: AdminScreenName, params?: Record<string, unknown>) => void;
 }
 
 export function SuperAdminDashboardScreen({
@@ -488,13 +787,6 @@ export function SuperAdminDashboardScreen({
                 value="1,284"
                 label="Total Farmers"
                 delta="↑ +18 this month"
-                onPress={() => {
-                  if (onNavigate) {
-                    onNavigate('AdminAllFarmers');
-                  } else {
-                    setActiveTab('Farmers');
-                  }
-                }}
               />
               <OverviewCard
                 iconBox={
@@ -563,13 +855,6 @@ export function SuperAdminDashboardScreen({
                 subtitle="PGS Organic renewals needed before listings are auto-blocked."
                 linkLabel="View farmers"
                 accentColor={PALETTE.alertAmber}
-                onLinkPress={() => {
-                  if (onNavigate) {
-                    onNavigate('AdminAllFarmers');
-                  } else {
-                    setActiveTab('Farmers');
-                  }
-                }}
               />
             </View>
 
@@ -622,39 +907,8 @@ export function SuperAdminDashboardScreen({
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
           </View>
-        ) : activeTab === 'Farmers' ? (
-          farmerSubScreen === 'map' && selectedFarmer ? (
-            <AdminFarmMapScreen
-              farmer={selectedFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-            />
-          ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
-            <AdminRatingScorecardScreen
-              farmer={selectedFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => {}}
-            />
-          ) : selectedFarmer ? (
-            <AdminFarmerDetailScreen
-              farmer={selectedFarmer}
-              onBack={() => setSelectedFarmer(null)}
-              onOpenFarmMap={() => setFarmerSubScreen('map')}
-              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
-            />
-          ) : (
-            <AdminAllFarmersScreen
-              onBack={() => setActiveTab('Dashboard')}
-              onSelectFarmer={(f) => {
-                if (onNavigate) {
-                  onNavigate('AdminFarmerDetail');
-                } else {
-                  setSelectedFarmer(f);
-                }
-              }}
-            />
-          )
         ) : (
-          /* Blank screen for all other tabs (Sales, Reports) */
+          /* Blank screen for all other tabs (Farmers, Sales, Reports) */
           <View style={styles.blankPane} />
         )}
       </View>
@@ -680,13 +934,7 @@ export function SuperAdminDashboardScreen({
 
         <Pressable
           style={styles.tabItem}
-          onPress={() => {
-            if (onNavigate) {
-              onNavigate('AdminAllFarmers');
-            } else {
-              setActiveTab('Farmers');
-            }
-          }}
+          onPress={() => setActiveTab('Farmers')}
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'Farmers' }}
         >
@@ -1086,5 +1334,165 @@ const styles = StyleSheet.create({
   blankPane: {
     flex: 1,
     backgroundColor: PALETTE.pageBg,
+  },
+
+  // Missing styles for helper components
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.ink,
+  },
+  alertSub: {
+    fontSize: 13,
+    color: PALETTE.labelMuted,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  alertLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: PALETTE.orange,
+  },
+  alertCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginBottom: 12,
+  },
+  statCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    minWidth: 150,
+  },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: PALETTE.ink,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: PALETTE.labelMuted,
+    marginBottom: 4,
+  },
+  statDelta: {
+    fontSize: 12,
+    color: PALETTE.ink,
+  },
+  approvalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginBottom: 12,
+  },
+  approvalTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.ink,
+    marginBottom: 4,
+  },
+  approvalSub: {
+    fontSize: 13,
+    color: PALETTE.labelMuted,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.ink,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  cardStack: {
+    marginBottom: 20,
+  },
+  farmerAppRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginBottom: 12,
+  },
+  farmerAppIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: PALETTE.peachIconBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  farmerAppText: {
+    flex: 1,
+  },
+  farmerAppName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.ink,
+    marginBottom: 4,
+  },
+  farmerAppStatus: {
+    fontSize: 13,
+    color: PALETTE.labelMuted,
+  },
+  headerAvatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: PALETTE.peachBadge,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileMeta: {
+    fontSize: 14,
+    color: PALETTE.labelMuted,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  placeholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  placeholderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.ink,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  placeholderSub: {
+    fontSize: 14,
+    color: PALETTE.labelMuted,
+    textAlign: 'center',
   },
 });

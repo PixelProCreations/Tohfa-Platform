@@ -47,7 +47,7 @@ const PALETTE = {
   tabBorder: '#ECE8E3',
 };
 
-export type TohfaAdminTab = 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile';
+export type TohfaAdminTab = 'Dashboard' | 'Farmers' | 'Farmers' | 'Sales' | 'Reports' | 'Profile';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function ShieldCheckIcon({ color = PALETTE.badgeText, size = 13 }: { color?: string; size?: number }) {
@@ -809,6 +809,29 @@ export function TohfaAdminDashboardScreen({
           >
             Dashboard
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => onNavigate?.('AdminAllFarmers')}
+          activeOpacity={0.7}
+        >
+          <View style={activeTab === 'Farmers' ? styles.tabIconActive : null}>
+            <PersonAvatarIcon />
+          </View>
+          <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
+        </TouchableOpacity>
+
+        {/* Tab 2: Farmers */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => onNavigate?.('AdminAllFarmers')}
+          activeOpacity={0.7}
+        >
+          <View style={activeTab === 'Farmers' ? styles.tabIconActive : null}>
+            <PersonAvatarIcon />
+          </View>
+          <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
         </TouchableOpacity>
 
         {/* Tab 2: Farmers */}

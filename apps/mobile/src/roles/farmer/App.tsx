@@ -164,6 +164,14 @@ import {
   AdminComplianceTiersScreen,
   AdminKycReviewScreen,
 } from '../admin/screens';
+import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
+import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
+import { UpdateFairPriceScreen } from '../admin/screens/dashboard/UpdateFairPriceScreen';
+import { BulkPriceUpdateScreen } from '../admin/screens/dashboard/BulkPriceUpdateScreen';
+import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScreen';
+import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/screens/dashboard/MarketDayScheduleScreen';
+import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
+import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 
 export type ScreenName =
   | 'Splash'
@@ -300,7 +308,15 @@ export type ScreenName =
   | 'SoilMoistureTracking'
   | 'ErosionConservation'
   | 'ExportSoilReports'
-  | 'UploadNewSoilTest';
+  | 'UploadNewSoilTest'
+  | 'MarketPricingHome'
+  | 'FairPriceCeiling'
+  | 'UpdateFairPrice'
+  | 'BulkPriceUpdate'
+  | 'PriceHistory'
+  | 'MarketDaySchedule'
+  | 'AddMarketDay'
+  | 'ListingApprovalQueue';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -352,6 +368,7 @@ export default function App(): React.JSX.Element {
   const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
+  const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, string | number | undefined> = {}) => {
@@ -620,6 +637,79 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onSuccess={goBack}
           />
+        ) : screen === 'AdminAllFarmers' ? (
+          <AdminAllFarmersScreen
+            onBack={goBack}
+            onSelectFarmer={(farmer) => {
+              setSelectedFarmer(farmer);
+              navigate('AdminFarmerDetail');
+            }}
+          />
+        ) : screen === 'AdminFarmerDetail' ? (
+          <AdminFarmerDetailScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+            onEdit={() => {
+              Alert.alert(
+                'Edit Farmer',
+                'Edit farmer screen is not yet implemented. This would allow editing farmer details like name, contact, farm info, etc.',
+                [{ text: 'OK' }]
+              );
+            }}
+            onDisable={() => {
+              Alert.alert(
+                'Disable Farmer Account',
+                `Are you sure you want to disable ${selectedFarmer?.name}'s account? They will not be able to access the platform.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Disable', 
+                    style: 'destructive',
+                    onPress: () => {
+                      Alert.alert('Success', 'Farmer account has been disabled.');
+                      goBack();
+                    }
+                  }
+                ]
+              );
+            }}
+            onOpenFarmMap={() => navigate('AdminFarmMap')}
+            onOpenKycReview={() => navigate('AdminKycReview')}
+            onOpenRatingScorecard={() => navigate('AdminRatingScorecard')}
+          />
+        ) : screen === 'AdminFarmMap' ? (
+          <AdminFarmMapScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+          />
+        ) : screen === 'AdminRatingScorecard' ? (
+          <AdminRatingScorecardScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
+            onEditCategories={() => {
+              Alert.alert(
+                'Edit Categories',
+                'Edit rating categories screen is not yet implemented. This would allow editing individual category scores.',
+                [{ text: 'OK' }]
+              );
+            }}
+          />
+        ) : screen === 'AdminCertVerification' ? (
+          <AdminCertVerificationScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+          />
+        ) : screen === 'AdminKycReview' ? (
+          <AdminKycReviewScreen
+            onBack={goBack}
+            farmer={selectedFarmer}
+            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
+          />
+        ) : screen === 'AdminComplianceTiers' ? (
+          <AdminComplianceTiersScreen
+            onBack={goBack}
+          />
         ) : screen === 'AuditCalendar' ? (
           <AuditCalendarScreen
             onBack={goBack}
@@ -817,6 +907,69 @@ export default function App(): React.JSX.Element {
             onConfirmRequest={() => {
               Alert.alert('Request Sent', `Information request sent to ${(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!).name}`);
               goBack();
+            }}
+          />
+        ) : screen === 'MarketPricingHome' ? (
+          <MarketPricingHomeScreen
+            onBack={goBack}
+            onNavigateToFairPrice={() => navigate('FairPriceCeiling')}
+            onNavigateToMarketDay={() => navigate('MarketDaySchedule')}
+            onNavigateToListingApproval={() => navigate('ListingApprovalQueue')}
+          />
+        ) : screen === 'FairPriceCeiling' ? (
+          <FairPriceCeilingScreen
+            onBack={goBack}
+            onUpdatePrice={(item) => navigate('UpdateFairPrice')}
+            onBulkUpdate={() => navigate('BulkPriceUpdate')}
+            onViewHistory={(item) => navigate('PriceHistory')}
+          />
+        ) : screen === 'UpdateFairPrice' ? (
+          <UpdateFairPriceScreen
+            onBack={goBack}
+            onSave={(newPrice) => {
+              // Save logic here
+              goBack();
+            }}
+          />
+        ) : screen === 'BulkPriceUpdate' ? (
+          <BulkPriceUpdateScreen
+            onBack={goBack}
+          />
+        ) : screen === 'PriceHistory' ? (
+          <PriceHistoryScreen
+            onBack={goBack}
+          />
+        ) : screen === 'MarketDaySchedule' ? (
+          <MarketDayScheduleScreen
+            onBack={goBack}
+            onAddMarketDay={() => navigate('AddMarketDay')}
+            onToggle={(id, value) => {
+              // Handle toggle
+            }}
+            days={MOCK_DAYS}
+            onDaysChange={(updatedDays) => {
+              // Handle days change
+            }}
+          />
+        ) : screen === 'AddMarketDay' ? (
+          <AddMarketDayScreen
+            onBack={goBack}
+            onSave={(marketDay) => {
+              // Save market day logic here
+              navigate('MarketDaySchedule');
+            }}
+          />
+        ) : screen === 'ListingApprovalQueue' ? (
+          <ListingApprovalQueueScreen
+            onBack={goBack}
+            onApprove={(id) => {
+              // Handle approve
+            }}
+            onCounter={(id) => {
+              // Handle counter
+            }}
+            onReject={(id) => {
+              // Handle reject
             }}
           />
         ) : screen === 'CustomerMain' ? (

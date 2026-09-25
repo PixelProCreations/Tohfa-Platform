@@ -12,7 +12,7 @@ services:
       # Deterministic collation so ORDER BY matches across dev machines and CI.
       POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - tohfa-pgdata:/var/lib/postgresql/data
     healthcheck:
