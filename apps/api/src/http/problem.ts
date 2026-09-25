@@ -76,6 +76,11 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   OAUTH_TOKEN_INVALID: 401,
   OAUTH_IDENTITY_ALREADY_LINKED: 409,
   OAUTH_LINK_TOKEN_INVALID: 401,
+  DIARY_INVALID_SUB_ACTIVITY: 422,
+  DIARY_NO_ACTIVE_CROP: 422,
+  DIARY_MINUTES_REQUIRED: 422,
+  DIARY_WORKER_HOURS_INVALID: 422,
+  DIARY_WAGE_RATE_INVALID: 422,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -123,6 +128,11 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   OAUTH_TOKEN_INVALID: 'Social login token is invalid',
   OAUTH_IDENTITY_ALREADY_LINKED: 'Social account already linked elsewhere',
   OAUTH_LINK_TOKEN_INVALID: 'Link token is invalid or expired',
+  DIARY_INVALID_SUB_ACTIVITY: 'Sub-activity does not belong to that category',
+  DIARY_NO_ACTIVE_CROP: 'Plot has no actively growing crop',
+  DIARY_MINUTES_REQUIRED: 'Time spent must be greater than zero',
+  DIARY_WORKER_HOURS_INVALID: 'Worker hours must be greater than 0 and at most 24',
+  DIARY_WAGE_RATE_INVALID: 'Wage rate must be a positive whole number of paise',
 };
 
 /**

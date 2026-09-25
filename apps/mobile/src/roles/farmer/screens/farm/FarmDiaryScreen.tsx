@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -7,11 +8,21 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Image,
   Modal,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors } from '../../theme';
+import {
+  formatMinutes,
+  formatPaise,
+  resolveDiaryEntry,
+  toIsoDate,
+  toIsoMonth,
+  useDiaryCalendarMonth,
+  useDiaryDayEntries,
+  useDiaryReferenceData,
+  type ResolvedDiaryEntry,
+} from './diaryLookups';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -90,65 +101,6 @@ function CloseIcon({ size = 18, color = P.twGray500 }: { size?: number; color?: 
   );
 }
 
-function WaterDropIcon({ size = 24, color = P.twBlue800 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 21a7 7 0 007-7c0-2-3-7.5-7-11-4 3.5-7 9-7 11a7 7 0 007 7z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function BugIcon({ size = 24, color = P.twPurple600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 20a6 6 0 006-6V9a6 6 0 10-12 0v5a6 6 0 006 6z M12 3v1 M7 6l-2-2 M17 6l2-2 M3 11h2 M19 11h2 M5 16l-2 2 M19 16l2 2"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function LeafIcon({ size = 24, color = P.twGreen800 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22C12 22 4 16 4 10a6 6 0 0112 0c0 1.5-.5 3-1.5 4M12 22c0 0 8-6 8-12a6 6 0 00-12 0c0 1.5.5 3 1.5 4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M12 22v-9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function TractorIcon({ size = 24, color = P.twOrange700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="7" cy="16" r="3" stroke={color} strokeWidth="2" />
-      <Circle cx="17" cy="16" r="3" stroke={color} strokeWidth="2" />
-      <Path
-        d="M4 16H2V9h5v7M9 16h5 M14 9h7v7 M9 9h5v7 M14 12h7 M14 9l2-4h3l2 4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function UsersIcon({ size = 14, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -168,243 +120,14 @@ function UsersIcon({ size = 14, color = P.twGray700 }: { size?: number; color?: 
 
 // ── Date Helpers ─────────────────────────────────────────────────────────────
 
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 const MONTHS_FULL = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ] as const;
 const DAYS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
-interface DiaryEntryItem {
-  id: string;
-  type: string;
-  crop: string;
-  zone: string;
-  time: string;
-  duration: string;
-  color: string;
-  bg: string;
-  Icon: React.ComponentType<{ size?: number; color?: string }>;
-  expanded?: boolean;
-  details?: {
-    method: string;
-    labour: string;
-    description: string;
-    images: string[];
-  };
-}
-
-// ── Data ─────────────────────────────────────────────────────────────────────
-
-const BASE_ENTRIES: DiaryEntryItem[] = [
-  {
-    id: '1',
-    type: 'Irrigation',
-    crop: 'Tomato',
-    zone: 'Zone 2 — Lower Slope',
-    time: '07:10 AM',
-    duration: '45m',
-    color: P.twBlue600,
-    bg: P.twBlue50,
-    Icon: WaterDropIcon,
-    expanded: true,
-    details: {
-      method: 'Method - Drip',
-      labour: '2 labour',
-      description: 'Morning drip cycle on the lower beds; checked emitters on rows 4-7, two were clogged and cleared.',
-      images: [
-        'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
-        'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
-      ],
-    },
-  },
-  {
-    id: '2',
-    type: 'Pest scouting',
-    crop: 'Tomato',
-    zone: 'Zone 2 — Lower Slope',
-    time: '08:30 AM',
-    duration: '20m',
-    color: P.twPurple600,
-    bg: P.twPurple100,
-    Icon: BugIcon,
-    expanded: false,
-    details: {
-      method: 'Neem Oil Spray · Manual',
-      labour: '1 labour',
-      description: 'Checked underleaf aphid counts across rows 1-12; installed 4 yellow sticky traps along the boundary ridge.',
-      images: [
-        'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400&q=80',
-        'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=400&q=80',
-      ],
-    },
-  },
-  {
-    id: '3',
-    type: 'Manure application',
-    crop: 'Carrot',
-    zone: 'Zone 3 — Terrace',
-    time: '11:00 AM',
-    duration: '1h 15m',
-    color: P.twGreen800,
-    bg: P.twGreen50,
-    Icon: LeafIcon,
-    expanded: false,
-    details: {
-      method: 'Vermicompost · 50 kg/bed',
-      labour: '3 labour',
-      description: 'Broadcasting mature organic vermicompost and Jeevamrutha mix along raised beds prior to root bulking stage.',
-      images: [
-        'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
-        'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
-      ],
-    },
-  },
-  {
-    id: '4',
-    type: 'Harvesting',
-    crop: 'Beans',
-    zone: 'Zone 1 — Upper Field',
-    time: '02:15 PM',
-    duration: '1h',
-    color: P.twOrange700,
-    bg: P.twOrange50,
-    Icon: TractorIcon,
-    expanded: false,
-    details: {
-      method: 'Hand Pick · Grade 1 & 2',
-      labour: '4 labour',
-      description: 'Morning harvest across Zone 1. Total 85 kg harvested, cleaned, and sorted into crates for dispatch weighing.',
-      images: [
-        'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=400&q=80',
-        'https://images.unsplash.com/photo-1500651230702-0e2d8a49d4ad?w=400&q=80',
-      ],
-    },
-  },
-];
-
-const FIELDS_OPTIONS = ['All fields', 'Zone 1 — Upper Field', 'Zone 2 — Lower Slope', 'Zone 3 — Terrace'];
-const CROPS_OPTIONS = ['All crops', 'Tomato', 'Carrot', 'Beans'];
-
-const DIARY_ENTRIES_BY_DAY: Record<number, DiaryEntryItem[]> = {
-  16: BASE_ENTRIES,
-  12: [
-    {
-      id: '12-1',
-      type: 'Irrigation',
-      crop: 'Tomato',
-      zone: 'Zone 2 — Lower Slope',
-      time: '07:30 AM',
-      duration: '45m',
-      color: P.twBlue700,
-      bg: P.twBlue50,
-      Icon: WaterDropIcon,
-      expanded: true,
-      details: {
-        method: 'Method - Drip',
-        labour: '1 labour',
-        description: 'Scheduled regular irrigation cycle for tomato zone.',
-        images: [
-          'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
-          'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
-        ],
-      },
-    },
-    {
-      id: '12-2',
-      type: 'Weeding',
-      crop: 'Carrot',
-      zone: 'Zone 3 — Terrace',
-      time: '10:00 AM',
-      duration: '1h',
-      color: P.twGreen800,
-      bg: P.twGreen50,
-      Icon: LeafIcon,
-      expanded: false,
-      details: {
-        method: 'Manual Weeding · Hand Hoe',
-        labour: '2 labour',
-        description: 'Inter-row weeding and soil loosening along carrot seedbeds.',
-        images: [
-          'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
-          'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
-        ],
-      },
-    },
-  ],
-  15: [
-    {
-      id: '15-1',
-      type: 'Manure application',
-      crop: 'Carrot',
-      zone: 'Zone 3 — Terrace',
-      time: '09:00 AM',
-      duration: '1h 15m',
-      color: P.twGreen800,
-      bg: P.twGreen50,
-      Icon: LeafIcon,
-      expanded: false,
-      details: {
-        method: 'Organic FYM · Ring Method',
-        labour: '2 labour',
-        description: 'Incorporated well-decomposed farmyard manure into soil beds.',
-        images: [
-          'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
-          'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
-        ],
-      },
-    },
-  ],
-  14: [
-    {
-      id: '14-1',
-      type: 'Pest scouting',
-      crop: 'Tomato',
-      zone: 'Zone 2 — Lower Slope',
-      time: '08:00 AM',
-      duration: '30m',
-      color: P.deepPurple600,
-      bg: P.violetTint,
-      Icon: BugIcon,
-      expanded: false,
-      details: {
-        method: 'Visual Scouting & Traps',
-        labour: '1 labour',
-        description: 'Routine morning insect count across Zone 2. Pest levels well within economic threshold limit.',
-        images: [
-          'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=400&q=80',
-          'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
-        ],
-      },
-    },
-  ],
-};
-
-function computeTotalTime(entries: DiaryEntryItem[]): string {
-  let totalMinutes = 0;
-  for (const e of entries) {
-    if (e.duration.includes('h') && e.duration.includes('m')) {
-      const parts = e.duration.split('h');
-      const hStr = parts[0];
-      const mStr = parts[1];
-      const h = parseInt(hStr || '0', 10);
-      const m = parseInt((mStr || '').replace('m', '').trim() || '0', 10);
-      totalMinutes += h * 60 + m;
-    } else if (e.duration.includes('h')) {
-      const h = parseInt(e.duration.replace('h', '').trim(), 10);
-      totalMinutes += h * 60;
-    } else if (e.duration.includes('m')) {
-      const m = parseInt(e.duration.replace('m', '').trim(), 10);
-      totalMinutes += m;
-    }
-  }
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  if (hours > 0 && mins > 0) return `${hours}h ${mins}m`;
-  if (hours > 0) return `${hours}h`;
-  if (mins > 0) return `${mins}m`;
-  return '0m';
-}
+const ALL_FIELDS_LABEL = 'All fields';
+const ALL_CROPS_LABEL = 'All crops';
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -419,10 +142,12 @@ export function FarmDiaryScreen({
   onNavigateToNewEntry,
   onNavigateToCalendar,
 }: FarmDiaryScreenProps): React.JSX.Element {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 6, 16));
-  const [selectedField, setSelectedField] = useState<string>('All fields');
-  const [selectedCrop, setSelectedCrop] = useState<string>('All crops');
-  const [expandedId, setExpandedId] = useState<string | null>('1');
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  /** Plot id, or null for "All fields". */
+  const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
+  /** Resolved crop name, or null for "All crops". */
+  const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Filter Modals
   const [isFieldPickerOpen, setIsFieldPickerOpen] = useState<boolean>(false);
@@ -430,25 +155,58 @@ export function FarmDiaryScreen({
 
   // Dynamic Date Picker Modal State
   const [isDatePickerOpen, setIsDatePickerOpen] = useState<boolean>(false);
-  const [calendarDate, setCalendarDate] = useState<Date>(() => new Date(2026, 6, 16));
-  const [calendarYear, setCalendarYear] = useState<number>(2026);
-  const [calendarMonth, setCalendarMonth] = useState<number>(6);
+  const [calendarDate, setCalendarDate] = useState<Date>(() => new Date());
+  const [calendarYear, setCalendarYear] = useState<number>(() => new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState<number>(() => new Date().getMonth());
   const [isYearPickerOpen, setIsYearPickerOpen] = useState<boolean>(false);
 
-  const fieldOptions = [
-    'All fields',
-    'Zone 1 — Upper Field',
-    'Zone 2 — Lower Slope',
-    'Zone 3 — Terrace',
+  // ── Server data ──
+  const ref = useDiaryReferenceData();
+  const day = useDiaryDayEntries(toIsoDate(selectedDate));
+  // Only fetch "which days have entries" while the picker is actually open.
+  const pickerMonth = useDiaryCalendarMonth(
+    isDatePickerOpen ? toIsoMonth(calendarYear, calendarMonth) : null,
+  );
+
+  const listState = ref.state === 'error' || day.state === 'error'
+    ? 'error'
+    : ref.state === 'loading' || day.state === 'loading'
+      ? 'loading'
+      : 'ready';
+  const listError = ref.state === 'error' ? ref.error : day.error;
+  const retryList = () => {
+    if (ref.state === 'error') ref.retry();
+    if (day.state === 'error') day.retry();
+  };
+
+  const { plotNameById, categoryByKey, subActivityByKey } = ref;
+  const resolvedEntries: ResolvedDiaryEntry[] = useMemo(
+    () =>
+      day.entries.map((e) =>
+        resolveDiaryEntry(e, { plotNameById, categoryByKey, subActivityByKey }, day.cropNameById),
+      ),
+    [day.entries, day.cropNameById, plotNameById, categoryByKey, subActivityByKey],
+  );
+
+  const fieldOptions: { id: string | null; label: string }[] = [
+    { id: null, label: ALL_FIELDS_LABEL },
+    ...ref.plots.map((p) => ({ id: p.id, label: p.name })),
   ];
 
-  const cropOptions = [
-    'All crops',
-    'Tomato',
-    'Carrot',
-    'Beans',
-    'Potato',
+  // No bulk "all my crops" endpoint exists, so crop options are the distinct
+  // crops present in the currently loaded day — a known, accepted limitation.
+  const cropOptions: { value: string | null; label: string }[] = [
+    { value: null, label: ALL_CROPS_LABEL },
+    ...Array.from(new Set(resolvedEntries.map((r) => r.cropName)))
+      .sort()
+      .map((name) => ({ value: name, label: name })),
   ];
+
+  const selectedFieldLabel =
+    selectedPlotId === null
+      ? ALL_FIELDS_LABEL
+      : ref.plotNameById.get(selectedPlotId) ?? ALL_FIELDS_LABEL;
+  const selectedCropLabel = selectedCrop ?? ALL_CROPS_LABEL;
 
   const openDatePicker = () => {
     setCalendarDate(new Date(selectedDate));
@@ -478,6 +236,10 @@ export function FarmDiaryScreen({
 
   const handleConfirmDate = () => {
     setSelectedDate(new Date(calendarDate));
+    // Crop options are derived from the loaded day, so a crop picked for the
+    // previous day may not exist on the new one.
+    setSelectedCrop(null);
+    setExpandedId(null);
     setIsDatePickerOpen(false);
   };
 
@@ -485,71 +247,21 @@ export function FarmDiaryScreen({
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  // Compute entries for current date & filter
-  const dayKey = selectedDate.getDate();
-  const dayEntries: DiaryEntryItem[] =
-    DIARY_ENTRIES_BY_DAY[dayKey] ||
-    (dayKey === 16
-      ? BASE_ENTRIES
-      : [
-        {
-          id: `d-${dayKey}-1`,
-          type: 'Field inspection',
-          crop: 'Tomato',
-          zone: 'Zone 2 — Lower Slope',
-          time: '08:00 AM',
-          duration: '35m',
-          color: P.twBlue700,
-          bg: P.twBlue50,
-          Icon: WaterDropIcon,
-          expanded: false,
-          details: {
-            method: 'Routine Walkthrough',
-            labour: '1 labour',
-            description: 'Inspected soil moisture, weed growth, and plant vigour across field beds.',
-            images: [
-              'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
-              'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=400&q=80',
-            ],
-          },
-        },
-        {
-          id: `d-${dayKey}-2`,
-          type: 'Weeding',
-          crop: 'Carrot',
-          zone: 'Zone 3 — Terrace',
-          time: '10:15 AM',
-          duration: '45m',
-          color: P.twGreen800,
-          bg: P.twGreen50,
-          Icon: LeafIcon,
-          expanded: false,
-          details: {
-            method: 'Manual Hoeing',
-            labour: '2 labour',
-            description: 'Cleared invasive wild grasses and thinned seed beds for optimal tuber expansion.',
-            images: [
-              'https://images.unsplash.com/photo-1589923188900-85dae523342b?w=400&q=80',
-              'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=400&q=80',
-            ],
-          },
-        },
-      ]);
+  const filteredEntries = resolvedEntries.filter(
+    (r) =>
+      (selectedPlotId === null || r.entry.plotId === selectedPlotId) &&
+      (selectedCrop === null || r.cropName === selectedCrop),
+  );
 
-  const filteredEntries = dayEntries.filter((entry) => {
-    const matchField =
-      selectedField === 'All fields' ||
-      entry.zone.toLowerCase().includes(selectedField.toLowerCase()) ||
-      selectedField.toLowerCase().includes(entry.zone.toLowerCase());
-    const matchCrop =
-      selectedCrop === 'All crops' ||
-      entry.crop.toLowerCase() === selectedCrop.toLowerCase();
-    return matchField && matchCrop;
-  });
-
-  const timeLogged = computeTotalTime(filteredEntries);
-  const fieldsCovered = new Set(filteredEntries.map((e) => e.zone)).size;
+  // Header stats describe the whole day, independent of the list filters.
+  const statsReady = listState === 'ready';
+  const entriesCount = statsReady ? String(day.entries.length) : '–';
+  const timeLogged = statsReady
+    ? formatMinutes(day.entries.reduce((sum, e) => sum + e.minutes, 0))
+    : '–';
+  const fieldsCovered = statsReady ? String(new Set(day.entries.map((e) => e.plotId)).size) : '–';
   const formattedFullDate = `${DAYS_FULL[selectedDate.getDay()]}, ${selectedDate.getDate()} ${MONTHS_FULL[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+  const hasActiveFilter = selectedPlotId !== null || selectedCrop !== null;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -602,7 +314,7 @@ export function FarmDiaryScreen({
         {/* 3 Summary Stats Cards */}
         <View style={styles.summaryStatsRow}>
           <View style={styles.summaryStatCard}>
-            <Text style={styles.summaryStatNumber}>4</Text>
+            <Text style={styles.summaryStatNumber}>{entriesCount}</Text>
             <Text style={styles.summaryStatLabel}>Entries today</Text>
           </View>
           <View style={styles.summaryStatCard}>
@@ -610,7 +322,7 @@ export function FarmDiaryScreen({
             <Text style={styles.summaryStatLabel}>Time logged</Text>
           </View>
           <View style={styles.summaryStatCard}>
-            <Text style={styles.summaryStatNumber}>3</Text>
+            <Text style={styles.summaryStatNumber}>{fieldsCovered}</Text>
             <Text style={styles.summaryStatLabel}>Fields covered</Text>
           </View>
         </View>
@@ -620,29 +332,31 @@ export function FarmDiaryScreen({
         {/* ── Filters Row (Interactive Dropdowns) ── */}
         <View style={styles.filtersRow}>
           <TouchableOpacity
-            style={[styles.filterBtn, selectedField !== 'All fields' && styles.filterBtnActive]}
+            style={[styles.filterBtn, selectedPlotId !== null && styles.filterBtnActive]}
             activeOpacity={0.75}
             onPress={() => setIsFieldPickerOpen(true)}
             accessibilityRole="button"
             accessibilityLabel="Filter by field"
           >
-            <Text style={[styles.filterBtnText, selectedField !== 'All fields' && styles.filterBtnTextActive]} numberOfLines={1}>
-              {selectedField}
+            <Text style={[styles.filterBtnText, selectedPlotId !== null && styles.filterBtnTextActive]} numberOfLines={1}>
+              {selectedFieldLabel}
             </Text>
-            <ChevronDownIcon size={16} color={selectedField !== 'All fields' ? P.deepGreen : P.twGray400} />
+            <ChevronDownIcon size={16} color={selectedPlotId !== null ? P.deepGreen : P.twGray400} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.filterBtn, selectedCrop !== 'All crops' && styles.filterBtnActive]}
+            style={[styles.filterBtn, selectedCrop !== null && styles.filterBtnActive]}
             activeOpacity={0.75}
             onPress={() => setIsCropPickerOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Filter by crop"
           >
-            <Text style={[styles.filterBtnText, selectedCrop !== 'All crops' && styles.filterBtnTextActive]}>
-              {selectedCrop}
+            <Text style={[styles.filterBtnText, selectedCrop !== null && styles.filterBtnTextActive]} numberOfLines={1}>
+              {selectedCropLabel}
             </Text>
             <ChevronDownIcon
               size={16}
-              color={selectedCrop !== 'All crops' ? P.deepGreen : P.twGray400}
+              color={selectedCrop !== null ? P.deepGreen : P.twGray400}
             />
           </TouchableOpacity>
         </View>
@@ -650,12 +364,30 @@ export function FarmDiaryScreen({
         {/* ── Section Title ── */}
         <Text style={styles.sectionTitle}>TODAY'S ENTRIES</Text>
 
-        {/* ── Entries List or Empty State ── */}
-        {filteredEntries.length === 0 ? (
+        {/* ── Entries List / Loading / Error / Empty State ── */}
+        {listState === 'loading' ? (
+          <View style={styles.statusBox}>
+            <ActivityIndicator color={P.twGreen700} />
+            <Text style={styles.statusText}>Loading diary entries…</Text>
+          </View>
+        ) : listState === 'error' ? (
+          <View style={[styles.statusBox, styles.errorBox]}>
+            <Text style={styles.errorText}>{listError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={retryList}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading diary entries"
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredEntries.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No diary entries found</Text>
             <Text style={styles.emptySubtitle}>
-              {selectedField !== 'All fields' || selectedCrop !== 'All crops'
+              {hasActiveFilter
                 ? 'Try changing or clearing your filters to see more entries.'
                 : 'No activities logged for this date yet.'}
             </Text>
@@ -669,8 +401,15 @@ export function FarmDiaryScreen({
           </View>
         ) : (
           <View style={styles.entriesList}>
-            {filteredEntries.map((entry) => {
+            {filteredEntries.map((r) => {
+              const { entry } = r;
               const isExpanded = expandedId === entry.id;
+              const hasDetails =
+                r.subActivityName !== null ||
+                entry.workerCount > 0 ||
+                entry.totalLabourCostPaise > 0 ||
+                entry.photoCount > 0 ||
+                (entry.notes !== null && entry.notes.trim() !== '');
               return (
                 <TouchableOpacity
                   key={entry.id}
@@ -679,20 +418,20 @@ export function FarmDiaryScreen({
                   onPress={() => toggleExpand(entry.id)}
                 >
                   <View style={styles.entryHeaderRow}>
-                    <View style={[styles.entryIconBox, { backgroundColor: entry.bg }]}>
-                      <entry.Icon size={24} color={entry.color} />
+                    <View style={styles.entryIconBox}>
+                      <r.Icon size={24} color={P.twGreen700} />
                     </View>
                     <View style={styles.entryTitleCol}>
                       <Text style={styles.entryTitle}>
-                        {entry.type} · {entry.crop}
+                        {r.categoryName} · {r.cropName}
                       </Text>
                       <Text style={styles.entrySubtitle}>
-                        {entry.zone} · {entry.time}
+                        {r.time !== '' ? `${r.plotName} · ${r.time}` : r.plotName}
                       </Text>
                     </View>
                     <View style={styles.entryRightCol}>
                       <Text style={[styles.entryDuration, isExpanded && styles.entryDurationActive]}>
-                        {entry.duration}
+                        {r.duration}
                       </Text>
                       {isExpanded ? (
                         <ChevronUpIcon size={20} color={P.twGray400} />
@@ -702,23 +441,46 @@ export function FarmDiaryScreen({
                     </View>
                   </View>
 
-                  {isExpanded && entry.details && (
+                  {isExpanded && (
                     <View style={styles.entryDetails}>
-                      <View style={styles.pillsRow}>
-                        <View style={styles.detailPill}>
-                          <Text style={styles.detailPillText}>{entry.details.method}</Text>
-                        </View>
-                        <View style={styles.detailPill}>
-                          <UsersIcon size={12} color={P.twGray600} />
-                          <Text style={styles.detailPillText}>{entry.details.labour}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.entryDesc}>{entry.details.description}</Text>
-                      <View style={styles.imagesRow}>
-                        {entry.details.images.map((img, idx) => (
-                          <Image key={idx} source={{ uri: img }} style={styles.detailImage} />
-                        ))}
-                      </View>
+                      {hasDetails ? (
+                        <>
+                          <View style={styles.pillsRow}>
+                            {r.subActivityName !== null && (
+                              <View style={styles.detailPill}>
+                                <Text style={styles.detailPillText}>{r.subActivityName}</Text>
+                              </View>
+                            )}
+                            {entry.workerCount > 0 && (
+                              <View style={styles.detailPill}>
+                                <UsersIcon size={12} color={P.twGray600} />
+                                <Text style={styles.detailPillText}>
+                                  {entry.workerCount} {entry.workerCount === 1 ? 'worker' : 'workers'}
+                                </Text>
+                              </View>
+                            )}
+                            {entry.totalLabourCostPaise > 0 && (
+                              <View style={styles.detailPill}>
+                                <Text style={styles.detailPillText}>
+                                  Labour {formatPaise(entry.totalLabourCostPaise)}
+                                </Text>
+                              </View>
+                            )}
+                            {entry.photoCount > 0 && (
+                              <View style={styles.detailPill}>
+                                <Text style={styles.detailPillText}>
+                                  {entry.photoCount} {entry.photoCount === 1 ? 'photo' : 'photos'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {entry.notes !== null && entry.notes.trim() !== '' && (
+                            <Text style={styles.entryDesc}>{entry.notes}</Text>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={styles.entryDesc}>No additional details recorded.</Text>
+                      )}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -758,19 +520,19 @@ export function FarmDiaryScreen({
               </TouchableOpacity>
             </View>
             {fieldOptions.map((opt) => {
-              const isSelected = selectedField === opt;
+              const isSelected = selectedPlotId === opt.id;
               return (
                 <TouchableOpacity
-                  key={opt}
+                  key={opt.id ?? '__all__'}
                   style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
                   onPress={() => {
-                    setSelectedField(opt);
+                    setSelectedPlotId(opt.id);
                     setIsFieldPickerOpen(false);
                   }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
-                    {opt}
+                    {opt.label}
                   </Text>
                   {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
                 </TouchableOpacity>
@@ -804,19 +566,19 @@ export function FarmDiaryScreen({
               </TouchableOpacity>
             </View>
             {cropOptions.map((opt) => {
-              const isSelected = selectedCrop === opt;
+              const isSelected = selectedCrop === opt.value;
               return (
                 <TouchableOpacity
-                  key={opt}
+                  key={opt.value ?? '__all__'}
                   style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
                   onPress={() => {
-                    setSelectedCrop(opt);
+                    setSelectedCrop(opt.value);
                     setIsCropPickerOpen(false);
                   }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
-                    {opt}
+                    {opt.label}
                   </Text>
                   {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
                 </TouchableOpacity>
@@ -884,7 +646,7 @@ export function FarmDiaryScreen({
                 <ScrollView style={styles.yearScrollView} showsVerticalScrollIndicator={true}>
                   <View style={styles.yearGrid}>
                     {Array.from({ length: 75 }).map((_, i) => {
-                      const y = 2026 - i;
+                      const y = new Date().getFullYear() - i;
                       const isSel = calendarYear === y;
                       return (
                         <TouchableOpacity
@@ -940,7 +702,9 @@ export function FarmDiaryScreen({
                       new Date().getFullYear() === calendarYear &&
                       new Date().getMonth() === calendarMonth &&
                       new Date().getDate() === day;
-                    const hasEntries = DIARY_ENTRIES_BY_DAY[day] !== undefined || day === 16;
+                    const hasEntries = pickerMonth.countsByDate.has(
+                      toIsoDate(new Date(calendarYear, calendarMonth, day)),
+                    );
 
                     return (
                       <TouchableOpacity
@@ -972,6 +736,21 @@ export function FarmDiaryScreen({
                     );
                   })}
                 </View>
+                {/* Entry dots are a hint, not essential — a failure here
+                    must not block picking a date. */}
+                {pickerMonth.state === 'error' && (
+                  <TouchableOpacity
+                    style={styles.calDotsErrorRow}
+                    onPress={pickerMonth.retry}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry loading days with entries"
+                  >
+                    <Text style={styles.calDotsErrorText}>
+                      {pickerMonth.error} Tap to retry.
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 
@@ -1159,6 +938,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    backgroundColor: P.twGreen50,
   },
   entryTitleCol: {
     flex: 1,
@@ -1194,6 +974,7 @@ const styles = StyleSheet.create({
   },
   pillsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
   },
@@ -1215,18 +996,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     color: P.twGray600,
-    marginBottom: 16,
   },
-  imagesRow: {
-    flexDirection: 'row',
-    gap: 12,
+
+  /* Loading / error states (same treatment as the New Entry flow) */
+  statusBox: {
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twGray100,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 10,
   },
-  detailImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: P.twGray200,
+  statusText: {
+    fontSize: 13,
+    color: P.twGray500,
   },
+  errorBox: {
+    backgroundColor: P.twRed50,
+    borderColor: P.twRed200,
+  },
+  errorText: {
+    fontSize: 13,
+    color: P.twRed700,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twRed200,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: P.twRed700,
+  },
+
   emptyCard: {
     backgroundColor: P.white,
     borderRadius: 16,
@@ -1506,6 +1314,16 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.brandGreen,
+  },
+  calDotsErrorRow: {
+    marginTop: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  calDotsErrorText: {
+    fontSize: 12,
+    color: P.twRed700,
+    textAlign: 'center',
   },
   calFooterActions: {
     flexDirection: 'row',

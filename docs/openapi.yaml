@@ -104,6 +104,11 @@ tags:
     description: |
       The 10-category, 0-100 farm rating (BR-06): admin scoring and the farmer's own
       read-only view of it.
+  - name: Farm Diary
+    description: |
+      The farmer's own day-by-day field activity log (BR-40, BR-41, BR-42): plots,
+      active crops, the admin-manageable activity taxonomy, diary entries with
+      workforce/wage detail, and entry photos. Never customer-visible (BR-41).
   - name: Farms & Zones
     description: |
       A farmer's own land locations (`farms`) and their sub-divisions into zones
@@ -1672,6 +1677,456 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/plots:
+    get:
+      tags: [Farm Diary]
+      operationId: listMyDiaryPlots
+      summary: Own plots available for diary entries
+      description: |
+        Lists the caller's own plots, for use as the plot picker when starting a new
+        diary entry. Scoped to the caller's own farmer_id (BR-40).
+
+        **Deliberate stub.** No plots/farms API exists yet, so this returns the same
+        fixed fixture plots for every farmer until the plots module lands
+        (farm-diary.service.ts). `POST /entries` does NOT use this fixture — it
+        validates plot ownership against the real `plots`/`farms` tables, so a fixture
+        plot id is correctly rejected there with 404.
+      x-permission: farmer.diary.view_own
+      x-business-rules: [BR-40]
+      responses:
+        '200':
+          description: The caller's own plots.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiaryPlot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/plots/{plotId}/active-crops:
+    get:
+      tags: [Farm Diary]
+      operationId: listMyDiaryPlotActiveCrops
+      summary: Active (GROWING) crops on an own plot
+      description: |
+        Lists the crop cycles currently in status `GROWING` on the given plot, for use
+        as the crop picker when starting a new diary entry (BR-42b). A `plotId` the
+        caller does not own returns an empty list, never a 403 or 404 (BR-40, BR-40a).
+
+        **Deliberate stub.** Returns the same single fixture crop for any plot id until
+        the plots/farm_crops module lands (farm-diary.service.ts). `POST /entries` does
+        NOT use this fixture — it checks the real `farm_crops` table for BR-42b.
+      x-permission: farmer.diary.view_own
+      x-business-rules: [BR-40, BR-42]
+      parameters:
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Active crops on the plot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiaryActiveCrop' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/taxonomy:
+    get:
+      tags: [Farm Diary]
+      operationId: getMyDiaryTaxonomy
+      summary: Activity category / sub-activity taxonomy
+      description: |
+        The current, active-only activity taxonomy (categories and their nested
+        sub-activities) used to populate the diary entry form. Backed by the
+        admin-manageable `diary_activity_categories` / `diary_sub_activities` tables,
+        not a fixed seed (BR-42a).
+      x-permission: farmer.diary.view_own
+      x-business-rules: [BR-42]
+      responses:
+        '200':
+          description: The active diary taxonomy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryTaxonomy' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/entries:
+    get:
+      tags: [Farm Diary]
+      operationId: listMyDiaryEntries
+      summary: Own diary entries
+      description: |
+        Lists the caller's own diary entries, newest first, optionally filtered by day,
+        month, plot or activity category. Scoped to the caller's own farmer_id; there is
+        no cross-farmer visibility in either direction (BR-40, BR-40a).
+      x-permission: farmer.diary.view_own
+      x-business-rules: [BR-40]
+      parameters:
+        - name: date
+          in: query
+          description: ISO date (YYYY-MM-DD). Returns entries logged on this day only.
+          schema: { type: string, format: date }
+        - name: month
+          in: query
+          description: 'Returns entries logged in this month, format YYYY-MM.'
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        - name: plotId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: categoryKey
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: |
+            Paged diary entries. Each item is a summary (`workerCount`/`photoCount`
+            rather than the full `workers`/`photos` arrays) — fetch
+            `GET /farmers/me/diary/entries/{entryId}` for full detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiaryEntrySummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Diary]
+      operationId: createMyDiaryEntry
+      summary: Log a new diary entry
+      description: |
+        Records one field activity against an own plot and its currently active
+        (`GROWING`) crop cycle, with optional workforce/wage detail (BR-40, BR-42, BR-44).
+
+        A `plotId` the caller does not own returns 404, never 403 (BR-40a). A 422 is
+        returned with one of: `DIARY_INVALID_SUB_ACTIVITY` (the sub-activity does not
+        belong to the given category), `DIARY_NO_ACTIVE_CROP` (the plot, or the given
+        `farmCropId`, has no crop in status `GROWING`), `DIARY_MINUTES_REQUIRED`
+        (`minutes` missing or not greater than zero), `DIARY_WORKER_HOURS_INVALID`
+        (a worker's `hoursWorked` is not in `(0, 24]`), or `DIARY_WAGE_RATE_INVALID` (a
+        worker's `wageRatePaise` is not a positive whole number of paise).
+      x-permission: farmer.diary.create_own
+      x-business-rules: [BR-40, BR-42, BR-44]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryEntryCreateRequest' }
+      responses:
+        '201':
+          description: Diary entry created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/entries/calendar:
+    get:
+      tags: [Farm Diary]
+      operationId: getMyDiaryEntriesCalendar
+      summary: Per-day entry counts for a month
+      description: |
+        Returns, for every day in `month` on which the caller logged at least one diary
+        entry, the date and how many entries were logged that day — for the calendar
+        view's day markers. Scoped to the caller's own farmer_id (BR-40).
+      x-permission: farmer.diary.view_own
+      x-business-rules: [BR-40]
+      parameters:
+        - name: month
+          in: query
+          required: true
+          description: 'Format YYYY-MM.'
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+      responses:
+        '200':
+          description: Per-day entry counts for the month.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryCalendar' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/entries/{entryId}:
+    get:
+      tags: [Farm Diary]
+      operationId: getMyDiaryEntry
+      summary: Own diary entry detail
+      description: |
+        Returns one own diary entry with its full workforce and photo detail. An
+        `entryId` belonging to another farmer, guessed or passed explicitly, returns 404
+        — indistinguishable from a nonexistent id (BR-40, BR-40a).
+      x-permission: farmer.diary.view_own
+      x-business-rules: [BR-40]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The diary entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Farm Diary]
+      operationId: updateMyDiaryEntry
+      summary: Edit an own diary entry
+      description: |
+        Partially updates an own diary entry. `plotId` and `farmCropId` are not
+        editable — moving an entry to a different plot or crop cycle is a
+        delete-and-recreate, not an edit. When `categoryKey`/`subActivityKey` changes,
+        the pair is re-validated exactly as at creation (`DIARY_INVALID_SUB_ACTIVITY`);
+        when `minutes` is supplied it is re-checked (`DIARY_MINUTES_REQUIRED`); when
+        `workers` is supplied it fully replaces the existing set and each worker is
+        re-validated (`DIARY_WORKER_HOURS_INVALID`, `DIARY_WAGE_RATE_INVALID`).
+        Succeeds regardless of how old the entry's `activityOn` is (BR-43c).
+      x-permission: farmer.diary.edit_own
+      x-business-rules: [BR-42, BR-43, BR-44]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryEntryUpdateRequest' }
+      responses:
+        '200':
+          description: Updated diary entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farm Diary]
+      operationId: deleteMyDiaryEntry
+      summary: Delete an own diary entry
+      description: Deletes an own diary entry and its workforce/photo detail (BR-43).
+      x-permission: farmer.diary.delete_own
+      x-business-rules: [BR-43]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/entries/{entryId}/photos:
+    post:
+      tags: [Farm Diary]
+      operationId: addMyDiaryEntryPhoto
+      summary: Attach a photo to an own diary entry
+      description: |
+        Attaches a photo previously uploaded through `POST /uploads/sign` (purpose
+        `DIARY_PHOTO`) to an own diary entry. EXIF is stripped before `storageKey` is
+        written, exactly as for produce photos (BR-16, BR-41).
+      x-permission: farmer.diary.edit_own
+      x-business-rules: [BR-41]
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryPhotoAttachRequest' }
+      responses:
+        '201':
+          description: Photo attached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryPhoto' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/diary/entries/{entryId}/photos/{photoId}:
+    delete:
+      tags: [Farm Diary]
+      operationId: deleteMyDiaryEntryPhoto
+      summary: Remove a photo from an own diary entry
+      description: Removes a photo attachment from an own diary entry.
+      x-permission: farmer.diary.edit_own
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/diary/categories:
+    post:
+      tags: [Farm Diary]
+      operationId: createDiaryCategory
+      summary: Create an activity taxonomy category
+      description: |
+        Adds a new top-level activity category to the admin-manageable diary taxonomy.
+        A `key` that already exists returns 409 (BR-45).
+      x-permission: admin.diary_taxonomy.manage
+      x-business-rules: [BR-45]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryCategoryCreateRequest' }
+      responses:
+        '201':
+          description: Category created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryCategory' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/diary/categories/{key}:
+    patch:
+      tags: [Farm Diary]
+      operationId: updateDiaryCategory
+      summary: Edit or retire an activity taxonomy category
+      description: |
+        Partially updates a category, including retiring it via `isActive: false`. A
+        retired category is excluded from the farmer-facing taxonomy and from new-entry
+        validation, but is never hard-deleted — existing diary entries referencing it
+        remain valid (BR-45).
+      x-permission: admin.diary_taxonomy.manage
+      x-business-rules: [BR-45]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: 'Category key, e.g. land_prep.'
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryCategoryUpdateRequest' }
+      responses:
+        '200':
+          description: Updated category.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryCategory' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/diary/categories/{categoryKey}/sub-activities:
+    post:
+      tags: [Farm Diary]
+      operationId: createDiarySubActivity
+      summary: Create a sub-activity under a taxonomy category
+      description: |
+        Adds a new sub-activity beneath an existing category. `key` must be
+        `<categoryKey>.<name>` (e.g. `land_prep.ploughing_tilling`) or the request is
+        rejected with `VALIDATION_FAILED`; a `key` that already exists returns 409
+        (BR-45).
+      x-permission: admin.diary_taxonomy.manage
+      x-business-rules: [BR-45]
+      parameters:
+        - name: categoryKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiarySubActivityCreateRequest' }
+      responses:
+        '201':
+          description: Sub-activity created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiarySubActivity' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/diary/sub-activities/{key}:
+    patch:
+      tags: [Farm Diary]
+      operationId: updateDiarySubActivity
+      summary: Edit or retire a sub-activity
+      description: |
+        Partially updates a sub-activity, including retiring it via `isActive: false`,
+        following the same never-hard-delete rule as its parent category (BR-45).
+      x-permission: admin.diary_taxonomy.manage
+      x-business-rules: [BR-45]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: 'Sub-activity key, e.g. land_prep.ploughing_tilling.'
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiarySubActivityUpdateRequest' }
+      responses:
+        '200':
+          description: Updated sub-activity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiarySubActivity' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -4245,6 +4700,11 @@ components:
         * `OAUTH_TOKEN_INVALID` — Google/Facebook rejected, or could not verify, the provided token (BR-39).
         * `OAUTH_IDENTITY_ALREADY_LINKED` — that provider identity is already linked to a different account (BR-39).
         * `OAUTH_LINK_TOKEN_INVALID` — the `linkToken` passed to `/auth/otp/verify` is expired, malformed or tampered with (BR-39).
+        * `DIARY_INVALID_SUB_ACTIVITY` — the sub-activity does not belong to the given activity category (BR-42).
+        * `DIARY_NO_ACTIVE_CROP` — the plot has no farm_crops row in status GROWING (BR-42).
+        * `DIARY_MINUTES_REQUIRED` — diary entry time-spent minutes is missing or not greater than zero (BR-42).
+        * `DIARY_WORKER_HOURS_INVALID` — a diary workforce entry's hoursWorked is not greater than 0 and at most 24 (BR-44).
+        * `DIARY_WAGE_RATE_INVALID` — a diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44).
       required: [type, title, status, code, correlationId]
       properties:
         type:
@@ -4309,7 +4769,7 @@ components:
       properties:
         purpose:
           type: string
-          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO]
+          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE]
         contentType: { type: string, examples: [image/jpeg, application/pdf] }
         sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
         fileName: { type: string, maxLength: 200 }
@@ -4998,6 +5458,355 @@ components:
         issuedOn: { type: string, format: date }
         expiresOn: { type: string, format: date }
         documentUrl: { type: string, format: uri }
+
+    DiaryPlot:
+      type: object
+      description: |
+        A farmer's own plot, for use as the plot picker on a new diary entry.
+        Currently a deliberate stub fixture — see `GET /farmers/me/diary/plots`.
+      required: [id, name, areaAcres]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        areaAcres: { type: [number, 'null'] }
+
+    DiaryActiveCrop:
+      type: object
+      description: |
+        A crop cycle currently in status GROWING on a plot (BR-42b). Currently a
+        deliberate stub fixture — see `GET /farmers/me/diary/plots/{plotId}/active-crops`.
+      required: [id, cropName, plantedOn]
+      properties:
+        id: { type: string, format: uuid }
+        cropName: { type: string }
+        plantedOn: { type: [string, 'null'], format: date }
+
+    DiarySubActivity:
+      type: object
+      description: A specific activity within a diary taxonomy category (BR-45).
+      required: [key, categoryKey, name, nameTa, sortOrder, isActive]
+      properties:
+        key: { type: string, example: land_prep.ploughing_tilling }
+        categoryKey: { type: string, example: land_prep }
+        name: { type: string }
+        nameTa: { type: [string, 'null'] }
+        sortOrder: { type: integer, minimum: 0, maximum: 32767 }
+        isActive: { type: boolean }
+
+    DiaryCategory:
+      type: object
+      description: A top-level diary activity category (BR-45).
+      required: [key, name, nameTa, iconKey, sortOrder, isActive]
+      properties:
+        key: { type: string, example: land_prep }
+        name: { type: string }
+        nameTa: { type: [string, 'null'] }
+        iconKey: { type: [string, 'null'] }
+        sortOrder: { type: integer, minimum: 0, maximum: 32767 }
+        isActive: { type: boolean }
+
+    DiaryTaxonomy:
+      type: object
+      description: |
+        The current, active-only activity taxonomy: every active category with its
+        nested active sub-activities (BR-42a, BR-45b).
+      required: [categories]
+      properties:
+        categories:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/DiaryCategory'
+              - type: object
+                required: [subActivities]
+                properties:
+                  subActivities:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiarySubActivity' }
+
+    DiaryWorkerInput:
+      type: object
+      description: |
+        One worker's labour/wage detail on a diary entry. `wageRatePaise` is integer
+        paise, not a decimal rupee string — root CLAUDE.md §2.2, money is never a float
+        (see db/migrations/0021_farm_diary_workforce.sql). `hoursWorked` must be
+        greater than 0 and at most 24, or the request is rejected with
+        `DIARY_WORKER_HOURS_INVALID` (BR-44a); `wageRatePaise` must be a positive
+        whole number of paise, or `DIARY_WAGE_RATE_INVALID` (BR-44b).
+      required: [name, hoursWorked, wageRatePaise]
+      properties:
+        name: { type: string, maxLength: 120 }
+        role: { type: string, maxLength: 80 }
+        hoursWorked: { type: number, exclusiveMinimum: 0, maximum: 24 }
+        wageRatePaise: { type: integer, minimum: 1, description: Integer paise per hour. }
+        paymentStatus: { type: string, enum: [PENDING, PAID], default: PENDING }
+      additionalProperties: false
+
+    DiaryWorker:
+      allOf:
+        - $ref: '#/components/schemas/DiaryWorkerInput'
+        - type: object
+          required: [id, paymentStatus]
+          properties:
+            id: { type: string, format: uuid }
+
+    DiaryPhoto:
+      type: object
+      description: A photo attached to a diary entry (BR-16, BR-41 — EXIF/GPS already stripped).
+      required: [id, storageKey, mimeType, sizeBytes, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        storageKey: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+
+    DiaryPhotoAttachRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/diary/entries/{entryId}/photos`. `storageKey` must be
+        a key previously issued by `POST /uploads/sign` for purpose `DIARY_PHOTO`.
+      required: [storageKey, mimeType, sizeBytes]
+      properties:
+        storageKey:
+          type: string
+          minLength: 1
+          maxLength: 512
+          pattern: '^[a-z0-9_]+/[A-Za-z0-9._-]+$'
+          description: A key returned by `POST /uploads/sign` for purpose `DIARY_PHOTO`.
+        mimeType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
+      additionalProperties: false
+
+    DiaryEntryCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/diary/entries`. There is deliberately no `farmerId`
+        field — the owner is always the caller (BR-40). `farmCropId` may be omitted —
+        the server attaches the plot's most recently planted GROWING crop cycle — but
+        when supplied it must itself be a GROWING crop on that plot, or the request is
+        rejected with `DIARY_NO_ACTIVE_CROP` (BR-42b).
+      required: [plotId, categoryKey, subActivityKey, minutes]
+      properties:
+        plotId: { type: string, format: uuid }
+        farmCropId: { type: string, format: uuid }
+        categoryKey: { type: string }
+        subActivityKey: { type: string }
+        minutes:
+          type: integer
+          maximum: 1440
+          description: Time spent, in minutes. Missing or non-positive returns `DIARY_MINUTES_REQUIRED` (BR-42c).
+        activityFields:
+          type: object
+          additionalProperties: true
+          default: {}
+          description: Free-form fields specific to the chosen sub-activity.
+        notes: { type: string, maxLength: 2000 }
+        activityOn: { type: string, format: date, description: 'Format YYYY-MM-DD. Defaults to today.' }
+        voiceNoteKey: { type: string, minLength: 1, maxLength: 512 }
+        voiceNoteDurationS: { type: integer, minimum: 1, maximum: 32767 }
+        workers:
+          type: array
+          maxItems: 100
+          default: []
+          items: { $ref: '#/components/schemas/DiaryWorkerInput' }
+      additionalProperties: false
+
+    DiaryEntryUpdateRequest:
+      type: object
+      description: |
+        Partial update of a diary entry — at least one field must be supplied.
+        `plotId` and `farmCropId` are NOT present: they are not editable (BR-43).
+        `workers`, when supplied, REPLACES the whole workforce set (BR-44c); when
+        omitted the existing set is left untouched. Nullable fields accept `null` to
+        clear them.
+      properties:
+        categoryKey: { type: string }
+        subActivityKey: { type: string }
+        minutes: { type: integer, maximum: 1440 }
+        activityFields: { type: object, additionalProperties: true }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        activityOn: { type: string, format: date }
+        voiceNoteKey: { type: [string, 'null'], minLength: 1, maxLength: 512 }
+        voiceNoteDurationS: { type: [integer, 'null'], minimum: 1, maximum: 32767 }
+        workers:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/DiaryWorkerInput' }
+      additionalProperties: false
+
+    DiaryEntrySummary:
+      type: object
+      description: |
+        A logged farm activity, list form — `workerCount`/`photoCount` instead of the
+        full `workers`/`photos` arrays (see `DiaryEntry` for the detail view).
+      required:
+        - id
+        - plotId
+        - farmCropId
+        - categoryKey
+        - subActivityKey
+        - minutes
+        - notes
+        - activityOn
+        - loggedAt
+        - totalLabourCostPaise
+        - createdAt
+        - updatedAt
+        - workerCount
+        - photoCount
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        farmCropId: { type: string, format: uuid }
+        categoryKey: { type: string }
+        subActivityKey: { type: string }
+        minutes: { type: integer }
+        notes: { type: [string, 'null'] }
+        activityOn: { type: string, format: date }
+        loggedAt: { type: string, format: date-time }
+        totalLabourCostPaise:
+          type: integer
+          minimum: 0
+          description: |
+            Read-only. Integer paise, computed at read time as
+            ROUND(SUM(hoursWorked * wageRatePaise)) over the entry's workers — never
+            stored (root CLAUDE.md §2.2 — money is never a float; BR-44).
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+        workerCount: { type: integer, minimum: 0 }
+        photoCount: { type: integer, minimum: 0 }
+
+    DiaryEntry:
+      type: object
+      description: |
+        A logged farm activity, with full workforce and photo detail and computed
+        workforce cost. `totalLabourCostPaise` is computed at read time as
+        ROUND(SUM(hoursWorked * wageRatePaise)) over `workers` — never stored — so it
+        can never drift from an edited worker set (BR-40, BR-42, BR-44).
+      required:
+        - id
+        - plotId
+        - farmCropId
+        - categoryKey
+        - subActivityKey
+        - minutes
+        - activityFields
+        - notes
+        - activityOn
+        - loggedAt
+        - voiceNoteKey
+        - voiceNoteDurationS
+        - workers
+        - totalLabourCostPaise
+        - createdAt
+        - updatedAt
+        - photos
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        farmCropId: { type: string, format: uuid }
+        categoryKey: { type: string }
+        subActivityKey: { type: string }
+        minutes: { type: integer }
+        activityFields: { type: object, additionalProperties: true }
+        notes: { type: [string, 'null'] }
+        activityOn: { type: string, format: date }
+        loggedAt: { type: string, format: date-time }
+        voiceNoteKey: { type: [string, 'null'] }
+        voiceNoteDurationS: { type: [integer, 'null'] }
+        workers:
+          type: array
+          items: { $ref: '#/components/schemas/DiaryWorker' }
+        totalLabourCostPaise:
+          type: integer
+          minimum: 0
+          description: |
+            Read-only. Integer paise, computed from `workers`, never stored (root
+            CLAUDE.md §2.2 — money is never a float; see db/migrations/0021).
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/DiaryPhoto' }
+
+    DiaryCalendar:
+      type: object
+      description: Per-day entry counts for one month, for the diary calendar view's day markers (BR-40).
+      required: [month, days]
+      properties:
+        month: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        days:
+          type: array
+          items:
+            type: object
+            required: [date, entryCount]
+            properties:
+              date: { type: string, format: date }
+              entryCount: { type: integer, minimum: 1 }
+
+    DiaryCategoryCreateRequest:
+      type: object
+      description: Body of `POST /admin/diary/categories` (BR-45).
+      required: [key, name, sortOrder]
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: '^[a-z0-9_.]+$'
+          example: land_prep
+          description: Lowercase letters, digits, "_" and ".".
+        name: { type: string, maxLength: 120 }
+        nameTa: { type: string, maxLength: 120 }
+        iconKey: { type: string, maxLength: 80 }
+        sortOrder: { type: integer, minimum: 0, maximum: 32767 }
+      additionalProperties: false
+
+    DiaryCategoryUpdateRequest:
+      type: object
+      description: |
+        Partial update of a taxonomy category — at least one field must be supplied.
+        Retiring a category (`isActive: false`) excludes it from the farmer-facing
+        taxonomy and from new-entry validation, but never hard-deletes it — existing
+        diary entries referencing it remain valid (BR-45b).
+      properties:
+        name: { type: string, maxLength: 120 }
+        nameTa: { type: [string, 'null'], maxLength: 120 }
+        iconKey: { type: [string, 'null'], maxLength: 80 }
+        sortOrder: { type: integer, minimum: 0, maximum: 32767 }
+        isActive: { type: boolean }
+      additionalProperties: false
+
+    DiarySubActivityCreateRequest:
+      type: object
+      description: Body of `POST /admin/diary/categories/{categoryKey}/sub-activities` (BR-45).
+      required: [key, name, sortOrder]
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: '^[a-z0-9_.]+$'
+          example: land_prep.ploughing_tilling
+          description: Must be `<categoryKey>.<name>`.
+        name: { type: string, maxLength: 120 }
+        nameTa: { type: string, maxLength: 120 }
+        sortOrder: { type: integer, minimum: 0, maximum: 32767 }
+      additionalProperties: false
+
+    DiarySubActivityUpdateRequest:
+      type: object
+      description: |
+        Partial update of a sub-activity — at least one field must be supplied,
+        following the same never-hard-delete retirement rule as its parent category
+        (BR-45b).
+      properties:
+        name: { type: string, maxLength: 120 }
+        nameTa: { type: [string, 'null'], maxLength: 120 }
+        sortOrder: { type: integer, minimum: 0, maximum: 32767 }
+        isActive: { type: boolean }
+      additionalProperties: false
 
     GeoJsonPolygon:
       type: object

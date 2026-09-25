@@ -647,6 +647,81 @@
       "source": "requirements §7.1 — farmer weather dashboard (own-farm scope)"
     },
     {
+      "code": "farmer.diary.view_own",
+      "module": "Farm Diary",
+      "description": "View own farm diary entries, plots, active crops and the activity category/sub-activity taxonomy.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "view",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.diary.create_own",
+      "module": "Farm Diary",
+      "description": "Create a new farm diary entry, including workforce/wage lines and attached photos, against an own plot.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.diary.edit_own",
+      "module": "Farm Diary",
+      "description": "Edit an own farm diary entry.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.diary.delete_own",
+      "module": "Farm Diary",
+      "description": "Delete an own farm diary entry.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "admin.diary_taxonomy.manage",
+      "module": "Farm Diary",
+      "description": "Create, edit and retire the farm diary activity category / sub-activity taxonomy.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-45, product decision 2026-09-24"
+    },
+    {
       "code": "produce.calendar.view_consolidated",
       "module": "Produce Control",
       "description": "View the consolidated produce calendar across all farmers.",
