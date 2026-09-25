@@ -357,6 +357,31 @@ export async function resetPassword(body: {
   return undefined as unknown as { message: string };
 }
 
+/**
+ * `POST /auth/me/change-password`. Requires the caller to already be authenticated -- the
+ * bearer token is attached automatically by `request()`, same as every other authenticated
+ * call in this file.
+ *
+ * Unlike `resetPassword` above, a successful call here does not just rotate the password: the
+ * server revokes every session belonging to this user, including the one making this very
+ * request. The access token this app is holding in memory is therefore already invalid the
+ * instant the request resolves, so clearing it locally isn't optional cleanup -- it's this
+ * client catching up with what the server already did. Mirrors `logout()`'s `finally` block
+ * (`setAccessToken(null)` + `clearTokens()`) exactly, minus the `apiLogout()` call: this request
+ * IS the action that ends the session, there is nothing left to notify the server of.
+ */
+export async function changePassword(body: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await request<void>('/auth/me/change-password', {
+    method: 'POST',
+    body,
+  });
+  setAccessToken(null);
+  await clearTokens();
+}
+
 export async function fetchMe(): Promise<UserMe> {
   return (await apiFetchCurrentUser()) as unknown as UserMe;
 }

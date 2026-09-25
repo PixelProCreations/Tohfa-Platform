@@ -520,21 +520,24 @@ export default function App(): React.JSX.Element {
         ) : screen === 'FMBSketch' ? (
           <FMBSketchScreen
             onNavigateBack={goBack}
-            onNavigateToFieldContext={() => navigate('FieldContext')}
+            onNavigateToFieldContext={(farmId) => navigate('FieldContext', { farmId })}
           />
         ) : screen === 'FieldContext' ? (
           <FieldContextScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToZones={() => navigate('Zones')}
+            onNavigateToZones={(farmId) => navigate('Zones', { farmId })}
           />
         ) : screen === 'Zones' ? (
           <ZonesScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToAddZone={() => navigate('AddZone')}
+            onNavigateToAddZone={(farmId) => navigate('AddZone', { farmId })}
             onSave={goBack}
           />
         ) : screen === 'AddZone' ? (
           <AddZoneScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
             onSave={goBack}
           />
@@ -1257,7 +1260,7 @@ export default function App(): React.JSX.Element {
             onNavigateToPassword={() => navigate('ChangePassword')}
           />
         ) : screen === 'ChangePassword' ? (
-          <ChangePasswordScreen onBack={goBack} />
+          <ChangePasswordScreen onBack={goBack} onSuccess={() => navigate('PasswordChangedSuccess')} />
         ) : screen === 'Settings' ? (
           <SettingsScreen
             onBack={goBack}

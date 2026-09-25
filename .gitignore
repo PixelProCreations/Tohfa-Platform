@@ -55,3 +55,6 @@ AI_BUILD_MANUAL.md
 Farmer app branding guidelines/
 requirement-doc/
 
+# Local dev blob storage fallback (LocalDiskBlobStorage, used when
+# AZURE_STORAGE_CONNECTION_STRING is unset -- see apps/api/src/storage/blobStorage.ts)
+apps/api/.local-uploads/

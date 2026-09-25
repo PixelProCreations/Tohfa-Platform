@@ -295,6 +295,74 @@ describe('User Story 43 (S-43) Registration Tests', () => {
     });
   });
 
+  describe('restoreFullDraft (lost-draft recovery via GET /farmers/applications/:id)', () => {
+    // Covers RegistrationFlowScreen.tsx's `updateStepAndAdvance`: a farmer whose local draft
+    // was lost (reinstall, cleared storage, new device) hits a `409 CONFLICT` re-creating their
+    // application, recovers the existing application id from `problem.meta`, fetches the full
+    // draft via `getFarmerApplicationDraft`, and restores it here in one shot.
+
+    it('registration: restoreFullDraft replaces the whole draft from a server response, leaving never-saved steps undefined', () => {
+      // Server-shape input: a farmer who reached step 3 server-side (steps 1 and 2 saved,
+      // step 3 never touched -- exactly what `GET /farmers/applications/:id` returns as a bare
+      // `{}` for an unsaved step, confirmed against the live dev API).
+      useRegistrationDraftStore.setState({
+        draft: { applicationId: 'stale-local-id', currentStep: 1, step1: { fullName: 'Stale Local Data' } },
+      });
+
+      useRegistrationDraftStore.getState().restoreFullDraft({
+        applicationId: 'server-app-uuid-1',
+        currentStep: 3,
+        step1Personal: { fullName: 'Recovered Farmer', mobile: '+919876500001', village: 'Ithalar' },
+        step2FarmDetails: { farmName: 'Recovered Farm', typeOfFarming: 'Organic', experienceYears: 6 },
+        step3Location: {}, // never saved -- must NOT become `{ locations: undefined }` or similar
+        step4Documents: {},
+      });
+
+      const draft = useRegistrationDraftStore.getState().draft;
+      // The stale local applicationId and step1 data are gone entirely -- restoreFullDraft
+      // replaces the draft, it does not merge into what was there before.
+      expect(draft.applicationId).toBe('server-app-uuid-1');
+      expect(draft.currentStep).toBe(3);
+      expect(draft.step1?.fullName).toBe('Recovered Farmer');
+      expect(draft.step1?.village).toBe('Ithalar');
+      expect(draft.step2?.farmName).toBe('Recovered Farm');
+      expect(draft.step2?.experienceYears).toBe(6);
+      // Never-saved steps stay undefined -- an empty `{}` from the server is not "saved, empty".
+      expect(draft.step3).toBeUndefined();
+      expect(draft.step4).toBeUndefined();
+    });
+
+    it('registration: restoreFullDraft clamps currentStep into the valid 1-5 range', () => {
+      useRegistrationDraftStore.getState().restoreFullDraft({
+        applicationId: 'server-app-uuid-2',
+        currentStep: 0,
+      });
+      expect(useRegistrationDraftStore.getState().draft.currentStep).toBe(1);
+
+      useRegistrationDraftStore.getState().restoreFullDraft({
+        applicationId: 'server-app-uuid-3',
+        currentStep: 9,
+      });
+      expect(useRegistrationDraftStore.getState().draft.currentStep).toBe(5);
+    });
+
+    it('registration: restoreFullDraft restores a fully-completed draft (steps 1-4 all present) at step 5', () => {
+      useRegistrationDraftStore.getState().restoreFullDraft({
+        applicationId: 'server-app-uuid-4',
+        currentStep: 5,
+        step1Personal: { fullName: 'Full Farmer', mobile: '+919876500002' },
+        step2FarmDetails: { farmName: 'Full Farm', typeOfFarming: 'Mixed', experienceYears: 10 },
+        step3Location: { locations: [{ id: 'loc-1', label: 'Home plot', areaAcres: 2, latitude: 11.4, longitude: 76.7 }] },
+        step4Documents: { documents: [{ docType: 'ID_PROOF', fileUrl: 'https://storage.tohfa.in/id.pdf' }] },
+      });
+
+      const draft = useRegistrationDraftStore.getState().draft;
+      expect(draft.currentStep).toBe(5);
+      expect(draft.step3?.locations).toHaveLength(1);
+      expect(draft.step4?.documents).toHaveLength(1);
+    });
+  });
+
   describe('Per-Step Validation vs Cross-Step Submission Pass', () => {
     it('registration: step 1 validates personal fields independently without blocking on step 2 or 4', () => {
       const validStep1 = {

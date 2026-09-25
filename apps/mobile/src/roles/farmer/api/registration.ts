@@ -2,6 +2,12 @@
  * Typed API client methods for Farmer Registration (S-43).
  */
 import { request } from '../../../shell/api/client';
+import type {
+  Step1PersonalData,
+  Step2FarmData,
+  Step3LocationData,
+  Step4DocumentsData,
+} from '../storage/registrationDraft';
 
 export interface CreateFarmerApplicationPayload {
   mobile: string;
@@ -48,6 +54,55 @@ export async function createFarmerApplication(
     method: 'POST',
     body,
   });
+}
+
+/**
+ * Full draft returned by `GET /farmers/applications/:id` -- everything saved so far via
+ * `PATCH /farmers/applications/:id/steps/:step`, not just the lightweight status timeline
+ * `fetchApplicationStatus` (`/status`) returns. Same auth-free, possess-the-UUID posture as
+ * `saveFarmerApplicationStep`/`signApplicationUpload` (see `docs/openapi.yaml`'s
+ * `getFarmerApplicationDraft` operation).
+ *
+ * A farmer who lost their local draft (reinstall, cleared storage, new device) re-triggers
+ * `createFarmerApplication`, which now 409s with `problem.meta.applicationId` for that live
+ * application; this endpoint is what the client calls next to recover the full draft behind
+ * that id (see `RegistrationFlowScreen.tsx`'s `updateStepAndAdvance`).
+ *
+ * `step1Personal`/`step2FarmDetails` mirror exactly what `saveFarmerApplicationStep` sends for
+ * those steps -- the server stores each step's payload verbatim, so these are the same
+ * `Step1PersonalData`/`Step2FarmData` shapes the local draft store already uses, not a
+ * server-invented shape. Same for `step3Location`/`step4Documents` against
+ * `Step3LocationData`/`Step4DocumentsData`. Each is `Partial<...>` because a step that was
+ * never saved comes back as a bare `{}` -- e.g. `Step3LocationData` normally requires
+ * `locations`, but an application still on step 1 has no `locations` key at all yet.
+ */
+export interface FullDraftResponse {
+  id: string;
+  mobile: string;
+  fullName: string;
+  preferredLocale?: 'en' | 'ta';
+  status: 'SUBMITTED' | 'DOCS_REVIEW' | 'FARM_VERIFICATION' | 'AUDIT' | 'APPROVED' | 'REJECTED';
+  /**
+   * True while the farmer is still filling in the 5-step form; flips false the moment
+   * `submitFarmerApplication` succeeds. This -- not `status` -- is the "still drafting vs.
+   * already submitted" signal: `status` defaults to `SUBMITTED` server-side from the moment the
+   * draft is created (there is no `DRAFT` value in the `application_status` enum at all,
+   * `db/migrations/0001_extensions_and_enums.sql`), so it stays `SUBMITTED` throughout steps
+   * 1-5 and only starts meaning "in the review pipeline" once `isDraft` is false.
+   */
+  isDraft: boolean;
+  currentStep: number;
+  completedSteps: number[];
+  step1Personal: Partial<Step1PersonalData>;
+  step2FarmDetails: Partial<Step2FarmData>;
+  step3Location: Partial<Step3LocationData>;
+  step4Documents: Partial<Step4DocumentsData>;
+  submittedAt: string | null;
+  createdAt: string;
+}
+
+export async function getFarmerApplicationDraft(applicationId: string): Promise<FullDraftResponse> {
+  return await request<FullDraftResponse>(`/farmers/applications/${applicationId}`);
 }
 
 export async function saveFarmerApplicationStep(

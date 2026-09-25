@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -15,7 +14,7 @@ export interface DatePickerProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (date: Date, formattedDate: string) => void;
-  value: Date | string | null | undefined;
+  value?: Date | string | null | undefined;
   title?: string;
   minDate?: Date;
   maxDate?: Date;
@@ -47,13 +46,22 @@ export function parseDateInput(value: Date | string | null | undefined): Date {
     const trimmed = value.trim();
     if (trimmed.length === 0) return new Date();
 
-    // `DD / MM / YYYY` (and tolerant variants: no spaces, `-` separators) -- this app's own
-    // registration date fields, which is the shape this picker is actually fed in practice.
+    // `DD / MM / YYYY` (and tolerant variants: no spaces, `-` separators)
     const slashMatch = trimmed.match(/^(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})$/);
     if (slashMatch?.[1] && slashMatch[2] && slashMatch[3]) {
       const day = Number(slashMatch[1]);
       const month = Number(slashMatch[2]);
       const year = Number(slashMatch[3]);
+      const parsed = new Date(year, month - 1, day);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+
+    // `YYYY-MM-DD`
+    const ymdMatch = trimmed.match(/^(\d{4})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})$/);
+    if (ymdMatch?.[1] && ymdMatch[2] && ymdMatch[3]) {
+      const year = Number(ymdMatch[1]);
+      const month = Number(ymdMatch[2]);
+      const day = Number(ymdMatch[3]);
       const parsed = new Date(year, month - 1, day);
       if (!isNaN(parsed.getTime())) return parsed;
     }
@@ -68,13 +76,14 @@ export function parseDateInput(value: Date | string | null | undefined): Date {
 }
 
 /** Token-substitution formatter: `DD`, `MM`, `YYYY`, `MMM` (short month name). */
-export function formatDateOutput(date: Date, format: string): string {
+export function formatDateOutput(date: Date, format: string = 'DD / MM / YYYY'): string {
+  const safeFormat = format || 'DD / MM / YYYY';
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = String(date.getFullYear());
   const monthShort = MONTH_SHORT_NAMES[date.getMonth()] ?? '';
 
-  return format
+  return safeFormat
     .replace(/YYYY/g, year)
     .replace(/MMM/g, monthShort)
     .replace(/MM/g, month)
@@ -107,11 +116,13 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const [viewMonth, setViewMonth] = useState<number>(initialDate.getMonth());
 
   const yearScrollViewRef = useRef<ScrollView>(null);
+  const prevVisibleRef = useRef<boolean>(false);
 
-  // Sync state when the modal becomes visible or the caller's value changes underneath it --
-  // re-derived fresh each open rather than trusted as still-current stale state.
+  // CRITICAL: Only re-initialize date/mode when the modal transitions from CLOSED to OPEN.
+  // We do NOT re-run this on every parent re-render (which happens every second for OTP timers),
+  // otherwise the user's active year/month selection would get constantly wiped out!
   useEffect(() => {
-    if (visible) {
+    if (visible && !prevVisibleRef.current) {
       const parsed = parseDateInput(value);
       const safe =
         maxDate && parsed > maxDate
@@ -124,6 +135,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       setViewMonth(safe.getMonth());
       setCurrentMode('days');
     }
+    prevVisibleRef.current = visible;
   }, [visible, value, minDate, maxDate]);
 
   const minYear = minDate ? minDate.getFullYear() : 1920;
@@ -137,22 +149,30 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     return list;
   }, [minYear, maxYear]);
 
-  // Auto-scroll to the selected year when year mode opens, so a birth year decades back
-  // doesn't leave the farmer scrolling through a hundred rows to find where they landed.
+  // Auto-scroll to the selected year when year mode opens
   useEffect(() => {
     if (currentMode === 'year' && yearScrollViewRef.current) {
       const index = yearsList.indexOf(viewYear);
       if (index >= 0) {
         const rowIndex = Math.floor(index / 3);
-        const approxOffset = Math.max(0, rowIndex * 50 - 60);
+        const approxOffset = Math.max(0, rowIndex * 48 - 50);
         setTimeout(() => {
           yearScrollViewRef.current?.scrollTo({ y: approxOffset, animated: false });
-        }, 50);
+        }, 80);
       }
     }
   }, [currentMode, viewYear, yearsList]);
 
-  const handlePrevMonth = () => {
+  const handlePrev = () => {
+    if (currentMode === 'year') {
+      setViewYear((y) => Math.max(minYear, y - 10));
+      return;
+    }
+    if (currentMode === 'month') {
+      setViewYear((y) => Math.max(minYear, y - 1));
+      return;
+    }
+    // Days mode
     if (viewMonth === 0) {
       if (viewYear > minYear) {
         setViewMonth(11);
@@ -163,7 +183,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     }
   };
 
-  const handleNextMonth = () => {
+  const handleNext = () => {
+    if (currentMode === 'year') {
+      setViewYear((y) => Math.min(maxYear, y + 10));
+      return;
+    }
+    if (currentMode === 'month') {
+      setViewYear((y) => Math.min(maxYear, y + 1));
+      return;
+    }
+    // Days mode
     if (viewMonth === 11) {
       if (viewYear < maxYear) {
         setViewMonth(0);
@@ -210,7 +239,6 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   const handleSelectMonth = (monthIndex: number) => {
     setViewMonth(monthIndex);
-    // Keep the selected day valid for the new month (e.g. the 31st doesn't exist in April).
     const maxDays = new Date(viewYear, monthIndex + 1, 0).getDate();
     const safeDay = Math.min(selectedDate.getDate(), maxDays);
     setSelectedDate(new Date(viewYear, monthIndex, safeDay));
@@ -231,12 +259,39 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   };
 
   const primaryColor = theme.colors.primary || '#2E7D32';
-  const isPrevMonthDisabled = viewYear <= minYear && viewMonth === 0;
-  const isNextMonthDisabled = viewYear >= maxYear && viewMonth === 11;
+  const isPrevDisabled =
+    currentMode === 'year'
+      ? viewYear - 10 < minYear
+      : currentMode === 'month'
+        ? viewYear <= minYear
+        : viewYear <= minYear && viewMonth === 0;
 
-  // Leading blank cells so day 1 lands under the correct weekday column.
-  const leadingBlanks = Array.from({ length: startDayOfWeek }, (_, i) => `blank-${i}`);
-  const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const isNextDisabled =
+    currentMode === 'year'
+      ? viewYear + 10 > maxYear
+      : currentMode === 'month'
+        ? viewYear >= maxYear
+        : viewYear >= maxYear && viewMonth === 11;
+
+  // Group days into 7-column rows so Android sub-pixel rounding can never wrap Saturday
+  const weekRows = useMemo(() => {
+    const cells: Array<{ type: 'empty'; id: string } | { type: 'day'; day: number }> = [];
+    for (let i = 0; i < startDayOfWeek; i++) {
+      cells.push({ type: 'empty', id: `empty-${i}` });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ type: 'day', day: d });
+    }
+    while (cells.length % 7 !== 0) {
+      cells.push({ type: 'empty', id: `empty-pad-${cells.length}` });
+    }
+
+    const rows: typeof cells[] = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      rows.push(cells.slice(i, i + 7));
+    }
+    return rows;
+  }, [startDayOfWeek, daysInMonth]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -261,21 +316,20 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Month / Year nav bar -- tapping the label switches view mode instead of only
-                  the arrows moving month-by-month. */}
+              {/* Month / Year nav bar */}
               <View style={styles.navBar}>
                 <TouchableOpacity
                   activeOpacity={0.6}
-                  onPress={handlePrevMonth}
-                  disabled={isPrevMonthDisabled}
+                  onPress={handlePrev}
+                  disabled={isPrevDisabled}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityRole="button"
-                  accessibilityLabel="Previous month"
+                  accessibilityLabel="Previous"
                 >
                   <Text
                     style={[
                       styles.navArrow,
-                      { color: isPrevMonthDisabled ? theme.colors.onSurfaceVariant ?? '#bbb' : primaryColor },
+                      { color: isPrevDisabled ? '#DDD' : primaryColor },
                     ]}
                   >
                     ‹
@@ -286,35 +340,62 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <TouchableOpacity
                     activeOpacity={0.6}
                     onPress={() => setCurrentMode(currentMode === 'month' ? 'days' : 'month')}
+                    style={[
+                      styles.selectorPill,
+                      currentMode === 'month' && {
+                        backgroundColor: '#E8F5E9',
+                        borderColor: primaryColor,
+                      },
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel="Choose month"
                   >
-                    <Text style={[styles.navLabelText, { color: theme.colors.onSurface }]}>
-                      {MONTH_NAMES[viewMonth]}
+                    <Text
+                      style={[
+                        styles.navLabelText,
+                        { color: currentMode === 'month' ? primaryColor : theme.colors.onSurface },
+                      ]}
+                    >
+                      {MONTH_NAMES[viewMonth]} ▾
                     </Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     activeOpacity={0.6}
                     onPress={() => setCurrentMode(currentMode === 'year' ? 'days' : 'year')}
+                    style={[
+                      styles.selectorPill,
+                      currentMode === 'year' && {
+                        backgroundColor: '#E8F5E9',
+                        borderColor: primaryColor,
+                      },
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel="Choose year"
                   >
-                    <Text style={[styles.navLabelText, { color: primaryColor }]}>{viewYear}</Text>
+                    <Text
+                      style={[
+                        styles.navLabelText,
+                        { color: currentMode === 'year' ? primaryColor : primaryColor },
+                      ]}
+                    >
+                      {viewYear} ▾
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
                   activeOpacity={0.6}
-                  onPress={handleNextMonth}
-                  disabled={isNextMonthDisabled}
+                  onPress={handleNext}
+                  disabled={isNextDisabled}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityRole="button"
-                  accessibilityLabel="Next month"
+                  accessibilityLabel="Next"
                 >
                   <Text
                     style={[
                       styles.navArrow,
-                      { color: isNextMonthDisabled ? theme.colors.onSurfaceVariant ?? '#bbb' : primaryColor },
+                      { color: isNextDisabled ? '#DDD' : primaryColor },
                     ]}
                   >
                     ›
@@ -322,9 +403,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Body: exactly one of the three modes at a time. */}
+              {/* Body: exactly one of the three modes */}
               {currentMode === 'days' ? (
-                <View>
+                <View style={styles.calendarBody}>
+                  {/* Weekday labels */}
                   <View style={styles.weekdayRow}>
                     {WEEKDAY_NAMES.map((wd) => (
                       <View key={wd} style={styles.weekdayCell}>
@@ -334,50 +416,59 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                       </View>
                     ))}
                   </View>
-                  <View style={styles.dayGrid}>
-                    {leadingBlanks.map((key) => (
-                      <View key={key} style={styles.dayCell} />
-                    ))}
-                    {dayNumbers.map((day) => {
-                      const disabled = isDateDisabled(day);
-                      const selected = isDaySelected(day);
-                      const today = isToday(day);
-                      return (
-                        <TouchableOpacity
-                          key={day}
-                          activeOpacity={0.6}
-                          style={styles.dayCell}
-                          disabled={disabled}
-                          onPress={() => handleSelectDay(day)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${day} ${MONTH_NAMES[viewMonth]} ${viewYear}`}
-                          accessibilityState={{ disabled, selected }}
-                        >
-                          <View
-                            style={[
-                              styles.dayCircle,
-                              selected ? { backgroundColor: primaryColor } : null,
-                              !selected && today ? { borderWidth: 1, borderColor: primaryColor } : null,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.dayText,
-                                {
-                                  color: selected
-                                    ? theme.colors.white
-                                    : disabled
-                                      ? theme.colors.onSurfaceVariant ?? '#ccc'
-                                      : theme.colors.onSurface,
-                                },
-                              ]}
+
+                  {/* 7-column rows */}
+                  <View style={styles.dayGridContainer}>
+                    {weekRows.map((row, rIdx) => (
+                      <View key={`row-${rIdx}`} style={styles.weekRow}>
+                        {row.map((cell) => {
+                          if (cell.type === 'empty') {
+                            return <View key={cell.id} style={styles.dayCell} />;
+                          }
+                          const day = cell.day;
+                          const disabled = isDateDisabled(day);
+                          const selected = isDaySelected(day);
+                          const today = isToday(day);
+
+                          return (
+                            <TouchableOpacity
+                              key={`day-${day}`}
+                              activeOpacity={disabled ? 1 : 0.6}
+                              style={styles.dayCell}
+                              disabled={disabled}
+                              onPress={() => handleSelectDay(day)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${day} ${MONTH_NAMES[viewMonth]} ${viewYear}`}
+                              accessibilityState={{ disabled, selected }}
                             >
-                              {day}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
+                              <View
+                                style={[
+                                  styles.dayCircle,
+                                  selected ? { backgroundColor: primaryColor } : null,
+                                  !selected && today ? { borderWidth: 1.5, borderColor: primaryColor } : null,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.dayText,
+                                    {
+                                      color: selected
+                                        ? theme.colors.white
+                                        : disabled
+                                          ? '#CCC'
+                                          : theme.colors.onSurface,
+                                      fontWeight: selected || today ? '700' : '500',
+                                    },
+                                  ]}
+                                >
+                                  {day}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ))}
                   </View>
                 </View>
               ) : null}
@@ -390,7 +481,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                       <TouchableOpacity
                         key={name}
                         activeOpacity={0.6}
-                        style={[styles.monthCell, selected ? { backgroundColor: primaryColor } : null]}
+                        style={[
+                          styles.monthCell,
+                          selected ? { backgroundColor: primaryColor } : null,
+                        ]}
                         onPress={() => handleSelectMonth(index)}
                         accessibilityRole="button"
                         accessibilityLabel={name}
@@ -419,7 +513,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                         <TouchableOpacity
                           key={year}
                           activeOpacity={0.6}
-                          style={[styles.yearCell, selected ? { backgroundColor: primaryColor } : null]}
+                          style={[
+                            styles.yearCell,
+                            selected ? { backgroundColor: primaryColor } : null,
+                          ]}
                           onPress={() => handleSelectYear(year)}
                           accessibilityRole="button"
                           accessibilityLabel={String(year)}
@@ -455,12 +552,14 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  style={styles.footerBtn}
+                  style={[styles.footerBtn, styles.applyBtn, { backgroundColor: primaryColor }]}
                   onPress={handleApply}
                   accessibilityRole="button"
                   accessibilityLabel="Apply selected date"
                 >
-                  <Text style={[styles.footerBtnText, { color: primaryColor, fontWeight: '700' }]}>Apply</Text>
+                  <Text style={[styles.footerBtnText, { color: theme.colors.white, fontWeight: '700' }]}>
+                    Apply
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -474,16 +573,21 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
   },
   dialog: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
   },
   header: {
     flexDirection: 'row',
@@ -492,7 +596,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
   },
   closeBtn: {
@@ -505,40 +609,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EEE6',
   },
   navArrow: {
-    fontSize: 26,
-    fontWeight: '700',
+    fontSize: 28,
+    lineHeight: 30,
+    fontWeight: '400',
     paddingHorizontal: 8,
   },
   navLabels: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
+  selectorPill: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8E6DD',
+    backgroundColor: '#FAFAF8',
+  },
   navLabelText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
+  },
+  calendarBody: {
+    minHeight: 240,
   },
   weekdayRow: {
     flexDirection: 'row',
+    marginBottom: 4,
   },
   weekdayCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   weekdayText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  dayGrid: {
+  dayGridContainer: {
+    width: '100%',
+  },
+  weekRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    width: '100%',
   },
   dayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
+    flex: 1,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -551,54 +675,71 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 13,
-    fontWeight: '600',
   },
   monthGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingVertical: 4,
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    minHeight: 240,
   },
   monthCell: {
-    width: '30%',
-    paddingVertical: 12,
+    width: '31%',
+    paddingVertical: 14,
+    marginVertical: 4,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8E6DD',
+    backgroundColor: '#FAFAF8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthCellText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   yearScroll: {
-    maxHeight: 260,
+    maxHeight: 240,
   },
   yearGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingVertical: 4,
   },
   yearCell: {
-    width: '30%',
+    width: '31%',
     paddingVertical: 12,
+    marginVertical: 4,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8E6DD',
+    backgroundColor: '#FAFAF8',
     alignItems: 'center',
     justifyContent: 'center',
   },
   yearCellText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 20,
+    alignItems: 'center',
+    gap: 12,
     marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0EEE6',
   },
   footerBtn: {
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  applyBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   footerBtnText: {
     fontSize: 14,

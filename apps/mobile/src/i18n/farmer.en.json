@@ -609,6 +609,8 @@
   "farmer.profile.personal.yearsInOrganicPlaceholder": "e.g. 14 years",
   "farmer.profile.personal.typeOfFarming": "Type of Farming",
   "farmer.profile.personal.farmingTypePlaceholder": "Organic / Conventional",
+  "farmer.profile.personal.notProvided": "Not provided",
+  "farmer.profile.personal.invalidFormat": "Please check this field's format and try again.",
   "farmer.certifications.add.type.OTHER": "Other",
   "farmer.certifications.edit.deleteConfirmTitle": "Delete Certification",
   "farmer.certifications.edit.deleteConfirmBody": "Remove certificate {{number}}? This cannot be undone.",

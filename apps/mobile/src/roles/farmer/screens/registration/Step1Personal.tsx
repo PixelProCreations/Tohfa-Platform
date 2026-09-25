@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   View,
   StyleSheet,
   Text,
@@ -27,6 +29,7 @@ export const Step1Personal: React.FC<Step1Props> = ({ initialData, onSave }) => 
 
   // Extract or default values from initial data
   const scrollRef = useRef<ScrollView>(null);
+  const todayDate = useMemo(() => new Date(), []);
   const [fullName, setFullName] = useState(initialData?.fullName ?? '');
   const [dob, setDob] = useState(initialData?.dob ?? '');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -243,512 +246,527 @@ export const Step1Personal: React.FC<Step1Props> = ({ initialData, onSave }) => 
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bgLight }]}>
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Full Name */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: colors.textBody }]}>
-            Full Name <Text style={{ color: colors.requiredRed }}>*</Text>
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                borderColor: colors.borderLight,
-                color: colors.textDark,
-                backgroundColor: colors.white,
-              },
-              fieldErrors.fullName ? styles.inputError : null,
-            ]}
-            value={fullName}
-            onChangeText={(text) => {
-              setFullName(text);
-              clearFieldError('fullName');
-            }}
-            placeholder="e.g. Kumar"
-            placeholderTextColor={colors.textPlaceholder}
-          />
-          {fieldErrors.fullName ? (
-            <Text style={styles.fieldErrorText}>{fieldErrors.fullName}</Text>
-          ) : null}
-        </View>
-
-        {/* DOB & Gender Side-by-Side */}
-        <View style={styles.rowGrid}>
-          <View style={styles.gridCol}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Full Name */}
+          <View style={styles.fieldGroup}>
             <Text style={[styles.label, { color: colors.textBody }]}>
-              Date of Birth <Text style={{ color: colors.requiredRed }}>*</Text>
+              Full Name <Text style={{ color: colors.requiredRed }}>*</Text>
             </Text>
-            <View
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.borderLight,
-                  backgroundColor: colors.white,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingRight: 8,
-                },
-                fieldErrors.dob ? styles.inputError : null,
-              ]}
-            >
-              <TextInput
-                style={{
-                  flex: 1,
-                  color: colors.textDark,
-                  fontSize: 15,
-                  padding: 0,
-                }}
-                value={dob}
-                onChangeText={(text) => {
-                  setDob(text);
-                  clearFieldError('dob');
-                }}
-                placeholder="DD / MM / YYYY"
-                placeholderTextColor={colors.textPlaceholder}
-                keyboardType="numbers-and-punctuation"
-              />
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setShowDatePicker(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Open calendar"
-              >
-                <Icon name="calendar_today" size={20} color={colors.textSubtle} />
-              </TouchableOpacity>
-            </View>
-            {fieldErrors.dob ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.dob}</Text>
-            ) : null}
-
-            <DatePicker
-              visible={showDatePicker}
-              onClose={() => setShowDatePicker(false)}
-              value={dob}
-              title="Select Date of Birth"
-              maxDate={new Date()}
-              format="DD / MM / YYYY"
-              onSelect={(_date, formattedDate) => {
-                setDob(formattedDate);
-                clearFieldError('dob');
-              }}
-            />
-          </View>
-
-          <View style={styles.gridCol}>
-            <Text style={[styles.label, { color: colors.textBody }]}>
-              Gender <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.dropdownSelect,
-                {
-                  borderColor: colors.borderLight,
-                  backgroundColor: colors.white,
-                },
-                fieldErrors.gender ? styles.inputError : null,
-              ]}
-              onPress={() => setShowGenderMenu(!showGenderMenu)}
-            >
-              <Text style={[styles.dropdownText, { color: colors.onSurface }]}>
-                {gender}
-              </Text>
-              <Text style={[styles.dropdownArrow, { color: colors.textSubtle }]}>▾</Text>
-            </TouchableOpacity>
-            {fieldErrors.gender ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.gender}</Text>
-            ) : null}
-
-            {showGenderMenu ? (
-              <View
-                style={[
-                  styles.dropdownMenu,
-                  {
-                    backgroundColor: colors.white,
-                    borderColor: colors.borderLight,
-                  },
-                ]}
-              >
-                {genderOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[styles.dropdownOption, { borderBottomColor: colors.borderSoft }]}
-                    onPress={() => {
-                      setGender(opt);
-                      clearFieldError('gender');
-                      setShowGenderMenu(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownOptionText,
-                        { color: colors.onSurface },
-                        opt === gender && { fontWeight: '700', color: colors.brandGreen },
-                      ]}
-                    >
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Mobile Number */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: colors.textBody }]}>
-            Mobile Number <Text style={{ color: colors.requiredRed }}>*</Text>
-          </Text>
-          <View style={styles.mobileRow}>
-            <View
-              style={[
-                styles.countryCodeBox,
-                {
-                  borderColor: colors.borderLight,
-                  backgroundColor: colors.prefixBg,
-                },
-              ]}
-            >
-              <Text style={[styles.countryCodeText, { color: colors.textSubtle }]}>+91</Text>
-            </View>
             <TextInput
               style={[
                 styles.input,
-                styles.mobileInput,
                 {
                   borderColor: colors.borderLight,
                   color: colors.textDark,
                   backgroundColor: colors.white,
                 },
-                fieldErrors.mobile ? styles.inputError : null,
+                fieldErrors.fullName ? styles.inputError : null,
               ]}
-              value={mobileNumber}
+              value={fullName}
               onChangeText={(text) => {
-                setMobileNumber(text);
-                clearFieldError('mobile');
+                setFullName(text);
+                clearFieldError('fullName');
               }}
-              keyboardType="phone-pad"
-              placeholder="98765 43210"
+              placeholder="e.g. Kumar"
               placeholderTextColor={colors.textPlaceholder}
             />
+            {fieldErrors.fullName ? (
+              <Text style={styles.fieldErrorText}>{fieldErrors.fullName}</Text>
+            ) : null}
           </View>
-          {fieldErrors.mobile ? (
-            <Text style={styles.fieldErrorText}>{fieldErrors.mobile}</Text>
-          ) : null}
 
-          {isMobileVerified ? (
-            <Text style={[styles.helperText, { color: colors.success }]}>
-              ✓ Mobile number verified
-            </Text>
-          ) : (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                <Text style={[styles.helperText, { color: colors.textSubtle, flex: 1 }]}>
-                  We'll send an OTP to verify
-                </Text>
+          {/* DOB & Gender Side-by-Side */}
+          <View style={styles.rowGrid}>
+            <View style={styles.gridCol}>
+              <Text style={[styles.label, { color: colors.textBody }]}>
+                Date of Birth <Text style={{ color: colors.requiredRed }}>*</Text>
+              </Text>
+              <View
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.borderLight,
+                    backgroundColor: colors.white,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingRight: 8,
+                  },
+                  fieldErrors.dob ? styles.inputError : null,
+                ]}
+              >
+                <TextInput
+                  style={{
+                    flex: 1,
+                    color: colors.textDark,
+                    fontSize: 15,
+                    padding: 0,
+                  }}
+                  value={dob}
+                  onChangeText={(text) => {
+                    setDob(text);
+                    clearFieldError('dob');
+                  }}
+                  placeholder="DD / MM / YYYY"
+                  placeholderTextColor={colors.textPlaceholder}
+                  keyboardType="numbers-and-punctuation"
+                />
                 <TouchableOpacity
-                  onPress={handleSendOtp}
-                  disabled={sendingOtp || (challengeId !== null && !otpState.canResend)}
-                  style={{ opacity: sendingOtp || (challengeId !== null && !otpState.canResend) ? 0.5 : 1 }}
+                  activeOpacity={0.7}
+                  onPress={() => setShowDatePicker(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open calendar"
                 >
-                  {sendingOtp ? (
-                    <ActivityIndicator size="small" color={colors.brandGreen} />
-                  ) : (
-                    <Text style={{ color: colors.brandGreen, fontWeight: '700' }}>
-                      {challengeId === null
-                        ? 'Send OTP'
-                        : otpState.canResend
-                        ? 'Resend OTP'
-                        : `Resend in ${otpState.secondsUntilResend}s`}
-                    </Text>
-                  )}
+                  <Icon name="calendar_today" size={20} color={colors.textSubtle} />
                 </TouchableOpacity>
               </View>
-              <View style={{ marginTop: 12 }}>
-                <Text style={[styles.label, { color: colors.textBody }]}>
-                  OTP <Text style={{ color: colors.requiredRed }}>*</Text>
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: colors.borderLight,
-                      color: colors.textDark,
-                      backgroundColor: challengeId === null ? colors.prefixBg : colors.white,
-                    },
-                    fieldErrors.otp ? styles.inputError : null,
-                  ]}
-                  value={otp}
-                  onChangeText={(text) => {
-                    setOtp(text);
-                    clearFieldError('otp');
-                  }}
-                  editable={challengeId !== null}
-                  keyboardType="number-pad"
-                  placeholder={challengeId === null ? 'Send OTP first' : 'Enter OTP'}
-                  placeholderTextColor={colors.textPlaceholder}
-                />
-                {fieldErrors.otp ? (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.otp}</Text>
-                ) : null}
-              </View>
-            </>
-          )}
-        </View>
+              {fieldErrors.dob ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.dob}</Text>
+              ) : null}
 
-        {/* Aadhaar / ID Number */}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, { color: colors.textBody }]}>
-            Aadhaar / ID Number <Text style={{ color: colors.requiredRed }}>*</Text>
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              styles.aadhaarInput,
-              {
-                borderColor: colors.borderLight,
-                color: colors.textDark,
-                backgroundColor: colors.white,
-              },
-              fieldErrors.aadhaarNumber ? styles.inputError : null,
-            ]}
-            value={aadhaarNumber}
-            onChangeText={(text) => {
-              setAadhaarNumber(text);
-              clearFieldError('aadhaarNumber');
-            }}
-            keyboardType="number-pad"
-            placeholder="3782 4591 0023"
-            placeholderTextColor={colors.textPlaceholder}
-          />
-          {fieldErrors.aadhaarNumber ? (
-            <Text style={styles.fieldErrorText}>{fieldErrors.aadhaarNumber}</Text>
-          ) : (
-            <Text style={[styles.helperText, { color: colors.textSubtle }]}>
-              Used to verify your identity with TOFHA
-            </Text>
-          )}
-        </View>
+              <DatePicker
+                visible={showDatePicker}
+                onClose={() => setShowDatePicker(false)}
+                value={dob}
+                title="Select Date of Birth"
+                maxDate={todayDate}
+                format="DD / MM / YYYY"
+                onSelect={(_date, formattedDate) => {
+                  setDob(formattedDate);
+                  clearFieldError('dob');
+                }}
+              />
+            </View>
 
-        {/* Address Line */}
-        <View style={[styles.fieldGroup, { marginBottom: 24 }]}>
-          <Text style={[styles.label, { color: colors.textBody }]}>
-            Address Line <Text style={{ color: colors.requiredRed }}>*</Text>
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              styles.textareaInput,
-              {
-                borderColor: colors.borderLight,
-                color: colors.textDark,
-                backgroundColor: colors.white,
-              },
-              fieldErrors.addressLine1 ? styles.inputError : null,
-            ]}
-            value={addressLine1}
-            onChangeText={(text) => {
-              setAddressLine1(text);
-              clearFieldError('addressLine1');
-            }}
-            multiline
-            numberOfLines={2}
-            textAlignVertical="top"
-            placeholder="House / street / landmark"
-            placeholderTextColor={colors.textPlaceholder}
-          />
-          {fieldErrors.addressLine1 ? (
-            <Text style={styles.fieldErrorText}>{fieldErrors.addressLine1}</Text>
-          ) : null}
-        </View>
-
-        {/* Village / Taluk row */}
-        <View style={styles.rowGrid}>
-          <View style={styles.gridCol}>
-            <Text style={[styles.label, { color: colors.textBody }]}>
-              Village <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.borderLight,
-                  color: colors.textDark,
-                  backgroundColor: colors.white,
-                },
-                fieldErrors.village ? styles.inputError : null,
-              ]}
-              value={village}
-              onChangeText={(text) => {
-                setVillage(text);
-                clearFieldError('village');
-              }}
-              placeholder="e.g. Kotagiri"
-              placeholderTextColor={colors.textPlaceholder}
-            />
-            {fieldErrors.village ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.village}</Text>
-            ) : null}
-          </View>
-          <View style={styles.gridCol}>
-            <Text style={[styles.label, { color: colors.textBody }]}>
-              Taluk <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: colors.borderLight,
-                  color: colors.textDark,
-                  backgroundColor: colors.white,
-                },
-                fieldErrors.taluk ? styles.inputError : null,
-              ]}
-              value={taluk}
-              onChangeText={(text) => {
-                setTaluk(text);
-                clearFieldError('taluk');
-              }}
-              placeholder="e.g. Kotagiri Taluk"
-              placeholderTextColor={colors.textPlaceholder}
-            />
-            {fieldErrors.taluk ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.taluk}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        {/* District / Pincode row */}
-        <View style={styles.rowGrid}>
-          <View style={styles.gridCol}>
-            <Text style={[styles.label, { color: colors.textBody }]}>
-              District <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[
-                styles.dropdownSelect,
-                {
-                  borderColor: colors.borderLight,
-                  backgroundColor: colors.white,
-                },
-                fieldErrors.district ? styles.inputError : null,
-              ]}
-              onPress={() => setShowDistrictMenu(!showDistrictMenu)}
-            >
-              <Text style={[styles.dropdownText, { color: colors.onSurface }]} numberOfLines={1}>
-                {district}
+            <View style={styles.gridCol}>
+              <Text style={[styles.label, { color: colors.textBody }]}>
+                Gender <Text style={{ color: colors.requiredRed }}>*</Text>
               </Text>
-              <Text style={[styles.dropdownArrow, { color: colors.textSubtle }]}>▾</Text>
-            </TouchableOpacity>
-            {fieldErrors.district ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.district}</Text>
-            ) : null}
-
-            {showDistrictMenu ? (
-              <View
+              <TouchableOpacity
+                activeOpacity={0.7}
                 style={[
-                  styles.dropdownMenu,
+                  styles.dropdownSelect,
                   {
-                    backgroundColor: colors.white,
                     borderColor: colors.borderLight,
+                    backgroundColor: colors.white,
                   },
+                  fieldErrors.gender ? styles.inputError : null,
                 ]}
+                onPress={() => setShowGenderMenu(!showGenderMenu)}
               >
-                <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
-                  {districtOptions.map((opt) => (
+                <Text style={[styles.dropdownText, { color: colors.onSurface }]}>
+                  {gender}
+                </Text>
+                <Text style={[styles.dropdownArrow, { color: colors.textSubtle }]}>▾</Text>
+              </TouchableOpacity>
+              {fieldErrors.gender ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.gender}</Text>
+              ) : null}
+
+              {showGenderMenu ? (
+                <View
+                  style={[
+                    styles.dropdownMenu,
+                    {
+                      backgroundColor: colors.white,
+                      borderColor: colors.borderLight,
+                    },
+                  ]}
+                >
+                  {genderOptions.map((opt) => (
                     <TouchableOpacity
                       key={opt}
                       style={[styles.dropdownOption, { borderBottomColor: colors.borderSoft }]}
                       onPress={() => {
-                        setDistrict(opt);
-                        clearFieldError('district');
-                        setShowDistrictMenu(false);
+                        setGender(opt);
+                        clearFieldError('gender');
+                        setShowGenderMenu(false);
                       }}
                     >
                       <Text
                         style={[
                           styles.dropdownOptionText,
                           { color: colors.onSurface },
-                          opt === district && { fontWeight: '700', color: colors.brandGreen },
+                          opt === gender && { fontWeight: '700', color: colors.brandGreen },
                         ]}
                       >
                         {opt}
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </ScrollView>
-              </View>
-            ) : null}
+                </View>
+              ) : null}
+            </View>
           </View>
-          <View style={styles.gridCol}>
+
+          {/* Mobile Number */}
+          <View style={styles.fieldGroup}>
             <Text style={[styles.label, { color: colors.textBody }]}>
-              Pincode <Text style={{ color: colors.requiredRed }}>*</Text>
+              Mobile Number <Text style={{ color: colors.requiredRed }}>*</Text>
+            </Text>
+            <View style={styles.mobileRow}>
+              <View
+                style={[
+                  styles.countryCodeBox,
+                  {
+                    borderColor: colors.borderLight,
+                    backgroundColor: colors.prefixBg,
+                  },
+                ]}
+              >
+                <Text style={[styles.countryCodeText, { color: colors.textSubtle }]}>+91</Text>
+              </View>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.mobileInput,
+                  {
+                    borderColor: colors.borderLight,
+                    color: colors.textDark,
+                    backgroundColor: colors.white,
+                  },
+                  fieldErrors.mobile ? styles.inputError : null,
+                ]}
+                value={mobileNumber}
+                onChangeText={(text) => {
+                  setMobileNumber(text);
+                  clearFieldError('mobile');
+                }}
+                keyboardType="phone-pad"
+                placeholder="98765 43210"
+                placeholderTextColor={colors.textPlaceholder}
+              />
+            </View>
+            {fieldErrors.mobile ? (
+              <Text style={styles.fieldErrorText}>{fieldErrors.mobile}</Text>
+            ) : null}
+
+            {isMobileVerified ? (
+              <Text style={[styles.helperText, { color: colors.success }]}>
+                ✓ Mobile number verified
+              </Text>
+            ) : (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <Text style={[styles.helperText, { color: colors.textSubtle, flex: 1 }]}>
+                    We'll send an OTP to verify
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleSendOtp}
+                    disabled={sendingOtp || (challengeId !== null && !otpState.canResend)}
+                    style={{ opacity: sendingOtp || (challengeId !== null && !otpState.canResend) ? 0.5 : 1 }}
+                  >
+                    {sendingOtp ? (
+                      <ActivityIndicator size="small" color={colors.brandGreen} />
+                    ) : (
+                      <Text style={{ color: colors.brandGreen, fontWeight: '700' }}>
+                        {challengeId === null
+                          ? 'Send OTP'
+                          : otpState.canResend
+                          ? 'Resend OTP'
+                          : `Resend in ${otpState.secondsUntilResend}s`}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                <View style={{ marginTop: 12 }}>
+                  <Text style={[styles.label, { color: colors.textBody }]}>
+                    OTP <Text style={{ color: colors.requiredRed }}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: colors.borderLight,
+                        color: colors.textDark,
+                        backgroundColor: challengeId === null ? colors.prefixBg : colors.white,
+                      },
+                      fieldErrors.otp ? styles.inputError : null,
+                    ]}
+                    value={otp}
+                    onChangeText={(text) => {
+                      setOtp(text);
+                      clearFieldError('otp');
+                    }}
+                    editable={challengeId !== null}
+                    keyboardType="number-pad"
+                    placeholder={challengeId === null ? 'Send OTP first' : 'Enter OTP'}
+                    placeholderTextColor={colors.textPlaceholder}
+                  />
+                  {fieldErrors.otp ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors.otp}</Text>
+                  ) : null}
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Aadhaar / ID Number */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.textBody }]}>
+              Aadhaar / ID Number <Text style={{ color: colors.requiredRed }}>*</Text>
             </Text>
             <TextInput
               style={[
                 styles.input,
+                styles.aadhaarInput,
                 {
                   borderColor: colors.borderLight,
                   color: colors.textDark,
                   backgroundColor: colors.white,
                 },
-                fieldErrors.pincode ? styles.inputError : null,
+                fieldErrors.aadhaarNumber ? styles.inputError : null,
               ]}
-              value={pincode}
+              value={aadhaarNumber}
               onChangeText={(text) => {
-                setPincode(text.replace(/[^0-9]/g, '').slice(0, 6));
-                clearFieldError('pincode');
+                setAadhaarNumber(text);
+                clearFieldError('aadhaarNumber');
               }}
               keyboardType="number-pad"
-              placeholder="643217"
+              placeholder="3782 4591 0023"
               placeholderTextColor={colors.textPlaceholder}
             />
-            {fieldErrors.pincode ? (
-              <Text style={styles.fieldErrorText}>{fieldErrors.pincode}</Text>
+            {fieldErrors.aadhaarNumber ? (
+              <Text style={styles.fieldErrorText}>{fieldErrors.aadhaarNumber}</Text>
+            ) : (
+              <Text style={[styles.helperText, { color: colors.textSubtle }]}>
+                Used to verify your identity with TOFHA
+              </Text>
+            )}
+          </View>
+
+          {/* Address Line */}
+          <View style={[styles.fieldGroup, { marginBottom: 24 }]}>
+            <Text style={[styles.label, { color: colors.textBody }]}>
+              Address Line <Text style={{ color: colors.requiredRed }}>*</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                styles.textareaInput,
+                {
+                  borderColor: colors.borderLight,
+                  color: colors.textDark,
+                  backgroundColor: colors.white,
+                },
+                fieldErrors.addressLine1 ? styles.inputError : null,
+              ]}
+              value={addressLine1}
+              onChangeText={(text) => {
+                setAddressLine1(text);
+                clearFieldError('addressLine1');
+              }}
+              multiline
+              numberOfLines={2}
+              textAlignVertical="top"
+              placeholder="House / street / landmark"
+              placeholderTextColor={colors.textPlaceholder}
+            />
+            {fieldErrors.addressLine1 ? (
+              <Text style={styles.fieldErrorText}>{fieldErrors.addressLine1}</Text>
             ) : null}
           </View>
-        </View>
-      </ScrollView>
 
-      {/* Sticky Bottom Footer */}
-      <View
-        style={[
-          styles.footer,
-          {
-            borderTopColor: colors.borderDivider,
-            backgroundColor: colors.white,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.85}
-          disabled={verifying}
-          style={[styles.continueButton, { backgroundColor: colors.brandGreen, opacity: verifying ? 0.6 : 1 }]}
-          onPress={handleContinue}
+          {/* Village / Taluk row */}
+          <View style={styles.rowGrid}>
+            <View style={styles.gridCol}>
+              <Text style={[styles.label, { color: colors.textBody }]}>
+                Village <Text style={{ color: colors.requiredRed }}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.borderLight,
+                    color: colors.textDark,
+                    backgroundColor: colors.white,
+                  },
+                  fieldErrors.village ? styles.inputError : null,
+                ]}
+                value={village}
+                onChangeText={(text) => {
+                  setVillage(text);
+                  clearFieldError('village');
+                }}
+                placeholder="e.g. Kotagiri"
+                placeholderTextColor={colors.textPlaceholder}
+              />
+              {fieldErrors.village ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.village}</Text>
+              ) : null}
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={[styles.label, { color: colors.textBody }]}>
+                Taluk <Text style={{ color: colors.requiredRed }}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.borderLight,
+                    color: colors.textDark,
+                    backgroundColor: colors.white,
+                  },
+                  fieldErrors.taluk ? styles.inputError : null,
+                ]}
+                value={taluk}
+                onChangeText={(text) => {
+                  setTaluk(text);
+                  clearFieldError('taluk');
+                }}
+                placeholder="e.g. Kotagiri Taluk"
+                placeholderTextColor={colors.textPlaceholder}
+              />
+              {fieldErrors.taluk ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.taluk}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* District / Pincode row */}
+          <View style={styles.rowGrid}>
+            <View style={styles.gridCol}>
+              <Text style={[styles.label, { color: colors.textBody }]}>
+                District <Text style={{ color: colors.requiredRed }}>*</Text>
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={[
+                  styles.dropdownSelect,
+                  {
+                    borderColor: colors.borderLight,
+                    backgroundColor: colors.white,
+                  },
+                  fieldErrors.district ? styles.inputError : null,
+                ]}
+                onPress={() => setShowDistrictMenu(!showDistrictMenu)}
+              >
+                <Text style={[styles.dropdownText, { color: colors.onSurface }]} numberOfLines={1}>
+                  {district}
+                </Text>
+                <Text style={[styles.dropdownArrow, { color: colors.textSubtle }]}>▾</Text>
+              </TouchableOpacity>
+              {fieldErrors.district ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.district}</Text>
+              ) : null}
+
+              {showDistrictMenu ? (
+                <View
+                  style={[
+                    styles.dropdownMenu,
+                    {
+                      backgroundColor: colors.white,
+                      borderColor: colors.borderLight,
+                    },
+                  ]}
+                >
+                  <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled">
+                    {districtOptions.map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.dropdownOption, { borderBottomColor: colors.borderSoft }]}
+                        onPress={() => {
+                          setDistrict(opt);
+                          clearFieldError('district');
+                          setShowDistrictMenu(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownOptionText,
+                            { color: colors.onSurface },
+                            opt === district && { fontWeight: '700', color: colors.brandGreen },
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={[styles.label, { color: colors.textBody }]}>
+                Pincode <Text style={{ color: colors.requiredRed }}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.borderLight,
+                    color: colors.textDark,
+                    backgroundColor: colors.white,
+                  },
+                  fieldErrors.pincode ? styles.inputError : null,
+                ]}
+                value={pincode}
+                onChangeText={(text) => {
+                  setPincode(text.replace(/[^0-9]/g, '').slice(0, 6));
+                  clearFieldError('pincode');
+                }}
+                // Pincode sits directly beside the District dropdown in the same row.
+                // If a farmer opened District and then tapped here without picking an
+                // option, the dropdown would stay open while the keyboard comes up and
+                // cover it -- the keyboard is a native overlay no JS zIndex can sit
+                // above. Closing it the moment this field gains focus removes the
+                // overlap instead of trying to out-stack the keyboard.
+                onFocus={() => setShowDistrictMenu(false)}
+                keyboardType="number-pad"
+                placeholder="643217"
+                placeholderTextColor={colors.textPlaceholder}
+              />
+              {fieldErrors.pincode ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.pincode}</Text>
+              ) : null}
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Sticky Bottom Footer */}
+        <View
+          style={[
+            styles.footer,
+            {
+              borderTopColor: colors.borderDivider,
+              backgroundColor: colors.white,
+            },
+          ]}
         >
-          {verifying ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <Text style={[styles.continueButtonText, { color: colors.white }]}>
-              Continue to Farm Details →
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={verifying}
+            style={[styles.continueButton, { backgroundColor: colors.brandGreen, opacity: verifying ? 0.6 : 1 }]}
+            onPress={handleContinue}
+          >
+            {verifying ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={[styles.continueButtonText, { color: colors.white }]}>
+                Continue to Farm Details →
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  keyboardContainer: {
     flex: 1,
   },
   scrollArea: {

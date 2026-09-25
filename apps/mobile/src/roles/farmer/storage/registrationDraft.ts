@@ -241,6 +241,36 @@ interface RegistrationDraftStore {
   goBack: () => void;
   /** Resets the draft to its initial, empty state -- used after a successful submission. */
   reset: () => void;
+  /**
+   * One-shot restore from the server's full draft (`getFarmerApplicationDraft` /
+   * `GET /farmers/applications/:id`), for the "lost the local draft, recovered via a
+   * `CONFLICT` on create" path in `RegistrationFlowScreen.tsx`. Unlike `updateStepAndAdvance`,
+   * this replaces the whole `draft` in one `set()` -- it does not merge into whatever is
+   * currently there (there is nothing worth preserving: the entire reason this runs is that
+   * the local draft was lost), does not advance `currentStep` past what the server reports,
+   * and has no side effect that would re-`PATCH` any step back to the server. Looping
+   * `updateStepAndAdvance` once per recovered step would work too, but each call fires its own
+   * `saveFarmerApplicationStep` network request for data the server already has -- a wasted
+   * round trip per step for data that's already durable server-side.
+   *
+   * A step argument comes back from the server as a bare `{}` when that step was never saved
+   * (see `FullDraftResponse`'s docblock in `api/registration.ts`); such a step is left
+   * `undefined` here rather than overwriting anything with an empty object, mirroring how
+   * `RegistrationDraft.stepN` is `undefined` for a step never reached in the normal flow.
+   */
+  restoreFullDraft: (serverDraft: {
+    applicationId: string;
+    currentStep: number;
+    step1Personal?: Record<string, unknown> | undefined;
+    step2FarmDetails?: Record<string, unknown> | undefined;
+    step3Location?: Record<string, unknown> | undefined;
+    step4Documents?: Record<string, unknown> | undefined;
+  }) => void;
+}
+
+/** `{}` from the server means "this step was never saved" -- see `restoreFullDraft` above. */
+function definedIfNonEmpty<T>(value: Record<string, unknown> | undefined): T | undefined {
+  return value !== undefined && Object.keys(value).length > 0 ? (value as T) : undefined;
 }
 
 export const useRegistrationDraftStore = create<RegistrationDraftStore>()(
@@ -266,6 +296,17 @@ export const useRegistrationDraftStore = create<RegistrationDraftStore>()(
       goBack: () =>
         set({ draft: { ...get().draft, currentStep: Math.max(1, get().draft.currentStep - 1) } }),
       reset: () => set({ draft: INITIAL_DRAFT }),
+      restoreFullDraft: (serverDraft) =>
+        set({
+          draft: {
+            applicationId: serverDraft.applicationId,
+            currentStep: Math.min(5, Math.max(1, serverDraft.currentStep)),
+            step1: definedIfNonEmpty<Step1PersonalData>(serverDraft.step1Personal),
+            step2: definedIfNonEmpty<Step2FarmData>(serverDraft.step2FarmDetails),
+            step3: definedIfNonEmpty<Step3LocationData>(serverDraft.step3Location),
+            step4: definedIfNonEmpty<Step4DocumentsData>(serverDraft.step4Documents),
+          },
+        }),
     }),
     {
       name: DRAFT_STORAGE_KEY,

@@ -64,6 +64,7 @@ import { adminFarmRatingsRouter, farmRatingsFarmerRouter } from './modules/farm-
 import { weatherFarmerRouter } from './modules/weather/weather.routes.js';
 import { farmDiaryRouter } from './modules/farm-diary/farm-diary.routes.js';
 import { adminDiaryTaxonomyRouter } from './modules/farm-diary/farm-diary.admin.routes.js';
+import { farmsRouter } from './modules/farms/farms.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -112,9 +113,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
   { prefix: '/v1/farmers/me/weather', router: weatherFarmerRouter },
-  { prefix: '/v1/farmers/me/diary', router: farmDiaryRouter },
-  { prefix: '/v1/admin/diary', router: adminDiaryTaxonomyRouter },
-];
+5];
 
 /**
  * Establishes the async-local logging context for the request. A client-supplied

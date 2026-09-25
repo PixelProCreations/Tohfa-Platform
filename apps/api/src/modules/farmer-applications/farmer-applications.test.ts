@@ -357,6 +357,101 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     });
   });
 
+  describe('Recovering a lost draft (GET /farmers/applications/:id, and CONFLICT meta)', () => {
+    const APP_ID = '11111111-1111-1111-1111-111111111111';
+    const OWNER_USER_ID = '00000000-0000-0000-0000-000000000002';
+
+    it('createDraft rejects a duplicate live mobile number with meta carrying the existing application\'s id, status and currentStep', async () => {
+      // A farmer who lost their local draft (reinstalled app, cleared storage, new
+      // device) hits this 409 when they try to start over. The whole point of this
+      // fix is that the response now tells them where the original application is.
+      const repo = mockFarmerApplicationsRepo({
+        id: APP_ID,
+        mobile: '+919812345678',
+        status: 'DOCS_REVIEW',
+        current_step: 3,
+      });
+      const service = createFarmerApplicationsService(repo);
+
+      const err = await service
+        .createDraft({ mobile: '+919812345678', fullName: 'Someone Else', preferredLocale: 'en' })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(AppError);
+      const appError = err as AppError;
+      expect(appError.code).toBe('CONFLICT');
+      expect(appError.status).toBe(409);
+      // camelCase, matching mapApplicationResponse's own field names for the same
+      // underlying columns -- not invented spellings.
+      expect(appError.meta).toEqual({
+        applicationId: APP_ID,
+        status: 'DOCS_REVIEW',
+        currentStep: 3,
+      });
+    });
+
+    it('getFullDraft returns the same full shape createDraft returns, with the real step data populated', async () => {
+      const repo = mockFarmerApplicationsRepo({
+        id: APP_ID,
+        user_id: OWNER_USER_ID,
+        status: 'SUBMITTED',
+        step1_personal: { fullName: 'Murugan S', village: 'Ithalar' },
+        step2_farm_details: { farmName: 'Great Earth Organic', experienceYears: 12 },
+      });
+      const service = createFarmerApplicationsService(repo);
+      const actor = anActor({ userId: OWNER_USER_ID });
+
+      const result = (await service.getFullDraft(actor, APP_ID)) as Record<string, unknown>;
+
+      // The bare-resource fetch is not a placeholder/empty shell -- it carries the
+      // real step data already saved, exactly what mapApplicationResponse produces.
+      expect(result).toMatchObject({
+        id: APP_ID,
+        status: 'SUBMITTED',
+        step1Personal: { fullName: 'Murugan S', village: 'Ithalar' },
+        step2FarmDetails: { farmName: 'Great Earth Organic', experienceYears: 12 },
+      });
+    });
+
+    it('getFullDraft returns NOT_FOUND for a nonexistent application id', async () => {
+      const repo = mockFarmerApplicationsRepo(); // no app created
+      const service = createFarmerApplicationsService(repo);
+
+      await expect(
+        service.getFullDraft(undefined, '99999999-9999-9999-9999-999999999999'),
+      ).rejects.toThrow(expect.objectContaining({ code: 'NOT_FOUND' }));
+    });
+
+    it('BR-36: getFullDraft returns NOT_FOUND (never 403) when the caller is authenticated as a different farmer', async () => {
+      const repo = mockFarmerApplicationsRepo({
+        id: APP_ID,
+        user_id: OWNER_USER_ID, // belongs to a different farmer
+      });
+      const service = createFarmerApplicationsService(repo);
+
+      const attackerActor = anActor({
+        userId: '00000000-0000-0000-0000-000000000009',
+        roles: [{ code: RoleCode.FARMER }],
+      });
+
+      const err = await service.getFullDraft(attackerActor, APP_ID).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).code).toBe('NOT_FOUND');
+      expect((err as AppError).status).toBe(404);
+    });
+
+    it('an admin (SUPER_ADMIN/TOHFA_ADMIN) can still getFullDraft an application owned by someone else', async () => {
+      const repo = mockFarmerApplicationsRepo({
+        id: APP_ID,
+        user_id: OWNER_USER_ID,
+      });
+      const service = createFarmerApplicationsService(repo);
+      const adminActor = anActor({ userId: IDS.userSuperAdmin, roles: [{ code: RoleCode.SUPER_ADMIN }] });
+
+      await expect(service.getFullDraft(adminActor, APP_ID)).resolves.toMatchObject({ id: APP_ID });
+    });
+  });
+
   describe('Registration-scoped upload signing (POST /applications/:id/uploads/sign)', () => {
     const APP_ID = '11111111-1111-1111-1111-111111111111';
     const SIGN_BODY = {
@@ -508,6 +603,54 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       expect(submitted.status).toBe('DOCS_REVIEW');
       expect(submitted.isDraft).toBe(false);
+    });
+
+    it('a repeat submit on an application already past SUBMITTED (is_draft: false) returns the current state instead of throwing INVALID_STATE_TRANSITION, and a third call is identical -- proves true idempotency, not just "works once more"', async () => {
+      // Simulates the real failure this fix addresses: the first submit already
+      // succeeded server-side (status flipped SUBMITTED -> DOCS_REVIEW, is_draft
+      // flipped false) but the client never saw the response -- e.g. a dropped
+      // connection or a server restart mid-request -- and retries the exact same
+      // call. Without the fix, `isValidTransition('DOCS_REVIEW', 'DOCS_REVIEW')`
+      // is false and every retry hits INVALID_STATE_TRANSITION forever.
+      const repo = mockFarmerApplicationsRepo({
+        id: '11111111-1111-1111-1111-111111111111',
+        user_id: '00000000-0000-0000-0000-000000000002',
+        status: 'DOCS_REVIEW',
+        is_draft: false,
+        // Deliberately no mandatory documents -- the short-circuit must return
+        // before the document check runs at all for a repeat call.
+        step4_documents: {},
+      });
+      const service = createFarmerApplicationsService(repo);
+      const actor = anActor({ userId: '00000000-0000-0000-0000-000000000002' });
+      const APP_ID = '11111111-1111-1111-1111-111111111111';
+
+      const second = (await service.submitApplication(actor, APP_ID)) as Record<string, unknown>;
+      expect(second.status).toBe('DOCS_REVIEW');
+      expect(second.isDraft).toBe(false);
+
+      const third = (await service.submitApplication(actor, APP_ID)) as Record<string, unknown>;
+      expect(third).toEqual(second);
+    });
+
+    it('a repeat submit on an APPROVED application also succeeds (returns the current state) rather than throwing -- is_draft is false for every terminal status alike, and the mobile client\'s success handler just navigates to whatever status comes back', async () => {
+      const repo = mockFarmerApplicationsRepo({
+        id: '11111111-1111-1111-1111-111111111111',
+        user_id: '00000000-0000-0000-0000-000000000002',
+        status: 'APPROVED',
+        is_draft: false,
+        step4_documents: {},
+      });
+      const service = createFarmerApplicationsService(repo);
+      const actor = anActor({ userId: '00000000-0000-0000-0000-000000000002' });
+
+      const result = (await service.submitApplication(
+        actor,
+        '11111111-1111-1111-1111-111111111111',
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('APPROVED');
+      expect(result.isDraft).toBe(false);
     });
   });
 
@@ -1262,6 +1405,13 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(res.body.code).toBe('VALIDATION_FAILED');
     });
 
+    it('GET /v1/farmers/applications/:id rejects a non-UUID id with 422, unauthenticated (same optionalAuth wiring as /status)', async () => {
+      const res = await request(app).get('/v1/farmers/applications/not-a-uuid');
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+    });
+
     it('POST /v1/admin/farmer-applications/:id/reject requires reasonCode and min length reason', async () => {
       const adminToken = (await import('../../auth/jwt.js')).signAccessToken({
         sub: IDS.userSuperAdmin,
@@ -1347,6 +1497,95 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       expect(step3Res.status).toBe(200);
       expect(step3Res.body.completedSteps).toContain(3);
+    });
+
+    it('the 409 CONFLICT on a duplicate mobile carries meta.applicationId matching the first draft, and GET /v1/farmers/applications/:id recovers its real saved step data', async () => {
+      if (!(await databaseReady('farmer_applications'))) return;
+
+      const mobile = `+9195${Date.now().toString().slice(-8)}`;
+
+      // 1. Create the first (real) draft.
+      const createRes = await request(app)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: 'Lost Draft Farmer', preferredLocale: 'ta' });
+      expect(createRes.status).toBe(201);
+      const appId = createRes.body.id as string;
+
+      // 2. Save real step 1 and step 2 data -- what this farmer actually typed in,
+      // not a placeholder -- so the recovery fetch below has something real to prove.
+      const step1Res = await request(app)
+        .patch(`/v1/farmers/applications/${appId}/steps/1`)
+        .send({ fullName: 'Lost Draft Farmer', village: 'Kotagiri', district: 'The Nilgiris' });
+      expect(step1Res.status).toBe(200);
+
+      const step2Res = await request(app)
+        .patch(`/v1/farmers/applications/${appId}/steps/2`)
+        .send({ farmName: 'Recovered Farm', typeOfFarming: 'Tea', experienceYears: 6 });
+      expect(step2Res.status).toBe(200);
+
+      // 3. Simulate the farmer losing their local draft (reinstall/new device) and
+      // trying to start a fresh registration with the same mobile number.
+      const dupRes = await request(app)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: 'Lost Draft Farmer Retry' });
+
+      expect(dupRes.status).toBe(409);
+      expect(dupRes.body.code).toBe('CONFLICT');
+      // This is the whole point of the fix: the farmer is no longer stuck. The
+      // conflict response itself carries the id of their real, existing draft.
+      expect(dupRes.body.meta).toMatchObject({ applicationId: appId });
+      expect(dupRes.body.meta.status).toBeDefined();
+      expect(dupRes.body.meta.currentStep).toBeDefined();
+
+      // 4. Use that recovered id to fetch the FULL draft -- not the lightweight
+      // /status timeline -- and confirm it is the real data, not an empty shell.
+      const draftRes = await request(app).get(`/v1/farmers/applications/${appId}`);
+
+      expect(draftRes.status).toBe(200);
+      expect(draftRes.body.id).toBe(appId);
+      expect(draftRes.body.step1Personal).toMatchObject({
+        fullName: 'Lost Draft Farmer',
+        village: 'Kotagiri',
+        district: 'The Nilgiris',
+      });
+      expect(draftRes.body.step2FarmDetails).toMatchObject({
+        farmName: 'Recovered Farm',
+        typeOfFarming: 'Tea',
+        experienceYears: 6,
+      });
+    });
+
+    it('GET /v1/farmers/applications/:id returns 404 for a real id belonging to a different authenticated farmer', async () => {
+      if (!(await databaseReady('farmer_applications'))) return;
+
+      const mobile = `+9193${Date.now().toString().slice(-8)}`;
+      const createRes = await request(app)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: 'Owner Farmer' });
+      const appId = createRes.body.id as string;
+
+      // Attach this real application to a farmer user id via the repo directly
+      // (approveApplication's own_user linkage is exercised elsewhere; here we only
+      // need a real user_id set on the row so BR-36 ownership scoping is in play).
+      const { pool } = await import('../../db/pool.js');
+      await pool.query('UPDATE farmer_applications SET user_id = $1 WHERE id = $2', [
+        IDS.userFarmer,
+        appId,
+      ]);
+
+      const attackerToken = (await import('../../auth/jwt.js')).signAccessToken({
+        sub: '00000000-0000-0000-0000-000000000009',
+        roles: [{ code: 'FARMER' }],
+        farmerId: null,
+        customerId: null,
+      });
+
+      const res = await request(app)
+        .get(`/v1/farmers/applications/${appId}`)
+        .set('Authorization', `Bearer ${attackerToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('NOT_FOUND');
     });
 
     it('POST /v1/farmers/applications/:id/uploads/sign succeeds with NO Authorization header and records uploaded_by NULL / entity_type+entity_id on the real uploads row', async () => {

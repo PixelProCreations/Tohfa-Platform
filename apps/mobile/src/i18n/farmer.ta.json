@@ -598,6 +598,8 @@
   "farmer.profile.personal.yearsInOrganicPlaceholder": "எ.கா. 14 ஆண்டுகள்",
   "farmer.profile.personal.typeOfFarming": "விவசாய வகை",
   "farmer.profile.personal.farmingTypePlaceholder": "ஆர்கானிக் / வழக்கமான",
+  "farmer.profile.personal.notProvided": "வழங்கப்படவில்லை",
+  "farmer.profile.personal.invalidFormat": "இந்தத் தகவலின் வடிவமைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
   "farmer.certifications.add.type.OTHER": "மற்றவை",
   "farmer.certifications.edit.deleteConfirmTitle": "சான்றிதழை நீக்கு",
   "farmer.certifications.edit.deleteConfirmBody": "சான்றிதழ் {{number}} ஐ நீக்கவா? இதை மீட்க முடியாது.",
