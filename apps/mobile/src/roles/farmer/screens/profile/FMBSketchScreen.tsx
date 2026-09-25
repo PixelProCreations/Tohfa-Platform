@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   SafeAreaView,
@@ -16,6 +17,7 @@ import DocumentPicker from 'react-native-document-picker';
 import {
   FarmBoundaryMap,
   Icon,
+  Skeleton,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
 } from '@tohfa/mobile-ui';
@@ -23,6 +25,14 @@ import { colors, useTheme } from '../../theme';
 import { authPalette as P } from '../../theme';
 import { calculatePolygonMetrics } from '../../utils/geo';
 import { t } from '../../../../i18n/farmer';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import {
+  createFarm,
+  deleteFarm,
+  getFarms,
+  updateFarm,
+  type Farm,
+} from '../../api/farms';
 
 function AddLocationIcon({ size = 18, color }: { size?: number; color: string }) {
   return (
@@ -41,10 +51,17 @@ function AddLocationIcon({ size = 18, color }: { size?: number; color: string })
 
 interface FMBSketchScreenProps {
   onNavigateBack: () => void;
-  onNavigateToFieldContext: () => void;
+  /** Called with the id of the farm the boundary/save just applied to. */
+  onNavigateToFieldContext: (farmId: string) => void;
 }
 
 type TabType = 'Draw' | 'Upload';
+
+/** The outer ring of a farm's saved boundary, or an empty ring when it has none. */
+function ringOf(farm: Farm | null | undefined): [number, number][] {
+  const ring = farm?.boundary?.coordinates?.[0];
+  return Array.isArray(ring) ? (ring as [number, number][]) : [];
+}
 
 export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FMBSketchScreenProps) {
   const { colors } = useTheme();
@@ -62,35 +79,109 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
     uri: string;
   } | null>(null);
 
-  const [farms, setFarms] = useState<Array<{ id: string; name: string }>>([
-    { id: '1', name: 'Your Farm' },
-  ]);
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [selectedFarm, setSelectedFarm] = useState<{ id: string; name: string } | null>(null);
-  const [tempName, setTempName] = useState('');
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
+  const selectedFarm = farms.find((f) => f.id === selectedFarmId) ?? null;
 
-  function handleEditFarm(farm: { id: string; name: string }) {
-    setSelectedFarm(farm);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [selectedFarmForEdit, setSelectedFarmForEdit] = useState<Farm | null>(null);
+  const [tempName, setTempName] = useState('');
+  const [modalSaving, setModalSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  // Set right after switching the map to a farm whose boundary should immediately enter
+  // draw/edit mode (new farm, or "Edit Boundary on Map"). FarmBoundaryMap remounts on the next
+  // render when `selectedFarmId` changes the element's `key`, so `mapRef.current` still points
+  // at the outgoing instance during the same handler -- this effect fires once that remount has
+  // actually landed, and `mapRef.current` is the new instance.
+  const [pendingBoundaryEditFarmId, setPendingBoundaryEditFarmId] = useState<string | null>(null);
+
+  const loadFarms = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await getFarms();
+      setFarms(list);
+      // An empty list is a real, valid state (e.g. an approved-before-this-feature farmer) --
+      // it just means there is nothing to auto-select yet.
+      const primary = list.find((f) => f.isPrimary) ?? list[0] ?? null;
+      setSelectedFarmId(primary?.id ?? null);
+      setCoords(ringOf(primary));
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load your farms.'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadFarms();
+  }, [loadFarms]);
+
+  useEffect(() => {
+    if (pendingBoundaryEditFarmId !== null && pendingBoundaryEditFarmId === selectedFarmId) {
+      if (coords.length >= 3) {
+        mapRef.current?.startEditing();
+      } else {
+        mapRef.current?.startDrawing();
+      }
+      setPendingBoundaryEditFarmId(null);
+    }
+  }, [pendingBoundaryEditFarmId, selectedFarmId]);
+
+  /** Points the shared map + metrics at a different farm's own (possibly empty) boundary. */
+  function switchToFarm(farm: Farm | null) {
+    setSelectedFarmId(farm?.id ?? null);
+    setCoords(ringOf(farm));
+    setMode('view');
+    setSaveError(null);
+  }
+
+  /** A farm's own persisted summary, or the live in-progress edit if it's the one on screen. */
+  function farmRowSummary(farm: Farm): { areaAcres: number; pointCount: number } {
+    if (farm.id === selectedFarmId) {
+      return { areaAcres: metrics.areaAcres, pointCount };
+    }
+    const ring = ringOf(farm);
+    return {
+      areaAcres: farm.boundaryAreaAcres ?? 0,
+      pointCount: ring.length > 1 ? ring.length - 1 : ring.length,
+    };
+  }
+
+  function handleEditFarm(farm: Farm) {
+    setSelectedFarmForEdit(farm);
     setTempName(farm.name);
+    setModalError(null);
     setIsEditModalVisible(true);
   }
 
-  function handleSaveFarmName() {
-    if (!tempName.trim()) return;
-    setFarms((prev) =>
-      prev.map((f) => (f.id === selectedFarm?.id ? { ...f, name: tempName.trim() } : f)),
-    );
-    setIsEditModalVisible(false);
+  async function handleSaveFarmName() {
+    if (!selectedFarmForEdit || !tempName.trim()) return;
+    setModalSaving(true);
+    setModalError(null);
+    try {
+      const updated = await updateFarm(selectedFarmForEdit.id, { name: tempName.trim() });
+      setFarms((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+      setIsEditModalVisible(false);
+    } catch (err) {
+      setModalError(formatErrorMessage(err, 'Could not rename this farm.'));
+    } finally {
+      setModalSaving(false);
+    }
   }
 
   function handleStartEditBoundary() {
+    if (!selectedFarmForEdit) return;
     setIsEditModalVisible(false);
     setActiveTab('Draw');
-    if (coords.length >= 3) {
-      mapRef.current?.startEditing();
-    } else {
-      mapRef.current?.startDrawing();
-    }
+    switchToFarm(selectedFarmForEdit);
+    setPendingBoundaryEditFarmId(selectedFarmForEdit.id);
   }
 
   function handleDeleteFarm(farmId: string) {
@@ -103,13 +194,25 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            if (farms.length === 1) {
-              handleClear();
-              setUploadedDoc(null);
-            } else {
-              setFarms((prev) => prev.filter((f) => f.id !== farmId));
-              handleClear();
-            }
+            void (async () => {
+              setSaving(true);
+              setSaveError(null);
+              try {
+                await deleteFarm(farmId);
+                const remaining = farms.filter((f) => f.id !== farmId);
+                setFarms(remaining);
+                if (farmId === selectedFarmId) {
+                  switchToFarm(remaining[0] ?? null);
+                }
+                if (uploadedDoc && farmId === selectedFarmId) {
+                  setUploadedDoc(null);
+                }
+              } catch (err) {
+                setSaveError(formatErrorMessage(err, 'Could not delete this farm.'));
+              } finally {
+                setSaving(false);
+              }
+            })();
           },
         },
       ],
@@ -117,13 +220,36 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
   }
 
   function handleAddFarm() {
-    const nextIndex = farms.length + 1;
-    const newFarm = { id: String(Date.now()), name: `Farm ${nextIndex}` };
-    setFarms((prev) => [...prev, newFarm]);
-    handleClear();
-    setUploadedDoc(null);
-    setActiveTab('Draw');
-    mapRef.current?.startDrawing();
+    Alert.alert(
+      'Add Another Farm',
+      'Would you like to start marking the boundary for a new farm?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add Farm',
+          onPress: () => {
+            void (async () => {
+              setSaving(true);
+              setSaveError(null);
+              try {
+                const created = await createFarm({ name: `Farm ${farms.length + 1}` });
+                setFarms((prev) => [...prev, created]);
+                setUploadedDoc(null);
+                setActiveTab('Draw');
+                switchToFarm(created);
+                setPendingBoundaryEditFarmId(created.id);
+                // Let the farmer immediately give it a real name instead of the placeholder.
+                handleEditFarm(created);
+              } catch (err) {
+                setSaveError(formatErrorMessage(err, 'Could not add a new farm.'));
+              } finally {
+                setSaving(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   }
 
   async function handlePickDocument() {
@@ -178,6 +304,40 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
     mapRef.current?.clear();
   }
 
+  /**
+   * Footer "Save FMB": persists the currently-drawn boundary (if any) to the selected farm, then
+   * moves on to Field Context for that same farm. A boundary with fewer than 3 points is not a
+   * polygon, so it's simply not sent -- the farmer can still proceed without drawing yet.
+   */
+  async function handleSaveFmb() {
+    if (!selectedFarmId) {
+      setSaveError('Add a farm before saving.');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      if (coords.length >= 3) {
+        const updated = await updateFarm(selectedFarmId, {
+          boundary: { type: 'Polygon', coordinates: [coords] },
+          calculatedAreaAcres: metrics.areaAcres,
+        });
+        setFarms((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+      }
+      onNavigateToFieldContext(selectedFarmId);
+    } catch (err) {
+      setSaveError(formatErrorMessage(err, 'Could not save the FMB boundary.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const mapInitialCenter: [number, number] | null =
+    selectedFarm?.centroidLng != null && selectedFarm?.centroidLat != null
+      ? [selectedFarm.centroidLng, selectedFarm.centroidLat]
+      : null;
+  const mapInitialPolygon: [number, number][] | null = coords.length >= 3 ? coords : null;
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
@@ -193,353 +353,367 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
         </View>
       </View>
 
-      {/* TABS */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === 'Draw'
-              ? { backgroundColor: colors.brandGreen }
-              : { backgroundColor: P.surfaceMuted },
-          ]}
-          onPress={() => setActiveTab('Draw')}
-        >
-          <Icon name="place" size={18} color={activeTab === 'Draw' ? colors.white : colors.textSubtle} />
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'Draw' ? { color: colors.white } : { color: colors.textSubtle },
-            ]}
-          >
-            Draw on Map
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === 'Upload'
-              ? { backgroundColor: colors.brandGreen }
-              : { backgroundColor: P.surfaceMuted },
-          ]}
-          onPress={() => setActiveTab('Upload')}
-        >
-          <Icon name="description" size={18} color={activeTab === 'Upload' ? colors.white : colors.textSubtle} />
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'Upload' ? { color: colors.white } : { color: colors.textSubtle },
-            ]}
-          >
-            Upload FMB
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.contentScroll}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {activeTab === 'Draw' ? (
-          <>
-            {/* MAP CONTAINER — Horizontally edge-to-edge (100% full width) */}
-            <View style={styles.fullWidthMapContainer}>
-              <FarmBoundaryMap
-                initialCenter={null}
-                initialPolygon={null}
-                onPolygonChange={handlePolygonChange}
-                onModeChange={setMode}
-                searchPlaceholder={t('farmer.map.searchPlaceholder')}
-                ref={mapRef}
-                testID="fmb-sketch-farm-boundary-map"
-              />
-
-              {/* Floating Action Buttons */}
-              <View style={styles.floatingActions} pointerEvents="box-none">
-                <TouchableOpacity
-                  style={styles.fabWhite}
-                  onPress={handleLocateMe}
-                  accessibilityLabel={t('farmer.map.locateMe')}
-                >
-                  <Icon name="gps_fixed" size={20} color={colors.brandGreen} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.fabTeal}
-                  onPress={handleToggleDraw}
-                  accessibilityLabel={
-                    mode !== 'view'
-                      ? t('farmer.map.doneDrawing')
-                      : coords.length >= 3
-                        ? t('farmer.map.editBoundary')
-                        : t('farmer.map.drawBoundary')
-                  }
-                >
-                  <Icon name={mode !== 'view' ? 'check' : 'edit'} size={20} color={colors.white} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.fabWhite}
-                  onPress={handleUndo}
-                  accessibilityLabel={t('farmer.map.undo')}
-                >
-                  <Icon name="undo" size={20} color={colors.brandGreen} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.fabWhite}
-                  onPress={handleClear}
-                  accessibilityLabel={t('farmer.map.clear')}
-                >
-                  <Icon name="delete" size={20} color={P.red500} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Padded Content Section Below Map */}
+      {loading ? (
+        <View style={styles.paddedSection}>
+          <Skeleton height={220} width="100%" style={{ marginBottom: 16 }} />
+          <Skeleton height={80} width="100%" style={{ marginBottom: 12 }} />
+          <Skeleton height={80} width="100%" style={{ marginBottom: 12 }} />
+        </View>
+      ) : (
+        <>
+          {loadError ? (
             <View style={styles.paddedSection}>
-              {/* Metrics Row */}
-              <View style={styles.metricsRow}>
-                <View style={[styles.metricBox, { borderColor: colors.borderLight }]}>
-                  <Text style={[styles.metricVal, { color: colors.textDark }]}>
-                    {coords.length > 0 ? pointCount : '—'}
-                  </Text>
-                  <Text style={[styles.metricLabel, { color: colors.textSubtle }]}>Points</Text>
-                </View>
-                <View style={[styles.metricBox, { borderColor: colors.borderLight }]}>
-                  <Text style={[styles.metricVal, { color: colors.textDark }]}>
-                    {metrics.areaAcres > 0 ? metrics.areaAcres.toFixed(2) : '—'}
-                    <Text style={styles.metricValUnit}> ac</Text>
-                  </Text>
-                  <Text style={[styles.metricLabel, { color: colors.textSubtle }]}>Area</Text>
-                </View>
-                <View style={[styles.metricBox, { borderColor: colors.borderLight }]}>
-                  <Text style={[styles.metricVal, { color: colors.textDark }]}>—</Text>
-                  <Text style={[styles.metricLabel, { color: colors.textSubtle }]}>Zones</Text>
-                </View>
-              </View>
+              <Text style={styles.loadErrorText}>{loadError}</Text>
+            </View>
+          ) : null}
 
-              {/* YOUR FARMS LIST */}
-              <Text style={[styles.sectionTitle, { color: colors.textSubtle }]}>YOUR FARMS</Text>
-
-              {farms.map((farm, index) => (
-                <View key={farm.id} style={[styles.farmCard, { borderColor: colors.borderLight }]}>
-                  <View style={styles.farmCardLeft}>
-                    <View style={[styles.farmIndexCircle, { backgroundColor: colors.brandGreen }]}>
-                      <Text style={styles.farmIndexText}>{index + 1}</Text>
-                    </View>
-                    <View style={styles.farmInfo}>
-                      <Text style={[styles.farmName, { color: colors.textDark }]}>{farm.name}</Text>
-                      <View style={styles.farmSubRow}>
-                        <Icon name="place" size={15} color={colors.brandGreen} />
-                        <Text style={[styles.farmSub, { color: colors.textSubtle }]}>
-                          {metrics.areaAcres > 0
-                            ? `${metrics.areaAcres.toFixed(2)} ac · ${pointCount} pts`
-                            : 'Draw boundary to get area'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.farmActionsRow}>
-                    <TouchableOpacity
-                      style={styles.farmActionBtn}
-                      onPress={() => handleEditFarm(farm)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Edit farm"
-                    >
-                      <Icon name="edit" size={18} color={colors.brandGreen} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.farmActionBtn, styles.farmDeleteBtn]}
-                      onPress={() => handleDeleteFarm(farm.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Delete farm"
-                    >
-                      <Icon name="delete" size={18} color={P.red500} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-
-              {/* ADD ANOTHER FARM BUTTON */}
-              <TouchableOpacity
+          {/* TABS */}
+          <View style={styles.tabsContainer}>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === 'Draw'
+                  ? { backgroundColor: colors.brandGreen }
+                  : { backgroundColor: P.surfaceMuted },
+              ]}
+              onPress={() => setActiveTab('Draw')}
+            >
+              <Icon name="place" size={18} color={activeTab === 'Draw' ? colors.white : colors.textSubtle} />
+              <Text
                 style={[
-                  styles.addFarmButton,
-                  {
-                    borderColor: colors.brandGreen,
-                    backgroundColor: P.lightGreen50,
-                  },
+                  styles.tabText,
+                  activeTab === 'Draw' ? { color: colors.white } : { color: colors.textSubtle },
                 ]}
-                onPress={() => {
-                  Alert.alert(
-                    'Add Another Farm',
-                    'Would you like to start marking the boundary for a new farm?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Add Farm',
-                        onPress: handleAddFarm,
-                      },
-                    ],
-                  );
-                }}
-                activeOpacity={0.7}
               >
-                <AddLocationIcon size={18} color={colors.brandGreen} />
-                <Text style={[styles.addFarmButtonText, { color: colors.brandGreen }]}>
-                  Add another farm
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <View style={styles.paddedSection}>
-            {/* UPLOAD FMB TAB */}
-            <TouchableOpacity
-              style={[
-                styles.uploadCard,
-                {
-                  borderColor: uploadedDoc ? colors.brandGreen : colors.borderLight,
-                  backgroundColor: uploadedDoc ? colors.brandGreenLight : P.lightGreen50,
-                },
-              ]}
-              onPress={handlePickDocument}
-              activeOpacity={0.7}
-            >
-              <View style={styles.uploadCardLeft}>
-                <View
-                  style={[
-                    styles.uploadDocIcon,
-                    { backgroundColor: uploadedDoc ? colors.brandGreen : colors.textSubtle },
-                  ]}
-                >
-                  <Icon name="description" size={20} color={colors.white} />
-                </View>
-                <View style={styles.uploadDocInfo}>
-                  <Text
-                    style={[
-                      styles.uploadDocName,
-                      { color: uploadedDoc ? colors.textDark : colors.textSubtle },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {uploadedDoc ? uploadedDoc.name : 'No document uploaded yet'}
-                  </Text>
-                  <Text style={[styles.uploadDocSize, { color: colors.textSubtle }]}>
-                    {uploadedDoc
-                      ? `${(uploadedDoc.size / 1024).toFixed(0)} KB · Tap to replace`
-                      : 'Tap here to upload your FMB document (PDF or Image)'}
-                  </Text>
-                </View>
-              </View>
-
-              {uploadedDoc ? (
-                <TouchableOpacity
-                  onPress={handleRemoveDocument}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.uploadActionBtn}
-                >
-                  <Icon name="close" size={18} color={P.red500} />
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.uploadActionBtn}>
-                  <Icon name="file_upload" size={20} color={colors.brandGreen} />
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {uploadedDoc ? (
-              <View style={styles.attachedNotice}>
-                <Text style={{ color: colors.brandGreen, fontWeight: '700', fontSize: 14 }}>
-                  <Icon name="check" size={14} color={colors.brandGreen} /> Document attached
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.infoNoticeBox}>
-              <Text style={styles.infoNoticeText}>
-                <Text style={{ fontWeight: '700' }}>Don't have an FMB document?</Text> Upload is optional — you can draw the boundary directly on the map. A TOHFA field officer will verify during the audit visit. Useful if you already have survey papers from the VAO or Revenue Department.
+                Draw on Map
               </Text>
-            </View>
-
-            {/* YOUR FARMS LIST */}
-            <Text style={[styles.sectionTitle, { color: colors.textSubtle }]}>YOUR FARMS</Text>
-
-            {farms.map((farm, index) => (
-              <View key={farm.id} style={[styles.farmCard, { borderColor: colors.borderLight }]}>
-                <View style={styles.farmCardLeft}>
-                  <View style={[styles.farmIndexCircle, { backgroundColor: colors.brandGreen }]}>
-                    <Text style={styles.farmIndexText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.farmInfo}>
-                    <Text style={[styles.farmName, { color: colors.textDark }]}>{farm.name}</Text>
-                    <View style={styles.farmSubRow}>
-                      <Icon name="place" size={15} color={colors.brandGreen} />
-                      <Text style={[styles.farmSub, { color: colors.textSubtle }]}>
-                        {uploadedDoc ? uploadedDoc.name : 'Upload FMB document'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.farmActionsRow}>
-                  <TouchableOpacity
-                    style={styles.farmActionBtn}
-                    onPress={() => handleEditFarm(farm)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Edit farm"
-                  >
-                    <Icon name="edit" size={18} color={colors.brandGreen} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.farmActionBtn, styles.farmDeleteBtn]}
-                    onPress={() => handleDeleteFarm(farm.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Delete farm"
-                  >
-                    <Icon name="delete" size={18} color={P.red500} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {/* ADD ANOTHER FARM BUTTON */}
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.addFarmButton,
-                {
-                  borderColor: colors.brandGreen,
-                  backgroundColor: P.lightGreen50,
-                },
+                styles.tabButton,
+                activeTab === 'Upload'
+                  ? { backgroundColor: colors.brandGreen }
+                  : { backgroundColor: P.surfaceMuted },
               ]}
-              onPress={() => {
-                Alert.alert(
-                  'Add Another Farm',
-                  'Would you like to start marking the boundary for a new farm?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Add Farm',
-                      onPress: handleAddFarm,
-                    },
-                  ],
-                );
-              }}
-              activeOpacity={0.7}
+              onPress={() => setActiveTab('Upload')}
             >
-              <AddLocationIcon size={18} color={colors.brandGreen} />
-              <Text style={[styles.addFarmButtonText, { color: colors.brandGreen }]}>
-                Add another farm
+              <Icon name="description" size={18} color={activeTab === 'Upload' ? colors.white : colors.textSubtle} />
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'Upload' ? { color: colors.white } : { color: colors.textSubtle },
+                ]}
+              >
+                Upload FMB
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+
+          <ScrollView
+            style={styles.contentScroll}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {activeTab === 'Draw' ? (
+              <>
+                {/* MAP CONTAINER — Horizontally edge-to-edge (100% full width) */}
+                <View style={styles.fullWidthMapContainer}>
+                  <FarmBoundaryMap
+                    key={selectedFarmId ?? 'none'}
+                    initialCenter={mapInitialCenter}
+                    initialPolygon={mapInitialPolygon}
+                    onPolygonChange={handlePolygonChange}
+                    onModeChange={setMode}
+                    searchPlaceholder={t('farmer.map.searchPlaceholder')}
+                    ref={mapRef}
+                    testID="fmb-sketch-farm-boundary-map"
+                  />
+
+                  {/* Floating Action Buttons */}
+                  <View style={styles.floatingActions} pointerEvents="box-none">
+                    <TouchableOpacity
+                      style={styles.fabWhite}
+                      onPress={handleLocateMe}
+                      accessibilityLabel={t('farmer.map.locateMe')}
+                    >
+                      <Icon name="gps_fixed" size={20} color={colors.brandGreen} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.fabTeal}
+                      onPress={handleToggleDraw}
+                      accessibilityLabel={
+                        mode !== 'view'
+                          ? t('farmer.map.doneDrawing')
+                          : coords.length >= 3
+                            ? t('farmer.map.editBoundary')
+                            : t('farmer.map.drawBoundary')
+                      }
+                    >
+                      <Icon name={mode !== 'view' ? 'check' : 'edit'} size={20} color={colors.white} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.fabWhite}
+                      onPress={handleUndo}
+                      accessibilityLabel={t('farmer.map.undo')}
+                    >
+                      <Icon name="undo" size={20} color={colors.brandGreen} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.fabWhite}
+                      onPress={handleClear}
+                      accessibilityLabel={t('farmer.map.clear')}
+                    >
+                      <Icon name="delete" size={20} color={P.red500} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Padded Content Section Below Map */}
+                <View style={styles.paddedSection}>
+                  {/* Metrics Row */}
+                  <View style={styles.metricsRow}>
+                    <View style={[styles.metricBox, { borderColor: colors.borderLight }]}>
+                      <Text style={[styles.metricVal, { color: colors.textDark }]}>
+                        {coords.length > 0 ? pointCount : '—'}
+                      </Text>
+                      <Text style={[styles.metricLabel, { color: colors.textSubtle }]}>Points</Text>
+                    </View>
+                    <View style={[styles.metricBox, { borderColor: colors.borderLight }]}>
+                      <Text style={[styles.metricVal, { color: colors.textDark }]}>
+                        {metrics.areaAcres > 0 ? metrics.areaAcres.toFixed(2) : '—'}
+                        <Text style={styles.metricValUnit}> ac</Text>
+                      </Text>
+                      <Text style={[styles.metricLabel, { color: colors.textSubtle }]}>Area</Text>
+                    </View>
+                    <View style={[styles.metricBox, { borderColor: colors.borderLight }]}>
+                      <Text style={[styles.metricVal, { color: colors.textDark }]}>—</Text>
+                      <Text style={[styles.metricLabel, { color: colors.textSubtle }]}>Zones</Text>
+                    </View>
+                  </View>
+
+                  {/* YOUR FARMS LIST */}
+                  <Text style={[styles.sectionTitle, { color: colors.textSubtle }]}>YOUR FARMS</Text>
+
+                  {farms.map((farm, index) => {
+                    const summary = farmRowSummary(farm);
+                    return (
+                      <View key={farm.id} style={[styles.farmCard, { borderColor: colors.borderLight }]}>
+                        <View style={styles.farmCardLeft}>
+                          <View style={[styles.farmIndexCircle, { backgroundColor: colors.brandGreen }]}>
+                            <Text style={styles.farmIndexText}>{index + 1}</Text>
+                          </View>
+                          <View style={styles.farmInfo}>
+                            <Text style={[styles.farmName, { color: colors.textDark }]}>{farm.name}</Text>
+                            <View style={styles.farmSubRow}>
+                              <Icon name="place" size={15} color={colors.brandGreen} />
+                              <Text style={[styles.farmSub, { color: colors.textSubtle }]}>
+                                {summary.areaAcres > 0
+                                  ? `${summary.areaAcres.toFixed(2)} ac · ${summary.pointCount} pts`
+                                  : 'Draw boundary to get area'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        <View style={styles.farmActionsRow}>
+                          <TouchableOpacity
+                            style={styles.farmActionBtn}
+                            onPress={() => handleEditFarm(farm)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityLabel="Edit farm"
+                          >
+                            <Icon name="edit" size={18} color={colors.brandGreen} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.farmActionBtn, styles.farmDeleteBtn]}
+                            onPress={() => handleDeleteFarm(farm.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityLabel="Delete farm"
+                          >
+                            <Icon name="delete" size={18} color={P.red500} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {/* ADD ANOTHER FARM BUTTON */}
+                  <TouchableOpacity
+                    style={[
+                      styles.addFarmButton,
+                      {
+                        borderColor: colors.brandGreen,
+                        backgroundColor: P.lightGreen50,
+                      },
+                    ]}
+                    onPress={handleAddFarm}
+                    activeOpacity={0.7}
+                    disabled={saving}
+                  >
+                    <AddLocationIcon size={18} color={colors.brandGreen} />
+                    <Text style={[styles.addFarmButtonText, { color: colors.brandGreen }]}>
+                      Add another farm
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <View style={styles.paddedSection}>
+                {/* UPLOAD FMB TAB */}
+                <TouchableOpacity
+                  style={[
+                    styles.uploadCard,
+                    {
+                      borderColor: uploadedDoc ? colors.brandGreen : colors.borderLight,
+                      backgroundColor: uploadedDoc ? colors.brandGreenLight : P.lightGreen50,
+                    },
+                  ]}
+                  onPress={handlePickDocument}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.uploadCardLeft}>
+                    <View
+                      style={[
+                        styles.uploadDocIcon,
+                        { backgroundColor: uploadedDoc ? colors.brandGreen : colors.textSubtle },
+                      ]}
+                    >
+                      <Icon name="description" size={20} color={colors.white} />
+                    </View>
+                    <View style={styles.uploadDocInfo}>
+                      <Text
+                        style={[
+                          styles.uploadDocName,
+                          { color: uploadedDoc ? colors.textDark : colors.textSubtle },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {uploadedDoc ? uploadedDoc.name : 'No document uploaded yet'}
+                      </Text>
+                      <Text style={[styles.uploadDocSize, { color: colors.textSubtle }]}>
+                        {uploadedDoc
+                          ? `${(uploadedDoc.size / 1024).toFixed(0)} KB · Tap to replace`
+                          : 'Tap here to upload your FMB document (PDF or Image)'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {uploadedDoc ? (
+                    <TouchableOpacity
+                      onPress={handleRemoveDocument}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={styles.uploadActionBtn}
+                    >
+                      <Icon name="close" size={18} color={P.red500} />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.uploadActionBtn}>
+                      <Icon name="file_upload" size={20} color={colors.brandGreen} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {uploadedDoc ? (
+                  <View style={styles.attachedNotice}>
+                    <Text style={{ color: colors.brandGreen, fontWeight: '700', fontSize: 14 }}>
+                      <Icon name="check" size={14} color={colors.brandGreen} /> Document attached
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.infoNoticeBox}>
+                  <Text style={styles.infoNoticeText}>
+                    <Text style={{ fontWeight: '700' }}>Don't have an FMB document?</Text> Upload is optional — you can draw the boundary directly on the map. A TOHFA field officer will verify during the audit visit. Useful if you already have survey papers from the VAO or Revenue Department.
+                  </Text>
+                </View>
+
+                {/* YOUR FARMS LIST */}
+                <Text style={[styles.sectionTitle, { color: colors.textSubtle }]}>YOUR FARMS</Text>
+
+                {farms.map((farm, index) => {
+                  const summary = farmRowSummary(farm);
+                  return (
+                    <View key={farm.id} style={[styles.farmCard, { borderColor: colors.borderLight }]}>
+                      <View style={styles.farmCardLeft}>
+                        <View style={[styles.farmIndexCircle, { backgroundColor: colors.brandGreen }]}>
+                          <Text style={styles.farmIndexText}>{index + 1}</Text>
+                        </View>
+                        <View style={styles.farmInfo}>
+                          <Text style={[styles.farmName, { color: colors.textDark }]}>{farm.name}</Text>
+                          <View style={styles.farmSubRow}>
+                            <Icon name="place" size={15} color={colors.brandGreen} />
+                            <Text style={[styles.farmSub, { color: colors.textSubtle }]}>
+                              {farm.id === selectedFarmId && uploadedDoc
+                                ? uploadedDoc.name
+                                : summary.areaAcres > 0
+                                  ? `${summary.areaAcres.toFixed(2)} ac · ${summary.pointCount} pts`
+                                  : 'Upload FMB document'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.farmActionsRow}>
+                        <TouchableOpacity
+                          style={styles.farmActionBtn}
+                          onPress={() => handleEditFarm(farm)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel="Edit farm"
+                        >
+                          <Icon name="edit" size={18} color={colors.brandGreen} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.farmActionBtn, styles.farmDeleteBtn]}
+                          onPress={() => handleDeleteFarm(farm.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel="Delete farm"
+                        >
+                          <Icon name="delete" size={18} color={P.red500} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {/* ADD ANOTHER FARM BUTTON */}
+                <TouchableOpacity
+                  style={[
+                    styles.addFarmButton,
+                    {
+                      borderColor: colors.brandGreen,
+                      backgroundColor: P.lightGreen50,
+                    },
+                  ]}
+                  onPress={handleAddFarm}
+                  activeOpacity={0.7}
+                  disabled={saving}
+                >
+                  <AddLocationIcon size={18} color={colors.brandGreen} />
+                  <Text style={[styles.addFarmButtonText, { color: colors.brandGreen }]}>
+                    Add another farm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+        </>
+      )}
 
       {/* FOOTER */}
       <View style={[styles.footer, { borderTopColor: colors.borderDivider, backgroundColor: colors.bgLight }]}>
-        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.brandGreen }]} onPress={onNavigateToFieldContext}>
-          <Text style={styles.saveBtnText}>
-            <Icon name="description" size={16} color={colors.white} /> Save FMB
-          </Text>
+        {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: colors.brandGreen, opacity: saving || loading ? 0.7 : 1 }]}
+          onPress={handleSaveFmb}
+          disabled={saving || loading}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text style={styles.saveBtnText}>
+              <Icon name="description" size={16} color={colors.white} /> Save FMB
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -569,6 +743,8 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
                 placeholderTextColor={P.twGray400}
               />
 
+              {modalError ? <Text style={styles.modalErrorText}>{modalError}</Text> : null}
+
               <TouchableOpacity
                 style={styles.editBoundaryOptionBtn}
                 onPress={handleStartEditBoundary}
@@ -587,10 +763,15 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
                 <Text style={styles.modalCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalSaveBtn, { backgroundColor: colors.brandGreen }]}
-                onPress={handleSaveFarmName}
+                style={[styles.modalSaveBtn, { backgroundColor: colors.brandGreen, opacity: modalSaving ? 0.7 : 1 }]}
+                onPress={() => void handleSaveFarmName()}
+                disabled={modalSaving}
               >
-                <Text style={styles.modalSaveBtnText}>Save</Text>
+                {modalSaving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalSaveBtnText}>Save</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -758,6 +939,13 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginBottom: 12 },
 
+  loadErrorText: {
+    color: P.red600,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+
   farmCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -872,6 +1060,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgLight,
     marginBottom: 14,
   },
+  modalErrorText: {
+    color: P.red600,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: -8,
+    marginBottom: 12,
+  },
   editBoundaryOptionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -908,6 +1103,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 64,
   },
   modalSaveBtnText: {
     fontSize: 14,
@@ -919,6 +1115,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
+  },
+  saveErrorText: {
+    color: P.red600,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   saveBtn: {
     width: '100%',

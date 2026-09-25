@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,113 +10,72 @@ import {
   Modal,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Defs, Pattern, Rect } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, Skeleton } from '@tohfa/mobile-ui';
 import { useTheme, colors, authPalette as P } from '../../theme';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import { deletePlot, getFarms, getPlots, updatePlot, type Farm, type Plot } from '../../api/farms';
 
 interface ZonesScreenProps {
+  /** The farm to show zones for, threaded from FieldContextScreen via App.tsx's params. */
+  farmId: string;
   onNavigateBack: () => void;
-  onNavigateToAddZone: () => void;
+  /** Called with the farm currently selected on screen (the farmer may have switched it below). */
+  onNavigateToAddZone: (farmId: string) => void;
   onSave: () => void;
 }
 
-interface FarmOption {
-  id: string;
-  name: string;
-  totalAcres: number;
-}
-
-const FARMS_LIST: FarmOption[] = [
-  { id: 'farm_1', name: 'Your Farm', totalAcres: 2.50 },
-  { id: 'farm_2', name: 'Farm 2 · East Field', totalAcres: 1.80 },
-  { id: 'farm_3', name: 'Farm 3 · Riverside Plot', totalAcres: 3.20 },
+/**
+ * Purely cosmetic per-position styling for the schematic map + zone cards. `Plot` has no real
+ * boundary/colour of its own (the backend has no zone-geometry field yet -- see AddZoneScreen's
+ * docblock), so this is a repeating scheme keyed by list position, not real per-zone data.
+ */
+const ZONE_VISUALS = [
+  { letter: 'A', color: P.deepGreen, bgColor: 'rgba(27, 94, 32, 0.6)' },
+  { letter: 'B', color: P.orange900, bgColor: 'rgba(230, 81, 0, 0.6)' },
+  { letter: 'C', color: P.deepPurple600, bgColor: 'rgba(69, 39, 160, 0.6)' },
 ];
-
-interface ZoneItem {
-  id: string;
-  letter: string;
-  name: string;
-  area: number;
-  points: number;
-  color: string;
-  borderColor: string;
-  bgColor: string;
-  soil: string;
-  exposure: string;
-  irrigation: string;
-  crop?: {
-    name: string;
-    day: number;
-  } | undefined;
+function visualFor(index: number) {
+  return ZONE_VISUALS[index % ZONE_VISUALS.length]!;
 }
-
-const INITIAL_ZONES: ZoneItem[] = [
-  {
-    id: 'zone_a',
-    letter: 'A',
-    name: 'Zone A · North Plot',
-    area: 0.90,
-    points: 5,
-    color: P.deepGreen,
-    borderColor: P.deepGreen,
-    bgColor: 'rgba(27, 94, 32, 0.6)',
-    soil: 'Loamy',
-    exposure: 'Full sun',
-    irrigation: 'Drip',
-    crop: {
-      name: 'Tomato',
-      day: 62,
-    },
-  },
-  {
-    id: 'zone_b',
-    letter: 'B',
-    name: 'Zone B · Middle Terrace',
-    area: 0.85,
-    points: 4,
-    color: P.orange900,
-    borderColor: P.orange900,
-    bgColor: 'rgba(230, 81, 0, 0.6)',
-    soil: 'Sandy',
-    exposure: 'Partial',
-    irrigation: 'Sprinkler',
-    crop: {
-      name: 'Carrot',
-      day: 34,
-    },
-  },
-  {
-    id: 'zone_c',
-    letter: 'C',
-    name: 'Zone C · Lower Bed',
-    area: 0.55,
-    points: 4,
-    color: P.deepPurple600,
-    borderColor: P.deepPurple600,
-    bgColor: 'rgba(69, 39, 160, 0.6)',
-    soil: 'Red soil',
-    exposure: 'Full sun',
-    irrigation: 'Drip',
-  },
-];
 
 const SOIL_OPTIONS = ['Loamy', 'Sandy', 'Clay', 'Red soil', 'Black soil'];
 const EXPOSURE_OPTIONS = ['Full sun', 'Partial', 'Shade'];
 const IRRIGATION_OPTIONS = ['Drip', 'Sprinkler', 'Flood', 'Rainfed'];
 
-export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: ZonesScreenProps) {
+/** A zone's local-only "current crop" label -- see the docblock above `localCrops` below. */
+interface LocalCrop {
+  name: string;
+  day: string;
+}
+
+export function ZonesScreen({ farmId, onNavigateBack, onNavigateToAddZone, onSave }: ZonesScreenProps) {
   const { colors } = useTheme();
 
-  // Farm Selector state
-  const [selectedFarm, setSelectedFarm] = useState<FarmOption>(FARMS_LIST[0]!);
-  const [isFarmDropdownOpen, setIsFarmDropdownOpen] = useState(false);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [farmsLoading, setFarmsLoading] = useState(true);
+  const [farmsError, setFarmsError] = useState<string | null>(null);
 
-  // Zones state
-  const [zones, setZones] = useState<ZoneItem[]>(INITIAL_ZONES);
+  const [selectedFarmId, setSelectedFarmId] = useState<string>(farmId);
+  const [isFarmDropdownOpen, setIsFarmDropdownOpen] = useState(false);
+  const selectedFarm = farms.find((f) => f.id === selectedFarmId) ?? null;
+
+  const [zones, setZones] = useState<Plot[]>([]);
+  const [zonesLoading, setZonesLoading] = useState(true);
+  const [zonesError, setZonesError] = useState<string | null>(null);
+
+  /**
+   * There is no crop-tracking backend anywhere in this app yet (dashboard/farm-management/crop
+   * screens are all still mock -- see root CLAUDE.md's task notes), and `Plot` has no crop
+   * field. The "Current Crop" input on a zone stays local-only and cosmetic by design: it is
+   * never sent to the API, and it resets whenever this screen remounts. Keyed by plot id.
+   */
+  const [localCrops, setLocalCrops] = useState<Record<string, LocalCrop>>({});
 
   // Edit Zone Modal state
-  const [editingZone, setEditingZone] = useState<ZoneItem | null>(null);
+  const [editingZone, setEditingZone] = useState<Plot | null>(null);
   const [editName, setEditName] = useState('');
   const [editSoil, setEditSoil] = useState('');
   const [editExposure, setEditExposure] = useState('');
@@ -124,46 +83,101 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
   const [editCropName, setEditCropName] = useState('');
   const [editCropDay, setEditCropDay] = useState('');
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [modalSaving, setModalSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  // Dynamic calculations
-  const totalMarkedAcres = zones.reduce((acc, z) => acc + z.area, 0);
-  const unmarkedAcres = Math.max(0, selectedFarm.totalAcres - totalMarkedAcres);
+  const loadFarms = useCallback(async () => {
+    setFarmsLoading(true);
+    setFarmsError(null);
+    try {
+      const list = await getFarms();
+      setFarms(list);
+      // The threaded farmId should always be valid by the time this screen is reached, but fall
+      // back to the first farm rather than strand the picker on a farm that no longer exists.
+      setSelectedFarmId((prev) => (list.some((f) => f.id === prev) ? prev : (list[0]?.id ?? prev)));
+    } catch (err) {
+      setFarmsError(formatErrorMessage(err, 'Could not load your farms.'));
+    } finally {
+      setFarmsLoading(false);
+    }
+  }, []);
 
-  const handleOpenEdit = (zone: ZoneItem) => {
+  const loadZones = useCallback(async () => {
+    if (!selectedFarmId) {
+      setZones([]);
+      setZonesLoading(false);
+      return;
+    }
+    setZonesLoading(true);
+    setZonesError(null);
+    try {
+      const list = await getPlots(selectedFarmId);
+      setZones(list);
+    } catch (err) {
+      setZonesError(formatErrorMessage(err, 'Could not load zones.'));
+    } finally {
+      setZonesLoading(false);
+    }
+  }, [selectedFarmId]);
+
+  useEffect(() => {
+    void loadFarms();
+  }, [loadFarms]);
+
+  useEffect(() => {
+    void loadZones();
+  }, [loadZones]);
+
+  // Dynamic calculations. The map-measured boundary area is preferred over the farmer's typed
+  // figure when both exist, matching how FMBSketchScreen treats the same two fields.
+  const farmTotalAcres = selectedFarm?.boundaryAreaAcres ?? selectedFarm?.areaAcres ?? 0;
+  const totalMarkedAcres = zones.reduce((acc, z) => acc + (z.areaAcres ?? 0), 0);
+  const unmarkedAcres = Math.max(0, farmTotalAcres - totalMarkedAcres);
+
+  const handleOpenEdit = (zone: Plot) => {
     setEditingZone(zone);
     setEditName(zone.name);
-    setEditSoil(zone.soil);
-    setEditExposure(zone.exposure);
-    setEditIrrigation(zone.irrigation);
-    setEditCropName(zone.crop?.name || '');
-    setEditCropDay(zone.crop?.day ? String(zone.crop.day) : '');
+    setEditSoil(zone.soilType ?? '');
+    setEditExposure(zone.sunExposure ?? '');
+    setEditIrrigation(zone.irrigationType ?? '');
+    const localCrop = localCrops[zone.id];
+    setEditCropName(localCrop?.name ?? '');
+    setEditCropDay(localCrop?.day ?? '');
+    setModalError(null);
     setIsEditModalVisible(true);
   };
 
-  const handleSaveEdit = () => {
-    if (!editingZone) return;
-
-    setZones(
-      zones.map((z) => {
-        if (z.id !== editingZone.id) return z;
-        return {
-          ...z,
-          name: editName.trim() || z.name,
-          soil: editSoil,
-          exposure: editExposure,
-          irrigation: editIrrigation,
-          crop: editCropName.trim()
-            ? {
-                name: editCropName.trim(),
-                day: parseInt(editCropDay, 10) || 1,
-              }
-            : undefined,
-        };
-      }),
-    );
-    setIsEditModalVisible(false);
-    setEditingZone(null);
-  };
+  async function handleSaveEdit() {
+    if (!editingZone || !selectedFarmId) return;
+    setModalSaving(true);
+    setModalError(null);
+    try {
+      const updated = await updatePlot(selectedFarmId, editingZone.id, {
+        name: editName.trim() || editingZone.name,
+        soilType: editSoil,
+        sunExposure: editExposure,
+        irrigationType: editIrrigation,
+      });
+      setZones((prev) => prev.map((z) => (z.id === updated.id ? updated : z)));
+      // Crop is local-only -- see the `localCrops` docblock above. Written after the real save
+      // succeeds, never sent to the server.
+      setLocalCrops((prev) => {
+        const next = { ...prev };
+        if (editCropName.trim()) {
+          next[editingZone.id] = { name: editCropName.trim(), day: editCropDay };
+        } else {
+          delete next[editingZone.id];
+        }
+        return next;
+      });
+      setIsEditModalVisible(false);
+      setEditingZone(null);
+    } catch (err) {
+      setModalError(formatErrorMessage(err, 'Could not save this zone.'));
+    } finally {
+      setModalSaving(false);
+    }
+  }
 
   const handleDeleteZone = (zoneId: string) => {
     const target = zones.find((z) => z.id === zoneId);
@@ -176,7 +190,21 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            setZones(zones.filter((z) => z.id !== zoneId));
+            void (async () => {
+              if (!selectedFarmId) return;
+              setZonesError(null);
+              try {
+                await deletePlot(selectedFarmId, zoneId);
+                setZones((prev) => prev.filter((z) => z.id !== zoneId));
+                setLocalCrops((prev) => {
+                  const next = { ...prev };
+                  delete next[zoneId];
+                  return next;
+                });
+              } catch (err) {
+                setZonesError(formatErrorMessage(err, 'Could not delete this zone.'));
+              }
+            })();
           },
         },
       ],
@@ -206,80 +234,89 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* FARM SELECTOR TRIGGER */}
-        <TouchableOpacity
-          style={[
-            styles.farmSelector,
-            {
-              borderColor: isFarmDropdownOpen ? colors.brandGreen : colors.borderLight,
-            },
-          ]}
-          onPress={() => setIsFarmDropdownOpen(!isFarmDropdownOpen)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.farmIconBox, { backgroundColor: colors.brandGreenLight }]}>
-            <Icon name="place" size={16} color={colors.brandGreen} />
-          </View>
-          <View style={styles.farmSelectorText}>
-            <Text style={{ fontSize: 10, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 }}>
-              MARKING ZONES FOR
-            </Text>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textDark }}>
-              {selectedFarm.name}
-            </Text>
-          </View>
-          <Icon
-            name={isFarmDropdownOpen ? 'expand_more' : 'expand_more'}
-            size={18}
-            color={colors.textSubtle}
-          />
-        </TouchableOpacity>
+        {farmsError ? <Text style={styles.errorText}>{farmsError}</Text> : null}
 
-        {/* FARM DROPDOWN LIST */}
-        {isFarmDropdownOpen && (
-          <View style={[styles.farmDropdownMenu, { borderColor: colors.borderLight }]}>
-            {FARMS_LIST.map((farm) => {
-              const isSelected = farm.id === selectedFarm.id;
-              return (
-                <TouchableOpacity
-                  key={farm.id}
-                  style={[
-                    styles.farmDropdownItem,
-                    isSelected && { backgroundColor: P.lightGreen50 },
-                  ]}
-                  onPress={() => {
-                    setSelectedFarm(farm);
-                    setIsFarmDropdownOpen(false);
-                  }}
-                >
-                  <View style={styles.farmDropdownItemLeft}>
-                    <Icon
-                      name="place"
-                      size={16}
-                      color={isSelected ? colors.brandGreen : colors.textSubtle}
-                    />
-                    <View>
-                      <Text
-                        style={[
-                          styles.farmDropdownItemText,
-                          {
-                            color: isSelected ? colors.brandGreen : colors.textDark,
-                            fontWeight: isSelected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {farm.name}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: colors.textSubtle }}>
-                        Total area: {farm.totalAcres.toFixed(2)} ac
-                      </Text>
-                    </View>
-                  </View>
-                  {isSelected && <Icon name="check" size={16} color={colors.brandGreen} />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        {farmsLoading ? (
+          <Skeleton height={64} width="100%" style={{ marginBottom: 16 }} />
+        ) : (
+          <>
+            {/* FARM SELECTOR TRIGGER */}
+            <TouchableOpacity
+              style={[
+                styles.farmSelector,
+                {
+                  borderColor: isFarmDropdownOpen ? colors.brandGreen : colors.borderLight,
+                },
+              ]}
+              onPress={() => setIsFarmDropdownOpen(!isFarmDropdownOpen)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.farmIconBox, { backgroundColor: colors.brandGreenLight }]}>
+                <Icon name="place" size={16} color={colors.brandGreen} />
+              </View>
+              <View style={styles.farmSelectorText}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 }}>
+                  MARKING ZONES FOR
+                </Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textDark }}>
+                  {selectedFarm?.name ?? 'Select a farm'}
+                </Text>
+              </View>
+              <Icon
+                name={isFarmDropdownOpen ? 'expand_more' : 'expand_more'}
+                size={18}
+                color={colors.textSubtle}
+              />
+            </TouchableOpacity>
+
+            {/* FARM DROPDOWN LIST */}
+            {isFarmDropdownOpen && (
+              <View style={[styles.farmDropdownMenu, { borderColor: colors.borderLight }]}>
+                {farms.map((farm) => {
+                  const isSelected = farm.id === selectedFarmId;
+                  const farmAcres = farm.boundaryAreaAcres ?? farm.areaAcres ?? 0;
+                  return (
+                    <TouchableOpacity
+                      key={farm.id}
+                      style={[
+                        styles.farmDropdownItem,
+                        isSelected && { backgroundColor: P.lightGreen50 },
+                      ]}
+                      onPress={() => {
+                        setSelectedFarmId(farm.id);
+                        setIsFarmDropdownOpen(false);
+                      }}
+                    >
+                      <View style={styles.farmDropdownItemLeft}>
+                        <Icon
+                          name="place"
+                          size={16}
+                          color={isSelected ? colors.brandGreen : colors.textSubtle}
+                        />
+                        <View>
+                          <Text
+                            style={[
+                              styles.farmDropdownItemText,
+                              {
+                                color: isSelected ? colors.brandGreen : colors.textDark,
+                                fontWeight: isSelected ? '700' : '500',
+                              },
+                            ]}
+                          >
+                            {farm.name}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+                            Total area: {farmAcres.toFixed(2)} ac
+                          </Text>
+                        </View>
+                      </View>
+                      {isSelected && <Icon name="check" size={16} color={colors.brandGreen} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
         {/* INFO NOTICE */}
@@ -290,10 +327,11 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
           </Text>
         </View>
 
-        {/* MAP VIEW */}
+        {/* MAP VIEW — decorative only: `Plot` has no boundary/geometry field on the backend yet,
+            so there is no real per-zone shape to draw here. Colours below are keyed by list
+            position (see `visualFor`), not by any real zone id. */}
         <View style={styles.mapContainer}>
           <View style={[styles.mapBackground, { backgroundColor: P.oliveGreen }]}>
-            {/* Simulated map texture */}
             <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
               <Defs>
                 <Pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -313,8 +351,7 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                 strokeDasharray="8,6"
               />
 
-              {/* Zone A (Green) */}
-              {zones.some((z) => z.id === 'zone_a') && (
+              {zones[0] && (
                 <>
                   <Polygon
                     points="70,40 240,30 245,100 65,100"
@@ -323,12 +360,10 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                     strokeWidth="2"
                   />
                   <Circle cx="155" cy="65" r="12" fill={P.deepGreen} stroke={colors.white} strokeWidth="2" />
-                  <Text style={{ position: 'absolute', top: 56, left: 150, color: colors.white, fontWeight: '800', fontSize: 12 }}>A</Text>
                 </>
               )}
 
-              {/* Zone B (Orange) */}
-              {zones.some((z) => z.id === 'zone_b') && (
+              {zones[1] && (
                 <>
                   <Polygon
                     points="65,100 245,100 255,180 75,180"
@@ -337,12 +372,10 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                     strokeWidth="2"
                   />
                   <Circle cx="160" cy="140" r="12" fill={P.orange900} stroke={colors.white} strokeWidth="2" />
-                  <Text style={{ position: 'absolute', top: 131, left: 155, color: colors.white, fontWeight: '800', fontSize: 12 }}>B</Text>
                 </>
               )}
 
-              {/* Zone C (Purple) */}
-              {zones.some((z) => z.id === 'zone_c') && (
+              {zones[2] && (
                 <>
                   <Polygon
                     points="75,180 255,180 230,240 80,250"
@@ -351,7 +384,6 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                     strokeWidth="2"
                   />
                   <Circle cx="155" cy="215" r="12" fill={P.deepPurple800} stroke={colors.white} strokeWidth="2" />
-                  <Text style={{ position: 'absolute', top: 206, left: 150, color: colors.white, fontWeight: '800', fontSize: 12 }}>C</Text>
                 </>
               )}
             </Svg>
@@ -363,7 +395,8 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
             <Text style={{ color: colors.white, fontSize: 12, fontWeight: '700' }}>Farm boundary</Text>
           </View>
 
-          {/* Floating Action Buttons */}
+          {/* Floating Action Buttons — decorative, matching the pre-existing mock (no zone
+              geometry to draw/edit yet). */}
           <View style={styles.floatingActions}>
             <TouchableOpacity style={styles.fabWhite}>
               <Icon name="crop_free" size={18} color={colors.brandGreen} style={styles.fabIcon} />
@@ -402,82 +435,97 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
             <Icon name="folder" size={14} color={colors.brandGreen} style={styles.listHeaderIcon} />
             <Text style={[styles.listHeaderTitle, { color: colors.brandGreen }]}>ALL ZONES</Text>
           </View>
-          <TouchableOpacity onPress={onNavigateToAddZone}>
-            <Text style={[styles.addZoneBtnText, { color: colors.brandGreen }]}>+ Add Zone</Text>
+          <TouchableOpacity
+            onPress={() => onNavigateToAddZone(selectedFarmId)}
+            disabled={!selectedFarmId}
+          >
+            <Text style={[styles.addZoneBtnText, { color: colors.brandGreen, opacity: selectedFarmId ? 1 : 0.5 }]}>
+              + Add Zone
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* DYNAMIC ZONES LIST */}
-        {zones.map((zone) => (
-          <View
-            key={zone.id}
-            style={[
-              styles.zoneCard,
-              {
-                borderColor: zone.borderColor,
-              },
-            ]}
-          >
-            <View style={styles.zoneCardTop}>
-              <View style={[styles.zoneIcon, { backgroundColor: zone.color }]}>
-                <Text style={styles.zoneIconText}>{zone.letter}</Text>
-              </View>
-              <View style={styles.zoneTitleCol}>
-                <Text style={[styles.zoneTitle, { color: colors.textDark }]}>{zone.name}</Text>
-                <View style={styles.zoneSubRow}>
-                  <Icon name="crop_free" size={12} color={colors.textSubtle} style={styles.zoneSubIcon} />
-                  <Text style={[styles.zoneSub, { color: colors.textSubtle }]}>
-                    {zone.area.toFixed(2)} ac · {zone.points} pts
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.zoneActions}>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleOpenEdit(zone)}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  accessibilityLabel="Edit Zone"
-                >
-                  <Icon name="edit" size={16} color={colors.brandGreen} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionDeleteBtn]}
-                  onPress={() => handleDeleteZone(zone.id)}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  accessibilityLabel="Delete Zone"
-                >
-                  <Icon name="delete" size={16} color={P.red500} />
-                </TouchableOpacity>
-              </View>
-            </View>
+        {zonesError ? <Text style={styles.errorText}>{zonesError}</Text> : null}
 
-            <View style={styles.zoneCardDetails}>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>SOIL</Text>
-                <Text style={styles.detailValue}>{zone.soil}</Text>
-              </View>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>EXPOSURE</Text>
-                <Text style={styles.detailValue}>{zone.exposure}</Text>
-              </View>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>IRRIGATION</Text>
-                <Text style={styles.detailValue}>{zone.irrigation}</Text>
-              </View>
-            </View>
-
-            {zone.crop ? (
-              <View style={[styles.cropPill, { backgroundColor: colors.brandGreenLight }]}>
-                <View style={styles.cropPillRow}>
-                  <Icon name="eco" size={12} color={colors.brandGreen} style={styles.cropPillIcon} />
-                  <Text style={[styles.cropPillText, { color: colors.brandGreen }]}>
-                    Currently: {zone.crop.name} · Day {zone.crop.day}
-                  </Text>
+        {zonesLoading ? (
+          <>
+            <Skeleton height={140} width="100%" style={{ marginBottom: 12 }} />
+            <Skeleton height={140} width="100%" style={{ marginBottom: 12 }} />
+          </>
+        ) : zones.length === 0 ? (
+          <Text style={styles.emptyText}>No zones yet. Tap "+ Add Zone" to mark out your first one.</Text>
+        ) : (
+          zones.map((zone, index) => {
+            const visual = visualFor(index);
+            const crop = localCrops[zone.id];
+            return (
+              <View
+                key={zone.id}
+                style={[styles.zoneCard, { borderColor: visual.color }]}
+              >
+                <View style={styles.zoneCardTop}>
+                  <View style={[styles.zoneIcon, { backgroundColor: visual.color }]}>
+                    <Text style={styles.zoneIconText}>{visual.letter}</Text>
+                  </View>
+                  <View style={styles.zoneTitleCol}>
+                    <Text style={[styles.zoneTitle, { color: colors.textDark }]}>{zone.name}</Text>
+                    <View style={styles.zoneSubRow}>
+                      <Icon name="crop_free" size={12} color={colors.textSubtle} style={styles.zoneSubIcon} />
+                      <Text style={[styles.zoneSub, { color: colors.textSubtle }]}>
+                        {(zone.areaAcres ?? 0).toFixed(2)} ac
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.zoneActions}>
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={() => handleOpenEdit(zone)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      accessibilityLabel="Edit Zone"
+                    >
+                      <Icon name="edit" size={16} color={colors.brandGreen} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.actionDeleteBtn]}
+                      onPress={() => handleDeleteZone(zone.id)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      accessibilityLabel="Delete Zone"
+                    >
+                      <Icon name="delete" size={16} color={P.red500} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
+
+                <View style={styles.zoneCardDetails}>
+                  <View style={styles.detailCol}>
+                    <Text style={styles.detailLabel}>SOIL</Text>
+                    <Text style={styles.detailValue}>{zone.soilType || '—'}</Text>
+                  </View>
+                  <View style={styles.detailCol}>
+                    <Text style={styles.detailLabel}>EXPOSURE</Text>
+                    <Text style={styles.detailValue}>{zone.sunExposure || '—'}</Text>
+                  </View>
+                  <View style={styles.detailCol}>
+                    <Text style={styles.detailLabel}>IRRIGATION</Text>
+                    <Text style={styles.detailValue}>{zone.irrigationType || '—'}</Text>
+                  </View>
+                </View>
+
+                {crop ? (
+                  <View style={[styles.cropPill, { backgroundColor: colors.brandGreenLight }]}>
+                    <View style={styles.cropPillRow}>
+                      <Icon name="eco" size={12} color={colors.brandGreen} style={styles.cropPillIcon} />
+                      <Text style={[styles.cropPillText, { color: colors.brandGreen }]}>
+                        Currently: {crop.name}
+                        {crop.day ? ` · Day ${crop.day}` : ''} · not saved yet
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-          </View>
-        ))}
+            );
+          })
+        )}
       </ScrollView>
 
       {/* FOOTER */}
@@ -601,8 +649,11 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                 ))}
               </View>
 
-              {/* CROP DETAILS */}
+              {/* CROP DETAILS — local-only, see the `localCrops` docblock above. */}
               <Text style={styles.inputLabel}>Current Crop (Optional)</Text>
+              <Text style={styles.cropNotSavedNote}>
+                Not saved yet — crop tracking isn't wired up on this app yet.
+              </Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TextInput
                   style={[styles.textInput, { flex: 2 }]}
@@ -620,6 +671,8 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                   placeholderTextColor={P.twGray400}
                 />
               </View>
+
+              {modalError ? <Text style={styles.modalErrorText}>{modalError}</Text> : null}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -630,10 +683,15 @@ export function ZonesScreen({ onNavigateBack, onNavigateToAddZone, onSave }: Zon
                 <Text style={styles.modalCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalSaveBtn, { backgroundColor: colors.brandGreen }]}
-                onPress={handleSaveEdit}
+                style={[styles.modalSaveBtn, { backgroundColor: colors.brandGreen, opacity: modalSaving ? 0.7 : 1 }]}
+                onPress={() => void handleSaveEdit()}
+                disabled={modalSaving}
               >
-                <Text style={styles.modalSaveBtnText}>Save</Text>
+                {modalSaving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalSaveBtnText}>Save</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -679,6 +737,19 @@ const styles = StyleSheet.create({
 
   contentScroll: { flex: 1 },
   contentContainer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
+
+  errorText: {
+    color: P.red600,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: P.blueGrey600,
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
 
   farmSelector: {
     flexDirection: 'row',
@@ -924,6 +995,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 6,
   },
+  cropNotSavedNote: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: P.blueGrey400,
+    marginBottom: 8,
+  },
   textInput: {
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -953,6 +1030,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textDark,
   },
+  modalErrorText: {
+    color: P.red600,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -976,6 +1059,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 64,
   },
   modalSaveBtnText: {
     fontSize: 14,
