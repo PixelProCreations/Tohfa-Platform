@@ -48,12 +48,14 @@ interface PriceHistoryScreenProps {
   onBack: () => void;
   itemName?: string;
   category?: string;
+  currentPrice?: number;
 }
 
 export function PriceHistoryScreen({
   onBack,
   itemName = 'Carrots',
   category = 'Vegetables',
+  currentPrice = 42,
 }: PriceHistoryScreenProps) {
   const maxPrice = Math.max(...HISTORY.map((h) => h.price));
 

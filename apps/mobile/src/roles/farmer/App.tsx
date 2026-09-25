@@ -163,6 +163,16 @@ import {
   AdminCertVerificationScreen,
   AdminComplianceTiersScreen,
   AdminKycReviewScreen,
+  SalesChannelOverviewScreen,
+  SalesOnlineOrdersScreen,
+  SalesMarketDayScreen,
+  SalesHorecaOrdersScreen,
+  SalesB2BOrdersScreen,
+  SalesFulfillmentAssignmentScreen,
+  SalesInvoiceScreen,
+  SalesReturnsRefundsScreen,
+  type OnlineOrderItem,
+  type B2BAccount,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -191,6 +201,14 @@ export type ScreenName =
   | 'FarmerAdminDashboard'
   | 'MainWarehouseAdminDashboard'
   | 'SubWarehouseAdminDashboard'
+  | 'SalesChannelOverview'
+  | 'SalesOnlineOrders'
+  | 'SalesMarketDay'
+  | 'SalesHorecaOrders'
+  | 'SalesB2BOrders'
+  | 'SalesFulfillmentAssignment'
+  | 'SalesInvoice'
+  | 'SalesReturnsRefunds'
   | 'AuditCalendar'
   | 'ScheduleNewAudit'
   | 'AuditInspection'
@@ -316,7 +334,21 @@ export type ScreenName =
   | 'PriceHistory'
   | 'MarketDaySchedule'
   | 'AddMarketDay'
-  | 'ListingApprovalQueue';
+  | 'ListingApprovalQueue'
+  | 'AdminAllFarmers'
+  | 'AdminFarmerDetail'
+  | 'AdminEditFarmer'
+  | 'AdminEditRatingCategories'
+  | 'AdminFarmMap'
+  | 'AdminRatingScorecard'
+  | 'AdminComplianceTiers'
+  | 'AdminKycReview'
+  | 'AdminCertVerification'
+  | 'AdminPendingApplications'
+  | 'AdminApplicationDetail'
+  | 'AdminApplicationApprove'
+  | 'AdminApplicationReject'
+  | 'AdminApplicationRequestInfo';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -366,6 +398,8 @@ export default function App(): React.JSX.Element {
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | undefined>(undefined);
   const [adminFarmerActiveTab, setAdminFarmerActiveTab] = useState<FarmerDetailTabType>('Overview');
   const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
+  const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
+  const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
@@ -581,6 +615,63 @@ export default function App(): React.JSX.Element {
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
+        ) : screen === 'SalesChannelOverview' ? (
+          <SalesChannelOverviewScreen
+            onBack={goBack}
+            onSelectChannel={(channel) => {
+              if (channel === 'online') navigate('SalesOnlineOrders');
+              else if (channel === 'market') navigate('SalesMarketDay');
+              else if (channel === 'horeca') navigate('SalesHorecaOrders');
+              else if (channel === 'b2b') navigate('SalesB2BOrders');
+            }}
+            onOpenFulfillment={() => navigate('SalesFulfillmentAssignment')}
+            onOpenReturns={() => navigate('SalesReturnsRefunds')}
+          />
+        ) : screen === 'SalesOnlineOrders' ? (
+          <SalesOnlineOrdersScreen
+            onBack={goBack}
+            onSelectOrder={(ord) => {
+              setSelectedSalesOrder(ord);
+              navigate('SalesFulfillmentAssignment');
+            }}
+            onOpenInvoice={(ord) => {
+              setSelectedSalesOrder(ord);
+              navigate('SalesInvoice');
+            }}
+          />
+        ) : screen === 'SalesMarketDay' ? (
+          <SalesMarketDayScreen onBack={goBack} />
+        ) : screen === 'SalesHorecaOrders' ? (
+          <SalesHorecaOrdersScreen onBack={goBack} />
+        ) : screen === 'SalesB2BOrders' ? (
+          <SalesB2BOrdersScreen
+            onBack={goBack}
+            onOpenInvoice={(acc) => {
+              setSelectedSalesB2B(acc);
+              navigate('SalesInvoice');
+            }}
+          />
+        ) : screen === 'SalesFulfillmentAssignment' ? (
+          <SalesFulfillmentAssignmentScreen
+            onBack={goBack}
+            orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
+            customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
+            onNavigateToInvoice={() => navigate('SalesInvoice')}
+          />
+        ) : screen === 'SalesInvoice' ? (
+          <SalesInvoiceScreen
+            onBack={goBack}
+            orderNumber={
+              selectedSalesOrder?.orderNumber ??
+              (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
+            }
+            customerName={
+              selectedSalesOrder?.customerName ??
+              (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
+            }
+          />
+        ) : screen === 'SalesReturnsRefunds' ? (
+          <SalesReturnsRefundsScreen onBack={goBack} />
         ) : screen === 'FinancialDashboard' ? (
           <FinancialDashboardScreen
             onBack={goBack}
@@ -636,79 +727,6 @@ export default function App(): React.JSX.Element {
           <AddManualJournalEntryScreen
             onBack={goBack}
             onSuccess={goBack}
-          />
-        ) : screen === 'AdminAllFarmers' ? (
-          <AdminAllFarmersScreen
-            onBack={goBack}
-            onSelectFarmer={(farmer) => {
-              setSelectedFarmer(farmer);
-              navigate('AdminFarmerDetail');
-            }}
-          />
-        ) : screen === 'AdminFarmerDetail' ? (
-          <AdminFarmerDetailScreen
-            onBack={goBack}
-            farmer={selectedFarmer}
-            onEdit={() => {
-              Alert.alert(
-                'Edit Farmer',
-                'Edit farmer screen is not yet implemented. This would allow editing farmer details like name, contact, farm info, etc.',
-                [{ text: 'OK' }]
-              );
-            }}
-            onDisable={() => {
-              Alert.alert(
-                'Disable Farmer Account',
-                `Are you sure you want to disable ${selectedFarmer?.name}'s account? They will not be able to access the platform.`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Disable', 
-                    style: 'destructive',
-                    onPress: () => {
-                      Alert.alert('Success', 'Farmer account has been disabled.');
-                      goBack();
-                    }
-                  }
-                ]
-              );
-            }}
-            onOpenFarmMap={() => navigate('AdminFarmMap')}
-            onOpenKycReview={() => navigate('AdminKycReview')}
-            onOpenRatingScorecard={() => navigate('AdminRatingScorecard')}
-          />
-        ) : screen === 'AdminFarmMap' ? (
-          <AdminFarmMapScreen
-            onBack={goBack}
-            farmer={selectedFarmer}
-          />
-        ) : screen === 'AdminRatingScorecard' ? (
-          <AdminRatingScorecardScreen
-            onBack={goBack}
-            farmer={selectedFarmer}
-            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
-            onEditCategories={() => {
-              Alert.alert(
-                'Edit Categories',
-                'Edit rating categories screen is not yet implemented. This would allow editing individual category scores.',
-                [{ text: 'OK' }]
-              );
-            }}
-          />
-        ) : screen === 'AdminCertVerification' ? (
-          <AdminCertVerificationScreen
-            onBack={goBack}
-            farmer={selectedFarmer}
-          />
-        ) : screen === 'AdminKycReview' ? (
-          <AdminKycReviewScreen
-            onBack={goBack}
-            farmer={selectedFarmer}
-            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
-          />
-        ) : screen === 'AdminComplianceTiers' ? (
-          <AdminComplianceTiersScreen
-            onBack={goBack}
           />
         ) : screen === 'AuditCalendar' ? (
           <AuditCalendarScreen

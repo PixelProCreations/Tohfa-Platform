@@ -85,8 +85,12 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
     if (startTime && endTime) {
       // Convert times to minutes for comparison
       const parseTime = (time: string) => {
-        const [timePart, period] = time.split(' ');
-        let [hours, minutes] = timePart.split(':').map(Number);
+        const parts = time.split(' ');
+        const timePart = parts[0] ?? '0:00';
+        const period = parts[1] ?? 'AM';
+        const timeSegments = timePart.split(':');
+        let hours = Number(timeSegments[0] ?? '0');
+        const minutes = Number(timeSegments[1] ?? '0');
         
         if (period === 'PM' && hours !== 12) {
           hours += 12;
@@ -148,7 +152,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Warehouse</Text>
           <TouchableOpacity
-            style={[styles.input, errors.warehouse && styles.inputError]}
+            style={[styles.input, errors.warehouse ? styles.inputError : undefined]}
             onPress={() => setShowWarehousePicker(!showWarehousePicker)}
             activeOpacity={0.7}
           >
@@ -253,7 +257,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Start Time</Text>
           <TouchableOpacity
-            style={[styles.input, errors.startTime && styles.inputError]}
+            style={[styles.input, errors.startTime ? styles.inputError : undefined]}
             onPress={() => setShowStartTimePicker(!showStartTimePicker)}
             activeOpacity={0.7}
           >
@@ -295,7 +299,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>End Time</Text>
           <TouchableOpacity
-            style={[styles.input, errors.endTime && styles.inputError]}
+            style={[styles.input, errors.endTime ? styles.inputError : undefined]}
             onPress={() => setShowEndTimePicker(!showEndTimePicker)}
             activeOpacity={0.7}
           >

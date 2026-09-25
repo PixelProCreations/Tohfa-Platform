@@ -65,7 +65,7 @@ const CROPS: CropItem[] = [
 
 interface BulkPriceUpdateScreenProps {
   onBack: () => void;
-  onApply: (selectedIds: string[], percentage: number) => void;
+  onApply?: (selectedIds: string[], percentage: number) => void;
 }
 
 export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreenProps) {
@@ -241,7 +241,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
         {/* Apply Button */}
         <TouchableOpacity
           style={[styles.applyBtn, selectedIds.length === 0 && styles.applyBtnDisabled]}
-          onPress={() => onApply(selectedIds, percentage)}
+          onPress={() => (onApply ? onApply(selectedIds, percentage) : onBack())}
           disabled={selectedIds.length === 0}
           activeOpacity={0.8}
         >
