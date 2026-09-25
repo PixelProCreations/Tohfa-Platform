@@ -62,6 +62,7 @@ import {
 import { invoicesRouter } from './modules/invoices/invoices.routes.js';
 import { adminFarmRatingsRouter, farmRatingsFarmerRouter } from './modules/farm-ratings/farm-ratings.routes.js';
 import { weatherFarmerRouter } from './modules/weather/weather.routes.js';
+import { farmsRouter } from './modules/farms/farms.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -110,6 +111,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
   { prefix: '/v1/farmers/me/weather', router: weatherFarmerRouter },
+  { prefix: '/v1/farms', router: farmsRouter },
 ];
 
 /**
