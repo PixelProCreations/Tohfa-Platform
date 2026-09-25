@@ -126,6 +126,7 @@ export interface FarmerApplicationsService {
   requestDocumentUploadUrl(id: string, body: SignUploadBody): Promise<SignedUploadTarget>;
   submitApplication(actor: Actor | undefined, id: string): Promise<unknown>;
   getStatusTimeline(actor: Actor | undefined, id: string): Promise<unknown>;
+  getFullDraft(actor: Actor | undefined, id: string): Promise<unknown>;
   transitionStatus(
     actor: Actor,
     id: string,
@@ -152,9 +153,20 @@ export function createFarmerApplicationsService(
     async createDraft(input, actor) {
       const existing = await repo.findLiveByMobile(pool, input.mobile);
       if (existing !== null) {
+        // A farmer who lost their local draft (reinstalled app, cleared storage, new
+        // device) has no way back to it once this 409 fires -- creating a second
+        // application is blocked, and until now the response gave them nothing to
+        // recover the first one with. `applicationId` lets the client route straight
+        // to `GET /farmers/applications/:id`; `status`/`currentStep` let it decide
+        // whether to resume the draft or just show "already submitted".
         throw new AppError('CONFLICT', {
           status: 409,
           detail: 'An active non-terminal application already exists for this mobile number.',
+          meta: {
+            applicationId: existing.id,
+            status: existing.status,
+            currentStep: existing.current_step,
+          },
         });
       }
 
@@ -417,6 +429,27 @@ export function createFarmerApplicationsService(
           note: h.note,
         })),
       };
+    },
+
+    async getFullDraft(actor, id) {
+      const app = await repo.findById(pool, id);
+      if (app === null) {
+        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+      }
+
+      // BR-36: Own-data scoping (identical to getStatusTimeline's check above) --
+      // an outside caller must not be able to tell "belongs to someone else" apart
+      // from "does not exist", so both throw the same NOT_FOUND.
+      if (
+        actor !== undefined &&
+        app.user_id !== null &&
+        app.user_id !== actor.userId &&
+        !actor.roles.some((r) => r.code === 'SUPER_ADMIN' || r.code === 'TOHFA_ADMIN')
+      ) {
+        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+      }
+
+      return mapApplicationResponse(app);
     },
 
     async transitionStatus(actor, id, toStatus, note) {

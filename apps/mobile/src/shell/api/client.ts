@@ -12,7 +12,7 @@
  * role's copy of a token store anyway.
  */
 import { Platform } from 'react-native';
-import type { ErrorCode, Problem } from '@tohfa/shared-types';
+import type { Problem, ProblemCode } from '@tohfa/shared-types';
 
 export { formatErrorMessage, extractFieldErrors } from './errorService';
 
@@ -44,7 +44,16 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 
-  is(code: ErrorCode): boolean {
+  /**
+   * `code` narrowed to the full `ProblemCode` union (domain `ErrorCode`s plus the generic
+   * transport-level codes -- `CONFLICT`, `NOT_FOUND`, etc. -- from
+   * `packages/shared-types/src/errors.ts`). Previously typed to `ErrorCode` alone, which made
+   * `err.is('CONFLICT')` a compile error even though this file's own docblock says screens
+   * should branch on `error.problem.code` via this method, never by comparing `problem.code`
+   * inline. Widening is source-compatible with every existing call site: `ErrorCode` is a
+   * subset of `ProblemCode`.
+   */
+  is(code: ProblemCode): boolean {
     return this.problem.code === code;
   }
 }

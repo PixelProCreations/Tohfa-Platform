@@ -846,6 +846,39 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/applications/{id}:
+    get:
+      tags: [Farmer Onboarding]
+      operationId: getFarmerApplicationDraft
+      summary: Full application draft (steps 1-4 field values)
+      description: |
+        Returns the application's full stored draft data -- everything saved so far via
+        `PATCH /farmers/applications/{id}/steps/{step}` -- not just the lightweight status
+        timeline `GET /farmers/applications/{id}/status` returns. A farmer who lost their
+        local draft (app reinstalled, storage cleared, new device) uses this to recover it;
+        `POST /farmers/applications`'s `409 Conflict` response carries this same
+        `applicationId` in its `meta` when a live application already exists for the given
+        mobile number, so a client can route straight here.
+
+        Same auth posture as `/status`: possession of the application's own unguessable
+        UUID is the credential before an account exists. A nonexistent id and an id owned
+        by a different actor both return an identical 404 (BR-36-style enumeration
+        prevention).
+      x-permission: farmer.application.view_own
+      x-business-rules: [BR-36]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Full application draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplication' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/applications/{id}/status:
     get:
       tags: [Farmer Onboarding]
