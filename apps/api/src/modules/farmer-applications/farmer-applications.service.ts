@@ -326,6 +326,26 @@ export function createFarmerApplicationsService(
         throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
       }
 
+      // Idempotent by design. `is_draft` flips from true to false exactly once, at
+      // the first successful submit, and never reverts -- so it is `false` for
+      // EVERY post-submit status (DOCS_REVIEW, FARM_VERIFICATION, AUDIT, APPROVED,
+      // REJECTED) and `true` only pre-submission. A repeat call here -- e.g. a
+      // client retry after the original response was lost to a dropped connection
+      // or a server restart mid-request -- must succeed harmlessly and return the
+      // current state, not fail with INVALID_STATE_TRANSITION (DOCS_REVIEW is never
+      // a valid transition target from DOCS_REVIEW, so a naive retry would hit that
+      // error forever, with the mobile client's local draft never getting cleared
+      // and no recovery path). Checking `is_draft` once here is simpler and more
+      // robust than special-casing every individual post-submit status. Returning
+      // the current (possibly REJECTED) state as a "success" here is intentional,
+      // not a bug: the mobile client's existing success handler just navigates to
+      // the status screen with whatever state comes back, so a farmer whose
+      // application was actually rejected correctly lands on a screen showing
+      // that, instead of a confusing generic submit error.
+      if (!app.is_draft) {
+        return mapApplicationResponse(app);
+      }
+
       // Cross-step validation
       const docs = (app.step4_documents as { documents?: Array<{ docType: string }> })?.documents ?? [];
       const docTypes = docs.map((d) => d.docType);

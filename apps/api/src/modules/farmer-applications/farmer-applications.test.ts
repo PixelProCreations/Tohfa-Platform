@@ -509,6 +509,54 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(submitted.status).toBe('DOCS_REVIEW');
       expect(submitted.isDraft).toBe(false);
     });
+
+    it('a repeat submit on an application already past SUBMITTED (is_draft: false) returns the current state instead of throwing INVALID_STATE_TRANSITION, and a third call is identical -- proves true idempotency, not just "works once more"', async () => {
+      // Simulates the real failure this fix addresses: the first submit already
+      // succeeded server-side (status flipped SUBMITTED -> DOCS_REVIEW, is_draft
+      // flipped false) but the client never saw the response -- e.g. a dropped
+      // connection or a server restart mid-request -- and retries the exact same
+      // call. Without the fix, `isValidTransition('DOCS_REVIEW', 'DOCS_REVIEW')`
+      // is false and every retry hits INVALID_STATE_TRANSITION forever.
+      const repo = mockFarmerApplicationsRepo({
+        id: '11111111-1111-1111-1111-111111111111',
+        user_id: '00000000-0000-0000-0000-000000000002',
+        status: 'DOCS_REVIEW',
+        is_draft: false,
+        // Deliberately no mandatory documents -- the short-circuit must return
+        // before the document check runs at all for a repeat call.
+        step4_documents: {},
+      });
+      const service = createFarmerApplicationsService(repo);
+      const actor = anActor({ userId: '00000000-0000-0000-0000-000000000002' });
+      const APP_ID = '11111111-1111-1111-1111-111111111111';
+
+      const second = (await service.submitApplication(actor, APP_ID)) as Record<string, unknown>;
+      expect(second.status).toBe('DOCS_REVIEW');
+      expect(second.isDraft).toBe(false);
+
+      const third = (await service.submitApplication(actor, APP_ID)) as Record<string, unknown>;
+      expect(third).toEqual(second);
+    });
+
+    it('a repeat submit on an APPROVED application also succeeds (returns the current state) rather than throwing -- is_draft is false for every terminal status alike, and the mobile client\'s success handler just navigates to whatever status comes back', async () => {
+      const repo = mockFarmerApplicationsRepo({
+        id: '11111111-1111-1111-1111-111111111111',
+        user_id: '00000000-0000-0000-0000-000000000002',
+        status: 'APPROVED',
+        is_draft: false,
+        step4_documents: {},
+      });
+      const service = createFarmerApplicationsService(repo);
+      const actor = anActor({ userId: '00000000-0000-0000-0000-000000000002' });
+
+      const result = (await service.submitApplication(
+        actor,
+        '11111111-1111-1111-1111-111111111111',
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('APPROVED');
+      expect(result.isDraft).toBe(false);
+    });
   });
 
   describe('Land locations & GPS boundaries (step 3)', () => {
