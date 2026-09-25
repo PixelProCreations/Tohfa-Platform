@@ -61,6 +61,17 @@ import { ManageAdminsScreen } from './ManageAdminsScreen';
 import { AdminDetailProfileScreen } from './AdminDetailProfileScreen';
 import { AdminPermissionsMatrixScreen } from './AdminPermissionsMatrixScreen';
 import { AdminActivityLogsScreen } from './AdminActivityLogsScreen';
+import {
+  AdminReportsMainScreen,
+  AnalyticsDashboardScreen,
+  FarmerPerformanceReportScreen,
+  WarehouseOpsReportScreen,
+  ReportBuilderScreen,
+  SystemAlertsScreen,
+  AnnouncementsScreen,
+  AllRecentReportsScreen,
+} from '../reports';
+import { PLStatementScreen } from '../finance';
 import { AdminRequestsApprovalScreen } from './AdminRequestsApprovalScreen';
 import { AdminRequestDetailScreen } from './AdminRequestDetailScreen';
 
@@ -575,6 +586,9 @@ export function SuperAdminDashboardScreen({
     lastUpdate: string;
   } | null>(null);
   const [marketDaysList, setMarketDaysList] = useState<MarketDay[]>(MOCK_DAYS);
+  const [reportsSubScreen, setReportsSubScreen] = useState<
+    'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
+  >(null);
 
   useEffect(() => {
     fetchMe()
@@ -1003,36 +1017,58 @@ export function SuperAdminDashboardScreen({
             />
           )
         ) : activeTab === 'Reports' ? (
-          <View style={styles.profilePane}>
-            <Text style={styles.profileName}>Operational Reports</Text>
-            <Text style={{ color: PALETTE.labelMuted, marginTop: 8, textAlign: 'center' }}>
-              Nilgiris regional exchange & audit progress reports
-            </Text>
-          </View>
-        ) : activeTab === 'Profile' ? (
-          <View style={styles.profilePane}>
-            <View style={styles.profileAvatar}>
-              <PersonAvatarIcon />
-            </View>
-            <Text style={styles.profileName}>{displayName}</Text>
-            <View style={[styles.rolePill, { alignSelf: 'center', marginBottom: 24 }]}>
-              <ShieldIcon />
-              <Text style={styles.rolePillText}>Super Admin</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.signOutBtn}
-              onPress={() => {
-                void (async () => {
-                  await logout();
-                  onSignOut();
-                })();
+          reportsSubScreen === 'analytics' ? (
+            <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'pl' ? (
+            <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'farmerPerformance' ? (
+            <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'warehouseOps' ? (
+            <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'allRecent' ? (
+            <AllRecentReportsScreen
+              onBack={() => setReportsSubScreen(null)}
+              onOpenPLReport={() => setReportsSubScreen('pl')}
+              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
+              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
+            />
+          ) : reportsSubScreen === 'builder' ? (
+            <ReportBuilderScreen
+              onBack={() => setReportsSubScreen(null)}
+              onGenerate={(type) => {
+                if (type === 'pl') setReportsSubScreen('pl');
+                else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
+                else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
               }}
-              activeOpacity={0.8}
-            >
-              <Icon name="cancel" size={18} color={colors.danger} />
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
-          </View>
+            />
+          ) : reportsSubScreen === 'alerts' ? (
+            <SystemAlertsScreen
+              onBack={() => setReportsSubScreen(null)}
+              onNavigateToStock={() => setReportsSubScreen('warehouseOps')}
+              onNavigateToPayouts={() => setReportsSubScreen('pl')}
+              onNavigateToCert={() => setReportsSubScreen('farmerPerformance')}
+            />
+          ) : reportsSubScreen === 'announcements' ? (
+            <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
+          ) : (
+            <AdminReportsMainScreen
+              onBack={() => setActiveTab('Dashboard')}
+              onOpenPLReport={() => setReportsSubScreen('pl')}
+              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
+              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
+              onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
+              onOpenReportBuilder={() => setReportsSubScreen('builder')}
+              onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
+              onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
+              onOpenAnnouncements={() => setReportsSubScreen('announcements')}
+            />
+          )
+        ) : activeTab === 'Profile' ? (
+          <AdminProfileScreen
+            role="SUPER_ADMIN"
+            onSignOut={onSignOut}
+            onBack={() => setActiveTab('Dashboard')}
+          />
         ) : (
           <View style={styles.blankPane} />
         )}
@@ -1040,15 +1076,15 @@ export function SuperAdminDashboardScreen({
 
       {/* ─── Bottom Navigation Tab Bar ─── */}
       <View style={styles.tabBar}>
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
             setPricingSubScreen(null);
+            setReportsSubScreen(null);
             setActiveTab('Dashboard');
           }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'Dashboard' }}
+          activeOpacity={0.7}
         >
           <DashboardTabIcon active={activeTab === 'Dashboard'} />
           <Text
@@ -1059,21 +1095,21 @@ export function SuperAdminDashboardScreen({
           >
             Dashboard
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
             setPricingSubScreen(null);
+            setReportsSubScreen(null);
             if (onNavigate) {
               onNavigate('AdminAllFarmers');
             } else {
               setActiveTab('Farmers');
             }
           }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'Farmers' }}
+          activeOpacity={0.7}
         >
           <FarmersTabIcon active={activeTab === 'Farmers'} />
           <Text
@@ -1084,18 +1120,18 @@ export function SuperAdminDashboardScreen({
           >
             Farmers
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
             setPricingSubScreen(null);
+            setReportsSubScreen(null);
             setSalesSubScreen('overview');
             setActiveTab('Sales');
           }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'Sales' }}
+          activeOpacity={0.7}
         >
           <SalesTabIcon active={activeTab === 'Sales'} />
           <Text
@@ -1106,17 +1142,17 @@ export function SuperAdminDashboardScreen({
           >
             Sales
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
             setPricingSubScreen(null);
+            setReportsSubScreen(null);
             setActiveTab('Reports');
           }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'Reports' }}
+          activeOpacity={0.7}
         >
           <ReportsTabIcon active={activeTab === 'Reports'} />
           <Text
@@ -1127,17 +1163,17 @@ export function SuperAdminDashboardScreen({
           >
             Reports
           </Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
             setPricingSubScreen(null);
+            setReportsSubScreen(null);
             setActiveTab('Profile');
           }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'Profile' }}
+          activeOpacity={0.7}
         >
           <ProfileNavIcon active={activeTab === 'Profile'} />
           <Text
@@ -1148,7 +1184,7 @@ export function SuperAdminDashboardScreen({
           >
             Profile
           </Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

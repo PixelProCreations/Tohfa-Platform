@@ -208,7 +208,7 @@ export function FinancialDashboardScreen({
             activeOpacity={0.75}
           >
             <BarChartIcon />
-            <Text style={styles.navCardText}>View P&L Statement</Text>
+            <Text style={styles.navCardText}>View P&L Report</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

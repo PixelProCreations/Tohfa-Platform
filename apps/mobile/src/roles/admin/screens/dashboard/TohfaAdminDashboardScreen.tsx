@@ -33,6 +33,17 @@ import {
   type B2BAccount,
 } from '../sales';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import {
+  AdminReportsMainScreen,
+  AnalyticsDashboardScreen,
+  FarmerPerformanceReportScreen,
+  WarehouseOpsReportScreen,
+  ReportBuilderScreen,
+  SystemAlertsScreen,
+  AnnouncementsScreen,
+  AllRecentReportsScreen,
+} from '../reports';
+import { PLStatementScreen } from '../finance';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -48,13 +59,14 @@ const PALETTE = {
   badgeBg: '#FFF1EB',
   badgeBorder: '#FAD9CC',
   badgeText: '#8B2C0D', // Deep terracotta badge text
-  blueAccent: '#0A4A7A', // Deep navy for sales channel snapshot accent
+  blueAccent: '#0C447C', // Exact blue shade from sales channel snapshot
   blueIconBg: '#EBF3FA',
-  blueIcon: '#1D6399',
+  blueIcon: '#0C447C',
   amberIconBg: '#FFF4E8',
   amberIcon: '#C05621',
   purpleIconBg: '#F0EEFC',
   purpleIcon: '#5B45B2',
+  greenAccent: '#16A34A',
   tabInactive: '#4B5563',
   tabActive: '#D9532F',
   tabBorder: '#ECE8E3',
@@ -394,6 +406,9 @@ export function TohfaAdminDashboardScreen({
   >('overview');
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
+  const [reportsSubScreen, setReportsSubScreen] = useState<
+    'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
+  >(null);
 
   // Operational snapshot dynamic counters
   const [stats, setStats] = useState({
@@ -582,6 +597,7 @@ export function TohfaAdminDashboardScreen({
               }}
               activeOpacity={0.85}
             >
+              <View style={styles.salesCardLeftAccent} />
               <View style={styles.salesCardTopRow}>
                 <WindowSplitIcon color={PALETTE.blueAccent} size={22} />
                 <Text style={styles.salesCardTitle}>
@@ -630,7 +646,10 @@ export function TohfaAdminDashboardScreen({
               {/* Action 4: Reports */}
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => setActiveTab('Reports')}
+                onPress={() => {
+                  setReportsSubScreen(null);
+                  setActiveTab('Reports');
+                }}
                 activeOpacity={0.8}
               >
                 <QuickBarChartIcon color={PALETTE.orangePrimary} size={26} />
@@ -738,35 +757,51 @@ export function TohfaAdminDashboardScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             REPORTS TAB
            ══════════════════════════════════════════════════════════════════════ */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            REPORTS TAB (Matches 100% user design & attached screenshots)
+           ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Reports' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.subPageHeader}>
-              <TouchableOpacity
-                onPress={() => setActiveTab('Dashboard')}
-                style={styles.backButton}
-              >
-                <Text style={styles.backButtonText}>← Dashboard</Text>
-              </TouchableOpacity>
-              <Text style={styles.subPageTitle}>Operational Reports</Text>
-              <Text style={styles.subPageSubtitle}>Nilgiris regional exchange performance</Text>
-            </View>
-
-            <View style={styles.reportSummaryCard}>
-              <Text style={styles.reportCardTitle}>Quarterly Audit Progress</Text>
-              <Text style={styles.reportCardNumber}>6 / 8 Audits Completed</Text>
-              <Text style={styles.reportCardSub}>Kotagiri & Ooty warehouses 100% compliant with FSSAI & Organic certs.</Text>
-            </View>
-
-            <View style={styles.reportSummaryCard}>
-              <Text style={styles.reportCardTitle}>Mandi Parity Benchmark</Text>
-              <Text style={styles.reportCardNumber}>+8.4% Above Mandi Base</Text>
-              <Text style={styles.reportCardSub}>Farmers earned ₹14.8L more through Tohfa fair price discovery.</Text>
-            </View>
-          </ScrollView>
+          reportsSubScreen === 'analytics' ? (
+            <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'pl' ? (
+            <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'farmerPerformance' ? (
+            <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'warehouseOps' ? (
+            <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'allRecent' ? (
+            <AllRecentReportsScreen
+              onBack={() => setReportsSubScreen(null)}
+              onOpenPLReport={() => setReportsSubScreen('pl')}
+              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
+              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
+            />
+          ) : reportsSubScreen === 'builder' ? (
+            <ReportBuilderScreen
+              onBack={() => setReportsSubScreen(null)}
+              onGenerate={(type) => {
+                if (type === 'pl') setReportsSubScreen('pl');
+                else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
+                else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
+              }}
+            />
+          ) : reportsSubScreen === 'alerts' ? (
+            <SystemAlertsScreen onBack={() => setReportsSubScreen(null)} />
+          ) : reportsSubScreen === 'announcements' ? (
+            <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
+          ) : (
+            <AdminReportsMainScreen
+              onBack={() => setActiveTab('Dashboard')}
+              onOpenPLReport={() => setReportsSubScreen('pl')}
+              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
+              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
+              onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
+              onOpenReportBuilder={() => setReportsSubScreen('builder')}
+              onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
+              onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
+              onOpenAnnouncements={() => setReportsSubScreen('announcements')}
+            />
+          )
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -849,7 +884,10 @@ export function TohfaAdminDashboardScreen({
         {/* Tab 4: Reports */}
         <TouchableOpacity
           style={styles.navTabItem}
-          onPress={() => setActiveTab('Reports')}
+          onPress={() => {
+            setReportsSubScreen(null);
+            setActiveTab('Reports');
+          }}
           activeOpacity={0.7}
         >
           <NavReportsIcon
@@ -1193,10 +1231,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#EEF2F6',
-    borderLeftWidth: 4,
-    borderLeftColor: PALETTE.blueAccent,
     paddingVertical: 18,
     paddingHorizontal: 18,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  salesCardLeftAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4.5,
+    backgroundColor: '#0C447C',
+    borderTopLeftRadius: 20,
+    borderBottomLeftRadius: 20,
   },
   salesCardTopRow: {
     flexDirection: 'row',
@@ -1279,17 +1327,189 @@ const styles = StyleSheet.create({
   },
 
   // Sub-pages (Farmers, Sales, Reports, Profile)
-  subPageHeader: {
+  backButtonSquircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.4,
+    borderColor: '#EFE7DE',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  subPageHeaderBlock: {
+    marginBottom: 16,
+  },
+  salesPageTitle: {
+    fontSize: 27,
+    fontWeight: '800',
+    color: PALETTE.textHeading,
+    letterSpacing: -0.6,
+    marginBottom: 4,
+  },
+  salesPageSubtitle: {
+    fontSize: 13.5,
+    color: PALETTE.textSecondary,
+    lineHeight: 19,
+  },
+  policyBadgeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF5EE',
+    borderWidth: 1.2,
+    borderColor: '#EFE6DC',
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    marginBottom: 16,
+  },
+  policyIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF1EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  policyTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: PALETTE.textHeading,
+    marginBottom: 2,
+  },
+  policySubtitle: {
+    fontSize: 12,
+    color: '#78716C',
+    lineHeight: 16,
+  },
+  salesKpiRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginBottom: 18,
   },
-  backButton: {
-    paddingVertical: 6,
-    marginBottom: 8,
+  salesKpiCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: PALETTE.borderSoft,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  backButtonText: {
-    fontSize: 14,
+  salesKpiValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textPrimary,
+    marginBottom: 2,
+  },
+  salesKpiLabel: {
+    fontSize: 11,
+    color: PALETTE.textSecondary,
+    fontWeight: '500',
+  },
+  channelCardPremium: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: PALETTE.borderSoft,
+    borderLeftWidth: 4.5,
+    borderLeftColor: PALETTE.borderSoft,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1.5,
+  },
+  channelCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  channelPillTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    marginBottom: 6,
+  },
+  channelPillText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: PALETTE.orangePrimary,
+    letterSpacing: -0.1,
+  },
+  channelTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  salesChannelDesc: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    lineHeight: 18,
+    paddingRight: 8,
+  },
+  channelPctBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAF8F5',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 64,
+  },
+  channelPctNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  channelPctSub: {
+    fontSize: 10,
+    color: PALETTE.textSecondary,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+  },
+  channelProgressContainer: {
+    marginBottom: 14,
+  },
+  channelMetricsGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#FAF8F5',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#F3EFEA',
+  },
+  channelMetricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  channelMetricLabel: {
+    fontSize: 10.5,
+    color: PALETTE.textSecondary,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  channelMetricVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.textPrimary,
   },
   subPageTitle: {
     fontSize: 20,

@@ -56,6 +56,16 @@ export interface FarmerListItem {
   aadhaar?: string;
   memberSince?: string;
   subscription?: string;
+  farmSize?: string;
+  fmbZones?: string;
+  primaryCrops?: string;
+  soilType?: string;
+  irrigation?: string;
+  aadhaarStatus?: 'Verified' | 'Pending' | 'Uploaded';
+  pattaStatus?: 'Verified' | 'Pending' | 'Uploaded';
+  passbookStatus?: 'Verified' | 'Pending' | 'Uploaded';
+  certStatus?: 'Verified' | 'Pending' | 'Expired';
+  kycNotes?: string;
 }
 
 export const DEMO_ALL_FARMERS: FarmerListItem[] = [
