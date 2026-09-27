@@ -7,3 +7,4 @@ export * from './SystemAlertsScreen';
 export * from './AnnouncementsScreen';
 export * from './AllRecentReportsScreen';
 export * from './RecentReportDetailScreen';
+export * from './ReportAddFieldScreen';

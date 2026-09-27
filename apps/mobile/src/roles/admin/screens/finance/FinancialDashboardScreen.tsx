@@ -130,11 +130,15 @@ function LedgerIcon() {
 export interface FinancialDashboardScreenProps {
   onBack: () => void;
   onNavigate: (screen: string) => void;
+  title?: string;
+  subtitle?: string;
 }
 
 export function FinancialDashboardScreen({
   onBack,
   onNavigate,
+  title = 'Financial Dashboard',
+  subtitle = 'Platform-wide finance overview · September 2026',
 }: FinancialDashboardScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
@@ -151,8 +155,8 @@ export function FinancialDashboardScreen({
         </TouchableOpacity>
 
         {/* Heading Next */}
-        <Text style={styles.screenTitle}>Financial Dashboard</Text>
-        <Text style={styles.screenSub}>Platform-wide finance overview · September 2026</Text>
+        <Text style={styles.screenTitle}>{title}</Text>
+        <Text style={styles.screenSub}>{subtitle}</Text>
 
         {/* Hero Card: Net Revenue (MTD) */}
         <View style={styles.heroCard}>
