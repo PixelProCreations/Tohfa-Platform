@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Defs, Pattern, Rect } from 'react-native-svg';
 import { Icon, Skeleton } from '@tohfa/mobile-ui';
-import { useTheme, colors, authPalette as P } from '../../theme';
+import { useTheme, colors, authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { deletePlot, getFarms, getPlots, updatePlot, type Farm, type Plot } from '../../api/farms';
 
@@ -255,10 +255,10 @@ export function ZonesScreen({ farmId, onNavigateBack, onNavigateToAddZone, onSav
                 <Icon name="place" size={16} color={colors.brandGreen} />
               </View>
               <View style={styles.farmSelectorText}>
-                <Text style={{ fontSize: 10, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 }}>
+                <Text style={{ fontSize: typography.caption, fontWeight: '800', color: colors.textSubtle, marginBottom: 2 }}>
                   MARKING ZONES FOR
                 </Text>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textDark }}>
+                <Text style={{ fontSize: typography.bodyLarge, fontWeight: '700', color: colors.textDark }}>
                   {selectedFarm?.name ?? 'Select a farm'}
                 </Text>
               </View>
@@ -305,7 +305,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onNavigateToAddZone, onSav
                           >
                             {farm.name}
                           </Text>
-                          <Text style={{ fontSize: 11, color: colors.textSubtle }}>
+                          <Text style={{ fontSize: typography.caption, color: colors.textSubtle }}>
                             Total area: {farmAcres.toFixed(2)} ac
                           </Text>
                         </View>
@@ -392,7 +392,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onNavigateToAddZone, onSav
           {/* Farm boundary tag */}
           <View style={styles.boundaryTag}>
             <Text style={{ color: P.yellow500, fontWeight: '800', marginRight: 4 }}>- -</Text>
-            <Text style={{ color: colors.white, fontSize: 12, fontWeight: '700' }}>Farm boundary</Text>
+            <Text style={{ color: colors.white, fontSize: typography.bodySmall, fontWeight: '700' }}>Farm boundary</Text>
           </View>
 
           {/* Floating Action Buttons — decorative, matching the pre-existing mock (no zone
@@ -722,8 +722,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerTitleBox: { flex: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
+  headerTitle: { fontSize: typography.title, fontWeight: '700' },
+  headerSubtitle: { fontSize: typography.body, marginTop: 2 },
   helpBtn: {
     width: 36,
     height: 36,
@@ -733,19 +733,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  helpIcon: { fontSize: 16, color: P.blueGrey600, fontWeight: '700' },
+  helpIcon: { fontSize: typography.bodyLarge, color: P.blueGrey600, fontWeight: '700' },
 
   contentScroll: { flex: 1 },
   contentContainer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
 
   errorText: {
     color: P.red600,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginBottom: 12,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.blueGrey600,
     textAlign: 'center',
     paddingVertical: 24,
@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   farmDropdownItemText: {
-    fontSize: 14,
+    fontSize: typography.body,
   },
 
   infoNoticeBox: {
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   infoNoticeIcon: { marginRight: 12, marginTop: 2 },
-  infoNoticeText: { flex: 1, fontSize: 13, color: P.darkSlateText, lineHeight: 20 },
+  infoNoticeText: { flex: 1, fontSize: typography.body, color: P.darkSlateText, lineHeight: 20 },
 
   mapContainer: {
     width: '100%',
@@ -881,8 +881,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metricVal: { fontSize: 20, fontWeight: '800' },
-  metricLabel: { fontSize: 11, fontWeight: '600', color: P.blueGrey400, marginTop: 4 },
+  metricVal: { fontSize: typography.title, fontWeight: '800' },
+  metricLabel: { fontSize: typography.caption, fontWeight: '600', color: P.blueGrey400, marginTop: 4 },
 
   listHeaderRow: {
     flexDirection: 'row',
@@ -895,8 +895,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listHeaderIcon: { marginRight: 4 },
-  listHeaderTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  addZoneBtnText: { fontSize: 14, fontWeight: '700' },
+  listHeaderTitle: { fontSize: typography.bodySmall, fontWeight: '800', letterSpacing: 0.5 },
+  addZoneBtnText: { fontSize: typography.body, fontWeight: '700' },
 
   zoneCard: {
     borderWidth: 1.5,
@@ -918,12 +918,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  zoneIconText: { color: colors.white, fontSize: 16, fontWeight: '800' },
+  zoneIconText: { color: colors.white, fontSize: typography.bodyLarge, fontWeight: '800' },
   zoneTitleCol: { flex: 1 },
-  zoneTitle: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  zoneTitle: { fontSize: typography.body, fontWeight: '700', marginBottom: 2 },
   zoneSubRow: { flexDirection: 'row', alignItems: 'center' },
   zoneSubIcon: { marginRight: 4 },
-  zoneSub: { fontSize: 12 },
+  zoneSub: { fontSize: typography.bodySmall },
   zoneActions: { flexDirection: 'row', gap: 8 },
   actionBtn: {
     width: 34,
@@ -945,8 +945,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   detailCol: { flex: 1 },
-  detailLabel: { fontSize: 10, fontWeight: '800', color: P.grey500, marginBottom: 4 },
-  detailValue: { fontSize: 13, fontWeight: '600', color: P.grey800 },
+  detailLabel: { fontSize: typography.caption, fontWeight: '800', color: P.grey500, marginBottom: 4 },
+  detailValue: { fontSize: typography.body, fontWeight: '600', color: P.grey800 },
 
   cropPill: {
     alignSelf: 'flex-start',
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
   },
   cropPillRow: { flexDirection: 'row', alignItems: 'center' },
   cropPillIcon: { marginRight: 4 },
-  cropPillText: { fontSize: 12, fontWeight: '700' },
+  cropPillText: { fontSize: typography.bodySmall, fontWeight: '700' },
 
   /* MODAL STYLES */
   modalBackdrop: {
@@ -984,19 +984,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.textDark,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textDark,
     marginBottom: 6,
     marginTop: 6,
   },
   cropNotSavedNote: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.blueGrey400,
     marginBottom: 8,
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.textDark,
     backgroundColor: colors.bgLight,
     marginBottom: 10,
@@ -1027,12 +1027,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgLight,
   },
   chipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textDark,
   },
   modalErrorText: {
     color: P.red600,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -1049,7 +1049,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgLight,
   },
   modalCancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textSubtle,
   },
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   modalSaveBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.white,
   },
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtnText: { fontSize: 16, fontWeight: '700' },
+  cancelBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' },
   saveBtn: {
     flex: 1.5,
     height: 52,
@@ -1092,5 +1092,5 @@ const styles = StyleSheet.create({
   },
   saveBtnRow: { flexDirection: 'row', alignItems: 'center' },
   saveBtnIcon: { marginRight: 6 },
-  saveBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: colors.white, fontSize: typography.bodyLarge, fontWeight: '700' },
 });

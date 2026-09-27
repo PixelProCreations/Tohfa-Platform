@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -416,13 +416,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -462,12 +462,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray300,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
   },
   filterChipTextActive: {
     color: P.white,
@@ -532,17 +532,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   entryTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   entrySubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
   entryDurationText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },

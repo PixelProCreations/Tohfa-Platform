@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
 
   // Headings
   mainHeading: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     textAlign: 'center',
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   subHeading: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
     lineHeight: 20,
@@ -367,13 +367,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemNameText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 3,
   },
   itemDateText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
 
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
   warningAlertText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twOrange700,
     lineHeight: 18,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   removePermanentlyText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cancelButtonText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
   },

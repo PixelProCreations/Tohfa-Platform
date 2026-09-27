@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
@@ -313,13 +313,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -358,14 +358,14 @@ const styles = StyleSheet.create({
     height: 52,
   },
   currencySymbol: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     marginRight: 12,
   },
   amountInput: {
     flex: 1,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     padding: 0,
@@ -380,13 +380,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   fieldHelper: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     lineHeight: 16,
   },
   fieldHelperNote: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     lineHeight: 17,
   },
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   methodBtnText: {
-    fontSize: 13,
+    fontSize: typography.body,
   },
   methodBtnTextActive: {
     color: P.white,
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   payBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

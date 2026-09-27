@@ -12,7 +12,7 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { ErrorState, Icon } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import {
   getFarmWeather,
   type FarmWeather,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   },
   navBackIcon: {
     color: colors.primary,
-    fontSize: 24,
+    fontSize: typography.headline,
     lineHeight: 28,
     marginRight: 2,
   },
@@ -461,12 +461,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.textDark,
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: 'bold',
   },
   headerSubtitle: {
     color: colors.textSubtle,
-    fontSize: 13,
+    fontSize: typography.body,
     marginTop: 2,
   },
 
@@ -482,13 +482,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.textSubtle,
     fontWeight: '500',
   },
 
   sectionHeading: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: colors.textSubtle,
     marginBottom: 12,
@@ -522,15 +522,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     marginBottom: 2,
   },
   alertSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
   },
   chevron: {
-    fontSize: 20,
+    fontSize: typography.title,
     marginLeft: 8,
   },
   alertDetailsBox: {
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   alertDetailsText: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 20,
   },
   noAlertsCard: {
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   noAlertsText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textBody,
     lineHeight: 18,
   },
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   hourlyTime: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.textSubtle,
     marginBottom: 8,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   hourlyTemp: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
   },
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   forecastDay: {
     width: 44,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
   },
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   },
   forecastSummary: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textSubtle,
     marginLeft: 4,
   },
@@ -641,14 +641,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   forecastHigh: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     width: 28,
     textAlign: 'right',
   },
   forecastLow: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textSubtle,
     width: 28,
     textAlign: 'right',

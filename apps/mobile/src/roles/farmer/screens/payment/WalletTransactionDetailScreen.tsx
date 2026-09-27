@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
   return (
@@ -253,12 +253,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyStateText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -286,12 +286,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   amountText: {
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 4,
@@ -317,23 +317,23 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   detailLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray500,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '600',
   },
   detailValueMono: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   detailValueBold: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '800',
   },

@@ -280,7 +280,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           style={styles.backButton}
           onPress={() => onNavigate('Welcome')}
         >
-          <Text style={{ fontSize: 22, fontWeight: '700', color: P.primary, marginTop: -2 }}>{'‹'}</Text>
+          <Text style={{ fontSize: typography.title, fontWeight: '700', color: P.primary, marginTop: -2 }}>{'‹'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   googleGlyph: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.googleBlue,
   },
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   facebookGlyph: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.white,
     marginTop: -1,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   passwordInputMasked: {
-    fontSize: 21,
+    fontSize: typography.title,
     letterSpacing: 3,
     fontWeight: '700',
   },

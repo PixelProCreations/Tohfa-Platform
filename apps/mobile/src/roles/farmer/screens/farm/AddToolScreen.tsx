@@ -12,7 +12,7 @@ import {
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
-import { authPalette as P, colors, radius, spacing } from '../../theme';
+import { authPalette as P, colors, radius, spacing, typography } from '../../theme';
 import { formatSafeDate } from '../../polyfills';
 import {
   dateFromCalendarDay,
@@ -319,19 +319,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.textDark,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: colors.textSubtle,
     marginTop: 1,
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: colors.brandGreen,
   },
@@ -368,12 +368,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.weatherCloudWhite,
   },
   categorySubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     color: P.green100,
     marginTop: 1,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
 
   // Fields
   fieldLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textDark,
     marginBottom: 8,
@@ -403,14 +403,14 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '500',
     color: colors.textDark,
     padding: 0,
   },
   inputText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '500',
     color: colors.textDark,
   },
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     color: P.twGray400,
     lineHeight: 17,
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.weatherCloudWhite,
   },
@@ -496,12 +496,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderSoft,
   },
   calendarTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: colors.textDark,
   },
   calendarCancelText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: colors.brandGreen,
     paddingVertical: spacing.xs,

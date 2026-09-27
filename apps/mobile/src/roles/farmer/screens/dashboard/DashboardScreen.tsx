@@ -32,7 +32,7 @@ import { listNotifications } from '../../api/notifications';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 import { getGreetingKey } from '../../utils/greeting';
 
@@ -1101,22 +1101,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileImageText: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: 'bold',
     color: P.deepGreen,
   },
   greetingText: {
     color: P.green200,
-    fontSize: 14,
+    fontSize: typography.body,
   },
   nameText: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: 'bold',
   },
   nameSuffixText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     opacity: 0.75,
   },
@@ -1165,11 +1165,11 @@ const styles = StyleSheet.create({
   },
   miniCardTitle: {
     color: P.green200,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   miniCardValue: {
     color: 'white',
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: 'bold',
   },
 
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     color: P.grey600,
-    fontSize: 13,
+    fontSize: typography.body,
   },
   tempRow: {
     flexDirection: 'row',
@@ -1222,12 +1222,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   temperature: {
-    fontSize: 28,
+    fontSize: typography.headline,
     fontWeight: 'bold',
     color: P.grey900,
   },
   condition: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     color: P.grey600,
   },
   forecastButton: {
@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
   },
   forecastText: {
     color: colors.brandGreen,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
   },
   weatherBottom: {
@@ -1254,12 +1254,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   weatherStatValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: 'bold',
     color: P.grey900,
   },
   weatherStatLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey600,
   },
 
@@ -1276,19 +1276,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     color: P.orange900,
     marginBottom: 4,
   },
   alertMessage: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.orange900,
     marginBottom: 8,
     lineHeight: 18,
   },
   alertAction: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: 'bold',
     color: P.deepOrange800,
   },
@@ -1332,17 +1332,17 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: 'bold',
   },
   gridTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: 'bold',
     color: P.grey900,
     marginBottom: 4,
   },
   gridSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.grey600,
   },
 
@@ -1353,12 +1353,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: 'bold',
     color: P.grey900,
   },
   viewAllText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.brandGreen,
     fontWeight: 'bold',
   },
@@ -1392,19 +1392,19 @@ const styles = StyleSheet.create({
     padding: 13,
   },
   cropName: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 2,
     letterSpacing: -0.2,
   },
   cropDetail: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginBottom: 10,
   },
   cropHarvest: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     marginBottom: 6,
   },
@@ -1442,7 +1442,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
     color: P.grey900,
   },
@@ -1463,17 +1463,17 @@ const styles = StyleSheet.create({
   },
   tipBadgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: 'bold',
   },
   tipTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     color: P.deepGreen,
     marginBottom: 8,
   },
   tipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.brandGreen,
     lineHeight: 20,
   },
@@ -1506,7 +1506,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: P.twGray900,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     paddingVertical: 0,
   },
   searchCancelBtn: {
@@ -1515,7 +1515,7 @@ const styles = StyleSheet.create({
   },
   searchCancelText: {
     color: colors.brandGreen,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
   },
   searchSuggestionsRow: {
@@ -1528,7 +1528,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   searchSuggestionsLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     fontWeight: '600',
     marginRight: 8,
@@ -1547,7 +1547,7 @@ const styles = StyleSheet.create({
   },
   searchPillText: {
     color: colors.brandGreen,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   searchResultsList: {
@@ -1581,7 +1581,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   searchResultTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1592,12 +1592,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   searchCategoryText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray600,
   },
   searchResultSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
   },
   searchEmptyContainer: {
@@ -1616,13 +1616,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   searchEmptyTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray800,
     marginBottom: 8,
   },
   searchEmptySub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
     lineHeight: 20,

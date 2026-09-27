@@ -11,7 +11,7 @@ import {
 import Svg, { Polyline, Circle } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 interface SoilTestScreenProps {
   onNavigateBack: () => void;
@@ -271,7 +271,7 @@ export function SoilTestScreen({ onNavigateBack, onNavigateToNewSoilTest }: Soil
               <View style={styles.historyHeaderRow}>
                 <Text style={styles.historyDate}>12 Jun 2026</Text>
                 <View style={[styles.badge, { backgroundColor: colors.brandGreenLight, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                  <Text style={[styles.badgeText, { color: P.primary, fontSize: 10 }]}>{t('farmer.profile.soil.badgeLatest')}</Text>
+                  <Text style={[styles.badgeText, { color: P.primary, fontSize: typography.caption }]}>{t('farmer.profile.soil.badgeLatest')}</Text>
                 </View>
               </View>
               <Text style={styles.historySummary}>
@@ -342,10 +342,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navBackIcon: { color: P.primary, fontSize: 24, lineHeight: 28, marginRight: 2 },
+  navBackIcon: { color: P.primary, fontSize: typography.headline, lineHeight: 28, marginRight: 2 },
   headerTitleBox: { flex: 1, marginLeft: 16 },
-  headerTitle: { color: P.deepGreen, fontSize: 20, fontWeight: 'bold' },
-  headerSubtitle: { color: P.slate500, fontSize: 13, marginTop: 2 },
+  headerTitle: { color: P.deepGreen, fontSize: typography.title, fontWeight: 'bold' },
+  headerSubtitle: { color: P.slate500, fontSize: typography.body, marginTop: 2 },
 
   scrollContent: {
     padding: 16,
@@ -365,10 +365,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  dateIcon: { fontSize: 24, marginRight: 16 },
+  dateIcon: { fontSize: typography.headline, marginRight: 16 },
   dateInfo: { flex: 1 },
-  dateTitle: { fontSize: 16, fontWeight: 'bold', color: P.slate800, marginBottom: 4 },
-  dateSubtitle: { fontSize: 13, color: P.slate500 },
+  dateTitle: { fontSize: typography.bodyLarge, fontWeight: 'bold', color: P.slate800, marginBottom: 4 },
+  dateSubtitle: { fontSize: typography.body, color: P.slate500 },
 
   alertBox: {
     flexDirection: 'row',
@@ -379,13 +379,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: P.red100,
   },
-  alertIcon: { fontSize: 20, color: P.red800, marginRight: 12, fontWeight: 'bold' },
+  alertIcon: { fontSize: typography.title, color: P.red800, marginRight: 12, fontWeight: 'bold' },
   alertInfo: { flex: 1 },
-  alertTitle: { fontSize: 15, fontWeight: 'bold', color: P.red800, marginBottom: 6 },
-  alertDesc: { fontSize: 13, color: P.red800, lineHeight: 20 },
+  alertTitle: { fontSize: typography.bodyLarge, fontWeight: 'bold', color: P.red800, marginBottom: 6 },
+  alertDesc: { fontSize: typography.body, color: P.red800, lineHeight: 20 },
 
   sectionHeading: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
     color: P.placeholderGrey,
     marginBottom: 12,
@@ -411,18 +411,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   resultInfo: { flex: 1 },
-  resultName: { fontSize: 16, fontWeight: '600', color: P.slate800, marginBottom: 4 },
-  resultIdeal: { fontSize: 12, color: P.slate400 },
+  resultName: { fontSize: typography.bodyLarge, fontWeight: '600', color: P.slate800, marginBottom: 4 },
+  resultIdeal: { fontSize: typography.bodySmall, color: P.slate400 },
   resultValueBox: { flexDirection: 'row', alignItems: 'center' },
-  resultValue: { fontSize: 18, fontWeight: 'bold', color: P.slate800 },
-  resultUnit: { fontSize: 12, fontWeight: '600', color: P.slate500 },
+  resultValue: { fontSize: typography.title, fontWeight: 'bold', color: P.slate800 },
+  resultUnit: { fontSize: typography.bodySmall, fontWeight: '600', color: P.slate500 },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     marginLeft: 12,
   },
-  badgeText: { fontSize: 11, fontWeight: 'bold' },
+  badgeText: { fontSize: typography.caption, fontWeight: 'bold' },
   divider: { height: 1, backgroundColor: P.slate100 },
 
   trendRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
@@ -438,11 +438,11 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   trendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  trendTitle: { fontSize: 14, fontWeight: '600', color: P.slate800 },
-  trendIcon: { fontSize: 16 },
+  trendTitle: { fontSize: typography.body, fontWeight: '600', color: P.slate800 },
+  trendIcon: { fontSize: typography.bodyLarge },
   trendIconDeclining: { transform: [{ scaleY: -1 }] },
   trendChart: { marginVertical: 12 },
-  trendSubtitle: { fontSize: 11 },
+  trendSubtitle: { fontSize: typography.caption },
 
   documentCard: {
     flexDirection: 'row',
@@ -466,10 +466,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  docIcon: { fontSize: 20 },
+  docIcon: { fontSize: typography.title },
   docInfo: { flex: 1 },
-  docName: { fontSize: 14, fontWeight: '600', color: P.slate800, marginBottom: 2 },
-  docMeta: { fontSize: 12, color: P.slate500 },
+  docName: { fontSize: typography.body, fontWeight: '600', color: P.slate800, marginBottom: 2 },
+  docMeta: { fontSize: typography.bodySmall, color: P.slate500 },
   docAction: {
     width: 36,
     height: 36,
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  docActionIcon: { fontSize: 16 },
+  docActionIcon: { fontSize: typography.bodyLarge },
 
   historyList: { gap: 12 },
   historyCard: {
@@ -495,9 +495,9 @@ const styles = StyleSheet.create({
   },
   historyInfo: { flex: 1 },
   historyHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  historyDate: { fontSize: 15, fontWeight: 'bold', color: P.slate800, marginRight: 8 },
-  historySummary: { fontSize: 13, color: P.slate500 },
-  chevron: { fontSize: 20, color: P.slate400 },
+  historyDate: { fontSize: typography.bodyLarge, fontWeight: 'bold', color: P.slate800, marginRight: 8 },
+  historySummary: { fontSize: typography.body, color: P.slate500 },
+  chevron: { fontSize: typography.title, color: P.slate400 },
 
   bottomBar: {
     position: 'absolute',
@@ -517,6 +517,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
   },
-  primaryButtonIcon: { fontSize: 18, marginRight: 8, color: P.white },
-  primaryButtonText: { color: P.white, fontSize: 16, fontWeight: 'bold' },
+  primaryButtonIcon: { fontSize: typography.title, marginRight: 8, color: P.white },
+  primaryButtonText: { color: P.white, fontSize: typography.bodyLarge, fontWeight: 'bold' },
 });

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Defs, Pattern, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P, useTheme, colors } from '../../theme';
+import { authPalette as P, useTheme, colors, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { createPlot } from '../../api/farms';
 
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   drawingNoticeIcon: { marginRight: 8 },
-  drawingNoticeText: { color: P.white, fontSize: 13, fontWeight: '700', flex: 1 },
+  drawingNoticeText: { color: P.white, fontSize: typography.body, fontWeight: '700', flex: 1 },
 
   bottomSheet: {
     flex: 1.25,
@@ -475,11 +475,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sheetHeaderIcon: { marginRight: 12 },
-  sheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
-  sheetSub: { fontSize: 12 },
+  sheetTitle: { fontSize: typography.title, fontWeight: '700', marginBottom: 2 },
+  sheetSub: { fontSize: typography.bodySmall },
 
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     marginBottom: 8,
   },
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  inputField: { fontSize: 16, padding: 0 },
+  inputField: { fontSize: typography.bodyLarge, padding: 0 },
 
   colorPickerRow: {
     flexDirection: 'row',
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     height: 52,
     backgroundColor: colors.white,
   },
-  dropdownText: { fontSize: 14, fontWeight: '500' },
+  dropdownText: { fontSize: typography.body, fontWeight: '500' },
 
   dropdownDropdownList: {
     backgroundColor: colors.white,
@@ -557,13 +557,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   dropdownOptionText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textDark,
   },
 
   errorText: {
     color: P.red600,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginTop: 4,
     marginBottom: 8,
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtnText: { fontSize: 16, fontWeight: '700' },
+  cancelBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' },
   saveBtn: {
     flex: 1.5,
     height: 52,
@@ -594,5 +594,5 @@ const styles = StyleSheet.create({
   },
   saveBtnRow: { flexDirection: 'row', alignItems: 'center' },
   saveBtnIcon: { marginRight: 6 },
-  saveBtnText: { color: P.white, fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: P.white, fontSize: typography.bodyLarge, fontWeight: '700' },
 });

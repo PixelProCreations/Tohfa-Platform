@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors, useTheme } from '../../theme';
+import { colors, typography, useTheme } from '../../theme';
 import { Icon, DatePicker } from '@tohfa/mobile-ui';
 import { validateStep } from './validation';
 import type { Step1PersonalData } from '../../storage/registrationDraft';
@@ -307,7 +307,7 @@ export const Step1Personal: React.FC<Step1Props> = ({ initialData, onSave }) => 
                   style={{
                     flex: 1,
                     color: colors.textDark,
-                    fontSize: 15,
+                    fontSize: typography.bodyLarge,
                     padding: 0,
                   }}
                   value={dob}
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   label: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginBottom: 6,
   },
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 14,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
   },
   rowGrid: {
     flexDirection: 'row',
@@ -812,10 +812,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dropdownText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
   },
   dropdownArrow: {
-    fontSize: 14,
+    fontSize: typography.body,
   },
   dropdownMenu: {
     position: 'absolute',
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   dropdownOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
   },
   mobileRow: {
     flexDirection: 'row',
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   countryCodeText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
   },
   mobileInput: {
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   helperText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     marginTop: 5,
   },
   textareaInput: {
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   continueButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   inputError: {
@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
   },
   fieldErrorText: {
     color: colors.requiredRed,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 4,
   },
 });

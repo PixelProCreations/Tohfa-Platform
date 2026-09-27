@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTag: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -351,13 +351,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
   },
   zoneChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
   },
   zoneChipTextActive: {
     color: P.white,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chartTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
     marginLeft: 8,
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   barMonth: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 6,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   readingsTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 12,
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   readingParamName: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
     marginLeft: 8,
@@ -521,18 +521,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   readingNumber: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.twGray900,
   },
   trendUpText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.forestGreen,
     marginTop: 2,
   },
   trendDownText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.red700,
     marginTop: 2,
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   },
   insightText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.forestGreen,
     lineHeight: 18,

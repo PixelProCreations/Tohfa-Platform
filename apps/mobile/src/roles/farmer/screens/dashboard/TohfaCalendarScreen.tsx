@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, G, Polyline } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -276,13 +276,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.textDark,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: colors.textSubtle,
     marginTop: 1,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 19,
     color: P.greenDeep5,
   },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray700,
   },
@@ -372,27 +372,27 @@ const styles = StyleSheet.create({
     borderColor: P.green100,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '700',
     color: colors.textDark,
   },
   statValueHighlight: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.brandGreen,
   },
   statUnit: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: colors.textSubtle,
     marginTop: 2,
   },
   statLabelHighlight: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: P.green700,
     marginTop: 2,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: colors.textSubtle,
     letterSpacing: 1,
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandGreen,
   },
   tabPillText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -465,12 +465,12 @@ const styles = StyleSheet.create({
   },
   cropBarName: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textDark,
   },
   cropBarValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
     marginLeft: 8,
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   wishlistTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: colors.textSubtle,
     letterSpacing: 1,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   },
   wishlistRank: {
     width: 22,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   wishlistCropWrap: {
@@ -535,25 +535,25 @@ const styles = StyleSheet.create({
     backgroundColor: P.surfaceMuted,
   },
   wishlistCropName: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textDark,
   },
   wishlistCustomers: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     color: P.twGray400,
     marginRight: 8,
   },
   wishlistQty: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
     minWidth: 62,
     textAlign: 'right',
   },
   wishlistFootnote: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '400',
     color: P.legal,
     marginTop: 12,
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   ctaButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.weatherCloudWhite,
     letterSpacing: 0.3,

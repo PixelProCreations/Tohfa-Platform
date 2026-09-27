@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -1030,7 +1030,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
     letterSpacing: -0.3,
@@ -1042,7 +1042,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: 'rgba(255,255,255,0.85)',
     fontWeight: '500',
   },
@@ -1070,13 +1070,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.18)',
   },
   summaryStatNumber: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
     marginBottom: 2,
   },
   summaryStatLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: 'rgba(255,255,255,0.8)',
     fontWeight: '500',
   },
@@ -1112,7 +1112,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   filterBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -1164,12 +1164,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   entryTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.twGray900,
   },
   entrySubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 4,
   },
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   entryDuration: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -1207,12 +1207,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   detailPillText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray700,
   },
   entryDesc: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 20,
     color: P.twGray600,
     marginBottom: 16,
@@ -1237,13 +1237,13 @@ const styles = StyleSheet.create({
     borderColor: P.twGray100,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
     marginBottom: 16,
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen100,
   },
   emptyActionText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -1280,14 +1280,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fabIcon: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '600',
     color: P.white,
     lineHeight: 24,
     marginTop: -2,
   },
   fabText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1334,7 +1334,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalOptionText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.twGray700,
   },
   modalOptionTextSelected: {
@@ -1369,7 +1369,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   calFieldBadge: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -1377,7 +1377,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   calSelectedDateTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlack,
   },
@@ -1405,7 +1405,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray100,
   },
   calMonthYearLabel: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -1437,7 +1437,7 @@ const styles = StyleSheet.create({
     borderColor: P.deepGreen,
   },
   yearChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -1453,7 +1453,7 @@ const styles = StyleSheet.create({
   calWeekdayText: {
     width: '14.28%',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray400,
   },
@@ -1487,7 +1487,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen700,
   },
   calDayText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -1527,7 +1527,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   calCancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1539,7 +1539,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calApplyBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -448,13 +448,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -493,12 +493,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   cropInfoTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   cropInfoSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 3,
   },
@@ -519,13 +519,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twAmber900,
     marginBottom: 4,
   },
   alertDescription: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twOrange700,
     lineHeight: 18,
   },
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -564,12 +564,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nutrientNameText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.ink,
   },
   nutrientPercentText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   progressTrack: {
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   nutrientRatioText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
   },
   cumulativeCard: {
@@ -608,12 +608,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   cumulativeLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     fontWeight: '500',
   },
   cumulativeAmount: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.ink,
   },
@@ -651,12 +651,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   appTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   appSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
     marginBottom: 8,
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   pillTagText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray700,
   },

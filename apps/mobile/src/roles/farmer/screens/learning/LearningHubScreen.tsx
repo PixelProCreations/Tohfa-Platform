@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, authPalette as P } from '../../theme';
+import { colors, authPalette as P, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -865,13 +865,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.textDark,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
     marginTop: 1,
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.textDark,
     marginLeft: 10,
     paddingVertical: 0,
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -973,7 +973,7 @@ const styles = StyleSheet.create({
   },
   featuredBadgeText: {
     color: P.weatherCloudWhite,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
@@ -1002,14 +1002,14 @@ const styles = StyleSheet.create({
   },
   durationBadgeText: {
     color: P.weatherCloudWhite,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   featuredInfo: {
     padding: 16,
   },
   featuredTitle: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 21,
@@ -1021,14 +1021,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   authorText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
 
   // Section Headers
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.greyMid1,
     letterSpacing: 0.8,
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
   },
   videoDurationText: {
     color: P.weatherCloudWhite,
-    fontSize: 9.5,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   videoDetails: {
@@ -1080,14 +1080,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 18,
     marginBottom: 4,
   },
   videoSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
@@ -1098,13 +1098,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyStateTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: 4,
   },
   emptyStateSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.greyMid1,
     textAlign: 'center',
   },
@@ -1141,23 +1141,23 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   articleTagText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: colors.brandGreen,
   },
   articleReadTime: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid2,
   },
   articleTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 20,
     marginBottom: 6,
   },
   articleSnippet: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 18,
     marginBottom: 10,
@@ -1168,7 +1168,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   articleAuthor: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
   },
 
@@ -1196,13 +1196,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupName: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 2,
   },
   groupSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
   },
   groupActionBtn: {
@@ -1216,7 +1216,7 @@ const styles = StyleSheet.create({
   },
   groupActionBtnText: {
     color: P.weatherCloudWhite,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   groupActionBtnTextJoined: {
@@ -1233,7 +1233,7 @@ const styles = StyleSheet.create({
   },
   joinedBadgeText: {
     color: P.greenDeep1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   joinButton: {
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
   },
   joinButtonText: {
     color: P.weatherCloudWhite,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
 
@@ -1278,7 +1278,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twBlue100,
   },
   trainingModeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twEmerald800,
   },
@@ -1286,12 +1286,12 @@ const styles = StyleSheet.create({
     color: P.twBlue800,
   },
   trainingDate: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.greenDeep1,
   },
   trainingTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 20,
@@ -1304,16 +1304,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   trainingDetailText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
   },
   trainingLocationText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     marginBottom: 4,
   },
   trainingInstructorText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray700,
     fontWeight: '500',
     marginBottom: 12,
@@ -1329,7 +1329,7 @@ const styles = StyleSheet.create({
   },
   trainingRegisterBtnText: {
     color: P.weatherCloudWhite,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   trainingRegisteredBtnText: {
@@ -1359,7 +1359,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   playerHeaderTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
   },
@@ -1400,7 +1400,7 @@ const styles = StyleSheet.create({
   },
   playerTimeText: {
     color: P.weatherCloudWhite,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
   playerProgressTrack: {
@@ -1417,7 +1417,7 @@ const styles = StyleSheet.create({
   },
   playerHdBadge: {
     color: P.weatherCloudWhite,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     backgroundColor: 'rgba(0,0,0,0.4)',
     paddingHorizontal: 4,
@@ -1428,7 +1428,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   playerTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 23,
@@ -1441,18 +1441,18 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   playerAuthorText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
     fontWeight: '500',
   },
   playerDescLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: 4,
   },
   playerDescText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray600,
     lineHeight: 19,
     marginBottom: 14,
@@ -1464,13 +1464,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   takeawayTitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 4,
   },
   takeawayText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 17,
   },
@@ -1487,7 +1487,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   blogReaderTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 24,
@@ -1495,7 +1495,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   blogReaderMeta: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
     marginBottom: 14,
   },
@@ -1505,7 +1505,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   blogParagraph: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray700,
     lineHeight: 22,
     marginBottom: 14,

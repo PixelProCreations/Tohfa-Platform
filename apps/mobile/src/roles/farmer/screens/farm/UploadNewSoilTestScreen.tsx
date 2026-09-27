@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -722,12 +722,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: P.slate900,
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   headerSubtitle: {
     color: P.slate500,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 2,
   },
 
@@ -755,19 +755,19 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate700,
   },
   requiredAsterisk: {
     color: P.twRed500,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: typography.body,
   },
   optionalText: {
     color: P.slate400,
     fontWeight: 'normal',
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginLeft: 4,
   },
   inputBox: {
@@ -783,20 +783,20 @@ const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
     paddingVertical: 0,
   },
   dateHintText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate400,
     marginBottom: 20,
     lineHeight: 16,
   },
 
   sectionHeading: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     marginBottom: 14,
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 46,
     backgroundColor: P.white,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
   },
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   dropdownSelectedText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
   },
@@ -846,17 +846,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   infoText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.deepPurple800,
     fontWeight: '500',
   },
   errorText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twRed600,
     fontWeight: '500',
   },
   successText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGreen600,
     fontWeight: '500',
   },
@@ -883,19 +883,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   waterContextLabel: {
-    fontSize: 9.5,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     marginBottom: 2,
     letterSpacing: 0.4,
   },
   waterContextValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   waterContextEditBtn: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
     paddingHorizontal: 6,
@@ -913,14 +913,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   uploadTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
     marginTop: 6,
     marginBottom: 3,
   },
   uploadSubtitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGray500,
   },
 
@@ -946,12 +946,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   docName: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGreen900,
   },
   docMeta: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGreen700,
     marginTop: 2,
   },
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: P.slate600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   saveBtn: {
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     color: P.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 
@@ -1029,7 +1029,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate900,
     marginBottom: 12,
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
   },

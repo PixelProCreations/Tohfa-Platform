@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -1038,7 +1038,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
@@ -1090,13 +1090,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileCode: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 2,
   },
   profileSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
   },
   statusBadgePill: {
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -1132,7 +1132,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandGreen,
   },
   tabButtonText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -1242,17 +1242,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
   itemSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
   itemAmountBold: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1263,7 +1263,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   dueDateBadgeText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray600,
   },
@@ -1289,7 +1289,7 @@ const styles = StyleSheet.create({
   },
   organicNoticeText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.twGray700,
     fontWeight: '500',
@@ -1317,12 +1317,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   withdrawalTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twOrange700,
   },
   withdrawalBody: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 18,
     paddingLeft: 27,
@@ -1346,16 +1346,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkupTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
   checkupDoctor: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
   },
   checkupDescription: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 18,
     marginTop: 2,
@@ -1369,11 +1369,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tableLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray500,
   },
   tableValueBold: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1383,7 +1383,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   footnoteCaption: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     lineHeight: 16,
     paddingHorizontal: 4,
@@ -1404,12 +1404,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   pregnantBadgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
   cycleCountText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     fontWeight: '500',
   },
@@ -1422,21 +1422,21 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cycleGridLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
   cycleGridValBold: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginTop: 2,
   },
   cycleGridSubtext: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
   },
   cycleGridCountdown: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: colors.brandGreen,
     fontWeight: '600',
   },
@@ -1447,12 +1447,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   calvingTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
   calvingDescription: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginBottom: 14,
   },
@@ -1468,7 +1468,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   registerOffspringBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   yieldSummaryLabel: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
   gradeBadgePill: {
@@ -1491,7 +1491,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   gradeBadgeText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -1502,12 +1502,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   yieldBigNumber: {
-    fontSize: 28,
+    fontSize: typography.headline,
     fontWeight: '700',
     color: P.nearBlack,
   },
   yieldUnitText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -1516,7 +1516,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   last7DaysText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 4,
   },
@@ -1532,7 +1532,7 @@ const styles = StyleSheet.create({
     borderColor: P.twOrange200,
   },
   productionAlertText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twOrange700,
   },
@@ -1545,7 +1545,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   housingHeaderTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1567,17 +1567,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metricValNumber: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
   },
   metricValUnit: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     fontWeight: '500',
   },
   metricValLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 4,
   },
@@ -1596,12 +1596,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   welfareNoticeTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.brandGreen,
   },
   welfareNoticeSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
 });

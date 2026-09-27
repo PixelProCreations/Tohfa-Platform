@@ -12,7 +12,7 @@ import {
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import { formatSafeDate } from '../../polyfills';
 import {
   dateFromCalendarDay,
@@ -310,19 +310,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: P.twGray500,
     marginTop: 1,
   },
   cancelText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray500,
     paddingHorizontal: 4,
@@ -362,19 +362,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
   categorySubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 2,
   },
 
   // Form Fields
   fieldLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
     marginBottom: 6,
@@ -396,12 +396,12 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.nearBlack,
     height: '100%',
   },
   inputText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.nearBlack,
   },
   placeholderText: {
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   infoText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     flex: 1,
     lineHeight: 16,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -489,12 +489,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   calendarTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
   calendarCancelText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
   },

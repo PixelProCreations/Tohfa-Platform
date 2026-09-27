@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTag: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -271,13 +271,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   recommendationText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.forestGreen,
     lineHeight: 18,
   },
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     color: P.twGreen900,
   },
   sectionHeading: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 12,
@@ -359,18 +359,18 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   amendmentName: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.2,
   },
   amendmentZone: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 3,
   },
   quantityText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.twGray900,
   },
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

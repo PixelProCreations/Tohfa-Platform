@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Switch, Image } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 interface DailyAttendanceScreenProps {
   onNavigateBack: () => void;
@@ -216,12 +216,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twEmerald900,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray400,
     marginTop: 2,
   },
@@ -237,13 +237,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray400,
     letterSpacing: 0.5,
   },
   presentCount: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -276,16 +276,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   workerName: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   workerRole: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 2,
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray400,
   },
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.weatherCloudWhite,
   },
   selectText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 40,
     backgroundColor: P.weatherCloudWhite,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twAmber800,
     lineHeight: 18,
   },
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: P.weatherCloudWhite,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
 });

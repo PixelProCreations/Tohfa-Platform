@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 21,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
     marginTop: 12,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18,
     color: P.twGray500,
     textAlign: 'center',
@@ -366,20 +366,20 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   cardCode: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate400,
     letterSpacing: 0.6,
     marginBottom: 2,
   },
   cardTitle: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.1,
   },
   cardDesc: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 16.5,
     color: P.twGray500,
     marginTop: 2,

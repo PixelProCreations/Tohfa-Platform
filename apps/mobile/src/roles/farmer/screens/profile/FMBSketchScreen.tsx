@@ -21,7 +21,7 @@ import {
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
 } from '@tohfa/mobile-ui';
-import { colors, useTheme } from '../../theme';
+import { colors, useTheme, typography } from '../../theme';
 import { authPalette as P } from '../../theme';
 import { calculatePolygonMetrics } from '../../utils/geo';
 import { t } from '../../../../i18n/farmer';
@@ -615,7 +615,7 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
 
                 {uploadedDoc ? (
                   <View style={styles.attachedNotice}>
-                    <Text style={{ color: colors.brandGreen, fontWeight: '700', fontSize: 14 }}>
+                    <Text style={{ color: colors.brandGreen, fontWeight: '700', fontSize: typography.body }}>
                       <Icon name="check" size={14} color={colors.brandGreen} /> Document attached
                     </Text>
                   </View>
@@ -800,8 +800,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerTitleBox: { flex: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
+  headerTitle: { fontSize: typography.title, fontWeight: '700' },
+  headerSubtitle: { fontSize: typography.body, marginTop: 2 },
 
   tabsContainer: {
     flexDirection: 'row',
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  tabText: { fontSize: 14, fontWeight: '700' },
+  tabText: { fontSize: typography.body, fontWeight: '700' },
 
   contentScroll: { flex: 1 },
   contentContainer: { paddingBottom: 12 },
@@ -885,9 +885,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  metricVal: { fontSize: 20, fontWeight: '800' },
-  metricValUnit: { fontSize: 13, fontWeight: '600' },
-  metricLabel: { fontSize: 11, marginTop: 2 },
+  metricVal: { fontSize: typography.title, fontWeight: '800' },
+  metricValUnit: { fontSize: typography.body, fontWeight: '600' },
+  metricLabel: { fontSize: typography.caption, marginTop: 2 },
 
   uploadCard: {
     flexDirection: 'row',
@@ -908,8 +908,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   uploadDocInfo: { flex: 1 },
-  uploadDocName: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  uploadDocSize: { fontSize: 12 },
+  uploadDocName: { fontSize: typography.bodyLarge, fontWeight: '700', marginBottom: 4 },
+  uploadDocSize: { fontSize: typography.bodySmall },
   uploadActionBtn: {
     width: 36,
     height: 36,
@@ -935,13 +935,13 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 24,
   },
-  infoNoticeText: { fontSize: 13, color: P.blueGrey800, lineHeight: 20 },
+  infoNoticeText: { fontSize: typography.body, color: P.blueGrey800, lineHeight: 20 },
 
-  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginBottom: 12 },
+  sectionTitle: { fontSize: typography.bodySmall, fontWeight: '700', letterSpacing: 0.5, marginBottom: 12 },
 
   loadErrorText: {
     color: P.red600,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -965,15 +965,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  farmIndexText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  farmIndexText: { color: colors.white, fontSize: typography.bodyLarge, fontWeight: '700' },
   farmInfo: { flex: 1 },
-  farmName: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  farmName: { fontSize: typography.bodyLarge, fontWeight: '700', marginBottom: 2 },
   farmSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  farmSub: { fontSize: 12 },
+  farmSub: { fontSize: typography.bodySmall },
 
   farmActionsRow: {
     flexDirection: 'row',
@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   addFarmButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
   },
 
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.textDark,
   },
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textDark,
     marginBottom: 6,
@@ -1055,14 +1055,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: colors.textDark,
     backgroundColor: colors.bgLight,
     marginBottom: 14,
   },
   modalErrorText: {
     color: P.red600,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     marginTop: -8,
     marginBottom: 12,
@@ -1077,7 +1077,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   editBoundaryOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.brandGreen,
   },
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgLight,
   },
   modalCancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.textSubtle,
   },
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   modalSaveBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.white,
   },
@@ -1118,7 +1118,7 @@ const styles = StyleSheet.create({
   },
   saveErrorText: {
     color: P.red600,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginBottom: 10,
     textAlign: 'center',
@@ -1130,5 +1130,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  saveBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: colors.white, fontSize: typography.bodyLarge, fontWeight: '700' },
 });

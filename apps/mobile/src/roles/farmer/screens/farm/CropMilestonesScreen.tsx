@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 import {
   CROP_MILESTONES_MAP,
@@ -570,13 +570,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appBarTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
   },
   appBarSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 1,
     fontWeight: '500',
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen300,
   },
   summaryBadgeText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -632,13 +632,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bannerCropTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.2,
   },
   bannerCropSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen300,
   },
   bannerPercentText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.twGreen800,
   },
@@ -673,12 +673,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bannerFooterText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen800,
   },
   bannerFooterSub: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
   },
   stepperContainerCard: {
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   tabBadgeNumber: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray600,
   },
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     color: P.brandGreen,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedMilestoneTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   selectedMilestoneDate: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     fontWeight: '500',
   },
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   milestoneNumberText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray400,
     letterSpacing: 0.5,
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   milestoneCategoryText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray600,
   },
@@ -851,12 +851,12 @@ const styles = StyleSheet.create({
     borderColor: P.brandGreen,
   },
   completeActionButtonText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen700,
   },
   completeActionButtonTextAchieved: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.white,
   },
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   deliverableCardLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray500,
     letterSpacing: 0.4,
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
     color: P.twGreen700,
   },
   deliverableCardValue: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.ink,
     lineHeight: 19,
@@ -924,13 +924,13 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   observationHeaderTitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray600,
     letterSpacing: 0.2,
   },
   observationCardText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.twGray600,
     fontStyle: 'italic',
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   stepperNavBtnText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -968,7 +968,7 @@ const styles = StyleSheet.create({
     color: P.twGray300,
   },
   stepperNavCounterText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
   },

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { setLocale, type Locale } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import { logout } from '../../api/auth';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
@@ -1054,13 +1054,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.textDark,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
     marginTop: 1,
@@ -1106,30 +1106,30 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: P.weatherCloudWhite,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
   },
   profileInfo: {
     flex: 1,
   },
   profileName: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 2,
   },
   profileFarm: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
   profileMeta: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid2,
     marginTop: 2,
   },
   profileCaption: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid2,
     marginTop: 8,
     marginBottom: 16,
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
 
   // Section Headers
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.greyMid1,
     letterSpacing: 0.8,
@@ -1174,13 +1174,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
   },
 
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
     elevation: 1.5,
   },
   langSegmentText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusPillGreen: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.greenDeep1,
   },
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.tanTint3,
   },
   modalTitle: {
-    fontSize: 16.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
   },
@@ -1284,7 +1284,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   notifSheetTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlackDark4,
   },
@@ -1302,13 +1302,13 @@ const styles = StyleSheet.create({
   },
   notifAlertText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 16.5,
     color: P.greenDeep9,
     fontWeight: '500',
   },
   notifCountHeader: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.greenDeep10,
     marginBottom: 12,
@@ -1331,12 +1331,12 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   notifTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlackDark2,
   },
   notifSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid4,
     marginTop: 2,
   },
@@ -1378,12 +1378,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.creamTint3,
   },
   switchLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
   },
   switchSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
     marginTop: 2,
   },
@@ -1396,7 +1396,7 @@ const styles = StyleSheet.create({
   },
   modalPrimaryBtnText: {
     color: P.weatherCloudWhite,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
   },
   storageInfoBox: {
@@ -1409,13 +1409,13 @@ const styles = StyleSheet.create({
     borderColor: P.twSky200,
   },
   storageValue: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: P.sky600,
     marginBottom: 4,
   },
   storageLabel: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twSky700,
     fontWeight: '500',
   },
@@ -1427,11 +1427,11 @@ const styles = StyleSheet.create({
   },
   modalDangerBtnText: {
     color: P.twRed600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
   },
   inputLabel: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.textDark,
     marginTop: 10,
@@ -1442,7 +1442,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.textDark,
   },
   supportRow: {
@@ -1453,12 +1453,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.tanTint3,
   },
   supportLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.greyMid1,
     fontWeight: '500',
   },
   supportValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textDark,
     fontWeight: '700',
   },

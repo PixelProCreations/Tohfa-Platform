@@ -11,7 +11,7 @@ import {
   TextInput,
   Pressable,
 } from 'react-native';
-import { authPalette as themeAuthPalette } from '../../theme';
+import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
@@ -198,7 +198,7 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         >
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('Login')}>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: themeAuthPalette.primary, marginTop: -2 }}>{'‹'}</Text>
+              <Text style={{ fontSize: typography.title, fontWeight: '700', color: themeAuthPalette.primary, marginTop: -2 }}>{'‹'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButtonText: {
-    fontSize: 18,
+    fontSize: typography.title,
     color: authPalette.textLight,
     fontWeight: '600',
   },
@@ -338,31 +338,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: authPalette.text,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
     marginBottom: 8,
   },
   phoneNumber: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: authPalette.text,
     marginBottom: 8,
   },
   changeMobile: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: authPalette.focusBorder,
     marginBottom: 32,
   },
   errorText: {
     color: themeAuthPalette.red700,
-    fontSize: 14,
+    fontSize: typography.body,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     borderColor: authPalette.focusBorder,
   },
   otpBoxText: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     color: authPalette.text,
   },
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   resendLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
   },
   resendTimer: {
@@ -428,14 +428,14 @@ const styles = StyleSheet.create({
   },
   verifyButtonText: {
     color: authPalette.inputBg,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   supportContainer: {
     marginBottom: 16,
   },
   supportText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
   },
   supportLink: {
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     backgroundColor: authPalette.successLight,
   },
   langText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
     fontWeight: '600',
   },

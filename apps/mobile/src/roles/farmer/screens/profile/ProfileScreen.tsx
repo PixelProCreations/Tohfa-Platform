@@ -30,7 +30,7 @@ import {
   type FarmRating,
 } from '../../api/farmer';
 import { LOCALES, setLocale, t, type Locale, type TranslationKey } from '../../../../i18n/farmer';
-import { colors, authPalette as P } from '../../theme';
+import { colors, authPalette as P, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 
 interface ProfileScreenProps {
@@ -1521,7 +1521,7 @@ export function ProfileScreen({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <Text style={{ fontSize: 13, color: P.slate500, marginBottom: 14 }}>
+              <Text style={{ fontSize: typography.body, color: P.slate500, marginBottom: 14 }}>
                 {t('farmer.profile.rating.intro')}
               </Text>
 
@@ -1607,25 +1607,25 @@ export function ProfileScreen({
                 <View style={styles.soilGridTile}>
                   <Text style={styles.soilTileLabel}>Organic Carbon</Text>
                   <Text style={styles.soilTileValue}>0.68%</Text>
-                  <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Ideal range: 0.5–0.75%</Text>
+                  <Text style={{ fontSize: typography.caption, color: colors.brandGreen, marginTop: 4 }}>Ideal range: 0.5–0.75%</Text>
                 </View>
 
                 <View style={styles.soilGridTile}>
                   <Text style={styles.soilTileLabel}>pH Value</Text>
                   <Text style={styles.soilTileValue}>5.6</Text>
-                  <Text style={{ fontSize: 11, color: P.red800, marginTop: 4 }}>Acidic (Ideal: 6.0–7.5)</Text>
+                  <Text style={{ fontSize: typography.caption, color: P.red800, marginTop: 4 }}>Acidic (Ideal: 6.0–7.5)</Text>
                 </View>
 
                 <View style={styles.soilGridTile}>
                   <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
                   <Text style={styles.soilTileValue}>0.42</Text>
-                  <Text style={{ fontSize: 11, color: colors.brandGreen, marginTop: 4 }}>Normal electrical cond.</Text>
+                  <Text style={{ fontSize: typography.caption, color: colors.brandGreen, marginTop: 4 }}>Normal electrical cond.</Text>
                 </View>
 
                 <View style={styles.soilGridTile}>
                   <Text style={styles.soilTileLabel}>Water TDS</Text>
                   <Text style={styles.soilTileValue}>610 ppm</Text>
-                  <Text style={{ fontSize: 11, color: P.orange900, marginTop: 4 }}>High mineral hardness</Text>
+                  <Text style={{ fontSize: typography.caption, color: P.orange900, marginTop: 4 }}>High mineral hardness</Text>
                 </View>
               </View>
 
@@ -1689,7 +1689,7 @@ const styles = StyleSheet.create({
   },
   navTitle: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
   },
   navRightActions: {
@@ -1733,7 +1733,7 @@ const styles = StyleSheet.create({
   },
   farmerName: {
     color: colors.white,
-    fontSize: 23,
+    fontSize: typography.title,
     fontWeight: '700',
     marginBottom: 6,
   },
@@ -1746,19 +1746,19 @@ const styles = StyleSheet.create({
   },
   idBadgeText: {
     color: P.greenPaleBg,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     letterSpacing: 0.8,
   },
   farmNameText: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     marginBottom: 3,
   },
   locationText: {
     color: P.green100,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
   },
 
@@ -1793,12 +1793,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.slate400,
     letterSpacing: 0.5,
@@ -1821,7 +1821,7 @@ const styles = StyleSheet.create({
   },
   toastSuccessText: {
     color: P.deepGreen,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -1858,17 +1858,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate800,
   },
   cardSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.slate500,
     marginTop: 1,
   },
   cardActionLink: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.brandGreen,
   },
@@ -1883,11 +1883,11 @@ const styles = StyleSheet.create({
     borderBottomColor: P.slate100,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
   },
   detailValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate800,
     textAlign: 'right',
@@ -1917,7 +1917,7 @@ const styles = StyleSheet.create({
   },
   gpsCoordinatesText: {
     color: colors.white,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   fmbMetricsStrip: {
@@ -1934,12 +1934,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fmbMetricValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   fmbMetricLabel: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.slate400,
     marginTop: 2,
@@ -1961,7 +1961,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   tagPillText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
 
@@ -1993,7 +1993,7 @@ const styles = StyleSheet.create({
   },
   greenCheckmarkText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   orangeExclamationCircle: {
@@ -2006,21 +2006,21 @@ const styles = StyleSheet.create({
   },
   orangeExclamationText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   certTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   certStatusText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     marginTop: 2,
   },
   certRenewText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 2,
   },
@@ -2028,7 +2028,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   certNoticeText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
     lineHeight: 19,
   },
@@ -2044,7 +2044,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   warningNoticeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.amberDeep,
     flex: 1,
     lineHeight: 16,
@@ -2068,12 +2068,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   auditProgressFraction: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.sky600,
   },
   auditProgressDone: {
-    fontSize: 8,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate500,
   },
@@ -2081,11 +2081,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nextAuditSubLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.slate500,
   },
   nextAuditDateText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
     marginTop: 1,
@@ -2098,7 +2098,7 @@ const styles = StyleSheet.create({
   },
   auditDueRedText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
   },
   auditList: {
@@ -2121,17 +2121,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   auditItemDate: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate800,
   },
   auditItemSubtext: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 2,
   },
   auditScore: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 
@@ -2155,12 +2155,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ratingGaugeScore: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.slate800,
   },
   ratingGaugeMax: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.slate400,
   },
@@ -2168,7 +2168,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ratingStatusTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -2182,7 +2182,7 @@ const styles = StyleSheet.create({
   },
   ratingDeltaText: {
     color: colors.brandGreen,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   ratingBarsList: {
@@ -2199,12 +2199,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   barTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.slate600,
   },
   barScore: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   barTrack: {
@@ -2228,11 +2228,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   soilDateLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.twAmber900,
   },
   soilDateValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twAmber900,
     marginTop: 1,
@@ -2249,12 +2249,12 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   soilTileLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate500,
     marginBottom: 2,
   },
   soilTileValue: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate800,
     marginBottom: 4,
@@ -2266,7 +2266,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   soilBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   soilAdvisoryBox: {
@@ -2281,7 +2281,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   soilAdvisoryText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.red800,
     flex: 1,
     lineHeight: 16,
@@ -2306,12 +2306,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate800,
   },
   menuSubtitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 1,
   },
@@ -2326,7 +2326,7 @@ const styles = StyleSheet.create({
   },
   menuRedBadgeText: {
     color: colors.white,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
   },
   menuDivider: {
@@ -2356,7 +2356,7 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: P.twRed500,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   footerVersionBox: {
@@ -2366,13 +2366,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   footerVersionText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginBottom: 4,
     fontWeight: '500',
   },
   footerMemberText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     fontWeight: '500',
   },
@@ -2399,7 +2399,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.slate100,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.slate800,
   },
@@ -2410,7 +2410,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.slate600,
     marginBottom: 6,
@@ -2422,7 +2422,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     backgroundColor: P.slate50,
     marginBottom: 6,
@@ -2445,7 +2445,7 @@ const styles = StyleSheet.create({
     borderColor: P.deepGreen,
   },
   choiceChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate600,
     fontWeight: '500',
   },
@@ -2462,13 +2462,13 @@ const styles = StyleSheet.create({
     borderColor: P.slate200,
   },
   lockedSectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.slate800,
     marginBottom: 4,
   },
   lockedSectionSubtitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate500,
     lineHeight: 16,
   },
@@ -2489,7 +2489,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate500,
   },
@@ -2502,7 +2502,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.white,
   },
@@ -2520,18 +2520,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   docTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   docStatusGreen: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: colors.brandGreen,
     fontWeight: '600',
     marginTop: 2,
   },
   docActionText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.sky600,
   },
@@ -2543,7 +2543,7 @@ const styles = StyleSheet.create({
   },
   docUploadBtnText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
 
@@ -2560,17 +2560,17 @@ const styles = StyleSheet.create({
   },
   bankName: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   bankBranch: {
     color: P.green100,
-    fontSize: 11,
+    fontSize: typography.caption,
     marginTop: 2,
   },
   bankAccountNum: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     letterSpacing: 2,
     marginVertical: 16,
@@ -2581,11 +2581,11 @@ const styles = StyleSheet.create({
   },
   bankIfsc: {
     color: P.green100,
-    fontSize: 11,
+    fontSize: typography.caption,
   },
   bankHolder: {
     color: colors.white,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 });
