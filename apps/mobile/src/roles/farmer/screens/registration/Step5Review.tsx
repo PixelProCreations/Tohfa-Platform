@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { useTheme, authPalette as P } from '../../theme';
+import { useTheme, authPalette as P, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
 import { validateCrossStepSubmission } from './validation';
 import { useRegistrationDraftStore } from '../../storage/registrationDraft';
@@ -481,9 +481,9 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 14, borderWidth: 0, borderBottomWidth: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   backButtonCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  backButtonArrow: { fontSize: 22, fontWeight: '700', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { fontSize: 12 },
+  backButtonArrow: { fontSize: typography.title, fontWeight: '700', marginTop: -2 },
+  headerTitle: { fontSize: typography.title, fontWeight: '800' },
+  headerSubtitle: { fontSize: typography.bodySmall },
   progressRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
   progressSegment: { flex: 1, height: 5, borderRadius: 3 },
   scrollArea: { flex: 1 },
@@ -500,23 +500,23 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18,
   },
   section: { borderWidth: 1.5, borderRadius: 12, padding: 16, marginBottom: 16 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  editLink: { fontSize: 12, fontWeight: '700' },
+  sectionTitle: { fontSize: typography.bodySmall, fontWeight: '800', letterSpacing: 0.5 },
+  editLink: { fontSize: typography.bodySmall, fontWeight: '700' },
   sectionRows: { gap: 8 },
   dataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dataLabel: { fontSize: 14 },
-  dataValue: { fontSize: 14, fontWeight: '700' },
+  dataLabel: { fontSize: typography.body },
+  dataValue: { fontSize: typography.body, fontWeight: '700' },
   termsBox: { flexDirection: 'row', borderWidth: 1.5, borderRadius: 12, padding: 16, marginBottom: 16, alignItems: 'flex-start', gap: 12 },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  termsText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  termsText: { flex: 1, fontSize: typography.body, lineHeight: 18 },
   footer: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24, borderTopWidth: 1, flexDirection: 'row', gap: 12 },
   footerBtn: { flex: 1, height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   backButton: { borderWidth: 1.5 },
   nextButton: { borderWidth: 0 },
-  footerBtnText: { fontSize: 16, fontWeight: '700', textAlign: 'center' }
+  footerBtnText: { fontSize: typography.bodyLarge, fontWeight: '700', textAlign: 'center' }
 });

@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -595,13 +595,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 1,
@@ -624,14 +624,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   fieldLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray700,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   asterisk: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.red700,
   },
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segmentButtonText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.forestGreen,
   },
@@ -677,13 +677,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   textInput: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray900,
     padding: 0,
   },
   helperText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '400',
     color: P.twGray500,
     marginTop: 6,
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     minWidth: 76,
   },
   unitText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
     marginRight: 6,
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dropdownText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray900,
   },
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '400',
     color: P.twGray900,
     minHeight: 74,
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray800,
   },
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   saveButtonText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   pickerModalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 12,
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalItemText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray800,
   },

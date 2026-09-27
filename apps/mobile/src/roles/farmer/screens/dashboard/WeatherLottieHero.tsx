@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, UIManager } from 'react-native';
 import LottieView from 'lottie-react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import { t } from '../../../../i18n/farmer';
 
 function ThermometerIcon({ size = 17, color = P.white }: { size?: number; color?: string }) {
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   heroDate: {
     color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   livePill: {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   liveText: {
     color: P.white,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -254,14 +254,14 @@ const styles = StyleSheet.create({
   },
   heroTemp: {
     color: P.white,
-    fontSize: 60,
+    fontSize: typography.display,
     fontWeight: '900',
     letterSpacing: -2,
     lineHeight: 64,
   },
   heroCondition: {
     color: 'rgba(255, 255, 255, 0.95)',
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     marginTop: 2,
   },
@@ -292,14 +292,14 @@ const styles = StyleSheet.create({
   },
   heroStatValue: {
     color: P.white,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: 'bold',
     marginBottom: 2,
     textAlign: 'center',
   },
   heroStatLabel: {
     color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '500',
     textAlign: 'center',
   },

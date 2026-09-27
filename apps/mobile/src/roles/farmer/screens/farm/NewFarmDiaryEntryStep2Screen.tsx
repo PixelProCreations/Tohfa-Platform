@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -605,17 +605,17 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: P.slate900,
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   headerSubtitle: {
     color: P.slate500,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 2,
   },
   cancelBtnText: {
     color: P.slate600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   },
 
   sectionHeading: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen800,
   },
   categoryCardText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.slate700,
     marginTop: 7,
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen800,
   },
   subActivityText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.slate700,
     flex: 1,
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: P.slate800,
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   nextButton: {
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: P.white,
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 });

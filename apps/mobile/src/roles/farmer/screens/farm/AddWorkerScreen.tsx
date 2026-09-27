@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -787,18 +787,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 1,
   },
   cancelButtonText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray500,
     paddingHorizontal: 4,
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '700',
     color: P.twGreen800,
     letterSpacing: 0.5,
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarHint: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 8,
   },
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
     marginBottom: 2,
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     borderRadius: 12,
     paddingHorizontal: 14,
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.nearBlack,
   },
   twoColumnRow: {
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pickerValueText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.nearBlack,
     fontWeight: '500',
   },
@@ -912,13 +912,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   fileNameText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.brandGreen,
     flex: 1,
   },
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.slate400,
     letterSpacing: 0.8,
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   salarySegmentText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -1011,7 +1011,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1031,7 +1031,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen100,
   },
   modalOptionText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   calFieldBadge: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen700,
     letterSpacing: 0.8,
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   calSelectedDateTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   calMonthYearLabel: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     borderColor: P.deepGreen,
   },
   yearChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create({
   calWeekdayText: {
     width: '14.28%',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray400,
   },
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen700,
   },
   calDayText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   calCancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1231,7 +1231,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calApplyBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

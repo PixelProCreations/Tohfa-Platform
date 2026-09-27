@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-import { useTheme, authPalette } from '../../theme';
+import { useTheme, authPalette, typography } from '../../theme';
 import { Step1Personal } from './Step1Personal';
 import { Step2FarmDetails } from './Step2FarmDetails';
 import { Step3Location } from './Step3Location';
@@ -288,16 +288,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButtonArrow: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     marginTop: -2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   progressRow: {
     flexDirection: 'row',
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   },
   apiBannerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18,
   },
 });

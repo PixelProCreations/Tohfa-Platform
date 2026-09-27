@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
-import { useTheme, authPalette as P } from '../../theme';
+import { useTheme, authPalette as P, typography } from '../../theme';
 
 interface RoleSelectionProps {
   onNavigate: (screen: 'Login' | 'Register') => void;
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButtonArrow: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     marginTop: -2,
   },
@@ -139,11 +139,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   localeText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   localeArrow: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
   },
   scrollArea: {
@@ -154,12 +154,12 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   title: {
-    fontSize: 28,
+    fontSize: typography.headline,
     fontWeight: '800',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     marginBottom: 32,
   },
   card: {
@@ -187,12 +187,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     marginBottom: 4,
   },
   cardDesc: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18,
   },
   infoBox: {
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18,
   },
   footer: {
@@ -212,10 +212,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: typography.body,
   },
   footerLoginLink: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 });

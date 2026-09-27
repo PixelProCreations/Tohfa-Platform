@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import { localProduceCropsCache, type CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -873,18 +873,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 1,
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray600,
     paddingHorizontal: 4,
@@ -908,19 +908,19 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   label: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
     marginLeft: 6,
   },
   subLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray800,
     marginBottom: 6,
   },
   subLabelNoMargin: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray800,
     marginLeft: 6,
@@ -952,12 +952,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectBoxText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray900,
   },
   helpText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     lineHeight: 16,
     color: P.twGray400,
     marginTop: 6,
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   scientificNameText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     fontStyle: 'italic',
     color: P.twGray900,
@@ -1004,12 +1004,12 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
   },
   seasonBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray600,
   },
   pestSubNote: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 4,
     marginLeft: 16,
@@ -1034,7 +1034,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   inputBoxText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     backgroundColor: P.white,
     paddingHorizontal: 14,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1108,7 +1108,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   phiInputText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     flex: 1,
@@ -1120,7 +1120,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   autoBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -1137,7 +1137,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   dateText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1148,7 +1148,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   dateDaysBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -1168,7 +1168,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveBtnText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -1200,7 +1200,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalItemText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -1224,7 +1224,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalSubItemText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },

@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray600,
     lineHeight: 22,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   doneButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

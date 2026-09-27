@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -192,13 +192,13 @@ const gaugeStyles = StyleSheet.create({
     marginBottom: 10,
   },
   scoreNumber: {
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
     color: P.primary,
     letterSpacing: 0.5,
   },
   scoreLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.primary,
     marginTop: -2,
@@ -211,13 +211,13 @@ const gaugeStyles = StyleSheet.create({
     marginTop: 4,
   },
   scaleLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.5,
   },
   scaleSubtext: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.twGray400,
     textAlign: 'center',
     marginTop: 6,
@@ -538,12 +538,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -571,17 +571,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   externalBadgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twSky700,
   },
   auditDateHeading: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
   },
   auditorSubtitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray600,
     marginTop: 4,
   },
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timeOnFarmText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
   },
 
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   compliantBannerText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardTitle: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -654,12 +654,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   majorNumber: {
-    fontSize: 26,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: P.twGreen800,
   },
   majorLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -675,19 +675,19 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   minorNumber: {
-    fontSize: 26,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: P.twOrange600,
   },
   minorLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twOrange700,
   },
 
   /* Section Header */
   sectionHeader: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   },
   correctiveTitle: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pendingBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twOrange600,
   },
@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   correctiveDesc: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray600,
     lineHeight: 19,
   },
@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   dueDateText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twOrange600,
   },
@@ -761,18 +761,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   auditorName: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   auditorRole: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 1,
   },
   auditorQuote: {
     fontStyle: 'italic',
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray700,
     lineHeight: 20,
     marginTop: 12,
@@ -799,12 +799,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   attachmentName: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   attachmentMeta: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGray500,
     marginTop: 1,
   },
@@ -836,11 +836,11 @@ const styles = StyleSheet.create({
   },
   timelineCheckMark: {
     color: P.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
   },
   timelineStepLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   disputeButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -895,12 +895,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.surfaceMuted,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   modalSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -913,12 +913,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray500,
   },
   disputeFieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 8,
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray300,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray900,
     minHeight: 100,
     textAlignVertical: 'top',
@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelDisputeBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -959,7 +959,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitDisputeBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

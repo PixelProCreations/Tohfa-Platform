@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, authPalette as P } from '../../theme';
+import { colors, authPalette as P, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     color: P.weatherCloudWhite,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
 
@@ -540,11 +540,11 @@ const styles = StyleSheet.create({
   },
   typePillText: {
     color: colors.brandGreen,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   titleText: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 27,
@@ -558,12 +558,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   authorText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
   paragraphText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray600,
     lineHeight: 20.5,
     marginBottom: 12,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.coralTint3,
   },
   likeCountText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.coralMid1,
   },
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     borderColor: P.tanTint2,
   },
   commentCountText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     borderColor: P.tanTint2,
   },
   commentsHeaderTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 8,
@@ -629,14 +629,14 @@ const styles = StyleSheet.create({
     borderBottomColor: P.tanTint3,
   },
   commentItemText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 18,
   },
 
   // Section Header Title
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.greyMid1,
     letterSpacing: 0.8,
@@ -673,14 +673,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   relatedTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     lineHeight: 18,
     marginBottom: 4,
   },
   relatedSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.tanTint1,
     borderRadius: 22,
     paddingHorizontal: 16,
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: colors.textDark,
   },
   sendButton: {

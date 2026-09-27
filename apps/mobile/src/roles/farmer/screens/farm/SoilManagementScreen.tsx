@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTag: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen700,
     letterSpacing: 0.6,
@@ -664,13 +664,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -712,13 +712,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -754,13 +754,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   moduleTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.2,
   },
   moduleSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     color: P.twGray500,
     marginTop: 3,
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   uploadBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.twGray900,
   },
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   modalSubHeader: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
     textTransform: 'uppercase',
@@ -848,12 +848,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   metricName: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray800,
   },
   metricValGreen: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -866,12 +866,12 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
   },
   zoneTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   zoneType: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray600,
     marginTop: 2,
@@ -885,12 +885,12 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
   },
   logTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   logMeta: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -902,18 +902,18 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen100,
   },
   rotationStep: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen900,
   },
   rotationNext: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGreen700,
     marginTop: 4,
   },
   rotationMeta: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     marginTop: 4,
   },
@@ -925,12 +925,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   moistureZone: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
   moistureStatusGood: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGreen700,
   },
@@ -938,12 +938,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   erosionTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   erosionDesc: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     marginTop: 2,
     lineHeight: 17,
@@ -957,7 +957,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   modalActionBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

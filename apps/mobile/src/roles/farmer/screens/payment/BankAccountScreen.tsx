@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twAmber100,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   verifiedBadgeText: {
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
     letterSpacing: -0.1,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   viewBoxText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray900,
   },
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     backgroundColor: P.white,
     paddingHorizontal: 16,
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray900,
   },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   },
   warningText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 17,
     color: P.twGray500,
     fontWeight: '400',
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray800,
   },
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   saveBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

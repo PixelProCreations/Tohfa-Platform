@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -431,17 +431,17 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: P.slate900,
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   headerSubtitle: {
     color: P.slate500,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 2,
   },
   cancelBtnText: {
     color: P.slate600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
 
   introInstruction: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
     lineHeight: 19,
     marginBottom: 20,
@@ -489,14 +489,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   labelTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
   },
   requiredAsterisk: {
     color: P.twRed500,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: typography.body,
   },
 
   dropdownBox: {
@@ -515,12 +515,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   dropdownSelectedText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate900,
   },
   helperNote: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.slate400,
     marginTop: 6,
   },
@@ -546,19 +546,19 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   infoCardLabel: {
-    fontSize: 9.5,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.5,
     marginBottom: 3,
   },
   infoCardValue: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate900,
   },
   infoCardSub: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.slate500,
     marginTop: 2,
   },
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   autoBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate600,
     letterSpacing: 0.4,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   activityTypeBtnText: {
     color: P.white,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
 
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   modalHeading: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate900,
     marginBottom: 12,
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
   },

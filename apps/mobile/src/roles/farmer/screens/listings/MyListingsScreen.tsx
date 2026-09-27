@@ -1,7 +1,7 @@
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 interface MyListingsScreenProps {
   onNavigateBack: () => void;
@@ -120,12 +120,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.slate900,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
     marginTop: 2,
   },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   filterText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.twGray800,
     fontWeight: '600',
     marginLeft: 8,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cropTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate900,
   },
@@ -214,11 +214,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   cropSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
   },
   alertStrip: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   alertText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 });

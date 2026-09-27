@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
@@ -252,13 +252,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -297,20 +297,20 @@ const styles = StyleSheet.create({
     height: 48,
   },
   currencySymbol: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     padding: 0,
   },
   fieldHelper: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 3,
   },
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     borderColor: P.forestGreen,
   },
   methodBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -349,13 +349,13 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   destLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray500,
     marginBottom: 4,
   },
   destValue: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   },
   policyText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 17,
     color: P.twBlue800,
     fontWeight: '500',
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

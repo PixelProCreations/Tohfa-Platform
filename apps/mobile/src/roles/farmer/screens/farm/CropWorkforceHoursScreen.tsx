@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -240,13 +240,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -273,12 +273,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   heroSubLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.85)',
   },
   heroCostValue: {
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
     color: P.white,
     letterSpacing: -0.5,
@@ -298,12 +298,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroMetricLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.75)',
   },
   heroMetricValue: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
     marginTop: 4,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twBlue700,
   },
@@ -353,12 +353,12 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   workerName: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   workerTasks: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -367,12 +367,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   workerHours: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.ink,
   },
   workerEarnings: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },

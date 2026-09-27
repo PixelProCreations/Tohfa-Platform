@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import {
   listNotifications,
   markNotificationAsRead,
@@ -597,12 +597,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   markAllReadText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGreen700,
   },
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {},
   tabText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   badgeGrayText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   badgeRedText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twRed600,
   },
@@ -677,13 +677,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 6,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray600,
     textAlign: 'center',
     marginBottom: 16,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: P.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   listContent: {
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.stoneMuted,
     letterSpacing: 0.8,
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   itemTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     flex: 1,
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   itemMessage: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray600,
     lineHeight: 18,
     marginTop: 3,
@@ -770,12 +770,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   actionLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.coralRed,
   },
   timestampText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 6,
   },
@@ -785,12 +785,12 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray400,
     marginTop: 4,
   },

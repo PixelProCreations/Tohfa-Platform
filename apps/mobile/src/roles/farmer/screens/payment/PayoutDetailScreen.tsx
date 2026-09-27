@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { PayoutRecord } from './PayoutHistoryScreen';
 
 function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -226,13 +226,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   amountText: {
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.5,
   },
   statusSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 4,
@@ -258,12 +258,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   detailLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray500,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '600',
     textAlign: 'right',
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   detailValueMono: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   },
   policyText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.twBlue800,
     fontWeight: '500',

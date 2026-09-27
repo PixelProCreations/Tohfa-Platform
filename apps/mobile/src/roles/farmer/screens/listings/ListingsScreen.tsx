@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, G } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // Simple SVG Icons to match design exactly
 const ChevronLeft = () => (
@@ -225,12 +225,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.teal900,
   },
   headerSub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.blueGrey400,
     marginTop: 2,
   },
@@ -255,13 +255,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.brown700,
     marginBottom: 4,
   },
   alertSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.deepOrange800,
   },
   alertChevron: {
@@ -293,19 +293,19 @@ const styles = StyleSheet.create({
   },
   heroChipText: {
     color: P.weatherCloudWhite,
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   heroTitle: {
     color: P.weatherCloudWhite,
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     marginBottom: 8,
   },
   heroSub: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
+    fontSize: typography.body,
     lineHeight: 20,
     paddingRight: 40,
   },
@@ -327,25 +327,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   metricValueBlack: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.grey900,
     marginBottom: 4,
   },
   metricValueGreen: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.brandGreen,
     marginBottom: 4,
   },
   metricValueRed: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepOrange800,
     marginBottom: 4,
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.grey500,
     fontWeight: '500',
     lineHeight: 16,
@@ -357,13 +357,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.grey500,
     letterSpacing: 0.5,
   },
   viewAllBtn: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -398,13 +398,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
     marginBottom: 4,
   },
   listSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey500,
   },
   badge: {
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   fabContainer: {
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   },
   fabText: {
     color: P.weatherCloudWhite,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     marginLeft: 8,
   },

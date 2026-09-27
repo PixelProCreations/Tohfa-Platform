@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -555,12 +555,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray100,
   },
   tabBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   tabBtnTextActive: {
@@ -630,12 +630,12 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statMainValue: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
   },
   statSubLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: P.twGray500,
     textAlign: 'center',
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   ratingBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.white,
   },
@@ -673,13 +673,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   upcomingTagText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.green100,
     letterSpacing: 0.6,
   },
   upcomingTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
     marginTop: 8,
@@ -695,12 +695,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   upcomingDetailTextBold: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
   upcomingDetailText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: colors.brandGreenLight,
   },
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   prepChecklistBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -737,14 +737,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   remindMeBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
 
   /* Section Title */
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -781,13 +781,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dateBoxDay: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
     lineHeight: 20,
   },
   dateBoxMonth: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.primary,
     marginTop: 2,
@@ -797,12 +797,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   pastAuditTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   pastAuditAuditor: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
   pillsRow: {
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pillGrayText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pillOrangeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twOrange600,
   },
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pillWhiteText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.white,
   },
@@ -878,12 +878,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.surfaceMuted,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   modalSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -896,7 +896,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -926,12 +926,12 @@ const styles = StyleSheet.create({
   },
   checkmarkIcon: {
     color: P.white,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
   },
   checklistItemText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray800,
   },
   checklistItemTextDone: {
@@ -952,11 +952,11 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray200,
   },
   reportDetailLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
   },
   reportDetailValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

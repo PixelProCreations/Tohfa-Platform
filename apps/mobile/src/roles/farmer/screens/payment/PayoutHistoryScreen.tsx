@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
   return (
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     borderColor: P.forestGreen,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -358,12 +358,12 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   cardTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   cardSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -375,11 +375,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   amountText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.twGray900,
   },

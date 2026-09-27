@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -415,13 +415,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 1,
   },
@@ -459,12 +459,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   warningTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twOrange700,
   },
   warningBody: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 18,
   },
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segmentText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray600,
   },
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
     marginBottom: 2,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     borderRadius: 12,
     paddingHorizontal: 14,
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.nearBlack,
   },
   datePickerInput: {
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   datePickerValText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.nearBlack,
     fontWeight: '500',
   },
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
   },
   traceabilityNoticeText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.slate700,
   },
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   recordSaleButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

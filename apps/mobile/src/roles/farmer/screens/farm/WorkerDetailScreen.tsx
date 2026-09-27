@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -536,13 +536,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   workerName: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   workerRole: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 1,
   },
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   filterPillText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.nearBlack,
   },
@@ -614,12 +614,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   paymentBannerTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twBlue700,
   },
   paymentBannerSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.slate500,
     marginTop: 2,
   },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlack,
     letterSpacing: -0.3,
@@ -654,19 +654,19 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   hourUnit: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray400,
   },
   statLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 4,
     fontWeight: '500',
     textAlign: 'center',
   },
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.slate400,
     letterSpacing: 0.8,
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -711,12 +711,12 @@ const styles = StyleSheet.create({
     color: P.twGray600,
   },
   activityDate: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 2,
   },
   activityHours: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray100,
   },
   footerCaption: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray400,
     textAlign: 'center',
@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 14,
@@ -764,7 +764,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen100,
   },
   modalOptionText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.twGray700,
   },
   modalOptionTextSelected: {

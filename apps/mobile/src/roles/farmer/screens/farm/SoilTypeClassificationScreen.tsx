@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTag: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -363,13 +363,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -416,24 +416,24 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   zoneTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   currentTypeText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.forestGreen,
     marginTop: 2,
   },
   notRecordedText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
   },
   changeLinkText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.forestGreen,
   },
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     borderColor: P.forestGreen,
   },
   categoryName: {
-    fontSize: 13,
+    fontSize: typography.body,
     marginTop: 4,
   },
   categoryNameUnselected: {

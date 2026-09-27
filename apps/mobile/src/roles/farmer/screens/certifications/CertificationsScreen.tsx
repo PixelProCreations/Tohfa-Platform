@@ -19,7 +19,7 @@ import {
 } from '../../api/farmer';
 import { Skeleton } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // SVG icons (inline, no extra dep)
@@ -141,7 +141,7 @@ function StatusBadge({ status }: { status: DisplayStatus }) {
   const m = map[status];
   return (
     <View style={{ backgroundColor: m.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
-      <Text style={{ fontSize: 11, fontWeight: '700', color: m.fg, letterSpacing: 0.4 }}>{m.label}</Text>
+      <Text style={{ fontSize: typography.caption, fontWeight: '700', color: m.fg, letterSpacing: 0.4 }}>{m.label}</Text>
     </View>
   );
 }
@@ -285,28 +285,28 @@ const C = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconCircle: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   nameCol: { flex: 1 },
-  certName: { fontSize: 16, fontWeight: '700', color: P.twGray900 },
-  issuer: { fontSize: 12, color: P.twGray500, marginTop: 1 },
+  certName: { fontSize: typography.bodyLarge, fontWeight: '700', color: P.twGray900 },
+  issuer: { fontSize: typography.bodySmall, color: P.twGray500, marginTop: 1 },
   strip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
   },
-  stripTxt: { fontSize: 13, fontWeight: '500', flex: 1 },
+  stripTxt: { fontSize: typography.body, fontWeight: '500', flex: 1 },
   datesRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2 },
-  dateLabel: { fontSize: 10, fontWeight: '700', color: P.twGray400, letterSpacing: 0.5, marginBottom: 2 },
-  dateVal: { fontSize: 14, fontWeight: '600', color: P.twGray900 },
+  dateLabel: { fontSize: typography.caption, fontWeight: '700', color: P.twGray400, letterSpacing: 0.5, marginBottom: 2 },
+  dateVal: { fontSize: typography.body, fontWeight: '600', color: P.twGray900 },
   actRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
   outBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 10, borderRadius: 10,
     borderWidth: 1.5, borderColor: P.twGray200, backgroundColor: P.twGray50,
   },
-  outTxt: { fontSize: 13, fontWeight: '600', color: P.twGray700, textAlign: 'center' },
+  outTxt: { fontSize: typography.body, fontWeight: '600', color: P.twGray700, textAlign: 'center' },
   primBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: P.twGreen700,
   },
-  primTxt: { fontSize: 14, fontWeight: '700', color: P.white },
+  primTxt: { fontSize: typography.body, fontWeight: '700', color: P.white },
 });
 
 // ─────────────────────────────────────────────
@@ -494,8 +494,8 @@ const S = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerMid: { flex: 1, paddingLeft: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: P.ink },
-  headerSub: { fontSize: 12, color: P.twGray500, marginTop: 1 },
+  headerTitle: { fontSize: typography.title, fontWeight: '700', color: P.ink },
+  headerSub: { fontSize: typography.bodySmall, color: P.twGray500, marginTop: 1 },
 
   scroll: { paddingHorizontal: 16, paddingTop: 16 },
 
@@ -505,7 +505,7 @@ const S = StyleSheet.create({
     borderRadius: 12, borderWidth: 1, borderColor: P.skyTint,
     padding: 14, marginBottom: 16,
   },
-  infoTxt: { flex: 1, fontSize: 13, color: P.twBlue800, lineHeight: 19, fontWeight: '500' },
+  infoTxt: { flex: 1, fontSize: typography.body, color: P.twBlue800, lineHeight: 19, fontWeight: '500' },
 
   statsRow: {
     flexDirection: 'row',
@@ -514,8 +514,8 @@ const S = StyleSheet.create({
     marginBottom: 16, paddingVertical: 14,
   },
   statCell: { flex: 1, alignItems: 'center' },
-  statNum: { fontSize: 26, fontWeight: '800', lineHeight: 30 },
-  statLbl: { fontSize: 12, color: P.twGray500, fontWeight: '500', marginTop: 2 },
+  statNum: { fontSize: typography.headline, fontWeight: '800', lineHeight: 30 },
+  statLbl: { fontSize: typography.bodySmall, color: P.twGray500, fontWeight: '500', marginTop: 2 },
   statDiv: { width: 1, backgroundColor: P.twGray200, marginVertical: 4 },
 
   errorBox: {
@@ -526,12 +526,12 @@ const S = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
   },
-  errorTxt: { color: P.twRed600, fontSize: 13 },
+  errorTxt: { color: P.twRed600, fontSize: typography.body },
 
   emptyTxt: {
     textAlign: 'center',
     color: P.twGray500,
-    fontSize: 14,
+    fontSize: typography.body,
     paddingVertical: 24,
   },
 
@@ -546,8 +546,8 @@ const S = StyleSheet.create({
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: P.twGreen100, alignItems: 'center', justifyContent: 'center',
   },
-  addTitle: { fontSize: 15, fontWeight: '700', color: P.twGreen700 },
-  addSub: { fontSize: 12, color: P.mossGreen, marginTop: 2 },
+  addTitle: { fontSize: typography.bodyLarge, fontWeight: '700', color: P.twGreen700 },
+  addSub: { fontSize: typography.bodySmall, color: P.mossGreen, marginTop: 2 },
 
   fab: {
     position: 'absolute', bottom: 24, right: 20,

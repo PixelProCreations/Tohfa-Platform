@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -296,13 +296,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.ink,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: P.muted,
     marginTop: 1,
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray700,
   },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
     flex: 1,
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
   editButton: {
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen100,
   },
   cardSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: P.muted,
     marginBottom: 10,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dueText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   addButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

@@ -13,7 +13,7 @@ import {
 import DocumentPicker from 'react-native-document-picker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { Certification } from '../../api/farmer';
 
 // ─────────────────────────────────────────────
@@ -450,8 +450,8 @@ const E = StyleSheet.create({
     backgroundColor: P.mintTintBg,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: P.ink },
-  headerSub: { fontSize: 12, color: P.twGray500, marginTop: 1 },
+  headerTitle: { fontSize: typography.title, fontWeight: '700', color: P.ink },
+  headerSub: { fontSize: typography.bodySmall, color: P.twGray500, marginTop: 1 },
 
   scroll: { paddingHorizontal: 16, paddingTop: 18 },
 
@@ -459,9 +459,9 @@ const E = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     marginBottom: 7, marginTop: 4,
   },
-  label: { fontSize: 13, fontWeight: '700', color: P.twGray700 },
-  labelMuted: { fontSize: 11, fontWeight: '500', color: P.twGray400 },
-  required: { fontSize: 13, fontWeight: '700', color: P.twRed600 },
+  label: { fontSize: typography.body, fontWeight: '700', color: P.twGray700 },
+  labelMuted: { fontSize: typography.caption, fontWeight: '500', color: P.twGray400 },
+  required: { fontSize: typography.body, fontWeight: '700', color: P.twRed600 },
 
   input: {
     flexDirection: 'row',
@@ -473,8 +473,8 @@ const E = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 48,
   },
-  inputText: { fontSize: 14, color: P.twGray900, flex: 1 },
-  helper: { fontSize: 11, color: P.twGray400, marginTop: 6, lineHeight: 15 },
+  inputText: { fontSize: typography.body, color: P.twGray900, flex: 1 },
+  helper: { fontSize: typography.caption, color: P.twGray400, marginTop: 6, lineHeight: 15 },
 
   typeMenu: {
     position: 'absolute', top: 52, left: 0, right: 0,
@@ -491,12 +491,12 @@ const E = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: P.surfaceMuted,
   },
-  typeMenuText: { fontSize: 14, color: P.twGray900 },
+  typeMenuText: { fontSize: typography.body, color: P.twGray900 },
 
   datesRow: { flexDirection: 'row', gap: 12 },
 
   dateInput: { gap: 8 },
-  dateTextInput: { flex: 1, fontSize: 14, color: P.twGray900, paddingVertical: 0 },
+  dateTextInput: { flex: 1, fontSize: typography.body, color: P.twGray900, paddingVertical: 0 },
 
   docCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -510,8 +510,8 @@ const E = StyleSheet.create({
     backgroundColor: P.twGreen600,
     alignItems: 'center', justifyContent: 'center',
   },
-  docName: { fontSize: 14, fontWeight: '700', color: P.twGray900 },
-  docMeta: { fontSize: 11, color: P.twGray500, marginTop: 2 },
+  docName: { fontSize: typography.body, fontWeight: '700', color: P.twGray900 },
+  docMeta: { fontSize: typography.caption, color: P.twGray500, marginTop: 2 },
   docRemoveBtn: {
     width: 30, height: 30, borderRadius: 15,
     backgroundColor: P.twRed100,
@@ -526,7 +526,7 @@ const E = StyleSheet.create({
     backgroundColor: P.twGreen50,
     paddingVertical: 24,
   },
-  uploadTxt: { fontSize: 13, fontWeight: '600', color: P.twGreen700 },
+  uploadTxt: { fontSize: typography.body, fontWeight: '600', color: P.twGreen700 },
 
   notesInput: {
     height: 96,
@@ -543,7 +543,7 @@ const E = StyleSheet.create({
     paddingVertical: 13,
     marginTop: 20,
   },
-  deleteTxt: { fontSize: 14, fontWeight: '600', color: P.twRed600 },
+  deleteTxt: { fontSize: typography.body, fontWeight: '600', color: P.twRed600 },
 
   footer: {
     flexDirection: 'row', gap: 12,
@@ -558,7 +558,7 @@ const E = StyleSheet.create({
     paddingVertical: 14, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  cancelTxt: { fontSize: 15, fontWeight: '600', color: P.twGray700 },
+  cancelTxt: { fontSize: typography.bodyLarge, fontWeight: '600', color: P.twGray700 },
   saveBtn: {
     flex: 1.4,
     flexDirection: 'row',
@@ -566,5 +566,5 @@ const E = StyleSheet.create({
     paddingVertical: 14, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  saveTxt: { fontSize: 15, fontWeight: '700', color: P.white },
+  saveTxt: { fontSize: typography.bodyLarge, fontWeight: '700', color: P.white },
 });

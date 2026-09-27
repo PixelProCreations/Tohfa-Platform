@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
   return (
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   pendingPillText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twAmber900,
   },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray300,
     backgroundColor: P.white,
     paddingHorizontal: 14,
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '500',
   },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 17,
     color: P.twGray500,
     fontWeight: '400',
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   toggleLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   saveBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

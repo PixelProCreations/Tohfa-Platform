@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import { PestLibraryScreen } from './PestLibraryScreen';
 import { TreatmentScheduleScreen } from './TreatmentScheduleScreen';
 import { WeatherRiskAnalyticsScreen } from './WeatherRiskAnalyticsScreen';
@@ -1252,13 +1252,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   hubMainTitle: {
-    fontSize: 21,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
     marginBottom: 4,
   },
   hubSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     textAlign: 'center',
     lineHeight: 17,
@@ -1287,21 +1287,21 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statNumber: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.nearBlack,
     marginBottom: 2,
     textAlign: 'center',
   },
   statLabel: {
-    fontSize: 10.5,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray500,
     textAlign: 'center',
     lineHeight: 13,
   },
   sectionHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -1336,19 +1336,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureCode: {
-    fontSize: 10.5,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray400,
     marginBottom: 2,
   },
   featureTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 2,
   },
   featureDesc: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     lineHeight: 16,
   },
@@ -1377,13 +1377,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reportCtaPlus: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.white,
     lineHeight: 22,
   },
   reportCtaText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -1413,12 +1413,12 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   logHeaderTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
   },
   logHeaderSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -1440,7 +1440,7 @@ const styles = StyleSheet.create({
     borderColor: colors.brandGreen,
   },
   filterTabText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1478,13 +1478,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detectionName: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 2,
   },
   detectionSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginBottom: 8,
   },
@@ -1508,7 +1508,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   severityBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -1537,7 +1537,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.sky100,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -1562,7 +1562,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   detailHeaderTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
     marginLeft: 14,
@@ -1584,19 +1584,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   detailPestTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlack,
     marginBottom: 2,
   },
   detailScientificName: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontStyle: 'italic',
     color: P.twGray500,
     marginBottom: 6,
   },
   detailCropDate: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginBottom: 12,
   },
@@ -1609,7 +1609,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardHeaderTitle: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -1621,13 +1621,13 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   referenceTreatmentName: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 2,
   },
   referenceTreatmentNotes: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
   detailCalloutBox: {
@@ -1641,7 +1641,7 @@ const styles = StyleSheet.create({
   },
   detailCalloutText: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 16,
   },
@@ -1649,17 +1649,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   treatmentHistoryName: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 2,
   },
   treatmentHistoryDate: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
   treatmentHistoryEmpty: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     fontStyle: 'italic',
     paddingVertical: 8,
@@ -1691,7 +1691,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scheduleButtonText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -1709,7 +1709,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray700,
   },
   markResolvedButtonText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -1739,12 +1739,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalMainTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.deepGreen,
   },
   modalSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -1769,7 +1769,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   photoUploadText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray600,
   },
@@ -1777,7 +1777,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -1796,7 +1796,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dropdownValueText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.nearBlack,
   },
@@ -1813,7 +1813,7 @@ const styles = StyleSheet.create({
   },
   searchTextInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.nearBlack,
   },
   infoCallout: {
@@ -1827,7 +1827,7 @@ const styles = StyleSheet.create({
   },
   infoCalloutText: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.googleBlue,
     lineHeight: 16,
   },
@@ -1855,7 +1855,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.red600,
   },
   severityToggleText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray600,
   },
@@ -1871,7 +1871,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.nearBlack,
     textAlignVertical: 'top',
   },
@@ -1895,7 +1895,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCancelBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1910,7 +1910,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   modalSaveBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -1945,7 +1945,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   modalCardTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1962,7 +1962,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalCardOptionText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.twGray700,
     fontWeight: '500',
   },
@@ -1998,7 +1998,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   calFieldBadge: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -2006,7 +2006,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   calSelectedDateTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlack,
   },
@@ -2034,7 +2034,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray100,
   },
   calMonthYearLabel: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -2066,7 +2066,7 @@ const styles = StyleSheet.create({
     borderColor: P.deepGreen,
   },
   yearChipText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -2081,7 +2081,7 @@ const styles = StyleSheet.create({
   calWeekdayText: {
     width: '14.28%',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray400,
   },
@@ -2114,7 +2114,7 @@ const styles = StyleSheet.create({
     borderColor: P.deepGreen,
   },
   calDayText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -2146,7 +2146,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   calCancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -2159,7 +2159,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   calApplyBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

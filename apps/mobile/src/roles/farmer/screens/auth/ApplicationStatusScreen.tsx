@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import { useTheme, authPalette as P } from '../../theme';
+import { useTheme, authPalette as P, typography } from '../../theme';
 import { fetchApplicationStatus, logout, type ApplicationStatusResponse } from '../../api/auth';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
 
@@ -179,12 +179,12 @@ const styles = StyleSheet.create({
   topIconContainer: { marginBottom: 20 },
   iconOuterCircle: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
   iconInnerCircle: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 12, lineHeight: 28 },
-  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  title: { fontSize: typography.title, fontWeight: '800', textAlign: 'center', marginBottom: 12, lineHeight: 28 },
+  subtitle: { fontSize: typography.body, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   idCard: { width: '100%', borderWidth: 1, borderRadius: 12, paddingVertical: 20, alignItems: 'center', marginBottom: 32 },
-  idLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
-  idValue: { fontSize: 16, fontWeight: '800', marginBottom: 8 },
-  idExpected: { fontSize: 13 },
+  idLabel: { fontSize: typography.caption, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
+  idValue: { fontSize: typography.bodyLarge, fontWeight: '800', marginBottom: 8 },
+  idExpected: { fontSize: typography.body },
   timeline: { width: '100%', paddingLeft: 10, marginBottom: 24 },
   timelineItem: { flexDirection: 'row', minHeight: 64 },
   timelineIconCol: { width: 36, alignItems: 'center' },
@@ -194,12 +194,12 @@ const styles = StyleSheet.create({
   stepPendingCircle: { width: 20, height: 20, borderRadius: 10, marginTop: 6 },
   timelineLine: { width: 2, flex: 1, marginVertical: 4 },
   timelineTextCol: { flex: 1, paddingLeft: 16, paddingTop: 6 },
-  stepTitle: { fontSize: 15, marginBottom: 2 },
-  stepSub: { fontSize: 13 },
+  stepTitle: { fontSize: typography.bodyLarge, marginBottom: 2 },
+  stepSub: { fontSize: typography.body },
   infoBox: { backgroundColor: P.noticeBg, borderWidth: 1, borderColor: P.noticeBorder, borderRadius: 8, padding: 16, width: '100%', marginBottom: 16 },
-  infoBoxText: { fontSize: 13, color: P.noticeText, lineHeight: 20 },
+  infoBoxText: { fontSize: typography.body, color: P.noticeText, lineHeight: 20 },
   footer: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, borderTopWidth: 1, gap: 12 },
   footerBtn: { width: '100%', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footerBtnOutline: { backgroundColor: 'transparent', borderWidth: 1.5 },
-  footerBtnText: { fontSize: 16, fontWeight: '700' }
+  footerBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' }
 });

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Icon, Skeleton } from '@tohfa/mobile-ui';
-import { useTheme, colors, authPalette as P } from '../../theme';
+import { useTheme, colors, authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { getFarms, updateFarm } from '../../api/farms';
 
@@ -571,15 +571,15 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerTitleBox: { flex: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
+  headerTitle: { fontSize: typography.title, fontWeight: '700' },
+  headerSubtitle: { fontSize: typography.body, marginTop: 2 },
 
   contentScroll: { flex: 1 },
   contentContainer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
 
   loadErrorText: {
     color: P.red600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 
@@ -591,9 +591,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   infoNoticeIcon: { marginRight: 12, marginTop: 2 },
-  infoNoticeText: { flex: 1, fontSize: 13, color: P.darkSlateText, lineHeight: 20 },
+  infoNoticeText: { flex: 1, fontSize: typography.body, color: P.darkSlateText, lineHeight: 20 },
 
-  sectionTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, marginBottom: 12 },
+  sectionTitle: { fontSize: typography.bodySmall, fontWeight: '800', letterSpacing: 0.5, marginBottom: 12 },
 
   dropdownBtn: {
     flexDirection: 'row',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 10,
   },
-  dropdownBtnText: { fontSize: 15, fontWeight: '500' },
+  dropdownBtnText: { fontSize: typography.bodyLarge, fontWeight: '500' },
 
   dropdownMenu: {
     backgroundColor: colors.white,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dropdownMenuItemText: {
-    fontSize: 14,
+    fontSize: typography.body,
   },
 
   pillsRow: {
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   },
   pillTextRow: { flexDirection: 'row', alignItems: 'center', marginRight: 8 },
   pillIcon: { marginRight: 4 },
-  pillText: { fontSize: 14, fontWeight: '700' },
+  pillText: { fontSize: typography.body, fontWeight: '700' },
   pillClose: { paddingHorizontal: 4 },
 
   tdsHeaderRow: {
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
   },
   tdsLabelRow: { flexDirection: 'row', alignItems: 'center', marginRight: 12 },
   tdsLabelIcon: { marginRight: 4 },
-  tdsLabel: { fontSize: 14, fontWeight: '700', color: P.blueGrey700 },
+  tdsLabel: { fontSize: typography.body, fontWeight: '700', color: P.blueGrey700 },
   tdsLockedBadge: {
     backgroundColor: P.blushBg,
     paddingHorizontal: 8,
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   },
   tdsLockedBadgeRow: { flexDirection: 'row', alignItems: 'center' },
   tdsLockedBadgeIcon: { marginRight: 4 },
-  tdsLockedBadgeText: { fontSize: 11, fontWeight: '700', color: P.brown400 },
+  tdsLockedBadgeText: { fontSize: typography.caption, fontWeight: '700', color: P.brown400 },
 
   tdsInputRow: {
     flexDirection: 'row',
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: 'center',
   },
-  tdsInput: { fontSize: 16, fontWeight: '600', padding: 0 },
+  tdsInput: { fontSize: typography.bodyLarge, fontWeight: '600', padding: 0 },
   tdsUnitContainer: {
     flex: 1,
     borderRadius: 12,
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tdsUnit: { fontSize: 15, fontWeight: '700' },
+  tdsUnit: { fontSize: typography.bodyLarge, fontWeight: '700' },
 
   cardOption: {
     flexDirection: 'row',
@@ -727,12 +727,12 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   cardOptionTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     marginBottom: 3,
   },
   cardOptionSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 17,
   },
   cardOptionCheck: {
@@ -768,13 +768,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   bufferWarningTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.red700,
     flex: 1,
   },
   bufferWarningText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.red700,
     lineHeight: 18,
   },
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   notesLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.blueGrey700,
   },
@@ -801,13 +801,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   notesInput: {
-    fontSize: 14,
+    fontSize: typography.body,
     lineHeight: 20,
     minHeight: 80,
     padding: 0,
   },
   charCountText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     textAlign: 'right',
     marginTop: 8,
   },
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   },
   saveErrorText: {
     color: P.red600,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginBottom: 10,
     textAlign: 'center',
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtnText: { fontSize: 16, fontWeight: '700' },
+  cancelBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' },
   saveBtn: {
     flex: 1.5,
     height: 52,
@@ -846,5 +846,5 @@ const styles = StyleSheet.create({
   },
   saveBtnRow: { flexDirection: 'row', alignItems: 'center' },
   saveBtnIcon: { marginRight: 6 },
-  saveBtnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: colors.white, fontSize: typography.bodyLarge, fontWeight: '700' },
 });

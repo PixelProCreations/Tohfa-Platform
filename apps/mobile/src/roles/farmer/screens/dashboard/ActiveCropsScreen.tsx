@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import type { CropItem } from '../farm/ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -474,12 +474,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 1,
   },
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   addButtonText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -520,12 +520,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryValue: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGray500,
     marginTop: 1,
   },
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     borderColor: P.brandGreen,
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray600,
   },
@@ -611,17 +611,17 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   cropName: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   cropSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray600,
     marginTop: 1,
   },
   cropFootnote: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGray400,
     marginTop: 2,
   },
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusPillText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
 
@@ -662,12 +662,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   stageLabelText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     fontWeight: '500',
   },
   progressPercentText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -696,11 +696,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   healthText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGray500,
   },
   viewDetailLink: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.brandGreen,
   },
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyStateTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 4,
   },
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen100,
   },
   resetFilterBtnText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGreen800,
   },
