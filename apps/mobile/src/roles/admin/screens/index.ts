@@ -7,3 +7,4 @@ export * from './certifications';
 export * from './sales';
 export * from './config';
 export * from './reports';
+export * from './warehouse';

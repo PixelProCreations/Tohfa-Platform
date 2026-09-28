@@ -173,6 +173,16 @@ import {
   SalesReturnsRefundsScreen,
   type OnlineOrderItem,
   type B2BAccount,
+  WarehouseOverviewScreen,
+  StockLedgerScreen,
+  VerifyStockScreen,
+  StockAdjustmentApprovalScreen,
+  LowStockAlertsScreen,
+  WarehouseSettingsScreen,
+  InterWarehouseTransferScreen,
+  InitiateNewTransferScreen,
+  type StockBatchItem,
+  type VerifyStockAdjustmentData,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -204,6 +214,14 @@ export type ScreenName =
   | 'FarmerAdminDashboard'
   | 'MainWarehouseAdminDashboard'
   | 'SubWarehouseAdminDashboard'
+  | 'WarehouseOverview'
+  | 'StockLedger'
+  | 'VerifyStock'
+  | 'StockAdjustmentApproval'
+  | 'LowStockAlerts'
+  | 'WarehouseSettings'
+  | 'InterWarehouseTransfer'
+  | 'InitiateNewTransfer'
   | 'SalesChannelOverview'
   | 'SalesOnlineOrders'
   | 'SalesMarketDay'
@@ -382,7 +400,7 @@ interface StackEntry {
 }
 
 export default function App(): React.JSX.Element {
-  const [screen, setScreen] = useState<ScreenName>('SuperAdminDashboard');
+  const [screen, setScreen] = useState<ScreenName>('Splash');
   // Navigation history stack: keeps true chronological breadcrumbs so back buttons
   // always return to the actual prior screen without getting trapped in loops.
   const [history, setHistory] = useState<StackEntry[]>([]);
@@ -406,6 +424,8 @@ export default function App(): React.JSX.Element {
   const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
+  const [selectedStockBatch, setSelectedStockBatch] = useState<StockBatchItem | null>(null);
+  const [selectedStockAdjustment, setSelectedStockAdjustment] = useState<VerifyStockAdjustmentData | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
@@ -635,6 +655,68 @@ export default function App(): React.JSX.Element {
           <SubWarehouseAdminDashboardScreen
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'WarehouseOverview' ? (
+          <WarehouseOverviewScreen
+            onBack={goBack}
+            onSelectWarehouse={(wh) => navigate('StockLedger', { warehouseName: wh })}
+            onViewLowStock={() => navigate('LowStockAlerts')}
+            onOpenSettings={() => navigate('WarehouseSettings')}
+          />
+        ) : screen === 'StockLedger' ? (
+          <StockLedgerScreen
+            warehouseName={String(params['warehouseName'] ?? 'Ooty Warehouse')}
+            onBack={goBack}
+            onVerifyBatch={(b) => {
+              setSelectedStockBatch(b ?? null);
+              navigate('VerifyStock');
+            }}
+          />
+        ) : screen === 'VerifyStock' ? (
+          <VerifyStockScreen
+            produceName={selectedStockBatch?.name ?? 'Carrots'}
+            batchId={selectedStockBatch?.batchId ?? 'BT-4471'}
+            zone={selectedStockBatch?.zone ?? 'Zone A-2'}
+            systemCount={selectedStockBatch?.quantityKg ?? 240}
+            onBack={goBack}
+            onSubmitApproval={(data) => {
+              setSelectedStockAdjustment(data);
+              navigate('StockAdjustmentApproval');
+            }}
+          />
+        ) : screen === 'StockAdjustmentApproval' ? (
+          <StockAdjustmentApprovalScreen
+            produceName={selectedStockAdjustment?.produceName ?? 'Carrots'}
+            batchId={selectedStockAdjustment?.batchId ?? 'BT-4471'}
+            zone={selectedStockAdjustment?.zone ?? 'Zone A-2'}
+            systemCount={selectedStockAdjustment?.systemCount ?? 240}
+            physicalCount={selectedStockAdjustment?.physicalCount ?? 225}
+            varianceKg={selectedStockAdjustment?.varianceKg ?? -15}
+            variancePct={selectedStockAdjustment?.variancePct ?? -6.25}
+            reason={selectedStockAdjustment?.reason ?? 'Spoilage during storage.'}
+            onBack={goBack}
+            onReturnToLedger={() => navigate('StockLedger')}
+          />
+        ) : screen === 'LowStockAlerts' ? (
+          <LowStockAlertsScreen
+            onBack={goBack}
+            onInitiateTransfer={() => navigate('InterWarehouseTransfer')}
+            onAdjustThresholds={() => navigate('WarehouseSettings')}
+          />
+        ) : screen === 'InterWarehouseTransfer' ? (
+          <InterWarehouseTransferScreen
+            onBack={goBack}
+            onNewTransfer={() => navigate('InitiateNewTransfer')}
+          />
+        ) : screen === 'InitiateNewTransfer' ? (
+          <InitiateNewTransferScreen
+            onBack={goBack}
+            onSubmitTransfer={() => navigate('InterWarehouseTransfer')}
+          />
+        ) : screen === 'WarehouseSettings' ? (
+          <WarehouseSettingsScreen
+            warehouseName="Kotagiri Warehouse"
+            onBack={goBack}
           />
         ) : screen === 'SalesChannelOverview' ? (
           <SalesChannelOverviewScreen

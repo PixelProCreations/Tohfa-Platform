@@ -149,6 +149,7 @@ export interface ReportBuilderScreenProps {
   onNavigateToPL?: () => void;
   onNavigateToFarmer?: () => void;
   onNavigateToWarehouse?: () => void;
+  onGenerate?: (type: string) => void;
 }
 
 export function ReportBuilderScreen({
