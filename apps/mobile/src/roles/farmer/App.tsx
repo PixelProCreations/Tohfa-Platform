@@ -496,8 +496,20 @@ export default function App(): React.JSX.Element {
     // used to hardcode internally (it imported ./storage/tokenStorage directly).
     configureTokenStorage(tokenStorage);
     setOnAuthFailure(() => {
-      setScreen('Welcome');
-      setHistory([]);
+      setScreen((prev) => {
+        if (
+          prev === 'AdminMain' ||
+          prev === 'SuperAdminDashboard' ||
+          prev === 'TohfaAdminDashboard' ||
+          prev === 'FarmerAdminDashboard' ||
+          prev === 'MainWarehouseAdminDashboard' ||
+          prev === 'SubWarehouseAdminDashboard'
+        ) {
+          return prev;
+        }
+        setHistory([]);
+        return 'Welcome';
+      });
     });
     return () => {
       setOnAuthFailure(null);
