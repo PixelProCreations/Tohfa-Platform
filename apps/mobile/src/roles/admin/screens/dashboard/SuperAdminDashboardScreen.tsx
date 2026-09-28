@@ -767,9 +767,9 @@ export function SuperAdminDashboardScreen({
           ) : pricingSubScreen === 'listing_approval' ? (
             <ListingApprovalQueueScreen
               onBack={() => setPricingSubScreen('home')}
-              onApprove={() => {}}
-              onCounter={() => {}}
-              onReject={() => {}}
+              onApprove={() => { }}
+              onCounter={() => { }}
+              onReject={() => { }}
             />
           ) : (
             <ScrollView
