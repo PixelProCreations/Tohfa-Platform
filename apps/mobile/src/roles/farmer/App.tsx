@@ -182,6 +182,8 @@ import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScree
 import { MarketDayScheduleScreen, MOCK_DAYS, type MarketDay } from '../admin/screens/dashboard/MarketDayScheduleScreen';
 import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
+import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
+import { ReportBuilderScreen } from '../admin/screens/reports';
 import { TohfaToast, type ToastData } from '../admin';
 
 export type ScreenName =
@@ -220,6 +222,9 @@ export type ScreenName =
   | 'AuditPdfPreview'
   | 'ComplianceAlertResolution'
   | 'FinancialDashboard'
+  | 'ScheduleAudit'
+  | 'AdminSupport'
+  | 'ReportBuilder'
   | 'PLStatement'
   | 'FarmerPayoutDues'
   | 'PayoutProcessing'
@@ -693,6 +698,17 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
+        ) : screen === 'ScheduleAudit' ? (
+          <FinancialDashboardScreen
+            title="Schedule Audit"
+            subtitle="Platform-wide audit schedule & compliance overview · September 2026"
+            onBack={goBack}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'AdminSupport' ? (
+          <AdminSupportScreen onBack={goBack} />
+        ) : screen === 'ReportBuilder' ? (
+          <ReportBuilderScreen onBack={goBack} />
         ) : screen === 'PLStatement' ? (
           <PLStatementScreen
             onBack={goBack}
@@ -816,6 +832,17 @@ export default function App(): React.JSX.Element {
         ) : screen === 'AdminAllFarmers' ? (
           <AdminAllFarmersScreen
             onBack={goBack}
+            onNavigateTab={(tab) => {
+              if (tab === 'Dashboard') {
+                navigate('TohfaAdminDashboard');
+              } else if (tab === 'Sales') {
+                navigate('SalesChannelOverview');
+              } else if (tab === 'Reports') {
+                navigate('ReportBuilder');
+              } else if (tab === 'Profile') {
+                navigate('Welcome');
+              }
+            }}
             onSelectFarmer={(f) => {
               setSelectedAdminFarmer(f);
               setAdminFarmerActiveTab('Overview');

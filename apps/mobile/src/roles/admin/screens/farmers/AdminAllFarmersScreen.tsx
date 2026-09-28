@@ -10,7 +10,84 @@ import {
   View,
 } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+
+function NavDashboardIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+    </Svg>
+  );
+}
+
+function NavFarmersIcon({ color = '#D9532F', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21v-2a4 4 0 00-3-3.87"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 21v-2a4 4 0 00-4-4H4a4 4 0 00-4 4v2"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M23 21v-2a4 4 0 00-3-3.87"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M16 3.13a4 4 0 010 7.75" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NavSalesIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2.2" />
+      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function NavReportsIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 20h18" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M7 20V14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M12 20V9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M17 20V5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function NavProfileIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2.2" />
+      <Path
+        d="M6 19.5c1.8-2 3.8-3 6-3s4.2 1 6 3"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="9" r="3" stroke={color} strokeWidth="2.2" />
+    </Svg>
+  );
+}
 
 const P = {
   bg: '#FAF8F5',
@@ -131,6 +208,8 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
 interface Props {
   onBack?: () => void;
   onSelectFarmer: (farmer: FarmerListItem) => void;
+  onNavigateTab?: (tab: 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile') => void;
+  showBottomNav?: boolean;
 }
 
 const FILTER_TABS = [
@@ -143,6 +222,8 @@ const FILTER_TABS = [
 export const AdminAllFarmersScreen: React.FC<Props> = ({
   onBack,
   onSelectFarmer,
+  onNavigateTab,
+  showBottomNav = true,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
@@ -334,6 +415,66 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      {showBottomNav && (
+        <View style={styles.bottomNav}>
+          {/* Tab 1: Dashboard */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => {
+              if (onNavigateTab) {
+                onNavigateTab('Dashboard');
+              } else if (onBack) {
+                onBack();
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <NavDashboardIcon color="#9CA3AF" />
+            <Text style={styles.navTabLabel}>Dashboard</Text>
+          </TouchableOpacity>
+
+          {/* Tab 2: Farmers (Active) */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            activeOpacity={0.7}
+          >
+            <NavFarmersIcon color="#D9532F" />
+            <Text style={[styles.navTabLabel, styles.navTabLabelActive]}>Farmers</Text>
+          </TouchableOpacity>
+
+          {/* Tab 3: Sales */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => onNavigateTab?.('Sales')}
+            activeOpacity={0.7}
+          >
+            <NavSalesIcon color="#9CA3AF" />
+            <Text style={styles.navTabLabel}>Sales</Text>
+          </TouchableOpacity>
+
+          {/* Tab 4: Reports */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => onNavigateTab?.('Reports')}
+            activeOpacity={0.7}
+          >
+            <NavReportsIcon color="#9CA3AF" />
+            <Text style={styles.navTabLabel}>Reports</Text>
+          </TouchableOpacity>
+
+          {/* Tab 5: Profile */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => onNavigateTab?.('Profile')}
+            activeOpacity={0.7}
+          >
+            <NavProfileIcon color="#9CA3AF" />
+            <Text style={styles.navTabLabel}>Profile</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -342,6 +483,31 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: P.bg,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F0ECE6',
+    paddingTop: 10,
+    paddingBottom: 12,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  navTabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  navTabLabel: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  navTabLabelActive: {
+    color: '#D9532F',
+    fontWeight: '700',
   },
   header: {
     paddingHorizontal: 20,

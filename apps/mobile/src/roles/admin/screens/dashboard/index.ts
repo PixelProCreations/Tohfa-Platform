@@ -23,3 +23,4 @@ export * from './AdminPermissionsMatrixScreen';
 export * from './AdminActivityLogsScreen';
 export * from './AdminRequestsApprovalScreen';
 export * from './AdminRequestDetailScreen';
+export * from './AdminSupportScreen';

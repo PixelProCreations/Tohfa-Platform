@@ -33,6 +33,9 @@ import {
   type B2BAccount,
 } from '../sales';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
+import { AdminSupportScreen } from './AdminSupportScreen';
+import { AdminPendingApplicationsScreen } from '../registration';
 import {
   AdminReportsMainScreen,
   AnalyticsDashboardScreen,
@@ -43,7 +46,7 @@ import {
   AnnouncementsScreen,
   AllRecentReportsScreen,
 } from '../reports';
-import { PLStatementScreen } from '../finance';
+import { FinancialDashboardScreen, PLStatementScreen } from '../finance';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -242,6 +245,18 @@ function MicrophoneIcon({ color = PALETTE.purpleIcon, size = 18 }: { color?: str
   );
 }
 
+function QuickKycBadgeIcon({ color = PALETTE.orangePrimary, size = 26 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="16" rx="3" stroke={color} strokeWidth="2.2" />
+      <Circle cx="9" cy="10.5" r="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M5.5 17c0-1.5 1.5-2.5 3.5-2.5s3.5 1 3.5 2.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="14" y1="10" x2="18" y2="10" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="14" y1="14" x2="17" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function ChevronRightIcon({ color = PALETTE.textSecondary, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -399,6 +414,9 @@ export function TohfaAdminDashboardScreen({
   >(null);
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
+  const [dashboardSubScreen, setDashboardSubScreen] = useState<
+    'listingApproval' | 'scheduleAudit' | 'support' | 'reportBuilder' | 'pendingApplications' | null
+  >(null);
 
   // Sales subscreen navigation state
   const [salesSubScreen, setSalesSubScreen] = useState<
@@ -427,18 +445,42 @@ export function TohfaAdminDashboardScreen({
   const adminName = user?.fullName ?? 'Ganga Devi';
 
   const handleOpenFarmers = () => {
-    if (onNavigate) {
-      onNavigate('AdminAllFarmers');
-    } else {
-      setActiveTab('Farmers');
-    }
+    setActiveTab('Farmers');
   };
 
   const handleOpenPendingApplications = () => {
     if (onNavigate) {
       onNavigate('AdminPendingApplications');
     } else {
-      setActiveTab('Farmers');
+      setDashboardSubScreen('pendingApplications');
+    }
+  };
+
+  const handleOpenListingApproval = () => {
+    setDashboardSubScreen('listingApproval');
+  };
+
+  const handleOpenScheduleAudit = () => {
+    if (onNavigate) {
+      onNavigate('ScheduleAudit');
+    } else {
+      setDashboardSubScreen('scheduleAudit');
+    }
+  };
+
+  const handleOpenSupport = () => {
+    if (onNavigate) {
+      onNavigate('AdminSupport');
+    } else {
+      setDashboardSubScreen('support');
+    }
+  };
+
+  const handleOpenReportBuilder = () => {
+    if (onNavigate) {
+      onNavigate('ReportBuilder');
+    } else {
+      setDashboardSubScreen('reportBuilder');
     }
   };
 
@@ -451,11 +493,51 @@ export function TohfaAdminDashboardScreen({
             DASHBOARD TAB (Main Screen matching user design 100%)
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Dashboard' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
+          dashboardSubScreen === 'listingApproval' ? (
+            <ListingApprovalQueueScreen
+              onBack={() => setDashboardSubScreen(null)}
+              onApprove={(id) => {
+                setStats((s) => ({ ...s, listingsToApprove: Math.max(0, s.listingsToApprove - 1) }));
+                Alert.alert('Listing Approved', `Listing #${id} has been approved.`);
+              }}
+              onCounter={(id) => {
+                Alert.alert('Counter Offer', `Counter offer sent for listing #${id}.`);
+              }}
+              onReject={(id) => {
+                setStats((s) => ({ ...s, listingsToApprove: Math.max(0, s.listingsToApprove - 1) }));
+                Alert.alert('Listing Rejected', `Listing #${id} has been rejected.`);
+              }}
+            />
+          ) : dashboardSubScreen === 'scheduleAudit' ? (
+            <FinancialDashboardScreen
+              title="Schedule Audit"
+              subtitle="Platform-wide audit schedule & compliance overview · September 2026"
+              onBack={() => setDashboardSubScreen(null)}
+              onNavigate={(s) => {
+                if (onNavigate) {
+                  onNavigate(s);
+                }
+              }}
+            />
+          ) : dashboardSubScreen === 'support' ? (
+            <AdminSupportScreen onBack={() => setDashboardSubScreen(null)} />
+          ) : dashboardSubScreen === 'reportBuilder' ? (
+            <ReportBuilderScreen onBack={() => setDashboardSubScreen(null)} />
+          ) : dashboardSubScreen === 'pendingApplications' ? (
+            <AdminPendingApplicationsScreen
+              onBack={() => setDashboardSubScreen(null)}
+              onSelectApplication={(item) => {
+                if (onNavigate) {
+                  onNavigate('AdminPendingApplications');
+                }
+              }}
+            />
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
             {/* Header: Greeting, Admin Name, Badge, Avatar */}
             <View style={styles.headerRow}>
               <View style={styles.headerLeftCol}>
@@ -501,7 +583,7 @@ export function TohfaAdminDashboardScreen({
                 {/* Card 2: 23 Listings to Approve */}
                 <TouchableOpacity
                   style={styles.snapshotCard}
-                  onPress={() => setActiveModal('approveListings')}
+                  onPress={handleOpenListingApproval}
                   activeOpacity={0.85}
                 >
                   <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.blueIconBg }]}>
@@ -517,7 +599,7 @@ export function TohfaAdminDashboardScreen({
                 {/* Card 3: 6 Audits This Quarter */}
                 <TouchableOpacity
                   style={styles.snapshotCard}
-                  onPress={() => setActiveModal('scheduleAudit')}
+                  onPress={handleOpenScheduleAudit}
                   activeOpacity={0.85}
                 >
                   <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.amberIconBg }]}>
@@ -530,7 +612,7 @@ export function TohfaAdminDashboardScreen({
                 {/* Card 4: 14 Open Support Tickets */}
                 <TouchableOpacity
                   style={styles.snapshotCard}
-                  onPress={() => setActiveModal('support')}
+                  onPress={handleOpenSupport}
                   activeOpacity={0.85}
                 >
                   <View style={[styles.snapshotIconBox, { backgroundColor: PALETTE.purpleIconBg }]}>
@@ -616,7 +698,7 @@ export function TohfaAdminDashboardScreen({
               {/* Action 1: Approve Listings */}
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => setActiveModal('approveListings')}
+                onPress={handleOpenListingApproval}
                 activeOpacity={0.8}
               >
                 <QuickHexagonCubeIcon color={PALETTE.orangePrimary} size={26} />
@@ -626,7 +708,7 @@ export function TohfaAdminDashboardScreen({
               {/* Action 2: Schedule Audit */}
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => setActiveModal('scheduleAudit')}
+                onPress={handleOpenScheduleAudit}
                 activeOpacity={0.8}
               >
                 <QuickCalendarIcon color={PALETTE.orangePrimary} size={26} />
@@ -636,27 +718,25 @@ export function TohfaAdminDashboardScreen({
               {/* Action 3: Support */}
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => setActiveModal('support')}
+                onPress={handleOpenSupport}
                 activeOpacity={0.8}
               >
                 <MicrophoneIcon color={PALETTE.orangePrimary} size={26} />
                 <Text style={styles.quickActionLabelSingle}>Support</Text>
               </TouchableOpacity>
 
-              {/* Action 4: Reports */}
+              {/* Action 4: Report Builder */}
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => {
-                  setReportsSubScreen(null);
-                  setActiveTab('Reports');
-                }}
+                onPress={handleOpenReportBuilder}
                 activeOpacity={0.8}
               >
                 <QuickBarChartIcon color={PALETTE.orangePrimary} size={26} />
-                <Text style={styles.quickActionLabelSingle}>Reports</Text>
+                <Text style={styles.quickActionLabel}>Report{'\n'}Builder</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
+          )
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -683,6 +763,7 @@ export function TohfaAdminDashboardScreen({
             />
           ) : (
             <AdminAllFarmersScreen
+              showBottomNav={false}
               onBack={() => setActiveTab('Dashboard')}
               onSelectFarmer={(f) => {
                 if (onNavigate) {
@@ -823,7 +904,10 @@ export function TohfaAdminDashboardScreen({
         {/* Tab 1: Dashboard */}
         <TouchableOpacity
           style={styles.navTabItem}
-          onPress={() => setActiveTab('Dashboard')}
+          onPress={() => {
+            setDashboardSubScreen(null);
+            setActiveTab('Dashboard');
+          }}
           activeOpacity={0.7}
         >
           <NavDashboardIcon
@@ -843,7 +927,10 @@ export function TohfaAdminDashboardScreen({
         {/* Tab 2: Farmers */}
         <TouchableOpacity
           style={styles.navTabItem}
-          onPress={handleOpenFarmers}
+          onPress={() => {
+            setDashboardSubScreen(null);
+            handleOpenFarmers();
+          }}
           activeOpacity={0.7}
         >
           <NavFarmersIcon
@@ -863,6 +950,7 @@ export function TohfaAdminDashboardScreen({
         <TouchableOpacity
           style={styles.navTabItem}
           onPress={() => {
+            setDashboardSubScreen(null);
             setSalesSubScreen('overview');
             setActiveTab('Sales');
           }}
@@ -885,6 +973,7 @@ export function TohfaAdminDashboardScreen({
         <TouchableOpacity
           style={styles.navTabItem}
           onPress={() => {
+            setDashboardSubScreen(null);
             setReportsSubScreen(null);
             setActiveTab('Reports');
           }}
@@ -906,7 +995,10 @@ export function TohfaAdminDashboardScreen({
         {/* Tab 5: Profile */}
         <TouchableOpacity
           style={styles.navTabItem}
-          onPress={() => setActiveTab('Profile')}
+          onPress={() => {
+            setDashboardSubScreen(null);
+            setActiveTab('Profile');
+          }}
           activeOpacity={0.7}
         >
           <NavProfileIcon
