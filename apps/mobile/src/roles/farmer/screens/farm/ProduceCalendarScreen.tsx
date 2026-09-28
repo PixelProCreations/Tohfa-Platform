@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emoji, no raw hex)
@@ -811,13 +811,13 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.ink,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGreen700,
     marginTop: 2,
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray800,
   },
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -913,12 +913,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   cropName: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   cropZoneSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 3,
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgeGrayText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray600,
   },
@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgeGreenText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgeOrangeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twOrange700,
   },
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgePurpleText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twPurple600,
   },
@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
   },
   fabText: {
     color: P.white,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     marginLeft: 6,
   },
@@ -1016,12 +1016,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 4,
   },
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   pickerTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
     marginBottom: 12,
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen100,
   },
   pickerOptionText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.twGray800,
   },
   pickerOptionTextSelected: {
@@ -1085,12 +1085,12 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   detailTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   detailSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 3,
   },
@@ -1113,13 +1113,13 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
   },
   detailStatLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray500,
     textTransform: 'uppercase',
   },
   detailStatValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.ink,
     marginTop: 4,
@@ -1133,12 +1133,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   detailActionTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twAmber900,
   },
   detailActionDesc: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twAmber800,
     marginTop: 4,
     lineHeight: 17,
@@ -1151,7 +1151,7 @@ const styles = StyleSheet.create({
   },
   detailCloseText: {
     color: P.white,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   newCropModalContent: {
@@ -1166,13 +1166,13 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   newCropModalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.ink,
     marginBottom: 14,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
     marginBottom: 6,
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray900,
   },
   zoneSelectorRow: {
@@ -1206,7 +1206,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen500,
   },
   zoneChipText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray600,
   },
@@ -1234,7 +1234,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1246,7 +1246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

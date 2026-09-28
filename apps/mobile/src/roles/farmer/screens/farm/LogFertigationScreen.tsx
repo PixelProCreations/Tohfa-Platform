@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import { localProduceCropsCache, type CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -821,18 +821,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 1,
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray600,
     paddingHorizontal: 4,
@@ -856,13 +856,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   label: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
     marginLeft: 6,
   },
   labelDate: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray800,
     marginLeft: 6,
@@ -883,12 +883,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectBoxTextGreen: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray900,
   },
   helpText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     lineHeight: 16,
     color: P.twGray400,
     marginTop: 6,
@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   referenceHeaderText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray600,
     letterSpacing: 0.6,
@@ -932,17 +932,17 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.twGray500,
     marginTop: 2,
   },
   referenceFooterNote: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.twGray500,
     marginTop: 10,
   },
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray800,
     marginBottom: 6,
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   autoFieldValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   autoBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -1005,7 +1005,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   methodSelectText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   dosageText: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18,
     color: P.twGray700,
   },
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     backgroundColor: P.white,
     paddingHorizontal: 14,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1047,7 +1047,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   unitBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
   },
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     backgroundColor: P.white,
     paddingHorizontal: 14,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1089,13 +1089,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   costFormula: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.4,
   },
   costAmount: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     marginTop: 2,
@@ -1109,7 +1109,7 @@ const styles = StyleSheet.create({
     borderColor: P.green200,
   },
   editableBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.forestGreen,
     letterSpacing: 0.3,
@@ -1127,7 +1127,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   dateText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   dateDaysBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -1158,7 +1158,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveBtnText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalItemText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
   },
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalSubItemText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },

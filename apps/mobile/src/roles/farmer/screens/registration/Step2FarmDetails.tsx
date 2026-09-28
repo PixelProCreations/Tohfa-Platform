@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     marginBottom: LABEL_BOTTOM_GAP,
   },
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 14,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -521,10 +521,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gridItemText: {
-    fontSize: 14,
+    fontSize: typography.body,
   },
   helperText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     marginTop: 5,
   },
   footer: {
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   footerBtnText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   inputError: {
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
   },
   fieldErrorText: {
     color: colors.requiredRed,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 4,
   },
 });

@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -1734,7 +1734,7 @@ const styles = StyleSheet.create({
   },
   heroEditText: {
     color: P.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   heroCropInfoRow: {
@@ -1761,13 +1761,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroCropTitle: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.white,
     letterSpacing: -0.3,
   },
   heroCropSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 4,
@@ -1786,12 +1786,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   glassStatValue: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
   },
   glassStatLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
@@ -1819,13 +1819,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   heroStageBadgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.white,
     letterSpacing: -0.1,
   },
   heroProgressPercentText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.white,
   },
@@ -1849,7 +1849,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -1875,17 +1875,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.ink,
     fontWeight: '700',
   },
   detailValueStage: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.brandGreen,
     fontWeight: '800',
     backgroundColor: P.twGreen50,
@@ -1924,7 +1924,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGreen300,
   },
   milestoneAchievedBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   stepNodeNumber: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -2019,7 +2019,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   stepNodeLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGray400,
     marginTop: 5,
@@ -2058,7 +2058,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedMilestoneTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.ink,
     letterSpacing: -0.3,
@@ -2072,7 +2072,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   selectedMilestoneDate: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     fontWeight: '500',
   },
@@ -2082,7 +2082,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   milestoneNumberText: {
-    fontSize: 9.5,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray400,
     letterSpacing: 0.5,
@@ -2094,7 +2094,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   milestoneCategoryText: {
-    fontSize: 9.5,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray600,
   },
@@ -2119,12 +2119,12 @@ const styles = StyleSheet.create({
     borderColor: P.brandGreen,
   },
   completeActionButtonText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen700,
   },
   completeActionButtonTextAchieved: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.white,
   },
@@ -2159,7 +2159,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   deliverableCardLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray500,
     letterSpacing: 0.4,
@@ -2168,7 +2168,7 @@ const styles = StyleSheet.create({
     color: P.twGreen700,
   },
   deliverableCardValue: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.ink,
     lineHeight: 18,
@@ -2192,13 +2192,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   observationHeaderTitle: {
-    fontSize: 10.5,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.twGray600,
     letterSpacing: 0.2,
   },
   observationCardText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 17,
     color: P.twGray600,
     fontStyle: 'italic',
@@ -2228,7 +2228,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   stepperNavBtnText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -2236,7 +2236,7 @@ const styles = StyleSheet.create({
     color: P.twGray300,
   },
   stepperNavCounterText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
   },
@@ -2274,17 +2274,17 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   linkedTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   linkedSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
   npkAlertSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twOrange600,
     fontWeight: '600',
     marginTop: 2,
@@ -2297,7 +2297,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   viewAllText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -2333,17 +2333,17 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   diaryActivityTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   diaryActivityTime: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 2,
   },
   diaryDurationText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },

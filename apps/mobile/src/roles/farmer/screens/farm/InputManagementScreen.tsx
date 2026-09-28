@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import { localProduceCropsCache, type CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -519,20 +519,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTag: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate400,
     letterSpacing: 0.5,
     marginBottom: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 1,
   },
@@ -571,13 +571,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.white,
     letterSpacing: -0.2,
   },
   cardSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     lineHeight: 16,
     color: 'rgba(255, 255, 255, 0.88)',
     marginTop: 4,
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   cardActionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -637,13 +637,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   reminderTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.1,
   },
   reminderSubtitleOrange: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twOrange700,
     marginTop: 3,
   },
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     color: P.twOrange700,
   },
   reminderSubtitleGray: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 3,
   },
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
   },
   reminderLogBtnText: {
     color: P.white,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   recentHeaderRow: {
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   fullHistoryLink: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.forestGreen,
   },
@@ -716,18 +716,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recentItemTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.1,
   },
   recentItemSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
   recentItemCost: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginLeft: 10,
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   viewFullHistoryBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.forestGreen,
   },

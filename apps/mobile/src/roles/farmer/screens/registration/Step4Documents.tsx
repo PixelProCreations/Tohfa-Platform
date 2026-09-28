@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import DocumentPicker, { type DocumentPickerResponse } from 'react-native-document-picker';
-import { useTheme, authPalette as P } from '../../theme';
+import { useTheme, authPalette as P, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
 import {
   ID_PROOF_SUB_TYPES,
@@ -656,10 +656,10 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 14, borderBottomWidth: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   backButtonCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  backButtonArrow: { fontSize: 22, fontWeight: '700', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { fontSize: 12 },
-  skipText: { fontSize: 14, fontWeight: '600' },
+  backButtonArrow: { fontSize: typography.title, fontWeight: '700', marginTop: -2 },
+  headerTitle: { fontSize: typography.title, fontWeight: '800' },
+  headerSubtitle: { fontSize: typography.bodySmall },
+  skipText: { fontSize: typography.body, fontWeight: '600' },
   progressRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
   progressSegment: { flex: 1, height: 5, borderRadius: 3 },
   scrollArea: { flex: 1 },
@@ -688,15 +688,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   docCardTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   optionalBadge: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   docCardHint: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 2,
   },
   subTypePill: {
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   subTypePillText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   uploadZone: {
@@ -730,17 +730,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   uploadPromptText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     marginBottom: 3,
     textAlign: 'center',
   },
   uploadFormatText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     textAlign: 'center',
   },
   uploadErrorText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginLeft: 2,
   },
 
@@ -769,11 +769,11 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   uploadedBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   uploadedFileName: {
-    fontSize: 13,
+    fontSize: typography.body,
     marginTop: 2,
   },
   removeButton: {
@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   uploadingTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   progressBarTrack: {
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   },
   infoBoxText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.noticeText,
     lineHeight: 18,
   },
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   footerBtnText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
 
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.border,
   },
   pickerTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   pickerCloseBtn: {
@@ -907,6 +907,6 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   pickerOptionText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
   },
 });

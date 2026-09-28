@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import type { WalletTransactionItem } from '../payment/WalletTransactionDetailScreen';
 import {
   formatMoneyAmount,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -449,12 +449,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   balanceLabel: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.green100,
   },
   balanceValue: {
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
     color: P.white,
     marginTop: 6,
@@ -468,13 +468,13 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray50,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 6,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
     marginBottom: 16,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: P.white,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   emptyTxBox: {
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyTxText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   actionCardText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray800,
     textAlign: 'center',
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionHeader: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -579,17 +579,17 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   txTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   txSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
   txAmount: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
   },
 });

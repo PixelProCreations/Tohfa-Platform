@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -157,7 +157,7 @@ function CheckmarkMiniIcon({ size = 14, color = P.twGreen700 }: { size?: number;
   );
 }
 
-function DropWaterIcon({ size = 22, color = '#0D9488', fill }: { size?: number; color?: string; fill?: string }) {
+function DropWaterIcon({ size = 22, color = P.teal400, fill }: { size?: number; color?: string; fill?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -505,7 +505,7 @@ export function FarmManagementScreen({
           accessibilityLabel="Dairy & Produce"
         >
           <View style={styles.dairyProduceIconBox}>
-            <DropWaterIcon size={22} color="#0D9488" fill="#0D9488" />
+            <DropWaterIcon size={22} color={P.teal400} fill={P.teal400} />
           </View>
           <View style={styles.dairyProduceTextCol}>
             <Text style={styles.dairyProduceTitle}>Dairy & Produce</Text>
@@ -624,12 +624,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.green100,
     marginTop: 2,
@@ -649,12 +649,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   summaryStatNumber: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
   },
   summaryStatLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: colors.brandGreenLight,
     marginTop: 2,
@@ -682,12 +682,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   attentionTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twAmber900,
   },
   attentionSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twAmber800,
     marginTop: 2,
   },
@@ -735,12 +735,12 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   moduleTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   moduleDesc: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     lineHeight: 16,
     marginTop: 4,
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   logEntryBtnText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   weatherRiskText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.deepPurple800,
   },
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   producePillText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   markLoggedBtnText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statusRowGreenText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   reviewNeededText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twOrange600,
   },
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#E6F5EE',
+    backgroundColor: P.mintTintBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -857,12 +857,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dairyProduceTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   dairyProduceSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   learningHubTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twBlue500,
   },
   learningHubSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -941,12 +941,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.surfaceMuted,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   modalSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -959,12 +959,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray500,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 8,
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray300,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray900,
     minHeight: 100,
     textAlignVertical: 'top',
@@ -993,7 +993,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1005,7 +1005,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

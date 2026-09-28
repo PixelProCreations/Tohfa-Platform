@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlackDark2,
   },
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: 8,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   },
   mobileTextInput: {
     flex: 1,
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: colors.textDark,
     paddingVertical: 0,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   digitsBadgeText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     elevation: 1.5,
   },
   otpInstructions: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18.5,
     color: P.greenDeep3,
     marginBottom: 16,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     backgroundColor: P.creamTint2,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlackDark2,
   },
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   didntGetText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid3,
     fontWeight: '500',
   },
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   resendText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
     fontWeight: '600',
   },
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.weatherCloudWhite,
   },

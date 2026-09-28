@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { type CounterOffer, type Listing } from '../../api/listings';
 import { Icon } from '@tohfa/mobile-ui';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 export interface CounterOfferScreenProps {
   listing?: Listing | null | undefined;
@@ -224,13 +224,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlackDark3,
     marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey500,
   },
   scrollContent: {
@@ -254,19 +254,19 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   timerTopLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.coralMid2,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   timerMainValue: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.rustDeep1,
   },
   timerLeftLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.rustDeep1,
   },
@@ -274,12 +274,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   timerRightText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.coralMid4,
     fontWeight: '500',
   },
   sectionHeader: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.grey500,
     letterSpacing: 0.5,
@@ -309,14 +309,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   cardHeaderAsk: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.grey500,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   cardHeaderCounter: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.violetMid1,
     marginBottom: 12,
@@ -326,13 +326,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cardFieldLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.grey500,
     marginBottom: 2,
   },
   cardFieldValue: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
   },
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     color: P.violetDeep1,
   },
   discountText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.coralMid3,
   },
@@ -369,13 +369,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reasonHeader: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.grey800,
     marginLeft: 8,
   },
   reasonText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.greyDeep1,
     lineHeight: 20,
   },
@@ -408,13 +408,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   photoTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.grey900,
     marginBottom: 2,
   },
   photoSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.grey500,
   },
   bottomBar: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   btnAcceptText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.weatherCloudWhite,
   },
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     borderColor: P.violetMid1,
   },
   btnCounterText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.violetMid1,
     marginTop: 2,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     borderColor: P.grey300,
   },
   btnWithdrawText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.greyDeep1,
     marginTop: 2,

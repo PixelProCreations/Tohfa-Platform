@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Platform } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // Custom Icons
 const ChevronLeft = () => (
@@ -250,17 +250,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.teal900,
   },
   headerSub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.blueGrey400,
     marginTop: 2,
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.blueGrey500,
     fontWeight: '600',
   },
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   photoText: {
-    fontSize: 8,
+    fontSize: typography.caption,
     color: P.grey500,
     fontWeight: '700',
     marginTop: 4,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cropTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
   },
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   gradeBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: colors.brandGreen,
   },
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cropSubText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey500,
     fontWeight: '500',
   },
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   alertText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.deepOrange800,
     lineHeight: 20,
   },
@@ -371,13 +371,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.grey800,
     marginBottom: 8,
   },
   inputLabelRight: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.grey600,
     marginBottom: 8,
@@ -394,19 +394,19 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.grey900,
   },
   inputWithSymbol: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.grey900,
     marginLeft: 8,
   },
   currencySymbol: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.grey600,
   },
@@ -427,32 +427,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pricingBoxTitleGreen: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: colors.brandGreen,
   },
   pricingBoxTitleGray: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: P.grey600,
   },
   pricingBoxValueGreen: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.brandGreen,
     marginBottom: 4,
   },
   pricingBoxValueGray: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.grey800,
     marginBottom: 4,
   },
   pricingBoxUnit: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   pricingBoxSub: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.grey600,
     lineHeight: 14,
   },
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   validationText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -481,17 +481,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   saleValueTitle: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: 'rgba(255,255,255,0.8)',
     marginBottom: 4,
   },
   saleValueSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: 'rgba(255,255,255,0.9)',
   },
   saleValueAmount: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: P.weatherCloudWhite,
   },
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: P.weatherCloudWhite,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     marginLeft: 8,
   },

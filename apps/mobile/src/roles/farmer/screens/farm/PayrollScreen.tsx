@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -337,13 +337,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 1,
   },
@@ -371,12 +371,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   totalPayableLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.85)',
   },
   totalPayableAmount: {
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
     color: P.white,
     marginTop: 4,
@@ -394,12 +394,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   payableStatNumber: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },
   payableStatLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   },
 
   sectionHeader: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -445,19 +445,19 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   workerInfoCol: {
     flex: 1,
   },
   workerName: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
   workerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   pendingBadgeText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twAmber800,
   },
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   paidBadgeText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -501,16 +501,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   financeLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
   },
   financeValue: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.nearBlack,
   },
   financeValueRed: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twRed600,
   },
@@ -522,12 +522,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   netPayableLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
   netPayableValue: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.nearBlack,
   },
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   payoutButtonText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -561,17 +561,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   netPaidLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
   },
   paidMethodText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 2,
   },
   netPaidValue: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.brandGreen,
   },

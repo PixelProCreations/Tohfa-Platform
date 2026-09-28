@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTag: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -312,13 +312,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -355,12 +355,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   zoneName: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.ink,
   },
   loggedTime: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 4,
   },
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   badgeTextBase: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
   },
   badgeLow: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
   practiceText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray600,
     lineHeight: 18,
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

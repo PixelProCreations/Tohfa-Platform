@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 function ArrowLeftIcon({ size = 20, color = P.twGray900 }: { size?: number; color?: string }) {
   return (
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
@@ -245,14 +245,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   amountText: {
-    fontSize: 30,
+    fontSize: typography.display,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
   statusSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray500,
     marginBottom: 26,
@@ -278,17 +278,17 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGray100,
   },
   detailLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray600,
   },
   detailValue: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
   },
   detailCodeValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: 0.5,
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.twBlue800,
     fontWeight: '400',
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   doneBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // Custom Icons
 const ChevronLeft = () => (
@@ -219,12 +219,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.teal900,
   },
   headerSub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.grey600,
     marginTop: 2,
   },
@@ -255,23 +255,23 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     color: P.weatherCloudWhite,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   listingId: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   totalValueLabel: {
     color: 'rgba(255,255,255,0.8)',
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '800',
     marginBottom: 4,
   },
   totalValueAmount: {
     color: P.weatherCloudWhite,
-    fontSize: 32,
+    fontSize: typography.display,
     fontWeight: '800',
   },
   detailsCard: {
@@ -293,22 +293,22 @@ const styles = StyleSheet.create({
     backgroundColor: P.grey100,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.grey600,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.grey900,
     fontWeight: '700',
   },
   detailValueGreen: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.brandGreen,
     fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.grey500,
     marginBottom: 12,
@@ -351,13 +351,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timelineTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
     marginBottom: 2,
   },
   timelineSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey500,
   },
   remarksCard: {
@@ -374,12 +374,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   remarksTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.grey800,
   },
   remarksText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.greyDeep1,
     lineHeight: 22,
   },
@@ -392,22 +392,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   detailValueRed: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.red600,
     fontWeight: '700',
   },
   detailLabelBold: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.grey900,
     fontWeight: '800',
   },
   detailValueGreenLarge: {
-    fontSize: 18,
+    fontSize: typography.title,
     color: colors.brandGreen,
     fontWeight: '800',
   },
   paymentFooter: {
-    fontSize: 11,
+    fontSize: typography.caption,
     color: P.grey500,
     textAlign: 'center',
     paddingHorizontal: 20,

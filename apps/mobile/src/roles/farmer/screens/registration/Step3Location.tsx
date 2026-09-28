@@ -1325,14 +1325,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '800',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
   },
   skipText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
   progressRow: {
@@ -1437,7 +1437,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.nearBlack,
     marginLeft: 8,
     paddingVertical: 0,
@@ -1456,7 +1456,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   searchCancelText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.white,
   },
@@ -1494,13 +1494,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   suggestionTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.ink,
     marginBottom: 2,
   },
   suggestionSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.muted,
   },
   topMapControls: {
@@ -1529,7 +1529,7 @@ const styles = StyleSheet.create({
   },
   coordsText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   rightControls: {
@@ -1552,7 +1552,7 @@ const styles = StyleSheet.create({
   },
   editingText: {
     color: P.black,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   actionPill: {
@@ -1571,7 +1571,7 @@ const styles = StyleSheet.create({
   },
   actionPillText: {
     color: P.nearBlack,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
   },
   bottomCardContainer: {
@@ -1605,7 +1605,7 @@ const styles = StyleSheet.create({
   },
   farmName: {
     flex: 1,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.nearBlack,
   },
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
   },
   badgeLiveText: {
     color: colors.brandGreen,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   badgeEditing: {
@@ -1633,7 +1633,7 @@ const styles = StyleSheet.create({
   },
   badgeEditingText: {
     color: P.orange900,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   badgeManual: {
@@ -1644,7 +1644,7 @@ const styles = StyleSheet.create({
   },
   badgeManualText: {
     color: P.blue700,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   badgeNone: {
@@ -1655,7 +1655,7 @@ const styles = StyleSheet.create({
   },
   badgeNoneText: {
     color: P.grey600,
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   statsRow: {
@@ -1667,18 +1667,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.grey600,
     fontWeight: '700',
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.nearBlack,
   },
   statSub: {
-    fontSize: 10,
+    fontSize: typography.caption,
     color: P.grey600,
     marginTop: 2,
   },
@@ -1692,7 +1692,7 @@ const styles = StyleSheet.create({
   },
   editBtnText: {
     color: colors.brandGreen,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   manualToggle: {
@@ -1700,7 +1700,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   manualToggleText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.brandGreen,
   },
@@ -1713,7 +1713,7 @@ const styles = StyleSheet.create({
   },
   doneBtnText: {
     color: colors.white,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   footer: {
@@ -1738,7 +1738,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   footerBtnText: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
 });

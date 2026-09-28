@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -301,13 +301,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.twGray900,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     lineHeight: 18,
     color: P.twBlue800,
     fontWeight: '500',
@@ -372,13 +372,13 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     letterSpacing: -0.2,
   },
   cardSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     color: P.twGray500,
     marginTop: 3,
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   verifiedBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   pendingBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twAmber900,
   },

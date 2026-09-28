@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -477,13 +477,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 1,
   },
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   filterText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   plantingName: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     flex: 1,
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   badgeTextMature: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   badgeTextYoung: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twAmber800,
   },
@@ -609,13 +609,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   badgeTextFruit: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
 
   plantedSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginBottom: 10,
   },
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   metaChipText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     fontWeight: '500',
   },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   alertText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twAmber800,
   },
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   fabText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 14,
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.brandGreen,
   },
   modalOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray700,
   },
   modalOptionTextSelected: {

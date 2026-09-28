@@ -12,7 +12,7 @@ import { t } from '../../../../i18n/farmer';
 import { fetchMe, resolveRouteAfterAuth } from '../../api/auth';
 import { getAccessToken } from '../../storage/tokenStorage';
 import { GradientOverlay } from './GradientOverlay';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import tohfaLogo from '../../assets/tohfa-logo.png';
 import splashTeaGarden from '../../assets/splash-bg.jpg';
 
@@ -197,14 +197,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   brandName: {
-    fontSize: 40,
+    fontSize: typography.display,
     fontWeight: '800',
     letterSpacing: 2,
     color: P.white,
     marginTop: 20,
   },
   tagline: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
     color: 'rgba(255, 255, 255, 0.85)',
     maxWidth: 260,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontSize: 10,
+    fontSize: typography.caption,
     color: 'rgba(255, 255, 255, 0.5)',
   },
 });

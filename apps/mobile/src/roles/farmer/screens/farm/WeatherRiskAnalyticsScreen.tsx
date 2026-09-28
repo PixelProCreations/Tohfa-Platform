@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -184,19 +184,19 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   headerCodeBadge: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray400,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -216,14 +216,14 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   cardLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     letterSpacing: 0.8,
     color: P.twGray400,
     marginBottom: 12,
   },
   riskNoteBody: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray700,
     lineHeight: 20,
   },
@@ -238,12 +238,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   seasonName: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray700,
     fontWeight: '600',
   },
   seasonCount: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.deepGreen,
     backgroundColor: P.twGray100,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   cropPillText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -275,13 +275,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   treatmentName: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 3,
   },
   treatmentSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
   divider: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     lineHeight: 16,
   },

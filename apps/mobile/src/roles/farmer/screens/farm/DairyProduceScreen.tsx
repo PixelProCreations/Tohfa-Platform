@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -47,7 +47,7 @@ function DropIcon({ size = 20, color = colors.brandGreen, fill }: { size?: numbe
   );
 }
 
-function EggIcon({ size = 20, color = '#B45309', fill }: { size?: number; color?: string; fill?: string }) {
+function EggIcon({ size = 20, color = P.twAmber700, fill }: { size?: number; color?: string; fill?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -62,7 +62,7 @@ function EggIcon({ size = 20, color = '#B45309', fill }: { size?: number; color?
   );
 }
 
-function CurdIcon({ size = 20, color = '#2563EB' }: { size?: number; color?: string }) {
+function CurdIcon({ size = 20, color = P.twBlue600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -78,7 +78,7 @@ function CurdIcon({ size = 20, color = '#2563EB' }: { size?: number; color?: str
   );
 }
 
-function PaneerIcon({ size = 20, color = '#D97706' }: { size?: number; color?: string }) {
+function PaneerIcon({ size = 20, color = P.twAmber600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="5" width="16" height="14" rx="3" stroke={color} strokeWidth="2" />
@@ -87,7 +87,7 @@ function PaneerIcon({ size = 20, color = '#D97706' }: { size?: number; color?: s
   );
 }
 
-function ButterIcon({ size = 20, color = '#CA8A04' }: { size?: number; color?: string }) {
+function ButterIcon({ size = 20, color = P.amberDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -102,7 +102,7 @@ function ButterIcon({ size = 20, color = '#CA8A04' }: { size?: number; color?: s
   );
 }
 
-function GheeIcon({ size = 20, color = '#EA580C' }: { size?: number; color?: string }) {
+function GheeIcon({ size = 20, color = P.twOrange600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -117,7 +117,7 @@ function GheeIcon({ size = 20, color = '#EA580C' }: { size?: number; color?: str
   );
 }
 
-function ButtermilkIcon({ size = 20, color = '#0284C7' }: { size?: number; color?: string }) {
+function ButtermilkIcon({ size = 20, color = P.sky600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -133,7 +133,7 @@ function ButtermilkIcon({ size = 20, color = '#0284C7' }: { size?: number; color
   );
 }
 
-function CheeseIcon({ size = 20, color = '#DB2777' }: { size?: number; color?: string }) {
+function CheeseIcon({ size = 20, color = P.pink800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -181,7 +181,7 @@ function PawIcon({ size = 20, color = colors.brandGreen }: { size?: number; colo
   );
 }
 
-function InfoCircleIcon({ size = 18, color = '#0284C7' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 18, color = P.sky600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -199,7 +199,7 @@ function ChevronDownIcon({ size = 16, color = P.twGray500 }: { size?: number; co
   );
 }
 
-function ChevronRightIcon({ size = 16, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 16, color = P.twGray400 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -215,7 +215,7 @@ function CheckIcon({ size = 18, color = colors.brandGreen }: { size?: number; co
   );
 }
 
-function PlusIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function PlusIcon({ size = 18, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -266,8 +266,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'Kg',
     defaultUnitLabel: 'Kg',
     subtitle: 'Fresh homemade or farm-cultured curd batch',
-    badgeBg: '#EFF6FF',
-    accentColor: '#2563EB',
+    badgeBg: P.twBlue50,
+    accentColor: P.twBlue600,
   },
   {
     id: 'paneer',
@@ -276,8 +276,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'Kg',
     defaultUnitLabel: 'Kg',
     subtitle: 'Fresh soft curd or pressed paneer blocks',
-    badgeBg: '#FEF3C7',
-    accentColor: '#D97706',
+    badgeBg: P.twAmber100,
+    accentColor: P.twAmber600,
   },
   {
     id: 'butter',
@@ -286,8 +286,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'Kg',
     defaultUnitLabel: 'Kg',
     subtitle: 'Traditional bilona or cultured fresh butter',
-    badgeBg: '#FEF9C3',
-    accentColor: '#CA8A04',
+    badgeBg: P.twAmber100,
+    accentColor: P.amberDeep,
   },
   {
     id: 'ghee',
@@ -296,8 +296,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'L',
     defaultUnitLabel: 'Liters',
     subtitle: 'Slow-cooked aromatic pure cow or buffalo ghee',
-    badgeBg: '#FFEDD5',
-    accentColor: '#EA580C',
+    badgeBg: P.twOrange100,
+    accentColor: P.twOrange600,
   },
   {
     id: 'buttermilk',
@@ -306,8 +306,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'L',
     defaultUnitLabel: 'Liters',
     subtitle: 'Fresh seasoned or plain churned buttermilk',
-    badgeBg: '#E0F2FE',
-    accentColor: '#0284C7',
+    badgeBg: P.sky100,
+    accentColor: P.sky600,
   },
   {
     id: 'cheese',
@@ -316,8 +316,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'Kg',
     defaultUnitLabel: 'Kg',
     subtitle: 'Artisanal cheddar, mozzarella, or goat cheese',
-    badgeBg: '#FDF2F8',
-    accentColor: '#DB2777',
+    badgeBg: P.palePinkBg,
+    accentColor: P.pink800,
   },
   {
     id: 'eggs',
@@ -326,8 +326,8 @@ export const DAIRY_PRODUCTS: DairyProductMeta[] = [
     unit: 'Eggs',
     defaultUnitLabel: 'Count',
     subtitle: 'Daily flock egg collection & harvest count',
-    badgeBg: '#FEF3C7',
-    accentColor: '#B45309',
+    badgeBg: P.twAmber100,
+    accentColor: P.twAmber700,
   },
 ];
 
@@ -534,19 +534,19 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
       case 'milk':
         return <DropIcon size={size} color={colors.brandGreen} fill={colors.brandGreen} />;
       case 'curd':
-        return <CurdIcon size={size} color="#2563EB" />;
+        return <CurdIcon size={size} color={P.twBlue600} />;
       case 'paneer':
-        return <PaneerIcon size={size} color="#D97706" />;
+        return <PaneerIcon size={size} color={P.twAmber600} />;
       case 'butter':
-        return <ButterIcon size={size} color="#CA8A04" />;
+        return <ButterIcon size={size} color={P.amberDeep} />;
       case 'ghee':
-        return <GheeIcon size={size} color="#EA580C" />;
+        return <GheeIcon size={size} color={P.twOrange600} />;
       case 'buttermilk':
-        return <ButtermilkIcon size={size} color="#0284C7" />;
+        return <ButtermilkIcon size={size} color={P.sky600} />;
       case 'cheese':
-        return <CheeseIcon size={size} color="#DB2777" />;
+        return <CheeseIcon size={size} color={P.pink800} />;
       case 'eggs':
-        return <EggIcon size={size} color="#B45309" fill="#B45309" />;
+        return <EggIcon size={size} color={P.twAmber700} fill={P.twAmber700} />;
       default:
         return <DropIcon size={size} color={colors.brandGreen} />;
     }
@@ -725,7 +725,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       <ScrollView
         style={styles.scrollView}
@@ -741,7 +741,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
-            <ArrowBackIcon size={20} color="#111827" />
+            <ArrowBackIcon size={20} color={P.twGray900} />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
             <Text style={styles.headerTitle}>Dairy & Produce</Text>
@@ -762,8 +762,8 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
 
           {/* Dairy Value Add Card */}
           <View style={styles.summaryCard}>
-            <View style={[styles.summaryIconBox, { backgroundColor: '#FFEDD5' }]}>
-              <GheeIcon size={18} color="#EA580C" />
+            <View style={[styles.summaryIconBox, { backgroundColor: P.twOrange100 }]}>
+              <GheeIcon size={18} color={P.twOrange600} />
             </View>
             <Text style={styles.summaryNumber}>{totalValueAddToday.toFixed(1)}</Text>
             <Text style={styles.summaryLabel}>Dairy products</Text>
@@ -771,8 +771,8 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
 
           {/* Eggs Summary Card */}
           <View style={styles.summaryCard}>
-            <View style={[styles.summaryIconBox, { backgroundColor: '#FEF3C7' }]}>
-              <EggIcon size={18} color="#B45309" fill="#B45309" />
+            <View style={[styles.summaryIconBox, { backgroundColor: P.twAmber100 }]}>
+              <EggIcon size={18} color={P.twAmber700} fill={P.twAmber700} />
             </View>
             <Text style={styles.summaryNumber}>{totalEggsToday}</Text>
             <Text style={styles.summaryLabel}>Eggs today</Text>
@@ -790,12 +790,12 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
           >
             <View style={styles.logDropdownBtnLeft}>
               <View style={styles.logDropdownIconBadge}>
-                <PlusIcon size={16} color="#FFFFFF" />
+                <PlusIcon size={16} color={P.white} />
               </View>
               <Text style={styles.logDropdownBtnText}>+ Log Production</Text>
             </View>
             <View style={{ transform: [{ rotate: isLogProduceDropdownOpen ? '180deg' : '0deg' }] }}>
-              <ChevronDownIcon size={18} color="#FFFFFF" />
+              <ChevronDownIcon size={18} color={P.white} />
             </View>
           </TouchableOpacity>
 
@@ -825,7 +825,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                           {prod.subtitle}
                         </Text>
                       </View>
-                      <ChevronRightIcon size={16} color="#9CA3AF" />
+                      <ChevronRightIcon size={16} color={P.twGray400} />
                     </TouchableOpacity>
                     {index < DAIRY_PRODUCTS.length - 1 && <View style={styles.logDropdownDivider} />}
                   </React.Fragment>
@@ -896,7 +896,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
             const meta = DAIRY_PRODUCTS.find((p) => p.id === item.type);
             return (
               <View key={item.id} style={styles.itemCard}>
-                <View style={[styles.itemIconBadge, { backgroundColor: meta?.badgeBg || '#F3F4F6' }]}>
+                <View style={[styles.itemIconBadge, { backgroundColor: meta?.badgeBg || P.twGray100 }]}>
                   {renderProductIcon(item.type, 20)}
                 </View>
 
@@ -936,8 +936,8 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
         <View style={styles.listContainer}>
           {flocks.map((item) => (
             <View key={item.id} style={styles.itemCard}>
-              <View style={[styles.itemIconBadge, { backgroundColor: '#FEF3C7' }]}>
-                <EggIcon size={20} color="#B45309" fill="#B45309" />
+              <View style={[styles.itemIconBadge, { backgroundColor: P.twAmber100 }]}>
+                <EggIcon size={20} color={P.twAmber700} fill={P.twAmber700} />
               </View>
 
               <View style={styles.itemTextCol}>
@@ -956,7 +956,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
         {/* ── Info Notice Callout Box ── */}
         <View style={styles.infoCallout}>
           <View style={styles.infoIconCol}>
-            <InfoCircleIcon size={18} color="#0284C7" />
+            <InfoCircleIcon size={18} color={P.sky600} />
           </View>
           <Text style={styles.infoText}>
             Logging daily dairy batches and poultry collections ensures end-to-end traceability for your TOHFA PGS Organic marketplace certification.
@@ -1004,7 +1004,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     <Text style={styles.dropdownSelectedSub}>{currentProductMeta.category}</Text>
                   </View>
                 </View>
-                <ChevronDownIcon size={18} color="#6B7280" />
+                <ChevronDownIcon size={18} color={P.twGray500} />
               </TouchableOpacity>
 
               {/* Product Picker Dropdown Options */}
@@ -1068,7 +1068,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                         </Text>
                       </View>
                     </View>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isAnimalDropdownOpen && (
@@ -1110,7 +1110,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     }}
                   >
                     <Text style={styles.dropdownSelectedText}>{selectedMilkSession}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isMilkSessionDropdownOpen && (
@@ -1142,7 +1142,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 5.5"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={milkQuantity}
                     onChangeText={setMilkQuantity}
                   />
@@ -1153,7 +1153,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 4.2"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={fatPercentage}
                     onChangeText={setFatPercentage}
                   />
@@ -1170,7 +1170,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     onPress={() => setIsCurdSourceDropdownOpen(!isCurdSourceDropdownOpen)}
                   >
                     <Text style={styles.dropdownSelectedText}>{curdMilkSource}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isCurdSourceDropdownOpen && (
@@ -1201,7 +1201,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 5.0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={curdQuantity}
                     onChangeText={setCurdQuantity}
                   />
@@ -1211,7 +1211,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 6.0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={curdMilkUsed}
                     onChangeText={setCurdMilkUsed}
                   />
@@ -1228,7 +1228,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     onPress={() => setIsPaneerTypeDropdownOpen(!isPaneerTypeDropdownOpen)}
                   >
                     <Text style={styles.dropdownSelectedText}>{paneerType}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isPaneerTypeDropdownOpen && (
@@ -1259,7 +1259,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 2.5"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={paneerQuantity}
                     onChangeText={setPaneerQuantity}
                   />
@@ -1269,7 +1269,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 15.0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={paneerMilkUsed}
                     onChangeText={setPaneerMilkUsed}
                   />
@@ -1286,7 +1286,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     onPress={() => setIsButterTypeDropdownOpen(!isButterTypeDropdownOpen)}
                   >
                     <Text style={styles.dropdownSelectedText}>{butterType}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isButterTypeDropdownOpen && (
@@ -1317,7 +1317,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 3.0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={butterQuantity}
                     onChangeText={setButterQuantity}
                   />
@@ -1334,7 +1334,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     onPress={() => setIsGheeMethodDropdownOpen(!isGheeMethodDropdownOpen)}
                   >
                     <Text style={styles.dropdownSelectedText}>{gheeMethod}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isGheeMethodDropdownOpen && (
@@ -1365,7 +1365,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 1.5"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={gheeQuantity}
                     onChangeText={setGheeQuantity}
                   />
@@ -1382,7 +1382,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     onPress={() => setIsButtermilkTypeDropdownOpen(!isButtermilkTypeDropdownOpen)}
                   >
                     <Text style={styles.dropdownSelectedText}>{buttermilkType}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isButtermilkTypeDropdownOpen && (
@@ -1413,7 +1413,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 10.0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={buttermilkQuantity}
                     onChangeText={setButtermilkQuantity}
                   />
@@ -1430,7 +1430,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     onPress={() => setIsCheeseTypeDropdownOpen(!isCheeseTypeDropdownOpen)}
                   >
                     <Text style={styles.dropdownSelectedText}>{cheeseType}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isCheeseTypeDropdownOpen && (
@@ -1461,7 +1461,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="decimal-pad"
                     placeholder="e.g. 1.8"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={cheeseQuantity}
                     onChangeText={setCheeseQuantity}
                   />
@@ -1481,15 +1481,15 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     }}
                   >
                     <View style={styles.dropdownSelectedRow}>
-                      <View style={[styles.miniBadge, { backgroundColor: '#FEF3C7' }]}>
-                        <EggIcon size={16} color="#B45309" fill="#B45309" />
+                      <View style={[styles.miniBadge, { backgroundColor: P.twAmber100 }]}>
+                        <EggIcon size={16} color={P.twAmber700} fill={P.twAmber700} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.dropdownSelectedText}>{currentFlock.name}</Text>
                         <Text style={styles.dropdownSelectedSub}>{currentFlock.subtitle}</Text>
                       </View>
                     </View>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isFlockDropdownOpen && (
@@ -1506,12 +1506,12 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                             }}
                           >
                             <View style={{ flex: 1 }}>
-                              <Text style={[styles.menuItemTitle, isSelected && { color: '#8D5B18', fontWeight: '700' }]}>
+                              <Text style={[styles.menuItemTitle, isSelected && { color: P.brownDeep2, fontWeight: '700' }]}>
                                 {flock.name}
                               </Text>
                               <Text style={styles.menuItemSub}>{flock.subtitle}</Text>
                             </View>
-                            {isSelected && <CheckIcon size={18} color="#8D5B18" />}
+                            {isSelected && <CheckIcon size={18} color={P.brownDeep2} />}
                           </TouchableOpacity>
                         );
                       })}
@@ -1528,7 +1528,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     }}
                   >
                     <Text style={styles.dropdownSelectedText}>{selectedEggSession}</Text>
-                    <ChevronDownIcon size={18} color="#6B7280" />
+                    <ChevronDownIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
 
                   {isEggSessionDropdownOpen && (
@@ -1544,10 +1544,10 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                               setIsEggSessionDropdownOpen(false);
                             }}
                           >
-                            <Text style={[styles.menuItemTitle, isSelected && { color: '#8D5B18', fontWeight: '700' }]}>
+                            <Text style={[styles.menuItemTitle, isSelected && { color: P.brownDeep2, fontWeight: '700' }]}>
                               {session}
                             </Text>
-                            {isSelected && <CheckIcon size={18} color="#8D5B18" />}
+                            {isSelected && <CheckIcon size={18} color={P.brownDeep2} />}
                           </TouchableOpacity>
                         );
                       })}
@@ -1559,7 +1559,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="number-pad"
                     placeholder="e.g. 24"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={eggCount}
                     onChangeText={setEggCount}
                   />
@@ -1569,7 +1569,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                     style={styles.textInput}
                     keyboardType="number-pad"
                     placeholder="e.g. 0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={P.twGray400}
                     value={damagedEggCount}
                     onChangeText={setDamagedEggCount}
                   />
@@ -1582,7 +1582,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                 style={[styles.textInput, { height: 60, textAlignVertical: 'top' }]}
                 multiline
                 placeholder="e.g. Organic feed provided, excellent texture"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={P.twGray400}
                 value={produceNotes}
                 onChangeText={setProduceNotes}
               />
@@ -1665,7 +1665,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
                   const meta = DAIRY_PRODUCTS.find((p) => p.id === log.productType);
                   return (
                     <View key={log.id} style={styles.historyItemCard}>
-                      <View style={[styles.itemIconBadge, { backgroundColor: meta?.badgeBg || '#F3F4F6' }]}>
+                      <View style={[styles.itemIconBadge, { backgroundColor: meta?.badgeBg || P.twGray100 }]}>
                         {renderProductIcon(log.productType, 18)}
                       </View>
                       <View style={{ flex: 1 }}>
@@ -1700,7 +1700,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: P.grey50,
   },
   scrollView: {
     flex: 1,
@@ -1723,12 +1723,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -1738,14 +1738,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
-    color: '#111827',
+    color: P.twGray900,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
-    color: '#6B7280',
+    color: P.twGray500,
     marginTop: 2,
   },
 
@@ -1757,13 +1757,13 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     padding: 12,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -1778,14 +1778,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   summaryNumber: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
-    color: '#111827',
+    color: P.twGray900,
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
-    color: '#6B7280',
+    color: P.twGray500,
     marginTop: 2,
     textAlign: 'center',
   },
@@ -1802,7 +1802,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -1826,30 +1826,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logDropdownBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: P.white,
   },
   logDropdownMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderBottomLeftRadius: 14,
     borderBottomRightRadius: 14,
     borderTopLeftRadius: 6,
     borderTopRightRadius: 6,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     borderTopWidth: 0,
     paddingVertical: 8,
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
   },
   dropdownCategoryHeader: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: P.twGray400,
     letterSpacing: 0.6,
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -1867,9 +1867,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionCategoryTag: {
-    fontSize: 10.5,
-    color: '#6B7280',
-    backgroundColor: '#F3F4F6',
+    fontSize: typography.caption,
+    color: P.twGray500,
+    backgroundColor: P.twGray100,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1886,18 +1886,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logOptionTitle: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
-    color: '#111827',
+    color: P.twGray900,
   },
   logOptionSub: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
     marginTop: 2,
   },
   logDropdownDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: P.twGray100,
     marginHorizontal: 16,
   },
 
@@ -1910,13 +1910,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionHeaderTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
-    color: '#6B7280',
+    color: P.twGray500,
     letterSpacing: 0.5,
   },
   historyLinkText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: colors.brandGreen,
   },
@@ -1928,13 +1928,13 @@ const styles = StyleSheet.create({
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     padding: 14,
     gap: 12,
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -1951,28 +1951,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemName: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
-    color: '#111827',
+    color: P.twGray900,
   },
   itemSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '400',
-    color: '#6B7280',
+    color: P.twGray500,
     marginTop: 2,
   },
   itemRightCol: {
     alignItems: 'flex-end',
   },
   itemStatBig: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
-    color: '#111827',
+    color: P.twGray900,
   },
   itemStatSub: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '400',
-    color: '#6B7280',
+    color: P.twGray500,
     marginTop: 2,
   },
 
@@ -1980,9 +1980,9 @@ const styles = StyleSheet.create({
   infoCallout: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: P.twBlue50,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: P.blue100,
     borderRadius: 14,
     padding: 14,
     gap: 10,
@@ -1993,8 +1993,8 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 12.5,
-    color: '#1E40AF',
+    fontSize: typography.bodySmall,
+    color: P.twBlue800,
     lineHeight: 18,
   },
 
@@ -2005,7 +2005,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -2019,59 +2019,59 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: P.twGray100,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: P.twGray900,
   },
   modalSub: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
     marginTop: 2,
   },
   modalCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: P.twGray100,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCloseBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
-    color: '#6B7280',
+    color: P.twGray500,
   },
 
   /* Form Elements in Modals */
   inputLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#374151',
+    color: P.twGray700,
     marginBottom: 6,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: P.twGray300,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
+    fontSize: typography.body,
+    color: P.twGray900,
+    backgroundColor: P.twGray50,
   },
   dropdownTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: P.twGray300,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: P.twGray50,
   },
   dropdownSelectedRow: {
     flexDirection: 'row',
@@ -2087,22 +2087,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dropdownSelectedText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: P.twGray900,
   },
   dropdownSelectedSub: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: typography.caption,
+    color: P.twGray500,
   },
   dropdownMenu: {
     marginTop: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: P.twGray200,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: P.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -2115,19 +2115,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: P.twGray100,
   },
   dropdownMenuItemActive: {
     backgroundColor: colors.brandGreenLight,
   },
   menuItemTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: P.twGray900,
   },
   menuItemSub: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: typography.caption,
+    color: P.twGray500,
     marginTop: 1,
   },
 
@@ -2141,13 +2141,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: P.twGray300,
     alignItems: 'center',
   },
   modalCancelBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#4B5563',
+    color: P.twGray600,
   },
   modalSaveBtn: {
     flex: 1.4,
@@ -2156,9 +2156,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalSaveBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: P.white,
   },
 
   /* History Filter Tabs */
@@ -2171,18 +2171,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: P.twGray100,
   },
   filterTabBtnActive: {
     backgroundColor: colors.brandGreen,
   },
   filterTabBtnText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
-    color: '#4B5563',
+    color: P.twGray600,
   },
   filterTabBtnTextActive: {
-    color: '#FFFFFF',
+    color: P.white,
   },
 
   /* History Cards */
@@ -2191,22 +2191,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: P.twGray100,
     gap: 12,
   },
   historyTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
-    color: '#111827',
+    color: P.twGray900,
   },
   historySub: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: typography.caption,
+    color: P.twGray500,
     marginTop: 1,
   },
   historyValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
-    color: '#111827',
+    color: P.twGray900,
   },
 });

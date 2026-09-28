@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import {
   resolveDiaryEntry,
   toIsoMonth,
@@ -518,13 +518,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   filterPillText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray700,
     flex: 1,
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   monthTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   monthErrorText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twRed700,
     textAlign: 'center',
   },
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
   weekdayText: {
     width: 38,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.twGray500,
   },
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     borderColor: colors.brandGreen,
   },
   dayNumber: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray800,
   },
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandGreen,
   },
   legendText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
   },
 
@@ -732,13 +732,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   entriesSectionDate: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
   },
   entriesCountText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -770,12 +770,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   entryTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
   entrySubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   entryDuration: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.brandGreen,
   },
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray100,
   },
   emptyEntriesText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     color: P.twGray500,
     textAlign: 'center',
   },
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
     borderColor: P.twRed200,
   },
   errorText: {
-    fontSize: 13,
+    fontSize: typography.bodySmall,
     color: P.twRed700,
     textAlign: 'center',
     marginBottom: 10,
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     borderColor: P.twRed200,
   },
   retryButtonText: {
-    fontSize: 13,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twRed700,
   },
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
     marginBottom: 14,
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   modalOptionText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray700,
   },
   modalOptionTextActive: {

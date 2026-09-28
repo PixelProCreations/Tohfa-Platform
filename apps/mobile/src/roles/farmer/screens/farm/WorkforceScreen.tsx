@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -351,13 +351,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -400,20 +400,20 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   hourUnit: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
     marginLeft: 2,
   },
   statLabel: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 4,
     textAlign: 'center',
   },
 
   sectionHeader: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.6,
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   avatarText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   cardContent: {
@@ -458,17 +458,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   workerName: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
   workerPay: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: colors.brandGreen,
   },
   workerRole: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
     marginBottom: 8,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twBlue50,
   },
   rateBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
   rateBadgeTextGreen: {
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   cropTagText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: P.twGray600,
   },
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fabText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

@@ -16,7 +16,7 @@ import {
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import {
   getMyFarmerProfile,
@@ -636,8 +636,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: { flex: 1, paddingLeft: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: P.ink, lineHeight: 22 },
-  headerSubtitle: { fontSize: 12, color: P.twGray500, marginTop: 1 },
+  headerTitle: { fontSize: typography.title, fontWeight: '700', color: P.ink, lineHeight: 22 },
+  headerSubtitle: { fontSize: typography.bodySmall, color: P.twGray500, marginTop: 1 },
   editBtn: {
     width: 40, height: 40, borderRadius: 20,
     borderWidth: 1, borderColor: P.twEmerald100,
@@ -645,18 +645,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   editBtnDisabled: { opacity: 0.5 },
-  editBtnSaveText: { fontSize: 13, fontWeight: '700', color: P.primary },
+  editBtnSaveText: { fontSize: typography.body, fontWeight: '700', color: P.primary },
 
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  loadingText: { marginTop: 12, fontSize: 13, color: P.twGray500 },
-  loadErrorText: { fontSize: 14, color: P.red600, textAlign: 'center', marginBottom: 12 },
+  loadingText: { marginTop: 12, fontSize: typography.body, color: P.twGray500 },
+  loadErrorText: { fontSize: typography.body, color: P.red600, textAlign: 'center', marginBottom: 12 },
   retryBtn: {
     paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10,
     backgroundColor: P.twGreen50, borderWidth: 1, borderColor: P.twEmerald100,
   },
-  retryBtnText: { fontSize: 14, fontWeight: '700', color: P.primary },
+  retryBtnText: { fontSize: typography.body, fontWeight: '700', color: P.primary },
   saveErrorText: {
-    fontSize: 13, color: P.red600, fontWeight: '600',
+    fontSize: typography.body, color: P.red600, fontWeight: '600',
     marginHorizontal: 16, marginTop: 12,
   },
 
@@ -679,8 +679,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: P.white,
   },
-  heroName: { fontSize: 22, fontWeight: '700', color: P.twGray900 },
-  heroSub: { fontSize: 13, color: P.twGray500, marginTop: 2 },
+  heroName: { fontSize: typography.title, fontWeight: '700', color: P.twGray900 },
+  heroSub: { fontSize: typography.body, color: P.twGray500, marginTop: 2 },
 
   sectionCard: {
     backgroundColor: P.white,
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   sectionLabel: {
-    fontSize: 11, fontWeight: '700', color: P.stoneMuted,
+    fontSize: typography.caption, fontWeight: '700', color: P.stoneMuted,
     letterSpacing: 0.8,
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10,
   },
@@ -712,12 +712,12 @@ const styles = StyleSheet.create({
   },
   detailIcon: { marginRight: 12, width: 20, alignItems: 'center', justifyContent: 'center' },
   detailContent: { flex: 1 },
-  detailLabel: { fontSize: 12, color: P.twGray400, fontWeight: '500', marginBottom: 2 },
-  detailValue: { fontSize: 15, fontWeight: '600', color: P.twGray900, lineHeight: 21 },
+  detailLabel: { fontSize: typography.bodySmall, color: P.twGray400, fontWeight: '500', marginBottom: 2 },
+  detailValue: { fontSize: typography.bodyLarge, fontWeight: '600', color: P.twGray900, lineHeight: 21 },
   rowDivider: { height: 1, backgroundColor: P.twGray100, marginHorizontal: 16 },
 
   editInput: {
-    fontSize: 15, fontWeight: '600', color: P.twGray900,
+    fontSize: typography.bodyLarge, fontWeight: '600', color: P.twGray900,
     borderBottomWidth: 1.5, borderBottomColor: P.twGreen500,
     paddingVertical: 2, paddingHorizontal: 0,
     textAlignVertical: 'top',
@@ -729,15 +729,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 4,
     gap: 4, marginLeft: 8,
   },
-  lockedBadgeIcon: { fontSize: 11 },
-  lockedBadgeText: { fontSize: 11, fontWeight: '600', color: P.twGray500 },
+  lockedBadgeIcon: { fontSize: typography.caption },
+  lockedBadgeText: { fontSize: typography.caption, fontWeight: '600', color: P.twGray500 },
 
   verifiedBadge: {
     backgroundColor: P.twGreen100, borderRadius: 10,
     paddingHorizontal: 10, paddingVertical: 4,
     marginLeft: 8,
   },
-  verifiedBadgeText: { fontSize: 12, fontWeight: '700', color: P.twGreen600 },
+  verifiedBadgeText: { fontSize: typography.bodySmall, fontWeight: '700', color: P.twGreen600 },
 
   cancelBtn: {
     marginHorizontal: 16, marginTop: 16,
@@ -745,5 +745,5 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: P.twGray200,
     alignItems: 'center', backgroundColor: P.white,
   },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: P.twGray500 },
+  cancelBtnText: { fontSize: typography.bodyLarge, fontWeight: '600', color: P.twGray500 },
 });

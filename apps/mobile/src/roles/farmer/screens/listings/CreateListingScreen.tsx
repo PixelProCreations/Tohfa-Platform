@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // Custom Icons
 const ChevronLeft = () => (
@@ -240,17 +240,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.teal900,
   },
   headerSub: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.blueGrey400,
     marginTop: 2,
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: P.blueGrey500,
     fontWeight: '600',
   },
@@ -288,12 +288,12 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.blueGrey700,
     lineHeight: 20,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.grey500,
     letterSpacing: 0.5,
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cropTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
   },
@@ -353,12 +353,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   gradeBadgeText: {
-    fontSize: 10,
+    fontSize: typography.caption,
     fontWeight: '800',
     color: colors.brandGreen,
   },
   cropSub: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.grey600,
   },
   radioBox: {
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   nextBtnText: {
     color: P.weatherCloudWhite,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     marginRight: 8,
   },

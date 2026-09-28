@@ -17,7 +17,7 @@ import {
   type FarmRatingCategoryCode,
 } from '../../api/farmer';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 interface FarmRatingsScreenProps {
   onNavigateBack: () => void;
@@ -343,15 +343,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navBackIcon: { color: P.white, fontSize: 24, lineHeight: 28, marginRight: 2 },
-  navActionIcon: { color: P.white, fontSize: 16, fontWeight: 'bold' },
+  navBackIcon: { color: P.white, fontSize: typography.headline, lineHeight: 28, marginRight: 2 },
+  navActionIcon: { color: P.white, fontSize: typography.bodyLarge, fontWeight: 'bold' },
   headerTitleBox: { flex: 1, marginLeft: 16 },
-  headerTitle: { color: P.white, fontSize: 20, fontWeight: 'bold' },
-  headerSubtitle: { color: P.green200, fontSize: 13, marginTop: 2 },
+  headerTitle: { color: P.white, fontSize: typography.title, fontWeight: 'bold' },
+  headerSubtitle: { color: P.green200, fontSize: typography.body, marginTop: 2 },
 
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 8 },
-  mainScore: { color: P.white, fontSize: 48, fontWeight: '800', letterSpacing: -1 },
-  maxScore: { color: P.green200, fontSize: 20, fontWeight: 'bold', marginLeft: 2, marginRight: 12 },
+  mainScore: { color: P.white, fontSize: typography.display, fontWeight: '800', letterSpacing: -1 },
+  maxScore: { color: P.green200, fontSize: typography.title, fontWeight: 'bold', marginLeft: 2, marginRight: 12 },
   deltaBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
@@ -359,8 +359,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   deltaBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  deltaBadgeText: { color: P.white, fontSize: 13, fontWeight: 'bold' },
-  recalcText: { color: colors.brandGreenLight, fontSize: 13 },
+  deltaBadgeText: { color: P.white, fontSize: typography.body, fontWeight: 'bold' },
+  recalcText: { color: colors.brandGreenLight, fontSize: typography.body },
 
   scrollContent: {
     padding: 16,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     borderColor: P.slate200,
   },
   emptyStateTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     color: P.darkGreyText,
     marginTop: 10,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyStateBody: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.slate500,
     textAlign: 'center',
     lineHeight: 18,
@@ -418,21 +418,21 @@ const styles = StyleSheet.create({
     borderColor: P.deepOrange400,
   },
   focusHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  focusIcon: { fontSize: 18, marginRight: 8 },
-  focusTitle: { fontSize: 16, fontWeight: 'bold', color: P.darkGreyText },
+  focusIcon: { fontSize: typography.title, marginRight: 8 },
+  focusTitle: { fontSize: typography.bodyLarge, fontWeight: 'bold', color: P.darkGreyText },
   focusTilesRow: { flexDirection: 'row', gap: 12 },
   focusTile: {
     flex: 1,
     borderRadius: 12,
     padding: 16,
   },
-  focusTileTitle: { fontSize: 14, fontWeight: '600', marginBottom: 12, height: 38 },
+  focusTileTitle: { fontSize: typography.body, fontWeight: '600', marginBottom: 12, height: 38 },
   focusTileScoreRow: { flexDirection: 'row', alignItems: 'baseline' },
-  focusTileScore: { fontSize: 24, fontWeight: 'bold' },
-  focusTileScoreMax: { fontSize: 12, color: P.midGrey, marginLeft: 2 },
+  focusTileScore: { fontSize: typography.headline, fontWeight: 'bold' },
+  focusTileScoreMax: { fontSize: typography.bodySmall, color: P.midGrey, marginLeft: 2 },
 
   sectionHeading: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
     color: P.placeholderGrey,
     marginBottom: 12,
@@ -457,15 +457,15 @@ const styles = StyleSheet.create({
   },
   catIconContainer: { width: 24, alignItems: 'center' },
   catInfo: { flex: 1, marginLeft: 12, marginRight: 16 },
-  catName: { fontSize: 15, fontWeight: '600', color: P.inkBlack, marginBottom: 8 },
+  catName: { fontSize: typography.bodyLarge, fontWeight: '600', color: P.inkBlack, marginBottom: 8 },
   barTrack: { height: 6, backgroundColor: P.slate100, borderRadius: 3, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 3 },
 
   catScoreSection: { alignItems: 'flex-end', justifyContent: 'center' },
   catScoreRow: { flexDirection: 'row', alignItems: 'baseline' },
-  catScore: { fontSize: 16, fontWeight: 'bold' },
-  catScoreMax: { fontSize: 11, color: P.placeholderGrey, marginLeft: 1 },
-  catNotRated: { fontSize: 12, fontWeight: '600', color: P.slate400 },
+  catScore: { fontSize: typography.bodyLarge, fontWeight: 'bold' },
+  catScoreMax: { fontSize: typography.caption, color: P.placeholderGrey, marginLeft: 1 },
+  catNotRated: { fontSize: typography.bodySmall, fontWeight: '600', color: P.slate400 },
 
   calcButton: {
     flexDirection: 'row',
@@ -487,13 +487,13 @@ const styles = StyleSheet.create({
     color: P.primary,
     textAlign: 'center',
     lineHeight: 18,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: 'bold',
     marginRight: 8,
   },
   calcButtonText: {
     color: P.primary,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 });

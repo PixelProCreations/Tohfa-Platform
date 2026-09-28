@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import { changePassword } from '../../api/auth';
 import { formatErrorMessage } from '../../../../shell/api/client';
 
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.nearBlackDark2,
   },
@@ -312,13 +312,13 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   subText: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 18.5,
     color: P.greyMid1,
     marginBottom: 24,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: 8,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     color: colors.textDark,
     paddingVertical: 0,
   },
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   requirementText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
   },
   requirementTextActive: {
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     borderTopColor: P.tanTint1,
   },
   errorText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: colors.danger,
     marginBottom: 10,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   saveBtnText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.weatherCloudWhite,
   },

@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -352,13 +352,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.textDark,
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '400',
     color: colors.textSubtle,
     marginTop: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 19,
     color: P.greenDeep5,
   },
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     borderColor: colors.textDark,
   },
   filterPillText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray700,
   },
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cropName: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: colors.textDark,
   },
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   youGrowText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: P.twGreen700,
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
   },
 
@@ -488,12 +488,12 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   barLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '500',
     color: colors.textSubtle,
   },
   barValue: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
   },
@@ -523,14 +523,14 @@ const styles = StyleSheet.create({
   },
   insightText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 19,
     color: P.twGray700,
   },
 
   // Footer
   footerNote: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '400',
     color: P.legal,
     textAlign: 'center',

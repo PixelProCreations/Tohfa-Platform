@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 
 // ── Inline Vector Icons ──────────────────────────────────────────────────────
 
@@ -819,19 +819,19 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   headerCodeBadge: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray400,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   headerMainTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.deepGreen,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
   },
   searchBarInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.nearBlack,
   },
 
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cropDropdownText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '500',
     color: P.nearBlack,
   },
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
   },
   riskBannerText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twAmber800,
     lineHeight: 18,
   },
@@ -929,12 +929,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   analyticsTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
   analyticsSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
     lineHeight: 16,
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandGreen,
   },
   pestNameText: {
-    fontSize: 15.5,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen100,
   },
   categoryPillText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
   },
   categoryPillTextDisease: {
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
     color: P.twGreen800,
   },
   scientificNameText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontStyle: 'italic',
     color: P.twGray500,
     marginTop: 2,
@@ -1038,7 +1038,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   tagPillText: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     color: P.twGray700,
     fontWeight: '600',
   },
@@ -1047,13 +1047,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 4,
   },
   emptySubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twGray400,
     textAlign: 'center',
   },
@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   modalCardTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.nearBlack,
   },
@@ -1105,7 +1105,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalCardOptionText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.twGray700,
     fontWeight: '500',
   },
@@ -1139,12 +1139,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailModalMainTitle: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.deepGreen,
   },
   detailModalSubTitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontStyle: 'italic',
     color: P.twGray500,
     marginTop: 2,
@@ -1170,13 +1170,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryBadgeLabel: {
-    fontSize: 9.5,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGray500,
     marginBottom: 4,
   },
   summaryBadgeVal: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.nearBlack,
     textAlign: 'center',
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailSectionHeading: {
-    fontSize: 11.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGray500,
     letterSpacing: 0.8,
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray700,
     lineHeight: 18,
   },
@@ -1218,13 +1218,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   treatmentItemNumber: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: P.twGreen700,
   },
   treatmentItemText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGreen900,
     lineHeight: 18,
     fontWeight: '600',
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   detailCloseBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -1264,7 +1264,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   detailScheduleBtnText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -1278,7 +1278,7 @@ const styles = StyleSheet.create({
   },
   analyticsBarLabel: {
     width: 130,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray700,
     fontWeight: '600',
   },
@@ -1295,7 +1295,7 @@ const styles = StyleSheet.create({
   },
   analyticsBarValue: {
     width: 36,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.nearBlack,
     textAlign: 'right',
@@ -1307,13 +1307,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   impactCardTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.nearBlack,
     marginBottom: 2,
   },
   impactCardDesc: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray600,
     lineHeight: 16,
   },
@@ -1325,12 +1325,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.twGray100,
   },
   efficacyName: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray700,
     fontWeight: '500',
   },
   efficacyPercent: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.brandGreen,
   },

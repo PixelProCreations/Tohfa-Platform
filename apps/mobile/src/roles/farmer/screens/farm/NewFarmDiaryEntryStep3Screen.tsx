@@ -17,7 +17,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import DocumentPicker, { type DocumentPickerResponse } from 'react-native-document-picker';
 import { t } from '../../../../i18n/farmer';
 import { extractFieldErrors, formatErrorMessage } from '../../../../shell/api/client';
-import { authPalette as P } from '../../theme';
+import { authPalette as P, typography } from '../../theme';
 import {
   fromPaise,
   toPaise,
@@ -1236,17 +1236,17 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: P.slate900,
-    fontSize: 17,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   headerSubtitle: {
     color: P.slate500,
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     marginTop: 2,
   },
   cancelBtnText: {
     color: P.slate600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '600',
   },
 
@@ -1302,19 +1302,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryTitle: {
-    fontSize: 15,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate900,
   },
   summarySubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.slate500,
     marginTop: 2,
   },
 
   /* Section Headings */
   sectionHeading: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate500,
     letterSpacing: 0.6,
@@ -1326,7 +1326,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   fieldLabel: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate800,
     marginBottom: 8,
@@ -1349,7 +1349,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   dropdownSelectedText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '600',
     color: P.slate900,
   },
@@ -1367,14 +1367,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   timeSpentInput: {
-    fontSize: 18,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.slate900,
     padding: 0,
     margin: 0,
   },
   timeSpentUnit: {
-    fontSize: 13,
+    fontSize: typography.bodySmall,
     color: P.slate600,
     marginLeft: 6,
     fontWeight: '500',
@@ -1400,13 +1400,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   workforceTitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen800,
     letterSpacing: 0.5,
   },
   workforceSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.slate500,
     marginTop: 4,
     marginBottom: 14,
@@ -1431,7 +1431,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -1440,14 +1440,14 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   workerNameInput: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate900,
     padding: 0,
     margin: 0,
   },
   workerRole: {
-    fontSize: 11.5,
+    fontSize: typography.caption,
     color: P.slate500,
     marginTop: 1,
   },
@@ -1471,14 +1471,14 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.slate400,
     letterSpacing: 0.4,
     marginBottom: 2,
   },
   statUnit: {
-    fontSize: 11.5,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: P.slate500,
   },
@@ -1488,7 +1488,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValueInput: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.slate900,
     padding: 0,
@@ -1501,14 +1501,14 @@ const styles = StyleSheet.create({
     borderColor: P.mintTintBg,
   },
   wageStatLabel: {
-    fontSize: 9,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.twGreen800,
     letterSpacing: 0.4,
     marginBottom: 2,
   },
   wageValueInput: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '800',
     color: P.twGreen900,
     padding: 0,
@@ -1516,7 +1516,7 @@ const styles = StyleSheet.create({
     minWidth: 44,
   },
   wageStatUnit: {
-    fontSize: 11.5,
+    fontSize: typography.caption,
     fontWeight: '500',
     color: P.twGreen800,
   },
@@ -1534,7 +1534,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
   },
   taskDropdownText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.slate800,
     flex: 1,
@@ -1556,7 +1556,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   addWorkerButtonText: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen800,
   },
@@ -1575,17 +1575,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   totalCostTitle: {
-    fontSize: 13,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.white,
   },
   totalCostSubtitle: {
-    fontSize: 10.5,
+    fontSize: typography.caption,
     color: P.slate300,
     marginTop: 2,
   },
   totalCostAmount: {
-    fontSize: 18,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.white,
   },
@@ -1598,7 +1598,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   paymentStatusLabel: {
-    fontSize: 13,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.slate800,
   },
@@ -1620,7 +1620,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen100,
   },
   paymentPillText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.slate500,
   },
@@ -1644,7 +1644,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   attachmentHeaderTitle: {
-    fontSize: 13.5,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.slate700,
   },
@@ -1738,7 +1738,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.waveformBarBg,
   },
   voiceDurationText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.slate500,
     marginLeft: 10,
@@ -1752,7 +1752,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.white,
     minHeight: 70,
     padding: 12,
-    fontSize: 13,
+    fontSize: typography.bodySmall,
     color: P.slate900,
   },
 
@@ -1783,7 +1783,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: P.slate800,
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
   },
   saveButton: {
@@ -1801,7 +1801,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: P.white,
-    fontSize: 14.5,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 
@@ -1815,12 +1815,12 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   errorBannerText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.twRed700,
     lineHeight: 18,
   },
   fieldErrorText: {
-    fontSize: 11.5,
+    fontSize: typography.caption,
     color: P.twRed700,
     marginTop: 6,
   },
@@ -1841,7 +1841,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   modalHeading: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.slate900,
     marginBottom: 12,
@@ -1857,7 +1857,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twGreen50,
   },
   modalOptionText: {
-    fontSize: 14.5,
+    fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
   },
