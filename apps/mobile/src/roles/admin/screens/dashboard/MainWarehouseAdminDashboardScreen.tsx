@@ -14,6 +14,20 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { colors } from '../../../farmer/theme';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import {
+  WarehouseOverviewScreen,
+  StockLedgerScreen,
+  VerifyStockScreen,
+  StockAdjustmentApprovalScreen,
+  LowStockAlertsScreen,
+  WarehouseSettingsScreen,
+  InterWarehouseTransferScreen,
+  InitiateNewTransferScreen,
+  type StockBatchItem,
+  type VerifyStockAdjustmentData,
+  type InterWarehouseTransferItem,
+  INITIAL_TRANSFERS,
+} from '../warehouse';
 
 // ─── Design Tokens (Matching Screen 12 Mockup) ────────────────────────────────
 const PALETTE = {
@@ -148,6 +162,16 @@ function ProfileTabIcon({ active }: { active: boolean }) {
   );
 }
 
+type WarehouseSubView =
+  | 'overview'
+  | 'stock_ledger'
+  | 'verify_stock'
+  | 'stock_adjustment_approval'
+  | 'low_stock_alerts'
+  | 'inter_warehouse_transfer'
+  | 'initiate_new_transfer'
+  | 'warehouse_settings';
+
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string) => void;
@@ -158,8 +182,33 @@ export function MainWarehouseAdminDashboardScreen({
   onNavigate,
 }: MainWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<MainWHTab>('Dashboard');
+  const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
+  const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWH, setSelectedWH] = useState('Ooty');
+  const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
+  const [selectedBatch, setSelectedBatch] = useState<StockBatchItem | null>(null);
+  const [adjustmentRecord, setAdjustmentRecord] = useState<VerifyStockAdjustmentData | null>(null);
+  const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
   const [user, setUser] = useState<UserMe | null>(null);
+
+  const navigateWh = (view: WarehouseSubView) => {
+    setWhHistory((prev) => [...prev, whSubView]);
+    setWhSubView(view);
+  };
+
+  const goBackWh = () => {
+    if (whHistory.length > 0) {
+      setWhHistory((prev) => {
+        const next = [...prev];
+        const last = next.pop();
+        if (last) setWhSubView(last);
+        return next;
+      });
+    } else {
+      setActiveTab('Dashboard');
+      setWhSubView('overview');
+    }
+  };
 
   useEffect(() => {
     fetchMe()
@@ -205,7 +254,13 @@ export function MainWarehouseAdminDashboardScreen({
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.whScroll}>
               <TouchableOpacity
                 style={[styles.whChipCard, selectedWH === 'Ooty' && styles.whChipActive]}
-                onPress={() => setSelectedWH('Ooty')}
+                onPress={() => {
+                  setSelectedWH('Ooty');
+                  setSelectedWHName('Ooty Warehouse');
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('stock_ledger');
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.whChipTitle}>Ooty</Text>
@@ -214,7 +269,13 @@ export function MainWarehouseAdminDashboardScreen({
 
               <TouchableOpacity
                 style={[styles.whChipCard, selectedWH === 'Coonoor' && styles.whChipActive]}
-                onPress={() => setSelectedWH('Coonoor')}
+                onPress={() => {
+                  setSelectedWH('Coonoor');
+                  setSelectedWHName('Coonoor Warehouse');
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('stock_ledger');
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.whChipTitle}>Coonoor</Text>
@@ -223,7 +284,13 @@ export function MainWarehouseAdminDashboardScreen({
 
               <TouchableOpacity
                 style={[styles.whChipCard, selectedWH === 'Kotagiri' && styles.whChipActive]}
-                onPress={() => setSelectedWH('Kotagiri')}
+                onPress={() => {
+                  setSelectedWH('Kotagiri');
+                  setSelectedWHName('Kotagiri Warehouse');
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('low_stock_alerts');
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.whChipTitle}>Kotagiri</Text>
@@ -232,7 +299,13 @@ export function MainWarehouseAdminDashboardScreen({
 
               <TouchableOpacity
                 style={[styles.whChipCard, selectedWH === 'Gudalur' && styles.whChipActive]}
-                onPress={() => setSelectedWH('Gudalur')}
+                onPress={() => {
+                  setSelectedWH('Gudalur');
+                  setSelectedWHName('Gudalur Market');
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('stock_ledger');
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.whChipTitle}>Gudalur</Text>
@@ -245,7 +318,11 @@ export function MainWarehouseAdminDashboardScreen({
             <View style={styles.queueGrid}>
               <TouchableOpacity
                 style={styles.overviewCard}
-                onPress={() => Alert.alert('Incoming Transfers', '5 Inter-warehouse transfers currently in transit to Ooty Central Hub.')}
+                onPress={() => {
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('inter_warehouse_transfer');
+                }}
                 activeOpacity={0.75}
               >
                 <View style={styles.overviewIconBox}>
@@ -257,7 +334,11 @@ export function MainWarehouseAdminDashboardScreen({
 
               <TouchableOpacity
                 style={styles.overviewCard}
-                onPress={() => Alert.alert('Low Stock Alerts', 'Kotagiri (Carrots, Garlic) & Coonoor (Beetroot) need stock rebalancing.')}
+                onPress={() => {
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('low_stock_alerts');
+                }}
                 activeOpacity={0.75}
               >
                 <View style={styles.overviewIconBox}>
@@ -304,7 +385,11 @@ export function MainWarehouseAdminDashboardScreen({
             <Text style={styles.sectionTitle}>Transfers pending action</Text>
             <TouchableOpacity
               style={styles.transferCard}
-              onPress={() => Alert.alert('Stock Transfer Manifest', 'Ooty → Kotagiri: 140kg mixed vegetables. Manifest #TRN-2026-042.')}
+              onPress={() => {
+                setActiveTab('Warehouses');
+                setWhHistory(['overview']);
+                setWhSubView('inter_warehouse_transfer');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.transferIconBox}>
@@ -322,7 +407,12 @@ export function MainWarehouseAdminDashboardScreen({
             <View style={styles.quickRow}>
               <TouchableOpacity
                 style={styles.quickBtn}
-                onPress={() => Alert.alert('Goods Receipt', 'Opening Inward Goods Receipt (GRN) weighbridge intake screen.')}
+                onPress={() => {
+                  setSelectedWHName('Ooty Warehouse');
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('stock_ledger');
+                }}
                 activeOpacity={0.75}
               >
                 <TruckTransferIcon />
@@ -331,7 +421,12 @@ export function MainWarehouseAdminDashboardScreen({
 
               <TouchableOpacity
                 style={styles.quickBtn}
-                onPress={() => setActiveTab('Allocation')}
+                onPress={() => {
+                  setSelectedWHName('Ooty Warehouse');
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('stock_ledger');
+                }}
                 activeOpacity={0.75}
               >
                 <AllocationTabIcon active={false} />
@@ -340,7 +435,11 @@ export function MainWarehouseAdminDashboardScreen({
 
               <TouchableOpacity
                 style={styles.quickBtn}
-                onPress={() => Alert.alert('Cold Room Status', 'Chamber A: 2.4°C, Chamber B: 4.1°C, Humidity: 90% RH.')}
+                onPress={() => {
+                  setActiveTab('Warehouses');
+                  setWhHistory(['overview']);
+                  setWhSubView('warehouse_settings');
+                }}
                 activeOpacity={0.75}
               >
                 <WarehouseBadgeIcon />
@@ -352,29 +451,94 @@ export function MainWarehouseAdminDashboardScreen({
           </ScrollView>
         )}
 
-        {/* Warehouses Tab */}
+        {/* Warehouses Tab - Complete Interactive Flow */}
         {activeTab === 'Warehouses' && (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionTitle}>Nilgiris 4-Warehouse Network</Text>
-            <View style={[styles.cardStack, { marginTop: 14 }]}>
-              <View style={styles.whDetailCard}>
-                <Text style={styles.whDetailTitle}>WH-MAIN • Ooty Central Hub</Text>
-                <Text style={styles.whDetailSub}>Capacity: 500 MT • Utilization: 92% (460 MT)</Text>
-              </View>
-              <View style={styles.whDetailCard}>
-                <Text style={styles.whDetailTitle}>WH-COON • Coonoor Sub-Hub</Text>
-                <Text style={styles.whDetailSub}>Capacity: 200 MT • Utilization: 78% (156 MT)</Text>
-              </View>
-              <View style={styles.whDetailCard}>
-                <Text style={styles.whDetailTitle}>WH-KOTA • Kotagiri Sub-Hub</Text>
-                <Text style={styles.whDetailSub}>Capacity: 200 MT • Utilization: 31% (62 MT)</Text>
-              </View>
-              <View style={styles.whDetailCard}>
-                <Text style={styles.whDetailTitle}>WH-GUDL • Gudalur Sub-Hub</Text>
-                <Text style={styles.whDetailSub}>Capacity: 200 MT • Utilization: 65% (130 MT)</Text>
-              </View>
-            </View>
-          </ScrollView>
+          whSubView === 'overview' ? (
+            <WarehouseOverviewScreen
+              onBack={() => {
+                setActiveTab('Dashboard');
+                setWhSubView('overview');
+                setWhHistory([]);
+              }}
+              onSelectWarehouse={(whName) => {
+                setSelectedWHName(whName);
+                navigateWh('stock_ledger');
+              }}
+              onViewLowStock={() => {
+                navigateWh('low_stock_alerts');
+              }}
+              onOpenSettings={() => {
+                navigateWh('warehouse_settings');
+              }}
+            />
+          ) : whSubView === 'stock_ledger' ? (
+            <StockLedgerScreen
+              warehouseName={selectedWHName}
+              onBack={goBackWh}
+              onVerifyBatch={(batch) => {
+                if (batch) setSelectedBatch(batch);
+                navigateWh('verify_stock');
+              }}
+            />
+          ) : whSubView === 'verify_stock' ? (
+            <VerifyStockScreen
+              produceName={selectedBatch?.name ?? 'Carrots'}
+              batchId={selectedBatch?.batchId ?? 'BT-4471'}
+              zone={selectedBatch?.zone ?? 'Zone A-2'}
+              systemCount={selectedBatch?.quantityKg ?? 240}
+              initialPhysicalCount={selectedBatch?.name === 'Carrots' ? 225 : (selectedBatch?.quantityKg ? selectedBatch.quantityKg - 5 : 225)}
+              onBack={goBackWh}
+              onSubmitApproval={(data) => {
+                setAdjustmentRecord(data);
+                navigateWh('stock_adjustment_approval');
+              }}
+            />
+          ) : whSubView === 'stock_adjustment_approval' ? (
+            <StockAdjustmentApprovalScreen
+              produceName={adjustmentRecord?.produceName ?? selectedBatch?.name ?? 'Carrots'}
+              batchId={adjustmentRecord?.batchId ?? selectedBatch?.batchId ?? 'BT-4471'}
+              zone={adjustmentRecord?.zone ?? selectedBatch?.zone ?? 'Zone A-2'}
+              systemCount={adjustmentRecord?.systemCount ?? selectedBatch?.quantityKg ?? 240}
+              physicalCount={adjustmentRecord?.physicalCount ?? 225}
+              varianceKg={adjustmentRecord?.varianceKg ?? -15}
+              variancePct={adjustmentRecord?.variancePct ?? -6.25}
+              reason={adjustmentRecord?.reason ?? 'Spoilage during storage.'}
+              onBack={goBackWh}
+              onReturnToLedger={() => {
+                setWhSubView('stock_ledger');
+                setWhHistory(['overview']);
+              }}
+            />
+          ) : whSubView === 'low_stock_alerts' ? (
+            <LowStockAlertsScreen
+              onBack={goBackWh}
+              onInitiateTransfer={() => {
+                navigateWh('inter_warehouse_transfer');
+              }}
+              onAdjustThresholds={() => {
+                navigateWh('warehouse_settings');
+              }}
+            />
+          ) : whSubView === 'inter_warehouse_transfer' ? (
+            <InterWarehouseTransferScreen
+              transfers={transferList}
+              onBack={goBackWh}
+              onNewTransfer={() => navigateWh('initiate_new_transfer')}
+            />
+          ) : whSubView === 'initiate_new_transfer' ? (
+            <InitiateNewTransferScreen
+              onBack={goBackWh}
+              onSubmitTransfer={(newTransfer) => {
+                setTransferList((prev) => [newTransfer, ...prev]);
+                goBackWh();
+              }}
+            />
+          ) : whSubView === 'warehouse_settings' ? (
+            <WarehouseSettingsScreen
+              warehouseName="Kotagiri Warehouse"
+              onBack={goBackWh}
+            />
+          ) : null
         )}
 
         {/* Allocation Tab */}
@@ -405,44 +569,54 @@ export function MainWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Tab Bar (Matching Screen 12) ─── */}
-      <View style={styles.tabBar}>
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Dashboard')}
-          accessibilityRole="tab"
-        >
-          <DashboardTabIcon active={activeTab === 'Dashboard'} />
-          <Text style={[styles.tabLabel, activeTab === 'Dashboard' && styles.tabLabelActive]}>Dashboard</Text>
-        </Pressable>
+      {/* ─── Bottom Navigation Tab Bar (Shown on Dashboard, Overview, Allocation, Profile) ─── */}
+      {(activeTab !== 'Warehouses' || whSubView === 'overview') && (
+        <View style={styles.tabBar}>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              setActiveTab('Dashboard');
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            accessibilityRole="tab"
+          >
+            <DashboardTabIcon active={activeTab === 'Dashboard'} />
+            <Text style={[styles.tabLabel, activeTab === 'Dashboard' && styles.tabLabelActive]}>Dashboard</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Warehouses')}
-          accessibilityRole="tab"
-        >
-          <WarehousesTabIcon active={activeTab === 'Warehouses'} />
-          <Text style={[styles.tabLabel, activeTab === 'Warehouses' && styles.tabLabelActive]}>Warehouses</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              setActiveTab('Warehouses');
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            accessibilityRole="tab"
+          >
+            <WarehousesTabIcon active={activeTab === 'Warehouses'} />
+            <Text style={[styles.tabLabel, activeTab === 'Warehouses' && styles.tabLabelActive]}>Warehouses</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Allocation')}
-          accessibilityRole="tab"
-        >
-          <AllocationTabIcon active={activeTab === 'Allocation'} />
-          <Text style={[styles.tabLabel, activeTab === 'Allocation' && styles.tabLabelActive]}>Allocation</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Allocation')}
+            accessibilityRole="tab"
+          >
+            <AllocationTabIcon active={activeTab === 'Allocation'} />
+            <Text style={[styles.tabLabel, activeTab === 'Allocation' && styles.tabLabelActive]}>Allocation</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Profile')}
-          accessibilityRole="tab"
-        >
-          <ProfileTabIcon active={activeTab === 'Profile'} />
-          <Text style={[styles.tabLabel, activeTab === 'Profile' && styles.tabLabelActive]}>Profile</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Profile')}
+            accessibilityRole="tab"
+          >
+            <ProfileTabIcon active={activeTab === 'Profile'} />
+            <Text style={[styles.tabLabel, activeTab === 'Profile' && styles.tabLabelActive]}>Profile</Text>
+          </Pressable>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
