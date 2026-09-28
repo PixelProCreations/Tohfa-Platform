@@ -14,13 +14,28 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
+import DocumentPicker, { type DocumentPickerResponse } from 'react-native-document-picker';
+import { t } from '../../../../i18n/farmer';
 import { extractFieldErrors, formatErrorMessage } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
 import {
+  fromPaise,
+  toPaise,
+  multiply,
+  sum,
+  parseMoney,
+  format as formatMoney,
+  type Money,
+} from '@tohfa/shared-types';
+import {
   createDiaryEntry,
+  attachDiaryPhoto,
   type CreateDiaryEntryInput,
   type DiaryWorkerInput,
+  type AttachDiaryPhotoInput,
 } from '../../api/farmDiary';
+import { signUpload } from '../../api/registration';
+import { uploadWithResume } from '../../api/uploader';
 import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -226,8 +241,27 @@ interface WorkerEntry {
   name: string;
   role: string;
   hoursWorked: string;
-  wageRate: number;
+  /** Integer paise (root CLAUDE.md §2.2) — never a rupee float. */
+  wageRatePaise: number;
+  /**
+   * Raw rupee text the farmer is typing (e.g. "80." mid-edit). `wageRatePaise`
+   * only updates once this parses cleanly via `parseMoney` — see
+   * `handleWageInputChange` — so a half-typed value never corrupts the paise
+   * total used for `totalCost` below (root CLAUDE.md §2.2).
+   */
+  wageRateInput: string;
   task: string;
+}
+
+/** Initials for the avatar circle, derived live from the editable name rather
+ * than stored — a stored value would go stale the moment the farmer edits
+ * the name. */
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : '';
+  return (first + last).toUpperCase();
 }
 
 const IRRIGATION_METHODS = [
@@ -237,33 +271,51 @@ const IRRIGATION_METHODS = [
   'Furrow',
   'Basin',
   'Sub-surface Drip',
-];
+] as const;
 
-const INITIAL_WORKERS: WorkerEntry[] = [
-  {
-    id: 'w1',
-    initials: 'RK',
-    name: 'Ravi Kumar',
-    role: 'Farm Labourer',
-    hoursWorked: '4.5',
-    wageRate: 80,
-    task: 'Task: Irrigation (Drip line check)',
-  },
-  {
-    id: 'w2',
-    initials: 'MS',
-    name: 'Muthu Selvam',
-    role: 'Farm Labourer',
-    hoursWorked: '4.5',
-    wageRate: 75,
-    task: 'Task: Irrigation (Emitter clearing)',
-  },
-];
+type IrrigationMethod = (typeof IRRIGATION_METHODS)[number];
 
-const INITIAL_PHOTOS = [
-  'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&auto=format&fit=crop&q=85',
-  'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=400&auto=format&fit=crop&q=85',
-];
+/** Display labels are translated; the canonical English value above is only used as a key. */
+const IRRIGATION_METHOD_LABEL_KEYS = {
+  Drip: 'farmer.farmDiary.newEntry.step3.irrigationMethod.drip',
+  Sprinkler: 'farmer.farmDiary.newEntry.step3.irrigationMethod.sprinkler',
+  Flood: 'farmer.farmDiary.newEntry.step3.irrigationMethod.flood',
+  Furrow: 'farmer.farmDiary.newEntry.step3.irrigationMethod.furrow',
+  Basin: 'farmer.farmDiary.newEntry.step3.irrigationMethod.basin',
+  'Sub-surface Drip': 'farmer.farmDiary.newEntry.step3.irrigationMethod.subSurfaceDrip',
+} as const;
+
+function irrigationMethodLabel(method: string): string {
+  return t(IRRIGATION_METHOD_LABEL_KEYS[method as IrrigationMethod] ?? IRRIGATION_METHOD_LABEL_KEYS.Drip);
+}
+
+// No fake seed data: the workforce section starts empty and only ever holds
+// what the farmer actually adds via "Add Worker" (see handleAddWorker below).
+const INITIAL_WORKERS: WorkerEntry[] = [];
+
+/** The only mime types `AttachDiaryPhotoInput.mimeType` (farmDiary.ts) accepts.
+ * A narrower set than the backend's `ALLOWED_MIME_TYPES` (which also allows
+ * `application/pdf` for documents, not relevant to diary photos). */
+const ALLOWED_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+type AllowedPhotoMimeType = (typeof ALLOWED_PHOTO_MIME_TYPES)[number];
+function isAllowedPhotoMimeType(value: string): value is AllowedPhotoMimeType {
+  return (ALLOWED_PHOTO_MIME_TYPES as readonly string[]).includes(value);
+}
+
+/** A photo the farmer picked, in flight through pick → upload → attach. */
+interface DiaryPhotoDraft {
+  id: string;
+  /** The picked file's own uri — shown immediately, before/regardless of upload. */
+  localUri: string;
+  uploading: boolean;
+  progress: number;
+  error: string | null;
+  /** Populated once the upload finishes; only a photo with all three set is
+   * eligible for `attachDiaryPhoto` in handleSave. */
+  storageKey: string | null;
+  mimeType: AllowedPhotoMimeType | null;
+  sizeBytes: number | null;
+}
 
 const WAVEFORM_BARS = [10, 16, 22, 12, 18, 14, 20];
 
@@ -297,8 +349,8 @@ function toWorkerInputs(
     name: w.name,
     role: w.role,
     hoursWorked: parseFloat(w.hoursWorked) || 0,
-    // The UI holds a rupee rate; the API takes integer paise (root CLAUDE.md §2.2).
-    wageRatePaise: Math.round((w.wageRate || 0) * 100),
+    // The UI already holds integer paise (root CLAUDE.md §2.2); pass through as-is.
+    wageRatePaise: w.wageRatePaise,
     paymentStatus: paymentStatus === 'Paid' ? 'PAID' : 'PENDING',
   }));
 }
@@ -323,19 +375,28 @@ export function NewFarmDiaryEntryStep3Screen({
   // A missing id here is a navigation bug, not something to mock around: surface
   // it and refuse to save rather than posting a half-formed entry.
   const missingIds = [
+    !plotId ? t('farmer.farmDiary.newEntry.step3.missingField') : null,
+    !categoryKey ? t('farmer.farmDiary.newEntry.step3.missingCategory') : null,
+    !subActivityKey ? t('farmer.farmDiary.newEntry.step3.missingSubActivity') : null,
+  ].filter((x): x is string => x !== null);
+  const missingIdsLabel = missingIds.join(', ');
+  // Dev-facing identifiers, kept separate from the translated `missingIdsLabel` above so this
+  // diagnostic log stays in English regardless of the active locale.
+  const missingIdsDevLabel = [
     !plotId ? 'field' : null,
     !categoryKey ? 'category' : null,
     !subActivityKey ? 'sub-activity' : null,
-  ].filter((x): x is string => x !== null);
-  const missingIdsLabel = missingIds.join(', ');
+  ]
+    .filter((x): x is string => x !== null)
+    .join(', ');
   useEffect(() => {
-    if (missingIdsLabel) {
+    if (missingIdsDevLabel) {
       console.warn(
-        `NewFarmDiaryEntryStep3Screen mounted without: ${missingIdsLabel}. ` +
+        `NewFarmDiaryEntryStep3Screen mounted without: ${missingIdsDevLabel}. ` +
           'The Step 1/2 navigation params were lost.',
       );
     }
-  }, [missingIdsLabel]);
+  }, [missingIdsDevLabel]);
 
   // Details State
   const [irrigationMethod, setIrrigationMethod] = useState<string>('Drip');
@@ -356,38 +417,179 @@ export function NewFarmDiaryEntryStep3Screen({
   const [paymentStatus, setPaymentStatus] = useState<'Pending' | 'Paid'>('Pending');
 
   // Attachments State
-  const [photos, setPhotos] = useState<string[]>(INITIAL_PHOTOS);
+  const [photos, setPhotos] = useState<DiaryPhotoDraft[]>([]);
   const [notes, setNotes] = useState<string>('');
 
   const handleRemoveWorker = (workerId: string) => {
     setWorkers((prev) => prev.filter((w) => w.id !== workerId));
   };
 
+  const updateWorker = (workerId: string, patch: Partial<WorkerEntry>) => {
+    setWorkers((prev) => prev.map((w) => (w.id === workerId ? { ...w, ...patch } : w)));
+  };
+
+  /**
+   * `wageRatePaise` only updates when `text` parses cleanly. A mid-edit value
+   * ("80.", empty) is left showing in `wageRateInput` without touching the
+   * paise figure `totalCost` below (and the eventual `DiaryWorkerInput`) is
+   * computed from — see `WorkerEntry.wageRateInput`'s docblock.
+   */
+  const handleWageInputChange = (workerId: string, text: string) => {
+    setWorkers((prev) =>
+      prev.map((w) => {
+        if (w.id !== workerId) return w;
+        try {
+          const parsed = parseMoney(text);
+          return { ...w, wageRateInput: text, wageRatePaise: toPaise(parsed) };
+        } catch {
+          return { ...w, wageRateInput: text };
+        }
+      }),
+    );
+  };
+
   const handleAddWorker = () => {
     const newId = `w_${Date.now()}`;
+    // A genuinely blank row -- no fabricated name/role/task. The farmer fills
+    // this in with the real editable fields below.
     setWorkers((prev) => [
       ...prev,
       {
         id: newId,
-        initials: 'SK',
-        name: 'Suresh Kumar',
-        role: 'Farm Labourer',
-        hoursWorked: '4.0',
-        wageRate: 75,
-        task: 'Task: Irrigation (Field channel)',
+        initials: '',
+        name: '',
+        role: '',
+        hoursWorked: '',
+        wageRatePaise: 0,
+        wageRateInput: '',
+        task: '',
       },
     ]);
   };
 
-  const handleRemovePhoto = (photoIndex: number) => {
-    setPhotos((prev) => prev.filter((_, idx) => idx !== photoIndex));
+  /** A worker row missing a required field, or whose wage doesn't currently
+   * parse to something above zero, blocks Save (mirrors `missingIds` below). */
+  const isWorkerRowInvalid = (w: WorkerEntry): boolean => {
+    if (!w.name.trim() || !w.hoursWorked.trim()) return true;
+    const trimmedWage = w.wageRateInput.trim();
+    if (!trimmedWage) return true;
+    try {
+      return toPaise(parseMoney(trimmedWage)) <= 0;
+    } catch {
+      return true;
+    }
   };
 
-  const handleAddPhoto = () => {
+  const handleRemovePhoto = (photoId: string) => {
+    // uploadWithResume exposes no abort mechanism (see apps/mobile/src/roles/farmer/api/uploader.ts) --
+    // an in-flight upload for a removed photo is simply ignored: its state update
+    // below finds no matching id and is a no-op.
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+  };
+
+  const handleAddPhoto = async () => {
+    let picked: DocumentPickerResponse;
+    try {
+      picked = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.images],
+        // Android hands back a `content://` URI, which `fetch()` cannot read on-device --
+        // its native networking layer only speaks http(s), so attempting to fetch it fails
+        // outright with "Failed to construct 'Response': status 0" (no HTTP semantics ever
+        // apply). `copyTo` makes the picker copy the file into the app's own cache dir and
+        // expose a real `file://` path via `fileCopyUri`, which `fetch()` can read normally.
+        copyTo: 'cachesDirectory',
+      });
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        setSubmitError(t('farmer.farmDiary.newEntry.step3.photoPickError'));
+      }
+      return;
+    }
+
+    const photoId = `photo_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+    const localUri = picked.fileCopyUri ?? picked.uri;
+    const rawContentType = picked.type ?? '';
+
     setPhotos((prev) => [
       ...prev,
-      'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&auto=format&fit=crop&q=85',
+      {
+        id: photoId,
+        localUri,
+        uploading: true,
+        progress: 0,
+        error: null,
+        storageKey: null,
+        mimeType: null,
+        sizeBytes: null,
+      },
     ]);
+
+    if (!isAllowedPhotoMimeType(rawContentType)) {
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photoId
+            ? { ...p, uploading: false, error: t('farmer.farmDiary.newEntry.step3.photoUnsupportedType') }
+            : p,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Read file bytes first -- needed for the upload either way, and the server's
+      // signUploadBody schema requires an exact sizeBytes (max 25 MiB), which
+      // `picked.size` can't be trusted for (react-native-document-picker types it as
+      // `number | null`). Using the real byte length is both simpler than a null
+      // fallback and strictly more accurate than picker-reported metadata.
+      const fileResp = await fetch(picked.fileCopyUri ?? picked.uri);
+      const buffer = await fileResp.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      const signed = await signUpload({
+        purpose: 'DIARY_PHOTO',
+        fileName: picked.name ?? 'diary_photo.jpg',
+        contentType: rawContentType,
+        sizeBytes: bytes.length,
+      });
+
+      await uploadWithResume({
+        uploadUrl: signed.uploadUrl,
+        fileUrl: signed.fileUrl,
+        resumable: signed.resumable ?? false,
+        data: bytes,
+        contentType: rawContentType,
+        headers: signed.headers,
+        method: signed.method,
+        onProgress: (pct) => {
+          setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, progress: pct } : p)));
+        },
+      });
+
+      const storageKey = signed.storageKey;
+
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.id === photoId
+            ? {
+                ...p,
+                uploading: false,
+                progress: 100,
+                storageKey,
+                mimeType: rawContentType,
+                sizeBytes: bytes.length,
+                error: storageKey
+                  ? null
+                  : t('farmer.farmDiary.newEntry.step3.photoUploadError'),
+              }
+            : p,
+        ),
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('farmer.farmDiary.newEntry.step3.photoUploadError');
+      setPhotos((prev) =>
+        prev.map((p) => (p.id === photoId ? { ...p, uploading: false, error: msg } : p)),
+      );
+    }
   };
 
   // Calculations
@@ -395,11 +597,14 @@ export function NewFarmDiaryEntryStep3Screen({
     (acc, w) => acc + (parseFloat(w.hoursWorked) || 0),
     0,
   );
-  const calculatedTotalCost = workers.reduce(
-    (acc, w) => acc + (parseFloat(w.hoursWorked) || 0) * (w.wageRate || 0),
-    0,
+  // Paise-safe: multiply each worker's rate by their (fractional) hours, then
+  // sum exactly across workers — no raw float multiply-and-accumulate
+  // (root CLAUDE.md §2.2, packages/shared-types/src/money.ts docblock).
+  const perWorkerCosts: Money[] = workers.map((w) =>
+    multiply(fromPaise(w.wageRatePaise), parseFloat(w.hoursWorked) || 0),
   );
-  const displayTotalCost = calculatedTotalCost.toFixed(2);
+  const totalCost: Money = sum(perWorkerCosts);
+  const displayTotalCost = formatMoney(totalCost, { symbol: false });
 
   const handleSave = async () => {
     if (isSubmitting) return;
@@ -408,7 +613,7 @@ export function NewFarmDiaryEntryStep3Screen({
 
     if (!plotId || !categoryKey || !subActivityKey) {
       setSubmitError(
-        `Cannot save: missing ${missingIdsLabel}. Go back and choose them again.`,
+        t('farmer.farmDiary.newEntry.step3.missingIdsError', { missing: missingIdsLabel }),
       );
       return;
     }
@@ -416,7 +621,14 @@ export function NewFarmDiaryEntryStep3Screen({
     const minutes = Number(timeSpent.trim());
     if (!Number.isInteger(minutes) || minutes <= 0 || minutes > MAX_MINUTES) {
       setFieldErrors({
-        minutes: `Enter the time spent as a whole number of minutes (1–${MAX_MINUTES}).`,
+        minutes: t('farmer.farmDiary.newEntry.step3.minutesValidationError', { max: MAX_MINUTES }),
+      });
+      return;
+    }
+
+    if (isWorkforceEnabled && workers.length > 0 && workers.some(isWorkerRowInvalid)) {
+      setFieldErrors({
+        workers: t('farmer.farmDiary.newEntry.step3.workerValidationError'),
       });
       return;
     }
@@ -429,22 +641,68 @@ export function NewFarmDiaryEntryStep3Screen({
       subActivityKey,
       minutes,
       ...(trimmedNotes ? { notes: trimmedNotes } : {}),
+      // SPECIFICATION GAP: no BR-xx rule or openapi schema defines this key yet —
+      // activityFields is free-form by design (farm-diary.schema.ts), so this is
+      // safe to send, but "irrigationMethod" as a key name isn't documented
+      // anywhere else. Flagged for the team. The irrigation-method field itself is
+      // shown unconditionally above (not gated on category), so it's sent the
+      // same way here.
+      activityFields: { irrigationMethod },
       // Omitted entirely (not []) when the toggle is off or nobody was added.
       ...(isWorkforceEnabled && workers.length > 0
         ? { workers: toWorkerInputs(workers, paymentStatus) }
         : {}),
+      // Voice notes are mock UI only -- no audio-recording library has been chosen
+      // for this project yet (a separate dependency decision), so voiceNoteKey/
+      // voiceNoteDurationS are deliberately left out rather than fabricated.
     };
 
     setIsSubmitting(true);
+    let createdEntryId: string;
     try {
-      await createDiaryEntry(input);
+      const createdEntry = await createDiaryEntry(input);
+      createdEntryId = createdEntry.id;
     } catch (err: unknown) {
-      setSubmitError(formatErrorMessage(err, 'Could not save this diary entry.'));
+      setSubmitError(formatErrorMessage(err, t('farmer.farmDiary.newEntry.step3.saveError')));
       setFieldErrors(extractFieldErrors(err));
       setIsSubmitting(false);
       return;
     }
+
+    // The entry now exists. Attach every photo that finished uploading (photos
+    // still in flight or errored already block Save via isSaveDisabled, so this
+    // only ever excludes a photo the farmer removed mid-upload).
+    const readyPhotos = photos.filter(
+      (p): p is DiaryPhotoDraft & { storageKey: string; mimeType: AllowedPhotoMimeType; sizeBytes: number } =>
+        p.storageKey !== null && p.mimeType !== null && p.sizeBytes !== null,
+    );
+    let failedAttachCount = 0;
+    await Promise.all(
+      readyPhotos.map(async (p) => {
+        const attachInput: AttachDiaryPhotoInput = {
+          storageKey: p.storageKey,
+          mimeType: p.mimeType,
+          sizeBytes: p.sizeBytes,
+        };
+        try {
+          await attachDiaryPhoto(createdEntryId, attachInput);
+        } catch {
+          failedAttachCount += 1;
+        }
+      }),
+    );
+
     setIsSubmitting(false);
+
+    if (failedAttachCount > 0) {
+      // The diary entry itself was created successfully -- don't pretend the
+      // whole save failed, but don't silently drop the photo failure either.
+      setSubmitError(
+        t('farmer.farmDiary.newEntry.step3.photoAttachPartialFailure', { count: failedAttachCount }),
+      );
+      return;
+    }
+
     if (onSave) {
       onSave();
     } else if (onDone) {
@@ -453,7 +711,11 @@ export function NewFarmDiaryEntryStep3Screen({
   };
 
   const handleExit = onCancel ?? onBack;
-  const isSaveDisabled = isSubmitting || missingIds.length > 0;
+  const isSaveDisabled =
+    isSubmitting ||
+    missingIds.length > 0 ||
+    photos.some((p) => p.uploading) ||
+    (isWorkforceEnabled && workers.length > 0 && workers.some(isWorkerRowInvalid));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -467,14 +729,14 @@ export function NewFarmDiaryEntryStep3Screen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.farmDiary.common.goBackLabel')}
           >
             <ArrowBackIcon size={18} color={P.twGreen700} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>New Entry</Text>
-            <Text style={styles.headerSubtitle}>Step 3 of 3 · Details</Text>
+            <Text style={styles.headerTitle}>{t('farmer.farmDiary.common.newEntryTitle')}</Text>
+            <Text style={styles.headerSubtitle}>{t('farmer.farmDiary.newEntry.step3.subtitle')}</Text>
           </View>
 
           <TouchableOpacity
@@ -482,9 +744,9 @@ export function NewFarmDiaryEntryStep3Screen({
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t('farmer.common.cancel')}
           >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
+            <Text style={styles.cancelBtnText}>{t('farmer.common.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -519,28 +781,27 @@ export function NewFarmDiaryEntryStep3Screen({
         {missingIds.length > 0 && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorBannerText}>
-              This entry is missing its {missingIdsLabel}. Go back to the earlier steps and choose
-              them again before saving.
+              {t('farmer.farmDiary.newEntry.step3.missingIdsBanner', { missing: missingIdsLabel })}
             </Text>
           </View>
         )}
 
         {/* ── 2. Irrigation Details Section ── */}
-        <Text style={styles.sectionHeading}>IRRIGATION DETAILS</Text>
+        <Text style={styles.sectionHeading}>{t('farmer.farmDiary.newEntry.step3.irrigationDetailsHeading')}</Text>
 
         {/* Irrigation method Dropdown */}
         <View style={styles.fieldBlock}>
           <Text style={styles.fieldLabel}>
-            Irrigation method <Text style={styles.requiredAsterisk}>*</Text>
+            {t('farmer.farmDiary.newEntry.step3.irrigationMethodLabel')} <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
           <TouchableOpacity
             style={styles.dropdownBox}
             activeOpacity={0.8}
             onPress={() => setIsMethodModalOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="Select Irrigation method"
+            accessibilityLabel={t('farmer.farmDiary.newEntry.step3.selectIrrigationMethodLabel')}
           >
-            <Text style={styles.dropdownSelectedText}>{irrigationMethod}</Text>
+            <Text style={styles.dropdownSelectedText}>{irrigationMethodLabel(irrigationMethod)}</Text>
             <ChevronDownIcon size={18} color={P.slate500} />
           </TouchableOpacity>
         </View>
@@ -548,7 +809,7 @@ export function NewFarmDiaryEntryStep3Screen({
         {/* Time spent */}
         <View style={styles.fieldBlock}>
           <Text style={styles.fieldLabel}>
-            Time spent <Text style={styles.requiredAsterisk}>*</Text>
+            {t('farmer.farmDiary.newEntry.step3.timeSpentLabel')} <Text style={styles.requiredAsterisk}>*</Text>
           </Text>
           <View style={styles.timeSpentBox}>
             <TextInput
@@ -558,7 +819,7 @@ export function NewFarmDiaryEntryStep3Screen({
               keyboardType="numeric"
               maxLength={4}
             />
-            <Text style={styles.timeSpentUnit}>minutes</Text>
+            <Text style={styles.timeSpentUnit}>{t('farmer.farmDiary.newEntry.step3.minutesUnit')}</Text>
           </View>
           {fieldErrors['minutes'] ? (
             <Text style={styles.fieldErrorText}>{fieldErrors['minutes']}</Text>
@@ -571,7 +832,7 @@ export function NewFarmDiaryEntryStep3Screen({
           <View style={styles.workforceHeader}>
             <View style={styles.workforceTitleRow}>
               <UsersGroupIcon size={18} color={P.twGreen800} />
-              <Text style={styles.workforceTitle}>WORKFORCE</Text>
+              <Text style={styles.workforceTitle}>{t('farmer.farmDiary.newEntry.step3.workforceTitle')}</Text>
             </View>
             <Switch
               value={isWorkforceEnabled}
@@ -581,7 +842,7 @@ export function NewFarmDiaryEntryStep3Screen({
             />
           </View>
 
-          <Text style={styles.workforceSubtitle}>Did workers help with this activity?</Text>
+          <Text style={styles.workforceSubtitle}>{t('farmer.farmDiary.newEntry.step3.workforceSubtitle')}</Text>
 
           {isWorkforceEnabled && (
             <>
@@ -591,10 +852,16 @@ export function NewFarmDiaryEntryStep3Screen({
                   {/* Worker Top Row */}
                   <View style={styles.workerTopRow}>
                     <View style={styles.avatarCircle}>
-                      <Text style={styles.avatarText}>{worker.initials}</Text>
+                      <Text style={styles.avatarText}>{getInitials(worker.name)}</Text>
                     </View>
                     <View style={styles.workerInfoBox}>
-                      <Text style={styles.workerName}>{worker.name}</Text>
+                      <TextInput
+                        style={styles.workerNameInput}
+                        value={worker.name}
+                        onChangeText={(text) => updateWorker(worker.id, { name: text })}
+                        placeholder={t('farmer.farmDiary.newEntry.step3.workerNamePlaceholder')}
+                        placeholderTextColor={P.slate400}
+                      />
                       <Text style={styles.workerRole}>{worker.role}</Text>
                     </View>
                     <TouchableOpacity
@@ -602,7 +869,7 @@ export function NewFarmDiaryEntryStep3Screen({
                       activeOpacity={0.7}
                       style={styles.removeWorkerBtn}
                       accessibilityRole="button"
-                      accessibilityLabel={`Remove ${worker.name}`}
+                      accessibilityLabel={t('farmer.farmDiary.newEntry.step3.removeWorkerLabel', { name: worker.name })}
                     >
                       <CloseRedIcon size={14} color={P.twRed500} />
                     </TouchableOpacity>
@@ -611,17 +878,36 @@ export function NewFarmDiaryEntryStep3Screen({
                   {/* Stat Boxes Row */}
                   <View style={styles.statsRow}>
                     <View style={styles.statBox}>
-                      <Text style={styles.statLabel}>HOURS WORKED</Text>
-                      <Text style={styles.statValue}>
-                        {worker.hoursWorked} <Text style={styles.statUnit}>hrs</Text>
-                      </Text>
+                      <Text style={styles.statLabel}>{t('farmer.farmDiary.newEntry.step3.hoursWorkedLabel')}</Text>
+                      <View style={styles.statInputRow}>
+                        <TextInput
+                          style={styles.statValueInput}
+                          value={worker.hoursWorked}
+                          onChangeText={(text) => updateWorker(worker.id, { hoursWorked: text })}
+                          keyboardType="numeric"
+                          maxLength={5}
+                          placeholder="0.0"
+                          placeholderTextColor={P.slate400}
+                        />
+                        <Text style={styles.statUnit}>{t('farmer.farmDiary.newEntry.step3.hrsUnit')}</Text>
+                      </View>
                     </View>
 
                     <View style={[styles.statBox, styles.wageStatBox]}>
-                      <Text style={styles.wageStatLabel}>WAGE RATE</Text>
-                      <Text style={styles.wageStatValue}>
-                        ₹{worker.wageRate} <Text style={styles.wageStatUnit}>/hr</Text>
-                      </Text>
+                      <Text style={styles.wageStatLabel}>{t('farmer.farmDiary.newEntry.step3.wageRateLabel')}</Text>
+                      <View style={styles.statInputRow}>
+                        <Text style={styles.wageStatUnit}>₹</Text>
+                        <TextInput
+                          style={styles.wageValueInput}
+                          value={worker.wageRateInput}
+                          onChangeText={(text) => handleWageInputChange(worker.id, text)}
+                          keyboardType="numeric"
+                          maxLength={8}
+                          placeholder="0.00"
+                          placeholderTextColor={P.twGreen700}
+                        />
+                        <Text style={styles.wageStatUnit}>{t('farmer.farmDiary.newEntry.step3.perHrUnit')}</Text>
+                      </View>
                     </View>
                   </View>
 
@@ -646,18 +932,27 @@ export function NewFarmDiaryEntryStep3Screen({
                 onPress={handleAddWorker}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Add Worker"
+                accessibilityLabel={t('farmer.farmDiary.newEntry.step3.addWorkerButton')}
               >
                 <PlusCircleIcon size={18} color={P.twGreen800} />
-                <Text style={styles.addWorkerButtonText}>Add Worker</Text>
+                <Text style={styles.addWorkerButtonText}>{t('farmer.farmDiary.newEntry.step3.addWorkerButton')}</Text>
               </TouchableOpacity>
+
+              {workers.some(isWorkerRowInvalid) ? (
+                <Text style={styles.fieldErrorText}>
+                  {t('farmer.farmDiary.newEntry.step3.workerValidationError')}
+                </Text>
+              ) : null}
 
               {/* Total Labour Cost Dark Banner */}
               <View style={styles.totalCostBanner}>
                 <View style={styles.totalCostLeft}>
-                  <Text style={styles.totalCostTitle}>Total labour cost</Text>
+                  <Text style={styles.totalCostTitle}>{t('farmer.farmDiary.newEntry.step3.totalLabourCostLabel')}</Text>
                   <Text style={styles.totalCostSubtitle}>
-                    {workers.length} workers · {totalCombinedHours.toFixed(1)} hrs combined
+                    {t('farmer.farmDiary.newEntry.step3.totalLabourCostSubtitle', {
+                      count: workers.length,
+                      hours: totalCombinedHours.toFixed(1),
+                    })}
                   </Text>
                 </View>
                 <Text style={styles.totalCostAmount}>₹ {displayTotalCost}</Text>
@@ -665,7 +960,7 @@ export function NewFarmDiaryEntryStep3Screen({
 
               {/* Payment Status Segmented Control */}
               <View style={styles.paymentStatusRow}>
-                <Text style={styles.paymentStatusLabel}>Payment status</Text>
+                <Text style={styles.paymentStatusLabel}>{t('farmer.farmDiary.newEntry.step3.paymentStatusLabel')}</Text>
                 <View style={styles.paymentPillGroup}>
                   <TouchableOpacity
                     style={[
@@ -675,7 +970,7 @@ export function NewFarmDiaryEntryStep3Screen({
                     onPress={() => setPaymentStatus('Pending')}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityLabel="Pending"
+                    accessibilityLabel={t('farmer.farmDiary.newEntry.step3.paymentPending')}
                   >
                     <Text
                       style={[
@@ -683,7 +978,7 @@ export function NewFarmDiaryEntryStep3Screen({
                         paymentStatus === 'Pending' && styles.paymentPillTextPendingActive,
                       ]}
                     >
-                      Pending
+                      {t('farmer.farmDiary.newEntry.step3.paymentPending')}
                     </Text>
                   </TouchableOpacity>
 
@@ -695,7 +990,7 @@ export function NewFarmDiaryEntryStep3Screen({
                     onPress={() => setPaymentStatus('Paid')}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityLabel="Paid"
+                    accessibilityLabel={t('farmer.farmDiary.newEntry.step3.paymentPaid')}
                   >
                     <Text
                       style={[
@@ -703,7 +998,7 @@ export function NewFarmDiaryEntryStep3Screen({
                         paymentStatus === 'Paid' && styles.paymentPillTextPaidActive,
                       ]}
                     >
-                      Paid
+                      {t('farmer.farmDiary.newEntry.step3.paymentPaid')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -716,19 +1011,27 @@ export function NewFarmDiaryEntryStep3Screen({
         <View style={styles.attachmentSection}>
           <View style={styles.attachmentHeaderRow}>
             <CameraIcon size={16} color={P.slate600} />
-            <Text style={styles.attachmentHeaderTitle}>Photos</Text>
+            <Text style={styles.attachmentHeaderTitle}>{t('farmer.farmDiary.newEntry.step3.photosTitle')}</Text>
           </View>
 
           <View style={styles.photosGridRow}>
-            {photos.map((photoUri, index) => (
-              <View key={`photo_${index}`} style={styles.photoThumbWrapper}>
-                <Image source={{ uri: photoUri }} style={styles.photoThumbImage} />
+            {photos.map((photo) => (
+              <View
+                key={photo.id}
+                style={[styles.photoThumbWrapper, photo.error ? styles.photoThumbWrapperError : null]}
+              >
+                <Image source={{ uri: photo.localUri }} style={styles.photoThumbImage} />
+                {photo.uploading ? (
+                  <View style={styles.photoUploadOverlay}>
+                    <ActivityIndicator size="small" color={P.white} />
+                  </View>
+                ) : null}
                 <TouchableOpacity
                   style={styles.photoRemoveBadge}
-                  onPress={() => handleRemovePhoto(index)}
+                  onPress={() => handleRemovePhoto(photo.id)}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel="Remove photo"
+                  accessibilityLabel={t('farmer.farmDiary.newEntry.step3.removePhotoLabel')}
                 >
                   <CloseWhiteIcon size={8} color={P.white} />
                 </TouchableOpacity>
@@ -737,21 +1040,29 @@ export function NewFarmDiaryEntryStep3Screen({
 
             <TouchableOpacity
               style={styles.addPhotoCard}
-              onPress={handleAddPhoto}
+              onPress={() => {
+                void handleAddPhoto();
+              }}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Add photo"
+              accessibilityLabel={t('farmer.farmDiary.newEntry.step3.addPhotoLabel')}
             >
               <CameraPlusIcon size={22} color={P.twGreen800} />
             </TouchableOpacity>
           </View>
+
+          {photos.some((p) => p.error) ? (
+            <Text style={styles.fieldErrorText}>
+              {photos.find((p) => p.error)?.error}
+            </Text>
+          ) : null}
         </View>
 
         {/* ── 5. Voice Note Section ── */}
         <View style={styles.attachmentSection}>
           <View style={styles.attachmentHeaderRow}>
             <MicrophoneIcon size={16} color={P.slate600} />
-            <Text style={styles.attachmentHeaderTitle}>Voice note</Text>
+            <Text style={styles.attachmentHeaderTitle}>{t('farmer.farmDiary.newEntry.step3.voiceNoteTitle')}</Text>
           </View>
 
           <View style={styles.voiceNoteCard}>
@@ -759,7 +1070,7 @@ export function NewFarmDiaryEntryStep3Screen({
               style={styles.voicePlayBtn}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Play voice note"
+              accessibilityLabel={t('farmer.farmDiary.newEntry.step3.playVoiceNoteLabel')}
             >
               <PlayIcon size={13} color={P.twGreen800} />
             </TouchableOpacity>
@@ -781,12 +1092,12 @@ export function NewFarmDiaryEntryStep3Screen({
         <View style={styles.attachmentSection}>
           <View style={styles.attachmentHeaderRow}>
             <NotesIcon size={16} color={P.slate600} />
-            <Text style={styles.attachmentHeaderTitle}>Notes</Text>
+            <Text style={styles.attachmentHeaderTitle}>{t('farmer.farmDiary.newEntry.step3.notesTitle')}</Text>
           </View>
 
           <TextInput
             style={styles.notesTextInput}
-            placeholder="Add notes, observations, or special instructions..."
+            placeholder={t('farmer.farmDiary.newEntry.step3.notesPlaceholder')}
             placeholderTextColor={P.slate400}
             value={notes}
             onChangeText={setNotes}
@@ -809,9 +1120,9 @@ export function NewFarmDiaryEntryStep3Screen({
           onPress={onBack}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t('farmer.common.back')}
         >
-          <Text style={styles.backButtonText}>Back</Text>
+          <Text style={styles.backButtonText}>{t('farmer.common.back')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -822,7 +1133,7 @@ export function NewFarmDiaryEntryStep3Screen({
           disabled={isSaveDisabled}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Save entry"
+          accessibilityLabel={t('farmer.farmDiary.newEntry.step3.saveEntryButton')}
           accessibilityState={{ disabled: isSaveDisabled, busy: isSubmitting }}
         >
           {isSubmitting ? (
@@ -830,7 +1141,11 @@ export function NewFarmDiaryEntryStep3Screen({
           ) : (
             <CheckmarkIcon size={16} color={P.white} />
           )}
-          <Text style={styles.saveButtonText}>{isSubmitting ? 'Saving…' : 'Save entry'}</Text>
+          <Text style={styles.saveButtonText}>
+            {isSubmitting
+              ? t('farmer.farmDiary.newEntry.step3.saving')
+              : t('farmer.farmDiary.newEntry.step3.saveEntryButton')}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -847,7 +1162,7 @@ export function NewFarmDiaryEntryStep3Screen({
           onPress={() => setIsMethodModalOpen(false)}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalHeading}>Select Irrigation Method</Text>
+            <Text style={styles.modalHeading}>{t('farmer.farmDiary.newEntry.step3.selectIrrigationMethodModalTitle')}</Text>
             {IRRIGATION_METHODS.map((method) => {
               const isSelected = irrigationMethod === method;
               return (
@@ -862,7 +1177,7 @@ export function NewFarmDiaryEntryStep3Screen({
                     setIsMethodModalOpen(false);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={method}
+                  accessibilityLabel={irrigationMethodLabel(method)}
                 >
                   <Text
                     style={[
@@ -870,7 +1185,7 @@ export function NewFarmDiaryEntryStep3Screen({
                       isSelected && styles.modalOptionTextSelected,
                     ]}
                   >
-                    {method}
+                    {irrigationMethodLabel(method)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1124,10 +1439,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
   },
-  workerName: {
+  workerNameInput: {
     fontSize: 14,
     fontWeight: '700',
     color: P.slate900,
+    padding: 0,
+    margin: 0,
   },
   workerRole: {
     fontSize: 11.5,
@@ -1160,15 +1477,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginBottom: 2,
   },
-  statValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: P.slate900,
-  },
   statUnit: {
     fontSize: 11.5,
     fontWeight: '500',
     color: P.slate500,
+  },
+  statInputRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  statValueInput: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: P.slate900,
+    padding: 0,
+    margin: 0,
+    minWidth: 32,
   },
 
   wageStatBox: {
@@ -1182,10 +1507,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginBottom: 2,
   },
-  wageStatValue: {
+  wageValueInput: {
     fontSize: 14.5,
     fontWeight: '800',
     color: P.twGreen900,
+    padding: 0,
+    margin: 0,
+    minWidth: 44,
   },
   wageStatUnit: {
     fontSize: 11.5,
@@ -1333,10 +1661,25 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'visible',
   },
+  photoThumbWrapperError: {
+    borderWidth: 1.5,
+    borderColor: P.twRed500,
+  },
   photoThumbImage: {
     width: 68,
     height: 68,
     borderRadius: 12,
+  },
+  photoUploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoRemoveBadge: {
     position: 'absolute',

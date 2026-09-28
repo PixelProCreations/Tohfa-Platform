@@ -499,7 +499,7 @@ export function createDiaryTaxonomyAdminService(
 
     async createSubActivity(scope, categoryKey, body) {
       // Sub-activity keys are dotted under their category
-      // (0020_farm_diary.sql: "land_prep" -> "land_prep.ploughing_tilling").
+      // (0021_farm_diary.sql: "land_prep" -> "land_prep.ploughing_tilling").
       if (!body.key.startsWith(`${categoryKey}.`) || body.key.length <= categoryKey.length + 1) {
         throw new AppError('VALIDATION_FAILED', {
           detail: `Sub-activity key must be "${categoryKey}.<name>".`,

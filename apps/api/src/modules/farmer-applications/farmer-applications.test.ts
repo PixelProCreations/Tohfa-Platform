@@ -470,6 +470,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const target: SignedUploadTarget = {
         uploadUrl: 'http://localhost:3000/v1/uploads/mock/farmer_document/abc.pdf',
         fileUrl: 'http://localhost:3000/v1/uploads/mock/farmer_document/abc.pdf',
+        storageKey: 'farmer_document/abc.pdf',
         method: 'PUT',
         headers: {},
         expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),

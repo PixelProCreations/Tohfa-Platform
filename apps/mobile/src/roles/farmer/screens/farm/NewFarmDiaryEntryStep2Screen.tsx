@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { t } from '../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
 import { getDiaryTaxonomy, type DiaryCategory, type DiaryTaxonomy } from '../../api/farmDiary';
@@ -315,7 +316,7 @@ export function NewFarmDiaryEntryStep2Screen({
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        setLoadError(formatErrorMessage(err, 'Could not load activity types.'));
+        setLoadError(formatErrorMessage(err, t('farmer.farmDiary.newEntry.step2.loadError')));
         setLoadState('error');
       });
     return () => controller.abort();
@@ -355,14 +356,14 @@ export function NewFarmDiaryEntryStep2Screen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.farmDiary.common.goBackLabel')}
           >
             <ArrowBackIcon size={18} color={P.twGreen700} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>New Entry</Text>
-            <Text style={styles.headerSubtitle}>Step 2 of 3 · Activity Type</Text>
+            <Text style={styles.headerTitle}>{t('farmer.farmDiary.common.newEntryTitle')}</Text>
+            <Text style={styles.headerSubtitle}>{t('farmer.farmDiary.newEntry.step2.subtitle')}</Text>
           </View>
 
           <TouchableOpacity
@@ -370,9 +371,9 @@ export function NewFarmDiaryEntryStep2Screen({
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t('farmer.common.cancel')}
           >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
+            <Text style={styles.cancelBtnText}>{t('farmer.common.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -392,7 +393,7 @@ export function NewFarmDiaryEntryStep2Screen({
         {loadState === 'loading' ? (
           <View style={styles.statusBox}>
             <ActivityIndicator color={P.twGreen700} />
-            <Text style={styles.statusText}>Loading activity types…</Text>
+            <Text style={styles.statusText}>{t('farmer.farmDiary.newEntry.step2.loading')}</Text>
           </View>
         ) : loadState === 'error' ? (
           <View style={[styles.statusBox, styles.errorBox]}>
@@ -402,19 +403,19 @@ export function NewFarmDiaryEntryStep2Screen({
               onPress={() => setReloadKey((k) => k + 1)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Retry loading activity types"
+              accessibilityLabel={t('farmer.farmDiary.newEntry.step2.retryLabel')}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : categories.length === 0 ? (
           <View style={styles.statusBox}>
-            <Text style={styles.statusText}>No activity types are available right now.</Text>
+            <Text style={styles.statusText}>{t('farmer.farmDiary.newEntry.step2.noCategoriesEmpty')}</Text>
           </View>
         ) : (
           <>
             {/* ── 1. Category Section Heading ── */}
-            <Text style={styles.sectionHeading}>CATEGORY</Text>
+            <Text style={styles.sectionHeading}>{t('farmer.farmDiary.newEntry.step2.categoryHeading')}</Text>
 
             {/* ── 3-Column Categories Grid ── */}
             <View style={styles.categoriesGrid}>
@@ -455,14 +456,16 @@ export function NewFarmDiaryEntryStep2Screen({
               <>
                 {/* ── 2. Sub-Activity Section Heading ── */}
                 <Text style={styles.sectionHeading}>
-                  SUB-ACTIVITY · {activeCategory.name.toUpperCase()}
+                  {t('farmer.farmDiary.newEntry.step2.subActivityHeading', {
+                    category: activeCategory.name.toUpperCase(),
+                  })}
                 </Text>
 
                 {/* ── Sub-Activity Radio Options List ── */}
                 <View style={styles.subActivityList}>
                   {activeCategory.subActivities.length === 0 ? (
                     <Text style={styles.statusText}>
-                      No sub-activities are available for this category.
+                      {t('farmer.farmDiary.newEntry.step2.noSubActivities')}
                     </Text>
                   ) : (
                     activeCategory.subActivities.map((subAct) => {
@@ -517,10 +520,10 @@ export function NewFarmDiaryEntryStep2Screen({
           onPress={onBack}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t('farmer.common.back')}
         >
           <ArrowBackIcon size={16} color={P.slate800} />
-          <Text style={styles.backButtonText}>Back</Text>
+          <Text style={styles.backButtonText}>{t('farmer.common.back')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -529,10 +532,10 @@ export function NewFarmDiaryEntryStep2Screen({
           disabled={!canProceed}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Proceed to Next Details"
+          accessibilityLabel={t('farmer.farmDiary.newEntry.step2.proceedLabel')}
           accessibilityState={{ disabled: !canProceed }}
         >
-          <Text style={styles.nextButtonText}>Next · Details</Text>
+          <Text style={styles.nextButtonText}>{t('farmer.farmDiary.newEntry.step2.nextButton')}</Text>
           <ArrowRightIcon size={16} color={P.white} />
         </TouchableOpacity>
       </View>

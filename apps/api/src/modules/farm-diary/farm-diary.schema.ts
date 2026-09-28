@@ -1,7 +1,7 @@
 /**
  * Farm Diary (BR-40..BR-45). Zod schemas and inferred types only — no SQL, no
- * HTTP, no business rules. See db/migrations/0020_farm_diary.sql and
- * 0021_farm_diary_workforce.sql for the tables behind these shapes.
+ * HTTP, no business rules. See db/migrations/0021_farm_diary.sql and
+ * 0022_farm_diary_workforce.sql for the tables behind these shapes.
  *
  * WHY several numeric fields are only type-checked here, not range-checked:
  * a zod failure always surfaces as the generic `VALIDATION_FAILED`

@@ -356,7 +356,7 @@ ON CONFLICT (slug) DO UPDATE SET
 -- Farm diary taxonomy — 12 activity categories, seeded reference data.
 -- Sourced from the farm diary taxonomy handed off for the diary API module;
 -- no BR-xx id exists for this yet (specification gap, flagged in
--- db/migrations/0020_farm_diary.sql's header).
+-- db/migrations/0021_farm_diary.sql's header).
 -- -----------------------------------------------------------------------------
 INSERT INTO diary_activity_categories (key, name, sort_order, icon_key) VALUES
     ('land_prep',         'Land Preparation',       1,  'mountain'),

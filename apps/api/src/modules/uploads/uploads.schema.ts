@@ -44,6 +44,7 @@ export type SignUploadBody = z.infer<typeof signUploadBody>;
 export const signUploadResponse = z.object({
   uploadUrl: z.string().url(),
   fileUrl: z.string().url(),
+  storageKey: z.string(),
   method: z.enum(['PUT', 'POST']),
   headers: z.record(z.string()),
   expiresAt: z.string().datetime(),

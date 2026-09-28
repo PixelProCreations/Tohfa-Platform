@@ -4779,10 +4779,11 @@ components:
       description: |
         A pre-signed direct-upload target, returned by `POST /uploads/sign` and its
         registration-scoped sibling `POST /farmers/applications/{id}/uploads/sign`.
-      required: [uploadUrl, fileUrl, method, expiresAt]
+      required: [uploadUrl, fileUrl, storageKey, method, expiresAt]
       properties:
         uploadUrl: { type: string, format: uri }
         fileUrl: { type: string, format: uri, description: The durable URL to send back to the API once the upload completes. }
+        storageKey: { type: string, description: The key this upload was minted under — pass it back to whatever endpoint needs to reference the finished upload (e.g. attaching a diary photo, a listing photo, etc.). }
         method: { type: string, enum: [PUT, POST] }
         headers: { type: object, additionalProperties: { type: string } }
         expiresAt: { type: string, format: date-time }
@@ -5529,7 +5530,7 @@ components:
       description: |
         One worker's labour/wage detail on a diary entry. `wageRatePaise` is integer
         paise, not a decimal rupee string — root CLAUDE.md §2.2, money is never a float
-        (see db/migrations/0021_farm_diary_workforce.sql). `hoursWorked` must be
+        (see db/migrations/0022_farm_diary_workforce.sql). `hoursWorked` must be
         greater than 0 and at most 24, or the request is rejected with
         `DIARY_WORKER_HOURS_INVALID` (BR-44a); `wageRatePaise` must be a positive
         whole number of paise, or `DIARY_WAGE_RATE_INVALID` (BR-44b).

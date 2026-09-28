@@ -11,18 +11,19 @@ import {
   Modal,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { format, fromPaise } from '@tohfa/shared-types';
+import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors } from '../../theme';
 import {
   formatMinutes,
-  formatPaise,
   resolveDiaryEntry,
-  toIsoDate,
   toIsoMonth,
   useDiaryCalendarMonth,
   useDiaryDayEntries,
   useDiaryReferenceData,
   type ResolvedDiaryEntry,
 } from './diaryLookups';
+import { toCalendarDateString } from './toolPurchaseDate';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -120,14 +121,23 @@ function UsersIcon({ size = 14, color = P.twGray700 }: { size?: number; color?: 
 
 // ── Date Helpers ─────────────────────────────────────────────────────────────
 
-const MONTHS_FULL = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+const MONTH_KEYS = [
+  'farmer.weather.month.jan', 'farmer.weather.month.feb', 'farmer.weather.month.mar',
+  'farmer.weather.month.apr', 'farmer.weather.month.may', 'farmer.weather.month.jun',
+  'farmer.weather.month.jul', 'farmer.weather.month.aug', 'farmer.weather.month.sep',
+  'farmer.weather.month.oct', 'farmer.weather.month.nov', 'farmer.weather.month.dec',
 ] as const;
-const DAYS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
-
-const ALL_FIELDS_LABEL = 'All fields';
-const ALL_CROPS_LABEL = 'All crops';
+const DAY_KEYS = [
+  'farmer.weather.dayFull.sun', 'farmer.weather.dayFull.mon', 'farmer.weather.dayFull.tue',
+  'farmer.weather.dayFull.wed', 'farmer.weather.dayFull.thu', 'farmer.weather.dayFull.fri',
+  'farmer.weather.dayFull.sat',
+] as const;
+const WEEKDAY_LETTER_KEYS = [
+  'farmer.farmDiary.common.weekdayLetter.sun', 'farmer.farmDiary.common.weekdayLetter.mon',
+  'farmer.farmDiary.common.weekdayLetter.tue', 'farmer.farmDiary.common.weekdayLetter.wed',
+  'farmer.farmDiary.common.weekdayLetter.thu', 'farmer.farmDiary.common.weekdayLetter.fri',
+  'farmer.farmDiary.common.weekdayLetter.sat',
+] as const;
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -162,7 +172,7 @@ export function FarmDiaryScreen({
 
   // ── Server data ──
   const ref = useDiaryReferenceData();
-  const day = useDiaryDayEntries(toIsoDate(selectedDate));
+  const day = useDiaryDayEntries(toCalendarDateString(selectedDate));
   // Only fetch "which days have entries" while the picker is actually open.
   const pickerMonth = useDiaryCalendarMonth(
     isDatePickerOpen ? toIsoMonth(calendarYear, calendarMonth) : null,
@@ -188,15 +198,18 @@ export function FarmDiaryScreen({
     [day.entries, day.cropNameById, plotNameById, categoryByKey, subActivityByKey],
   );
 
+  const allFieldsLabel = t('farmer.farmDiary.common.allFields');
+  const allCropsLabel = t('farmer.farmDiary.list.allCrops');
+
   const fieldOptions: { id: string | null; label: string }[] = [
-    { id: null, label: ALL_FIELDS_LABEL },
+    { id: null, label: allFieldsLabel },
     ...ref.plots.map((p) => ({ id: p.id, label: p.name })),
   ];
 
   // No bulk "all my crops" endpoint exists, so crop options are the distinct
   // crops present in the currently loaded day — a known, accepted limitation.
   const cropOptions: { value: string | null; label: string }[] = [
-    { value: null, label: ALL_CROPS_LABEL },
+    { value: null, label: allCropsLabel },
     ...Array.from(new Set(resolvedEntries.map((r) => r.cropName)))
       .sort()
       .map((name) => ({ value: name, label: name })),
@@ -204,9 +217,9 @@ export function FarmDiaryScreen({
 
   const selectedFieldLabel =
     selectedPlotId === null
-      ? ALL_FIELDS_LABEL
-      : ref.plotNameById.get(selectedPlotId) ?? ALL_FIELDS_LABEL;
-  const selectedCropLabel = selectedCrop ?? ALL_CROPS_LABEL;
+      ? allFieldsLabel
+      : ref.plotNameById.get(selectedPlotId) ?? allFieldsLabel;
+  const selectedCropLabel = selectedCrop ?? allCropsLabel;
 
   const openDatePicker = () => {
     setCalendarDate(new Date(selectedDate));
@@ -260,7 +273,7 @@ export function FarmDiaryScreen({
     ? formatMinutes(day.entries.reduce((sum, e) => sum + e.minutes, 0))
     : '–';
   const fieldsCovered = statsReady ? String(new Set(day.entries.map((e) => e.plotId)).size) : '–';
-  const formattedFullDate = `${DAYS_FULL[selectedDate.getDay()]}, ${selectedDate.getDate()} ${MONTHS_FULL[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+  const formattedFullDate = `${t(DAY_KEYS[selectedDate.getDay()] ?? DAY_KEYS[0])}, ${selectedDate.getDate()} ${t(MONTH_KEYS[selectedDate.getMonth()] ?? MONTH_KEYS[0])} ${selectedDate.getFullYear()}`;
   const hasActiveFilter = selectedPlotId !== null || selectedCrop !== null;
 
   return (
@@ -275,7 +288,7 @@ export function FarmDiaryScreen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('farmer.common.back')}
           >
             <ArrowBackIcon size={20} color={P.white} />
           </TouchableOpacity>
@@ -285,9 +298,9 @@ export function FarmDiaryScreen({
             onPress={openDatePicker}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Change diary date"
+            accessibilityLabel={t('farmer.farmDiary.list.changeDateLabel')}
           >
-            <Text style={styles.headerTitle}>Farm Diary</Text>
+            <Text style={styles.headerTitle}>{t('farmer.farmDiary.list.title')}</Text>
             <View style={styles.headerSubtitleRow}>
               <Text style={styles.headerSubtitle}>{formattedFullDate}</Text>
               <ChevronDownIcon size={14} color="rgba(255,255,255,0.7)" />
@@ -305,7 +318,7 @@ export function FarmDiaryScreen({
               }
             }}
             accessibilityRole="button"
-            accessibilityLabel="Open diary calendar"
+            accessibilityLabel={t('farmer.farmDiary.list.openCalendarLabel')}
           >
             <CalendarIcon size={22} color={P.white} />
           </TouchableOpacity>
@@ -315,15 +328,15 @@ export function FarmDiaryScreen({
         <View style={styles.summaryStatsRow}>
           <View style={styles.summaryStatCard}>
             <Text style={styles.summaryStatNumber}>{entriesCount}</Text>
-            <Text style={styles.summaryStatLabel}>Entries today</Text>
+            <Text style={styles.summaryStatLabel}>{t('farmer.farmDiary.list.statEntriesToday')}</Text>
           </View>
           <View style={styles.summaryStatCard}>
             <Text style={styles.summaryStatNumber}>{timeLogged}</Text>
-            <Text style={styles.summaryStatLabel}>Time logged</Text>
+            <Text style={styles.summaryStatLabel}>{t('farmer.farmDiary.list.statTimeLogged')}</Text>
           </View>
           <View style={styles.summaryStatCard}>
             <Text style={styles.summaryStatNumber}>{fieldsCovered}</Text>
-            <Text style={styles.summaryStatLabel}>Fields covered</Text>
+            <Text style={styles.summaryStatLabel}>{t('farmer.farmDiary.list.statFieldsCovered')}</Text>
           </View>
         </View>
       </View>
@@ -336,7 +349,7 @@ export function FarmDiaryScreen({
             activeOpacity={0.75}
             onPress={() => setIsFieldPickerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="Filter by field"
+            accessibilityLabel={t('farmer.farmDiary.common.filterByFieldLabel')}
           >
             <Text style={[styles.filterBtnText, selectedPlotId !== null && styles.filterBtnTextActive]} numberOfLines={1}>
               {selectedFieldLabel}
@@ -349,7 +362,7 @@ export function FarmDiaryScreen({
             activeOpacity={0.75}
             onPress={() => setIsCropPickerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel="Filter by crop"
+            accessibilityLabel={t('farmer.farmDiary.list.filterByCropLabel')}
           >
             <Text style={[styles.filterBtnText, selectedCrop !== null && styles.filterBtnTextActive]} numberOfLines={1}>
               {selectedCropLabel}
@@ -362,13 +375,13 @@ export function FarmDiaryScreen({
         </View>
 
         {/* ── Section Title ── */}
-        <Text style={styles.sectionTitle}>TODAY'S ENTRIES</Text>
+        <Text style={styles.sectionTitle}>{t('farmer.farmDiary.list.sectionTitle')}</Text>
 
         {/* ── Entries List / Loading / Error / Empty State ── */}
         {listState === 'loading' ? (
           <View style={styles.statusBox}>
             <ActivityIndicator color={P.twGreen700} />
-            <Text style={styles.statusText}>Loading diary entries…</Text>
+            <Text style={styles.statusText}>{t('farmer.farmDiary.common.loadingEntries')}</Text>
           </View>
         ) : listState === 'error' ? (
           <View style={[styles.statusBox, styles.errorBox]}>
@@ -378,25 +391,25 @@ export function FarmDiaryScreen({
               onPress={retryList}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Retry loading diary entries"
+              accessibilityLabel={t('farmer.farmDiary.common.retryDiaryEntriesLabel')}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : filteredEntries.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No diary entries found</Text>
+            <Text style={styles.emptyTitle}>{t('farmer.farmDiary.list.emptyTitle')}</Text>
             <Text style={styles.emptySubtitle}>
               {hasActiveFilter
-                ? 'Try changing or clearing your filters to see more entries.'
-                : 'No activities logged for this date yet.'}
+                ? t('farmer.farmDiary.list.emptyFilteredSubtitle')
+                : t('farmer.farmDiary.list.emptySubtitle')}
             </Text>
             <TouchableOpacity
               style={styles.emptyActionButton}
               onPress={onNavigateToNewEntry}
               activeOpacity={0.8}
             >
-              <Text style={styles.emptyActionText}>+ Add entry for this day</Text>
+              <Text style={styles.emptyActionText}>{t('farmer.farmDiary.list.emptyAddEntry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -455,21 +468,29 @@ export function FarmDiaryScreen({
                               <View style={styles.detailPill}>
                                 <UsersIcon size={12} color={P.twGray600} />
                                 <Text style={styles.detailPillText}>
-                                  {entry.workerCount} {entry.workerCount === 1 ? 'worker' : 'workers'}
+                                  {entry.workerCount}{' '}
+                                  {entry.workerCount === 1
+                                    ? t('farmer.farmDiary.list.worker')
+                                    : t('farmer.farmDiary.list.workers')}
                                 </Text>
                               </View>
                             )}
                             {entry.totalLabourCostPaise > 0 && (
                               <View style={styles.detailPill}>
                                 <Text style={styles.detailPillText}>
-                                  Labour {formatPaise(entry.totalLabourCostPaise)}
+                                  {t('farmer.farmDiary.list.labourCost', {
+                                    amount: format(fromPaise(entry.totalLabourCostPaise)),
+                                  })}
                                 </Text>
                               </View>
                             )}
                             {entry.photoCount > 0 && (
                               <View style={styles.detailPill}>
                                 <Text style={styles.detailPillText}>
-                                  {entry.photoCount} {entry.photoCount === 1 ? 'photo' : 'photos'}
+                                  {entry.photoCount}{' '}
+                                  {entry.photoCount === 1
+                                    ? t('farmer.farmDiary.list.photo')
+                                    : t('farmer.farmDiary.list.photos')}
                                 </Text>
                               </View>
                             )}
@@ -479,7 +500,7 @@ export function FarmDiaryScreen({
                           )}
                         </>
                       ) : (
-                        <Text style={styles.entryDesc}>No additional details recorded.</Text>
+                        <Text style={styles.entryDesc}>{t('farmer.farmDiary.list.noDetails')}</Text>
                       )}
                     </View>
                   )}
@@ -493,7 +514,7 @@ export function FarmDiaryScreen({
       {/* ── Floating Action Button ── */}
       <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={onNavigateToNewEntry}>
         <Text style={styles.fabIcon}>+</Text>
-        <Text style={styles.fabText}>New entry</Text>
+        <Text style={styles.fabText}>{t('farmer.farmDiary.list.newEntryFab')}</Text>
       </TouchableOpacity>
 
       {/* ── Field Filter Modal ── */}
@@ -511,7 +532,7 @@ export function FarmDiaryScreen({
           />
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select Field</Text>
+              <Text style={styles.modalTitle}>{t('farmer.farmDiary.common.selectFieldModalTitle')}</Text>
               <TouchableOpacity
                 onPress={() => setIsFieldPickerOpen(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -557,7 +578,7 @@ export function FarmDiaryScreen({
           />
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select Crop</Text>
+              <Text style={styles.modalTitle}>{t('farmer.farmDiary.list.selectCropModalTitle')}</Text>
               <TouchableOpacity
                 onPress={() => setIsCropPickerOpen(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -604,9 +625,9 @@ export function FarmDiaryScreen({
           <View style={styles.calModalCard}>
             {/* Header */}
             <View style={styles.calHeader}>
-              <Text style={styles.calFieldBadge}>Select Diary Date</Text>
+              <Text style={styles.calFieldBadge}>{t('farmer.farmDiary.list.selectDateModalTitle')}</Text>
               <Text style={styles.calSelectedDateTitle}>
-                {calendarDate.getDate()} {MONTHS_FULL[calendarDate.getMonth()]} {calendarDate.getFullYear()}
+                {calendarDate.getDate()} {t(MONTH_KEYS[calendarDate.getMonth()] ?? MONTH_KEYS[0])} {calendarDate.getFullYear()}
               </Text>
             </View>
 
@@ -615,7 +636,7 @@ export function FarmDiaryScreen({
               <TouchableOpacity
                 style={styles.calNavBtn}
                 onPress={handlePrevMonth}
-                accessibilityLabel="Previous month"
+                accessibilityLabel={t('farmer.farmDiary.common.previousMonthLabel')}
               >
                 <ChevronLeftIcon size={18} color={P.deepGreen} />
               </TouchableOpacity>
@@ -626,7 +647,7 @@ export function FarmDiaryScreen({
                 activeOpacity={0.75}
               >
                 <Text style={styles.calMonthYearLabel}>
-                  {MONTHS_FULL[calendarMonth]} {calendarYear}
+                  {t(MONTH_KEYS[calendarMonth] ?? MONTH_KEYS[0])} {calendarYear}
                 </Text>
                 <ChevronDownIcon size={14} color={P.deepGreen} />
               </TouchableOpacity>
@@ -634,7 +655,7 @@ export function FarmDiaryScreen({
               <TouchableOpacity
                 style={styles.calNavBtn}
                 onPress={handleNextMonth}
-                accessibilityLabel="Next month"
+                accessibilityLabel={t('farmer.farmDiary.common.nextMonthLabel')}
               >
                 <ChevronRightIcon size={18} color={P.deepGreen} />
               </TouchableOpacity>
@@ -680,9 +701,9 @@ export function FarmDiaryScreen({
               <>
                 {/* Weekdays Row */}
                 <View style={styles.calWeekdaysRow}>
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayName, idx) => (
-                    <Text key={`${dayName}-${idx}`} style={styles.calWeekdayText}>
-                      {dayName}
+                  {WEEKDAY_LETTER_KEYS.map((weekdayKey, idx) => (
+                    <Text key={`${weekdayKey}-${idx}`} style={styles.calWeekdayText}>
+                      {t(weekdayKey)}
                     </Text>
                   ))}
                 </View>
@@ -703,7 +724,7 @@ export function FarmDiaryScreen({
                       new Date().getMonth() === calendarMonth &&
                       new Date().getDate() === day;
                     const hasEntries = pickerMonth.countsByDate.has(
-                      toIsoDate(new Date(calendarYear, calendarMonth, day)),
+                      toCalendarDateString(new Date(calendarYear, calendarMonth, day)),
                     );
 
                     return (
@@ -744,10 +765,10 @@ export function FarmDiaryScreen({
                     onPress={pickerMonth.retry}
                     activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel="Retry loading days with entries"
+                    accessibilityLabel={t('farmer.farmDiary.common.retryDaysWithEntriesLabel')}
                   >
                     <Text style={styles.calDotsErrorText}>
-                      {pickerMonth.error} Tap to retry.
+                      {t('farmer.farmDiary.common.errorTapToRetry', { error: pickerMonth.error })}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -760,13 +781,13 @@ export function FarmDiaryScreen({
                 style={styles.calCancelBtn}
                 onPress={() => setIsDatePickerOpen(false)}
               >
-                <Text style={styles.calCancelBtnText}>Cancel</Text>
+                <Text style={styles.calCancelBtnText}>{t('farmer.common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.calApplyBtn}
                 onPress={handleConfirmDate}
               >
-                <Text style={styles.calApplyBtnText}>Apply Date</Text>
+                <Text style={styles.calApplyBtnText}>{t('farmer.farmDiary.list.applyDateButton')}</Text>
               </TouchableOpacity>
             </View>
           </View>

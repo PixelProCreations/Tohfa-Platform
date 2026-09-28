@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
+import { t } from '../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
 import {
@@ -126,7 +127,7 @@ function CalendarBoxIcon({ size = 22, color = P.twGray500 }: { size?: number; co
 // ─────────────────────────────────────────────
 
 /** Cosmetic placeholder — the entry's real `activityOn` defaults server-side. */
-const DATE_LABEL = 'Today · 16 Jul 2026';
+const DATE_LABEL_FALLBACK = '16 Jul 2026';
 
 export interface NewFarmDiaryEntryStep1Data {
   plotId: string;
@@ -186,7 +187,7 @@ export function NewFarmDiaryEntryScreen({
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        setPlotsError(formatErrorMessage(err, 'Could not load your fields.'));
+        setPlotsError(formatErrorMessage(err, t('farmer.farmDiary.newEntry.step1.loadFieldsError')));
         setPlotsState('error');
       });
     return () => controller.abort();
@@ -214,7 +215,7 @@ export function NewFarmDiaryEntryScreen({
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        setCropsError(formatErrorMessage(err, 'Could not load the crops for this field.'));
+        setCropsError(formatErrorMessage(err, t('farmer.farmDiary.newEntry.step1.loadCropsError')));
         setCropsState('error');
       });
     return () => controller.abort();
@@ -224,6 +225,8 @@ export function NewFarmDiaryEntryScreen({
   const selectedCrop = crops.find((c) => c.id === selectedCropId) ?? null;
   const hasNoActiveCrop = cropsState === 'ready' && crops.length === 0;
   const canProceed = plotsState === 'ready' && selectedPlot !== null && selectedCrop !== null;
+
+  const dateLabel = t('farmer.farmDiary.newEntry.step1.dateValue', { date: DATE_LABEL_FALLBACK });
 
   const handleFieldChange = (plotId: string) => {
     setSelectedPlotId(plotId);
@@ -244,7 +247,7 @@ export function NewFarmDiaryEntryScreen({
       // server derives it from the plot.
       ...(crops.length > 1 ? { farmCropId: selectedCrop.id } : {}),
       cropName: selectedCrop.cropName,
-      date: DATE_LABEL,
+      date: dateLabel,
     });
   };
 
@@ -252,12 +255,12 @@ export function NewFarmDiaryEntryScreen({
 
   const cropDropdownLabel =
     cropsState === 'loading'
-      ? 'Loading crops…'
+      ? t('farmer.farmDiary.newEntry.step1.loadingCrops')
       : cropsState === 'error'
-        ? 'Could not load crops'
+        ? t('farmer.farmDiary.newEntry.step1.loadCropsShortError')
         : hasNoActiveCrop
-          ? 'No active crop'
-          : (selectedCrop?.cropName ?? 'Select a crop');
+          ? t('farmer.farmDiary.newEntry.step1.noActiveCrop')
+          : (selectedCrop?.cropName ?? t('farmer.farmDiary.newEntry.step1.selectCropPlaceholder'));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -271,14 +274,14 @@ export function NewFarmDiaryEntryScreen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.farmDiary.common.goBackLabel')}
           >
             <ArrowBackIcon size={18} color={P.twGreen700} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>New Entry</Text>
-            <Text style={styles.headerSubtitle}>Step 1 of 3 · Field & Crop</Text>
+            <Text style={styles.headerTitle}>{t('farmer.farmDiary.common.newEntryTitle')}</Text>
+            <Text style={styles.headerSubtitle}>{t('farmer.farmDiary.newEntry.step1.subtitle')}</Text>
           </View>
 
           <TouchableOpacity
@@ -286,9 +289,9 @@ export function NewFarmDiaryEntryScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t('farmer.common.cancel')}
           >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
+            <Text style={styles.cancelBtnText}>{t('farmer.common.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -307,13 +310,13 @@ export function NewFarmDiaryEntryScreen({
       >
         {/* ── Subtitle Instruction ── */}
         <Text style={styles.introInstruction}>
-          Pick the field and crop this entry belongs to. Everything after this is scoped to your choice.
+          {t('farmer.farmDiary.newEntry.step1.introInstruction')}
         </Text>
 
         {plotsState === 'loading' ? (
           <View style={styles.statusBox}>
             <ActivityIndicator color={P.twGreen700} />
-            <Text style={styles.statusText}>Loading your fields…</Text>
+            <Text style={styles.statusText}>{t('farmer.farmDiary.newEntry.step1.loadingFields')}</Text>
           </View>
         ) : plotsState === 'error' ? (
           <View style={[styles.statusBox, styles.errorBox]}>
@@ -323,15 +326,15 @@ export function NewFarmDiaryEntryScreen({
               onPress={() => setPlotsReloadKey((k) => k + 1)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Retry loading fields"
+              accessibilityLabel={t('farmer.farmDiary.newEntry.step1.retryFieldsLabel')}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : plots.length === 0 ? (
           <View style={[styles.statusBox, styles.warningBox]}>
             <Text style={styles.warningText}>
-              You have no registered fields yet. Add a field before logging a diary entry.
+              {t('farmer.farmDiary.newEntry.step1.noFieldsWarning')}
             </Text>
           </View>
         ) : (
@@ -340,7 +343,7 @@ export function NewFarmDiaryEntryScreen({
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <FieldSquareIcon size={15} color={P.twGreen800} />
-                <Text style={styles.labelTitle}> Field </Text>
+                <Text style={styles.labelTitle}> {t('farmer.farmDiary.newEntry.step1.fieldLabel')} </Text>
                 <Text style={styles.requiredAsterisk}>*</Text>
               </View>
 
@@ -349,22 +352,22 @@ export function NewFarmDiaryEntryScreen({
                 activeOpacity={0.8}
                 onPress={() => setIsFieldModalOpen(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Select Field"
+                accessibilityLabel={t('farmer.farmDiary.common.selectFieldModalTitle')}
               >
                 <Text style={styles.dropdownSelectedText}>
-                  {selectedPlot?.name ?? 'Select a field'}
+                  {selectedPlot?.name ?? t('farmer.farmDiary.newEntry.step1.selectFieldPlaceholder')}
                 </Text>
                 <ChevronDownIcon size={18} color={P.twGreen700} />
               </TouchableOpacity>
 
-              <Text style={styles.helperNote}>From your registered FMB zones (Screen 19).</Text>
+              <Text style={styles.helperNote}>{t('farmer.farmDiary.newEntry.step1.fieldHelperNote')}</Text>
             </View>
 
             {/* ── 2. Crop Dropdown ── */}
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <CropSproutIcon size={16} color={P.twGreen800} />
-                <Text style={styles.labelTitle}> Crop </Text>
+                <Text style={styles.labelTitle}> {t('farmer.farmDiary.newEntry.step1.cropLabel')} </Text>
                 <Text style={styles.requiredAsterisk}>*</Text>
               </View>
 
@@ -374,7 +377,7 @@ export function NewFarmDiaryEntryScreen({
                 onPress={() => setIsCropModalOpen(true)}
                 disabled={cropsState !== 'ready' || crops.length < 2}
                 accessibilityRole="button"
-                accessibilityLabel="Select Crop"
+                accessibilityLabel={t('farmer.farmDiary.newEntry.step1.selectCropLabel')}
               >
                 <Text style={styles.dropdownSelectedText}>{cropDropdownLabel}</Text>
                 {cropsState === 'loading' ? (
@@ -391,23 +394,25 @@ export function NewFarmDiaryEntryScreen({
                     onPress={() => setCropsReloadKey((k) => k + 1)}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityLabel="Retry loading crops"
+                    accessibilityLabel={t('farmer.farmDiary.newEntry.step1.retryCropsLabel')}
                   >
-                    <Text style={styles.inlineRetryText}>Retry</Text>
+                    <Text style={styles.inlineRetryText}>{t('farmer.common.retry')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : hasNoActiveCrop ? (
                 <View style={[styles.statusBox, styles.warningBox, styles.inlineWarning]}>
                   <Text style={styles.warningText}>
-                    This field has no active crop right now. Choose another field to log an entry.
+                    {t('farmer.farmDiary.newEntry.step1.noActiveCropWarning')}
                   </Text>
                 </View>
               ) : crops.length > 1 ? (
                 <Text style={styles.helperNote}>
-                  This field has {crops.length} active crops — pick the one this entry is for.
+                  {t('farmer.farmDiary.newEntry.step1.multipleCropsHelper', { count: crops.length })}
                 </Text>
               ) : (
-                <Text style={styles.helperNote}>This field has one active crop.</Text>
+                <Text style={styles.helperNote}>
+                  {t('farmer.farmDiary.newEntry.step1.singleCropHelper')}
+                </Text>
               )}
             </View>
 
@@ -417,12 +422,12 @@ export function NewFarmDiaryEntryScreen({
                 <LeafOutlineIcon size={22} color={P.twGreen700} />
               </View>
               <View style={styles.infoCardContent}>
-                <Text style={styles.infoCardLabel}>CROP DURATION</Text>
+                <Text style={styles.infoCardLabel}>{t('farmer.farmDiary.newEntry.step1.cropDurationLabel')}</Text>
                 <Text style={styles.infoCardValue}>{selectedCrop?.cropName ?? '—'}</Text>
                 <Text style={styles.infoCardSub}>
                   {selectedCrop?.plantedOn
-                    ? `Planted on ${selectedCrop.plantedOn}`
-                    : 'Planting date not recorded'}
+                    ? t('farmer.farmDiary.newEntry.step1.plantedOn', { date: selectedCrop.plantedOn })
+                    : t('farmer.farmDiary.newEntry.step1.plantingDateNotRecorded')}
                 </Text>
               </View>
             </View>
@@ -435,11 +440,11 @@ export function NewFarmDiaryEntryScreen({
             <CalendarBoxIcon size={22} color={P.twGray500} />
           </View>
           <View style={styles.infoCardContent}>
-            <Text style={styles.infoCardLabel}>DATE</Text>
-            <Text style={styles.infoCardValue}>{DATE_LABEL}</Text>
+            <Text style={styles.infoCardLabel}>{t('farmer.farmDiary.newEntry.step1.dateCardLabel')}</Text>
+            <Text style={styles.infoCardValue}>{dateLabel}</Text>
           </View>
           <View style={styles.autoBadge}>
-            <Text style={styles.autoBadgeText}>AUTO</Text>
+            <Text style={styles.autoBadgeText}>{t('farmer.farmDiary.newEntry.step1.autoBadge')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -452,10 +457,10 @@ export function NewFarmDiaryEntryScreen({
           disabled={!canProceed}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Proceed to Activity Type"
+          accessibilityLabel={t('farmer.farmDiary.newEntry.step1.proceedLabel')}
           accessibilityState={{ disabled: !canProceed }}
         >
-          <Text style={styles.activityTypeBtnText}>Activity Type</Text>
+          <Text style={styles.activityTypeBtnText}>{t('farmer.farmDiary.newEntry.step1.activityTypeButton')}</Text>
           <ArrowRightIcon size={18} color={P.white} />
         </TouchableOpacity>
       </View>
@@ -473,7 +478,7 @@ export function NewFarmDiaryEntryScreen({
           onPress={() => setIsFieldModalOpen(false)}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalHeading}>Select Field Zone</Text>
+            <Text style={styles.modalHeading}>{t('farmer.farmDiary.newEntry.step1.selectFieldZoneModalTitle')}</Text>
             {plots.map((plot) => (
               <TouchableOpacity
                 key={plot.id}
@@ -510,7 +515,7 @@ export function NewFarmDiaryEntryScreen({
           onPress={() => setIsCropModalOpen(false)}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalHeading}>Select Crop</Text>
+            <Text style={styles.modalHeading}>{t('farmer.farmDiary.newEntry.step1.selectCropLabel')}</Text>
             {crops.map((activeCrop) => (
               <TouchableOpacity
                 key={activeCrop.id}
@@ -527,7 +532,9 @@ export function NewFarmDiaryEntryScreen({
                   ]}
                 >
                   {activeCrop.cropName}
-                  {activeCrop.plantedOn ? ` · planted ${activeCrop.plantedOn}` : ''}
+                  {activeCrop.plantedOn
+                    ? t('farmer.farmDiary.newEntry.step1.plantedSuffix', { date: activeCrop.plantedOn })
+                    : ''}
                 </Text>
               </TouchableOpacity>
             ))}

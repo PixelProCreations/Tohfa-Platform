@@ -25,7 +25,13 @@ export interface FarmerApplicationResponse {
 }
 
 export interface SignUploadPayload {
-  purpose: 'FARMER_DOCUMENT' | 'CERTIFICATE';
+  // Widened to include 'DIARY_PHOTO' for the farm diary photo-upload flow
+  // (NewFarmDiaryEntryStep3Screen.tsx), which calls signUpload -- not
+  // signApplicationUpload -- since the farmer already has an account by then.
+  // Only this one purpose was added; the backend's full UploadPurpose enum
+  // (apps/api/src/modules/uploads/uploads.schema.ts) has several more that
+  // aren't needed here.
+  purpose: 'FARMER_DOCUMENT' | 'CERTIFICATE' | 'DIARY_PHOTO';
   fileName: string;
   contentType: string;
   // Required by the server's signUploadBody schema (max 25 MiB) -- omitting it, or sending
@@ -38,6 +44,7 @@ export interface SignUploadPayload {
 export interface SignUploadResponse {
   uploadUrl: string;
   fileUrl: string;
+  storageKey: string;
   resumable?: boolean;
   // Mirrors apps/api/src/storage/blobStorage.ts's SignedUploadTarget, which the
   // server always sends alongside uploadUrl/fileUrl/resumable. A real Azure

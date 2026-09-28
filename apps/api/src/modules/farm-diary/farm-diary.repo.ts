@@ -11,7 +11,7 @@
  *  - `deleted_at IS NULL` is on every entry read (BR-43b).
  *  - Rows are mapped to the wire shape here; snake_case never leaves this file.
  *
- * Schema: db/migrations/0020_farm_diary.sql plus 0021_farm_diary_workforce.sql
+ * Schema: db/migrations/0021_farm_diary.sql plus 0022_farm_diary_workforce.sql
  * (diary_entry_workers; diary_entries.labor_count dropped; is_active on both
  * taxonomy tables).
  */

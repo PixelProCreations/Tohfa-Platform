@@ -12,7 +12,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { authPalette as P } from '../../theme';
-import { formatMoneyAmount } from '../../api/wallet';
 import {
   getDiaryCalendar,
   getDiaryTaxonomy,
@@ -221,11 +220,6 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
 
-/** Local-calendar `YYYY-MM-DD` (not toISOString, which would shift to UTC). */
-export function toIsoDate(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
 /** `YYYY-MM` for a 0-indexed month. */
 export function toIsoMonth(year: number, month0: number): string {
   return `${year}-${pad2(month0 + 1)}`;
@@ -249,17 +243,6 @@ export function formatTimeOfDay(iso: string): string {
   const suffix = h24 >= 12 ? 'PM' : 'AM';
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${pad2(h12)}:${pad2(d.getMinutes())} ${suffix}`;
-}
-
-/**
- * Integer paise → "₹1,234.50". Integer arithmetic only — never divides into a
- * float (CLAUDE.md §2.2).
- */
-export function formatPaise(paise: number): string {
-  const whole = Math.trunc(paise);
-  const sign = whole < 0 ? '-' : '';
-  const abs = Math.abs(whole);
-  return formatMoneyAmount(`${sign}${Math.floor(abs / 100)}.${pad2(abs % 100)}`);
 }
 
 // ─────────────────────────────────────────────

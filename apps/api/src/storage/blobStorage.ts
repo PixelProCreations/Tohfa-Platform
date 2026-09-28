@@ -12,6 +12,7 @@ import { LOCAL_UPLOADS_DIR } from '../paths.js';
 export interface SignedUploadTarget {
   uploadUrl: string;
   fileUrl: string;
+  storageKey: string;
   method: 'PUT' | 'POST';
   headers: Record<string, string>;
   expiresAt: string;
@@ -47,6 +48,7 @@ export class InMemoryBlobStorage implements BlobStorage {
     return {
       uploadUrl: `${this.baseUrl}/v1/uploads/mock/${options.key}`,
       fileUrl: this.getPublicUrl(options.key),
+      storageKey: options.key,
       method: 'PUT',
       headers: {
         'Content-Type': options.contentType,
@@ -121,6 +123,7 @@ export class LocalDiskBlobStorage implements BlobStorage {
     return {
       uploadUrl: `${this.baseUrl}/v1/uploads/mock/${options.key}`,
       fileUrl: this.getPublicUrl(options.key),
+      storageKey: options.key,
       method: 'PUT',
       headers: {
         'Content-Type': options.contentType,
@@ -184,6 +187,7 @@ export class AzureBlobStorage implements BlobStorage {
     return {
       uploadUrl,
       fileUrl,
+      storageKey: options.key,
       method: 'PUT',
       headers: {
         'Content-Type': options.contentType,

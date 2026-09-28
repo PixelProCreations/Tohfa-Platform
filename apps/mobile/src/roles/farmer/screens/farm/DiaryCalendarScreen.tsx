@@ -11,16 +11,17 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors } from '../../theme';
 import {
   resolveDiaryEntry,
-  toIsoDate,
   toIsoMonth,
   useDiaryCalendarMonth,
   useDiaryDayEntries,
   useDiaryReferenceData,
   type ResolvedDiaryEntry,
 } from './diaryLookups';
+import { toCalendarDateString } from './toolPurchaseDate';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -64,14 +65,23 @@ function ChevronRightIcon({ size = 16, color = P.twGray700 }: { size?: number; c
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-const ALL_FIELDS_LABEL = 'All fields';
-const ALL_ACTIVITY_LABEL = 'All activity';
+const DAY_KEYS = [
+  'farmer.weather.dayFull.sun', 'farmer.weather.dayFull.mon', 'farmer.weather.dayFull.tue',
+  'farmer.weather.dayFull.wed', 'farmer.weather.dayFull.thu', 'farmer.weather.dayFull.fri',
+  'farmer.weather.dayFull.sat',
+] as const;
+const MONTH_KEYS = [
+  'farmer.weather.month.jan', 'farmer.weather.month.feb', 'farmer.weather.month.mar',
+  'farmer.weather.month.apr', 'farmer.weather.month.may', 'farmer.weather.month.jun',
+  'farmer.weather.month.jul', 'farmer.weather.month.aug', 'farmer.weather.month.sep',
+  'farmer.weather.month.oct', 'farmer.weather.month.nov', 'farmer.weather.month.dec',
+] as const;
+const WEEKDAY_LETTER_KEYS = [
+  'farmer.farmDiary.common.weekdayLetter.sun', 'farmer.farmDiary.common.weekdayLetter.mon',
+  'farmer.farmDiary.common.weekdayLetter.tue', 'farmer.farmDiary.common.weekdayLetter.wed',
+  'farmer.farmDiary.common.weekdayLetter.thu', 'farmer.farmDiary.common.weekdayLetter.fri',
+  'farmer.farmDiary.common.weekdayLetter.sat',
+] as const;
 
 export interface DiaryCalendarScreenProps {
   onBack?: () => void;
@@ -97,7 +107,7 @@ export function DiaryCalendarScreen({
   // ── Server data ──
   const ref = useDiaryReferenceData();
   const monthData = useDiaryCalendarMonth(toIsoMonth(viewYear, viewMonth));
-  const day = useDiaryDayEntries(toIsoDate(selectedDate));
+  const day = useDiaryDayEntries(toCalendarDateString(selectedDate));
 
   const startDayCol = new Date(viewYear, viewMonth, 1).getDay(); // S=0 … S=6
   const totalDays = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -151,24 +161,27 @@ export function DiaryCalendarScreen({
       (selectedCategoryKey === null || r.entry.categoryKey === selectedCategoryKey),
   );
 
+  const allFieldsLabel = t('farmer.farmDiary.common.allFields');
+  const allActivityLabel = t('farmer.farmDiary.calendar.allActivity');
+
   const fieldOptions: { value: string | null; label: string }[] = [
-    { value: null, label: ALL_FIELDS_LABEL },
+    { value: null, label: allFieldsLabel },
     ...ref.plots.map((p) => ({ value: p.id, label: p.name })),
   ];
   const activityOptions: { value: string | null; label: string }[] = [
-    { value: null, label: ALL_ACTIVITY_LABEL },
+    { value: null, label: allActivityLabel },
     ...ref.activeCategories.map((c) => ({ value: c.key, label: c.name })),
   ];
 
   const selectedFieldLabel =
-    selectedPlotId === null ? ALL_FIELDS_LABEL : plotNameById.get(selectedPlotId) ?? ALL_FIELDS_LABEL;
+    selectedPlotId === null ? allFieldsLabel : plotNameById.get(selectedPlotId) ?? allFieldsLabel;
   const selectedActivityLabel =
     selectedCategoryKey === null
-      ? ALL_ACTIVITY_LABEL
-      : categoryByKey.get(selectedCategoryKey)?.name ?? ALL_ACTIVITY_LABEL;
+      ? allActivityLabel
+      : categoryByKey.get(selectedCategoryKey)?.name ?? allActivityLabel;
 
-  const selectedDayOfWeekName = DAY_NAMES[selectedDate.getDay()];
-  const selectedMonthName = (MONTH_NAMES[selectedDate.getMonth()] ?? '').toUpperCase();
+  const selectedDayOfWeekName = t(DAY_KEYS[selectedDate.getDay()] ?? DAY_KEYS[0]).toUpperCase();
+  const selectedMonthName = t(MONTH_KEYS[selectedDate.getMonth()] ?? MONTH_KEYS[0]).toUpperCase();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -185,13 +198,13 @@ export function DiaryCalendarScreen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.farmDiary.common.goBackLabel')}
           >
             <ArrowBackIcon size={20} color={P.deepGreen} />
           </TouchableOpacity>
           <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Diary Calendar</Text>
-            <Text style={styles.headerSubtitle}>Your logged activity, month by month</Text>
+            <Text style={styles.headerTitle}>{t('farmer.farmDiary.calendar.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('farmer.farmDiary.calendar.subtitle')}</Text>
           </View>
         </View>
 
@@ -202,7 +215,7 @@ export function DiaryCalendarScreen({
             onPress={() => setFilterModalVisible('field')}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Filter by field"
+            accessibilityLabel={t('farmer.farmDiary.common.filterByFieldLabel')}
           >
             <Text style={styles.filterPillText} numberOfLines={1}>{selectedFieldLabel}</Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
@@ -213,7 +226,7 @@ export function DiaryCalendarScreen({
             onPress={() => setFilterModalVisible('activity')}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Filter by activity"
+            accessibilityLabel={t('farmer.farmDiary.calendar.filterByActivityLabel')}
           >
             <Text style={styles.filterPillText} numberOfLines={1}>{selectedActivityLabel}</Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
@@ -229,14 +242,14 @@ export function DiaryCalendarScreen({
               onPress={() => goToMonth(-1)}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Previous month"
+              accessibilityLabel={t('farmer.farmDiary.common.previousMonthLabel')}
             >
               <ChevronLeftIcon size={16} color={P.twGray700} />
             </TouchableOpacity>
 
             <View style={styles.monthTitleRow}>
               <Text style={styles.monthTitle}>
-                {MONTH_NAMES[viewMonth]} {viewYear}
+                {t(MONTH_KEYS[viewMonth] ?? MONTH_KEYS[0])} {viewYear}
               </Text>
               {monthData.state === 'loading' && (
                 <ActivityIndicator size="small" color={colors.brandGreen} />
@@ -248,7 +261,7 @@ export function DiaryCalendarScreen({
               onPress={() => goToMonth(1)}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Next month"
+              accessibilityLabel={t('farmer.farmDiary.common.nextMonthLabel')}
             >
               <ChevronRightIcon size={16} color={P.twGray700} />
             </TouchableOpacity>
@@ -261,17 +274,19 @@ export function DiaryCalendarScreen({
               onPress={monthData.retry}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Retry loading days with entries"
+              accessibilityLabel={t('farmer.farmDiary.common.retryDaysWithEntriesLabel')}
             >
-              <Text style={styles.monthErrorText}>{monthData.error} Tap to retry.</Text>
+              <Text style={styles.monthErrorText}>
+                {t('farmer.farmDiary.common.errorTapToRetry', { error: monthData.error })}
+              </Text>
             </TouchableOpacity>
           )}
 
           {/* Weekday Column Headers */}
           <View style={styles.weekdaysRow}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayChar, index) => (
+            {WEEKDAY_LETTER_KEYS.map((weekdayKey, index) => (
               <Text key={`weekday-${index}`} style={styles.weekdayText}>
-                {dayChar}
+                {t(weekdayKey)}
               </Text>
             ))}
           </View>
@@ -286,7 +301,7 @@ export function DiaryCalendarScreen({
               const cellDate = new Date(viewYear, viewMonth, dayNum);
               const isSelected = isSameDate(cellDate, selectedDate);
               const isToday = isSameDate(cellDate, today);
-              const hasEntries = monthData.countsByDate.has(toIsoDate(cellDate));
+              const hasEntries = monthData.countsByDate.has(toCalendarDateString(cellDate));
 
               return (
                 <TouchableOpacity
@@ -334,17 +349,17 @@ export function DiaryCalendarScreen({
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={styles.legendDot} />
-              <Text style={styles.legendText}>Has entries</Text>
+              <Text style={styles.legendText}>{t('farmer.farmDiary.calendar.legendHasEntries')}</Text>
             </View>
 
             <View style={styles.legendItem}>
               <View style={styles.legendTodayBox} />
-              <Text style={styles.legendText}>Today</Text>
+              <Text style={styles.legendText}>{t('farmer.weather.today')}</Text>
             </View>
 
             <View style={styles.legendItem}>
               <View style={styles.legendSelectedBox} />
-              <Text style={styles.legendText}>Selected</Text>
+              <Text style={styles.legendText}>{t('farmer.farmDiary.calendar.legendSelected')}</Text>
             </View>
           </View>
         </View>
@@ -357,7 +372,10 @@ export function DiaryCalendarScreen({
             </Text>
             {listState === 'ready' && (
               <Text style={styles.entriesCountText}>
-                {entriesForSelectedDay.length} {entriesForSelectedDay.length === 1 ? 'entry' : 'entries'}
+                {entriesForSelectedDay.length}{' '}
+                {entriesForSelectedDay.length === 1
+                  ? t('farmer.farmDiary.calendar.entry')
+                  : t('farmer.farmDiary.calendar.entries')}
               </Text>
             )}
           </View>
@@ -366,7 +384,7 @@ export function DiaryCalendarScreen({
             <View style={styles.emptyEntriesBox}>
               <ActivityIndicator color={colors.brandGreen} />
               <Text style={[styles.emptyEntriesText, styles.statusTextSpaced]}>
-                Loading diary entries…
+                {t('farmer.farmDiary.common.loadingEntries')}
               </Text>
             </View>
           ) : listState === 'error' ? (
@@ -377,17 +395,17 @@ export function DiaryCalendarScreen({
                 onPress={retryList}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Retry loading diary entries"
+                accessibilityLabel={t('farmer.farmDiary.common.retryDiaryEntriesLabel')}
               >
-                <Text style={styles.retryButtonText}>Retry</Text>
+                <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : entriesForSelectedDay.length === 0 ? (
             <View style={styles.emptyEntriesBox}>
               <Text style={styles.emptyEntriesText}>
                 {day.entries.length > 0
-                  ? 'No entries match these filters for this date.'
-                  : 'No entries logged for this date.'}
+                  ? t('farmer.farmDiary.calendar.emptyFilteredSubtitle')
+                  : t('farmer.farmDiary.calendar.emptySubtitle')}
               </Text>
             </View>
           ) : (
@@ -430,7 +448,9 @@ export function DiaryCalendarScreen({
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {filterModalVisible === 'field' ? 'Select Field' : 'Select Activity'}
+              {filterModalVisible === 'field'
+                ? t('farmer.farmDiary.common.selectFieldModalTitle')
+                : t('farmer.farmDiary.calendar.selectActivityModalTitle')}
             </Text>
             {(filterModalVisible === 'field' ? fieldOptions : activityOptions).map((opt) => {
               const isActive =

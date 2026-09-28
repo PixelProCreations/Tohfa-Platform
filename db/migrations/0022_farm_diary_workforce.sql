@@ -1,7 +1,7 @@
 -- =============================================================================
--- 0021_farm_diary_workforce.sql
+-- 0022_farm_diary_workforce.sql
 --
--- Replaces diary_entries.labor_count (a bare headcount added in 0020) with a
+-- Replaces diary_entries.labor_count (a bare headcount added in 0021) with a
 -- proper per-worker labour/wage record, diary_entry_workers. A single
 -- smallint could say "3 workers" but not who, for how long, at what rate, or
 -- whether they were paid — which is what the farm diary actually needs to
@@ -11,12 +11,12 @@
 -- replacement.
 --
 -- Also makes the diary activity taxonomy (diary_activity_categories,
--- diary_sub_activities), seeded once in 0020 as fixed reference data,
+-- diary_sub_activities), seeded once in 0021 as fixed reference data,
 -- admin-manageable at runtime: an is_active flag lets an admin retire an
 -- activity going forward without touching the FK that historical
 -- diary_entries rows depend on.
 --
--- SPECIFICATION GAP: as with 0020, no BR-xx rule and no openapi path yet
+-- SPECIFICATION GAP: as with 0021, no BR-xx rule and no openapi path yet
 -- cover the farm diary or its workforce detail. This remains DB-layer
 -- scaffolding for an upcoming API module; flagged per root CLAUDE.md
 -- section 1 rather than invented here.
