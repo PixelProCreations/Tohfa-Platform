@@ -21,6 +21,7 @@ import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceiving
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
+import { SubWarehouseMoreScreen } from './SubWarehouseMoreScreen';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -1312,10 +1313,9 @@ export function SubWarehouseAdminDashboardScreen({
           </ScrollView>
         )}
 
-        {/* ─── More / Wallet Operations Tab ─── */}
+        {/* ─── More Modules Directory Tab (Modules 5 to 16) ─── */}
         {activeTab === 'More' && (
-          <SubWarehouseWalletOperationsScreen
-            warehouseName="Coonoor Warehouse"
+          <SubWarehouseMoreScreen
             onBack={() => setActiveTab('Home')}
             onTabChange={(tab) => {
               if (tab === 'More') return;
@@ -1327,7 +1327,28 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToProfile={() => {
               if (onNavigate) onNavigate('SubWarehouseProfile');
+              else setShowProfile(true);
             }}
+            onNavigateToWallet={() => {
+              if (onNavigate) onNavigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToOrders={() => {
+              if (onNavigate) onNavigate('SubWarehouseSales');
+              else setShowSalesScreen(true);
+            }}
+            onNavigateToSales={() => {
+              if (onNavigate) onNavigate('SubWarehouseSales');
+              else setShowSalesScreen(true);
+            }}
+            onNavigateToReports={() => {
+              if (onNavigate) onNavigate('SubWarehouseTodayOverview');
+              else setShowTodayOverview(true);
+            }}
+            onNavigateToReturns={() => {
+              if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
+              else setShowReviewReceiving(true);
+            }}
+            onLogout={onSignOut}
           />
         )}
       </View>

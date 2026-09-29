@@ -28,6 +28,8 @@ export * from './SubWarehouseHorecaSalesScreen';
 export * from './SubWarehouseB2BSalesScreen';
 export * from './SubWarehouseWalletOperationsScreen';
 export * from './SubWarehouseNeedsAttentionScreen';
+export * from './SubWarehouseMoreScreen';
+export * from './SubWarehouseSettingsScreen';
 export * from './AdminProfileScreen';
 
 // Market & Pricing screens

@@ -148,6 +148,7 @@ import {
   SubWarehouseB2BSalesScreen,
   SubWarehouseWalletOperationsScreen,
   SubWarehouseNeedsAttentionScreen,
+  SubWarehouseMoreScreen,
   AuditCalendarScreen,
   type AuditEntry,
   ScheduleNewAuditScreen,
@@ -264,6 +265,7 @@ export type ScreenName =
   | 'SubWarehouseB2BSales'
   | 'SubWarehouseWalletOperations'
   | 'SubWarehouseNeedsAttention'
+  | 'SubWarehouseMore'
   | 'WarehouseOverview'
   | 'StockLedger'
   | 'VerifyStock'
@@ -842,7 +844,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('SubWarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToNewSale={() => navigate('SubWarehouseNewSale')}
@@ -1048,6 +1050,18 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('SubWarehouseWalletOperations');
             }}
           />
+        ) : screen === 'SubWarehouseMore' ? (
+          <SubWarehouseMoreScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+            }}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
+            onNavigateToWallet={() => navigate('SubWarehouseWalletOperations')}
+          />
         ) : screen === 'SubWarehouseWalletOperations' ? (
           <SubWarehouseWalletOperationsScreen
             warehouseName="Coonoor Warehouse"
@@ -1056,7 +1070,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('SubWarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToProfile={() => navigate('SubWarehouseProfile')}
