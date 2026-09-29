@@ -49,3 +49,8 @@ export const listCertificationsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type ListCertificationsQuery = z.infer<typeof listCertificationsQuery>;
+
+export const farmerConfigResponse = z.object({
+  certExpiryWarningDays: z.number().int().positive(),
+});
+export type FarmerConfigResponse = z.infer<typeof farmerConfigResponse>;

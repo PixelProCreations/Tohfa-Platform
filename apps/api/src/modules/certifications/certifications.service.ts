@@ -70,6 +70,7 @@ export interface CertificationsService {
     id: string,
     body: UnverifyCertificationBody,
   ): Promise<unknown>;
+  getConfig(actor: Actor): Promise<{ certExpiryWarningDays: number }>;
 }
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
@@ -199,6 +200,14 @@ export function createCertificationsService(
       });
 
       return mapCertificationResponse(cert);
+    },
+
+    // Global config value — not farmer-specific, so no scoping/resolveFarmerId
+    // call is needed. `actor` is accepted only to keep the service's calling
+    // convention uniform (see CertificationsService above).
+    async getConfig(_actor) {
+      const certExpiryWarningDays = await repo.getCertExpiryWarningDays(pool);
+      return { certExpiryWarningDays };
     },
   };
 }

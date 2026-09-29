@@ -92,7 +92,7 @@ describe('Add Tool (S-46): Purchase date calendar', () => {
 
   it('opens a calendar from the "Select date" field in AddToolScreen', () => {
     const screenSource = fs.readFileSync(
-      path.resolve(__dirname, '../screens/farm/AddToolScreen.tsx'),
+      path.resolve(__dirname, '../screens/farm/assets/AddToolScreen.tsx'),
       'utf8',
     );
 

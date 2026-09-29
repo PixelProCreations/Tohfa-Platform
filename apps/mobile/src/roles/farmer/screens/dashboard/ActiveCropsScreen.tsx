@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   SafeAreaView,
@@ -9,8 +9,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
-import type { CropItem } from '../farm/ProduceCalendarScreen';
+import { listDiaryPlots, type DiaryPlot } from '../../api/farmDiary';
+import { listFarmCrops, type FarmCropResponse } from '../../api/crops';
+import type { CropItem } from '../farm/crops/ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emoji, no raw hex)
@@ -108,7 +112,7 @@ function CheckMiniIcon({ size = 12, color = P.twGreen700 }: { size?: number; col
 }
 
 // ─────────────────────────────────────────────
-// Types & Data
+// Types & real-data mapping
 // ─────────────────────────────────────────────
 
 interface ActiveCropData extends CropItem {
@@ -118,73 +122,85 @@ interface ActiveCropData extends CropItem {
   badgeBg: string;
   badgeBorder: string;
   badgeText: string;
+  /** Days to expected harvest, clamped to a large sentinel when unknown — used only for filtering. */
+  filterDays: number;
 }
 
-const ACTIVE_CROPS: ActiveCropData[] = [
-  {
-    id: 'crop-tomato',
-    name: 'Tomato',
-    variety: 'Roma',
-    cropType: 'tomato',
-    zone: 'Zone A — Upper Field',
-    zoneShort: 'Zone A',
-    area: '0.6 ha',
-    daysOld: 62,
-    statusType: 'ready',
-    statusDays: 8,
-    statusText: 'Harvest in 8d',
-    accentColor: colors.brandGreen,
-    imageUri: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80',
-    progressPercent: 88,
-    stageName: 'Ripening',
-    estYield: '2.4 Tons',
-    badgeBg: P.twGreen50,
-    badgeBorder: P.twGreen100,
-    badgeText: P.twGreen800,
-  },
-  {
-    id: 'crop-carrot',
-    name: 'Carrot',
-    variety: 'Nantes',
-    cropType: 'carrot',
-    zone: 'Zone B — Slope 2',
-    zoneShort: 'Zone B',
-    area: '0.4 ha',
-    daysOld: 34,
-    statusType: 'harvest',
-    statusDays: 41,
-    statusText: 'Harvest in 41d',
-    accentColor: P.twOrange500,
-    imageUri: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&q=80',
-    progressPercent: 45,
-    stageName: 'Root Bulking',
-    estYield: '1.8 Tons',
-    badgeBg: P.twAmber50,
-    badgeBorder: P.twAmber200,
-    badgeText: P.twAmber800,
-  },
-  {
-    id: 'crop-wheat',
-    name: 'Wheat',
-    variety: 'Durum Golden',
+/** Whole-day difference, `b - a`, ignoring time-of-day. */
+function daysBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+/**
+ * Maps a real farm_crops row (+ its plot) onto this screen's card shape.
+ *
+ * The backend has no growth-stage tracker (that's CropMilestonesScreen's
+ * separate, out-of-scope concept — root task notes it has no backing
+ * table), so `progressPercent`/`stageName` here are derived only from the
+ * dates and status this API does provide, not a real stage model.
+ */
+function toActiveCropData(crop: FarmCropResponse, plot: DiaryPlot): ActiveCropData {
+  const today = new Date();
+  const plantedOn = crop.plantedOn ? new Date(crop.plantedOn) : null;
+  const expectedHarvestOn = crop.expectedHarvestOn ? new Date(crop.expectedHarvestOn) : null;
+  const daysOld = plantedOn ? Math.max(0, daysBetween(plantedOn, today)) : 0;
+  const daysToHarvest = expectedHarvestOn ? daysBetween(today, expectedHarvestOn) : null;
+
+  let progressPercent = 0;
+  if (plantedOn && expectedHarvestOn) {
+    const totalSpan = daysBetween(plantedOn, expectedHarvestOn);
+    progressPercent = totalSpan > 0 ? Math.min(100, Math.max(0, Math.round((daysOld / totalSpan) * 100))) : 0;
+  } else if (crop.status === 'GROWING') {
+    // No planted/expected-harvest dates recorded to compute a real fraction from.
+    progressPercent = 50;
+  }
+
+  const isHarvestSoon = daysToHarvest !== null && daysToHarvest <= 15;
+  const accentColor = isHarvestSoon ? P.twOrange500 : crop.status === 'GROWING' ? colors.brandGreen : P.twBlue600;
+  const badgeBg = isHarvestSoon ? P.twAmber50 : P.twGreen50;
+  const badgeBorder = isHarvestSoon ? P.twAmber200 : P.twGreen100;
+  const badgeText = isHarvestSoon ? P.twAmber800 : P.twGreen800;
+
+  const statusText =
+    daysToHarvest === null
+      ? t(
+          crop.status === 'PLANNED'
+            ? 'farmer.crops.activeCrops.statusPlanned'
+            : 'farmer.crops.activeCrops.statusGrowingNoDate',
+        )
+      : daysToHarvest < 0
+        ? t('farmer.crops.activeCrops.statusOverdue', { days: Math.abs(daysToHarvest) })
+        : t('farmer.crops.activeCrops.statusHarvestIn', { days: daysToHarvest });
+
+  const stageName = t(
+    crop.status === 'PLANNED' ? 'farmer.crops.status.planned' : 'farmer.crops.status.growing',
+  );
+
+  return {
+    id: crop.id,
+    name: crop.cropName,
+    variety: crop.seedVariety ?? crop.cropName,
     cropType: 'custom',
-    zone: 'Zone C — East Valley',
-    zoneShort: 'Zone C',
-    area: '0.8 ha',
-    daysOld: 14,
-    statusType: 'growing',
-    statusDays: 90,
-    statusText: 'Harvest in 90d',
-    accentColor: P.twBlue600,
-    imageUri: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80',
-    progressPercent: 15,
-    stageName: 'Early Vegetative',
-    estYield: '3.2 Tons',
-    badgeBg: P.twBlue50,
-    badgeBorder: P.twSky200,
-    badgeText: P.twBlue800,
-  },
-];
+    zone: plot.name,
+    zoneShort: plot.name,
+    area: plot.areaAcres !== null ? t('farmer.crops.activeCrops.areaAcres', { area: plot.areaAcres }) : '',
+    daysOld,
+    statusType: isHarvestSoon ? 'ready' : crop.status === 'GROWING' ? 'growing' : 'harvest',
+    statusDays: daysToHarvest !== null && daysToHarvest > 0 ? daysToHarvest : 0,
+    statusText,
+    accentColor,
+    progressPercent,
+    stageName,
+    estYield:
+      crop.expectedYieldKg !== null
+        ? t('farmer.crops.activeCrops.estYieldKg', { qty: crop.expectedYieldKg })
+        : t('farmer.crops.activeCrops.estYieldUnknown'),
+    badgeBg,
+    badgeBorder,
+    badgeText,
+    filterDays: daysToHarvest === null ? Number.MAX_SAFE_INTEGER : Math.max(daysToHarvest, 0),
+  };
+}
 
 type FilterTab = 'all' | 'harvest_soon' | 'growing';
 
@@ -201,16 +217,91 @@ export function ActiveCropsScreen({
 }: ActiveCropsScreenProps): React.JSX.Element {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [crops, setCrops] = useState<ActiveCropData[] | null>(null);
+  const [plots, setPlots] = useState<DiaryPlot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown | null>(null);
 
-  const filteredCrops = ACTIVE_CROPS.filter((crop) => {
-    if (activeFilter === 'harvest_soon') return crop.statusDays <= 15;
-    if (activeFilter === 'growing') return crop.statusDays > 15;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetchedPlots = await listDiaryPlots();
+      // "All Active Crops" spans the whole farm, not one zone, so every plot
+      // is queried — the real endpoint (GET .../plots/:plotId/crops) is
+      // per-plot, unlike this screen's farm-wide view.
+      const perPlot = await Promise.all(
+        fetchedPlots.map(async (plot) => ({ plot, result: await listFarmCrops(plot.id) })),
+      );
+      const active: ActiveCropData[] = [];
+      for (const { plot, result } of perPlot) {
+        for (const crop of result.items) {
+          if (crop.status === 'PLANNED' || crop.status === 'GROWING') {
+            active.push(toActiveCropData(crop, plot));
+          }
+        }
+      }
+      setPlots(fetchedPlots);
+      setCrops(active);
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const allCrops = crops ?? [];
+  const harvestSoonCount = allCrops.filter((c) => c.filterDays <= 15).length;
+  const growingCount = allCrops.length - harvestSoonCount;
+
+  const filteredCrops = allCrops.filter((crop) => {
+    if (activeFilter === 'harvest_soon') return crop.filterDays <= 15;
+    if (activeFilter === 'growing') return crop.filterDays > 15;
     return true;
   });
+
+  // Distinct plots backing at least one active crop, for the "Total Area" stat.
+  const plotsWithActiveCrops = new Set(
+    plots
+      .filter((plot) => allCrops.some((c) => c.zone === plot.name))
+      .map((plot) => plot.id),
+  );
+  const totalAreaAcres = plots
+    .filter((plot) => plotsWithActiveCrops.has(plot.id) && plot.areaAcres !== null)
+    .reduce((sum, plot) => sum + (plot.areaAcres ?? 0), 0);
+
+  const nextHarvestDays = allCrops.reduce<number | null>((min, c) => {
+    if (c.filterDays === Number.MAX_SAFE_INTEGER) return min;
+    return min === null ? c.filterDays : Math.min(min, c.filterDays);
+  }, null);
 
   const handleImageError = (id: string) => {
     setImageErrors((prev) => ({ ...prev, [id]: true }));
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.loadingContainer}>
+          <Skeleton width="100%" height={64} borderRadius={16} />
+          <Skeleton width="100%" height={140} borderRadius={16} />
+          <Skeleton width="100%" height={140} borderRadius={16} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.screen, styles.errorContainer]}>
+        <ErrorState error={error} onRetry={load} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -228,7 +319,7 @@ export function ActiveCropsScreen({
           <View style={styles.headerTitleGroup}>
             <Text style={styles.headerTitle}>All Active Crops</Text>
             <Text style={styles.headerSubtitle}>
-              {ACTIVE_CROPS.length} crops actively growing
+              {t('farmer.crops.activeCrops.countSubtitle', { count: allCrops.length })}
             </Text>
           </View>
         </View>
@@ -249,17 +340,21 @@ export function ActiveCropsScreen({
       {/* Quick Summary Row */}
       <View style={styles.summaryBar}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{ACTIVE_CROPS.length}</Text>
+          <Text style={styles.summaryValue}>{allCrops.length}</Text>
           <Text style={styles.summaryLabel}>Active</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>1.8 ha</Text>
+          <Text style={styles.summaryValue}>
+            {totalAreaAcres > 0 ? t('farmer.crops.activeCrops.areaAcres', { area: totalAreaAcres }) : '—'}
+          </Text>
           <Text style={styles.summaryLabel}>Total Area</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: P.brandGreen }]}>8 Days</Text>
+          <Text style={[styles.summaryValue, { color: P.brandGreen }]}>
+            {nextHarvestDays === null ? '—' : t('farmer.crops.activeCrops.nextHarvestDays', { days: nextHarvestDays })}
+          </Text>
           <Text style={styles.summaryLabel}>Next Harvest</Text>
         </View>
       </View>
@@ -277,7 +372,7 @@ export function ActiveCropsScreen({
               activeFilter === 'all' && styles.filterChipTextActive,
             ]}
           >
-            All ({ACTIVE_CROPS.length})
+            All ({allCrops.length})
           </Text>
         </TouchableOpacity>
 
@@ -295,7 +390,7 @@ export function ActiveCropsScreen({
               activeFilter === 'harvest_soon' && styles.filterChipTextActive,
             ]}
           >
-            Harvest Ready (1)
+            Harvest Ready ({harvestSoonCount})
           </Text>
         </TouchableOpacity>
 
@@ -313,7 +408,7 @@ export function ActiveCropsScreen({
               activeFilter === 'growing' && styles.filterChipTextActive,
             ]}
           >
-            Growing (2)
+            Growing ({growingCount})
           </Text>
         </TouchableOpacity>
       </View>
@@ -416,7 +511,9 @@ export function ActiveCropsScreen({
         {filteredCrops.length === 0 && (
           <View style={styles.emptyState}>
             <LeafIcon size={36} color={P.twGray400} />
-            <Text style={styles.emptyStateTitle}>No crops in this view</Text>
+            <Text style={styles.emptyStateTitle}>
+              {allCrops.length === 0 ? t('farmer.crops.activeCrops.emptyTitle') : 'No crops in this view'}
+            </Text>
             <TouchableOpacity
               onPress={() => setActiveFilter('all')}
               style={styles.resetFilterBtn}
@@ -438,6 +535,14 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: P.twGray50,
+  },
+  loadingContainer: {
+    padding: 16,
+    gap: 12,
+  },
+  errorContainer: {
+    padding: 24,
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',

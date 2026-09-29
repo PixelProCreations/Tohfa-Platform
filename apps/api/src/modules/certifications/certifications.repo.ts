@@ -70,6 +70,7 @@ export interface CertificationsRepo {
     actorType?: AuditActorType | undefined,
   ): Promise<RecomputeResult>;
   getAllActiveFarmerIds(db: Executor): Promise<string[]>;
+  getCertExpiryWarningDays(db: Executor): Promise<number>;
 }
 
 export const certificationsRepo: CertificationsRepo = {
@@ -303,5 +304,28 @@ export const certificationsRepo: CertificationsRepo = {
       `SELECT id FROM farmers WHERE deleted_at IS NULL ORDER BY created_at ASC`,
     );
     return result.rows.map((r) => r.id);
+  },
+
+  /**
+   * Specification gap (see db/seed/001_reference.sql): no source document
+   * defines this threshold. 30 is a placeholder pending client confirmation,
+   * matching the mobile client's pre-existing hardcoded fallback so behaviour
+   * does not silently change for existing users.
+   */
+  async getCertExpiryWarningDays(db) {
+    const res = await db.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'cert_expiry_warning_days' LIMIT 1`,
+    );
+    if (res.rows.length > 0 && res.rows[0]?.value != null) {
+      const val = res.rows[0].value;
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        return val;
+      }
+      if (typeof val === 'string') {
+        const parsed = Number(val);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
+    return 30;
   },
 };

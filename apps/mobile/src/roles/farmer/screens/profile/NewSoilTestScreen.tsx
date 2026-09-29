@@ -1,5 +1,5 @@
 import React from 'react';
-import { UploadNewSoilTestScreen, type UploadNewSoilTestScreenProps } from '../farm/UploadNewSoilTestScreen';
+import { UploadNewSoilTestScreen, type UploadNewSoilTestScreenProps } from '../farm/soil/UploadNewSoilTestScreen';
 
 export interface NewSoilTestScreenProps {
   onNavigateBack: () => void;

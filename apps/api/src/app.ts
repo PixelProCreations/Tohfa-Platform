@@ -25,7 +25,11 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';
 import { uploadsRouter } from './modules/uploads/uploads.routes.js';
 import { adminFarmerApplicationsRouter, farmerApplicationsRouter } from './modules/farmer-applications/farmer-applications.routes.js';
-import { certificationsAdminRouter, certificationsFarmerRouter } from './modules/certifications/certifications.routes.js';
+import {
+  certificationsAdminRouter,
+  certificationsFarmerRouter,
+  configFarmerRouter,
+} from './modules/certifications/certifications.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { fairPricesRouter, retailPricesRouter } from './modules/pricing/pricing.routes.js';
 import {
@@ -65,6 +69,12 @@ import { weatherFarmerRouter } from './modules/weather/weather.routes.js';
 import { farmDiaryRouter } from './modules/farm-diary/farm-diary.routes.js';
 import { adminDiaryTaxonomyRouter } from './modules/farm-diary/farm-diary.admin.routes.js';
 import { farmsRouter } from './modules/farms/farms.routes.js';
+import { cropsRouter } from './modules/crops/crops.routes.js';
+import { adminCropMasterRouter } from './modules/crops/crops.admin.routes.js';
+import { livestockRouter } from './modules/livestock/livestock.routes.js';
+import { livestockAdminRouter } from './modules/livestock/livestock.admin.routes.js';
+import { farmAssetsRouter } from './modules/farm-assets/farm-assets.routes.js';
+import { adminFarmAssetsRouter } from './modules/farm-assets/farm-assets.admin.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -84,6 +94,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/uploads', router: uploadsRouter },
   { prefix: '/v1/farmers', router: farmerApplicationsRouter },
   { prefix: '/v1/farmers/me/certifications', router: certificationsFarmerRouter },
+  { prefix: '/v1/config', router: configFarmerRouter },
   { prefix: '/v1/admin/farmer-applications', router: adminFarmerApplicationsRouter },
   { prefix: '/v1/admin/certifications', router: certificationsAdminRouter },
   { prefix: '/v1/notifications', router: notificationsRouter },
@@ -116,6 +127,12 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me/diary', router: farmDiaryRouter },
   { prefix: '/v1/admin/diary', router: adminDiaryTaxonomyRouter },
   { prefix: '/v1/farms', router: farmsRouter },
+  { prefix: '/v1/farmers/me', router: cropsRouter },
+  { prefix: '/v1/admin/crop-master', router: adminCropMasterRouter },
+  { prefix: '/v1/farmers/me', router: farmAssetsRouter },
+  { prefix: '/v1/admin/farmers', router: adminFarmAssetsRouter },
+  { prefix: '/v1/farmers/me/livestock', router: livestockRouter },
+  { prefix: '/v1/admin/farmers', router: livestockAdminRouter },
 ];
 
 /**

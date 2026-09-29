@@ -14,6 +14,23 @@ import { certificationsService } from './certifications.service.js';
 
 export const certificationsFarmerRouter: Router = Router();
 export const certificationsAdminRouter: Router = Router();
+export const configFarmerRouter: Router = Router();
+
+// Farmer-facing config route (mounted at /v1/config). Global, non-farmer-scoped
+// data (see BR docs/rules.md — none apply here; this is a display threshold,
+// not a business rule), so it lives outside the farmer-scoped
+// /v1/farmers/me/certifications prefix even though the value itself is
+// cert-domain data owned by this module.
+configFarmerRouter.get(
+  '/farmer',
+  requireAuth,
+  requirePermission('farmer.config.view'),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const result = await certificationsService.getConfig(actor);
+    res.json(result);
+  }),
+);
 
 // Farmer routes (mounted at /v1/farmers/me/certifications)
 certificationsFarmerRouter.get(

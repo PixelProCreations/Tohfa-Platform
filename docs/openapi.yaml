@@ -113,6 +113,26 @@ tags:
     description: |
       A farmer's own land locations (`farms`) and their sub-divisions into zones
       (`plots` — "zones" in the farm diary). Farm-anonymous: see BR-16.
+  - name: Crops
+    description: |
+      What is planted where (`farm_crops`) and the crop taxonomy (`crop_master`):
+      planting, status transitions, harvest recording, seed/grade detail, the crop
+      type picker, and a plot's planting/rotation history. A plot cannot have two
+      live crops in status GROWING at once (BR-46).
+  - name: Farm Assets
+    description: |
+      The maintenance-tracked tool/equipment/machinery register (`farm_assets`):
+      one unified table for the three near-identical mock screens (Machinery/
+      Tools/Equipment), distinguished by `category`. Service-due status is
+      computed at read time, never stored.
+  - name: Livestock
+    description: |
+      A farmer's own animals (`livestock_animals`), daily produce logging across
+      the fixed 8-product dairy/poultry catalog (`livestock_production_logs`),
+      and lifecycle events recording an animal leaving the herd
+      (`livestock_lifecycle_events`). An animal can exit the herd at most once
+      (BR-47). Read-only admin visibility into any farmer's herd, for
+      organic-certification audit purposes.
   - name: Pricing
     description: Super-Admin fair price ceilings and admin retail prices.
   - name: Marketing
@@ -1210,6 +1230,36 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /config/farmer:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getFarmerConfig
+      summary: Farmer-facing global platform config
+      description: |
+        Global, non-farmer-specific config thresholds the farmer app needs client-side
+        (currently just the certificate-expiry warning window). Not scoped to the caller's
+        own farm — this is platform-wide config, not farm data, so no BR-16 concern applies.
+
+        Backed by `system_config`. `certExpiryWarningDays` is a specification-gap placeholder
+        (30) pending client confirmation — see db/seed/001_reference.sql.
+      x-permission: farmer.config.view
+      responses:
+        '200':
+          description: Farmer-facing config values.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [certExpiryWarningDays]
+                properties:
+                  certExpiryWarningDays:
+                    type: integer
+                    minimum: 1
+              example:
+                certExpiryWarningDays: 30
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/me/rating:
     get:
       tags: [Farm Rating]
@@ -2129,6 +2179,701 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crop-master:
+    get:
+      tags: [Crops]
+      operationId: listMyCropMaster
+      summary: Active crop types
+      description: |
+        Lists the active crop taxonomy (`crop_master`), for use as the crop type
+        picker when planting a new crop. Inactive crop types are excluded, the
+        same way the farm diary taxonomy hides retired categories.
+      x-permission: farmer.crops.view_own
+      responses:
+        '200':
+          description: Active crop types.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CropMaster' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/plots/{plotId}/crops:
+    get:
+      tags: [Crops]
+      operationId: listMyPlotCrops
+      summary: A plot's planting history
+      description: |
+        Lists the caller's own `farm_crops` rows on the given plot, newest first,
+        optionally filtered by status. A `plotId` the caller does not own returns
+        an empty page, never a 403 or 404 (the same doctrine as farm-diary's
+        BR-40a).
+      x-permission: farmer.crops.view_own
+      x-business-rules: [BR-46]
+      parameters:
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/FarmCropStatus' }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged planting records for the plot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FarmCrop' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Crops]
+      operationId: createMyPlotCrop
+      summary: Plant a new crop on an own plot
+      description: |
+        Creates a new `farm_crops` row on the given plot in status `PLANNED` (the
+        column default). A `plotId` the caller does not own returns 404, never 403.
+        `cropMasterId` must reference an existing crop type or the request is 404.
+        Moving the new row into status `GROWING` — where BR-46 is checked — happens
+        afterward via `PATCH /farmers/me/crops/{farmCropId}`.
+      x-permission: farmer.crops.create_own
+      x-business-rules: [BR-46]
+      parameters:
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmCropCreateRequest' }
+      responses:
+        '201':
+          description: Crop planted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmCrop' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/plots/{plotId}/crop-rotation:
+    get:
+      tags: [Crops]
+      operationId: getMyPlotCropRotation
+      summary: A plot's crop rotation history
+      description: |
+        Most-recent-first planting history for one plot — every live (non-deleted)
+        `farm_crops` row planted on it, for the crop rotation timeline view. A
+        `plotId` the caller does not own returns an empty history, never a 403 or
+        404.
+      x-permission: farmer.crops.view_own
+      parameters:
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The plot's rotation history.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlotRotationHistory' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crops/{farmCropId}:
+    get:
+      tags: [Crops]
+      operationId: getMyFarmCrop
+      summary: Own crop detail
+      description: |
+        Returns one own `farm_crops` row. A `farmCropId` belonging to another
+        farmer, guessed or passed explicitly, returns 404 — indistinguishable from
+        a nonexistent id.
+      x-permission: farmer.crops.view_own
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The crop.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmCrop' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Crops]
+      operationId: updateMyFarmCrop
+      summary: Edit an own crop
+      description: |
+        Partially updates an own `farm_crops` row: status transitions, recording a
+        harvest (`actualHarvestOn`/`actualYieldKg`), or editing seed/grade detail.
+        `plotId` and `cropMasterId` are NOT present — re-pointing a planting record
+        at a different plot or crop type is a delete-and-recreate, not an edit.
+        Moving `status` to `GROWING` when the plot already has another live
+        `GROWING` crop is rejected with 409 `CROP_PLOT_ALREADY_GROWING` (BR-46).
+      x-permission: farmer.crops.edit_own
+      x-business-rules: [BR-46]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmCropUpdateRequest' }
+      responses:
+        '200':
+          description: Updated crop.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmCrop' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/crop-master:
+    get:
+      tags: [Crops]
+      operationId: listCropMaster
+      summary: Every crop type, active and inactive
+      description: The full crop taxonomy, for the admin crop taxonomy screen.
+      x-permission: admin.crop_taxonomy.manage
+      responses:
+        '200':
+          description: Every crop type.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CropMaster' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Crops]
+      operationId: createCropMaster
+      summary: Create a crop type
+      description: |
+        Adds a new row to the crop taxonomy. A `slug` that already exists returns
+        409.
+      x-permission: admin.crop_taxonomy.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CropMasterCreateRequest' }
+      responses:
+        '201':
+          description: Crop type created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CropMaster' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/crop-master/{id}:
+    patch:
+      tags: [Crops]
+      operationId: updateCropMaster
+      summary: Edit or retire a crop type
+      description: |
+        Partially updates a crop type, including retiring it via `isActive: false`.
+        A retired crop type is excluded from the farmer-facing picker, but is never
+        hard-deleted — existing `farm_crops`/listings referencing it remain valid.
+      x-permission: admin.crop_taxonomy.manage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CropMasterUpdateRequest' }
+      responses:
+        '200':
+          description: Updated crop type.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CropMaster' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/farm-assets:
+    get:
+      tags: [Farm Assets]
+      operationId: listMyFarmAssets
+      summary: List own tools/equipment/machinery
+      description: |
+        Lists the caller's own `farm_assets` rows across every one of their
+        `farms` (land locations), newest first, optionally filtered by
+        `category` or `dueOnly`. `status` and `dueNote` are computed on every
+        read from `nextServiceDueOn` vs today (Asia/Kolkata) — they are never
+        stored. `dueOnly=true` returns DUE_SOON and OVERDUE rows only, the
+        same combined "due" count FarmInventoryScreen.tsx's per-category
+        badge shows.
+      x-permission: farmer.assets.view_own
+      parameters:
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/FarmAssetCategory' }
+        - name: dueOnly
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged farm assets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FarmAsset' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Assets]
+      operationId: createMyFarmAsset
+      summary: Register a new tool/equipment/machinery item
+      description: |
+        Creates a new `farm_assets` row on the given `farmId`. A `farmId` the
+        caller does not own returns 404, never 403. `nextServiceDueOn` is
+        never accepted in the request — it is a database-generated column
+        computed from `purchasedOn`/`lastServicedOn`/`serviceIntervalDays`
+        (see `FarmAsset`'s description).
+      x-permission: farmer.assets.create_own
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmAssetCreateRequest' }
+      responses:
+        '201':
+          description: Farm asset registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmAsset' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/farm-assets/{assetId}:
+    get:
+      tags: [Farm Assets]
+      operationId: getMyFarmAsset
+      summary: Own farm asset detail
+      description: |
+        Returns one own `farm_assets` row. An `assetId` belonging to another
+        farmer, guessed or passed explicitly, returns 404 — indistinguishable
+        from a nonexistent id.
+      x-permission: farmer.assets.view_own
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The farm asset.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmAsset' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Farm Assets]
+      operationId: updateMyFarmAsset
+      summary: Edit an own farm asset
+      description: |
+        Partially updates an own `farm_assets` row, including recording that a
+        service happened (`lastServicedOn`) — `nextServiceDueOn` recomputes
+        itself (a generated column) the moment this write lands. `farmId` and
+        `category` are NOT present — re-pointing an asset at a different land
+        location or re-categorising it is a delete-and-recreate, not an edit.
+      x-permission: farmer.assets.edit_own
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmAssetUpdateRequest' }
+      responses:
+        '200':
+          description: Updated farm asset.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmAsset' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farm Assets]
+      operationId: deleteMyFarmAsset
+      summary: Retire an own farm asset (soft delete)
+      description: |
+        Soft-deletes an own `farm_assets` row (sets `deletedAt`) — a farmer
+        retiring a broken tool, not a sale record. An `assetId` belonging to
+        another farmer returns 404.
+      x-permission: farmer.assets.edit_own
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Farm asset retired.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/farm-assets:
+    get:
+      tags: [Farm Assets]
+      operationId: listFarmAssetsForFarmer
+      summary: A farmer's tools/equipment/machinery (admin)
+      description: |
+        Lists one farmer's `farm_assets` rows across every one of their
+        `farms`. Read-only: there is no admin-manageable asset taxonomy,
+        unlike crops' crop_master.
+      x-permission: admin.assets.view_all
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/FarmAssetCategory' }
+        - name: dueOnly
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged farm assets for the given farmer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FarmAsset' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/livestock/animals:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockAnimals
+      summary: Own herd, active by default
+      description: |
+        Lists the caller's own `livestock_animals` rows. Omitting
+        `lifecycleStatus` returns only `ACTIVE` animals (an animal that has
+        exited the herd via a lifecycle event drops off this default list,
+        BR-47c); pass it explicitly (e.g. `lifecycleStatus=SOLD`) to see
+        history.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-47]
+      parameters:
+        - name: species
+          in: query
+          schema: { $ref: '#/components/schemas/AnimalSpecies' }
+        - name: lifecycleStatus
+          in: query
+          schema: { $ref: '#/components/schemas/LifecycleStatus' }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged animals.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Animal' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockAnimal
+      summary: Register a new animal
+      description: |
+        Creates a new `livestock_animals` row on the caller's primary farm (a
+        farmer's operation can have land in multiple locations, root
+        CLAUDE.md's farm-land-locations doctrine; livestock is not
+        plot-scoped, so there is no farm/plot picker in the request). New
+        animals always start `lifecycleStatus: ACTIVE`. A `tag` that already
+        exists in the caller's own herd returns 409; the same tag may be used
+        by a different farmer (unique per farm, not globally).
+      x-permission: farmer.livestock.create_own
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnimalCreateRequest' }
+      responses:
+        '201':
+          description: Animal registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/livestock/animals/{animalId}:
+    get:
+      tags: [Livestock]
+      operationId: getMyLivestockAnimal
+      summary: Own animal detail
+      description: |
+        Returns one own `livestock_animals` row. An `animalId` belonging to
+        another farmer, guessed or passed explicitly, returns 404 —
+        indistinguishable from a nonexistent id.
+      x-permission: farmer.livestock.view_own
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The animal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Livestock]
+      operationId: updateMyLivestockAnimal
+      summary: Edit an own animal
+      description: |
+        Partially updates an own `livestock_animals` row. `lifecycleStatus` is
+        NOT present — it only ever changes as the side effect of
+        `POST .../lifecycle-events` (BR-47). A `tag` changed to one already in
+        use elsewhere in the caller's own herd returns 409.
+      x-permission: farmer.livestock.edit_own
+      x-business-rules: [BR-47]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnimalUpdateRequest' }
+      responses:
+        '200':
+          description: Updated animal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/livestock/animals/{animalId}/lifecycle-events:
+    post:
+      tags: [Livestock]
+      operationId: recordMyLivestockLifecycleEvent
+      summary: Record an animal leaving the herd (sold/transferred/culled/deceased)
+      description: |
+        Records a `livestock_lifecycle_events` row and, in the same
+        transaction, flips the animal's `lifecycleStatus` to match
+        `eventType` (BR-47b). An animal that already has a lifecycle event
+        cannot have a second one recorded — the animal has already left the
+        herd (BR-47a, 409 `LIVESTOCK_ALREADY_EXITED`). Returns the updated
+        animal.
+      x-permission: farmer.livestock.edit_own
+      x-business-rules: [BR-47]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LifecycleEventCreateRequest' }
+      responses:
+        '201':
+          description: Event recorded; the animal's updated state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/livestock/production-logs:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockProductionLogs
+      summary: Produce history log
+      description: |
+        Lists the caller's own `livestock_production_logs` rows, newest-first,
+        optionally filtered by `productType`, `animalId` or a `logged_on` date
+        range.
+      x-permission: farmer.livestock.view_own
+      parameters:
+        - name: productType
+          in: query
+          schema: { $ref: '#/components/schemas/DairyProductType' }
+        - name: animalId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged production logs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ProductionLog' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockProductionLog
+      summary: Log a production entry
+      description: |
+        Creates a `livestock_production_logs` row on the caller's primary
+        farm. Covers per-animal milk yield (`animalId` + `sessions`),
+        value-added produce batches (`batchInfo`), and flock-level egg
+        collection (`animalId` omitted, `productType: EGGS`). `unit` must
+        match `productType`'s one fixed unit (e.g. `MILK` is always
+        `LITERS`) or the request is 422. An `animalId` belonging to another
+        farmer returns 404.
+      x-permission: farmer.livestock.create_own
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductionLogCreateRequest' }
+      responses:
+        '201':
+          description: Production log recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductionLog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/livestock/animals:
+    get:
+      tags: [Livestock]
+      operationId: listFarmerLivestockAnimals
+      summary: A specific farmer's herd (admin/audit view)
+      description: |
+        Read-only: every live `livestock_animals` row for the given farmer,
+        active and inactive, for organic-certification audit purposes. There
+        is no admin-manageable livestock taxonomy (species is a fixed small
+        enum, unlike `crop_master`), so there is no corresponding write route.
+      x-permission: admin.livestock.view_all
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The farmer's animals.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /fair-prices:
@@ -4705,6 +5450,8 @@ components:
         * `DIARY_MINUTES_REQUIRED` — diary entry time-spent minutes is missing or not greater than zero (BR-42).
         * `DIARY_WORKER_HOURS_INVALID` — a diary workforce entry's hoursWorked is not greater than 0 and at most 24 (BR-44).
         * `DIARY_WAGE_RATE_INVALID` — a diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44).
+        * `CROP_PLOT_ALREADY_GROWING` — the plot already has another live crop in status GROWING (BR-46).
+        * `LIVESTOCK_ALREADY_EXITED` — the animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47).
       required: [type, title, status, code, correlationId]
       properties:
         type:
@@ -5930,6 +6677,525 @@ components:
         soilType: { type: string, minLength: 1, maxLength: 60 }
         sunExposure: { type: string, minLength: 1, maxLength: 60 }
         irrigationType: { type: string, minLength: 1, maxLength: 60 }
+
+    FarmCropStatus:
+      type: string
+      enum: [PLANNED, GROWING, HARVESTED, FAILED]
+      description: |
+        farm_crops.status. New plantings start PLANNED; at most one row per plot
+        may be GROWING at a time (BR-46).
+
+    SeedQuantityUnit:
+      type: string
+      enum: [grams, kg, packets, units]
+
+    ExpectedGrade:
+      type: string
+      enum: [GRADE_A, GRADE_B, GRADE_C]
+
+    CropMaster:
+      type: object
+      description: |
+        A crop taxonomy row (`crop_master`). Allow-list response: `hsnCode` and the
+        raw `categoryId` join are internal and not exposed here — the mobile crop
+        screens only need name/nameTa/iconKey/defaultUnit for display and picking.
+      required: [id, slug, name, nameTa, categoryId, botanicalName, defaultUnit, seasonMonths, shelfLifeDays, iconKey, isActive]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string, example: carrot }
+        name: { type: string }
+        nameTa: { type: [string, 'null'] }
+        categoryId: { type: string, format: uuid }
+        botanicalName: { type: [string, 'null'] }
+        defaultUnit: { type: string, enum: [kg] }
+        seasonMonths:
+          type: [array, 'null']
+          items: { type: integer, minimum: 1, maximum: 12 }
+        shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
+        iconKey: { type: [string, 'null'] }
+        isActive: { type: boolean }
+
+    CropMasterCreateRequest:
+      type: object
+      description: Body of `POST /admin/crop-master`.
+      required: [slug, name, categoryId]
+      properties:
+        slug: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9-]+$' }
+        name: { type: string, maxLength: 120 }
+        nameTa: { type: string, maxLength: 120 }
+        categoryId: { type: string, format: uuid }
+        botanicalName: { type: string, maxLength: 160 }
+        defaultUnit: { type: string, enum: [kg], default: kg }
+        seasonMonths:
+          type: array
+          maxItems: 12
+          items: { type: integer, minimum: 1, maximum: 12 }
+        shelfLifeDays: { type: integer, exclusiveMinimum: 0 }
+        iconKey: { type: string, maxLength: 80 }
+      additionalProperties: false
+
+    CropMasterUpdateRequest:
+      type: object
+      description: |
+        Partial update of a crop type — at least one field must be supplied.
+        Retiring one (`isActive: false`) excludes it from the farmer-facing picker
+        but never hard-deletes it — existing `farm_crops`/listings referencing it
+        remain valid.
+      properties:
+        name: { type: string, maxLength: 120 }
+        nameTa: { type: [string, 'null'], maxLength: 120 }
+        categoryId: { type: string, format: uuid }
+        botanicalName: { type: [string, 'null'], maxLength: 160 }
+        seasonMonths:
+          type: [array, 'null']
+          maxItems: 12
+          items: { type: integer, minimum: 1, maximum: 12 }
+        shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
+        iconKey: { type: [string, 'null'], maxLength: 80 }
+        isActive: { type: boolean }
+      additionalProperties: false
+
+    FarmCrop:
+      type: object
+      description: |
+        A planting record (`farm_crops`), plus the crop_master display fields the
+        mobile crop screens render (`cropName`/`cropNameTa`/`cropIconKey`).
+      required:
+        - id
+        - plotId
+        - cropMasterId
+        - cropName
+        - cropNameTa
+        - cropIconKey
+        - status
+        - plantedOn
+        - expectedHarvestOn
+        - actualHarvestOn
+        - expectedYieldKg
+        - actualYieldKg
+        - seedVariety
+        - seedCompany
+        - seedQuantity
+        - seedQuantityUnit
+        - seedCostPaise
+        - expectedGrade
+        - notes
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        cropMasterId: { type: string, format: uuid }
+        cropName: { type: string }
+        cropNameTa: { type: [string, 'null'] }
+        cropIconKey: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/FarmCropStatus' }
+        plantedOn: { type: [string, 'null'], format: date }
+        expectedHarvestOn: { type: [string, 'null'], format: date }
+        actualHarvestOn: { type: [string, 'null'], format: date }
+        expectedYieldKg: { type: [number, 'null'], minimum: 0 }
+        actualYieldKg: { type: [number, 'null'], minimum: 0 }
+        seedVariety: { type: [string, 'null'] }
+        seedCompany: { type: [string, 'null'] }
+        seedQuantity: { type: [number, 'null'], minimum: 0 }
+        seedQuantityUnit:
+          oneOf:
+            - { $ref: '#/components/schemas/SeedQuantityUnit' }
+            - type: 'null'
+        seedCostPaise:
+          type: [integer, 'null']
+          minimum: 0
+          description: Integer paise, not rupees — root CLAUDE.md §2.2, money is never a float.
+        expectedGrade:
+          oneOf:
+            - { $ref: '#/components/schemas/ExpectedGrade' }
+            - type: 'null'
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    FarmCropCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/plots/{plotId}/crops`. There is deliberately no
+        `plotId` or `farmerId` field here — `plotId` travels in the URL and the
+        owner is always the caller (root CLAUDE.md §2.1). The new row is created
+        in status `PLANNED`, the farm_crops column default.
+      required: [cropMasterId]
+      properties:
+        cropMasterId: { type: string, format: uuid }
+        plantedOn: { type: string, format: date }
+        expectedHarvestOn: { type: string, format: date }
+        expectedYieldKg: { type: number, minimum: 0 }
+        seedVariety: { type: string, maxLength: 160 }
+        seedCompany: { type: string, maxLength: 160 }
+        seedQuantity: { type: number, minimum: 0 }
+        seedQuantityUnit: { $ref: '#/components/schemas/SeedQuantityUnit' }
+        seedCostPaise: { type: integer, minimum: 0 }
+        expectedGrade: { $ref: '#/components/schemas/ExpectedGrade' }
+        notes: { type: string, maxLength: 2000 }
+      additionalProperties: false
+
+    FarmCropUpdateRequest:
+      type: object
+      description: |
+        Partial update of a `farm_crops` row — at least one field must be
+        supplied. `plotId` and `cropMasterId` are NOT present: they are not
+        editable. Moving `status` to `GROWING` when the plot already has another
+        live `GROWING` crop is rejected with `CROP_PLOT_ALREADY_GROWING` (BR-46).
+        Nullable fields accept `null` to clear them.
+      properties:
+        status: { $ref: '#/components/schemas/FarmCropStatus' }
+        plantedOn: { type: [string, 'null'], format: date }
+        expectedHarvestOn: { type: [string, 'null'], format: date }
+        actualHarvestOn: { type: [string, 'null'], format: date }
+        expectedYieldKg: { type: [number, 'null'], minimum: 0 }
+        actualYieldKg: { type: [number, 'null'], minimum: 0 }
+        seedVariety: { type: [string, 'null'], maxLength: 160 }
+        seedCompany: { type: [string, 'null'], maxLength: 160 }
+        seedQuantity: { type: [number, 'null'], minimum: 0 }
+        seedQuantityUnit:
+          oneOf:
+            - { $ref: '#/components/schemas/SeedQuantityUnit' }
+            - type: 'null'
+        seedCostPaise: { type: [integer, 'null'], minimum: 0 }
+        expectedGrade:
+          oneOf:
+            - { $ref: '#/components/schemas/ExpectedGrade' }
+            - type: 'null'
+        notes: { type: [string, 'null'], maxLength: 2000 }
+      additionalProperties: false
+
+    PlotRotationHistory:
+      type: object
+      description: |
+        Most-recent-first planting history for one plot, for the crop rotation
+        timeline view (CropRotationScreen.tsx).
+      required: [plotId, history]
+      properties:
+        plotId: { type: string, format: uuid }
+        history:
+          type: array
+          items:
+            type: object
+            required: [farmCropId, cropName, cropIconKey, plantedOn, actualHarvestOn, status]
+            properties:
+              farmCropId: { type: string, format: uuid }
+              cropName: { type: string }
+              cropIconKey: { type: [string, 'null'] }
+              plantedOn: { type: [string, 'null'], format: date }
+              actualHarvestOn: { type: [string, 'null'], format: date }
+              status: { $ref: '#/components/schemas/FarmCropStatus' }
+
+    FarmAssetCategory:
+      type: string
+      enum: [TOOL, EQUIPMENT, MACHINERY]
+      description: farm_assets.category. One unified table for the three near-identical mock screens (Machinery/Tools/Equipment).
+
+    FarmAssetStatus:
+      type: string
+      enum: [OK, DUE_SOON, OVERDUE]
+      description: |
+        Computed on every read from `nextServiceDueOn` vs today (Asia/Kolkata)
+        — never a database column. DUE_SOON's window is
+        `system_config.asset_service_due_soon_days` (a specification-gap
+        placeholder, see db/seed/001_reference.sql).
+
+    FarmAsset:
+      type: object
+      description: |
+        A maintenance-tracked farm asset (`farm_assets`) — one unified row
+        shape for MachineryListScreen/ToolsListScreen/EquipmentListScreen.tsx,
+        distinguished by `category`. `makeModel`/`fuelType` are
+        machinery-specific and `coverageAreaAcres` is equipment-specific, but
+        all three are plain nullable columns rather than three separate
+        tables.
+
+        `nextServiceDueOn` is a GENERATED column: `COALESCE(lastServicedOn,
+        purchasedOn) + serviceIntervalDays`, matching the mock Add screens'
+        own copy ("Next-due date is calculated from this interval and the
+        last service."). `status`/`dueNote` are derived from it at read time
+        and are never stored (db/migrations/0025_farm_assets.sql).
+      required:
+        - id
+        - farmId
+        - category
+        - name
+        - makeModel
+        - fuelType
+        - coverageAreaAcres
+        - purchasedOn
+        - costPaise
+        - serviceIntervalDays
+        - lastServicedOn
+        - nextServiceDueOn
+        - status
+        - dueNote
+        - notes
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        category: { $ref: '#/components/schemas/FarmAssetCategory' }
+        name: { type: string }
+        makeModel: { type: [string, 'null'] }
+        fuelType: { type: [string, 'null'] }
+        coverageAreaAcres: { type: [number, 'null'], minimum: 0 }
+        purchasedOn: { type: [string, 'null'], format: date }
+        costPaise:
+          type: [integer, 'null']
+          minimum: 0
+          description: Integer paise, not rupees — root CLAUDE.md §2.2, money is never a float.
+        serviceIntervalDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
+        lastServicedOn: { type: [string, 'null'], format: date }
+        nextServiceDueOn:
+          type: [string, 'null']
+          format: date
+          description: GENERATED column. Never accepted in a request body — see FarmAssetCreateRequest/FarmAssetUpdateRequest.
+        status: { $ref: '#/components/schemas/FarmAssetStatus' }
+        dueNote:
+          type: [string, 'null']
+          example: '5 days away'
+          description: e.g. "12 days overdue" / "Due today" / "5 days away". Computed, never stored. Null when nextServiceDueOn is null.
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    FarmAssetCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/farm-assets`. There is deliberately no
+        `farmerId` field — the owner is always the caller (root CLAUDE.md
+        §2.1). `farmId` names one of the caller's own `farms`; a foreign
+        `farmId` is 404. `serviceIntervalDays` is required, matching every
+        mock Add screen (AddToolScreen/AddMachineryScreen/AddEquipmentScreen.tsx)
+        marking "Service interval (days)" as required.
+      required: [farmId, category, name, serviceIntervalDays]
+      properties:
+        farmId: { type: string, format: uuid }
+        category: { $ref: '#/components/schemas/FarmAssetCategory' }
+        name: { type: string, maxLength: 160 }
+        makeModel: { type: string, maxLength: 160 }
+        fuelType: { type: string, maxLength: 80 }
+        coverageAreaAcres: { type: number, minimum: 0 }
+        purchasedOn: { type: string, format: date }
+        costPaise: { type: integer, minimum: 0 }
+        serviceIntervalDays: { type: integer, exclusiveMinimum: 0 }
+        lastServicedOn: { type: string, format: date }
+        notes: { type: string, maxLength: 2000 }
+      additionalProperties: false
+
+    FarmAssetUpdateRequest:
+      type: object
+      description: |
+        Partial update of a `farm_assets` row — at least one field must be
+        supplied. `farmId` and `category` are NOT present: they are not
+        editable. Nullable fields accept `null` to clear them.
+      properties:
+        name: { type: string, maxLength: 160 }
+        makeModel: { type: [string, 'null'], maxLength: 160 }
+        fuelType: { type: [string, 'null'], maxLength: 80 }
+        coverageAreaAcres: { type: [number, 'null'], minimum: 0 }
+        purchasedOn: { type: [string, 'null'], format: date }
+        costPaise: { type: [integer, 'null'], minimum: 0 }
+        serviceIntervalDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
+        lastServicedOn: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+      additionalProperties: false
+
+    AnimalSpecies:
+      type: string
+      enum: [CATTLE, BUFFALO, GOAT, POULTRY, SHEEP]
+
+    AnimalGender:
+      type: string
+      enum: [FEMALE, MALE]
+
+    AnimalSource:
+      type: string
+      enum: [BORN_ON_FARM, PURCHASED]
+
+    OrganicStatus:
+      type: string
+      enum: [ORGANIC, TRANSITIONING, CONVENTIONAL]
+
+    LifecycleStatus:
+      type: string
+      enum: [ACTIVE, SOLD, TRANSFERRED, CULLED, DECEASED]
+      description: |
+        livestock_animals.lifecycle_status. New animals start ACTIVE; the rest
+        are terminal, set exactly once by a lifecycle event (BR-47).
+
+    LifecycleEventType:
+      type: string
+      enum: [SOLD, TRANSFERRED, CULLED, DECEASED]
+
+    DairyProductType:
+      type: string
+      enum: [MILK, CURD, PANEER, BUTTER, GHEE, BUTTERMILK, CHEESE, EGGS]
+      description: |
+        The fixed 8-product dairy/poultry catalog. Each value logs in exactly
+        one ProductionUnit: MILK/GHEE/BUTTERMILK in LITERS, CURD/PANEER/
+        BUTTER/CHEESE in KG, EGGS as a COUNT.
+
+    ProductionUnit:
+      type: string
+      enum: [LITERS, KG, COUNT]
+
+    Animal:
+      type: object
+      description: |
+        A `livestock_animals` row. Allow-list response: the internal `farm_id`
+        is not exposed — the caller already knows whose herd this is, either
+        from `/me` or from the `farmerId` it passed on the admin route.
+      required:
+        - id
+        - tag
+        - name
+        - species
+        - breed
+        - gender
+        - dateOfBirth
+        - source
+        - purchasedOn
+        - sourceFarm
+        - organicStatus
+        - lifecycleStatus
+        - withdrawalUntil
+        - notes
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        tag: { type: string, example: C-014 }
+        name: { type: [string, 'null'] }
+        species: { $ref: '#/components/schemas/AnimalSpecies' }
+        breed: { type: [string, 'null'] }
+        gender: { $ref: '#/components/schemas/AnimalGender' }
+        dateOfBirth: { type: [string, 'null'], format: date }
+        source: { $ref: '#/components/schemas/AnimalSource' }
+        purchasedOn: { type: [string, 'null'], format: date }
+        sourceFarm: { type: [string, 'null'] }
+        organicStatus: { $ref: '#/components/schemas/OrganicStatus' }
+        lifecycleStatus: { $ref: '#/components/schemas/LifecycleStatus' }
+        withdrawalUntil:
+          type: [string, 'null']
+          format: date
+          description: |
+            Post-medication milk/meat withdrawal window. While this is
+            today-or-later, the animal's produce should not be marked
+            organic-sellable (display-only; no business rule keys off it yet).
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    AnimalCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/animals`. There is deliberately no
+        `farmId` field — the new animal is attached to the caller's primary
+        farm server-side (root CLAUDE.md §2.1) — and no `lifecycleStatus`:
+        every new animal starts `ACTIVE`.
+      required: [tag, species, gender]
+      properties:
+        tag: { type: string, minLength: 1, maxLength: 40 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        species: { $ref: '#/components/schemas/AnimalSpecies' }
+        breed: { type: string, minLength: 1, maxLength: 120 }
+        gender: { $ref: '#/components/schemas/AnimalGender' }
+        dateOfBirth: { type: string, format: date }
+        source: { $ref: '#/components/schemas/AnimalSource', default: BORN_ON_FARM }
+        purchasedOn: { type: string, format: date }
+        sourceFarm: { type: string, minLength: 1, maxLength: 160 }
+        organicStatus: { $ref: '#/components/schemas/OrganicStatus', default: CONVENTIONAL }
+        withdrawalUntil: { type: string, format: date }
+        notes: { type: string, maxLength: 2000 }
+      additionalProperties: false
+
+    AnimalUpdateRequest:
+      type: object
+      description: |
+        Partial update of a `livestock_animals` row — at least one field must
+        be supplied. `lifecycleStatus` is NOT present: it only ever changes
+        via `POST .../lifecycle-events` (BR-47). Nullable fields accept
+        `null` to clear them.
+      properties:
+        tag: { type: string, minLength: 1, maxLength: 40 }
+        name: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        species: { $ref: '#/components/schemas/AnimalSpecies' }
+        breed: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        gender: { $ref: '#/components/schemas/AnimalGender' }
+        dateOfBirth: { type: [string, 'null'], format: date }
+        source: { $ref: '#/components/schemas/AnimalSource' }
+        purchasedOn: { type: [string, 'null'], format: date }
+        sourceFarm: { type: [string, 'null'], minLength: 1, maxLength: 160 }
+        organicStatus: { $ref: '#/components/schemas/OrganicStatus' }
+        withdrawalUntil: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+      additionalProperties: false
+
+    LifecycleEventCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/lifecycle-events`.
+        `salePricePaise` is integer paise, not rupees (root CLAUDE.md §2.2);
+        only meaningful for `eventType: SOLD`. `eventDate` defaults to today
+        when omitted.
+      required: [eventType]
+      properties:
+        eventType: { $ref: '#/components/schemas/LifecycleEventType' }
+        eventDate: { type: string, format: date }
+        counterparty:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: Buyer name or destination farm.
+        salePricePaise: { type: integer, minimum: 0 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        notes: { type: string, maxLength: 2000 }
+      additionalProperties: false
+
+    ProductionLog:
+      type: object
+      description: A `livestock_production_logs` row.
+      required: [id, animalId, productType, quantity, unit, loggedOn, batchInfo, sessions, notes, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId:
+          type: [string, 'null']
+          format: uuid
+          description: Null for flock-level egg collection, which has no single bird to attribute the count to.
+        productType: { $ref: '#/components/schemas/DairyProductType' }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit: { $ref: '#/components/schemas/ProductionUnit' }
+        loggedOn: { type: string, format: date }
+        batchInfo: { type: [string, 'null'], description: 'Free text, e.g. "Batch #3, cultured 24hr".' }
+        sessions:
+          type: [integer, 'null']
+          exclusiveMinimum: 0
+          description: Number of milking sessions that day. Only meaningful for MILK.
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    ProductionLogCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/production-logs`. `unit` must
+        match `productType`'s one fixed unit (see `DairyProductType`'s
+        description) or the request is 422.
+      required: [productType, quantity, unit]
+      properties:
+        animalId: { type: string, format: uuid }
+        productType: { $ref: '#/components/schemas/DairyProductType' }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit: { $ref: '#/components/schemas/ProductionUnit' }
+        loggedOn: { type: string, format: date }
+        batchInfo: { type: string, minLength: 1, maxLength: 500 }
+        sessions: { type: integer, exclusiveMinimum: 0 }
+        notes: { type: string, maxLength: 2000 }
+      additionalProperties: false
 
     FairPrice:
       type: object

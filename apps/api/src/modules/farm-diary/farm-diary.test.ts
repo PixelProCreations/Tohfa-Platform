@@ -17,6 +17,10 @@ import { AppError } from '../../http/problem.js';
 import { loadRbac } from '../../rbac/loadRbac.js';
 import { requirePermission, type ResolvedScope } from '../../rbac/requirePermission.js';
 import { aScope, anActor, aFarmer, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import type { FarmsService } from '../farms/farms.service.js';
+import type { Plot, FarmWithPlotCount } from '../farms/farms.repo.js';
+import type { CropsService } from '../crops/crops.service.js';
+import type { FarmCropResponse, FarmCropStatus } from '../crops/crops.schema.js';
 import type {
   AttachPhotoData,
   CreateEntryData,
@@ -46,6 +50,182 @@ const PLOT_B = '50000000-0000-4000-8000-00000000000b';
 const CROP_A = '60000000-0000-4000-8000-00000000000a';
 const CROP_A_PLANNED = '60000000-0000-4000-8000-0000000000a2';
 const CROP_B = '60000000-0000-4000-8000-00000000000b';
+
+// Farms/plots fixtures for the diary's plot/active-crop pickers, which now
+// call the real farms/crops modules instead of returning fixed fixtures.
+// FARMER_A owns two farms (BR-40 doctrine: one operation, possibly several
+// land locations) so the flattening in listPlots is actually exercised.
+const FARM_A1 = '70000000-0000-4000-8000-000000000001';
+const FARM_A2 = '70000000-0000-4000-8000-000000000002';
+const FARM_B1 = '70000000-0000-4000-8000-000000000003';
+const PLOT_GREENHOUSE = '50000000-0000-4000-8000-00000000000c';
+
+function fakeFarm(id: string, farmerId: string, name: string, plotCount: number): FarmWithPlotCount {
+  return {
+    id,
+    farmerId,
+    name,
+    surveyNumber: null,
+    areaAcres: null,
+    centroidLat: null,
+    centroidLng: null,
+    boundary: null,
+    boundaryAreaAcres: null,
+    boundaryDrawnBy: null,
+    boundaryDrawnAt: null,
+    boundaryVersion: 0,
+    address: null,
+    village: null,
+    taluk: null,
+    district: 'The Nilgiris',
+    isPrimary: false,
+    waterSources: [],
+    landBoundaryContext: [],
+    notes: null,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: null,
+    plotCount,
+  };
+}
+
+function fakePlot(id: string, farmId: string, name: string, areaAcres: number | null): Plot {
+  return {
+    id,
+    farmId,
+    name,
+    areaAcres,
+    soilType: null,
+    sunExposure: null,
+    irrigationType: null,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: null,
+  };
+}
+
+/**
+ * Fake FarmsService — mirrors the real one's ownership doctrine (a farm/plot
+ * not owned by scope.farmerId is NOT_FOUND, root CLAUDE.md §2.1) without a
+ * database, the same relationship createFakeRepo() has to farm-diary.repo.ts.
+ */
+function createFakeFarmsService(): FarmsService {
+  const farms: FarmWithPlotCount[] = [
+    fakeFarm(FARM_A1, FARMER_A, 'Home farm', 2),
+    fakeFarm(FARM_A2, FARMER_A, 'Second farm', 1),
+    fakeFarm(FARM_B1, FARMER_B, 'Another farmer’s farm', 1),
+  ];
+  const plotsByFarm: Record<string, Plot[]> = {
+    [FARM_A1]: [fakePlot(PLOT_A, FARM_A1, 'Field A', 1.5), fakePlot(PLOT_A_NO_CROP, FARM_A1, 'Field A2', 0.75)],
+    [FARM_A2]: [fakePlot(PLOT_GREENHOUSE, FARM_A2, 'Greenhouse 1', 0.25)],
+    [FARM_B1]: [fakePlot(PLOT_B, FARM_B1, 'Foreign field', 2)],
+  };
+
+  return {
+    async list(scope) {
+      return farms.filter((f) => f.farmerId === scope.farmerId);
+    },
+    async listPlots(scope, farmId) {
+      const farm = farms.find((f) => f.id === farmId);
+      if (farm === undefined || farm.farmerId !== scope.farmerId) {
+        throw new AppError('NOT_FOUND', { detail: 'Farm not found.' });
+      }
+      return plotsByFarm[farmId] ?? [];
+    },
+    async create() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async update() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async remove() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async createPlot() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async updatePlot() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async removePlot() {
+      throw new Error('not used by farm-diary tests');
+    },
+  };
+}
+
+function fakeFarmCrop(
+  id: string,
+  plotId: string,
+  status: FarmCropStatus,
+  cropName: string,
+  plantedOn: string | null,
+): FarmCropResponse {
+  return {
+    id,
+    plotId,
+    cropMasterId: newId(),
+    cropName,
+    cropNameTa: null,
+    cropIconKey: null,
+    status,
+    plantedOn,
+    expectedHarvestOn: null,
+    actualHarvestOn: null,
+    expectedYieldKg: null,
+    actualYieldKg: null,
+    seedVariety: null,
+    seedCompany: null,
+    seedQuantity: null,
+    seedQuantityUnit: null,
+    seedCostPaise: null,
+    expectedGrade: null,
+    notes: null,
+    createdAt: new Date(0).toISOString(),
+    updatedAt: null,
+  };
+}
+
+/**
+ * Fake CropsService — mirrors cropsService.listFarmCrops's own doctrine: a
+ * plotId owned by a different farmer returns an empty page, not an error
+ * (root CLAUDE.md §2.1), and BR-46 means at most one GROWING row per plot.
+ */
+function createFakeCropsService(): CropsService {
+  const plotOwners: Record<string, string> = {
+    [PLOT_A]: FARMER_A,
+    [PLOT_A_NO_CROP]: FARMER_A,
+    [PLOT_GREENHOUSE]: FARMER_A,
+    [PLOT_B]: FARMER_B,
+  };
+  const cropsByPlot: Record<string, FarmCropResponse[]> = {
+    [PLOT_A]: [fakeFarmCrop(CROP_A, PLOT_A, 'GROWING', 'Carrot', '2026-08-01')],
+    [PLOT_A_NO_CROP]: [fakeFarmCrop(CROP_A_PLANNED, PLOT_A_NO_CROP, 'PLANNED', 'Beetroot', null)],
+    [PLOT_B]: [fakeFarmCrop(CROP_B, PLOT_B, 'GROWING', 'Cabbage', '2026-07-01')],
+  };
+
+  return {
+    async listFarmCrops(scope, plotId, query) {
+      if (plotOwners[plotId] !== scope.farmerId) {
+        return { items: [], page: { nextCursor: null, hasMore: false } };
+      }
+      const rows = (cropsByPlot[plotId] ?? []).filter((c) => query.status === undefined || c.status === query.status);
+      return { items: rows.slice(0, query.limit), page: { nextCursor: null, hasMore: false } };
+    },
+    async listCropMaster() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async createFarmCrop() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async getFarmCrop() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async updateFarmCrop() {
+      throw new Error('not used by farm-diary tests');
+    },
+    async getPlotRotationHistory() {
+      throw new Error('not used by farm-diary tests');
+    },
+  };
+}
 
 function farmerScope(farmerId: string, permission = 'farmer.diary.view_own'): ResolvedScope {
   return aScope({
@@ -350,7 +530,9 @@ function setup() {
     txsOpened.push(tx);
     return fn(tx);
   };
-  const service = createFarmDiaryService({ repo: fake.repo, db: noopDb, runTx });
+  const farmsSvc = createFakeFarmsService();
+  const cropsSvc = createFakeCropsService();
+  const service = createFarmDiaryService({ repo: fake.repo, db: noopDb, runTx, farmsSvc, cropsSvc });
   const admin = createDiaryTaxonomyAdminService({ repo: fake.repo, runTx });
   return { ...fake, tx, txsOpened, service, admin };
 }
@@ -705,10 +887,10 @@ describe('farm diary — BR-45 admin-managed taxonomy', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Photos and stubs
+// Photos and pickers
 // ---------------------------------------------------------------------------
 
-describe('farm diary — photos and picker stubs', () => {
+describe('farm diary — photos and plot/crop pickers', () => {
   it('attaches a DIARY_PHOTO key to an owned entry and refuses a foreign entry or a non-diary key', async () => {
     const { service } = setup();
     const entry = await service.createEntry(farmerScope(FARMER_A, 'farmer.diary.create_own'), validBody());
@@ -727,18 +909,150 @@ describe('farm diary — photos and picker stubs', () => {
     expect((await service.getEntry(farmerScope(FARMER_A), entry.id)).photos).toEqual([]);
   });
 
-  it('the plots / active-crops stubs return fixed fixtures (deliberate, pending a plots module)', async () => {
+  it('listPlots flattens plots across every farm the farmer owns, and never a foreign farm’s plots', async () => {
     const { service } = setup();
     const plots = await service.listPlots(farmerScope(FARMER_A));
-    expect(plots.items.length).toBeGreaterThanOrEqual(2);
-    const crops = await service.listActiveCrops(farmerScope(FARMER_A), plots.items[0]!.id);
-    expect(crops.items).toHaveLength(1);
+
+    // FARM_A1 (2 plots) + FARM_A2 (1 plot), flattened into one list.
+    expect(plots.items.map((p) => p.id).sort()).toEqual([PLOT_A, PLOT_A_NO_CROP, PLOT_GREENHOUSE].sort());
+    expect(plots.items.find((p) => p.id === PLOT_A)).toEqual({ id: PLOT_A, name: 'Field A', areaAcres: 1.5 });
+    expect(plots.items.find((p) => p.id === PLOT_GREENHOUSE)).toEqual({
+      id: PLOT_GREENHOUSE,
+      name: 'Greenhouse 1',
+      areaAcres: 0.25,
+    });
+
+    // FARM_B1's plot belongs to FARMER_B and must never appear here.
+    expect(plots.items.some((p) => p.id === PLOT_B)).toBe(false);
+  });
+
+  it('listActiveCrops returns the plot’s single GROWING crop, or none, and never a foreign plot’s crop', async () => {
+    const { service } = setup();
+
+    const growing = await service.listActiveCrops(farmerScope(FARMER_A), PLOT_A);
+    expect(growing.items).toEqual([{ id: CROP_A, cropName: 'Carrot', plantedOn: '2026-08-01' }]);
+
+    // BR-46: at most one GROWING crop per plot. This plot's only crop is
+    // PLANNED, so the GROWING picker reports none, not the planned one.
+    const none = await service.listActiveCrops(farmerScope(FARMER_A), PLOT_A_NO_CROP);
+    expect(none.items).toEqual([]);
+
+    // PLOT_B belongs to FARMER_B: its GROWING crop must not leak to FARMER_A,
+    // and the call is an empty result, not a 403/404 (root CLAUDE.md §2.1).
+    const foreign = await service.listActiveCrops(farmerScope(FARMER_A), PLOT_B);
+    expect(foreign.items).toEqual([]);
   });
 
   it('rejects a tampered list cursor with VALIDATION_FAILED', async () => {
     const { service } = setup();
     const error = await errorOf(service.listEntries(farmerScope(FARMER_A), { limit: 20, cursor: 'not-a-cursor' }));
     expect(error.code).toBe('VALIDATION_FAILED');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration — proves listPlots/listActiveCrops now read the REAL
+// farms/plots/farm_crops tables through the farms/crops modules, not the
+// fixed fixtures the old stubs returned.
+//
+// This block MUST run before "farmDiaryRepo (integration)" below: that
+// block's afterAll closes the shared `pool` singleton once its own tests are
+// done, and vitest runs this file's describes serially (vitest.config.ts
+// pins `poolOptions.forks.singleFork`), so anything after it would try to
+// query a closed pool.
+// ---------------------------------------------------------------------------
+
+describeIfDatabase('farm diary plot/crop pickers — real farms/crops modules (integration)', () => {
+  it('listPlots and listActiveCrops return a freshly seeded farm/plot/farm_crop, not a fixture', async () => {
+    const ready =
+      (await databaseReady('farms')) && (await databaseReady('plots')) && (await databaseReady('farm_crops'));
+    if (!ready) {
+      console.warn('[skip] farms/plots/farm_crops tables not reachable — run `docker compose up -d && pnpm db:migrate`');
+      return;
+    }
+
+    const { pool } = await import('../../db/pool.js');
+    const { createFarmsService } = await import('../farms/farms.service.js');
+    const { createPlotBody, createFarmBody } = await import('../farms/farms.schema.js');
+    const { createCropsService } = await import('../crops/crops.service.js');
+    const { createFarmCropBody, updateFarmCropBody } = await import('../crops/crops.schema.js');
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const userId = newId();
+      const mobile = `+9198${Math.floor(10000000 + Math.random() * 89999999)}`;
+      await client.query(
+        `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, $3, 'FARMER', 'ACTIVE')`,
+        [userId, mobile, 'Diary Picker Integration Farmer'],
+      );
+
+      const farmerId = newId();
+      await client.query(`INSERT INTO farmers (id, user_id, tohfa_farmer_id) VALUES ($1, $2, $3)`, [
+        farmerId,
+        userId,
+        `TOHFA-DIARY-${farmerId.slice(0, 8)}`,
+      ]);
+
+      const scope: ResolvedScope = aScope({
+        level: ScopeLevel.OWN,
+        permission: 'farmer.diary.view_own',
+        roleCode: RoleCode.FARMER,
+        farmerId,
+        userId,
+      });
+
+      const txRunner: TransactionRunner = async (fn) => fn(client);
+      const farmsSvc = createFarmsService({ db: client, runTx: txRunner });
+      const cropsSvc = createCropsService({ db: client, runTx: txRunner });
+      const service = createFarmDiaryService({ db: client, runTx: txRunner, farmsSvc, cropsSvc });
+
+      const farm = await farmsSvc.create(scope, createFarmBody.parse({ name: 'Integration Diary Farm' }));
+      const plot = await farmsSvc.createPlot(
+        scope,
+        farm.id,
+        createPlotBody.parse({ name: 'Integration Diary Zone', areaAcres: 2.4 }),
+      );
+
+      const cropMasterResult = await client.query<{ id: string; name: string }>(
+        'SELECT id, name FROM crop_master WHERE deleted_at IS NULL LIMIT 1',
+      );
+      const cropMasterRow = cropMasterResult.rows[0];
+      if (cropMasterRow === undefined) throw new Error('crop_master has no seed rows — run `pnpm db:seed`');
+
+      const farmCrop = await cropsSvc.createFarmCrop(
+        scope,
+        plot.id,
+        createFarmCropBody.parse({ cropMasterId: cropMasterRow.id, plantedOn: '2026-08-01' }),
+      );
+      const growingCrop = await cropsSvc.updateFarmCrop(
+        scope,
+        farmCrop.id,
+        updateFarmCropBody.parse({ status: 'GROWING' }),
+      );
+      expect(growingCrop.status).toBe('GROWING');
+
+      // listPlots: the freshly created plot appears, addressed by its REAL
+      // database id — never one of the old STUB_PLOTS fixture UUIDs
+      // (5d1a0000-...).
+      const plots = await service.listPlots(scope);
+      expect(plots.items.find((p) => p.id === plot.id)).toEqual({
+        id: plot.id,
+        name: 'Integration Diary Zone',
+        areaAcres: 2.4,
+      });
+      expect(plots.items.some((p) => p.id.startsWith('5d1a0000'))).toBe(false);
+
+      // listActiveCrops: the freshly created, now-GROWING crop — never the
+      // old STUB_ACTIVE_CROP fixture (id 5d1ac000-..., name "Carrot").
+      const crops = await service.listActiveCrops(scope, plot.id);
+      expect(crops.items).toEqual([{ id: growingCrop.id, cropName: cropMasterRow.name, plantedOn: '2026-08-01' }]);
+      expect(crops.items.some((c) => c.id.startsWith('5d1ac000'))).toBe(false);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
   });
 });
 
