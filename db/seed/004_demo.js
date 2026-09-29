@@ -125,79 +125,12 @@ async function runDemoSeed() {
 
       // Farm
       const farmId = `30000000-0000-0000-0000-${String(f.num).padStart(12, '0')}`;
-      const hasFmbBoundary = f.num === 3;
-      const fmbPolygonJson = hasFmbBoundary
-        ? JSON.stringify({
-            type: 'Polygon',
-            coordinates: [
-              [
-                [76.7043, 11.4244],
-                [76.7056, 11.4243],
-                [76.7058, 11.4254],
-                [76.7048, 11.4256],
-                [76.7041, 11.4251],
-                [76.7043, 11.4244],
-              ],
-            ],
-          })
-        : null;
-
-      const centroidLat = hasFmbBoundary ? 11.4249 : 11.41 + f.num * 0.005;
-      const centroidLng = hasFmbBoundary ? 76.7049 : 76.69 + f.num * 0.005;
-      const boundaryArea = hasFmbBoundary ? 5.0 : null;
-      const waterSources = hasFmbBoundary ? ['Borewell', 'Rainwater Harvesting'] : ['Rainfed & Borewell'];
-      const landBoundaryContext = hasFmbBoundary
-        ? ['forest_border', 'fenced_perimeter', 'stream_adjacent']
-        : [];
-
       await client.query(
-        `INSERT INTO farms (
-           id, farmer_id, name, survey_number, area_acres, centroid_lat, centroid_lng, village, district, is_primary,
-           boundary, boundary_area_acres, boundary_version, water_sources, land_boundary_context
-         )
-         VALUES (
-           $1, $2, $3, $4, $5, $6, $7, 'Kodanad', 'The Nilgiris', true,
-           CASE WHEN $8::json IS NULL THEN NULL ELSE ST_SetSRID(ST_GeomFromGeoJSON($8::json), 4326)::geography END,
-           $9, CASE WHEN $8::json IS NULL THEN 0 ELSE 1 END, $10, $11
-         )
-         ON CONFLICT (id) DO UPDATE SET
-           name = EXCLUDED.name,
-           centroid_lat = EXCLUDED.centroid_lat,
-           centroid_lng = EXCLUDED.centroid_lng,
-           boundary = COALESCE(EXCLUDED.boundary, farms.boundary),
-           boundary_area_acres = COALESCE(EXCLUDED.boundary_area_acres, farms.boundary_area_acres),
-           water_sources = EXCLUDED.water_sources,
-           land_boundary_context = EXCLUDED.land_boundary_context`,
-        [
-          farmId,
-          fId,
-          `${f.name}'s Organic Farm`,
-          `SF-${100 + f.num}/A`,
-          3.5 + f.num * 0.5,
-          centroidLat,
-          centroidLng,
-          fmbPolygonJson,
-          boundaryArea,
-          waterSources,
-          landBoundaryContext,
-        ],
+        `INSERT INTO farms (id, farmer_id, name, survey_number, area_acres, centroid_lat, centroid_lng, village, district, is_primary)
+         VALUES ($1, $2, $3, $4, $5, 11.4100 + ($6 * 0.005), 76.6900 + ($6 * 0.005), 'Kodanad', 'The Nilgiris', true)
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+        [farmId, fId, `${f.name}'s Organic Farm`, `SF-${100 + f.num}/A`, 3.5 + (f.num * 0.5), f.num],
       );
-
-      // Seed Plots (Zones) for Farmer 3 (Suresh Gowda)
-      if (f.num === 3) {
-        await client.query(
-          `INSERT INTO plots (id, farm_id, name, area_acres, soil_type, irrigation_type, sun_exposure)
-           VALUES
-             ('31000000-0000-0000-0000-000000000001', $1, 'Zone A - North Ridge (Carrot)', 2.500, 'Red Loam', 'Drip Irrigation', 'Full Sun'),
-             ('31000000-0000-0000-0000-000000000002', $1, 'Zone B - South Valley (Potato)', 2.500, 'Clay Loam', 'Sprinkler', 'Partial Shade')
-           ON CONFLICT (farm_id, name) DO UPDATE SET
-             area_acres = EXCLUDED.area_acres,
-             soil_type = EXCLUDED.soil_type,
-             irrigation_type = EXCLUDED.irrigation_type,
-             sun_exposure = EXCLUDED.sun_exposure`,
-          [farmId],
-        );
-      }
 
       // Certification if present
       if (f.cert) {
@@ -258,12 +191,11 @@ async function runDemoSeed() {
           }),
           JSON.stringify({
             gpsCaptured: true,
-            latitude: centroidLat,
-            longitude: centroidLng,
+            latitude: 11.41 + f.num * 0.005,
+            longitude: 76.69 + f.num * 0.005,
             village: 'Kodanad',
             taluk: 'Kotagiri',
             district: 'The Nilgiris',
-            ...(fmbPolygonJson ? { fmbPolygon: JSON.parse(fmbPolygonJson) } : {}),
           }),
           JSON.stringify({
             documents: [
@@ -286,27 +218,14 @@ async function runDemoSeed() {
     for (const [cropSlug, cropId] of [[ 'carrot', carrotId ], [ 'potato', potatoId ], [ 'beetroot', beetrootId ]]) {
       for (const grade of ['GRADE_1', 'GRADE_2']) {
         const ceiling = grade === 'GRADE_1' ? (cropSlug === 'carrot' ? '80.00' : '65.00') : '50.00';
-        let fpId;
-        const existingFp = await client.query(
-          `SELECT id FROM fair_prices WHERE crop_id = $1 AND grade = $2 AND effective_to IS NULL LIMIT 1`,
-          [cropId, grade],
+        const fpRes = await client.query(
+          `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
+           VALUES ($1, $2, $3, CURRENT_DATE - 30, $4)
+           ON CONFLICT (crop_id, grade, effective_from) DO UPDATE SET ceiling_price = EXCLUDED.ceiling_price
+           RETURNING id`,
+          [cropId, grade, ceiling, superAdminUserId],
         );
-        if (existingFp.rows.length > 0) {
-          fpId = existingFp.rows[0].id;
-          await client.query(
-            `UPDATE fair_prices SET ceiling_price = $1 WHERE id = $2`,
-            [ceiling, fpId],
-          );
-        } else {
-          const fpRes = await client.query(
-            `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
-             VALUES ($1, $2, $3, CURRENT_DATE - 30, $4)
-             RETURNING id`,
-            [cropId, grade, ceiling, superAdminUserId],
-          );
-          fpId = fpRes.rows[0]?.id;
-        }
-        fairPriceIds[`${cropSlug}_${grade}`] = fpId;
+        fairPriceIds[`${cropSlug}_${grade}`] = fpRes.rows[0]?.id;
       }
     }
 
@@ -529,15 +448,14 @@ async function runDemoSeed() {
     const catMap = new Map(catRows.map((c) => [c.code, c.id]));
 
     // Farmer 3 (Suresh Gowda, +919870000003) -> Total 83, GOOD
+    const ratingId3 = '70000000-0000-0000-0000-000000000003';
     const farmer3Id = '20000000-0000-0000-0000-000000000003';
-    const rating3Res = await client.query(
+    await client.query(
       `INSERT INTO farm_ratings (id, farmer_id, zone_id, period_label, status, total_score, tier_code, rated_by, rated_at, notes)
        VALUES ($1, $2, $3, 'CYCLE-1', 'COMPLETE', 83, 'GOOD', $4, now(), 'Verified organic practices, strong soil regeneration and high produce quality.')
-       ON CONFLICT (farmer_id, period_label) DO UPDATE SET total_score = 83, tier_code = 'GOOD', status = 'COMPLETE'
-       RETURNING id`,
-      ['70000000-0000-0000-0000-000000000003', farmer3Id, defaultZone, superAdminUserId],
+       ON CONFLICT (id) DO UPDATE SET total_score = 83, tier_code = 'GOOD', status = 'COMPLETE'`,
+      [ratingId3, farmer3Id, defaultZone, superAdminUserId],
     );
-    const actualRatingId3 = rating3Res.rows[0].id;
     await client.query(
       `UPDATE farmers SET overall_rating = 83, rating_tier_code = 'GOOD' WHERE id = $1`,
       [farmer3Id],
@@ -562,21 +480,20 @@ async function runDemoSeed() {
           `INSERT INTO farm_rating_scores (rating_id, category_id, score, scored_by)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (rating_id, category_id) DO UPDATE SET score = $3`,
-          [actualRatingId3, catId, score, superAdminUserId],
+          [ratingId3, catId, score, superAdminUserId],
         );
       }
     }
 
     // Farmer 1 (Ramesh Patel, +919870000001) -> Total 90, EXCELLENT
+    const ratingId1 = '70000000-0000-0000-0000-000000000001';
     const farmer1Id = '20000000-0000-0000-0000-000000000001';
-    const rating1Res = await client.query(
+    await client.query(
       `INSERT INTO farm_ratings (id, farmer_id, zone_id, period_label, status, total_score, tier_code, rated_by, rated_at, notes)
        VALUES ($1, $2, $3, 'CYCLE-1', 'COMPLETE', 90, 'EXCELLENT', $4, now(), 'Outstanding bio-diversity, drip irrigation, and 100% organic traceability.')
-       ON CONFLICT (farmer_id, period_label) DO UPDATE SET total_score = 90, tier_code = 'EXCELLENT', status = 'COMPLETE'
-       RETURNING id`,
-      ['70000000-0000-0000-0000-000000000001', farmer1Id, defaultZone, superAdminUserId],
+       ON CONFLICT (id) DO UPDATE SET total_score = 90, tier_code = 'EXCELLENT', status = 'COMPLETE'`,
+      [ratingId1, farmer1Id, defaultZone, superAdminUserId],
     );
-    const actualRatingId1 = rating1Res.rows[0].id;
     await client.query(
       `UPDATE farmers SET overall_rating = 90, rating_tier_code = 'EXCELLENT' WHERE id = $1`,
       [farmer1Id],
@@ -587,7 +504,7 @@ async function runDemoSeed() {
         `INSERT INTO farm_rating_scores (rating_id, category_id, score, scored_by)
          VALUES ($1, $2, 9, $3)
          ON CONFLICT (rating_id, category_id) DO UPDATE SET score = 9`,
-        [actualRatingId1, cat.id, superAdminUserId],
+        [ratingId1, cat.id, superAdminUserId],
       );
     }
 
