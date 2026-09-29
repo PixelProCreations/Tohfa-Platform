@@ -884,6 +884,45 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-40 — Soil parameter classification bands are server-configured, not client-literal
+| | |
+|---|---|
+| **Source** | Requirements FR-F06 (soil diary); `db/migrations/0021_soil_management.sql` |
+| **Status** | DERIVED |
+| **Layer** | Server-side, one shared classification function reading band thresholds from `system_config`; every soil endpoint that returns a classified label (list, detail, tracker) calls that one function rather than computing its own |
+| **Scope** | Track 1 |
+
+**Rule.** A soil test reading (pH, organic carbon %, EC, TDS, nitrogen, phosphorus, potassium) is stored on `soil_test_records` as a plain number. Whenever an API response labels that number for a farmer — "Medium", "Acidic", "Good", and so on — the thresholds that produce the label MUST come from `system_config`, evaluated by exactly one shared server-side classification function. No mobile screen and no individual endpoint may hardcode or duplicate its own copy of the band boundaries. This is the same "no hard-coded thresholds" discipline `CLAUDE.md` §2.7 already requires of the Rs 10,000 cap and the 24-hour window, applied to the soil diary's numeric-to-label step. It governs classification only: turning a raw reading into a label. It does NOT reopen BR-38 — generating free-text advisory or recommendation content (e.g. "apply lime because pH is low") is exactly the automated-advice territory BR-38 blocks pending client resolution, and stays out of scope for this feature; BR-40 covers labelling a number, not advising on it.
+
+**Failure mode if unenforced.** Two endpoints (say, the list view and the detail view) duplicate the pH band logic, drift apart after one is edited, and a farmer sees "Neutral" in one screen and "Acidic" in another for the same test record — and the band values become a code change requiring a deploy instead of a config edit when the agronomy team revises them.
+
+**Test contract.**
+- `BR-40a` Changing a `system_config` band value changes the label the API returns for an existing soil test record, with no deploy — asserted by reading a record before and after an in-place `system_config` update.
+- `BR-40b` The same numeric reading produces the same label across every soil endpoint that returns one (list, detail, tracker), asserted by calling each with an identical reading and comparing labels.
+
+---
+
+### BR-41 — Workforce pay is computed, never stored; hours and rates are always valid Money
+| | |
+|---|---|
+| **Source** | Product decision, 2026-09-29 (Farm Workforce backend, stage 1 of 3 — no Requirements v1.0 or Role & Feature Matrix section covers worker roster/attendance/payroll; the feature exists today only as six farmer-app mobile mockups). Follows from root `CLAUDE.md` §2.2 (money is never a float), BR-36 (own-data ownership) and BR-38 (no automated processes); see `db/migrations/0025_workforce.sql`. |
+| **Status** | DERIVED |
+| **Layer** | Server-side, one shared payroll-computation function reading raw `worker_attendance`/`worker_advances`/`worker_payouts` rows; database CHECK constraints on `workers.pay_rate_paise` and `worker_attendance.hours_worked` |
+| **Scope** | Track 1 |
+
+**Rule.** A worker's `pay_rate_paise` is a positive integer number of paise, never a float, per root `CLAUDE.md` §2.2 — the same "money is never a float" discipline every other TOHFA money field follows, applied to workforce pay. An attendance row's `hoursWorked`, when the worker was marked present, must fall in `(0, 24]`; zero, negative and unrealistic (>24h in a day) values are rejected by a database CHECK, not only a service-layer validation. Gross pay, advances deducted and net payable are never stored as columns on `workers`, `worker_attendance`, `worker_advances` or `worker_payouts` — every API response that surfaces a payroll figure (the workforce summary, the payroll summary, the crop-hours summary) computes it at read time from the raw attendance/advance/payout rows, through exactly one shared server-side function, the same "compute at read time, never store" pattern BR-40 already establishes for soil classification labels. Attendance and payout rows are exclusively farmer-initiated writes: no scheduled job marks a worker present, runs payroll, or otherwise creates a `worker_attendance` or `worker_payouts` row on a farmer's behalf, extending BR-38's no-automation boundary to this feature. A worker, attendance, advance or payout row that belongs to a farm the caller does not own 404s, never 403s, per BR-36.
+
+**Failure mode if unenforced.** A float pay rate or a naive sum silently drifts a worker's net pay by paise that compound over a season (the same class of bug root `CLAUDE.md` §2.2 calls out for `0.1 + 0.2 !== 0.3`); a stored gross/net column drifts from the raw rows the moment one of them is edited or backfilled, so two screens showing "this worker's pay" disagree with each other and with the ledger a farmer would reconstruct by hand; and if a job were ever allowed to write attendance or run payroll, a farmer would see hours or payouts they never entered, with no human action to point to when they dispute it.
+
+**Test contract.**
+- `BR-41a` Creating a worker with a non-integer or non-positive `payRatePaise` is rejected; the database CHECK on `workers.pay_rate_paise` rejects a value that somehow bypasses service-layer validation.
+- `BR-41b` An attendance upsert with `hoursWorked` equal to `0`, negative, or greater than `24` is rejected; `hoursWorked` of exactly `24` and any value just above `0` are accepted. The database CHECK on `worker_attendance.hours_worked` enforces this independent of the service layer.
+- `BR-41c` The gross/net pay figures returned by the workforce summary, payroll summary and crop-hours summary endpoints for the same worker and period are identical, asserted by calling more than one of those endpoints and comparing; no `SELECT` in the codebase reads a stored gross/net column, because none exists.
+- `BR-41d` No scheduled job in the job registry writes to `worker_attendance` or `worker_payouts` — both are reachable only through a farmer-initiated request, asserted the same way `BR-38b` asserts the job registry is limited to the three enforcement jobs.
+- `BR-41e` Farmer A requests Farmer B's worker, attendance row, advance or payout by id (or lists them under Farmer B's farm id) → 404 with empty body, never 403, matching `BR-36a`.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

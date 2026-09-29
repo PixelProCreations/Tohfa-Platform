@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -12,7 +12,18 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms } from '../../../api/farms';
+import {
+  getPestAnalyticsSummary,
+  listPestLibrary,
+  listWeatherRiskNotes,
+  type PestAnalyticsSummary,
+  type PestLibraryEntry,
+  type WeatherRiskNote,
+} from '../../../api/pest';
 
 // ── Inline Vector Icons ──────────────────────────────────────────────────────
 
@@ -106,22 +117,15 @@ function CheckIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?:
   );
 }
 
-// ── Types & Data ─────────────────────────────────────────────────────────────
-
-export interface PestLibraryEntry {
-  id: string;
-  name: string;
-  scientificName: string;
-  type: 'Disease' | 'Pest' | 'Weed';
-  riskLevel: 'High' | 'Medium' | 'Low';
-  crops: string[];
-  season: string;
-  symptoms: string[];
-  organicTreatments: string[];
-  prevention: string[];
-}
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PestLibraryScreenProps {
+  /**
+   * Threaded down from PestManagementScreen when reached via the hub; resolved
+   * locally (first farm, via `getFarms()`) when this screen is opened directly --
+   * needed only for the Pest Analytics card/modal, which is farm-scoped.
+   */
+  farmId?: string | undefined;
   onBack?: () => void;
   onNavigateToSchedule?: (pestName?: string) => void;
 }
@@ -135,160 +139,10 @@ const CROP_FILTER_OPTIONS = [
   'Beetroot',
 ] as const;
 
-const PEST_LIBRARY_DATA: PestLibraryEntry[] = [
-  {
-    id: 'lib-1',
-    name: 'Early Blight',
-    scientificName: 'Alternaria solani',
-    type: 'Disease',
-    riskLevel: 'High',
-    crops: ['Tomato', 'Potato'],
-    season: 'Jul–Sep',
-    symptoms: [
-      'Concentric dark rings ("target board" pattern) on older leaves',
-      'Yellow chlorotic halos surrounding lesions',
-      'Premature leaf yellowing, drying, and defoliation',
-      'Dark sunken leathery lesions at stem base and fruit calyx',
-    ],
-    organicTreatments: [
-      'Trichoderma viride bio-fungicide foliar spray (5g/L)',
-      'Copper hydroxide or Bordeaux mixture (1%) preventive application',
-      'Baking soda solution (5g/L) with horticultural oil sticker',
-    ],
-    prevention: [
-      'Maintain minimum 60cm spacing between rows for ventilation',
-      'Apply organic straw mulch to prevent soil-splash onto lower leaves',
-      'Strict drip irrigation to avoid wet foliage overnight',
-      'Minimum 2-year Solanaceae crop rotation schedule',
-    ],
-  },
-  {
-    id: 'lib-2',
-    name: 'Diamondback Moth',
-    scientificName: 'Plutella xylostella',
-    type: 'Pest',
-    riskLevel: 'High',
-    crops: ['Cabbage'],
-    season: 'Jul–Sep',
-    symptoms: [
-      'Clear "windowpane" holes where caterpillars consume lower leaf surface',
-      'Extensive skeletonization of young wrapper leaves',
-      'Caterpillar frass and silken webs inside developing cabbage heads',
-      'Stunted head formation and unmarketable heads',
-    ],
-    organicTreatments: [
-      'Bacillus thuringiensis kurstaki (Bt) foliar spray (1.5–2g/L)',
-      '5% Neem Seed Kernel Extract (NSKE) applied at 7-day intervals',
-      'Pheromone trap installation (12 traps/acre for mating disruption)',
-    ],
-    prevention: [
-      'Mustard trap cropping: plant 2 border rows to attract moths away',
-      'Fine 50-mesh nylon netting over seedling nursery beds',
-      'Conservation of natural parasitoid wasps (Diadegma insulare)',
-    ],
-  },
-  {
-    id: 'lib-3',
-    name: 'Aphid',
-    scientificName: 'Aphis gossypii',
-    type: 'Pest',
-    riskLevel: 'Medium',
-    crops: ['Carrot', 'Tomato', 'Cabbage'],
-    season: 'Jun–Aug',
-    symptoms: [
-      'Distorted, crumpled, and curled tender new growth',
-      'Sticky honeydew secretions coating foliage and fruit',
-      'Black sooty mold fungi colonizing honeydew-coated leaves',
-      'Vectoring of viral diseases (e.g. cucumber mosaic virus)',
-    ],
-    organicTreatments: [
-      'Cold-pressed Neem Oil spray (3–5ml/L) with natural emulsifier soap',
-      'Potassium salt insecticidal soap solution',
-      'Release of beneficial predators: Ladybird beetles & Green lacewings',
-    ],
-    prevention: [
-      'Companion planting with marigolds, dill, fennel, and coriander',
-      'Avoid high-dose synthetic or uncomposted nitrogen applications',
-      'Reflective silver mulch to deter incoming winged aphids',
-    ],
-  },
-  {
-    id: 'lib-4',
-    name: 'Carrot Rust Fly',
-    scientificName: 'Psila rosae',
-    type: 'Pest',
-    riskLevel: 'Medium',
-    crops: ['Carrot'],
-    season: 'May–Jul',
-    symptoms: [
-      'Rusty-red or dark brown larval mine tunnels inside root flesh',
-      'Stunted, purplish-bronze foliage that wilts in warm daylight',
-      'Forked, unmarketable root tubers prone to secondary soft rot',
-    ],
-    organicTreatments: [
-      'Entomopathogenic beneficial nematodes (Steinernema feltiae)',
-      'Garlic and chili repellent foliar spray during flight periods',
-      'Diatomaceous earth dusting along seed furrows',
-    ],
-    prevention: [
-      'Floating horticultural fleece row covers installed immediately after seeding',
-      'Interplanting with onions, leeks, or rosemary to mask root scents',
-      'Delay seeding until after first spring flight period',
-    ],
-  },
-  {
-    id: 'lib-5',
-    name: 'Damping-off',
-    scientificName: 'Pythium spp.',
-    type: 'Disease',
-    riskLevel: 'Medium',
-    crops: ['Cabbage', 'Tomato'],
-    season: 'Monsoon',
-    symptoms: [
-      'Water-soaked stem lesions right at soil level line',
-      'Sudden seedling collapse and toppling over in seedbeds',
-      'Pre-emergence seed decay and poor nursery germination',
-    ],
-    organicTreatments: [
-      'Trichoderma harzianum seed treatment (4g/kg seed)',
-      'Pseudomonas fluorescens soil drench (10g/L water)',
-      'Wood ash sprinkling around base of seedling trays',
-    ],
-    prevention: [
-      'Utilize raised nursery beds with well-aerated sterile compost substrate',
-      'Avoid excessive watering and shade in nursery tunnels',
-      'Solarize nursery soil beds 4 weeks prior to monsoon sowing',
-    ],
-  },
-  {
-    id: 'lib-6',
-    name: 'Powdery Mildew',
-    scientificName: 'Erysiphales',
-    type: 'Disease',
-    riskLevel: 'Low',
-    crops: ['Beetroot', 'Carrot'],
-    season: 'Aug–Oct',
-    symptoms: [
-      'White circular talcum-like fungal powder spots on upper leaf surfaces',
-      'Chlorosis and curling of older outer foliage',
-      'Premature leaf senescence reducing photosynthesis and root bulking',
-    ],
-    organicTreatments: [
-      'Raw cow milk spray diluted 1:9 with clean water',
-      'Wettable sulfur (80% WP) at 2g/L (do not apply in extreme heat)',
-      'Potassium bicarbonate spray (3g/L) for immediate pH shock to spores',
-    ],
-    prevention: [
-      'Prune dense canopy to ensure air circulation through bed centers',
-      'Plant disease-tolerant varieties adapted to humid hill climates',
-      'Maintain balanced potassium fertilization for cell wall strength',
-    ],
-  },
-];
-
 // ── Screen Component ─────────────────────────────────────────────────────────
 
 export function PestLibraryScreen({
+  farmId,
   onBack,
   onNavigateToSchedule,
 }: PestLibraryScreenProps): React.JSX.Element {
@@ -298,29 +152,90 @@ export function PestLibraryScreen({
   const [selectedPestDetail, setSelectedPestDetail] = useState<PestLibraryEntry | null>(null);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
 
-  const filteredEntries = useMemo(() => {
-    return PEST_LIBRARY_DATA.filter((entry) => {
-      // Crop filter
-      if (selectedCrop !== 'All crops') {
-        const cropMatch = entry.crops.some((c) =>
-          c.toLowerCase().includes(selectedCrop.toLowerCase()),
-        );
-        if (!cropMatch) return false;
-      }
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [entries, setEntries] = useState<PestLibraryEntry[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(true);
+  const [entriesError, setEntriesError] = useState<string | null>(null);
 
-      // Query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = entry.name.toLowerCase().includes(q);
-        const matchesSci = entry.scientificName.toLowerCase().includes(q);
-        const matchesType = entry.type.toLowerCase().includes(q);
-        const matchesCrops = entry.crops.some((c) => c.toLowerCase().includes(q));
-        return matchesName || matchesSci || matchesType || matchesCrops;
-      }
+  const [weatherNote, setWeatherNote] = useState<WeatherRiskNote | null>(null);
 
-      return true;
-    });
+  useEffect(() => {
+    if (farmId) {
+      setResolvedFarmId(farmId);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const farms = await getFarms();
+        if (!cancelled) setResolvedFarmId(farms[0]?.id ?? '');
+      } catch {
+        // Non-fatal: the library list still works without a farm; only the
+        // Pest Analytics card needs one.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const notes = await listWeatherRiskNotes();
+        if (!cancelled) setWeatherNote(notes[0] ?? null);
+      } catch {
+        // Non-fatal: the library screen still works without the weather banner.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setEntriesLoading(true);
+      setEntriesError(null);
+      try {
+        const items = await listPestLibrary({
+          q: searchQuery.trim() || undefined,
+          crop: selectedCrop === 'All crops' ? undefined : selectedCrop,
+        });
+        if (!cancelled) setEntries(items);
+      } catch (err) {
+        if (!cancelled) setEntriesError(formatErrorMessage(err, 'Could not load the pest library.'));
+      } finally {
+        if (!cancelled) setEntriesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [searchQuery, selectedCrop]);
+
+  const filteredEntries = useMemo(() => entries, [entries]);
+
+  // Pest Analytics modal state -- fetched lazily, only once the modal is opened.
+  const [analyticsSummary, setAnalyticsSummary] = useState<PestAnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  const openAnalyticsModal = () => {
+    setIsAnalyticsModalOpen(true);
+    if (!resolvedFarmId) {
+      setAnalyticsError('No farm found for this account yet.');
+      return;
+    }
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    getPestAnalyticsSummary(resolvedFarmId)
+      .then((summary) => setAnalyticsSummary(summary))
+      .catch((err) => setAnalyticsError(formatErrorMessage(err, 'Could not load pest analytics.')))
+      .finally(() => setAnalyticsLoading(false));
+  };
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -376,21 +291,23 @@ export function PestLibraryScreen({
         </TouchableOpacity>
 
         {/* ── Weather-based Risk Banner ── */}
-        <View style={styles.riskBannerCard}>
-          <View style={styles.riskBannerIconBox}>
-            <CloudOutlineIcon size={20} color={P.twAmber800} />
+        {weatherNote && (
+          <View style={styles.riskBannerCard}>
+            <View style={styles.riskBannerIconBox}>
+              <CloudOutlineIcon size={20} color={P.twAmber800} />
+            </View>
+            <Text style={styles.riskBannerText}>
+              <Text style={styles.riskBannerBold}>Weather-based risk: </Text>
+              {weatherNote.note}
+            </Text>
           </View>
-          <Text style={styles.riskBannerText}>
-            <Text style={styles.riskBannerBold}>Weather-based risk: </Text>
-            High humidity forecast this week — elevated fungal risk for your Cabbage zone.
-          </Text>
-        </View>
+        )}
 
         {/* ── Pest Analytics Card ── */}
         <TouchableOpacity
           style={styles.analyticsCard}
           activeOpacity={0.85}
-          onPress={() => setIsAnalyticsModalOpen(true)}
+          onPress={openAnalyticsModal}
           accessibilityRole="button"
           accessibilityLabel="Open Pest Analytics"
         >
@@ -407,82 +324,99 @@ export function PestLibraryScreen({
         </TouchableOpacity>
 
         {/* ── Pest / Disease List ── */}
-        <View style={styles.libraryList}>
-          {filteredEntries.length > 0 ? (
-            filteredEntries.map((item) => {
-              const isDisease = item.type === 'Disease';
-              const isPest = item.type === 'Pest';
-              const isHighRisk = item.riskLevel === 'High';
-              const isMedRisk = item.riskLevel === 'Medium';
+        {entriesLoading ? (
+          <View style={{ gap: 12 }}>
+            <Skeleton height={110} width="100%" />
+            <Skeleton height={110} width="100%" />
+            <Skeleton height={110} width="100%" />
+          </View>
+        ) : entriesError ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>Could not load the pest library</Text>
+            <Text style={styles.emptySubtitle}>{entriesError}</Text>
+          </View>
+        ) : (
+          <View style={styles.libraryList}>
+            {filteredEntries.length > 0 ? (
+              filteredEntries.map((item) => {
+                const isDisease = item.category === 'Disease';
+                const isPest = item.category === 'Pest';
+                const isHighRisk = item.riskLevel === 'High';
+                const isMedRisk = item.riskLevel === 'Medium';
 
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.pestCard}
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedPestDetail(item)}
-                >
-                  {/* Top Row: Dot + Title + Category Pill */}
-                  <View style={styles.pestCardTopRow}>
-                    <View style={styles.pestCardTitleGroup}>
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.pestCard}
+                    activeOpacity={0.85}
+                    onPress={() => setSelectedPestDetail(item)}
+                  >
+                    {/* Top Row: Dot + Title + Category Pill */}
+                    <View style={styles.pestCardTopRow}>
+                      <View style={styles.pestCardTitleGroup}>
+                        <View
+                          style={[
+                            styles.statusDot,
+                            isHighRisk && styles.statusDotHigh,
+                            isMedRisk && styles.statusDotMed,
+                            !isHighRisk && !isMedRisk && styles.statusDotLow,
+                          ]}
+                        />
+                        <Text style={styles.pestNameText}>{item.name}</Text>
+                      </View>
+
                       <View
                         style={[
-                          styles.statusDot,
-                          isHighRisk && styles.statusDotHigh,
-                          isMedRisk && styles.statusDotMed,
-                          !isHighRisk && !isMedRisk && styles.statusDotLow,
-                        ]}
-                      />
-                      <Text style={styles.pestNameText}>{item.name}</Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.categoryPill,
-                        isDisease && styles.categoryPillDisease,
-                        isPest && styles.categoryPillPest,
-                        !isDisease && !isPest && styles.categoryPillWeed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryPillText,
-                          isDisease && styles.categoryPillTextDisease,
-                          isPest && styles.categoryPillTextPest,
-                          !isDisease && !isPest && styles.categoryPillTextWeed,
+                          styles.categoryPill,
+                          isDisease && styles.categoryPillDisease,
+                          isPest && styles.categoryPillPest,
+                          !isDisease && !isPest && styles.categoryPillWeed,
                         ]}
                       >
-                        {item.type}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.categoryPillText,
+                            isDisease && styles.categoryPillTextDisease,
+                            isPest && styles.categoryPillTextPest,
+                            !isDisease && !isPest && styles.categoryPillTextWeed,
+                          ]}
+                        >
+                          {item.category}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
 
-                  {/* Scientific Name */}
-                  <Text style={styles.scientificNameText}>{item.scientificName}</Text>
+                    {/* Scientific Name */}
+                    {item.scientificName ? (
+                      <Text style={styles.scientificNameText}>{item.scientificName}</Text>
+                    ) : null}
 
-                  {/* Tags Row */}
-                  <View style={styles.tagsRow}>
-                    <View style={styles.tagPill}>
-                      <Text style={styles.tagPillText}>{item.crops.join(', ')}</Text>
+                    {/* Tags Row */}
+                    <View style={styles.tagsRow}>
+                      <View style={styles.tagPill}>
+                        <Text style={styles.tagPillText}>{item.crops.join(', ')}</Text>
+                      </View>
+
+                      {item.season ? (
+                        <View style={[styles.tagPill, styles.tagPillWithIcon]}>
+                          <CalendarMiniIcon size={12} color={P.twGray500} />
+                          <Text style={styles.tagPillText}>{item.season}</Text>
+                        </View>
+                      ) : null}
                     </View>
-
-                    <View style={[styles.tagPill, styles.tagPillWithIcon]}>
-                      <CalendarMiniIcon size={12} color={P.twGray500} />
-                      <Text style={styles.tagPillText}>{item.season}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>No matching pests or diseases</Text>
-              <Text style={styles.emptySubtitle}>
-                Try adjusting your search term or selecting "All crops"
-              </Text>
-            </View>
-          )}
-        </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyTitle}>No matching pests or diseases</Text>
+                <Text style={styles.emptySubtitle}>
+                  Try adjusting your search term or selecting "All crops"
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -554,12 +488,14 @@ export function PestLibraryScreen({
               </TouchableOpacity>
               <View style={styles.detailModalHeaderTitleCol}>
                 <Text style={styles.detailModalMainTitle}>{selectedPestDetail.name}</Text>
-                <Text style={styles.detailModalSubTitle}>{selectedPestDetail.scientificName}</Text>
+                {selectedPestDetail.scientificName ? (
+                  <Text style={styles.detailModalSubTitle}>{selectedPestDetail.scientificName}</Text>
+                ) : null}
               </View>
               <View
                 style={[
                   styles.categoryPill,
-                  selectedPestDetail.type === 'Disease'
+                  selectedPestDetail.category === 'Disease'
                     ? styles.categoryPillDisease
                     : styles.categoryPillPest,
                 ]}
@@ -567,12 +503,12 @@ export function PestLibraryScreen({
                 <Text
                   style={[
                     styles.categoryPillText,
-                    selectedPestDetail.type === 'Disease'
+                    selectedPestDetail.category === 'Disease'
                       ? styles.categoryPillTextDisease
                       : styles.categoryPillTextPest,
                   ]}
                 >
-                  {selectedPestDetail.type}
+                  {selectedPestDetail.category}
                 </Text>
               </View>
             </View>
@@ -599,7 +535,7 @@ export function PestLibraryScreen({
                 </View>
                 <View style={styles.summaryBadgeItem}>
                   <Text style={styles.summaryBadgeLabel}>ACTIVE SEASON</Text>
-                  <Text style={styles.summaryBadgeVal}>{selectedPestDetail.season}</Text>
+                  <Text style={styles.summaryBadgeVal}>{selectedPestDetail.season ?? '—'}</Text>
                 </View>
                 <View style={styles.summaryBadgeItem}>
                   <Text style={styles.summaryBadgeLabel}>HOST CROPS</Text>
@@ -608,37 +544,43 @@ export function PestLibraryScreen({
               </View>
 
               {/* Symptoms Section */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionHeading}>KEY SYMPTOMS</Text>
-                {selectedPestDetail.symptoms.map((sym, idx) => (
-                  <View key={idx} style={styles.bulletRow}>
-                    <View style={styles.bulletDot} />
-                    <Text style={styles.bulletText}>{sym}</Text>
-                  </View>
-                ))}
-              </View>
+              {selectedPestDetail.symptoms.length > 0 && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionHeading}>KEY SYMPTOMS</Text>
+                  {selectedPestDetail.symptoms.map((sym, idx) => (
+                    <View key={idx} style={styles.bulletRow}>
+                      <View style={styles.bulletDot} />
+                      <Text style={styles.bulletText}>{sym}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {/* Organic Treatments */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionHeading}>ORGANIC & BIOLOGICAL TREATMENTS</Text>
-                {selectedPestDetail.organicTreatments.map((tr, idx) => (
-                  <View key={idx} style={styles.treatmentItemCard}>
-                    <Text style={styles.treatmentItemNumber}>0{idx + 1}</Text>
-                    <Text style={styles.treatmentItemText}>{tr}</Text>
-                  </View>
-                ))}
-              </View>
+              {selectedPestDetail.organicTreatments.length > 0 && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionHeading}>ORGANIC & BIOLOGICAL TREATMENTS</Text>
+                  {selectedPestDetail.organicTreatments.map((tr, idx) => (
+                    <View key={idx} style={styles.treatmentItemCard}>
+                      <Text style={styles.treatmentItemNumber}>0{idx + 1}</Text>
+                      <Text style={styles.treatmentItemText}>{tr}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {/* Preventive Measures */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionHeading}>PREVENTIVE MEASURES</Text>
-                {selectedPestDetail.prevention.map((pr, idx) => (
-                  <View key={idx} style={styles.bulletRow}>
-                    <View style={[styles.bulletDot, { backgroundColor: colors.brandGreen }]} />
-                    <Text style={styles.bulletText}>{pr}</Text>
-                  </View>
-                ))}
-              </View>
+              {selectedPestDetail.prevention.length > 0 && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionHeading}>PREVENTIVE MEASURES</Text>
+                  {selectedPestDetail.prevention.map((pr, idx) => (
+                    <View key={idx} style={styles.bulletRow}>
+                      <View style={[styles.bulletDot, { backgroundColor: colors.brandGreen }]} />
+                      <Text style={styles.bulletText}>{pr}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </ScrollView>
 
             {/* Bottom Actions */}
@@ -700,68 +642,63 @@ export function PestLibraryScreen({
             contentContainerStyle={styles.detailModalContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Seasonal Distribution */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionHeading}>SEASONAL INCIDENCE</Text>
-              <View style={styles.analyticsBarRow}>
-                <Text style={styles.analyticsBarLabel}>Monsoon (Jul–Sep)</Text>
-                <View style={styles.analyticsBarTrack}>
-                  <View style={[styles.analyticsBarFill, { width: '68%', backgroundColor: P.twRed600 }]} />
+            {analyticsLoading ? (
+              <>
+                <Skeleton height={100} width="100%" />
+                <Skeleton height={100} width="100%" />
+              </>
+            ) : analyticsError ? (
+              <Text style={styles.analyticsErrorText}>{analyticsError}</Text>
+            ) : analyticsSummary ? (
+              <>
+                {/* Seasonal Distribution */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionHeading}>SEASONAL INCIDENCE</Text>
+                  {analyticsSummary.detectionsBySeason.length > 0 ? (
+                    analyticsSummary.detectionsBySeason.map((row) => (
+                      <View key={row.season} style={styles.analyticsBarRow}>
+                        <Text style={styles.analyticsBarLabel}>{row.season}</Text>
+                        <Text style={styles.analyticsBarValue}>{row.count}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyCardText}>No detections logged yet.</Text>
+                  )}
                 </View>
-                <Text style={styles.analyticsBarValue}>68%</Text>
-              </View>
 
-              <View style={styles.analyticsBarRow}>
-                <Text style={styles.analyticsBarLabel}>Summer (Apr–Jun)</Text>
-                <View style={styles.analyticsBarTrack}>
-                  <View style={[styles.analyticsBarFill, { width: '42%', backgroundColor: P.amber600 }]} />
+                {/* Most Impacted Crops */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionHeading}>MOST IMPACTED CROPS</Text>
+                  {analyticsSummary.mostAffectedCrops.length > 0 ? (
+                    analyticsSummary.mostAffectedCrops.map((row) => (
+                      <View key={row.crop} style={styles.impactCard}>
+                        <Text style={styles.impactCardTitle}>{row.crop}</Text>
+                        <Text style={styles.impactCardDesc}>{row.count} detection(s) logged.</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyCardText}>No detections logged yet.</Text>
+                  )}
                 </View>
-                <Text style={styles.analyticsBarValue}>42%</Text>
-              </View>
 
-              <View style={styles.analyticsBarRow}>
-                <Text style={styles.analyticsBarLabel}>Winter (Nov–Feb)</Text>
-                <View style={styles.analyticsBarTrack}>
-                  <View style={[styles.analyticsBarFill, { width: '18%', backgroundColor: colors.brandGreen }]} />
+                {/* Treatment Efficacy */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionHeading}>ORGANIC EFFICACY (FARMER-LOGGED)</Text>
+                  {analyticsSummary.treatmentEffectiveness.length > 0 ? (
+                    analyticsSummary.treatmentEffectiveness.map((row) => (
+                      <View key={row.treatment} style={styles.efficacyRow}>
+                        <Text style={styles.efficacyName}>{row.treatment}</Text>
+                        <Text style={styles.efficacyPercent}>
+                          {row.timesEffective}/{row.timesUsed} effective
+                        </Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyCardText}>No resolved detections logged yet.</Text>
+                  )}
                 </View>
-                <Text style={styles.analyticsBarValue}>18%</Text>
-              </View>
-            </View>
-
-            {/* Most Impacted Crops */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionHeading}>MOST IMPACTED CROPS</Text>
-              <View style={styles.impactCard}>
-                <Text style={styles.impactCardTitle}>Cabbage (Brassica)</Text>
-                <Text style={styles.impactCardDesc}>
-                  Diamondback Moth & Cabbage Looper account for 54% of hill-farm pressure.
-                </Text>
-              </View>
-
-              <View style={styles.impactCard}>
-                <Text style={styles.impactCardTitle}>Tomato & Potato</Text>
-                <Text style={styles.impactCardDesc}>
-                  Early Blight recurrence increases by 3.2x during consecutive days with &gt;85% relative humidity.
-                </Text>
-              </View>
-            </View>
-
-            {/* Treatment Efficacy */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionHeading}>ORGANIC EFFICACY BENCHMARKS</Text>
-              <View style={styles.efficacyRow}>
-                <Text style={styles.efficacyName}>Bacillus thuringiensis (Bt)</Text>
-                <Text style={styles.efficacyPercent}>92% Success</Text>
-              </View>
-              <View style={styles.efficacyRow}>
-                <Text style={styles.efficacyName}>Trichoderma viride Bio-fungicide</Text>
-                <Text style={styles.efficacyPercent}>89% Success</Text>
-              </View>
-              <View style={styles.efficacyRow}>
-                <Text style={styles.efficacyName}>Cold-Pressed Neem Oil (3ml/L)</Text>
-                <Text style={styles.efficacyPercent}>84% Success</Text>
-              </View>
-            </View>
+              </>
+            ) : null}
           </ScrollView>
 
           <View style={styles.detailModalFooter}>
@@ -939,6 +876,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 16,
   },
+  analyticsErrorText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twRed600,
+  },
 
   // Pest Library Cards List
   libraryList: {
@@ -1056,6 +998,11 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     color: P.twGray400,
     textAlign: 'center',
+  },
+  emptyCardText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    fontStyle: 'italic',
   },
 
   // Modal Common
@@ -1273,32 +1220,20 @@ const styles = StyleSheet.create({
   analyticsBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginVertical: 4,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: P.twGray100,
   },
   analyticsBarLabel: {
-    width: 130,
     fontSize: typography.bodySmall,
     color: P.twGray700,
     fontWeight: '600',
   },
-  analyticsBarTrack: {
-    flex: 1,
-    height: 10,
-    backgroundColor: P.twGray200,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  analyticsBarFill: {
-    height: '100%',
-    borderRadius: 5,
-  },
   analyticsBarValue: {
-    width: 36,
     fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.nearBlack,
-    textAlign: 'right',
   },
   impactCard: {
     backgroundColor: P.twGray100,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
   BackHandler,
@@ -12,7 +12,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots, updatePlot, type Plot } from '../../../api/farms';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -151,6 +154,8 @@ const SOIL_CATEGORIES: SoilCategory[] = [
 ];
 
 export interface SoilTypeClassificationScreenProps {
+  /** The farm whose plots are shown as zone cards, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
 }
 
@@ -159,6 +164,7 @@ export interface SoilTypeClassificationScreenProps {
 // ─────────────────────────────────────────────
 
 export function SoilTypeClassificationScreen({
+  farmId,
   onBack,
 }: SoilTypeClassificationScreenProps): React.JSX.Element {
   // Android hardware back handler
@@ -173,19 +179,60 @@ export function SoilTypeClassificationScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const [zone1Type, setZone1Type] = useState<string>('Loamy');
-  const [zone2Type, setZone2Type] = useState<string>('Clay');
-  const [zone3Type, setZone3Type] = useState<string | null>(null);
+  const [plots, setPlots] = useState<Plot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [activeEditingZone, setActiveEditingZone] = useState<'zone1' | 'zone2' | 'zone3'>('zone1');
+  // Keyed by real plotId (was 3 hardcoded zone1/zone2/zone3 variables) -- there
+  // is no fixed zone count on the backend, so this now covers however many
+  // plots the farm actually has.
+  const [soilTypeByPlot, setSoilTypeByPlot] = useState<Record<string, string | null>>({});
+  const [activeEditingPlotId, setActiveEditingPlotId] = useState<string>('');
+  const [savingPlotId, setSavingPlotId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSelectSoilType = (typeId: string, typeName: string) => {
-    if (activeEditingZone === 'zone1') {
-      setZone1Type(typeName);
-    } else if (activeEditingZone === 'zone2') {
-      setZone2Type(typeName);
-    } else {
-      setZone3Type(typeName);
+  const loadPlots = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await getPlots(farmId);
+      setPlots(list);
+      const byPlot: Record<string, string | null> = {};
+      for (const plot of list) byPlot[plot.id] = plot.soilType;
+      setSoilTypeByPlot(byPlot);
+      setActiveEditingPlotId((prev) => (list.some((p) => p.id === prev) ? prev : (list[0]?.id ?? '')));
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load this farm’s zones.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadPlots();
+  }, [loadPlots]);
+
+  const handleSelectSoilType = async (_typeId: string, typeName: string) => {
+    if (!farmId || !activeEditingPlotId) return;
+    const plotId = activeEditingPlotId;
+    const previous = soilTypeByPlot[plotId] ?? null;
+    // Optimistic update, matching this codebase's other tap-to-set controls
+    // (SoilMoistureTrackingScreen's handleSelectLevel) -- reverted on failure.
+    setSoilTypeByPlot((prev) => ({ ...prev, [plotId]: typeName }));
+    setSavingPlotId(plotId);
+    setSaveError(null);
+    try {
+      await updatePlot(farmId, plotId, { soilType: typeName });
+    } catch (err) {
+      setSoilTypeByPlot((prev) => ({ ...prev, [plotId]: previous }));
+      setSaveError(formatErrorMessage(err, 'Could not save this zone’s soil type.'));
+    } finally {
+      setSavingPlotId(null);
     }
   };
 
@@ -215,101 +262,94 @@ export function SoilTypeClassificationScreen({
         </View>
       </View>
 
+      {loading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={220} width="100%" style={{ marginBottom: 14 }} />
+          <Skeleton height={70} width="100%" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Zone 1 Card ── */}
-        <View style={styles.zoneCard}>
-          <View style={styles.zoneHeader}>
-            <View>
-              <Text style={styles.zoneTitle}>Zone 1 — North Slope</Text>
-              <Text style={styles.currentTypeText}>Currently: {zone1Type}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setActiveEditingZone('zone1')}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.changeLinkText}>Change</Text>
-            </TouchableOpacity>
-          </View>
+        {saveError ? <Text style={styles.loadErrorText}>{saveError}</Text> : null}
 
-          {/* 8 Categories Grid */}
-          <View style={styles.gridContainer}>
-            {SOIL_CATEGORIES.map((cat) => {
-              const isSelected = zone1Type === cat.name;
-              const Icon = cat.IconComponent;
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[
-                    styles.categoryTile,
-                    isSelected ? styles.categoryTileSelected : styles.categoryTileUnselected,
-                  ]}
-                  onPress={() => handleSelectSoilType(cat.id, cat.name)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${cat.name} soil type`}
-                >
-                  <Icon size={24} color={isSelected ? P.forestGreen : P.twGray700} />
-                  <Text
-                    style={[
-                      styles.categoryName,
-                      isSelected ? styles.categoryNameSelected : styles.categoryNameUnselected,
-                    ]}
-                  >
-                    {cat.name}
+        {plots.length === 0 ? (
+          <Text style={styles.notRecordedText}>No zones yet. Add a zone before recording a soil type.</Text>
+        ) : (
+        plots.map((plot, index) => {
+          const currentType = soilTypeByPlot[plot.id] ?? null;
+          const isFirst = index === 0;
+          return (
+            <View key={plot.id} style={isFirst ? styles.zoneCard : styles.zoneCardCompact}>
+              <View style={styles.zoneHeader}>
+                <View>
+                  <Text style={styles.zoneTitle}>{plot.name}</Text>
+                  <Text style={currentType ? styles.currentTypeText : styles.notRecordedText}>
+                    {currentType ? `Currently: ${currentType}` : 'Not yet recorded'}
                   </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setActiveEditingPlotId(plot.id);
+                    if (!isFirst) {
+                      Alert.alert(plot.name, `Select soil type from the categories list above to update ${plot.name}.`);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.changeLinkText}>{currentType ? 'Change' : 'Set Type'}</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+              </View>
 
-        {/* ── Zone 2 Card ── */}
-        <View style={styles.zoneCardCompact}>
-          <View style={styles.zoneHeader}>
-            <View>
-              <Text style={styles.zoneTitle}>Zone 2 — Terrace Field</Text>
-              <Text style={styles.currentTypeText}>Currently: {zone2Type}</Text>
+              {/* 8 Categories Grid -- shared: it always applies to whichever
+                  plot is currently `activeEditingPlotId`, not necessarily the
+                  first plot it's visually nested under (same behaviour the
+                  original 3-zone mock had). */}
+              {isFirst && (
+                <View style={styles.gridContainer}>
+                  {SOIL_CATEGORIES.map((cat) => {
+                    const isSelected = (soilTypeByPlot[activeEditingPlotId] ?? null) === cat.name;
+                    const Icon = cat.IconComponent;
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                          styles.categoryTile,
+                          isSelected ? styles.categoryTileSelected : styles.categoryTileUnselected,
+                        ]}
+                        onPress={() => void handleSelectSoilType(cat.id, cat.name)}
+                        activeOpacity={0.8}
+                        disabled={savingPlotId !== null}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${cat.name} soil type`}
+                      >
+                        <Icon size={24} color={isSelected ? P.forestGreen : P.twGray700} />
+                        <Text
+                          style={[
+                            styles.categoryName,
+                            isSelected ? styles.categoryNameSelected : styles.categoryNameUnselected,
+                          ]}
+                        >
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                setActiveEditingZone('zone2');
-                Alert.alert('Zone 2', 'Select soil type from the categories list above to update Zone 2.');
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.changeLinkText}>Change</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Zone 3 Card ── */}
-        <View style={styles.zoneCardCompact}>
-          <View style={styles.zoneHeader}>
-            <View>
-              <Text style={styles.zoneTitle}>Zone 3 — Lower Basin</Text>
-              <Text style={styles.notRecordedText}>
-                {zone3Type ? `Currently: ${zone3Type}` : 'Not yet recorded'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                setActiveEditingZone('zone3');
-                Alert.alert('Zone 3', 'Select soil type from the categories list above to record for Zone 3.');
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.changeLinkText}>{zone3Type ? 'Change' : 'Set Type'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          );
+        })
+        )}
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -322,6 +362,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.body,
+    fontWeight: '600',
+    marginBottom: 12,
   },
   header: {
     paddingHorizontal: 16,

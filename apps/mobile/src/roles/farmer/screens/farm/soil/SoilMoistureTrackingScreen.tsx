@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
   Platform,
@@ -11,7 +11,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots } from '../../../api/farms';
+import { listSoilMoisture, createSoilMoisture } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -41,31 +45,24 @@ interface ZoneMoisture {
   id: string;
   name: string;
   lastUpdated: string;
-  currentLevel: MoistureLevel;
+  currentLevel: MoistureLevel | null;
+  /** Per-zone save error, shown inline -- there is no shared error slot on this card. */
+  error: string | null;
 }
 
-const INITIAL_ZONES: ZoneMoisture[] = [
-  {
-    id: 'z1',
-    name: 'Zone 1 — North Slope',
-    lastUpdated: 'Last updated today',
-    currentLevel: 'Moist',
-  },
-  {
-    id: 'z2',
-    name: 'Zone 2 — Terrace Field',
-    lastUpdated: 'Last updated 2 days ago',
-    currentLevel: 'Dry',
-  },
-  {
-    id: 'z3',
-    name: 'Zone 3 — Lower Basin',
-    lastUpdated: 'Last updated 4 days ago',
-    currentLevel: 'Wet',
-  },
-];
+function toLastUpdated(observedAt: string | null): string {
+  if (!observedAt) return 'No observations yet';
+  const then = new Date(observedAt).getTime();
+  if (Number.isNaN(then)) return 'Last updated';
+  const days = Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return 'Last updated today';
+  if (days === 1) return 'Last updated 1 day ago';
+  return `Last updated ${days} days ago`;
+}
 
 export interface SoilMoistureTrackingScreenProps {
+  /** The farm whose plots are shown as zone cards, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
 }
 
@@ -74,9 +71,12 @@ export interface SoilMoistureTrackingScreenProps {
 // ─────────────────────────────────────────────
 
 export function SoilMoistureTrackingScreen({
+  farmId,
   onBack,
 }: SoilMoistureTrackingScreenProps): React.JSX.Element {
-  const [zones, setZones] = useState<ZoneMoisture[]>(INITIAL_ZONES);
+  const [zones, setZones] = useState<ZoneMoisture[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -89,18 +89,69 @@ export function SoilMoistureTrackingScreen({
     return () => sub.remove();
   }, [onBack]);
 
+  const loadZones = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const plots = await getPlots(farmId);
+      const withMoisture = await Promise.all(
+        plots.map(async (plot): Promise<ZoneMoisture> => {
+          const observations = await listSoilMoisture(farmId, plot.id);
+          const latest = [...observations].sort((a, b) => (a.observedAt < b.observedAt ? 1 : -1))[0];
+          return {
+            id: plot.id,
+            name: plot.name,
+            lastUpdated: toLastUpdated(latest?.observedAt ?? null),
+            currentLevel: (latest?.level as MoistureLevel | undefined) ?? null,
+            error: null,
+          };
+        }),
+      );
+      setZones(withMoisture);
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load soil moisture data.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadZones();
+  }, [loadZones]);
+
   const handleSelectLevel = (zoneId: string, level: MoistureLevel) => {
+    const previous = zones.find((z) => z.id === zoneId);
+    if (!previous) return;
+    // Optimistic update first (same idiom as SoilTypeClassificationScreen's
+    // handleSelectSoilType), reverted below if the background save fails.
     setZones((prev) =>
       prev.map((z) =>
         z.id === zoneId
-          ? {
-              ...z,
-              currentLevel: level,
-              lastUpdated: 'Last updated just now',
-            }
+          ? { ...z, currentLevel: level, lastUpdated: 'Last updated just now', error: null }
           : z,
       ),
     );
+    void (async () => {
+      try {
+        await createSoilMoisture(farmId, zoneId, { level });
+      } catch (err) {
+        setZones((prev) =>
+          prev.map((z) =>
+            z.id === zoneId
+              ? {
+                  ...previous,
+                  error: formatErrorMessage(err, 'Could not save this observation.'),
+                }
+              : z,
+          ),
+        );
+      }
+    })();
   };
 
   const getOptionStyles = (level: MoistureLevel, isSelected: boolean) => {
@@ -158,15 +209,29 @@ export function SoilMoistureTrackingScreen({
         </View>
       </View>
 
+      {loading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={140} width="100%" style={{ marginBottom: 14 }} />
+          <Skeleton height={140} width="100%" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {zones.map((zone) => (
+        {zones.length === 0 ? (
+          <Text style={styles.emptyText}>No zones yet. Add a zone before logging moisture.</Text>
+        ) : (
+        zones.map((zone) => (
           <View key={zone.id} style={styles.zoneCard}>
             <Text style={styles.zoneName}>{zone.name}</Text>
             <Text style={styles.lastUpdatedText}>{zone.lastUpdated}</Text>
+            {zone.error ? <Text style={styles.loadErrorText}>{zone.error}</Text> : null}
 
             <View style={styles.optionsRow}>
               {MOISTURE_OPTIONS.map((opt) => {
@@ -189,8 +254,10 @@ export function SoilMoistureTrackingScreen({
               })}
             </View>
           </View>
-        ))}
+        ))
+        )}
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -203,6 +270,18 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

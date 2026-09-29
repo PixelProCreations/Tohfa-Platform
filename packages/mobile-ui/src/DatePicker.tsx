@@ -46,12 +46,13 @@ export function parseDateInput(value: Date | string | null | undefined): Date {
     const trimmed = value.trim();
     if (trimmed.length === 0) return new Date();
 
-    // `DD / MM / YYYY` (and tolerant variants: no spaces, `-` separators)
-    const slashMatch = trimmed.match(/^(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})$/);
+    // `DD / MM / YYYY` (and tolerant variants: no spaces, `-` separators, 2 or 4 digit year)
+    const slashMatch = trimmed.match(/^(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{2}|\d{4})$/);
     if (slashMatch?.[1] && slashMatch[2] && slashMatch[3]) {
       const day = Number(slashMatch[1]);
       const month = Number(slashMatch[2]);
-      const year = Number(slashMatch[3]);
+      const rawYear = Number(slashMatch[3]);
+      const year = rawYear < 100 ? 2000 + rawYear : rawYear;
       const parsed = new Date(year, month - 1, day);
       if (!isNaN(parsed.getTime())) return parsed;
     }

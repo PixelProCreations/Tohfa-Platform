@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -12,7 +12,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots } from '../../../api/farms';
+import { listErosionNotes, type ErosionNote } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -92,32 +96,19 @@ interface ErosionZoneRecord {
   isWarning?: boolean;
 }
 
-const INITIAL_EROSION_RECORDS: ErosionZoneRecord[] = [
-  {
-    id: 'e1',
-    zoneName: 'Zone 1 — North Slope',
-    loggedTime: 'Logged 2 weeks ago',
-    risk: 'Low Risk',
-    practiceText: 'Contour planting in use',
-  },
-  {
-    id: 'e2',
-    zoneName: 'Zone 2 — Terrace Field',
-    loggedTime: 'Logged 1 month ago',
-    risk: 'Moderate Risk',
-    practiceText: 'Terracing + cover crop planned',
-  },
-  {
-    id: 'e3',
-    zoneName: 'Zone 3 — Lower Basin',
-    loggedTime: 'Logged 6 weeks ago',
-    risk: 'High Risk',
-    practiceText: 'Near stream boundary — no conservation practice logged yet',
-    isWarning: true,
-  },
-];
+function toLoggedTime(dateStr: string): string {
+  const then = new Date(dateStr).getTime();
+  if (Number.isNaN(then)) return 'Logged';
+  const days = Math.max(0, Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24)));
+  if (days < 1) return 'Logged today';
+  if (days < 14) return `Logged ${days} day${days === 1 ? '' : 's'} ago`;
+  if (days < 60) return `Logged ${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? '' : 's'} ago`;
+  return `Logged ${Math.floor(days / 30)} month${Math.floor(days / 30) === 1 ? '' : 's'} ago`;
+}
 
 export interface ErosionConservationScreenProps {
+  /** The farm whose plots' erosion notes are shown, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
   onLogErosionNote?: (() => void) | undefined;
 }
@@ -127,10 +118,58 @@ export interface ErosionConservationScreenProps {
 // ─────────────────────────────────────────────
 
 export function ErosionConservationScreen({
+  farmId,
   onBack,
   onLogErosionNote,
 }: ErosionConservationScreenProps): React.JSX.Element {
-  const [records] = useState<ErosionZoneRecord[]>(INITIAL_EROSION_RECORDS);
+  const [records, setRecords] = useState<ErosionZoneRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadRecords = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const plots = await getPlots(farmId);
+      const perPlot = await Promise.all(
+        plots.map(async (plot) => {
+          const notes = await listErosionNotes(farmId, plot.id);
+          return notes.map((note: ErosionNote) => ({ note, plotName: plot.name }));
+        }),
+      );
+      const merged = perPlot
+        .flat()
+        .sort((a, b) => (a.note.loggedAt < b.note.loggedAt ? 1 : -1))
+        .map(
+          ({ note, plotName }): ErosionZoneRecord => ({
+            id: note.id,
+            zoneName: plotName,
+            loggedTime: toLoggedTime(note.loggedAt),
+            risk: note.riskLevel as RiskLevel,
+            practiceText: note.practiceNotes || 'No conservation practice logged yet.',
+            // No separate warning flag exists on the backend -- deriving it from
+            // risk level (rather than inventing a new field) reuses the same
+            // "High Risk = show the alert icon" rule the original mock's one
+            // isWarning record already implied.
+            isWarning: note.riskLevel === 'High Risk',
+          }),
+        );
+      setRecords(merged);
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load erosion notes.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadRecords();
+  }, [loadRecords]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -201,12 +240,25 @@ export function ErosionConservationScreen({
         </View>
       </View>
 
+      {loading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={110} width="100%" style={{ marginBottom: 14 }} />
+          <Skeleton height={110} width="100%" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {records.map((item) => {
+        {records.length === 0 ? (
+          <Text style={styles.emptyText}>No erosion notes logged yet.</Text>
+        ) : (
+        records.map((item) => {
           const badge = getRiskBadgeStyles(item.risk);
 
           return (
@@ -243,8 +295,10 @@ export function ErosionConservationScreen({
               </View>
             </View>
           );
-        })}
+        })
+        )}
       </ScrollView>
+      )}
 
       {/* ── Bottom Button ── */}
       <View style={styles.bottomBar}>
@@ -271,6 +325,17 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

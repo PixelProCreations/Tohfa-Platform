@@ -55,9 +55,11 @@ import { SoilTestRecordsScreen } from './screens/farm/soil/SoilTestRecordsScreen
 import { SoilHealthTrackerScreen } from './screens/farm/soil/SoilHealthTrackerScreen';
 import { SoilTypeClassificationScreen } from './screens/farm/soil/SoilTypeClassificationScreen';
 import { SoilAmendmentsLogScreen } from './screens/farm/soil/SoilAmendmentsLogScreen';
+import { CreateSoilAmendmentScreen } from './screens/farm/CreateSoilAmendmentScreen';
 import { CropRotationScreen } from './screens/farm/crops/CropRotationScreen';
 import { SoilMoistureTrackingScreen } from './screens/farm/soil/SoilMoistureTrackingScreen';
 import { ErosionConservationScreen } from './screens/farm/soil/ErosionConservationScreen';
+import { CreateErosionNoteScreen } from './screens/farm/CreateErosionNoteScreen';
 import { ExportSoilReportsScreen } from './screens/farm/soil/ExportSoilReportsScreen';
 import { UploadNewSoilTestScreen } from './screens/farm/soil/UploadNewSoilTestScreen';
 import { PestManagementScreen } from './screens/farm/pest/PestManagementScreen';
@@ -226,9 +228,13 @@ export type ScreenName =
   | 'SoilHealthTracker'
   | 'SoilTypeClassification'
   | 'SoilAmendmentsLog'
+  | 'CreateSoilAmendment'
+  | 'LogSoilAmendment'
   | 'CropRotation'
   | 'SoilMoistureTracking'
   | 'ErosionConservation'
+  | 'CreateErosionNote'
+  | 'LogErosionNote'
   | 'ExportSoilReports'
   | 'UploadNewSoilTest'
   | 'PestManagement'
@@ -526,7 +532,13 @@ export default function App(): React.JSX.Element {
           <FieldContextScreen
             farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToZones={(farmId) => navigate('Zones', { farmId })}
+            onNavigateToZones={(farmId) => {
+              if (params['returnTo'] === 'UploadNewSoilTest' || params['returnTo'] === 'NewSoilTest') {
+                goBack();
+              } else {
+                navigate('Zones', { farmId });
+              }
+            }}
           />
         ) : screen === 'Zones' ? (
           <ZonesScreen
@@ -626,22 +638,30 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'PestManagement' ? (
           <PestManagementScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
             onBack={goBack}
-            onNavigateToSchedule={() => navigate('TreatmentSchedule')}
-            onNavigateToPestLibrary={() => navigate('PestLibrary')}
-            onNavigateToWeatherRisk={() => navigate('WeatherRiskAnalytics')}
+            onNavigateToSchedule={(farmId) => navigate('TreatmentSchedule', { farmId })}
+            onNavigateToPestLibrary={(farmId) => navigate('PestLibrary', { farmId })}
+            onNavigateToWeatherRisk={(farmId) => navigate('WeatherRiskAnalytics', { farmId })}
           />
         ) : screen === 'PestLibrary' ? (
           <PestLibraryScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
             onBack={goBack}
             onNavigateToSchedule={() => {
-              navigate('TreatmentSchedule');
+              navigate('TreatmentSchedule', { farmId: params['farmId'] });
             }}
           />
         ) : screen === 'TreatmentSchedule' ? (
-          <TreatmentScheduleScreen onBack={goBack} />
+          <TreatmentScheduleScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            onBack={goBack}
+          />
         ) : screen === 'WeatherRiskAnalytics' ? (
-          <WeatherRiskAnalyticsScreen onBack={goBack} />
+          <WeatherRiskAnalyticsScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            onBack={goBack}
+          />
         ) : screen === 'FarmManagement' ? (
           <FarmManagementScreen
             onBack={() => goBack('MainTabs')}
@@ -787,7 +807,7 @@ export default function App(): React.JSX.Element {
         ) : screen === 'Workforce' ? (
           <WorkforceScreen
             onBack={goBack}
-            onNavigateToAddWorker={() => navigate('AddWorker')}
+            onNavigateToAddWorker={(fid) => navigate('AddWorker', { farmId: fid })}
             onNavigateToTimesheet={() => navigate('DailyAttendance')}
             onNavigateToPayroll={() => navigate('Payroll')}
             onNavigateToWorkerDetail={(id, name, role) =>
@@ -815,6 +835,7 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'AddWorker' ? (
           <AddWorkerScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
             initialWorker={params as any}
             onBack={goBack}
             onCancel={goBack}
@@ -900,62 +921,87 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SoilManagement' ? (
           <SoilManagementScreen
             onBack={goBack}
-            onNavigateToSoilTestRecords={() => navigate('SoilTestRecords')}
-            onNavigateToSoilHealthTracker={() => navigate('SoilHealthTracker')}
-            onNavigateToSoilTypeClassification={() => navigate('SoilTypeClassification')}
-            onNavigateToAmendments={() => navigate('SoilAmendmentsLog')}
-            onNavigateToCropRotation={() => navigate('CropRotation')}
-            onNavigateToMoistureTracking={() => navigate('SoilMoistureTracking')}
-            onNavigateToErosionConservation={() => navigate('ErosionConservation')}
-            onNavigateToExportReports={() => navigate('ExportSoilReports')}
-            onNavigateToSoilTest={() => navigate('SoilTest')}
-            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest')}
+            onNavigateToSoilTestRecords={(farmId) => navigate('SoilTestRecords', { farmId })}
+            onNavigateToSoilHealthTracker={(farmId) => navigate('SoilHealthTracker', { farmId })}
+            onNavigateToSoilTypeClassification={(farmId) => navigate('SoilTypeClassification', { farmId })}
+            onNavigateToAmendments={(farmId) => navigate('SoilAmendmentsLog', { farmId })}
+            onNavigateToCropRotation={(farmId) => navigate('CropRotation', { farmId })}
+            onNavigateToMoistureTracking={(farmId) => navigate('SoilMoistureTracking', { farmId })}
+            onNavigateToErosionConservation={(farmId) => navigate('ErosionConservation', { farmId })}
+            onNavigateToExportReports={(farmId) => navigate('ExportSoilReports', { farmId })}
+            onNavigateToSoilTest={(farmId) => navigate('SoilTest', { farmId })}
+            onNavigateToNewSoilTest={(farmId) => navigate('UploadNewSoilTest', { farmId })}
           />
         ) : screen === 'SoilTestRecords' ? (
           <SoilTestRecordsScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
-            onNavigateToRecordDetail={() => navigate('SoilTest')}
-            onUploadNewTest={() => navigate('UploadNewSoilTest')}
+            onNavigateToRecordDetail={() => navigate('SoilTest', { farmId: params['farmId'] })}
+            onUploadNewTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
           />
         ) : screen === 'SoilHealthTracker' ? (
           <SoilHealthTrackerScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'SoilTypeClassification' ? (
           <SoilTypeClassificationScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'SoilAmendmentsLog' ? (
           <SoilAmendmentsLogScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
-            onLogAmendment={() => navigate('UploadNewSoilTest')}
+            onLogAmendment={() => navigate('CreateSoilAmendment', { farmId: params['farmId'] })}
+          />
+        ) : screen === 'CreateSoilAmendment' || screen === 'LogSoilAmendment' ? (
+          <CreateSoilAmendmentScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+            onBack={goBack}
+            onSave={goBack}
           />
         ) : screen === 'CropRotation' ? (
           <CropRotationScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'SoilMoistureTracking' ? (
           <SoilMoistureTrackingScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'ErosionConservation' ? (
           <ErosionConservationScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
+            onLogErosionNote={() => navigate('CreateErosionNote', { farmId: params['farmId'] })}
+          />
+        ) : screen === 'CreateErosionNote' || screen === 'LogErosionNote' ? (
+          <CreateErosionNoteScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+            onBack={goBack}
+            onSave={goBack}
           />
         ) : screen === 'ExportSoilReports' ? (
           <ExportSoilReportsScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
           />
         ) : screen === 'UploadNewSoilTest' || screen === 'NewSoilTest' ? (
           <UploadNewSoilTestScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onBack={goBack}
             onSave={goBack}
-            onNavigateToFieldContext={() => navigate('FieldContext')}
+            onNavigateToFieldContext={() => navigate('FieldContext', { farmId: params['farmId'], returnTo: screen })}
           />
         ) : screen === 'SoilTest' ? (
           <SoilTestScreen
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest')}
+            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
           />
         ) : screen === 'BankPayment' ? (
           <BankPaymentScreen

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -11,6 +11,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { getFarms } from '../../../api/farms';
+import {
+  getMyWorkforcePayrollSummary,
+  getMyWorkforceSummary,
+  listMyWorkers,
+  type PayrollSummaryItem,
+  type Worker,
+  type WorkforceSummary,
+} from '../../../api/workforce';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -55,95 +64,154 @@ function UserPlusIcon({ size = 18, color = P.white }: { size?: number; color?: s
   );
 }
 
-// ── Types & Data ─────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-interface WorkerItem {
-  id: string;
-  name: string;
-  initials: string;
-  role: string;
-  period: string;
-  earnings: string;
-  rateTag: string;
-  rateType: 'daily' | 'monthly';
-  crops: string[];
-  avatarBg: string;
-  avatarColor: string;
+/** `YYYY-MM` for "this month", the period `getMyWorkforcePayrollSummary` expects. */
+function currentYearMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-const WORKERS_DATA: WorkerItem[] = [
-  {
-    id: 'w1',
-    name: 'Murugan R.',
-    initials: 'MR',
-    role: 'Field Worker',
-    period: 'this month',
-    earnings: '₹5,400',
-    rateTag: 'Daily · ₹450/day',
-    rateType: 'daily',
-    crops: ['Carrot', 'Tomato'],
-    avatarBg: P.twGreen100,
-    avatarColor: P.twGreen800,
-  },
-  {
-    id: 'w2',
-    name: 'Lakshmi D.',
-    initials: 'LD',
-    role: 'General Hand',
-    period: 'this month',
-    earnings: '₹4,400',
-    rateTag: 'Daily · ₹400/day',
-    rateType: 'daily',
-    crops: ['Cabbage', 'Carrot'],
-    avatarBg: P.twPurple100,
-    avatarColor: P.deepPurple600,
-  },
-  {
-    id: 'w3',
-    name: 'Selvi K.',
-    initials: 'SK',
-    role: 'Farm Supervisor',
-    period: 'this month',
-    earnings: '₹12,000',
-    rateTag: 'Monthly · ₹12,000',
-    rateType: 'monthly',
-    crops: ['All crops'],
-    avatarBg: P.twAmber100,
-    avatarColor: P.twAmber800,
-  },
+/** Full month name for the Timesheet & Payroll alert, e.g. "September". */
+function currentMonthName(): string {
+  return new Date().toLocaleString('en-US', { month: 'long' });
+}
+
+/** 3-letter month abbreviation for the "Hours · Jul" stat label, e.g. "Sep". */
+function currentMonthShort(): string {
+  return new Date().toLocaleString('en-US', { month: 'short' });
+}
+
+function initialsOf(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+/** Integer paise -> "Daily · ₹450/day" / "Monthly · ₹12,000". */
+function formatRateTag(payType: string, payRatePaise: number): string {
+  const rupees = Math.round(payRatePaise / 100).toLocaleString('en-IN');
+  return payType === 'monthly' ? `Monthly · ₹${rupees}` : `Daily · ₹${rupees}/day`;
+}
+
+function formatPaiseFull(paise: number): string {
+  return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
+}
+
+/** Compact form for the stat card, e.g. "₹20.8k" -- matches the original mock's style. */
+function formatPaiseCompact(paise: number): string {
+  const rupees = paise / 100;
+  if (Math.abs(rupees) >= 1000) {
+    return `₹${(rupees / 1000).toFixed(1)}k`;
+  }
+  return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
+}
+
+const AVATAR_PALETTE: { bg: string; fg: string }[] = [
+  { bg: P.twGreen100, fg: P.twGreen800 },
+  { bg: P.twPurple100, fg: P.deepPurple600 },
+  { bg: P.twAmber100, fg: P.twAmber800 },
+  { bg: P.twBlue50, fg: P.blue700 },
 ];
 
 export interface WorkforceScreenProps {
+  /**
+   * Threaded down like PestManagementScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) when this screen is
+   * the root of the workforce subtree -- App.tsx's `navigate('Workforce')`
+   * passes no farmId today.
+   */
+  farmId?: string | undefined;
   onBack?: () => void;
-  onNavigateToAddWorker?: () => void;
+  onNavigateToAddWorker?: (farmId: string) => void;
   onNavigateToTimesheet?: () => void;
   onNavigateToPayroll?: () => void;
   onNavigateToWorkerDetail?: (id: string, name?: string, role?: string) => void;
 }
 
 export function WorkforceScreen({
+  farmId,
   onBack,
   onNavigateToAddWorker,
   onNavigateToTimesheet,
   onNavigateToPayroll,
   onNavigateToWorkerDetail,
 }: WorkforceScreenProps): React.JSX.Element {
-  const handleWorkerPress = (worker: WorkerItem) => {
+  // ── Farm context ──
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (fid && !cancelled) setResolvedFarmId(fid);
+      } catch {
+        // Swallowed: nothing real to show without a farm, so the screen
+        // simply keeps rendering its zero-state defaults below.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  // ── Roster, summary, and this month's payroll (for the per-worker earnings figure) ──
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [summary, setSummary] = useState<WorkforceSummary | null>(null);
+  const [payroll, setPayroll] = useState<PayrollSummaryItem[]>([]);
+
+  const loadWorkforce = useCallback(async () => {
+    if (!resolvedFarmId) return;
+    try {
+      const [workerList, summaryData, payrollData] = await Promise.all([
+        listMyWorkers(resolvedFarmId),
+        getMyWorkforceSummary(resolvedFarmId),
+        getMyWorkforcePayrollSummary(resolvedFarmId, currentYearMonth()),
+      ]);
+      setWorkers(workerList);
+      setSummary(summaryData);
+      setPayroll(payrollData);
+    } catch {
+      // Swallowed for the same reason as the farm-context resolution above.
+    }
+  }, [resolvedFarmId]);
+
+  useEffect(() => {
+    void loadWorkforce();
+  }, [loadWorkforce]);
+
+  const handleWorkerPress = (worker: Worker) => {
+    const roleLabel = `${worker.roleTitle ?? 'Worker'} · ${worker.payType === 'monthly' ? 'Monthly salary' : 'Daily wage'}`;
     if (onNavigateToWorkerDetail) {
-      onNavigateToWorkerDetail(worker.id, worker.name, `${worker.role} · ${worker.rateType === 'monthly' ? 'Monthly salary' : 'Daily wage'}`);
+      onNavigateToWorkerDetail(worker.id, worker.name, roleLabel);
     } else if (onNavigateToAddWorker) {
-      onNavigateToAddWorker();
+      onNavigateToAddWorker(resolvedFarmId);
     } else {
+      const payrollRow = payroll.find((p) => p.workerId === worker.id);
       Alert.alert(
         worker.name,
-        `Role: ${worker.role}\nRate: ${worker.rateTag}\nEarnings this month: ${worker.earnings}\nCrops: ${worker.crops.join(', ')}`,
+        `Role: ${worker.roleTitle ?? '—'}\nRate: ${formatRateTag(worker.payType, worker.payRatePaise)}\nEarnings this month: ${
+          payrollRow ? formatPaiseFull(payrollRow.grossPaise) : '—'
+        }\nCrops: —`,
       );
     }
   };
 
   const handleAddWorker = () => {
     if (onNavigateToAddWorker) {
-      onNavigateToAddWorker();
+      onNavigateToAddWorker(resolvedFarmId);
     } else {
       Alert.alert('Add Worker', 'Worker onboarding form coming soon.');
     }
@@ -155,9 +223,17 @@ export function WorkforceScreen({
     } else if (onNavigateToTimesheet) {
       onNavigateToTimesheet();
     } else {
-      Alert.alert('Timesheet & Payroll', 'July payroll report: 259 total hours logged across 3 workers.');
+      const hours = summary ? summary.hoursThisMonth : 0;
+      Alert.alert(
+        'Timesheet & Payroll',
+        `${currentMonthName()} payroll report: ${hours} total hours logged across ${workerCountLabel} worker${
+          workerCountLabel === 1 ? '' : 's'
+        }.`,
+      );
     }
   };
+
+  const workerCountLabel = summary ? summary.workerCount : workers.length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -182,7 +258,9 @@ export function WorkforceScreen({
 
             <View style={styles.headerTitles}>
               <Text style={styles.headerTitle}>Workforce</Text>
-              <Text style={styles.headerSubtitle}>3 workers on staff</Text>
+              <Text style={styles.headerSubtitle}>
+                {workerCountLabel} worker{workerCountLabel === 1 ? '' : 's'} on staff
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -202,22 +280,23 @@ export function WorkforceScreen({
               style={styles.statCard}
               activeOpacity={0.8}
               onPress={() => {
-                if (onNavigateToWorkerDetail) {
-                  onNavigateToWorkerDetail('w1', 'Murugan R.', 'Field Worker · Daily wage');
+                const first = workers[0];
+                if (onNavigateToWorkerDetail && first) {
+                  handleWorkerPress(first);
                 }
               }}
               accessibilityRole="button"
               accessibilityLabel="Workers details"
             >
-              <Text style={styles.statNumber}>3</Text>
+              <Text style={styles.statNumber}>{workerCountLabel}</Text>
               <Text style={styles.statLabel}>Workers</Text>
             </TouchableOpacity>
             <View style={styles.statCard}>
               <View style={styles.hoursRow}>
-                <Text style={styles.statNumber}>259</Text>
+                <Text style={styles.statNumber}>{summary ? summary.hoursThisMonth : 0}</Text>
                 <Text style={styles.hourUnit}>h</Text>
               </View>
-              <Text style={styles.statLabel}>Hours · Jul</Text>
+              <Text style={styles.statLabel}>Hours · {currentMonthShort()}</Text>
             </View>
             <TouchableOpacity
               style={styles.statCard}
@@ -226,7 +305,9 @@ export function WorkforceScreen({
               accessibilityRole="button"
               accessibilityLabel="Payroll due"
             >
-              <Text style={[styles.statNumber, { color: colors.brandGreen }]}>₹20.8k</Text>
+              <Text style={[styles.statNumber, { color: colors.brandGreen }]}>
+                {summary ? formatPaiseCompact(summary.payrollDueThisMonthPaise) : '₹0'}
+              </Text>
               <Text style={styles.statLabel}>Payroll due</Text>
             </TouchableOpacity>
           </View>
@@ -236,60 +317,69 @@ export function WorkforceScreen({
 
           {/* Workers List */}
           <View style={styles.workersList}>
-            {WORKERS_DATA.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.workerCard}
-                onPress={() => handleWorkerPress(item)}
-                activeOpacity={0.75}
-              >
-                {/* Left Avatar Circle */}
-                <View style={[styles.avatarCircle, { backgroundColor: item.avatarBg }]}>
-                  <Text style={[styles.avatarText, { color: item.avatarColor }]}>
-                    {item.initials}
-                  </Text>
-                </View>
-
-                {/* Middle Info */}
-                <View style={styles.cardContent}>
-                  <View style={styles.namePayRow}>
-                    <Text style={styles.workerName}>{item.name}</Text>
-                    <Text style={styles.workerPay}>{item.earnings}</Text>
+            {workers.map((item, idx) => {
+              const payrollRow = payroll.find((p) => p.workerId === item.id);
+              const avatar = AVATAR_PALETTE[idx % AVATAR_PALETTE.length]!;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.workerCard}
+                  onPress={() => handleWorkerPress(item)}
+                  activeOpacity={0.75}
+                >
+                  {/* Left Avatar Circle */}
+                  <View style={[styles.avatarCircle, { backgroundColor: avatar.bg }]}>
+                    <Text style={[styles.avatarText, { color: avatar.fg }]}>{initialsOf(item.name)}</Text>
                   </View>
 
-                  <Text style={styles.workerRole}>
-                    {item.role} · {item.period}
-                  </Text>
-
-                  {/* Badges Row */}
-                  <View style={styles.badgesRow}>
-                    <View
-                      style={[
-                        styles.rateBadge,
-                        item.rateType === 'monthly' ? styles.rateBadgeBlue : styles.rateBadgeGreen,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.rateBadgeText,
-                          item.rateType === 'monthly'
-                            ? styles.rateBadgeTextBlue
-                            : styles.rateBadgeTextGreen,
-                        ]}
-                      >
-                        {item.rateTag}
+                  {/* Middle Info */}
+                  <View style={styles.cardContent}>
+                    <View style={styles.namePayRow}>
+                      <Text style={styles.workerName}>{item.name}</Text>
+                      <Text style={styles.workerPay}>
+                        {payrollRow ? formatPaiseFull(payrollRow.grossPaise) : '—'}
                       </Text>
                     </View>
 
-                    {item.crops.map((crop, cIdx) => (
-                      <View key={cIdx} style={styles.cropTag}>
-                        <Text style={styles.cropTagText}>{crop}</Text>
+                    <Text style={styles.workerRole}>
+                      {item.roleTitle ?? '—'} · this month
+                    </Text>
+
+                    {/* Badges Row */}
+                    <View style={styles.badgesRow}>
+                      <View
+                        style={[
+                          styles.rateBadge,
+                          item.payType === 'monthly' ? styles.rateBadgeBlue : styles.rateBadgeGreen,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.rateBadgeText,
+                            item.payType === 'monthly'
+                              ? styles.rateBadgeTextBlue
+                              : styles.rateBadgeTextGreen,
+                          ]}
+                        >
+                          {formatRateTag(item.payType, item.payRatePaise)}
+                        </Text>
                       </View>
-                    ))}
+
+                      {/* Per-worker "crops worked" would need one extra
+                          attendance query per worker just for this list
+                          view -- judged not worth N extra calls here, so
+                          this shows the worker's own roleTitle instead
+                          (see final report for this tradeoff). */}
+                      {item.roleTitle ? (
+                        <View style={styles.cropTag}>
+                          <Text style={styles.cropTagText}>{item.roleTitle}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ScrollView>
 

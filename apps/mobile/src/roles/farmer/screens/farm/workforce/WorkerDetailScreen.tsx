@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -9,8 +9,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms } from '../../../api/farms';
+import {
+  getMyWorkforcePayrollSummary,
+  listMyWorkerAttendance,
+  listMyWorkerPayouts,
+  type AttendanceRecord,
+  type PayrollSummaryItem,
+  type WorkerPayout,
+} from '../../../api/workforce';
+import { localProduceCropsCache } from '../crops/ProduceCalendarScreen';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -55,6 +67,15 @@ function ClockIcon({ size = 20, color = P.twBlue600 }: { size?: number; color?: 
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
       <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CheckCircleIcon({ size = 20, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M8.5 12l2.5 2.5 5-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -129,69 +150,121 @@ function TractorIcon({ size = 18, color = P.twGreen700 }: { size?: number; color
   );
 }
 
-// ── Types & Data ─────────────────────────────────────────────────────────────
+// ── Activity type/labels ─────────────────────────────────────────────────────
 
 interface DayActivity {
   id: string;
   activity: string;
-  crop: string;
+  /** Undefined when a real record's crop can't be resolved (see the
+   * `cropFilterOptions()` docblock below) -- the row then just omits the
+   * "· crop" segment rather than showing invented explanatory text. */
+  crop: string | undefined;
   date: string;
   hours: number;
   type: 'irrigation' | 'weeding' | 'fertigation' | 'harvesting' | 'landprep';
 }
 
-const DEFAULT_ACTIVITIES: DayActivity[] = [
-  {
-    id: 'a1',
-    activity: 'Irrigation',
-    crop: 'Carrot',
-    date: '16 Jul',
-    hours: 7,
-    type: 'irrigation',
-  },
-  {
-    id: 'a2',
-    activity: 'Weeding',
-    crop: 'Tomato',
-    date: '15 Jul',
-    hours: 6,
-    type: 'weeding',
-  },
-  {
-    id: 'a3',
-    activity: 'Fertigation',
-    crop: 'Carrot',
-    date: '14 Jul',
-    hours: 8,
-    type: 'fertigation',
-  },
-  {
-    id: 'a4',
-    activity: 'Harvesting',
-    crop: 'Carrot',
-    date: '12 Jul',
-    hours: 7,
-    type: 'harvesting',
-  },
-  {
-    id: 'a5',
-    activity: 'Irrigation',
-    crop: 'Tomato',
-    date: '11 Jul',
-    hours: 7,
-    type: 'irrigation',
-  },
-  {
-    id: 'a6',
-    activity: 'Land prep',
-    crop: 'Tomato',
-    date: '10 Jul',
-    hours: 8,
-    type: 'landprep',
-  },
-];
+/** `irrigation|weeding|...` -- the same set DailyAttendanceScreen.tsx's activity
+ * picker and this screen's icon switch both key off, matching `DayActivity['type']`. */
+const ACTIVITY_LABELS: Record<string, string> = {
+  irrigation: 'Irrigation',
+  weeding: 'Weeding',
+  fertigation: 'Fertigation',
+  harvesting: 'Harvesting',
+  landprep: 'Land prep',
+};
+function activityLabel(raw: string | null | undefined): string {
+  if (!raw) return 'Work logged';
+  return ACTIVITY_LABELS[raw] ?? raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+function activityType(raw: string | null | undefined): DayActivity['type'] {
+  return (raw && raw in ACTIVITY_LABELS ? raw : 'landprep') as DayActivity['type'];
+}
+
+// ── Period helpers ───────────────────────────────────────────────────────────
+
+const MONTHS_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+] as const;
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+/** The last 6 calendar months (this one first) as `{value: "YYYY-MM", label}` --
+ * a client-side option list is fine here (per this feature's brief), it just
+ * needs to be real months instead of a fixed "July/June/May 2026". */
+function monthOptions(): { value: string; label: string }[] {
+  const now = new Date();
+  const opts: { value: string; label: string }[] = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    opts.push({
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      label: `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`,
+    });
+  }
+  return opts;
+}
+
+function periodLabel(period: string): string {
+  const [y, m] = period.split('-');
+  const idx = m ? parseInt(m, 10) - 1 : NaN;
+  return y && MONTHS_FULL[idx] ? `${MONTHS_FULL[idx]} ${y}` : period;
+}
+
+function periodBounds(period: string): { start: string; end: string } {
+  const [yStr, mStr] = period.split('-');
+  const year = Number(yStr);
+  const month = Number(mStr); // 1-indexed
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const lastDay = new Date(year, month, 0).getDate();
+  return { start: `${year}-${pad(month)}-01`, end: `${year}-${pad(month)}-${pad(lastDay)}` };
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT[d.getMonth()]}`;
+}
+
+function formatWorkDate(iso: string): string {
+  // workDate is `YYYY-MM-DD`; parse manually to avoid UTC/local timezone drift.
+  const parts = iso.split('-').map(Number);
+  const y = parts[0];
+  const m = parts[1];
+  const day = parts[2];
+  if (!y || !m || !day) return iso;
+  return `${String(day).padStart(2, '0')} ${MONTHS_SHORT[m - 1]}`;
+}
+
+function formatPaiseCompact(paise: number): string {
+  const rupees = paise / 100;
+  if (Math.abs(rupees) >= 1000) return `₹${(rupees / 1000).toFixed(1)}k`;
+  return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
+}
+
+/**
+ * ProduceCalendarScreen has no real backend behind it (`localProduceCropsCache`
+ * ids like `"crop-1"` are mock, not `farm_crops` UUIDs) -- the same gap
+ * CropWorkforceHoursScreen.tsx and DailyAttendanceScreen.tsx flag. This
+ * screen's crop filter stays selectable against that mock list (so the UI
+ * isn't silently missing a control the mock had), but a real attendance
+ * record's `farmCropId` is always a backend UUID that can never match one of
+ * these mock ids -- so selecting a specific crop cannot actually narrow the
+ * "days worked" list yet. The picker stays selectable (matching the original
+ * mock's always-present filter control) rather than showing an explanatory
+ * disclaimer the mock never had; it just doesn't filter anything yet.
+ */
+function cropFilterOptions(): string[] {
+  return ['All crops', ...localProduceCropsCache.map((c) => c.name)];
+}
 
 export interface WorkerDetailScreenProps {
+  /**
+   * Threaded down like WorkforceScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) otherwise -- App.tsx's
+   * `navigate('WorkerDetail')` passes no farmId today.
+   */
+  farmId?: string | undefined;
   workerId?: string;
   workerName?: string;
   workerRole?: string;
@@ -200,20 +273,53 @@ export interface WorkerDetailScreenProps {
 }
 
 export function WorkerDetailScreen({
+  farmId,
   workerId = 'w1',
   workerName = 'Murugan R.',
   workerRole = 'Field Worker · Daily wage',
   onBack,
   onNavigateToEditWorker,
 }: WorkerDetailScreenProps): React.JSX.Element {
-  const [selectedMonth, setSelectedMonth] = useState('July 2026');
+  // ── Farm context ── (same self-resolution pattern as WorkforceScreen.tsx)
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setContextLoading(true);
+      setContextError(null);
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (!fid) {
+          if (!cancelled) setContextError('No farm found.');
+          return;
+        }
+        if (!cancelled) setResolvedFarmId(fid);
+      } catch (err) {
+        if (!cancelled) setContextError(formatErrorMessage(err, 'Could not load your farm.'));
+      } finally {
+        if (!cancelled) setContextLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  const months = monthOptions();
+  const [selectedMonth, setSelectedMonth] = useState(months[0]!.value);
   const [selectedCrop, setSelectedCrop] = useState('All crops');
 
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isCropPickerOpen, setIsCropPickerOpen] = useState(false);
 
-  const months = ['July 2026', 'June 2026', 'May 2026'];
-  const crops = ['All crops', 'Carrot', 'Tomato', 'Cabbage'];
+  const crops = cropFilterOptions();
 
   // Initials
   const initials = workerName
@@ -224,6 +330,81 @@ export function WorkerDetailScreen({
     .slice(0, 2)
     .join('')
     .toUpperCase() || 'MR';
+
+  // ── This worker's attendance + payroll for the selected month ──
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [payrollItem, setPayrollItem] = useState<PayrollSummaryItem | null>(null);
+  const [paidDetail, setPaidDetail] = useState<string | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const loadDetail = useCallback(async () => {
+    if (!resolvedFarmId || !workerId) return;
+    setDataLoading(true);
+    setDataError(null);
+    try {
+      const [records, payrollItems] = await Promise.all([
+        listMyWorkerAttendance(resolvedFarmId, workerId, { month: selectedMonth }),
+        getMyWorkforcePayrollSummary(resolvedFarmId, selectedMonth),
+      ]);
+      setAttendance(records);
+      const item = payrollItems.find((p) => p.workerId === workerId) ?? null;
+      setPayrollItem(item);
+
+      if (item?.paidStatus === 'paid') {
+        try {
+          const payouts = await listMyWorkerPayouts(resolvedFarmId, workerId);
+          const { start, end } = periodBounds(selectedMonth);
+          const match: WorkerPayout | undefined = payouts.find(
+            (p) => p.periodStart === start && p.periodEnd === end,
+          );
+          setPaidDetail(
+            match
+              ? `Paid via ${
+                  match.paymentMethod === 'upi'
+                    ? 'UPI'
+                    : match.paymentMethod === 'bank_transfer'
+                      ? 'Bank transfer'
+                      : 'Cash'
+                } · ${formatShortDate(match.paidAt)}`
+              : 'Paid',
+          );
+        } catch {
+          setPaidDetail('Paid');
+        }
+      } else {
+        setPaidDetail(null);
+      }
+    } catch (err) {
+      setDataError(formatErrorMessage(err, "Could not load this worker's activity."));
+    } finally {
+      setDataLoading(false);
+    }
+  }, [resolvedFarmId, workerId, selectedMonth]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
+
+  const presentRecords = attendance.filter((r) => r.present);
+  const daysWorked = presentRecords.length;
+  const hoursLogged = presentRecords.reduce((sum, r) => sum + (r.hoursWorked ?? 0), 0);
+  const wagesAccruedPaise = payrollItem?.grossPaise ?? 0;
+
+  const activities: DayActivity[] = presentRecords
+    .slice()
+    .sort((a, b) => b.workDate.localeCompare(a.workDate))
+    .map((r) => ({
+      id: r.id,
+      activity: activityLabel(r.activity),
+      // No fabricated crop name -- see cropFilterOptions()'s docblock above
+      // for why a real record's farmCropId can't be resolved to one of
+      // ProduceCalendarScreen's mock crop names. The row omits the segment.
+      crop: undefined,
+      date: formatWorkDate(r.workDate),
+      hours: r.hoursWorked ?? 0,
+      type: activityType(r.activity),
+    }));
 
   const renderActivityIcon = (type: DayActivity['type']) => {
     switch (type) {
@@ -261,6 +442,9 @@ export function WorkerDetailScreen({
     }
   };
 
+  const showSkeleton = contextLoading || dataLoading;
+  const showError = contextError || dataError;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={P.white} />
@@ -296,6 +480,7 @@ export function WorkerDetailScreen({
                   id: workerId,
                   name: workerName,
                   role: workerRole,
+                  farmId: resolvedFarmId,
                 });
               }
             }}
@@ -319,7 +504,7 @@ export function WorkerDetailScreen({
               onPress={() => setIsMonthPickerOpen(true)}
               activeOpacity={0.75}
             >
-              <Text style={styles.filterPillText}>{selectedMonth}</Text>
+              <Text style={styles.filterPillText}>{periodLabel(selectedMonth)}</Text>
               <ChevronDownIcon size={15} color={P.twGray500} />
             </TouchableOpacity>
 
@@ -333,64 +518,99 @@ export function WorkerDetailScreen({
             </TouchableOpacity>
           </View>
 
-          {/* ── Payment Pending Banner ── */}
-          <View style={styles.paymentBanner}>
-            <View style={styles.clockIconWrap}>
-              <ClockIcon size={20} color={P.twBlue600} />
+          {showError ? (
+            <Text style={styles.errorText}>{showError}</Text>
+          ) : showSkeleton ? (
+            <View style={{ gap: 14 }}>
+              <Skeleton height={64} width="100%" />
+              <Skeleton height={90} width="100%" />
+              <Skeleton height={220} width="100%" />
             </View>
-            <View style={styles.paymentBannerTextCol}>
-              <Text style={styles.paymentBannerTitle}>Payment pending</Text>
-              <Text style={styles.paymentBannerSub}>July wages not yet paid out</Text>
-            </View>
-          </View>
-
-          {/* ── 3 Stat Summary Cards ── */}
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>12</Text>
-              <Text style={styles.statLabel}>Days worked</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.hoursNumberRow}>
-                <Text style={styles.statNumber}>84</Text>
-                <Text style={styles.hourUnit}> h</Text>
-              </View>
-              <Text style={styles.statLabel}>Hours logged</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Text style={[styles.statNumber, { color: colors.brandGreen }]}>₹4.4k</Text>
-              <Text style={styles.statLabel}>Wages accrued</Text>
-            </View>
-          </View>
-
-          {/* ── Days Worked List ── */}
-          <Text style={styles.sectionHeaderTitle}>DAYS WORKED</Text>
-
-          <View style={styles.activitiesCard}>
-            {DEFAULT_ACTIVITIES.map((act, index) => (
-              <View key={act.id}>
-                <View style={styles.activityRow}>
-                  {renderActivityIcon(act.type)}
-
-                  <View style={styles.activityInfoCol}>
-                    <Text style={styles.activityTitle}>
-                      {act.activity} · <Text style={styles.activityCrop}>{act.crop}</Text>
-                    </Text>
-                    <Text style={styles.activityDate}>{act.date}</Text>
+          ) : (
+            <>
+              {/* ── Payment Banner (always visible, like the original mock; defaults
+                  to the "pending" state when there's no payroll record yet) ── */}
+              {payrollItem?.paidStatus === 'paid' ? (
+                <View style={[styles.paymentBanner, styles.paymentBannerPaid]}>
+                  <View style={styles.clockIconWrap}>
+                    <CheckCircleIcon size={20} color={colors.brandGreen} />
                   </View>
+                  <View style={styles.paymentBannerTextCol}>
+                    <Text style={[styles.paymentBannerTitle, styles.paymentBannerTitlePaid]}>Payment received</Text>
+                    <Text style={styles.paymentBannerSub}>{paidDetail ?? `${periodLabel(selectedMonth)} wages paid`}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.paymentBanner}>
+                  <View style={styles.clockIconWrap}>
+                    <ClockIcon size={20} color={P.twBlue600} />
+                  </View>
+                  <View style={styles.paymentBannerTextCol}>
+                    <Text style={styles.paymentBannerTitle}>Payment pending</Text>
+                    <Text style={styles.paymentBannerSub}>
+                      {periodLabel(selectedMonth)} wages not yet paid out
+                    </Text>
+                  </View>
+                </View>
+              )}
 
-                  <Text style={styles.activityHours}>{act.hours} h</Text>
+              {/* ── 3 Stat Summary Cards ── */}
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>{daysWorked}</Text>
+                  <Text style={styles.statLabel}>Days worked</Text>
                 </View>
 
-                {index < DEFAULT_ACTIVITIES.length - 1 && <View style={styles.rowDivider} />}
-              </View>
-            ))}
-          </View>
+                <View style={styles.statCard}>
+                  <View style={styles.hoursNumberRow}>
+                    <Text style={styles.statNumber}>{hoursLogged}</Text>
+                    <Text style={styles.hourUnit}> h</Text>
+                  </View>
+                  <Text style={styles.statLabel}>Hours logged</Text>
+                </View>
 
-          {/* Bottom Footer Caption */}
-          <Text style={styles.footerCaption}>6 more days this month</Text>
+                <View style={styles.statCard}>
+                  <Text style={[styles.statNumber, { color: colors.brandGreen }]}>
+                    {formatPaiseCompact(wagesAccruedPaise)}
+                  </Text>
+                  <Text style={styles.statLabel}>Wages accrued</Text>
+                </View>
+              </View>
+
+              {/* ── Days Worked List ── */}
+              <Text style={styles.sectionHeaderTitle}>DAYS WORKED</Text>
+
+              <View style={styles.activitiesCard}>
+                {activities.map((act, index) => (
+                  <View key={act.id}>
+                    <View style={styles.activityRow}>
+                      {renderActivityIcon(act.type)}
+
+                      <View style={styles.activityInfoCol}>
+                        <Text style={styles.activityTitle}>
+                          {act.crop ? (
+                            <>
+                              {act.activity} · <Text style={styles.activityCrop}>{act.crop}</Text>
+                            </>
+                          ) : (
+                            act.activity
+                          )}
+                        </Text>
+                        <Text style={styles.activityDate}>{act.date}</Text>
+                      </View>
+
+                      <Text style={styles.activityHours}>{act.hours} h</Text>
+                    </View>
+
+                    {index < activities.length - 1 && <View style={styles.rowDivider} />}
+                  </View>
+                ))}
+              </View>
+
+              {/* Bottom Footer Caption */}
+              <Text style={styles.footerCaption}>6 more days this month</Text>
+            </>
+          )}
         </ScrollView>
 
         {/* Month Picker Modal */}
@@ -409,23 +629,23 @@ export function WorkerDetailScreen({
               <Text style={styles.modalTitle}>Select Period</Text>
               {months.map((m) => (
                 <TouchableOpacity
-                  key={m}
+                  key={m.value}
                   style={[
                     styles.modalOption,
-                    selectedMonth === m && styles.modalOptionSelected,
+                    selectedMonth === m.value && styles.modalOptionSelected,
                   ]}
                   onPress={() => {
-                    setSelectedMonth(m);
+                    setSelectedMonth(m.value);
                     setIsMonthPickerOpen(false);
                   }}
                 >
                   <Text
                     style={[
                       styles.modalOptionText,
-                      selectedMonth === m && styles.modalOptionTextSelected,
+                      selectedMonth === m.value && styles.modalOptionTextSelected,
                     ]}
                   >
-                    {m}
+                    {m.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -569,6 +789,11 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 40,
   },
+  errorText: {
+    fontSize: typography.body,
+    color: P.twRed600,
+    marginBottom: 12,
+  },
   filtersRow: {
     flexDirection: 'row',
     gap: 12,
@@ -607,6 +832,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  paymentBannerPaid: {
+    backgroundColor: colors.brandGreenLight,
+    borderLeftColor: colors.brandGreen,
+  },
   clockIconWrap: {
     marginRight: 12,
   },
@@ -617,6 +846,9 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '700',
     color: P.twBlue700,
+  },
+  paymentBannerTitlePaid: {
+    color: colors.brandGreen,
   },
   paymentBannerSub: {
     fontSize: typography.bodySmall,

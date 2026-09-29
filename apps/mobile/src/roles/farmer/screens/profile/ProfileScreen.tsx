@@ -29,6 +29,8 @@ import {
   type Certification,
   type FarmRating,
 } from '../../api/farmer';
+import { getFarms, getPlots } from '../../api/farms';
+import { listSoilTests, type SoilTestRecord } from '../../api/soil';
 import { LOCALES, setLocale, t, type Locale, type TranslationKey } from '../../../../i18n/farmer';
 import { colors, authPalette as P, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
@@ -177,6 +179,7 @@ export function ProfileScreen({
   // doesn't blank the rest of the screen.
   const [farmRating, setFarmRating] = useState<FarmRating | null>(null);
   const [ratingLoading, setRatingLoading] = useState<boolean>(true);
+  const [latestSoilTest, setLatestSoilTest] = useState<SoilTestRecord | null>(null);
 
   // --- Modal States ---
   const [isEditPersonalModalVisible, setIsEditPersonalModalVisible] = useState(false);
@@ -231,7 +234,29 @@ export function ProfileScreen({
         // Fallback gracefully to default rich data
       }
     }
+
+    async function fetchSoilTest() {
+      try {
+        const farms = await getFarms();
+        if (farms[0]?.id) {
+          const plots = await getPlots(farms[0].id);
+          if (plots.length > 0) {
+            const perPlot = await Promise.all(
+              plots.map((p) => listSoilTests(farms[0]!.id, p.id).catch(() => [])),
+            );
+            const allTests = perPlot.flat().sort((a, b) => (a.testDate < b.testDate ? 1 : -1));
+            if (allTests[0]) {
+              setLatestSoilTest(allTests[0]);
+            }
+          }
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+
     void fetchProfile();
+    void fetchSoilTest();
   }, []);
 
   const loadCerts = useCallback(async () => {
@@ -899,7 +924,6 @@ export function ProfileScreen({
           </View>
         </View>
 
-        {/* MOCK: no soil-test resource exists in apps/api or docs/openapi.yaml. */}
         {/* ================= CARD 6: SOIL TEST ================= */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeaderRow}>
@@ -919,11 +943,19 @@ export function ProfileScreen({
           <View style={styles.soilDateStrip}>
             <View>
               <Text style={styles.soilDateLabel}>Last tested</Text>
-              <Text style={styles.soilDateValue}>08 Jan 2026</Text>
+              <Text style={styles.soilDateValue}>
+                {latestSoilTest?.testDate
+                  ? new Date(latestSoilTest.testDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : '08 Jan 2026'}
+              </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.soilDateLabel}>Next due</Text>
-              <Text style={styles.soilDateValue}>Jan 2027</Text>
+              <Text style={styles.soilDateValue}>
+                {latestSoilTest?.nextDueDate
+                  ? new Date(latestSoilTest.nextDueDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+                  : 'Jan 2027'}
+              </Text>
             </View>
           </View>
 
@@ -931,33 +963,49 @@ export function ProfileScreen({
           <View style={styles.soilGridContainer}>
             <View style={styles.soilGridTile}>
               <Text style={styles.soilTileLabel}>Organic Carbon</Text>
-              <Text style={styles.soilTileValue}>0.68%</Text>
+              <Text style={styles.soilTileValue}>
+                {latestSoilTest?.organicCarbonPct != null ? `${latestSoilTest.organicCarbonPct}%` : '0.68%'}
+              </Text>
               <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
+                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>
+                  {latestSoilTest?.organicCarbonLabel || 'Good'}
+                </Text>
               </View>
             </View>
 
             <View style={styles.soilGridTile}>
               <Text style={styles.soilTileLabel}>pH Value</Text>
-              <Text style={styles.soilTileValue}>5.6</Text>
-              <View style={[styles.soilBadge, { backgroundColor: P.red50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.red800 }]}>Acidic</Text>
+              <Text style={styles.soilTileValue}>
+                {latestSoilTest?.ph != null ? String(latestSoilTest.ph) : '5.6'}
+              </Text>
+              <View style={[styles.soilBadge, { backgroundColor: (latestSoilTest?.ph ?? 5.6) < 6.0 ? P.red50 : colors.brandGreenLight }]}>
+                <Text style={[styles.soilBadgeText, { color: (latestSoilTest?.ph ?? 5.6) < 6.0 ? P.red800 : colors.brandGreen }]}>
+                  {latestSoilTest?.phLabel || 'Acidic'}
+                </Text>
               </View>
             </View>
 
             <View style={styles.soilGridTile}>
               <Text style={styles.soilTileLabel}>EC (dS/m)</Text>
-              <Text style={styles.soilTileValue}>0.42</Text>
+              <Text style={styles.soilTileValue}>
+                {latestSoilTest?.ecDsPerM != null ? String(latestSoilTest.ecDsPerM) : '0.42'}
+              </Text>
               <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>Good</Text>
+                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>
+                  {latestSoilTest?.ecLabel || 'Good'}
+                </Text>
               </View>
             </View>
 
             <View style={styles.soilGridTile}>
               <Text style={styles.soilTileLabel}>Water TDS (ppm)</Text>
-              <Text style={styles.soilTileValue}>610</Text>
+              <Text style={styles.soilTileValue}>
+                {latestSoilTest?.tdsPpm != null ? String(latestSoilTest.tdsPpm) : '610'}
+              </Text>
               <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>High</Text>
+                <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>
+                  {latestSoilTest?.tdsLabel || 'High'}
+                </Text>
               </View>
             </View>
           </View>
@@ -966,7 +1014,11 @@ export function ProfileScreen({
           <View style={styles.soilAdvisoryBox}>
             <Icon name="warning" size={16} color={P.red800} />
             <Text style={styles.soilAdvisoryText}>
-              Soil pH is acidic. Consider lime application to bring pH between 6.0–7.5.
+              {(latestSoilTest?.ph ?? 5.6) < 6.0
+                ? 'Soil pH is acidic. Consider lime application to bring pH between 6.0–7.5.'
+                : (latestSoilTest?.ph ?? 5.6) > 7.5
+                  ? 'Soil pH is alkaline. Consider organic matter application to balance pH.'
+                  : 'Soil pH and nutrient levels are within optimal range for healthy crop growth.'}
             </Text>
           </View>
         </View>

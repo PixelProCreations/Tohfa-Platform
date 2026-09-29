@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   Modal,
@@ -14,7 +15,13 @@ import {
 } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { Skeleton, DatePicker } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms, getPlots } from '../../../api/farms';
+import { signUpload } from '../../../api/registration';
+import { uploadWithResume } from '../../../api/uploader';
+import { createSoilTest, type CreateSoilTestInput, type LimeStatus } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -160,6 +167,8 @@ function PdfFileIcon({ size = 22, color = P.white }: { size?: number; color?: st
 // ─────────────────────────────────────────────
 
 export interface UploadNewSoilTestScreenProps {
+  /** The farm this test belongs to, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
   onSave?: (() => void) | undefined;
   onNavigateToFieldContext?: (() => void) | undefined;
@@ -167,17 +176,162 @@ export interface UploadNewSoilTestScreenProps {
 
 const LIME_STATUS_OPTIONS = ['Harmless', 'Slight', 'Moderate', 'Severe'];
 
+/**
+ * The date inputs on this screen are free-typed as `DD/MM/YY` (matching the
+ * pre-filled example values below); the API wants `YYYY-MM-DD`
+ * (soil.schema.ts's `dateSchema`). Returns null for anything that doesn't
+ * parse, which handleSave treats as a validation failure exactly like an
+ * empty field.
+ */
+function toIsoDate(value: string): string | null {
+  const trimmed = value.trim();
+  const slashMatch = trimmed.match(/^(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{2}|\d{4})$/);
+  if (slashMatch && slashMatch[1] && slashMatch[2] && slashMatch[3]) {
+    const day = slashMatch[1].padStart(2, '0');
+    const month = slashMatch[2].padStart(2, '0');
+    const rawYear = slashMatch[3];
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    return `${year}-${month}-${day}`;
+  }
+  const ymdMatch = trimmed.match(/^(\d{4})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{1,2})$/);
+  if (ymdMatch && ymdMatch[1] && ymdMatch[2] && ymdMatch[3]) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return null;
+}
+
+function parseSoilDate(value: string): Date {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{1,2})\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{2}|\d{4})$/);
+  if (match && match[1] && match[2] && match[3]) {
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const rawYear = Number(match[3]);
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    const d = new Date(year, month - 1, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
+
 // ─────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────
 
 export function UploadNewSoilTestScreen({
+  farmId,
   onBack,
   onSave,
   onNavigateToFieldContext,
 }: UploadNewSoilTestScreenProps): React.JSX.Element {
+  // No plot picker exists in this mock's UI (no zone selector is drawn anywhere
+  // below), so -- same "no create-form UI to invent" limit that applies to
+  // Amendments/Erosion -- the test is logged against the farm's first plot.
+  // Flagged in the task report as a judgment call: multi-plot farms cannot pick
+  // a different zone here today.
+  const [plotId, setPlotId] = useState('');
+  const [plotLoading, setPlotLoading] = useState(true);
+  const [plotLoadError, setPlotLoadError] = useState<string | null>(null);
+  const [waterSourcesText, setWaterSourcesText] = useState('Borewell · Rainwater harvesting');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!farmId) {
+        setPlotLoadError('No farm selected. Go back and choose a farm first.');
+        setPlotLoading(false);
+        return;
+      }
+      setPlotLoading(true);
+      setPlotLoadError(null);
+      try {
+        const [plots, farms] = await Promise.all([
+          getPlots(farmId),
+          getFarms().catch(() => []),
+        ]);
+        if (cancelled) return;
+        const currentFarm = farms.find((f) => f.id === farmId);
+        if (currentFarm && currentFarm.waterSources && currentFarm.waterSources.length > 0) {
+          setWaterSourcesText(currentFarm.waterSources.join(' · '));
+        }
+        const firstPlot = plots[0];
+        if (!firstPlot) {
+          setPlotLoadError('This farm has no zones yet. Add a zone before logging a soil test.');
+        } else {
+          setPlotId(firstPlot.id);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPlotLoadError(formatErrorMessage(err, 'Could not load this farm’s zones.'));
+        }
+      } finally {
+        if (!cancelled) setPlotLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  interface SavedSoilTestData {
+    testDate: string;
+    nextDue: string;
+    ph: number;
+    oc: number;
+    ec: number;
+    tds?: number | null | undefined;
+    nitrogen?: number | null | undefined;
+    phosphorus?: number | null | undefined;
+    potassium?: number | null | undefined;
+    limeStatus: string;
+    waterSources?: string | undefined;
+    documentName?: string | undefined;
+  }
+  const [savedSuccessModal, setSavedSuccessModal] = useState<SavedSoilTestData | null>(null);
+
+  const handleSuccessModalClose = () => {
+    setSavedSuccessModal(null);
+    if (onSave) {
+      onSave();
+    } else if (onBack) {
+      onBack();
+    }
+  };
+
   const [testDate, setTestDate] = useState('12/06/26');
   const [nextDue, setNextDue] = useState('11/06/27');
+  const [isTestDatePickerVisible, setIsTestDatePickerVisible] = useState(false);
+  const [isNextDuePickerVisible, setIsNextDuePickerVisible] = useState(false);
+
+  const handleSelectTestDate = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yy = String(date.getFullYear()).slice(-2);
+    setTestDate(`${dd}/${mm}/${yy}`);
+
+    // Auto-suggest next due date as test date + 1 year (editable)
+    const nextDate = new Date(date);
+    nextDate.setFullYear(nextDate.getFullYear() + 1);
+    const nextDd = String(nextDate.getDate()).padStart(2, '0');
+    const nextMm = String(nextDate.getMonth() + 1).padStart(2, '0');
+    const nextYy = String(nextDate.getFullYear()).slice(-2);
+    setNextDue(`${nextDd}/${nextMm}/${nextYy}`);
+    setIsTestDatePickerVisible(false);
+  };
+
+  const handleSelectNextDue = (date: Date) => {
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yy = String(date.getFullYear()).slice(-2);
+    setNextDue(`${dd}/${mm}/${yy}`);
+    setIsNextDuePickerVisible(false);
+  };
 
   const [organicCarbon, setOrganicCarbon] = useState('0.62');
   const [ph, setPh] = useState('5.8');
@@ -231,28 +385,95 @@ export function UploadNewSoilTestScreen({
     }
   };
 
-  const handleSave = () => {
-    if (!testDate.trim() || !ph.trim() || !organicCarbon.trim()) {
-      Alert.alert('Required Fields', 'Please ensure Test Date, Organic Carbon, and pH are filled.');
+  const handleSave = async () => {
+    if (!testDate.trim() || !ph.trim() || !organicCarbon.trim() || !ec.trim() || !nextDue.trim()) {
+      Alert.alert('Required Fields', 'Please ensure Test Date, Next Due, Organic Carbon, pH and EC are filled.');
       return;
     }
 
-    Alert.alert(
-      'Soil Test Saved',
-      `Soil test record successfully saved.\n\n• Test Date: ${testDate}\n• pH: ${ph}\n• OC: ${organicCarbon}%\n• EC: ${ec} dS/m`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onSave) {
-              onSave();
-            } else if (onBack) {
-              onBack();
-            }
-          },
-        },
-      ],
-    );
+    const isoTestDate = toIsoDate(testDate);
+    const isoNextDue = toIsoDate(nextDue);
+    if (!isoTestDate || !isoNextDue) {
+      Alert.alert('Invalid Date', 'Test Date and Next Due must be in DD/MM/YY format.');
+      return;
+    }
+    if (!farmId || !plotId) {
+      setSaveError('No zone available to log this test against.');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // Best-effort lab report upload. Spec gap (flagged in the task report,
+      // not invented around): POST /uploads/sign only ever returns
+      // {uploadUrl, fileUrl, method, headers, expiresAt, resumable} -- never
+      // the uploads-table row id that soil.schema.ts's `labReportUploadId`
+      // actually requires (soil.service.ts's requireOwnUpload looks the id up
+      // by primary key). The file is still uploaded to blob storage for
+      // safekeeping, but it cannot be linked to the record it's for yet, so
+      // `labReportUploadId` is deliberately left unset below rather than
+      // guessing at a value.
+      if (attachedDoc) {
+        try {
+          const fileResp = await fetch(attachedDoc.uri);
+          const buffer = await fileResp.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          const signed = await signUpload({
+            purpose: 'SOIL_TEST_REPORT',
+            fileName: attachedDoc.name,
+            contentType: attachedDoc.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+            sizeBytes: bytes.length,
+          });
+          await uploadWithResume({
+            uploadUrl: signed.uploadUrl,
+            fileUrl: signed.fileUrl,
+            resumable: signed.resumable ?? false,
+            data: bytes,
+            contentType: attachedDoc.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+            headers: signed.headers,
+            method: signed.method,
+          });
+        } catch {
+          // Non-fatal: the soil test record itself is still worth saving even
+          // if the report upload failed.
+        }
+      }
+
+      const body: CreateSoilTestInput = {
+        testDate: isoTestDate,
+        nextDueDate: isoNextDue,
+        organicCarbonPct: parseFloat(organicCarbon),
+        ph: parseFloat(ph),
+        ecDsPerM: parseFloat(ec),
+        ...(tds.trim() ? { tdsPpm: Math.round(parseFloat(tds)) } : {}),
+        ...(nitrogen.trim() ? { nitrogenKgPerHa: parseFloat(nitrogen) } : {}),
+        ...(phosphorus.trim() ? { phosphorusKgPerHa: parseFloat(phosphorus) } : {}),
+        ...(potassium.trim() ? { potassiumKgPerHa: parseFloat(potassium) } : {}),
+        limeStatus: limeStatus as LimeStatus,
+      };
+
+      const saved = await createSoilTest(farmId, plotId, body);
+
+      setSavedSuccessModal({
+        testDate,
+        nextDue,
+        ph: saved.ph,
+        oc: saved.organicCarbonPct,
+        ec: saved.ecDsPerM,
+        tds: saved.tdsPpm ?? (tds.trim() ? parseFloat(tds) : null),
+        nitrogen: saved.nitrogenKgPerHa ?? (nitrogen.trim() ? parseFloat(nitrogen) : null),
+        phosphorus: saved.phosphorusKgPerHa ?? (phosphorus.trim() ? parseFloat(phosphorus) : null),
+        potassium: saved.potassiumKgPerHa ?? (potassium.trim() ? parseFloat(potassium) : null),
+        limeStatus: saved.limeStatus || limeStatus,
+        waterSources: waterSourcesText,
+        documentName: attachedDoc?.name,
+      });
+    } catch (err) {
+      setSaveError(formatErrorMessage(err, 'Could not save this soil test.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Helper validations matching exact UI
@@ -287,6 +508,16 @@ export function UploadNewSoilTestScreen({
         </View>
       </View>
 
+      {plotLoading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={48} width="100%" style={{ marginBottom: 16 }} />
+          <Skeleton height={200} width="100%" />
+        </View>
+      ) : plotLoadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{plotLoadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -296,11 +527,15 @@ export function UploadNewSoilTestScreen({
         {/* ── Date Row ── */}
         <View style={styles.dateRow}>
           <View style={styles.dateInputContainer}>
-            <View style={styles.labelRow}>
+            <TouchableOpacity
+              style={styles.labelRow}
+              activeOpacity={0.7}
+              onPress={() => setIsTestDatePickerVisible(true)}
+            >
               <CalendarIcon size={14} color={P.twGray600} />
               <Text style={styles.inputLabel}> Test Date </Text>
               <Text style={styles.requiredAsterisk}>*</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.inputBox}>
               <TextInput
                 style={styles.inputText}
@@ -309,16 +544,27 @@ export function UploadNewSoilTestScreen({
                 placeholder="DD/MM/YY"
                 placeholderTextColor={P.twGray400}
               />
-              <CalendarIcon size={16} color={P.twGray400} />
+              <TouchableOpacity
+                onPress={() => setIsTestDatePickerVisible(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open Test Date calendar"
+              >
+                <CalendarIcon size={16} color={P.twGray400} />
+              </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.dateInputContainer}>
-            <View style={styles.labelRow}>
+            <TouchableOpacity
+              style={styles.labelRow}
+              activeOpacity={0.7}
+              onPress={() => setIsNextDuePickerVisible(true)}
+            >
               <CalendarIcon size={14} color={P.twGray600} />
               <Text style={styles.inputLabel}> Next Due </Text>
               <Text style={styles.requiredAsterisk}>*</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.inputBox}>
               <TextInput
                 style={styles.inputText}
@@ -327,7 +573,14 @@ export function UploadNewSoilTestScreen({
                 placeholder="DD/MM/YY"
                 placeholderTextColor={P.twGray400}
               />
-              <CalendarIcon size={16} color={P.twGray400} />
+              <TouchableOpacity
+                onPress={() => setIsNextDuePickerVisible(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Open Next Due Date calendar"
+              >
+                <CalendarIcon size={16} color={P.twGray400} />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -566,7 +819,7 @@ export function UploadNewSoilTestScreen({
           </View>
           <View style={styles.waterContextInfo}>
             <Text style={styles.waterContextLabel}>WATER SOURCE (FROM FIELD CONTEXT)</Text>
-            <Text style={styles.waterContextValue}>Borewell · Rainwater harvesting</Text>
+            <Text style={styles.waterContextValue}>{waterSourcesText}</Text>
           </View>
           <TouchableOpacity
             onPress={onNavigateToFieldContext}
@@ -620,9 +873,12 @@ export function UploadNewSoilTestScreen({
           )}
         </View>
       </ScrollView>
+      )}
 
       {/* ── Sticky Bottom Action Bar ── */}
       <View style={styles.bottomBar}>
+        {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
+        <View style={styles.bottomBarRow}>
         <TouchableOpacity
           style={styles.cancelBtn}
           onPress={onBack}
@@ -634,14 +890,20 @@ export function UploadNewSoilTestScreen({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={handleSave}
+          style={[styles.saveBtn, { opacity: saving || plotLoading || !!plotLoadError ? 0.7 : 1 }]}
+          onPress={() => void handleSave()}
+          disabled={saving || plotLoading || !!plotLoadError}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Save Soil Test"
         >
-          <Text style={styles.saveBtnText}>✓ Save Soil Test</Text>
+          {saving ? (
+            <ActivityIndicator size="small" color={P.white} />
+          ) : (
+            <Text style={styles.saveBtnText}>✓ Save Soil Test</Text>
+          )}
         </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Lime Status Selection Modal ── */}
@@ -682,6 +944,203 @@ export function UploadNewSoilTestScreen({
             ))}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* ── Test Date Picker Modal ── */}
+      <DatePicker
+        visible={isTestDatePickerVisible}
+        onClose={() => setIsTestDatePickerVisible(false)}
+        onSelect={(date) => handleSelectTestDate(date)}
+        value={parseSoilDate(testDate)}
+        title="Select Test Date"
+        format="DD/MM/YY"
+      />
+
+      {/* ── Next Due Date Picker Modal ── */}
+      <DatePicker
+        visible={isNextDuePickerVisible}
+        onClose={() => setIsNextDuePickerVisible(false)}
+        onSelect={(date) => handleSelectNextDue(date)}
+        value={parseSoilDate(nextDue)}
+        title="Select Next Due Date"
+        format="DD/MM/YY"
+      />
+
+      {/* ── Soil Test Saved Success Modal ── */}
+      <Modal
+        visible={!!savedSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleSuccessModalClose}
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalCard}>
+            <View style={styles.successIconCircle}>
+              <CheckCircleIcon size={30} color={P.twGreen700} />
+            </View>
+
+            <Text style={styles.successModalTitle}>Soil Test Saved</Text>
+            <Text style={styles.successModalSubtitle}>
+              Soil test record successfully saved with all parameters.
+            </Text>
+
+            <View style={styles.successDataBox}>
+              {/* Date Row */}
+              <View style={styles.successDataRow}>
+                <View style={styles.successDataCol}>
+                  <Text style={styles.successColLabel}>TEST DATE</Text>
+                  <Text style={styles.successColVal}>{savedSuccessModal?.testDate || '-'}</Text>
+                </View>
+                <View style={styles.successDataCol}>
+                  <Text style={styles.successColLabel}>NEXT DUE</Text>
+                  <Text style={styles.successColVal}>{savedSuccessModal?.nextDue || '-'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.successDivider} />
+
+              {/* Core 3: pH, OC, EC */}
+              <View style={styles.successMetricsGrid}>
+                <View style={styles.successMetricItem}>
+                  <Text style={styles.successMetricLabel}>pH</Text>
+                  <Text style={styles.successMetricVal}>{savedSuccessModal?.ph}</Text>
+                  <Text
+                    style={[
+                      styles.successMetricBadge,
+                      (savedSuccessModal?.ph ?? 7) < 6.0
+                        ? styles.badgeWarning
+                        : (savedSuccessModal?.ph ?? 7) <= 7.5
+                        ? styles.badgeGood
+                        : styles.badgeWarning,
+                    ]}
+                  >
+                    {(savedSuccessModal?.ph ?? 7) < 6.0
+                      ? 'Acidic'
+                      : (savedSuccessModal?.ph ?? 7) <= 7.5
+                      ? 'Good'
+                      : 'Alkaline'}
+                  </Text>
+                </View>
+
+                <View style={styles.successMetricItem}>
+                  <Text style={styles.successMetricLabel}>OC</Text>
+                  <Text style={styles.successMetricVal}>{savedSuccessModal?.oc}%</Text>
+                  <Text
+                    style={[
+                      styles.successMetricBadge,
+                      (savedSuccessModal?.oc ?? 0) < 0.51
+                        ? styles.badgeWarning
+                        : (savedSuccessModal?.oc ?? 0) <= 0.75
+                        ? styles.badgeGood
+                        : styles.badgeInfo,
+                    ]}
+                  >
+                    {(savedSuccessModal?.oc ?? 0) < 0.51
+                      ? 'Low'
+                      : (savedSuccessModal?.oc ?? 0) <= 0.75
+                      ? 'Medium'
+                      : 'High'}
+                  </Text>
+                </View>
+
+                <View style={styles.successMetricItem}>
+                  <Text style={styles.successMetricLabel}>EC</Text>
+                  <Text style={styles.successMetricVal}>
+                    {savedSuccessModal?.ec} <Text style={styles.successUnitText}>dS/m</Text>
+                  </Text>
+                  <Text
+                    style={[
+                      styles.successMetricBadge,
+                      (savedSuccessModal?.ec ?? 0) <= 1.0
+                        ? styles.badgeGood
+                        : (savedSuccessModal?.ec ?? 0) <= 2.0
+                        ? styles.badgeWarning
+                        : styles.badgeDanger,
+                    ]}
+                  >
+                    {(savedSuccessModal?.ec ?? 0) <= 1.0
+                      ? 'Normal'
+                      : (savedSuccessModal?.ec ?? 0) <= 2.0
+                      ? 'Slight'
+                      : 'Saline'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Nutrients N-P-K / TDS if present */}
+              {(savedSuccessModal?.nitrogen != null ||
+                savedSuccessModal?.phosphorus != null ||
+                savedSuccessModal?.potassium != null ||
+                savedSuccessModal?.tds != null) && (
+                <>
+                  <View style={styles.successDivider} />
+                  <View style={styles.successNutrientsGrid}>
+                    {savedSuccessModal.nitrogen != null && (
+                      <View style={styles.nutrientChip}>
+                        <Text style={styles.nutrientChipKey}>N:</Text>
+                        <Text style={styles.nutrientChipVal}>{savedSuccessModal.nitrogen} kg/ha</Text>
+                      </View>
+                    )}
+                    {savedSuccessModal.phosphorus != null && (
+                      <View style={styles.nutrientChip}>
+                        <Text style={styles.nutrientChipKey}>P:</Text>
+                        <Text style={styles.nutrientChipVal}>{savedSuccessModal.phosphorus} kg/ha</Text>
+                      </View>
+                    )}
+                    {savedSuccessModal.potassium != null && (
+                      <View style={styles.nutrientChip}>
+                        <Text style={styles.nutrientChipKey}>K:</Text>
+                        <Text style={styles.nutrientChipVal}>{savedSuccessModal.potassium} kg/ha</Text>
+                      </View>
+                    )}
+                    {savedSuccessModal.tds != null && (
+                      <View style={styles.nutrientChip}>
+                        <Text style={styles.nutrientChipKey}>TDS:</Text>
+                        <Text style={styles.nutrientChipVal}>{savedSuccessModal.tds} ppm</Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+              )}
+
+              {/* Context info (Lime, Water, Doc) */}
+              <View style={styles.successDivider} />
+              <View style={styles.successContextRow}>
+                <Text style={styles.successContextLabel}>Lime Status</Text>
+                <Text style={styles.successContextVal}>{savedSuccessModal?.limeStatus || 'Not applied'}</Text>
+              </View>
+              {savedSuccessModal?.waterSources ? (
+                <View style={styles.successContextRow}>
+                  <Text style={styles.successContextLabel}>Water Source</Text>
+                  <Text style={styles.successContextVal} numberOfLines={1}>
+                    {savedSuccessModal.waterSources}
+                  </Text>
+                </View>
+              ) : null}
+              {savedSuccessModal?.documentName ? (
+                <View style={styles.successContextRow}>
+                  <Text style={styles.successContextLabel}>Report</Text>
+                  <View style={styles.docReportValueBox}>
+                    <DocIcon size={12} color={P.twGreen700} />
+                    <Text style={[styles.successContextVal, { color: P.twGreen700, marginLeft: 4 }]} numberOfLines={1}>
+                      {savedSuccessModal.documentName}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
+            <TouchableOpacity
+              style={styles.successModalOkBtn}
+              onPress={handleSuccessModalClose}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="OK"
+            >
+              <Text style={styles.successModalOkBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -972,11 +1431,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: P.white,
-    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
-    gap: 12,
     borderTopWidth: 1,
     borderTopColor: P.slate100,
     elevation: 8,
@@ -984,6 +1441,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
+  },
+  bottomBarRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  saveErrorText: {
+    color: P.twRed600,
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  loadErrorText: {
+    color: P.twRed600,
+    fontSize: typography.body,
+    fontWeight: '600',
   },
   cancelBtn: {
     flex: 1,
@@ -1050,6 +1523,197 @@ const styles = StyleSheet.create({
   },
   modalOptionTextSelected: {
     color: P.twGreen700,
+    fontWeight: '700',
+  },
+
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  successModalCard: {
+    backgroundColor: P.white,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 380,
+    padding: 20,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  successIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: P.twGreen100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  successModalTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.slate900,
+    textAlign: 'center',
+  },
+  successModalSubtitle: {
+    fontSize: typography.bodySmall,
+    color: P.slate500,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  successDataBox: {
+    backgroundColor: P.twGray50,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    marginBottom: 18,
+  },
+  successDataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  successDataCol: {
+    flex: 1,
+  },
+  successColLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: P.slate400,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  successColVal: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.slate800,
+  },
+  successDivider: {
+    height: 1,
+    backgroundColor: P.slate200,
+    marginVertical: 8,
+  },
+  successMetricsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  successMetricItem: {
+    flex: 1,
+    backgroundColor: P.white,
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: P.slate100,
+  },
+  successMetricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: P.slate500,
+  },
+  successMetricVal: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.slate900,
+    marginVertical: 2,
+  },
+  successUnitText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: P.slate500,
+  },
+  successMetricBadge: {
+    fontSize: 10,
+    fontWeight: '700',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  badgeGood: {
+    backgroundColor: P.twGreen100,
+    color: P.twGreen700,
+  },
+  badgeWarning: {
+    backgroundColor: P.twAmber100,
+    color: P.twAmber800,
+  },
+  badgeInfo: {
+    backgroundColor: P.violetTint,
+    color: P.deepPurple800,
+  },
+  badgeDanger: {
+    backgroundColor: P.twRed100,
+    color: P.twRed600,
+  },
+  docReportValueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '65%',
+  },
+  successNutrientsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  nutrientChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: P.white,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: P.slate200,
+  },
+  nutrientChipKey: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: P.slate600,
+    marginRight: 3,
+  },
+  nutrientChipVal: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: P.slate800,
+  },
+  successContextRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  successContextLabel: {
+    fontSize: 11,
+    color: P.slate500,
+    fontWeight: '500',
+  },
+  successContextVal: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: P.slate800,
+    maxWidth: '65%',
+    textAlign: 'right',
+  },
+  successModalOkBtn: {
+    backgroundColor: P.twGreen700,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successModalOkBtnText: {
+    color: P.white,
+    fontSize: typography.body,
     fontWeight: '700',
   },
 });

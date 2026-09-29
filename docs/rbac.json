@@ -526,6 +526,66 @@
       "source": "inferred — BR-36 (own-data ownership for farmers); db/migrations/0003_farmers_and_farms.sql farms/plots were modelled but never wired to an API before this module"
     },
     {
+      "code": "farmer.soil.manage_own",
+      "module": "Soil Management",
+      "description": "Create, view and edit own soil diary records (tests, amendments, moisture, erosion notes, rotation plans) for plots on farms the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-36 (own-data ownership); new soil diary tables (db/migrations/0021_soil_management.sql) introduced for requirements FR-F06"
+    },
+    {
+      "code": "farmer.pest.manage_own",
+      "module": "Pest Management",
+      "description": "Create, view and edit own pest detections, treatment logs and treatment reminders for plots on farms the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-36 (own-data ownership); new pest management tables (db/migrations/0023_pest_management.sql) introduced for requirements FR-F07"
+    },
+    {
+      "code": "pest_library.view",
+      "module": "Pest Management",
+      "description": "Read access to the pest/disease reference library and region-scoped weather risk notes.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "view",
+        "CUSTOMER": "none"
+      },
+      "source": "new pest_library / weather_risk_notes tables (db/migrations/0023_pest_management.sql) introduced for requirements FR-F07"
+    },
+    {
+      "code": "farmer.workforce.manage_own",
+      "module": "Farm Workforce",
+      "description": "Create, view and edit own worker roster, daily attendance, advances and payouts for farms the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-36 (own-data ownership), BR-41 (workforce pay computed never stored); new workforce tables (db/migrations/0025_workforce.sql) introduced for the Farm Workforce feature (worker roster, daily attendance, payroll)"
+    },
+    {
       "code": "certification.verify_via_portal",
       "module": "Farmers Management",
       "description": "Verify a certificate against the issuing body's official portal (manual).",

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -9,8 +9,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms } from '../../../api/farms';
+import {
+  createMyWorkerPayout,
+  getMyWorkforcePayrollSummary,
+  listMyWorkerAttendance,
+  listMyWorkerPayouts,
+  listMyWorkers,
+  type PayrollSummaryItem,
+  type Worker,
+  type WorkerPayout,
+} from '../../../api/workforce';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -47,104 +60,272 @@ function CheckmarkCircleIcon({ size = 13, color = colors.brandGreen }: { size?: 
   );
 }
 
-// ── Types & Data ─────────────────────────────────────────────────────────────
+// ── Period helpers ───────────────────────────────────────────────────────────
 
-export interface WorkerPayrollItem {
-  id: string;
-  name: string;
-  initials: string;
-  calcSubtitle: string;
-  status: 'pending' | 'paid';
-  grossSalary?: string;
-  advanceTaken?: string;
-  monthlySalary?: string;
-  netPayable: string;
-  netPayableNumber: number;
-  paidDetails?: string;
-  avatarBg: string;
-  avatarColor: string;
+const MONTHS_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+] as const;
+
+/** `YYYY-MM` for "this month", the period `getMyWorkforcePayrollSummary` expects. */
+function currentYearMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-const INITIAL_PAYROLL: WorkerPayrollItem[] = [
-  {
-    id: 'w1',
-    name: 'Murugan R.',
-    initials: 'MR',
-    calcSubtitle: '12 days × ₹450 · 84 h',
-    status: 'pending',
-    grossSalary: '₹5,400',
-    advanceTaken: '- ₹1,000',
-    netPayable: '₹4,400',
-    netPayableNumber: 4400,
-    avatarBg: P.twGreen100,
-    avatarColor: P.twGreen800,
-  },
-  {
-    id: 'w2',
-    name: 'Selvi K.',
-    initials: 'SK',
-    calcSubtitle: 'Monthly salary · 98 h',
-    status: 'pending',
-    monthlySalary: '₹12,000',
-    netPayable: '₹12,000',
-    netPayableNumber: 12000,
-    avatarBg: P.twOrange100,
-    avatarColor: P.twOrange700,
-  },
-  {
-    id: 'w3',
-    name: 'Lakshmi D.',
-    initials: 'LD',
-    calcSubtitle: '11 days × ₹400 · 77 h',
-    status: 'paid',
-    netPayable: '₹4,400',
-    netPayableNumber: 4400,
-    paidDetails: 'Paid via UPI · 15 Jul',
-    avatarBg: P.twPurple100,
-    avatarColor: P.deepPurple600,
-  },
+function periodLabel(period: string): string {
+  const parts = period.split('-');
+  const y = parts[0];
+  const m = parts[1];
+  const idx = m ? parseInt(m, 10) - 1 : NaN;
+  return y && MONTHS_FULL[idx] ? `${MONTHS_FULL[idx]} ${y}` : period;
+}
+
+/** `YYYY-MM` -> that month's first/last calendar day as `YYYY-MM-DD`, the
+ * `periodStart`/`periodEnd` a payout is recorded against. */
+function periodBounds(period: string): { start: string; end: string } {
+  const parts = period.split('-');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]); // 1-indexed
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const lastDay = new Date(year, month, 0).getDate();
+  return {
+    start: `${year}-${pad(month)}-01`,
+    end: `${year}-${pad(month)}-${pad(lastDay)}`,
+  };
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT[d.getMonth()]}`;
+}
+
+function formatPaiseFull(paise: number): string {
+  return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
+}
+
+function initialsOf(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+const AVATAR_PALETTE: { bg: string; fg: string }[] = [
+  { bg: P.twGreen100, fg: P.twGreen800 },
+  { bg: P.twOrange100, fg: P.twOrange700 },
+  { bg: P.twPurple100, fg: P.deepPurple600 },
+  { bg: P.twBlue50, fg: P.blue700 },
 ];
 
+// ── View model ───────────────────────────────────────────────────────────────
+
+interface WorkerPayrollRow {
+  workerId: string;
+  name: string;
+  payType: string;
+  avatar: { bg: string; fg: string };
+  /** e.g. "12 days × ₹450 · 84 h" or "Monthly salary · 98 h" -- computed
+   * client-side from this month's attendance (see loadPayroll below); the API
+   * has no single endpoint that returns this pre-formatted. */
+  calcSubtitle: string;
+  grossPaise: number;
+  advancesPaise: number;
+  netPayablePaise: number;
+  paidStatus: string;
+  /** Only set for already-paid workers, from their own payout history
+   * (listMyWorkerPayouts) -- "Paid" with no detail is the honest fallback
+   * when no payout row for this exact period can be found. */
+  paidDetails?: string | undefined;
+}
+
 export interface PayrollScreenProps {
+  /**
+   * Threaded down like WorkforceScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) otherwise -- App.tsx's
+   * `navigate('Payroll')` passes no farmId today.
+   */
+  farmId?: string | undefined;
   onBack?: () => void;
   onNavigateToWorkerDetail?: (id: string, name: string) => void;
 }
 
-export function PayrollScreen({ onBack, onNavigateToWorkerDetail }: PayrollScreenProps): React.JSX.Element {
-  const [payrollItems, setPayrollItems] = useState<WorkerPayrollItem[]>(INITIAL_PAYROLL);
+export function PayrollScreen({ farmId, onBack, onNavigateToWorkerDetail }: PayrollScreenProps): React.JSX.Element {
+  // ── Farm context ── (same self-resolution pattern as WorkforceScreen.tsx)
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
 
-  const pendingCount = payrollItems.filter((i) => i.status === 'pending').length;
-  const paidCount = payrollItems.filter((i) => i.status === 'paid').length;
-  const pendingTotal = payrollItems
-    .filter((i) => i.status === 'pending')
-    .reduce((sum, item) => sum + item.netPayableNumber, 0);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setContextLoading(true);
+      setContextError(null);
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (!fid) {
+          if (!cancelled) setContextError('No farm found. Add a farm before managing payroll.');
+          return;
+        }
+        if (!cancelled) setResolvedFarmId(fid);
+      } catch (err) {
+        if (!cancelled) setContextError(formatErrorMessage(err, 'Could not load your farm.'));
+      } finally {
+        if (!cancelled) setContextLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
 
-  const handlePayout = (worker: WorkerPayrollItem) => {
+  const period = currentYearMonth();
+  const [rows, setRows] = useState<WorkerPayrollRow[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const loadPayroll = useCallback(async () => {
+    if (!resolvedFarmId) return;
+    setDataLoading(true);
+    setDataError(null);
+    try {
+      const [summary, workers]: [PayrollSummaryItem[], Worker[]] = await Promise.all([
+        getMyWorkforcePayrollSummary(resolvedFarmId, period),
+        listMyWorkers(resolvedFarmId),
+      ]);
+      const workerById = new Map(workers.map((w) => [w.id, w] as const));
+
+      // Per-worker days/hours breakdown for `calcSubtitle`: one attendance
+      // query per worker for this month, same tradeoff CropWorkforceHoursScreen
+      // and WorkforceScreen already accept for this feature -- payroll rows
+      // are few (one per worker on the farm), so this stays cheap.
+      const built = await Promise.all(
+        summary.map(async (item): Promise<WorkerPayrollRow> => {
+          const worker = workerById.get(item.workerId);
+          const payType = worker?.payType ?? 'daily';
+          const rateRupees = worker ? Math.round(worker.payRatePaise / 100) : null;
+
+          let daysWorked = 0;
+          let hoursWorked = 0;
+          try {
+            const records = await listMyWorkerAttendance(resolvedFarmId, item.workerId, { month: period });
+            const present = records.filter((r) => r.present);
+            daysWorked = present.length;
+            hoursWorked = present.reduce((sum, r) => sum + (r.hoursWorked ?? 0), 0);
+          } catch {
+            // Leave at 0/0 -- the subtitle still renders, just without a
+            // days/hours breakdown, rather than failing the whole row.
+          }
+
+          const calcSubtitle =
+            payType === 'monthly'
+              ? `Monthly salary · ${hoursWorked} h`
+              : `${daysWorked} day${daysWorked === 1 ? '' : 's'}${
+                  rateRupees != null ? ` × ₹${rateRupees}` : ''
+                } · ${hoursWorked} h`;
+
+          let paidDetails: string | undefined;
+          if (item.paidStatus === 'paid') {
+            try {
+              const payouts = await listMyWorkerPayouts(resolvedFarmId, item.workerId);
+              const { start, end } = periodBounds(period);
+              const match: WorkerPayout | undefined = payouts.find(
+                (p) => p.periodStart === start && p.periodEnd === end,
+              );
+              paidDetails = match
+                ? `Paid via ${match.paymentMethod === 'upi' ? 'UPI' : match.paymentMethod === 'bank_transfer' ? 'Bank transfer' : 'Cash'} · ${formatShortDate(match.paidAt)}`
+                : 'Paid';
+            } catch {
+              paidDetails = 'Paid';
+            }
+          }
+
+          return {
+            workerId: item.workerId,
+            name: item.workerName,
+            payType,
+            avatar: AVATAR_PALETTE[0]!,
+            calcSubtitle,
+            grossPaise: item.grossPaise,
+            advancesPaise: item.advancesPaise,
+            netPayablePaise: item.netPayablePaise,
+            paidStatus: item.paidStatus,
+            paidDetails,
+          };
+        }),
+      );
+      setRows(built.map((r, idx) => ({ ...r, avatar: AVATAR_PALETTE[idx % AVATAR_PALETTE.length]! })));
+    } catch (err) {
+      setDataError(formatErrorMessage(err, 'Could not load payroll.'));
+    } finally {
+      setDataLoading(false);
+    }
+  }, [resolvedFarmId, period]);
+
+  useEffect(() => {
+    void loadPayroll();
+  }, [loadPayroll]);
+
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  const pendingTotal = rows.filter((r) => r.paidStatus === 'pending').reduce((sum, r) => sum + r.netPayablePaise, 0);
+  const totalPayable = rows.reduce((sum, r) => sum + r.netPayablePaise, 0);
+  const paidCount = rows.filter((r) => r.paidStatus === 'paid').length;
+
+  const submitPayout = async (row: WorkerPayrollRow) => {
+    if (!resolvedFarmId) return;
+    setPayingId(row.workerId);
+    try {
+      const { start, end } = periodBounds(period);
+      const idempotencyKey = `payout-${row.workerId}-${Date.now()}`;
+      await createMyWorkerPayout(
+        resolvedFarmId,
+        row.workerId,
+        {
+          periodStart: start,
+          periodEnd: end,
+          amountPaise: row.netPayablePaise,
+          paymentMethod: 'upi',
+        },
+        idempotencyKey,
+      );
+      Alert.alert('Payment Successful', `Payout of ${formatPaiseFull(row.netPayablePaise)} recorded for ${row.name}.`);
+      await loadPayroll();
+    } catch (err) {
+      // The backend rejects an overpayment (422) and a duplicate payout for
+      // the same period (409) -- both land here as a real error, not a
+      // silent success like the old mock assumed.
+      Alert.alert('Payout Failed', formatErrorMessage(err, 'Could not record this payout. Please try again.'));
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const handlePayout = (row: WorkerPayrollRow) => {
     Alert.alert(
       'Process Payout',
-      `Confirm payout of ${worker.netPayable} to ${worker.name}?`,
+      `Confirm payout of ${formatPaiseFull(row.netPayablePaise)} to ${row.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Pay via UPI',
-          onPress: () => {
-            setPayrollItems((prev) =>
-              prev.map((item) =>
-                item.id === worker.id
-                  ? {
-                      ...item,
-                      status: 'paid',
-                      paidDetails: `Paid via UPI · ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`,
-                    }
-                  : item,
-              ),
-            );
-            Alert.alert('Payment Successful', `Payout of ${worker.netPayable} recorded for ${worker.name}.`);
-          },
-        },
+        { text: 'Pay via UPI', onPress: () => void submitPayout(row) },
       ],
     );
   };
+
+  const showError = contextError || dataError;
+  const showSkeleton = contextLoading || dataLoading;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -164,7 +345,7 @@ export function PayrollScreen({ onBack, onNavigateToWorkerDetail }: PayrollScree
 
           <View style={styles.headerTitles}>
             <Text style={styles.headerTitle}>Payroll</Text>
-            <Text style={styles.headerSubtitle}>July 2026</Text>
+            <Text style={styles.headerSubtitle}>{periodLabel(period)}</Text>
           </View>
         </View>
 
@@ -173,125 +354,145 @@ export function PayrollScreen({ onBack, onNavigateToWorkerDetail }: PayrollScree
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Total Payable Banner Card ── */}
-          <View style={styles.totalPayableCard}>
-            <Text style={styles.totalPayableLabel}>Total payable · July</Text>
-            <Text style={styles.totalPayableAmount}>₹20,800</Text>
-
-            {/* 3-column stats bar */}
-            <View style={styles.totalPayableStatsRow}>
-              <View style={styles.payableStatCol}>
-                <Text style={styles.payableStatNumber}>3</Text>
-                <Text style={styles.payableStatLabel}>workers</Text>
-              </View>
-
-              <View style={styles.payableStatDivider} />
-
-              <View style={styles.payableStatCol}>
-                <Text style={styles.payableStatNumber}>₹{pendingTotal.toLocaleString('en-IN')}</Text>
-                <Text style={styles.payableStatLabel}>still pending</Text>
-              </View>
-
-              <View style={styles.payableStatDivider} />
-
-              <View style={styles.payableStatCol}>
-                <Text style={styles.payableStatNumber}>{paidCount}</Text>
-                <Text style={styles.payableStatLabel}>paid</Text>
-              </View>
+          {showError ? (
+            <Text style={styles.loadErrorText}>{showError}</Text>
+          ) : showSkeleton ? (
+            <View style={{ gap: 14 }}>
+              <Skeleton height={130} width="100%" />
+              <Skeleton height={110} width="100%" />
+              <Skeleton height={110} width="100%" />
             </View>
-          </View>
+          ) : (
+            <>
+              {/* ── Total Payable Banner Card ── */}
+              <View style={styles.totalPayableCard}>
+                <Text style={styles.totalPayableLabel}>Total payable · {periodLabel(period).split(' ')[0]}</Text>
+                <Text style={styles.totalPayableAmount}>{formatPaiseFull(totalPayable)}</Text>
 
-          {/* ── Section: PER WORKER ── */}
-          <Text style={styles.sectionHeader}>PER WORKER</Text>
-
-          {/* ── Worker Cards ── */}
-          <View style={styles.workersList}>
-            {payrollItems.map((worker) => (
-              <View key={worker.id} style={styles.workerPayrollCard}>
-                {/* Top Row: Avatar, Name, Subtitle, Status Badge */}
-                <TouchableOpacity
-                  style={styles.workerHeaderRow}
-                  activeOpacity={0.8}
-                  onPress={() => onNavigateToWorkerDetail?.(worker.id, worker.name)}
-                >
-                  <View style={[styles.avatarCircle, { backgroundColor: worker.avatarBg }]}>
-                    <Text style={[styles.avatarText, { color: worker.avatarColor }]}>{worker.initials}</Text>
+                {/* 3-column stats bar */}
+                <View style={styles.totalPayableStatsRow}>
+                  <View style={styles.payableStatCol}>
+                    <Text style={styles.payableStatNumber}>{rows.length}</Text>
+                    <Text style={styles.payableStatLabel}>workers</Text>
                   </View>
 
-                  <View style={styles.workerInfoCol}>
-                    <Text style={styles.workerName}>{worker.name}</Text>
-                    <Text style={styles.workerSubtitle}>{worker.calcSubtitle}</Text>
+                  <View style={styles.payableStatDivider} />
+
+                  <View style={styles.payableStatCol}>
+                    <Text style={styles.payableStatNumber}>{formatPaiseFull(pendingTotal)}</Text>
+                    <Text style={styles.payableStatLabel}>still pending</Text>
                   </View>
 
-                  {worker.status === 'pending' ? (
-                    <View style={styles.pendingBadge}>
-                      <Text style={styles.pendingBadgeText}>Pending</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.paidBadge}>
-                      <CheckmarkCircleIcon size={13} color={colors.brandGreen} />
-                      <Text style={styles.paidBadgeText}>Paid</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                  <View style={styles.payableStatDivider} />
 
-                <View style={styles.cardDivider} />
-
-                {/* Financial Breakdown */}
-                {worker.status === 'pending' ? (
-                  <View style={styles.financialSection}>
-                    {worker.grossSalary && (
-                      <View style={styles.financeRow}>
-                        <Text style={styles.financeLabel}>Gross salary</Text>
-                        <Text style={styles.financeValue}>{worker.grossSalary}</Text>
-                      </View>
-                    )}
-
-                    {worker.advanceTaken && (
-                      <View style={styles.financeRow}>
-                        <Text style={styles.financeLabel}>Advance taken</Text>
-                        <Text style={styles.financeValueRed}>{worker.advanceTaken}</Text>
-                      </View>
-                    )}
-
-                    {worker.monthlySalary && (
-                      <View style={styles.financeRow}>
-                        <Text style={styles.financeLabel}>Monthly salary</Text>
-                        <Text style={styles.financeValue}>{worker.monthlySalary}</Text>
-                      </View>
-                    )}
-
-                    <View style={styles.netPayableRow}>
-                      <Text style={styles.netPayableLabel}>Net payable</Text>
-                      <Text style={styles.netPayableValue}>{worker.netPayable}</Text>
-                    </View>
-
-                    {/* Pay Out Action Button */}
-                    <TouchableOpacity
-                      style={styles.payoutButton}
-                      onPress={() => handlePayout(worker)}
-                      activeOpacity={0.85}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Pay out ${worker.netPayable}`}
-                    >
-                      <BanknoteCashIcon size={18} color={P.white} />
-                      <Text style={styles.payoutButtonText}>Pay out {worker.netPayable}</Text>
-                    </TouchableOpacity>
+                  <View style={styles.payableStatCol}>
+                    <Text style={styles.payableStatNumber}>{paidCount}</Text>
+                    <Text style={styles.payableStatLabel}>paid</Text>
                   </View>
-                ) : (
-                  <View style={styles.paidSection}>
-                    <View style={styles.netPaidRow}>
-                      <View>
-                        <Text style={styles.netPaidLabel}>Net paid</Text>
-                        <Text style={styles.paidMethodText}>{worker.paidDetails}</Text>
-                      </View>
-                      <Text style={styles.netPaidValue}>{worker.netPayable}</Text>
-                    </View>
-                  </View>
-                )}
+                </View>
               </View>
-            ))}
-          </View>
+
+              {/* ── Section: PER WORKER ── */}
+              <Text style={styles.sectionHeader}>PER WORKER</Text>
+
+              {rows.length === 0 ? (
+                <Text style={styles.emptyText}>No workers to pay this period.</Text>
+              ) : (
+                <View style={styles.workersList}>
+                  {rows.map((worker) => (
+                    <View key={worker.workerId} style={styles.workerPayrollCard}>
+                      {/* Top Row: Avatar, Name, Subtitle, Status Badge */}
+                      <TouchableOpacity
+                        style={styles.workerHeaderRow}
+                        activeOpacity={0.8}
+                        onPress={() => onNavigateToWorkerDetail?.(worker.workerId, worker.name)}
+                      >
+                        <View style={[styles.avatarCircle, { backgroundColor: worker.avatar.bg }]}>
+                          <Text style={[styles.avatarText, { color: worker.avatar.fg }]}>
+                            {initialsOf(worker.name)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.workerInfoCol}>
+                          <Text style={styles.workerName}>{worker.name}</Text>
+                          <Text style={styles.workerSubtitle}>{worker.calcSubtitle}</Text>
+                        </View>
+
+                        {worker.paidStatus === 'pending' ? (
+                          <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingBadgeText}>Pending</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.paidBadge}>
+                            <CheckmarkCircleIcon size={13} color={colors.brandGreen} />
+                            <Text style={styles.paidBadgeText}>Paid</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+
+                      <View style={styles.cardDivider} />
+
+                      {/* Financial Breakdown */}
+                      {worker.paidStatus === 'pending' ? (
+                        <View style={styles.financialSection}>
+                          {worker.payType === 'monthly' ? (
+                            <View style={styles.financeRow}>
+                              <Text style={styles.financeLabel}>Monthly salary</Text>
+                              <Text style={styles.financeValue}>{formatPaiseFull(worker.grossPaise)}</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.financeRow}>
+                              <Text style={styles.financeLabel}>Gross salary</Text>
+                              <Text style={styles.financeValue}>{formatPaiseFull(worker.grossPaise)}</Text>
+                            </View>
+                          )}
+
+                          {worker.advancesPaise > 0 && (
+                            <View style={styles.financeRow}>
+                              <Text style={styles.financeLabel}>Advance taken</Text>
+                              <Text style={styles.financeValueRed}>- {formatPaiseFull(worker.advancesPaise)}</Text>
+                            </View>
+                          )}
+
+                          <View style={styles.netPayableRow}>
+                            <Text style={styles.netPayableLabel}>Net payable</Text>
+                            <Text style={styles.netPayableValue}>{formatPaiseFull(worker.netPayablePaise)}</Text>
+                          </View>
+
+                          {/* Pay Out Action Button */}
+                          <TouchableOpacity
+                            style={[styles.payoutButton, payingId === worker.workerId && { opacity: 0.6 }]}
+                            onPress={() => handlePayout(worker)}
+                            activeOpacity={0.85}
+                            disabled={payingId === worker.workerId}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Pay out ${formatPaiseFull(worker.netPayablePaise)}`}
+                          >
+                            <BanknoteCashIcon size={18} color={P.white} />
+                            <Text style={styles.payoutButtonText}>
+                              {payingId === worker.workerId
+                                ? 'Processing…'
+                                : `Pay out ${formatPaiseFull(worker.netPayablePaise)}`}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View style={styles.paidSection}>
+                          <View style={styles.netPaidRow}>
+                            <View>
+                              <Text style={styles.netPaidLabel}>Net paid</Text>
+                              <Text style={styles.paidMethodText}>{worker.paidDetails}</Text>
+                            </View>
+                            <Text style={styles.netPaidValue}>{formatPaiseFull(worker.netPayablePaise)}</Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -354,6 +555,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 40,
+  },
+  loadErrorText: {
+    fontSize: typography.body,
+    color: P.twRed600,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
   },
 
   // Total Payable Banner Card

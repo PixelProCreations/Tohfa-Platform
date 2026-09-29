@@ -31,7 +31,13 @@ export interface SignUploadPayload {
   // Only this one purpose was added; the backend's full UploadPurpose enum
   // (apps/api/src/modules/uploads/uploads.schema.ts) has several more that
   // aren't needed here.
-  purpose: 'FARMER_DOCUMENT' | 'CERTIFICATE' | 'DIARY_PHOTO';
+  purpose:
+    | 'FARMER_DOCUMENT'
+    | 'CERTIFICATE' | 'DIARY_PHOTO'
+    | 'SOIL_TEST_REPORT'
+    | 'PEST_PHOTO'
+    | 'WORKER_PHOTO'
+    | 'WORKER_ID_PROOF';
   fileName: string;
   contentType: string;
   // Required by the server's signUploadBody schema (max 25 MiB) -- omitting it, or sending

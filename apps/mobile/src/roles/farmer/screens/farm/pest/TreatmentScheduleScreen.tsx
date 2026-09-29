@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -12,7 +12,20 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms, getPlots } from '../../../api/farms';
+import {
+  createPestTreatmentReminder,
+  listPestDetections,
+  listPestTreatmentReminders,
+  updatePestTreatmentReminder,
+  type CreatePestTreatmentReminderInput,
+  type PestDetection,
+  type PestRepeatInterval,
+  type PestTreatmentReminder,
+} from '../../../api/pest';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +68,15 @@ function CheckCircleIcon({ size = 22, color = colors.brandGreen }: { size?: numb
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
       <Path d="M8.5 12.5l2.5 2.5 5-5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Empty/unchecked circle -- the visible "tap here to mark done" affordance for an Upcoming reminder. */
+function CircleOutlineIcon({ size = 22, color = P.twGray400 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
@@ -114,19 +136,15 @@ function CheckIcon({ size = 18, color = P.white }: { size?: number; color?: stri
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface TreatmentReminder {
-  id: string;
-  title: string;
-  targetPest?: string | undefined;
-  dueDate: string;
-  repeat: string;
-  status: 'Upcoming' | 'Completed';
-  completedDate?: string | undefined;
-  notes?: string | undefined;
-  linkedDetection?: string | undefined;
-}
-
 export interface TreatmentScheduleScreenProps {
+  /**
+   * Threaded down from PestManagementScreen when reached via the hub; resolved
+   * locally (first farm + first zone) when this screen is opened directly, the
+   * same "no plot picker in this mock's UI" fallback UploadNewSoilTestScreen.tsx
+   * uses -- there is no zone selector drawn anywhere in this screen either.
+   */
+  farmId?: string | undefined;
+  plotId?: string | undefined;
   onBack?: () => void;
 }
 
@@ -143,59 +161,143 @@ function formatDisplayDate(d: Date): string {
   return `${day} ${month} ${year}`;
 }
 
-const INITIAL_REMINDERS: TreatmentReminder[] = [
-  {
-    id: 'rem-1',
-    title: 'Neem Oil Spray – Aphids',
-    targetPest: 'Aphids',
-    dueDate: '21 Sep 2026',
-    repeat: 'Repeats weekly',
-    status: 'Upcoming',
-    linkedDetection: 'Aphids — Carrot, Zone 1',
-  },
-  {
-    id: 'rem-2',
-    title: 'Fungicide Spray – Powdery Mildew',
-    targetPest: 'Powdery Mildew',
-    dueDate: '24 Sep 2026',
-    repeat: 'One-time',
-    status: 'Upcoming',
-    linkedDetection: 'Powdery Mildew — Beetroot, Zone 2',
-  },
-  {
-    id: 'rem-3',
-    title: 'Neem Oil Spray – Aphids',
-    targetPest: 'Aphids',
-    dueDate: '16 Jul 2026',
-    repeat: 'One-time',
-    status: 'Completed',
-    completedDate: '16 Jul 2026',
-    linkedDetection: 'Aphids — Carrot, Zone 1',
-  },
+/** `Date` -> the `YYYY-MM-DD` the API's `dateSchema` requires (pest.schema.ts). */
+function toIsoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** `YYYY-MM-DD` (or any ISO datetime) -> the `DD Mon YYYY` this screen displays. */
+function formatIsoDisplay(iso: string): string {
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+  if (isNaN(d.getTime())) return iso;
+  return formatDisplayDate(d);
+}
+
+/**
+ * Display label <-> API enum. `REPEAT_OPTIONS`/labels are limited to what
+ * `repeatIntervalSchema` (pest.schema.ts) actually accepts -- there is no
+ * `DAILY` value in `ONE_TIME | WEEKLY | BIWEEKLY | MONTHLY`, so the mock's old
+ * "Daily" option is dropped rather than sent as a value the API would reject.
+ */
+const REPEAT_OPTIONS: { label: string; value: PestRepeatInterval }[] = [
+  { label: 'One-time', value: 'ONE_TIME' },
+  { label: 'Weekly', value: 'WEEKLY' },
+  { label: 'Bi-weekly', value: 'BIWEEKLY' },
+  { label: 'Monthly', value: 'MONTHLY' },
 ];
 
-const LINKED_DETECTION_OPTIONS = [
-  'None (General reminder)',
-  'Aphids — Carrot, Zone 1',
-  'Powdery Mildew — Beetroot, Zone 2',
-  'Caterpillar — Cabbage, Zone 3',
-];
+const REPEAT_DISPLAY: Record<string, string> = {
+  ONE_TIME: 'One-time',
+  WEEKLY: 'Repeats weekly',
+  BIWEEKLY: 'Repeats bi-weekly',
+  MONTHLY: 'Repeats monthly',
+};
 
-const REPEAT_OPTIONS = ['One-time', 'Daily', 'Weekly', 'Bi-weekly', 'Monthly'];
+export function TreatmentScheduleScreen({
+  farmId,
+  plotId,
+  onBack,
+}: TreatmentScheduleScreenProps): React.JSX.Element {
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [resolvedPlotId, setResolvedPlotId] = useState(plotId ?? '');
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
 
-export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps): React.JSX.Element {
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setContextLoading(true);
+      setContextError(null);
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (!fid) {
+          if (!cancelled) setContextError('No farm found. Add a farm before scheduling treatments.');
+          return;
+        }
+        let pid = plotId;
+        if (!pid) {
+          const plots = await getPlots(fid);
+          pid = plots[0]?.id;
+        }
+        if (!pid) {
+          if (!cancelled) setContextError('This farm has no zones yet. Add a zone before scheduling treatments.');
+          return;
+        }
+        if (!cancelled) {
+          setResolvedFarmId(fid);
+          setResolvedPlotId(pid);
+        }
+      } catch (err) {
+        if (!cancelled) setContextError(formatErrorMessage(err, 'Could not load your farm.'));
+      } finally {
+        if (!cancelled) setContextLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId, plotId]);
+
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Completed'>('Upcoming');
-  const [reminders, setReminders] = useState<TreatmentReminder[]>(INITIAL_REMINDERS);
+  const [reminders, setReminders] = useState<PestTreatmentReminder[]>([]);
+  const [remindersLoading, setRemindersLoading] = useState(false);
+  const [remindersError, setRemindersError] = useState<string | null>(null);
+
+  const loadReminders = useCallback(async () => {
+    if (!resolvedFarmId || !resolvedPlotId) return;
+    setRemindersLoading(true);
+    setRemindersError(null);
+    try {
+      const items = await listPestTreatmentReminders(resolvedFarmId, resolvedPlotId);
+      setReminders(items);
+    } catch (err) {
+      setRemindersError(formatErrorMessage(err, 'Could not load treatment reminders.'));
+    } finally {
+      setRemindersLoading(false);
+    }
+  }, [resolvedFarmId, resolvedPlotId]);
+
+  useEffect(() => {
+    void loadReminders();
+  }, [loadReminders]);
+
+  // Live pest detections for the "Linked Detection" picker.
+  const [detections, setDetections] = useState<PestDetection[]>([]);
+
+  useEffect(() => {
+    if (!resolvedFarmId || !resolvedPlotId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const items = await listPestDetections(resolvedFarmId, resolvedPlotId);
+        if (!cancelled) setDetections(items);
+      } catch {
+        // Non-fatal -- the picker just offers "None" if detections can't be fetched.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedFarmId, resolvedPlotId]);
 
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [linkedDetection, setLinkedDetection] = useState('Aphids — Carrot, Zone 1');
+  const [linkedDetectionId, setLinkedDetectionId] = useState<string | null>(null);
   const [isDetectionPickerOpen, setIsDetectionPickerOpen] = useState(false);
   const [treatmentName, setTreatmentName] = useState('');
   const [scheduledDate, setScheduledDate] = useState('21 Sep 2026');
-  const [repeatOption, setRepeatOption] = useState('Weekly');
+  const [repeatOption, setRepeatOption] = useState<PestRepeatInterval>('WEEKLY');
   const [isRepeatPickerOpen, setIsRepeatPickerOpen] = useState(false);
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Dynamic Calendar State
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -206,43 +308,87 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
 
   const filteredReminders = reminders.filter((r) => r.status === activeTab);
 
-  const handleSaveReminder = () => {
+  const linkedDetection = linkedDetectionId ? detections.find((d) => d.id === linkedDetectionId) ?? null : null;
+  const linkedDetectionLabel = linkedDetection
+    ? `${linkedDetection.pestName} — detected ${formatIsoDisplay(linkedDetection.detectedOn)}`
+    : 'None (General reminder)';
+
+  const handleSaveReminder = async () => {
     if (!treatmentName.trim()) {
       Alert.alert('Required Field', 'Please enter a treatment name.');
       return;
     }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // Same resilient on-demand resolution as AddWorkerScreen.tsx /
+      // PestManagementScreen.tsx: resolve farmId/plotId here if the
+      // background effect hasn't landed yet, rather than failing Save on
+      // that race.
+      let saveFarmId = resolvedFarmId;
+      let savePlotId = resolvedPlotId;
+      if (!saveFarmId || !savePlotId) {
+        const farms = await getFarms();
+        const fid = farms[0]?.id;
+        if (fid) {
+          const plots = await getPlots(fid);
+          const pid = plots[0]?.id;
+          if (pid) {
+            saveFarmId = fid;
+            savePlotId = pid;
+            setResolvedFarmId(fid);
+            setResolvedPlotId(pid);
+          }
+        }
+      }
+      if (!saveFarmId || !savePlotId) {
+        Alert.alert('No Farm Found', 'Add a farm and a zone before scheduling a reminder.');
+        setSaving(false);
+        return;
+      }
 
-    const newReminder: TreatmentReminder = {
-      id: `rem-${Date.now()}`,
-      title: `${treatmentName.trim()}${linkedDetection.startsWith('None') ? '' : ` – ${linkedDetection.split('—')[0]?.trim() || ''}`}`,
-      dueDate: scheduledDate,
-      repeat: repeatOption === 'One-time' ? 'One-time' : `Repeats ${repeatOption.toLowerCase()}`,
-      status: 'Upcoming',
-      linkedDetection: linkedDetection.startsWith('None') ? undefined : linkedDetection,
-      notes: notes.trim() || undefined,
-    };
-
-    setReminders([newReminder, ...reminders]);
-    setIsAddModalOpen(false);
-    setTreatmentName('');
-    setNotes('');
-    setActiveTab('Upcoming');
-    Alert.alert('Reminder Added', `Scheduled ${newReminder.title} for ${scheduledDate}.`);
+      const body: CreatePestTreatmentReminderInput = {
+        title: treatmentName.trim(),
+        dueDate: toIsoDate(calDate),
+        repeatInterval: repeatOption,
+        ...(linkedDetection ? { detectionId: linkedDetection.id, targetPest: linkedDetection.pestName } : {}),
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      };
+      const created = await createPestTreatmentReminder(saveFarmId, savePlotId, body);
+      setReminders((prev) => [created, ...prev]);
+      setIsAddModalOpen(false);
+      setTreatmentName('');
+      setNotes('');
+      setLinkedDetectionId(null);
+      setActiveTab('Upcoming');
+    } catch (err) {
+      setSaveError(formatErrorMessage(err, 'Could not save this reminder.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleToggleReminderStatus = (reminder: TreatmentReminder) => {
-    const nextStatus: 'Upcoming' | 'Completed' = reminder.status === 'Upcoming' ? 'Completed' : 'Upcoming';
-    const updated: TreatmentReminder = {
-      ...reminder,
-      status: nextStatus,
-      completedDate: nextStatus === 'Completed' ? formatDisplayDate(new Date(2026, 8, 21)) : undefined,
-    };
-
-    setReminders(reminders.map((r) => (r.id === updated.id ? updated : r)));
-    Alert.alert(
-      nextStatus === 'Completed' ? 'Treatment Completed' : 'Moved to Upcoming',
-      `"${reminder.title}" marked as ${nextStatus.toLowerCase()}.`,
-    );
+  const handleToggleReminderStatus = async (reminder: PestTreatmentReminder) => {
+    if (!resolvedFarmId || !resolvedPlotId) return;
+    const nextStatus = reminder.status === 'Upcoming' ? 'Completed' : 'Upcoming';
+    try {
+      const updated = await updatePestTreatmentReminder(resolvedFarmId, resolvedPlotId, reminder.id, {
+        status: nextStatus,
+      });
+      setReminders((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      // The toggle moves the reminder to the other tab -- it can otherwise
+      // look identical to the item being deleted, since it disappears from
+      // whichever tab is currently open. Confirm what happened and where to
+      // find it, rather than leaving this silent.
+      Alert.alert(
+        nextStatus === 'Completed' ? 'Marked Complete' : 'Moved Back to Upcoming',
+        nextStatus === 'Completed'
+          ? `"${updated.title}" is now under the Completed tab.`
+          : `"${updated.title}" is now under the Upcoming tab.`,
+      );
+    } catch (err) {
+      Alert.alert('Could Not Update', formatErrorMessage(err, 'Please try again.'));
+    }
   };
 
   const handlePrevMonth = () => {
@@ -291,72 +437,110 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
 
           <View style={styles.headerTitleCol}>
             <Text style={styles.headerTitle}>Treatment Schedule</Text>
-            <Text style={styles.headerSubtitle}>Next due 21 Sep 2026</Text>
+            <Text style={styles.headerSubtitle}>
+              {reminders.filter((r) => r.status === 'Upcoming').length} upcoming
+            </Text>
           </View>
         </View>
 
-        {/* ── Filter Tabs ── */}
-        <View style={styles.tabRow}>
-          {(['Upcoming', 'Completed'] as const).map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tabPill, isActive && styles.tabPillActive]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ── Reminders List ── */}
-        <View style={styles.remindersList}>
-          {filteredReminders.length > 0 ? (
-            filteredReminders.map((item) => {
-              const isCompleted = item.status === 'Completed';
-
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.reminderCard}
-                  activeOpacity={0.85}
-                  onPress={() => handleToggleReminderStatus(item)}
-                >
-                  <View
-                    style={[
-                      styles.iconBox,
-                      isCompleted ? styles.iconBoxCompleted : styles.iconBoxUpcoming,
-                    ]}
+        {contextLoading ? (
+          <Skeleton height={140} width="100%" />
+        ) : contextError ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.loadErrorText}>{contextError}</Text>
+          </View>
+        ) : (
+          <>
+            {/* ── Filter Tabs ── */}
+            <View style={styles.tabRow}>
+              {(['Upcoming', 'Completed'] as const).map((tab) => {
+                const isActive = activeTab === tab;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[styles.tabPill, isActive && styles.tabPillActive]}
+                    onPress={() => setActiveTab(tab)}
+                    activeOpacity={0.8}
                   >
-                    {isCompleted ? (
-                      <CheckCircleIcon size={22} color={colors.brandGreen} />
-                    ) : (
-                      <CalendarScheduleIcon size={22} color={P.deepGreen} />
-                    )}
-                  </View>
-
-                  <View style={styles.reminderContent}>
-                    <Text style={styles.reminderTitle}>{item.title}</Text>
-                    <Text style={styles.reminderSub}>
-                      {isCompleted
-                        ? `Completed ${item.completedDate || item.dueDate}`
-                        : `Due ${item.dueDate} · ${item.repeat}`}
+                    <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
+                      {tab}
                     </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No {activeTab.toLowerCase()} treatment reminders</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          )}
-        </View>
+
+            {/* ── Reminders List ── */}
+            {remindersLoading ? (
+              <View style={{ gap: 12 }}>
+                <Skeleton height={80} width="100%" />
+                <Skeleton height={80} width="100%" />
+              </View>
+            ) : remindersError ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.loadErrorText}>{remindersError}</Text>
+              </View>
+            ) : (
+              <View style={styles.remindersList}>
+                {filteredReminders.length > 0 ? (
+                  filteredReminders.map((item) => {
+                    const isCompleted = item.status === 'Completed';
+
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.reminderCard}
+                        activeOpacity={0.85}
+                        onPress={() => void handleToggleReminderStatus(item)}
+                      >
+                        <View
+                          style={[
+                            styles.iconBox,
+                            isCompleted ? styles.iconBoxCompleted : styles.iconBoxUpcoming,
+                          ]}
+                        >
+                          {isCompleted ? (
+                            <CheckCircleIcon size={22} color={colors.brandGreen} />
+                          ) : (
+                            <CalendarScheduleIcon size={22} color={P.deepGreen} />
+                          )}
+                        </View>
+
+                        <View style={styles.reminderContent}>
+                          <Text style={styles.reminderTitle}>{item.title}</Text>
+                          <Text style={styles.reminderSub}>
+                            {isCompleted
+                              ? `Completed ${formatIsoDisplay(item.completedAt ?? item.dueDate)}`
+                              : `Due ${formatIsoDisplay(item.dueDate)} · ${REPEAT_DISPLAY[item.repeatInterval] ?? item.repeatInterval}`}
+                          </Text>
+                        </View>
+
+                        {/* Explicit tap target for the status toggle -- the
+                            whole card is also tappable (kept for convenience),
+                            but this is the visible, labeled affordance so it's
+                            clear what tapping actually does. */}
+                        <View style={styles.completeToggleCol}>
+                          {isCompleted ? (
+                            <CheckCircleIcon size={26} color={colors.brandGreen} />
+                          ) : (
+                            <CircleOutlineIcon size={26} color={P.twGray400} />
+                          )}
+                          <Text style={styles.completeToggleLabel}>
+                            {isCompleted ? 'Tap to reopen' : 'Tap to complete'}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No {activeTab.toLowerCase()} treatment reminders</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
 
       {/* ── Floating Add Reminder CTA ── */}
@@ -367,6 +551,7 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
           onPress={() => setIsAddModalOpen(true)}
           accessibilityRole="button"
           accessibilityLabel="Add Reminder"
+          disabled={contextLoading || !!contextError}
         >
           <Text style={styles.floatingBtnPlus}>+</Text>
           <Text style={styles.floatingBtnText}>Add Reminder</Text>
@@ -404,7 +589,7 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
                 activeOpacity={0.8}
                 onPress={() => setIsDetectionPickerOpen(true)}
               >
-                <Text style={styles.dropdownValue}>{linkedDetection}</Text>
+                <Text style={styles.dropdownValue}>{linkedDetectionLabel}</Text>
                 <ChevronDownIcon size={16} color={P.twGray500} />
               </TouchableOpacity>
               <View style={styles.helperRow}>
@@ -452,7 +637,9 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
                 activeOpacity={0.8}
                 onPress={() => setIsRepeatPickerOpen(true)}
               >
-                <Text style={styles.dropdownValue}>{repeatOption}</Text>
+                <Text style={styles.dropdownValue}>
+                  {REPEAT_OPTIONS.find((o) => o.value === repeatOption)?.label ?? repeatOption}
+                </Text>
                 <ChevronDownIcon size={16} color={P.twGray500} />
               </TouchableOpacity>
             </View>
@@ -470,6 +657,8 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
                 numberOfLines={3}
               />
             </View>
+
+            {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
           </ScrollView>
 
           {/* Modal Bottom Actions */}
@@ -477,17 +666,19 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
             <TouchableOpacity
               style={styles.modalCancelBtn}
               onPress={() => setIsAddModalOpen(false)}
+              disabled={saving}
             >
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalSaveBtn}
+              style={[styles.modalSaveBtn, saving && { opacity: 0.7 }]}
               activeOpacity={0.85}
-              onPress={handleSaveReminder}
+              onPress={() => void handleSaveReminder()}
+              disabled={saving}
             >
               <CheckIcon size={18} color={P.white} />
-              <Text style={styles.modalSaveText}>Save Reminder</Text>
+              <Text style={styles.modalSaveText}>{saving ? 'Saving…' : 'Save Reminder'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -506,19 +697,33 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
                     <CloseIcon size={18} color={P.twGray500} />
                   </TouchableOpacity>
                 </View>
-                {LINKED_DETECTION_OPTIONS.map((opt) => {
-                  const isSelected = linkedDetection === opt;
+                <TouchableOpacity
+                  style={[styles.pickerOption, linkedDetectionId === null && styles.pickerOptionSelected]}
+                  onPress={() => {
+                    setLinkedDetectionId(null);
+                    setIsDetectionPickerOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[styles.pickerOptionText, linkedDetectionId === null && styles.pickerOptionTextSelected]}
+                  >
+                    None (General reminder)
+                  </Text>
+                  {linkedDetectionId === null && <CheckIcon size={18} color={P.twGreen700} />}
+                </TouchableOpacity>
+                {detections.map((d) => {
+                  const isSelected = linkedDetectionId === d.id;
                   return (
                     <TouchableOpacity
-                      key={opt}
+                      key={d.id}
                       style={[styles.pickerOption, isSelected && styles.pickerOptionSelected]}
                       onPress={() => {
-                        setLinkedDetection(opt);
+                        setLinkedDetectionId(d.id);
                         setIsDetectionPickerOpen(false);
                       }}
                     >
                       <Text style={[styles.pickerOptionText, isSelected && styles.pickerOptionTextSelected]}>
-                        {opt}
+                        {d.pestName} — detected {formatIsoDisplay(d.detectedOn)}
                       </Text>
                       {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
                     </TouchableOpacity>
@@ -544,18 +749,18 @@ export function TreatmentScheduleScreen({ onBack }: TreatmentScheduleScreenProps
                   </TouchableOpacity>
                 </View>
                 {REPEAT_OPTIONS.map((opt) => {
-                  const isSelected = repeatOption === opt;
+                  const isSelected = repeatOption === opt.value;
                   return (
                     <TouchableOpacity
-                      key={opt}
+                      key={opt.value}
                       style={[styles.pickerOption, isSelected && styles.pickerOptionSelected]}
                       onPress={() => {
-                        setRepeatOption(opt);
+                        setRepeatOption(opt.value);
                         setIsRepeatPickerOpen(false);
                       }}
                     >
                       <Text style={[styles.pickerOptionText, isSelected && styles.pickerOptionTextSelected]}>
-                        {opt}
+                        {opt.label}
                       </Text>
                       {isSelected && <CheckIcon size={18} color={P.twGreen700} />}
                     </TouchableOpacity>
@@ -750,6 +955,11 @@ const styles = StyleSheet.create({
     color: P.twGray500,
     marginTop: 2,
   },
+  loadErrorText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twRed600,
+  },
 
   // Tabs
   tabRow: {
@@ -823,6 +1033,16 @@ const styles = StyleSheet.create({
   reminderSub: {
     fontSize: typography.bodySmall,
     color: P.twGray500,
+  },
+  completeToggleCol: {
+    alignItems: 'center',
+    marginLeft: 8,
+    gap: 4,
+  },
+  completeToggleLabel: {
+    fontSize: typography.caption,
+    color: P.twGray400,
+    textAlign: 'center',
   },
   emptyContainer: {
     paddingVertical: 40,
@@ -972,6 +1192,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.nearBlack,
     textAlignVertical: 'top',
+  },
+  saveErrorText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    color: P.twRed600,
   },
   modalFooter: {
     flexDirection: 'row',
