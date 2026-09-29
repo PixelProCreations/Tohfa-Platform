@@ -91,6 +91,10 @@ export const ErrorCode = {
   DIARY_WORKER_HOURS_INVALID: 'DIARY_WORKER_HOURS_INVALID',
   /** A diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44). */
   DIARY_WAGE_RATE_INVALID: 'DIARY_WAGE_RATE_INVALID',
+  /** The plot already has another live crop in status GROWING (BR-46). */
+  CROP_PLOT_ALREADY_GROWING: 'CROP_PLOT_ALREADY_GROWING',
+  /** The animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47). */
+  LIVESTOCK_ALREADY_EXITED: 'LIVESTOCK_ALREADY_EXITED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

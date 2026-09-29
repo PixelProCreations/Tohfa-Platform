@@ -288,7 +288,15 @@ INSERT INTO system_config (key, value, data_type, description) VALUES
 
     ('low_stock_threshold_kg',
      '50'::jsonb, 'number',
-     'S-28 specification gap: no source document defines a low-stock threshold. 50 kg is a placeholder. The admin inventory screen reads this key from system_config — it is NOT a literal in the component. The client must confirm the correct value.')
+     'S-28 specification gap: no source document defines a low-stock threshold. 50 kg is a placeholder. The admin inventory screen reads this key from system_config — it is NOT a literal in the component. The client must confirm the correct value.'),
+
+    ('cert_expiry_warning_days',
+     '30'::jsonb, 'number',
+     'Specification gap: no source document defines how many days before certificate expiry the farmer app should start warning. 30 days is a placeholder, matching the mobile client''s pre-existing hardcoded fallback so behaviour does not silently change for existing users. The farmer app reads this key from GET /v1/config/farmer, backed by system_config — it is NOT a literal in the component. The client must confirm the correct value.'),
+
+    ('asset_service_due_soon_days',
+     '14'::jsonb, 'number',
+     'Specification gap: no source document defines the farm_assets DUE_SOON window. 14 days is a placeholder chosen to match the MachineryListScreen/ToolsListScreen/EquipmentListScreen mock fixture data (their "Due soon" rows sit at 2-9 days away, their "OK" rows at 39+ days away), the same "match the client''s existing mock/fallback until they confirm" reasoning as cert_expiry_warning_days above. farm-assets.service.ts reads this key — it is NOT a literal in the service. The client must confirm the correct value.')
 ON CONFLICT (key) DO UPDATE SET
     value       = EXCLUDED.value,
     data_type   = EXCLUDED.data_type,

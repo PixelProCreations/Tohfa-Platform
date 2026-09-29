@@ -19,6 +19,8 @@ import { writeAuditLog, changedFields } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { cropsService, type CropsService } from '../crops/crops.service.js';
+import { farmsService, type FarmsService } from '../farms/farms.service.js';
 import { farmDiaryRepo, type EntryCursor, type FarmDiaryRepo, type UpdateEntryPatch, type WorkerRowInput } from './farm-diary.repo.js';
 import type {
   AttachDiaryPhotoBody,
@@ -48,6 +50,10 @@ export interface FarmDiaryServiceDeps {
   repo: FarmDiaryRepo;
   db: Executor;
   runTx: TransactionRunner;
+  /** The farms module owns `farms`/`plots`; injectable so tests can supply a fake. */
+  farmsSvc: FarmsService;
+  /** The crops module owns `farm_crops`; injectable so tests can supply a fake. */
+  cropsSvc: CropsService;
 }
 
 /**
@@ -59,33 +65,6 @@ const PG_INTEGER_MAX = 2_147_483_647;
 
 /** Storage-key prefix the uploads module issues for purpose DIARY_PHOTO (`<purpose lowercased>/<uuid><ext>`). */
 const DIARY_PHOTO_KEY_PREFIX = 'diary_photo/';
-
-// ---------------------------------------------------------------------------
-// DELIBERATE STUBS — not bugs.
-//
-// No module in this codebase reads `plots` or `farm_crops` for a farmer yet:
-// there is no plots/farms API and no farm_crops write path. Until that
-// separate plots/farms module exists, the two picker endpoints below return
-// fixed fixtures so the mobile diary form can be built against a stable
-// contract. They are the SAME for every farmer, which is only acceptable
-// because they contain no real farm data.
-//
-// Entry creation does NOT use these fixtures: POST /entries validates plot
-// ownership and BR-42b's GROWING crop against the real `plots`/`farms`/
-// `farm_crops` tables, so a fixture plot id is (correctly) rejected there.
-// Replace both methods with real repo reads when the plots module lands.
-// ---------------------------------------------------------------------------
-const STUB_PLOTS: readonly DiaryPlotResponse[] = [
-  { id: '5d1a0000-0000-4000-8000-000000000001', name: 'Field A', areaAcres: 1.5 },
-  { id: '5d1a0000-0000-4000-8000-000000000002', name: 'Field B', areaAcres: 0.75 },
-  { id: '5d1a0000-0000-4000-8000-000000000003', name: 'Greenhouse 1', areaAcres: 0.25 },
-];
-
-const STUB_ACTIVE_CROP: DiaryActiveCropResponse = {
-  id: '5d1ac000-0000-4000-8000-000000000001',
-  cropName: 'Carrot',
-  plantedOn: '2026-08-01',
-};
 
 // ---------------------------------------------------------------------------
 // Shared validation helpers
@@ -214,20 +193,45 @@ export function createFarmDiaryService(deps: Partial<FarmDiaryServiceDeps> = {})
   const repo = deps.repo ?? farmDiaryRepo;
   const db = deps.db ?? pool;
   const runTx: TransactionRunner = deps.runTx ?? withTransaction;
+  const farmsSvc: FarmsService = deps.farmsSvc ?? farmsService;
+  const cropsSvc: CropsService = deps.cropsSvc ?? cropsService;
 
   return {
     async listPlots(scope) {
       ownFarmerId(scope);
-      // STUB — see STUB_PLOTS above.
-      return { items: STUB_PLOTS.map((plot) => ({ ...plot })) };
+      // A farmer's operation can have more than one `farms` row (no
+      // uniqueness constraint on farms.farmer_id — only `is_primary` is
+      // unique per farmer, db/migrations/0003), so every one of the
+      // farmer's own farms is listed and their plots flattened into one
+      // picker list. Ownership itself is enforced by farmsService (BR-40's
+      // doctrine applies there identically): scope.farmerId never leaves
+      // this process.
+      const farms = await farmsSvc.list(scope);
+      const plotsByFarm = await Promise.all(farms.map((farm) => farmsSvc.listPlots(scope, farm.id)));
+      return {
+        items: plotsByFarm.flat().map((plot) => ({
+          id: plot.id,
+          name: plot.name,
+          areaAcres: plot.areaAcres,
+        })),
+      };
     },
 
-    async listActiveCrops(scope, _plotId) {
+    async listActiveCrops(scope, plotId) {
       ownFarmerId(scope);
-      // STUB — see STUB_PLOTS above. Returns the same single fixture for any
-      // plot id; the real version must filter by plot ownership (BR-40) and
-      // farm_crops.status = 'GROWING'.
-      return { items: [{ ...STUB_ACTIVE_CROP }] };
+      // cropsService re-derives ownership itself (plots -> farms.farmer_id)
+      // and returns an empty page for a foreign plotId rather than 403/404
+      // (root CLAUDE.md §2.1), which is exactly the behaviour this picker
+      // needs. BR-46 guarantees at most one GROWING crop per plot, so
+      // `limit: 1` is enough to get the whole answer in one query.
+      const { items } = await cropsSvc.listFarmCrops(scope, plotId, { status: 'GROWING', limit: 1 });
+      return {
+        items: items.map((crop) => ({
+          id: crop.id,
+          cropName: crop.cropName,
+          plantedOn: crop.plantedOn,
+        })),
+      };
     },
 
     async getTaxonomy(scope) {

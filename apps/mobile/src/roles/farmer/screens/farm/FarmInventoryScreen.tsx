@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
   SafeAreaView,
@@ -9,7 +9,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../theme';
+import { listFarmAssets } from '../../api/farmAssets';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -97,36 +99,19 @@ interface CategoryData {
   iconBg: string;
 }
 
-const CATEGORIES: CategoryData[] = [
-  {
-    name: 'Tools',
-    count: '3 items',
-    dueCount: 2,
-    icon: <ToolsIcon />,
-    iconBg: P.twGreen100,
-  },
-  {
-    name: 'Equipment',
-    count: '3 items',
-    dueCount: 2,
-    icon: <EquipmentIcon />,
-    iconBg: P.lightGreen,
-  },
-  {
-    name: 'Trees',
-    count: '3 plantings',
-    dueCount: 2,
-    icon: <TreesIcon />,
-    iconBg: P.paleMintBg,
-  },
-  {
-    name: 'Machinery',
-    count: '3 items',
-    dueCount: 2,
-    icon: <MachineryIcon />,
-    iconBg: P.sageTintBg,
-  },
-];
+/**
+ * Real farm_assets-backed counts for Tools/Equipment/Machinery (fetched
+ * below). "Trees" has no backend (TreesListScreen.tsx is a separate
+ * plantings concept — see farm-assets migration's header comment) so it
+ * stays exactly the hardcoded row the mock always showed.
+ */
+const TREES_CATEGORY: CategoryData = {
+  name: 'Trees',
+  count: '3 plantings',
+  dueCount: 2,
+  icon: <TreesIcon />,
+  iconBg: P.paleMintBg,
+};
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -136,6 +121,54 @@ interface FarmInventoryScreenProps {
 }
 
 export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: FarmInventoryScreenProps): React.JSX.Element {
+  const [toolsCategory, setToolsCategory] = useState<CategoryData | null>(null);
+  const [equipmentCategory, setEquipmentCategory] = useState<CategoryData | null>(null);
+  const [machineryCategory, setMachineryCategory] = useState<CategoryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown | null>(null);
+
+  const loadCounts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [tools, equipment, machinery] = await Promise.all([
+        listFarmAssets({ category: 'TOOL', limit: 100 }),
+        listFarmAssets({ category: 'EQUIPMENT', limit: 100 }),
+        listFarmAssets({ category: 'MACHINERY', limit: 100 }),
+      ]);
+
+      setToolsCategory({
+        name: 'Tools',
+        count: `${tools.items.length} items`,
+        dueCount: tools.items.filter((item) => item.status !== 'OK').length,
+        icon: <ToolsIcon />,
+        iconBg: P.twGreen100,
+      });
+      setEquipmentCategory({
+        name: 'Equipment',
+        count: `${equipment.items.length} items`,
+        dueCount: equipment.items.filter((item) => item.status !== 'OK').length,
+        icon: <EquipmentIcon />,
+        iconBg: P.lightGreen,
+      });
+      setMachineryCategory({
+        name: 'Machinery',
+        count: `${machinery.items.length} items`,
+        dueCount: machinery.items.filter((item) => item.status !== 'OK').length,
+        icon: <MachineryIcon />,
+        iconBg: P.sageTintBg,
+      });
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts]);
+
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (onNavigateBack) {
@@ -146,6 +179,38 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
     });
     return () => sub.remove();
   }, [onNavigateBack]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.loadingContainer}>
+          <Skeleton width="100%" height={72} borderRadius={14} />
+          <Skeleton width="100%" height={140} borderRadius={16} />
+          <Skeleton width="100%" height={140} borderRadius={16} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.errorContainer}>
+          <ErrorState error={error} onRetry={loadCounts} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Real Tools/Equipment/Machinery categories are guaranteed non-null once
+  // loading finishes without an error (loadCounts always sets all three
+  // together); Trees stays the hardcoded row.
+  const categories: CategoryData[] = [
+    toolsCategory ?? { name: 'Tools', count: '0 items', dueCount: 0, icon: <ToolsIcon />, iconBg: P.twGreen100 },
+    equipmentCategory ?? { name: 'Equipment', count: '0 items', dueCount: 0, icon: <EquipmentIcon />, iconBg: P.lightGreen },
+    TREES_CATEGORY,
+    machineryCategory ?? { name: 'Machinery', count: '0 items', dueCount: 0, icon: <MachineryIcon />, iconBg: P.sageTintBg },
+  ];
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -181,7 +246,7 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
 
         {/* Category Cards Grid */}
         <View style={styles.grid}>
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <TouchableOpacity key={cat.name} style={styles.categoryCard} activeOpacity={0.7} onPress={() => onNavigateToCategory?.(cat.name)}>
               {/* Due Badge */}
               {cat.dueCount > 0 && (
@@ -212,6 +277,15 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: P.bg,
+  },
+  loadingContainer: {
+    padding: 16,
+    gap: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
   },
 
   // Header

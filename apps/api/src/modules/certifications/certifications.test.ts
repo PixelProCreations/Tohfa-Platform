@@ -117,6 +117,7 @@ function mockCertificationsRepo(initialCert?: Partial<CertificationRow>): Certif
       };
     },
     getAllActiveFarmerIds: async () => [IDS.farmer],
+    getCertExpiryWarningDays: async () => 30,
   };
 }
 
@@ -228,6 +229,37 @@ describe('Certifications & BR-01/BR-02 Test Contracts', () => {
     });
   });
 
+  describe('GET /v1/config/farmer — farmer-facing global config', () => {
+    it('returns certExpiryWarningDays from the repo (mocked, no database)', async () => {
+      const repo = mockCertificationsRepo();
+      const service = createCertificationsService(repo);
+      const actor = anActor({
+        userId: IDS.userFarmer,
+        roles: [{ code: RoleCode.FARMER }],
+        farmerId: IDS.farmer,
+      });
+
+      const config = await service.getConfig(actor);
+
+      expect(config).toEqual({ certExpiryWarningDays: 30 });
+    });
+
+    it('passes through whatever the repo returns, without hard-coding a value in the service', async () => {
+      const repo = mockCertificationsRepo();
+      repo.getCertExpiryWarningDays = async () => 45;
+      const service = createCertificationsService(repo);
+      const actor = anActor({
+        userId: IDS.userFarmer,
+        roles: [{ code: RoleCode.FARMER }],
+        farmerId: IDS.farmer,
+      });
+
+      const config = await service.getConfig(actor);
+
+      expect(config).toEqual({ certExpiryWarningDays: 45 });
+    });
+  });
+
   describe('HTTP Route Validation', () => {
     const app = createApp();
     const adminToken = signAccessToken({
@@ -303,6 +335,62 @@ describe('Certifications & BR-01/BR-02 Test Contracts', () => {
         });
       // Either 404 (non-existent id) or 200, but never a 500 constraint crash
       expect([200, 404]).toContain(res.status);
+    });
+
+    it('getCertExpiryWarningDays reads the seeded system_config row (30)', async () => {
+      if (!(await databaseReady('certifications'))) return;
+
+      const { pool } = await import('../../db/pool.js');
+      const { certificationsRepo } = await import('./certifications.repo.js');
+
+      const days = await certificationsRepo.getCertExpiryWarningDays(pool);
+      expect(days).toBe(30);
+    });
+
+    it('getCertExpiryWarningDays falls back to 30 when the key is absent', async () => {
+      if (!(await databaseReady('certifications'))) return;
+
+      const { pool } = await import('../../db/pool.js');
+      const { certificationsRepo } = await import('./certifications.repo.js');
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`DELETE FROM system_config WHERE key = 'cert_expiry_warning_days'`);
+
+        const days = await certificationsRepo.getCertExpiryWarningDays(client);
+        expect(days).toBe(30);
+      } finally {
+        // Never commit the delete — the row is real seed data other tests rely on.
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    });
+
+    it('GET /v1/config/farmer round-trips against the real database (30)', async () => {
+      if (!(await databaseReady('certifications'))) return;
+
+      const testUserId = newId();
+      const randMobile = `+919800${Math.floor(100000 + Math.random() * 900000)}`;
+      const { pool } = await import('../../db/pool.js');
+      await pool.query(`
+        INSERT INTO users (id, mobile, full_name, user_type, status)
+        VALUES ('${testUserId}', '${randMobile}', 'Config Test Farmer', 'FARMER', 'ACTIVE');
+      `);
+
+      const farmerToken = signAccessToken({
+        sub: testUserId,
+        roles: [{ code: 'FARMER' }],
+        farmerId: null,
+        customerId: null,
+      });
+
+      const res = await request(app)
+        .get('/v1/config/farmer')
+        .set('Authorization', `Bearer ${farmerToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ certExpiryWarningDays: 30 });
     });
   });
 });

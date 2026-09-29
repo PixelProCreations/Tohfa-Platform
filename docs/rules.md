@@ -846,6 +846,44 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-46 — A plot cannot have two crops simultaneously in status GROWING
+| | |
+|---|---|
+| **Source** | Physical-reality constraint, product decision 2026-09-29 (Crops API spec) |
+| **Status** | LOCKED |
+| **Layer** | Database, `db/migrations/0023_crops_extra_fields.sql` (`uq_farm_crops_one_growing_per_plot`, a partial unique index on `farm_crops (plot_id) WHERE status = 'GROWING' AND deleted_at IS NULL`); translated to a domain error in `apps/api/src/modules/crops/crops.service.ts` |
+| **Scope** | Track 1 |
+
+**Rule.** A plot is one physical patch of ground: it cannot be growing two different crop plantings at the same time. New `farm_crops` rows are created in status `PLANNED`; any `PATCH /farmers/me/crops/{farmCropId}` that would move a row into status `GROWING` MUST fail when the plot already has another live (`deleted_at IS NULL`) row in status `GROWING`. This is not a business threshold requiring separate client confirmation — it is enforced directly, at the database level, so a race between two concurrent requests on the same plot cannot both win.
+
+**Failure mode if unenforced.** Two "currently growing" plantings on the same plot make the produce calendar, expected-yield rollups and the farm diary's BR-42b active-crop lookup all ambiguous about which planting a given day's activity or harvest belongs to.
+
+**Test contract.**
+- `BR-46a` Transitioning a crop to `status: GROWING` via `PATCH` on a plot that already has a live `GROWING` crop → 409, `code: CROP_PLOT_ALREADY_GROWING`.
+- `BR-46b` The same plot may have any number of `PLANNED`, `HARVESTED` or `FAILED` crops at once — only two simultaneous `GROWING` rows are rejected.
+- `BR-46c` Ending the existing `GROWING` crop (moving it to `HARVESTED` or `FAILED`) before transitioning the new one into `GROWING` succeeds.
+
+---
+
+### BR-47 — An animal can exit the herd at most once
+| | |
+|---|---|
+| **Source** | Physical-reality constraint, product decision 2026-09-29 (Livestock API spec) |
+| **Status** | LOCKED |
+| **Layer** | Database, `db/migrations/0024_livestock.sql` (`uq_livestock_lifecycle_events_one_per_animal`, a unique index on `livestock_lifecycle_events (animal_id)`); translated to a domain error in `apps/api/src/modules/livestock/livestock.service.ts` |
+| **Scope** | Track 1 |
+
+**Rule.** `livestock_lifecycle_events` (SOLD, TRANSFERRED, CULLED, DECEASED) records an animal permanently leaving the farmer's herd. An animal cannot leave twice: `POST /farmers/me/livestock/animals/{animalId}/lifecycle-events` MUST fail when the animal already has a lifecycle event recorded. Recording the (only) event and flipping `livestock_animals.lifecycle_status` to match happen in the same transaction, so a partially-applied exit is impossible (root CLAUDE.md's transaction doctrine).
+
+**Failure mode if unenforced.** A second lifecycle event on an animal that already left (e.g. "sold" twice, once to two different buyers) corrupts the herd count, the organic-certification audit trail this data exists for, and `LivestockScreen`'s active list, which would show the animal both gone and still needing another exit recorded.
+
+**Test contract.**
+- `BR-47a` Recording a lifecycle event for an animal that already has one → 409, `code: LIVESTOCK_ALREADY_EXITED`.
+- `BR-47b` Recording the (first) lifecycle event flips `livestock_animals.lifecycle_status` to match `eventType`, in the same transaction as the event insert.
+- `BR-47c` An animal with a recorded lifecycle event is excluded from the default (active-only) `GET /farmers/me/livestock/animals` list.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
