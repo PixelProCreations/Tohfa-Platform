@@ -123,6 +123,31 @@ import {
   FarmerAdminDashboardScreen,
   MainWarehouseAdminDashboardScreen,
   SubWarehouseAdminDashboardScreen,
+  SubWarehouseProfileScreen,
+  SubWarehouseOverviewScreen,
+  SubWarehouseRecentActivityScreen,
+  SubWarehouseStorageInfoScreen,
+  SubWarehouseOperatingInfoScreen,
+  SubWarehouseContactScreen,
+  SubWarehouseDocumentsScreen,
+  SubWarehouseNotificationsScreen,
+  SubWarehouseTodayOverviewScreen,
+  SubWarehouseNotificationDetailScreen,
+  SubWarehouseReviewReceivingScreen,
+  SubWarehouseSalesScreen,
+  SubWarehouseNewSaleScreen,
+  SubWarehouseSelectProductsScreen,
+  SubWarehouseSaleSummaryScreen,
+  SubWarehouseSelectCustomerScreen,
+  SubWarehousePaymentScreen,
+  SubWarehouseSaleConfirmationScreen,
+  SubWarehouseSalesHistoryScreen,
+  SubWarehouseSaleDetailScreen,
+  SubWarehouseMarketDaySalesScreen,
+  SubWarehouseHorecaSalesScreen,
+  SubWarehouseB2BSalesScreen,
+  SubWarehouseWalletOperationsScreen,
+  SubWarehouseNeedsAttentionScreen,
   AuditCalendarScreen,
   type AuditEntry,
   ScheduleNewAuditScreen,
@@ -214,6 +239,31 @@ export type ScreenName =
   | 'FarmerAdminDashboard'
   | 'MainWarehouseAdminDashboard'
   | 'SubWarehouseAdminDashboard'
+  | 'SubWarehouseProfile'
+  | 'SubWarehouseOverview'
+  | 'SubWarehouseRecentActivity'
+  | 'SubWarehouseStorageInfo'
+  | 'SubWarehouseOperatingInfo'
+  | 'SubWarehouseContact'
+  | 'SubWarehouseDocuments'
+  | 'SubWarehouseNotifications'
+  | 'SubWarehouseTodayOverview'
+  | 'SubWarehouseNotificationDetail'
+  | 'SubWarehouseReviewReceiving'
+  | 'SubWarehouseSales'
+  | 'SubWarehouseNewSale'
+  | 'SubWarehouseSelectProducts'
+  | 'SubWarehouseSaleSummary'
+  | 'SubWarehouseSelectCustomer'
+  | 'SubWarehousePayment'
+  | 'SubWarehouseSaleConfirmation'
+  | 'SubWarehouseSalesHistory'
+  | 'SubWarehouseSaleDetail'
+  | 'SubWarehouseMarketDaySales'
+  | 'SubWarehouseHorecaSales'
+  | 'SubWarehouseB2BSales'
+  | 'SubWarehouseWalletOperations'
+  | 'SubWarehouseNeedsAttention'
   | 'WarehouseOverview'
   | 'StockLedger'
   | 'VerifyStock'
@@ -426,6 +476,7 @@ export default function App(): React.JSX.Element {
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
   const [selectedStockBatch, setSelectedStockBatch] = useState<StockBatchItem | null>(null);
   const [selectedStockAdjustment, setSelectedStockAdjustment] = useState<VerifyStockAdjustmentData | null>(null);
+  const [selectedSaleRecord, setSelectedSaleRecord] = useState<any | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
@@ -655,6 +706,360 @@ export default function App(): React.JSX.Element {
           <SubWarehouseAdminDashboardScreen
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'SubWarehouseProfile' ? (
+          <SubWarehouseProfileScreen
+            onBack={goBack}
+            onNavigateToStorageInfo={() => navigate('SubWarehouseStorageInfo')}
+            onNavigateToOperatingInfo={() => navigate('SubWarehouseOperatingInfo')}
+            onNavigateToContact={() => navigate('SubWarehouseContact')}
+            onNavigateToDocuments={() => navigate('SubWarehouseDocuments')}
+            onTabChange={(tab) => {
+              if (tab === 'Home') goBack();
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+            }}
+          />
+        ) : screen === 'SubWarehouseOverview' ? (
+          <SubWarehouseOverviewScreen
+            warehouseName="Coonoor Warehouse"
+            warehouseId="COO-WH-001"
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToInventory={() => navigate('SubWarehouseAdminDashboard')}
+            onNavigateToReceiving={() => navigate('ReceivingQcScreen' as any)}
+            onNavigateToOrders={() => navigate('SubWarehouseSales')}
+            onNavigateToOperations={() => navigate('SubWarehouseWalletOperations')}
+          />
+        ) : screen === 'SubWarehouseRecentActivity' ? (
+          <SubWarehouseRecentActivityScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseStorageInfo' ? (
+          <SubWarehouseStorageInfoScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseOperatingInfo' ? (
+          <SubWarehouseOperatingInfoScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseContact' ? (
+          <SubWarehouseContactScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseDocuments' ? (
+          <SubWarehouseDocumentsScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseNotifications' ? (
+          <SubWarehouseNotificationsScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToAction={(actionLabel) => {
+              if (actionLabel.includes('Review')) {
+                navigate('SubWarehouseNotificationDetail');
+              } else if (actionLabel.includes('Stock')) {
+                navigate('SubWarehouseAdminDashboard');
+              } else if (actionLabel.includes('Order')) {
+                navigate('SubWarehouseAdminDashboard');
+              }
+            }}
+          />
+        ) : screen === 'SubWarehouseNotificationDetail' ? (
+          <SubWarehouseNotificationDetailScreen
+            onBack={goBack}
+            onReviewReceiving={() => navigate('SubWarehouseReviewReceiving')}
+          />
+        ) : screen === 'SubWarehouseReviewReceiving' ? (
+          <SubWarehouseReviewReceivingScreen
+            onBack={goBack}
+            onSuccess={() => navigate('SubWarehouseAdminDashboard')}
+            shipmentData={{
+              reference: 'GR-1024',
+              source: 'Main Warehouse (Ooty Hub)',
+              product: 'Tomato (Grade 1)',
+              expectedQuantity: '150 KG',
+            }}
+          />
+        ) : screen === 'SubWarehouseTodayOverview' ? (
+          <SubWarehouseTodayOverviewScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToSection={(section) => {
+              if (section === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (section === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+            }}
+          />
+        ) : screen === 'SubWarehouseSales' ? (
+          <SubWarehouseSalesScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            onNavigateToNewSale={() => navigate('SubWarehouseNewSale')}
+            onNavigateToSalesHistory={() => navigate('SubWarehouseSalesHistory')}
+            onNavigateToMarketDaySales={() => navigate('SubWarehouseMarketDaySales')}
+            onNavigateToHorecaSales={() => navigate('SubWarehouseHorecaSales')}
+            onNavigateToB2BSales={() => navigate('SubWarehouseB2BSales')}
+            onNavigateToNeedsAttention={() => navigate('SubWarehouseNeedsAttention')}
+          />
+        ) : screen === 'SubWarehouseNeedsAttention' ? (
+          <SubWarehouseNeedsAttentionScreen
+            onBack={goBack}
+          />
+        ) : screen === 'SubWarehouseNewSale' ? (
+          <SubWarehouseNewSaleScreen
+            onBack={goBack}
+            onSelectProducts={() => navigate('SubWarehouseSelectProducts')}
+          />
+        ) : screen === 'SubWarehouseSelectProducts' ? (
+          <SubWarehouseSelectProductsScreen
+            onBack={goBack}
+            onContinue={(items) => {
+              navigate('SubWarehouseSaleSummary');
+            }}
+          />
+        ) : screen === 'SubWarehouseSaleSummary' ? (
+          <SubWarehouseSaleSummaryScreen
+            onBack={goBack}
+            onContinueToCustomer={() => {
+              navigate('SubWarehouseSelectCustomer');
+            }}
+          />
+        ) : screen === 'SubWarehouseSelectCustomer' ? (
+          <SubWarehouseSelectCustomerScreen
+            onBack={goBack}
+            onContinueToPayment={(cust) => {
+              navigate('SubWarehousePayment', { customerName: cust.name, customerCode: cust.code });
+            }}
+          />
+        ) : screen === 'SubWarehousePayment' ? (
+          <SubWarehousePaymentScreen
+            amountDue={320}
+            onBack={goBack}
+            onPaymentConfirmed={() => {
+              navigate('SubWarehouseSaleConfirmation', {
+                saleId: 'SALE-00251',
+                customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
+                customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291',
+                paymentMethod: 'Wallet',
+                totalAmount: 320,
+              });
+            }}
+          />
+        ) : screen === 'SubWarehouseSaleConfirmation' ? (
+          <SubWarehouseSaleConfirmationScreen
+            saleId={typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251'}
+            customerName={typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar'}
+            customerCode={typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291'}
+            paymentMethod={typeof params['paymentMethod'] === 'string' ? params['paymentMethod'] : 'Wallet'}
+            totalAmount={typeof params['totalAmount'] === 'number' ? params['totalAmount'] : 320}
+            onBack={goBack}
+            onViewInvoice={() => {
+              setSelectedSaleRecord({
+                id: typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251',
+                customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
+                customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291',
+                channel: 'Direct Sale',
+                dateText: '24 Sep, 6:35 PM',
+                amount: typeof params['totalAmount'] === 'number' ? params['totalAmount'] : 320,
+                status: 'Completed',
+                invoiceNo: 'INV-00251',
+                paymentMethod: typeof params['paymentMethod'] === 'string' ? params['paymentMethod'] : 'Wallet',
+                items: [
+                  {
+                    name: 'Tomato',
+                    grade: 'Grade 1',
+                    batch: 'BTH-00231',
+                    qtyText: '2 KG @ ₹100',
+                    pricePerUnit: 100,
+                    lineTotal: 200,
+                  },
+                ],
+              });
+              navigate('SubWarehouseSaleDetail');
+            }}
+            onNewSale={() => {
+              navigate('SubWarehouseNewSale');
+            }}
+          />
+        ) : screen === 'SubWarehouseSalesHistory' ? (
+          <SubWarehouseSalesHistoryScreen
+            onBack={goBack}
+            onSelectSale={(sale) => {
+              setSelectedSaleRecord(sale);
+              navigate('SubWarehouseSaleDetail');
+            }}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseSaleDetail' ? (
+          <SubWarehouseSaleDetailScreen
+            sale={selectedSaleRecord ?? {
+              id: typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251',
+              customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
+              customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291',
+              channel: typeof params['channel'] === 'string' ? params['channel'] : 'Direct Sale',
+              dateText: typeof params['dateText'] === 'string' ? params['dateText'] : '24 Sep, 6:35 PM',
+              amount: typeof params['amount'] === 'number' ? params['amount'] : 320,
+              status: typeof params['status'] === 'string' ? params['status'] : 'Completed',
+              invoiceNo: typeof params['invoiceNo'] === 'string' ? params['invoiceNo'] : 'INV-00251',
+              paymentMethod: typeof params['paymentMethod'] === 'string' ? params['paymentMethod'] : 'UPI',
+              items: [
+                {
+                  name: 'Tomato',
+                  grade: 'Grade 1',
+                  batch: 'BTH-00231',
+                  qtyText: '2 KG @ ₹100',
+                  pricePerUnit: 100,
+                  lineTotal: 200,
+                },
+              ],
+            }}
+            onBack={goBack}
+            onViewInvoice={() => {
+              Alert.alert('Invoice INV-00251', `Invoice for ${selectedSaleRecord?.customerName ?? 'Rajesh Kumar'} downloaded to device.`);
+            }}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseMarketDaySales' ? (
+          <SubWarehouseMarketDaySalesScreen
+            warehouseName="Coonoor Warehouse"
+            marketDate="24 Sep 2026"
+            onBack={goBack}
+            onNavigateToNewMarketSale={() => navigate('SubWarehouseNewSale')}
+            onNavigateToSalesHistory={() => navigate('SubWarehouseSalesHistory')}
+            onSelectTransaction={(tx) => {
+              setSelectedSaleRecord(tx);
+              navigate('SubWarehouseSaleDetail');
+            }}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseHorecaSales' ? (
+          <SubWarehouseHorecaSalesScreen
+            onBack={goBack}
+            onSelectOrder={(ord) => {
+              setSelectedSaleRecord({
+                id: ord.id,
+                customerName: ord.businessName,
+                customerCode: ord.customerCode,
+                channel: 'HORECA Sales',
+                dateText: ord.dateText,
+                amount: ord.amount,
+                status: ord.status,
+                invoiceNo: `INV-${ord.id.replace('HORECA-', '')}`,
+                paymentMethod: 'Bank Transfer / B2B',
+                items: ord.items,
+              });
+              navigate('SubWarehouseSaleDetail');
+            }}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseB2BSales' ? (
+          <SubWarehouseB2BSalesScreen
+            onBack={goBack}
+            onSelectOrder={(ord) => {
+              setSelectedSaleRecord({
+                id: ord.id,
+                customerName: ord.businessName,
+                customerCode: ord.customerCode,
+                channel: 'B2B Wholesale',
+                dateText: ord.dateText,
+                amount: ord.amount,
+                status: ord.status,
+                invoiceNo: `INV-${ord.id.replace('B2B-', '')}`,
+                paymentMethod: 'Credit / Bank Transfer',
+                items: ord.items,
+              });
+              navigate('SubWarehouseSaleDetail');
+            }}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseWalletOperations' ? (
+          <SubWarehouseWalletOperationsScreen
+            warehouseName="Coonoor Warehouse"
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
           />
         ) : screen === 'WarehouseOverview' ? (
           <WarehouseOverviewScreen

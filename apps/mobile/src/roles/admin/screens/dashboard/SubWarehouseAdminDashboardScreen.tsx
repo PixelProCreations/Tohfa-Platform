@@ -13,6 +13,14 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { SubWarehouseProfileScreen } from './SubWarehouseProfileScreen';
+import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
+import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
+import { SubWarehouseNotificationsScreen } from './SubWarehouseNotificationsScreen';
+import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
+import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
+import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
+import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -323,16 +331,39 @@ function MoreTabIcon({ active }: { active: boolean }) {
   );
 }
 
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export interface SubWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string) => void;
+  onBack?: () => void;
 }
 
 export function SubWarehouseAdminDashboardScreen({
   onSignOut,
   onNavigate,
+  onBack,
 }: SubWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showTodayOverview, setShowTodayOverview] = useState(false);
+  const [showSalesScreen, setShowSalesScreen] = useState(false);
+  const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
+  const [showRecentActivity, setShowRecentActivity] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showReviewReceiving, setShowReviewReceiving] = useState(false);
   const [user, setUser] = useState<UserMe | null>(null);
 
   useEffect(() => {
@@ -342,6 +373,158 @@ export function SubWarehouseAdminDashboardScreen({
   }, []);
 
   const userName = user?.fullName?.split(' ')[0] ?? 'Suresh';
+
+  if (showNotifications) {
+    return (
+      <SubWarehouseNotificationsScreen
+        onBack={() => setShowNotifications(false)}
+        onTabChange={(tab) => {
+          setShowNotifications(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToAction={(actionLabel) => {
+          setShowNotifications(false);
+          if (actionLabel.includes('Review')) {
+            if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
+            else setShowReviewReceiving(true);
+          } else if (actionLabel.includes('Stock')) {
+            setActiveTab('Inventory');
+          } else if (actionLabel.includes('Order')) {
+            setActiveTab('Home');
+          }
+        }}
+      />
+    );
+  }
+
+  if (showTodayOverview) {
+    return (
+      <SubWarehouseTodayOverviewScreen
+        onBack={() => setShowTodayOverview(false)}
+        onTabChange={(tab) => {
+          setShowTodayOverview(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToSection={(section) => {
+          setShowTodayOverview(false);
+          if (section === 'Receiving') setActiveTab('Receiving');
+          else if (section === 'Inventory') setActiveTab('Inventory');
+        }}
+      />
+    );
+  }
+
+  if (showWarehouseOverview) {
+    return (
+      <SubWarehouseOverviewScreen
+        warehouseName="Coonoor Warehouse"
+        warehouseId="COO-WH-001"
+        onBack={() => setShowWarehouseOverview(false)}
+        onTabChange={(tab) => {
+          setShowWarehouseOverview(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToInventory={() => {
+          setShowWarehouseOverview(false);
+          setActiveTab('Inventory');
+        }}
+        onNavigateToReceiving={() => {
+          setShowWarehouseOverview(false);
+          setActiveTab('Receiving');
+        }}
+        onNavigateToOrders={() => {
+          setShowWarehouseOverview(false);
+          setShowSalesScreen(true);
+        }}
+        onNavigateToOperations={() => {
+          setShowWarehouseOverview(false);
+          setActiveTab('More');
+        }}
+      />
+    );
+  }
+
+  if (showRecentActivity) {
+    return (
+      <SubWarehouseRecentActivityScreen
+        onBack={() => setShowRecentActivity(false)}
+        onTabChange={(tab) => {
+          setShowRecentActivity(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (showReviewReceiving) {
+    return (
+      <SubWarehouseReviewReceivingScreen
+        onBack={() => setShowReviewReceiving(false)}
+        onSuccess={() => {
+          setShowReviewReceiving(false);
+          setActiveTab('Receiving');
+        }}
+        shipmentData={{
+          reference: 'GR-1024',
+          source: 'Main Warehouse (Ooty Hub)',
+          product: 'Tomato (Grade 1)',
+          expectedQuantity: '150 KG',
+        }}
+      />
+    );
+  }
+
+  if (showProfile) {
+    return (
+      <SubWarehouseProfileScreen
+        onBack={() => setShowProfile(false)}
+        onTabChange={(tab) => {
+          setShowProfile(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToInventory={() => {
+          setShowProfile(false);
+          setActiveTab('Inventory');
+        }}
+        onNavigateToStorageInfo={() => {
+          setShowProfile(false);
+          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
+        }}
+        onNavigateToOperatingInfo={() => {
+          setShowProfile(false);
+          if (onNavigate) onNavigate('SubWarehouseOperatingInfo');
+        }}
+        onNavigateToContact={() => {
+          setShowProfile(false);
+          if (onNavigate) onNavigate('SubWarehouseContact');
+        }}
+        onNavigateToDocuments={() => {
+          setShowProfile(false);
+          if (onNavigate) onNavigate('SubWarehouseDocuments');
+        }}
+      />
+    );
+  }
+
+  if (showSalesScreen) {
+    return (
+      <SubWarehouseSalesScreen
+        onBack={() => setShowSalesScreen(false)}
+        onTabChange={(tab) => {
+          setShowSalesScreen(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToNotifications={() => {
+          setShowSalesScreen(false);
+          if (onNavigate) {
+            onNavigate('SubWarehouseNotifications');
+          } else {
+            setShowNotifications(true);
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -362,18 +545,44 @@ export function SubWarehouseAdminDashboardScreen({
             {/* ─── Top Brand Header Banner (#F0562A) ─── */}
             <View style={styles.headerBanner}>
               <View style={styles.headerTopRow}>
+                {onBack && (
+                  <TouchableOpacity
+                    style={styles.backBtn}
+                    onPress={onBack}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <ArrowBackIcon size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.headerGreeting}>Good Morning, {userName}</Text>
-                  <View style={styles.warehouseNameRow}>
+                  <TouchableOpacity
+                    style={styles.warehouseNameRow}
+                    onPress={() => {
+                      if (onNavigate) {
+                        onNavigate('SubWarehouseOverview');
+                      } else {
+                        setShowWarehouseOverview(true);
+                      }
+                    }}
+                    activeOpacity={0.75}
+                  >
                     <WarehouseHeaderIcon />
                     <Text style={styles.warehouseNameText}>Coonoor Warehouse</Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.headerActions}>
                   <TouchableOpacity
                     style={styles.headerIconBtn}
-                    onPress={() => Alert.alert('Notifications (3)', '• GR-00124 Received 95 KG\n• Order #ORD-10245 ready for pickup\n• Carrot Grade 1 low stock alert')}
+                    onPress={() => {
+                      if (onNavigate) {
+                        onNavigate('SubWarehouseNotifications');
+                      } else {
+                        setShowNotifications(true);
+                      }
+                    }}
                     activeOpacity={0.8}
                   >
                     <BellIcon />
@@ -384,7 +593,13 @@ export function SubWarehouseAdminDashboardScreen({
 
                   <TouchableOpacity
                     style={styles.headerIconBtn}
-                    onPress={() => setActiveTab('More')}
+                    onPress={() => {
+                      if (onNavigate) {
+                        onNavigate('SubWarehouseProfile');
+                      } else {
+                        setShowProfile(true);
+                      }
+                    }}
                     activeOpacity={0.8}
                   >
                     <ProfileHeaderIcon />
@@ -403,7 +618,17 @@ export function SubWarehouseAdminDashboardScreen({
             {/* ─── Main Content Container ─── */}
             <View style={styles.mainContainer}>
               {/* 1. Operational Status Card */}
-              <View style={styles.statusCard}>
+              <TouchableOpacity
+                style={styles.statusCard}
+                onPress={() => {
+                  if (onNavigate) {
+                    onNavigate('SubWarehouseOverview');
+                  } else {
+                    setShowWarehouseOverview(true);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
                 <View style={styles.statusCardLeft}>
                   <Text style={styles.statusWarehouseTitle}>Coonoor Warehouse</Text>
                   <View style={styles.operationalRow}>
@@ -417,10 +642,26 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.receivingValue}>3 shipments</Text>
                   <Text style={styles.syncText}>Last sync: 2 min ago</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* 2. Today's Overview Grid */}
-              <Text style={styles.sectionHeading}>Today's Overview</Text>
+              <View style={styles.sectionHeaderBetween}>
+                <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Today's Overview</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseTodayOverview');
+                    } else {
+                      setShowTodayOverview(true);
+                    }
+                  }}
+                  activeOpacity={0.75}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}
+                >
+                  <Text style={styles.viewAllText}>See all</Text>
+                  <ChevronRight />
+                </TouchableOpacity>
+              </View>
               <View style={styles.overviewGrid}>
                 {/* 1. Pending Orders */}
                 <TouchableOpacity
@@ -481,7 +722,13 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* 5. Today's Sales */}
                 <TouchableOpacity
                   style={styles.overviewCard}
-                  onPress={() => Alert.alert('Sales Overview', 'Today\'s Sales: ₹24,850 across 42 transactions.')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseSales');
+                    } else {
+                      setShowSalesScreen(true);
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
@@ -495,7 +742,13 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* 6. Cash Top-Ups */}
                 <TouchableOpacity
                   style={styles.overviewCard}
-                  onPress={() => Alert.alert('Cash Top-Ups', '₹18,500 collected from 12 transactions.')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseWalletOperations');
+                    } else {
+                      setActiveTab('More');
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
@@ -521,11 +774,17 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => Alert.alert('New Sale', 'Opening POS screen for direct produce sale...')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseSales');
+                    } else {
+                      setShowSalesScreen(true);
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <CashRegisterActionIcon />
-                  <Text style={styles.quickActionLabel}>New Sale</Text>
+                  <Text style={styles.quickActionLabel}>Sales</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -557,7 +816,13 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => Alert.alert('Activity Log', 'Showing real-time audit ledger for Coonoor Hub.')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseRecentActivity');
+                    } else {
+                      setShowRecentActivity(true);
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <ActivityHistoryActionIcon />
@@ -574,7 +839,13 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.alertList}>
                 <TouchableOpacity
                   style={styles.alertCard}
-                  onPress={() => Alert.alert('QC Pending', 'Tomato — Batch GR-1024 · Received 95 KG, awaiting quality check.')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseReviewReceiving');
+                    } else {
+                      setShowReviewReceiving(true);
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
@@ -852,12 +1123,30 @@ export function SubWarehouseAdminDashboardScreen({
               {/* 12. Recent Activity (Matching Screenshot) */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Recent Activity</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Recent Activity', 'Full warehouse audit ledger.')}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseRecentActivity');
+                    } else {
+                      setShowRecentActivity(true);
+                    }
+                  }}
+                >
                   <Text style={styles.viewAllText}>View all</Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.activityCardContainer}>
+              <TouchableOpacity
+                style={styles.activityCardContainer}
+                onPress={() => {
+                  if (onNavigate) {
+                    onNavigate('SubWarehouseRecentActivity');
+                  } else {
+                    setShowRecentActivity(true);
+                  }
+                }}
+                activeOpacity={0.85}
+              >
                 {/* Activity 1 */}
                 <View style={styles.activityItemRow}>
                   <View style={styles.activityIconBox}>
@@ -897,7 +1186,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityTimeText}>09:55 AM</Text>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* 13. Warehouse Alerts (Matching Screenshot) */}
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
@@ -1023,54 +1312,66 @@ export function SubWarehouseAdminDashboardScreen({
           </ScrollView>
         )}
 
-        {/* ─── More / Profile Tab ─── */}
+        {/* ─── More / Wallet Operations Tab ─── */}
         {activeTab === 'More' && (
-          <AdminProfileScreen
-            role="SUB_WH_ADMIN"
-            onSignOut={onSignOut}
+          <SubWarehouseWalletOperationsScreen
+            warehouseName="Coonoor Warehouse"
             onBack={() => setActiveTab('Home')}
+            onTabChange={(tab) => {
+              if (tab === 'More') return;
+              setActiveTab(tab);
+            }}
+            onNavigateToNotifications={() => {
+              if (onNavigate) onNavigate('SubWarehouseNotifications');
+              else setShowNotifications(true);
+            }}
+            onNavigateToProfile={() => {
+              if (onNavigate) onNavigate('SubWarehouseProfile');
+            }}
           />
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomTabBar}>
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Home')}
-          accessibilityRole="tab"
-        >
-          <HomeTabIcon active={activeTab === 'Home'} />
-          <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
-        </Pressable>
+      {/* ─── Bottom Navigation Bar (Rendered for Home, Receiving, Inventory) ─── */}
+      {activeTab !== 'More' && (
+        <View style={styles.bottomTabBar}>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Home')}
+            accessibilityRole="tab"
+          >
+            <HomeTabIcon active={activeTab === 'Home'} />
+            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Receiving')}
-          accessibilityRole="tab"
-        >
-          <ReceivingTabIcon active={activeTab === 'Receiving'} />
-          <Text style={[styles.tabLabel, activeTab === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Receiving')}
+            accessibilityRole="tab"
+          >
+            <ReceivingTabIcon active={activeTab === 'Receiving'} />
+            <Text style={[styles.tabLabel, activeTab === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('Inventory')}
-          accessibilityRole="tab"
-        >
-          <InventoryTabIcon active={activeTab === 'Inventory'} />
-          <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
-        </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Inventory')}
+            accessibilityRole="tab"
+          >
+            <InventoryTabIcon active={activeTab === 'Inventory'} />
+            <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+          </Pressable>
 
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => setActiveTab('More')}
-          accessibilityRole="tab"
-        >
-          <MoreTabIcon active={activeTab === 'More'} />
-          <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('More')}
+            accessibilityRole="tab"
+          >
+            <MoreTabIcon active={false} />
+            <Text style={styles.tabLabel}>More</Text>
+          </Pressable>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1121,10 +1422,18 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 26,
     borderBottomRightRadius: 26,
   },
+  backBtn: {
+    padding: 6,
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 4,
   },
   headerGreeting: {
