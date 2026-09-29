@@ -37,11 +37,22 @@ uploadsRouter.post(
  * session either. `*storageKey` (Express 5 wildcard param syntax) captures
  * the full key including slashes (`purpose/uuid.ext`).
  *
- * Stores the raw bytes as-is, matching a real provider's PUT semantics --
- * BR-16 EXIF/GPS stripping is a deliberately separate step
- * (`processAndSanitizeImage`) applied only to images, not every upload
- * (farmer documents/certificates are frequently PDFs, which that step
- * rejects outright).
+ * For an image (`contentType` starting with `image/`), this route is the
+ * one place in the local/mock dev path that actually receives raw bytes, so
+ * it is also the one place BR-16 stripping can run today: it hands the
+ * buffer to `uploadsService.processAndSanitizeImage`, which sniffs the real
+ * magic bytes (never trusting the client-supplied `contentType`), re-encodes
+ * via `stripExifAndGps`, and writes the sanitized buffer to storage itself.
+ * Non-image content (farmer documents/certificates, frequently PDFs, which
+ * `processAndSanitizeImage` rejects outright) is stored as raw bytes as-is,
+ * matching a real provider's PUT semantics, with stripping skipped entirely.
+ *
+ * This only covers the local/mock dev-and-current-environment path. A real
+ * Azure pre-signed direct PUT never touches this route at all -- the client
+ * puts bytes straight to Azure and the API server never sees them -- so
+ * production will need a separate finalize/webhook mechanism (the client or
+ * Azure notifying the API once the blob lands) to run this same BR-16 step
+ * once real Azure credentials replace this fallback.
  *
  * `/mock/*` (Express 4 / path-to-regexp 0.1.x wildcard, not the named
  * `*key` syntax path-to-regexp 6+/Express 5 uses) captures the full key
@@ -58,7 +69,18 @@ uploadsRouter.put(
     }
     const contentType = req.headers['content-type'] ?? 'application/octet-stream';
     const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from([]);
-    const fileUrl = await defaultBlobStorage.upload(storageKey, buffer, contentType);
+
+    let fileUrl: string;
+    if (contentType.startsWith('image/')) {
+      // BR-16: strip EXIF/GPS before the bytes ever land in storage.
+      // `processAndSanitizeImage` writes the sanitized buffer to storage
+      // itself, so there is no separate `.upload()` call to make here.
+      await uploadsService.processAndSanitizeImage(storageKey, buffer);
+      fileUrl = defaultBlobStorage.getPublicUrl(storageKey);
+    } else {
+      fileUrl = await defaultBlobStorage.upload(storageKey, buffer, contentType);
+    }
+
     res.status(201).json({ fileUrl });
   }),
 );

@@ -3,7 +3,7 @@ import request from 'supertest';
 import sharp from 'sharp';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { InMemoryBlobStorage } from '../../storage/blobStorage.js';
+import { InMemoryBlobStorage, defaultBlobStorage } from '../../storage/blobStorage.js';
 import { sniffMimeType, stripExifAndGps, type AllowedMimeType } from '../../storage/imageProcessor.js';
 import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
 import { createUploadsService } from './uploads.service.js';
@@ -211,6 +211,95 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
         });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('PUT /uploads/mock/* (BR-16 stripping on the actually-running upload path)', () => {
+    const app = createApp();
+
+    it('BR-16: an image PUT through the mock upload route is stored with EXIF/GPS stripped', async () => {
+      const rawImageWithExif = await sharp({
+        create: {
+          width: 40,
+          height: 40,
+          channels: 3,
+          background: { r: 60, g: 150, b: 40 },
+        },
+      })
+        .withMetadata({
+          orientation: 1,
+          exif: {
+            IFD0: {
+              Make: 'FarmCameraPhone',
+              Model: 'Model-X',
+              ImageDescription: 'Coonoor Organic Tea Plantation GPS: 11.3530, 76.7959',
+            },
+          },
+        })
+        .jpeg()
+        .toBuffer();
+
+      // Sanity check the fixture actually carries EXIF before we assert it's gone.
+      const rawMeta = await sharp(rawImageWithExif).metadata();
+      expect(rawMeta.exif).toBeDefined();
+
+      const storageKey = `listing_photo/br16-route-${Date.now()}.jpg`;
+      const res = await request(app)
+        .put(`/v1/uploads/mock/${storageKey}`)
+        .set('Content-Type', 'image/jpeg')
+        .send(rawImageWithExif);
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('fileUrl');
+      expect(res.body.fileUrl).toContain(storageKey);
+
+      try {
+        const stored = await defaultBlobStorage.download(storageKey);
+        expect(stored).not.toBeNull();
+        // Bytes must actually have changed (re-encoded), not just be a copy of the raw upload.
+        expect(stored!.equals(rawImageWithExif)).toBe(false);
+
+        const storedMeta = await sharp(stored!).metadata();
+        expect(storedMeta.exif).toBeUndefined();
+        expect(storedMeta.width).toBe(40);
+        expect(storedMeta.height).toBe(40);
+      } finally {
+        await defaultBlobStorage.delete(storageKey);
+      }
+    });
+
+    it('stores a non-image upload byte-for-byte unchanged (BR-16 stripping does not apply)', async () => {
+      const pdfLikeBuffer = Buffer.from('%PDF-1.4\nnot a real pdf, just bytes to store as-is\n');
+      const storageKey = `farmer_document/br16-route-${Date.now()}.pdf`;
+
+      const res = await request(app)
+        .put(`/v1/uploads/mock/${storageKey}`)
+        .set('Content-Type', 'application/pdf')
+        .send(pdfLikeBuffer);
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('fileUrl');
+
+      try {
+        const stored = await defaultBlobStorage.download(storageKey);
+        expect(stored).not.toBeNull();
+        expect(stored!.equals(pdfLikeBuffer)).toBe(true);
+      } finally {
+        await defaultBlobStorage.delete(storageKey);
+      }
+    });
+
+    it('rejects an image PUT whose bytes are not actually an image, even with an image/* content-type', async () => {
+      const storageKey = `listing_photo/br16-route-invalid-${Date.now()}.jpg`;
+      const notReallyAnImage = Buffer.from('this is not image bytes at all');
+
+      const res = await request(app)
+        .put(`/v1/uploads/mock/${storageKey}`)
+        .set('Content-Type', 'image/jpeg')
+        .send(notReallyAnImage);
+
+      expect(res.status).toBe(422);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
     });
   });
 

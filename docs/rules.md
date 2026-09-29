@@ -733,6 +733,119 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-40 — Farm diary is own-data only
+| | |
+|---|---|
+| **Source** | Matrix P8 (extends BR-36) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, owner predicate injected in the data layer for FARMER principals on the farm diary endpoints |
+| **Scope** | Track 1 |
+
+**Rule.** A farmer's diary entries, and the fields (plot) and activity-category reference endpoints scoped to them, are filtered by `farmer_id`. There is no cross-farmer visibility in either direction: a farmer requesting another farmer's diary entry, field or diary-list/day/month view — whether by guessing an entry id, a farmer id, or a plot id that is not theirs — gets back an empty result set, not a 403. This is the same pattern as BR-36; a 403 would confirm that the row exists for a farmer other than the caller.
+
+**Failure mode if unenforced.** Incrementing an id in the mobile app exposes another farmer's daily activity log — including what and how much they grow, and when — which is exactly the kind of horizontal privilege escalation BR-36 already exists to prevent.
+
+**Test contract.**
+- `BR-40a` FARMER A's diary-list/day/month endpoints never return an entry belonging to FARMER B, even when B's entry id, plot id, or farmer id is guessed or passed explicitly; the response is an empty list, not a 403 or 404 leaking existence.
+
+---
+
+### BR-41 — Farm diary is never customer-visible
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §2.3, FR-F08; Matrix P2 (extends BR-16) |
+| **Status** | LOCKED |
+| **Layer** | Server-side, rbac.json grants + catalog/order serializers for CUSTOMER-authenticated requests |
+| **Scope** | Track 1 |
+
+**Rule.** This extends BR-16 (farm-anonymity). No `farmer.diary.*` permission may ever grant the CUSTOMER role any scope — `docs/rbac.json` must show `"none"` for CUSTOMER on every diary permission, with no exception. No diary field (notes, photos, voice notes, activity type, category, sub-activity, or plot/field data, which is GPS-adjacent) may appear in any catalog, order or other customer-facing response. A produce photo carrying farm GPS in its EXIF data is the same breach as a diary photo — both are farm identity leaking into the customer surface.
+
+**Failure mode if unenforced.** The farm diary is the single richest source of farm-identifying detail in the platform (what is planted where, and when); if it reaches a customer response even once, TOHFA's farm-anonymous aggregator position collapses exactly as BR-16 already warns.
+
+**Test contract.**
+- `BR-41a` A table-driven rbac test asserts every permission whose code starts with `farmer.diary.` has the `CUSTOMER` grant absent or `"none"` in `docs/rbac.json`.
+
+---
+
+### BR-42 — A diary entry requires a valid category/sub-activity pair, an active crop on the plot, and minutes > 0
+| | |
+|---|---|
+| **Source** | Product decision, 2026-09-24 (Farm Diary Phase 1 spec — no Requirements v1.0 or Matrix section covers this; the farm diary is a from-scratch feature) |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/farm-diary/` diary-entry-create path, validated against `diary_sub_activities` and `farm_crops` |
+| **Scope** | Track 1 |
+
+**Rule.** `POST` of a new diary entry MUST reject: (i) a `subActivityKey` that does not belong to the given `categoryKey`, per the `diary_sub_activities` reference table — a sub-activity is never valid under a category it was not seeded against; (ii) a `plotId` with no `farm_crops` row in status `GROWING` — a diary entry records activity against a crop that is actually growing, not a bare plot or a finished/planned one; (iii) a missing or non-positive `minutes` value — time spent is the one field every activity type shares, and it must be a real, positive duration.
+
+**Failure mode if unenforced.** A mismatched category/sub-activity pair silently corrupts the activity taxonomy admins later report against; an entry logged against a plot with no active crop cannot be attributed to a harvest or a batch, breaking traceability; and a zero or missing `minutes` value makes labour-time reporting meaningless.
+
+**Test contract.**
+- `BR-42a` A `subActivityKey` that does not belong to the given `categoryKey` → 422, `code: DIARY_INVALID_SUB_ACTIVITY`.
+- `BR-42b` A `plotId` with no `farm_crops` row in status `GROWING` → 422, `code: DIARY_NO_ACTIVE_CROP`.
+- `BR-42c` A missing or non-positive `minutes` value → 422, `code: DIARY_MINUTES_REQUIRED`.
+
+> **Note — BR-40/BR-41/BR-42 status (2026-09-24).** These three rules were drafted during initial Farm Diary API planning and are **provisional, not final-locked** — they're expected to be joined by further rules (edit/delete ownership, workforce/wage validation) as the feature's scope is confirmed with product, and may themselves be amended before ship. Treat their `Status` fields as current-best-draft, not sign-off.
+>
+> Separately: BR-42a's "seeded against" language assumes `diary_activity_categories`/`diary_sub_activities` are fixed reference data. They are not — this taxonomy is intended to be **admin-manageable** (CRUD via Admin Web, backed by its own permission and audit trail), not a one-time migration seed. BR-42a's validation must check the *current* contents of those tables at request time; the 12/37 rows already seeded are an initial default set, not the final or complete list, and admins may add, rename, or retire entries after launch.
+---
+
+### BR-43 — Farm diary entries are editable and soft-deletable by their owning farmer only
+| | |
+|---|---|
+| **Source** | Product decision, 2026-09-24 (Farm Diary Phase 1 spec — edit/delete ownership; extends BR-40) |
+| **Status** | DRAFT |
+| **Layer** | Server-side, `apps/api/src/modules/farm-diary/` PATCH/DELETE entry paths; owner filter (`diary_entries.farmer_id = scope.farmerId`) applied in the data layer |
+| **Scope** | Track 1 |
+
+**Rule.** A diary entry may be edited (`PATCH`) or deleted (`DELETE`) only by the farmer who owns it (`diary_entries.farmer_id = scope.farmerId`), with no time-window restriction. Delete is a soft delete — it sets `deleted_at` and never issues a SQL `DELETE`. A soft-deleted entry is excluded from every list, calendar and get response. An edit or delete attempt against an entry owned by a different farmer returns `NOT_FOUND`, never 403 — the same doctrine as BR-40, since a 403 would confirm that the entry exists for someone else.
+
+**Failure mode if unenforced.** A farmer can rewrite or erase another farmer's activity log by guessing an entry id, and a hard delete destroys the traceability record a harvest or batch may later be attributed to.
+
+**Test contract.**
+- `BR-43a` A cross-farmer `PATCH` or `DELETE` of a diary entry → 404, `code: NOT_FOUND`, never 403.
+- `BR-43b` `DELETE` sets `deleted_at`; the row is not physically removed, and it disappears from list, calendar and get responses.
+- `BR-43c` `PATCH` succeeds regardless of how old the entry's `activity_on` is.
+
+---
+
+### BR-44 — Workforce entries require valid hours and a Money wage rate
+| | |
+|---|---|
+| **Source** | Product decision, 2026-09-24 (Farm Diary Phase 1 spec — workforce/wage lines; root CLAUDE.md §2.2) |
+| **Status** | DRAFT |
+| **Layer** | Server-side, `apps/api/src/modules/farm-diary/` create/update entry paths; `diary_entry_workers` CHECK constraints as the database backstop |
+| **Scope** | Track 1 |
+
+**Rule.** Each worker on a diary entry needs `hoursWorked` greater than 0 and at most 24, and a `wageRatePaise` that is a positive integer number of paise (per root CLAUDE.md §2.2 — never a float). Total labour cost is always computed at read time (`SUM(hours_worked * wage_rate_paise)`), never stored. Updating an entry's workforce list fully replaces the set for that entry in one transaction (delete-then-insert), not a partial diff.
+
+**Failure mode if unenforced.** A float wage rate drifts by fractions of a paisa across every labour-cost report; impossible hours (0, negative, or more than a day) make labour-time reporting meaningless; and a partial-diff update leaves orphaned worker rows for people the farmer removed, silently inflating labour cost.
+
+**Test contract.**
+- `BR-44a` A worker with `hoursWorked` ≤ 0 or > 24 → 422, `code: DIARY_WORKER_HOURS_INVALID`.
+- `BR-44b` A worker with `wageRatePaise` ≤ 0 or non-integer → 422, `code: DIARY_WAGE_RATE_INVALID`.
+- `BR-44c` Updating an entry's workers fully replaces the prior set; no orphaned rows remain for removed workers.
+
+---
+
+### BR-45 — Diary taxonomy is admin-managed, not fixed reference data
+| | |
+|---|---|
+| **Source** | Product decision, 2026-09-24 (Farm Diary Phase 1 spec — see the note under BR-42) |
+| **Status** | DRAFT |
+| **Layer** | Server-side, `apps/api/src/modules/farm-diary/` admin taxonomy routes under `admin.diary_taxonomy.manage`; `audit_log` written in the same transaction |
+| **Scope** | Track 1 |
+
+**Rule.** `diary_activity_categories` and `diary_sub_activities` are managed at runtime by TOHFA_ADMIN/SUPER_ADMIN via dedicated admin endpoints, not fixed by seed alone. Deactivating sets `is_active = false` and never deletes the row: existing `diary_entries` referencing it stay valid, while `GET /farmers/me/diary/taxonomy` and BR-42a's create-time validation both exclude inactive rows. Every create, update or deactivate call is a mutating admin action and writes an `audit_log` row in the same transaction (root CLAUDE.md §6). FARMER and CUSTOMER get no access.
+
+**Failure mode if unenforced.** A hard delete of a retired sub-activity either fails on the foreign key or orphans historical entries; a taxonomy change with no audit row leaves admins unable to explain why reports changed shape; and a farmer who can edit the taxonomy can corrupt the categories every other farmer's entries are filed under.
+
+**Test contract.**
+- `BR-45a` FARMER or CUSTOMER on any admin taxonomy endpoint → 403.
+- `BR-45b` Deactivating a sub-activity that is in use does not fail or alter existing entries; it disappears from the farmer taxonomy fetch and is rejected by BR-42a for new entries.
+- `BR-45c` Every admin taxonomy mutation writes exactly one `audit_log` row in the same transaction.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

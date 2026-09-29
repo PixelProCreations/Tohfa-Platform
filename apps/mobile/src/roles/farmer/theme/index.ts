@@ -445,6 +445,9 @@ export const authPalette = {
   twLime100: '#ecfccb',
   creamTint7: '#e8ebd8',
   creamTint8: '#f6f7f0',
+  darkForestBanner: '#0d3326',
+  avatarMintBg: '#d1eae0',
+  waveformBarBg: '#c3e5d4',
 } as const;
 
 export const theme = {

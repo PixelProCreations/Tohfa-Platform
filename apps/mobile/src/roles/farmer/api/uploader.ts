@@ -130,7 +130,8 @@ export async function uploadWithResume(options: UploadOptions): Promise<UploadRe
       });
 
       if (!res.ok) {
-        throw new Error(`Upload chunk failed with status ${res.status}`);
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Upload chunk failed with status ${res.status}: ${errText}`);
       }
 
       currentOffset = nextOffset;
