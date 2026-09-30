@@ -56,9 +56,13 @@ export interface MoreOptionItem {
     | 'reports'
     | 'notifications'
     | 'staff'
+    | 'attendance'
     | 'profile'
     | 'settings'
+    | 'warehouse_operations'
     | 'help';
+  iconBg?: string;
+  iconColor?: string;
 }
 
 export interface OptionGroup {
@@ -143,6 +147,12 @@ const OPTION_GROUPS: OptionGroup[] = [
         title: 'Warehouse Staff',
         subtitle: 'View warehouse staff and attendance',
         iconType: 'staff',
+      },
+      {
+        id: 'warehouse_operations',
+        title: 'Warehouse Operations',
+        subtitle: 'Manage storage, crates, zones and operations',
+        iconType: 'warehouse_operations',
       },
       {
         id: 'profile',
@@ -280,6 +290,9 @@ function CustomersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Circle cx="8" cy="16" r="1" fill={color} />
+      <Circle cx="12" cy="16" r="1" fill={color} />
+      <Circle cx="16" cy="16" r="1" fill={color} />
     </Svg>
   );
 }
@@ -288,20 +301,20 @@ function WalletIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: n
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"
+        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
       <Path
-        d="M16 3H4a2 2 0 0 0-2 2v2"
+        d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="16" cy="14" r="1.5" fill={color} />
     </Svg>
   );
 }
@@ -396,6 +409,16 @@ function StaffIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: nu
   );
 }
 
+function AttendanceIcon({ color = '#10B981' }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M9 16l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function WarehouseProfileIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return <WarehouseOutlineIcon color={color} size={size} />;
 }
@@ -448,6 +471,14 @@ function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: n
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function WarehouseOperationsIcon({ color = '#4F46E5' }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -531,10 +562,13 @@ export interface SubWarehouseMoreScreenProps {
   onNavigateToWallet?: (() => void) | undefined;
   onNavigateToBilling?: (() => void) | undefined;
   onNavigateToReturns?: (() => void) | undefined;
+  onNavigateToReturnHistory?: (() => void) | undefined;
   onNavigateToFinance?: (() => void) | undefined;
   onNavigateToReports?: (() => void) | undefined;
   onNavigateToStaff?: (() => void) | undefined;
+  onNavigateToAttendance?: (() => void) | undefined;
   onNavigateToSettings?: (() => void) | undefined;
+  onNavigateToWarehouseOperations?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
 }
 
@@ -550,10 +584,13 @@ export function SubWarehouseMoreScreen({
   onNavigateToWallet,
   onNavigateToBilling,
   onNavigateToReturns,
+  onNavigateToReturnHistory,
   onNavigateToFinance,
   onNavigateToReports,
   onNavigateToStaff,
+  onNavigateToAttendance,
   onNavigateToSettings,
+  onNavigateToWarehouseOperations,
   onLogout,
 }: SubWarehouseMoreScreenProps) {
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
@@ -603,6 +640,10 @@ export function SubWarehouseMoreScreen({
         if (onNavigateToReturns) onNavigateToReturns();
         else Alert.alert(item.title, 'Opening Returns & Issues...');
         break;
+      case 'return_history':
+        if (onNavigateToReturnHistory) onNavigateToReturnHistory();
+        else Alert.alert(item.title, 'Opening Return History...');
+        break;
       case 'finance':
         if (onNavigateToFinance) {
           onNavigateToFinance();
@@ -625,6 +666,11 @@ export function SubWarehouseMoreScreen({
         if (onNavigateToStaff) onNavigateToStaff();
         else Alert.alert(item.title, 'Opening Warehouse Staff...');
         break;
+      case 'attendance':
+      case 'today_attendance':
+        if (onNavigateToAttendance) onNavigateToAttendance();
+        else Alert.alert(item.title, "Opening Today's Attendance...");
+        break;
       case 'profile':
         if (onNavigateToProfile) onNavigateToProfile();
         else Alert.alert(item.title, 'Opening Warehouse Profile...');
@@ -638,6 +684,10 @@ export function SubWarehouseMoreScreen({
         break;
       case 'help':
         Alert.alert('Help & Support', 'Contacting Tohfa Sub-Warehouse Support: support@tohfa.com | +91 98765 43210');
+        break;
+      case 'warehouse_operations':
+        if (onNavigateToWarehouseOperations) onNavigateToWarehouseOperations();
+        else Alert.alert(item.title, 'Opening Warehouse Operations...');
         break;
       default:
         Alert.alert(item.title, `Opening ${item.title}...`);
@@ -684,12 +734,16 @@ export function SubWarehouseMoreScreen({
         return <NotificationsIcon color={PALETTE.iconColor} size={20} />;
       case 'staff':
         return <StaffIcon color={PALETTE.iconColor} size={20} />;
+      case 'attendance':
+        return <AttendanceIcon color={PALETTE.iconColor} />;
       case 'profile':
         return <WarehouseProfileIcon color={PALETTE.iconColor} size={20} />;
       case 'settings':
         return <SettingsIcon color={PALETTE.iconColor} size={20} />;
       case 'help':
         return <HelpSupportIcon color={PALETTE.iconColor} size={20} />;
+      case 'warehouse_operations':
+        return <WarehouseOperationsIcon color={PALETTE.iconColor} />;
       default:
         return <WarehouseOutlineIcon color={PALETTE.iconColor} size={20} />;
     }

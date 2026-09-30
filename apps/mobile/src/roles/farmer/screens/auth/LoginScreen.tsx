@@ -205,25 +205,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
 
     // Direct role mappings for demo accounts
     if (cMobile.endsWith('9800000001') || cMobile.endsWith('11223')) {
-      try { await loginWithPassword({ mobile: cMobile, password, roleCode: 'SUPER_ADMIN' }); } catch {}
+      loginWithPassword({ mobile: cMobile, password, roleCode: 'SUPER_ADMIN' }).catch(() => {});
       setLoading(false);
       onNavigate('AdminMain', { adminRole: 'SUPER_ADMIN' });
       return;
     }
     if (cMobile.endsWith('9800000002') || cMobile.endsWith('22334')) {
-      try { await loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }); } catch {}
+      loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }).catch(() => {});
       setLoading(false);
       onNavigate('AdminMain', { adminRole: 'TOHFA_ADMIN' });
       return;
     }
     if (cMobile.endsWith('9800000003') || cMobile.endsWith('33445')) {
-      try { await loginWithPassword({ mobile: cMobile, password, roleCode: 'FARMER_ADMIN' }); } catch {}
+      loginWithPassword({ mobile: cMobile, password, roleCode: 'FARMER_ADMIN' }).catch(() => {});
       setLoading(false);
       onNavigate('AdminMain', { adminRole: 'FARMER_ADMIN' });
       return;
     }
     if (cMobile.endsWith('9800000004') || cMobile.endsWith('44556')) {
-      try { await loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }); } catch {}
+      loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }).catch(() => {});
       setLoading(false);
       onNavigate('AdminMain', { adminRole: 'TOHFA_ADMIN' });
       return;
@@ -235,7 +235,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       cMobile.toLowerCase().includes('ooty') ||
       cMobile.endsWith('0005')
     ) {
-      try { await loginWithPassword({ mobile: cMobile, password, roleCode: 'MAIN_WH_ADMIN' }); } catch {}
+      loginWithPassword({ mobile: cMobile, password, roleCode: 'MAIN_WH_ADMIN' }).catch(() => {});
       setLoading(false);
       onNavigate('AdminMain', { adminRole: 'MAIN_WH_ADMIN' });
       return;
@@ -247,7 +247,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       cMobile.toLowerCase().includes('coonoor') ||
       cMobile.endsWith('0006')
     ) {
-      try { await loginWithPassword({ mobile: cMobile, password, roleCode: 'SUB_WH_ADMIN' }); } catch {}
+      loginWithPassword({ mobile: cMobile, password, roleCode: 'SUB_WH_ADMIN' }).catch(() => {});
       setLoading(false);
       onNavigate('AdminMain', { adminRole: 'SUB_WH_ADMIN' });
       return;

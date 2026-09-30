@@ -147,8 +147,41 @@ import {
   SubWarehouseHorecaSalesScreen,
   SubWarehouseB2BSalesScreen,
   SubWarehouseWalletOperationsScreen,
+  SubWarehouseCashTopUpScreen,
+  SubWarehouseFiscalTagScreen,
+  SubWarehouseConfirmCashTopUpScreen,
+  SubWarehouseCustomerSearchScreen,
+  SubWarehouseCustomerWalletScreen,
+  SubWarehouseTopUpHistoryScreen,
+  SubWarehouseDailyCashSummaryScreen,
+  SubWarehouseTopUpDetailsScreen,
+  SubWarehouseTransactionDetailScreen,
+  SubWarehouseTopUpSuccessScreen,
   SubWarehouseNeedsAttentionScreen,
+  SubWarehouseWalletAttentionScreen,
   SubWarehouseMoreScreen,
+  SubWarehouseReturnsIssuesScreen,
+  SubWarehouseRmaDetailScreen,
+  SubWarehouseInspectProductScreen,
+  SubWarehouseReviewReturnRequestScreen,
+  SubWarehouseRejectReturnRequestScreen,
+  SubWarehouseRequestRejectedScreen,
+  SubWarehouseApproveReturnScreen,
+  SubWarehouseReturnApprovedScreen,
+  SubWarehouseRefundStatusScreen,
+  SubWarehouseRefundFailedScreen,
+  SubWarehouseRefundCompletedScreen,
+  SubWarehouseReturnHistoryScreen,
+  SubWarehouseReturnHistoryDetailScreen,
+  SubWarehouseRmaResolutionSuccessScreen,
+  SubWarehouseStaffScreen,
+  SubWarehouseStaffDetailScreen,
+  SubWarehouseAttendanceScreen,
+  SubWarehouseTodayAttendanceScreen,
+  SubWarehouseAttendanceHistoryScreen,
+  type StaffMember,
+  INITIAL_RMA_ITEMS,
+  type RmaRecord,
   AuditCalendarScreen,
   type AuditEntry,
   ScheduleNewAuditScreen,
@@ -264,7 +297,37 @@ export type ScreenName =
   | 'SubWarehouseHorecaSales'
   | 'SubWarehouseB2BSales'
   | 'SubWarehouseWalletOperations'
+  | 'SubWarehouseCashTopUp'
+  | 'SubWarehouseConfirmCashTopUp'
+  | 'SubWarehouseCustomerSearch'
+  | 'SubWarehouseTopUpHistory'
+  | 'SubWarehouseDailyCashSummary'
+  | 'SubWarehouseTopUpDetails'
+  | 'SubWarehouseCustomerWallet'
+  | 'SubWarehouseFiscalTag'
+  | 'SubWarehouseTransactionDetail'
+  | 'SubWarehouseTopUpSuccess'
   | 'SubWarehouseNeedsAttention'
+  | 'SubWarehouseWalletAttention'
+  | 'SubWarehouseReturnsIssues'
+  | 'SubWarehouseRmaDetail'
+  | 'SubWarehouseInspectProduct'
+  | 'SubWarehouseReviewReturnRequest'
+  | 'SubWarehouseRejectReturnRequest'
+  | 'SubWarehouseRequestRejected'
+  | 'SubWarehouseApproveReturn'
+  | 'SubWarehouseReturnApproved'
+  | 'SubWarehouseRefundStatus'
+  | 'SubWarehouseRefundFailed'
+  | 'SubWarehouseRefundCompleted'
+  | 'SubWarehouseReturnHistory'
+  | 'SubWarehouseReturnHistoryDetail'
+  | 'SubWarehouseRmaResolutionSuccess'
+  | 'SubWarehouseStaff'
+  | 'SubWarehouseStaffDetail'
+  | 'SubWarehouseAttendance'
+  | 'SubWarehouseTodayAttendance'
+  | 'SubWarehouseAttendanceHistory'
   | 'SubWarehouseMore'
   | 'WarehouseOverview'
   | 'StockLedger'
@@ -1061,11 +1124,18 @@ export default function App(): React.JSX.Element {
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToProfile={() => navigate('SubWarehouseProfile')}
             onNavigateToWallet={() => navigate('SubWarehouseWalletOperations')}
+            onNavigateToReturns={() => navigate('SubWarehouseReturnsIssues')}
+            onNavigateToStaff={() => navigate('SubWarehouseStaff')}
+            onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
           />
         ) : screen === 'SubWarehouseWalletOperations' ? (
           <SubWarehouseWalletOperationsScreen
             warehouseName="Coonoor Warehouse"
             onBack={goBack}
+            onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
+            onNavigateToCustomerSearch={() => navigate('SubWarehouseCustomerSearch')}
+            onNavigateToTopUpHistory={() => navigate('SubWarehouseTopUpHistory')}
+            onNavigateToDailySummary={() => navigate('SubWarehouseDailyCashSummary')}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
@@ -1074,6 +1144,338 @@ export default function App(): React.JSX.Element {
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToProfile={() => navigate('SubWarehouseProfile')}
+          />
+        ) : screen === 'SubWarehouseCustomerWallet' ? (
+          <SubWarehouseCustomerWalletScreen
+            customer={{
+              name: typeof params['name'] === 'string' ? params['name'] : 'Ravi Kumar',
+              id: typeof params['id'] === 'string' ? params['id'] : 'CUS-001245',
+              mobile: typeof params['mobile'] === 'string' ? params['mobile'] : '+91 XXXXX XXXXX',
+              balance: typeof params['balance'] === 'string'
+                ? (params['balance'].includes('.00') ? params['balance'] : `${params['balance']}.00`)
+                : '₹4,500.00',
+              totalCredited: '₹25,000',
+              totalUsed: '₹20,500',
+            }}
+            onBack={goBack}
+            onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp', params)}
+            onNavigateToTransactionDetail={(tx) => navigate('SubWarehouseTransactionDetail', tx as any)}
+          />
+        ) : screen === 'SubWarehouseTransactionDetail' ? (
+          <SubWarehouseTransactionDetailScreen
+            details={params as any}
+            onBack={goBack}
+          />
+        ) : screen === 'SubWarehouseCashTopUp' ? (
+          <SubWarehouseCashTopUpScreen
+            warehouseName="Coonoor Warehouse"
+            processedBy="SWA Name"
+            onBack={goBack}
+            onContinue={(data) => {
+              navigate('SubWarehouseFiscalTag', {
+                customerName: data.customerName,
+                customerCode: data.customerCode,
+                currentBalance: data.currentBalance,
+                topUpAmount: data.topUpAmount,
+                warehouseName: data.warehouseName,
+                processedBy: data.processedBy,
+                fiscalCashTag: 'FC-20260925-0012',
+              });
+            }}
+          />
+        ) : screen === 'SubWarehouseFiscalTag' ? (
+          <SubWarehouseFiscalTagScreen
+            initialData={{
+              customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Ravi Kumar',
+              customerId: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-001245',
+              currentBalance: typeof params['currentBalance'] === 'number' ? params['currentBalance'] : 4500,
+              topUpAmount: typeof params['topUpAmount'] === 'number' ? params['topUpAmount'] : 2000,
+              warehouseName: typeof params['warehouseName'] === 'string' ? params['warehouseName'] : 'Coonoor Warehouse',
+              processedBy: typeof params['processedBy'] === 'string' ? params['processedBy'] : 'SWA – Suresh',
+              fiscalCashTag: typeof params['fiscalCashTag'] === 'string' ? params['fiscalCashTag'] : 'FC-20260925-0012',
+            }}
+            onBack={goBack}
+            onReviewTopUp={(tagData) => {
+              navigate('SubWarehouseConfirmCashTopUp', {
+                ...params,
+                fiscalCashTag: tagData.fiscalCashTag || 'FC-20260925-0012',
+                dateStr: '25 Sep 2026',
+                timeStr: '10:42 AM',
+              });
+            }}
+          />
+        ) : screen === 'SubWarehouseConfirmCashTopUp' ? (
+          <SubWarehouseConfirmCashTopUpScreen
+            details={{
+              customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Ravi Kumar',
+              customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-001245',
+              currentBalance: typeof params['currentBalance'] === 'number' ? params['currentBalance'] : 4500,
+              topUpAmount: typeof params['topUpAmount'] === 'number' ? params['topUpAmount'] : 2000,
+              warehouseName: typeof params['warehouseName'] === 'string' ? params['warehouseName'] : 'Coonoor Warehouse',
+              processedBy: typeof params['processedBy'] === 'string' ? params['processedBy'] : 'SWA – Suresh',
+              fiscalCashTag: typeof params['fiscalCashTag'] === 'string' ? params['fiscalCashTag'] : 'FC-20260925-0012',
+              dateStr: typeof params['dateStr'] === 'string' ? params['dateStr'] : '25 Sep 2026',
+              timeStr: typeof params['timeStr'] === 'string' ? params['timeStr'] : '10:42 AM',
+            }}
+            onBack={goBack}
+            onSuccess={() => {
+              navigate('SubWarehouseWalletOperations');
+            }}
+          />
+        ) : screen === 'SubWarehouseCustomerSearch' ? (
+          <SubWarehouseCustomerSearchScreen
+            onBack={goBack}
+            onNavigateToWallet={(cust) => {
+              navigate('SubWarehouseCustomerWallet', {
+                name: cust.name,
+                id: cust.code,
+                mobile: cust.phone || '+91 98765 43210',
+                balance: cust.balance,
+              });
+            }}
+            onSelectCustomer={(cust) => {
+              navigate('SubWarehouseCustomerWallet', {
+                name: cust.name,
+                id: cust.code,
+                mobile: cust.phone || '+91 98765 43210',
+                balance: cust.balance,
+              });
+            }}
+            onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
+          />
+        ) : screen === 'SubWarehouseTopUpHistory' ? (
+          <SubWarehouseTopUpHistoryScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+          />
+        ) : screen === 'SubWarehouseDailyCashSummary' ? (
+          <SubWarehouseDailyCashSummaryScreen
+            onBack={goBack}
+            onViewTopUpHistory={() => navigate('SubWarehouseTopUpHistory')}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+          />
+        ) : screen === 'SubWarehouseTopUpDetails' ? (
+          <SubWarehouseTopUpDetailsScreen
+            details={params['topUpDetails'] as any}
+            onBack={goBack}
+          />
+        ) : screen === 'SubWarehouseTopUpSuccess' ? (
+          <SubWarehouseTopUpSuccessScreen
+            data={params['topUpSuccess'] as any}
+            onBack={goBack}
+            onDone={() => navigate('SubWarehouseWalletOperations')}
+            onViewTransaction={(data) => {
+              navigate('SubWarehouseTopUpDetails', {
+                topUpDetails: {
+                  customerName: data.customerName,
+                  customerId: 'CUS-001245',
+                  previousBalance: '₹4,500',
+                  topUpAmount: data.topUpAmount,
+                  newBalance: data.walletBalance,
+                  transactionId: data.transactionId,
+                  status: 'Completed',
+                  type: 'Cash Top-Up',
+                  fiscalCashTag: data.fiscalCashTag,
+                  dateTime: data.dateTime,
+                  createdBy: 'SWA – Suresh',
+                  createdAt: data.dateTime,
+                  warehouse: 'Coonoor',
+                } as any,
+              });
+            }}
+          />
+        ) : screen === 'SubWarehouseWalletAttention' ? (
+          <SubWarehouseWalletAttentionScreen
+            initialCategory={(params['category'] as any) || 'all'}
+            onBack={goBack}
+            onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
+          />
+        ) : screen === 'SubWarehouseReturnsIssues' ? (
+          <SubWarehouseReturnsIssuesScreen
+            warehouseName="Coonoor Warehouse"
+            onBack={goBack}
+            onSelectRma={(rma) => navigate('SubWarehouseRmaDetail', { rma: rma as any })}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+            onNavigateToHistory={() => navigate('SubWarehouseReturnHistory')}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+          />
+        ) : screen === 'SubWarehouseRmaDetail' ? (
+          <SubWarehouseRmaDetailScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onBack={goBack}
+            onInspectProduct={(rma) => navigate('SubWarehouseInspectProduct', { rma: rma as any })}
+          />
+        ) : screen === 'SubWarehouseInspectProduct' ? (
+          <SubWarehouseInspectProductScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onBack={goBack}
+            onContinueToReview={(inspectionData) => {
+              navigate('SubWarehouseReviewReturnRequest', {
+                rma: inspectionData.rma as any,
+                inspectedQty: inspectionData.receivedQty,
+                notes: inspectionData.notes,
+              });
+            }}
+          />
+        ) : screen === 'SubWarehouseReviewReturnRequest' ? (
+          <SubWarehouseReviewReturnRequestScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            inspectedQty={typeof params['inspectedQty'] === 'string' ? params['inspectedQty'] : '1.8 KG'}
+            inspectionNotes={typeof params['notes'] === 'string' ? params['notes'] : 'Product partially damaged...'}
+            onBack={goBack}
+            onApprove={(rma) => {
+              navigate('SubWarehouseApproveReturn', { rma: rma as any });
+            }}
+            onReject={(rma) => {
+              navigate('SubWarehouseRejectReturnRequest', { rma: rma as any });
+            }}
+          />
+        ) : screen === 'SubWarehouseApproveReturn' ? (
+          <SubWarehouseApproveReturnScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onBack={goBack}
+            onConfirmApprove={(rma) => {
+              navigate('SubWarehouseReturnApproved', { rma: rma as any });
+            }}
+          />
+        ) : screen === 'SubWarehouseRejectReturnRequest' ? (
+          <SubWarehouseRejectReturnRequestScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onBack={goBack}
+            onRejectSuccess={(data) => {
+              navigate('SubWarehouseRequestRejected', { rma: data.rma as any, reason: data.reason });
+            }}
+          />
+        ) : screen === 'SubWarehouseRequestRejected' ? (
+          <SubWarehouseRequestRejectedScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onDone={() => navigate('SubWarehouseReturnsIssues')}
+          />
+        ) : screen === 'SubWarehouseReturnApproved' ? (
+          <SubWarehouseReturnApprovedScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onBack={goBack}
+            onGoToRefundStatus={(rma) => {
+              navigate('SubWarehouseRefundStatus', { rma: rma as any });
+            }}
+          />
+        ) : screen === 'SubWarehouseRefundStatus' ? (
+          <SubWarehouseRefundStatusScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            refundAmount="₹200.00"
+            onBack={goBack}
+            onConfirmSuccess={(data) => {
+              navigate('SubWarehouseRefundCompleted', {
+                rma: data.rma as any,
+                refundAmount: data.refundAmount,
+              });
+            }}
+            onSimulateFailure={(rma) => {
+              navigate('SubWarehouseRefundFailed', { rma: rma as any });
+            }}
+          />
+        ) : screen === 'SubWarehouseRefundCompleted' ? (
+          <SubWarehouseRefundCompletedScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            refundAmount={typeof params['refundAmount'] === 'string' ? params['refundAmount'] : '₹200'}
+            transactionId="REF-2026-001245"
+            onBack={() => navigate('SubWarehouseReturnsIssues')}
+          />
+        ) : screen === 'SubWarehouseReturnHistory' ? (
+          <SubWarehouseReturnHistoryScreen
+            onBack={goBack}
+            onSelectRecord={(rec) => navigate('SubWarehouseReturnHistoryDetail', { record: rec as any })}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseReturnsIssues');
+            }}
+          />
+        ) : screen === 'SubWarehouseReturnHistoryDetail' ? (
+          <SubWarehouseReturnHistoryDetailScreen
+            record={params['record'] as any}
+            onBack={goBack}
+          />
+        ) : screen === 'SubWarehouseRefundFailed' ? (
+          <SubWarehouseRefundFailedScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            onBack={goBack}
+          />
+        ) : screen === 'SubWarehouseRmaResolutionSuccess' ? (
+          <SubWarehouseRmaResolutionSuccessScreen
+            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
+            status={(params['status'] as any) || 'Approved'}
+            approvedQty={typeof params['approvedQty'] === 'string' ? params['approvedQty'] : '1.8 KG'}
+            refundAmount={typeof params['refundAmount'] === 'string' ? params['refundAmount'] : '₹180.00'}
+            onViewReturnsList={() => navigate('SubWarehouseReturnsIssues')}
+            onBackToMore={() => navigate('SubWarehouseMore')}
+          />
+        ) : screen === 'SubWarehouseStaff' ? (
+          <SubWarehouseStaffScreen
+            onBack={goBack}
+            onSelectStaff={(staff) => navigate('SubWarehouseStaffDetail', { staff: staff as any })}
+            onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
+            onNavigateToTodayAttendance={() => navigate('SubWarehouseTodayAttendance')}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+          />
+        ) : screen === 'SubWarehouseStaffDetail' ? (
+          <SubWarehouseStaffDetailScreen
+            staff={params['staff'] as any}
+            onBack={goBack}
+            onViewAttendance={() => navigate('SubWarehouseAttendance', { staff: params['staff'] as any })}
+          />
+        ) : screen === 'SubWarehouseAttendance' ? (
+          <SubWarehouseAttendanceScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+          />
+        ) : screen === 'SubWarehouseTodayAttendance' ? (
+          <SubWarehouseTodayAttendanceScreen
+            onBack={goBack}
+            onNavigateToHistory={() => navigate('SubWarehouseAttendanceHistory')}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+          />
+        ) : screen === 'SubWarehouseAttendanceHistory' ? (
+          <SubWarehouseAttendanceHistoryScreen
+            onBack={goBack}
+            onNavigateToToday={() => navigate('SubWarehouseTodayAttendance')}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
           />
         ) : screen === 'WarehouseOverview' ? (
           <WarehouseOverviewScreen
