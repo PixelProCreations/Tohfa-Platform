@@ -6,34 +6,35 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
+import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
+import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
+import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
   primaryDark:   '#D4451B',
   primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  peachBg:       '#FDF0EB',
+  iconColor:     '#8B5E3C',
 
   pageBg:        '#FAF7F2',
   cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#6B7280',
+  textDark:      '#1E1612',
+  textSecondary: '#7A726C',
   textMuted:     '#9CA3AF',
   border:        '#EBE5DC',
   divider:       '#F4EFE9',
 
-  amberText:     '#B45309',
-  redText:       '#DC2626',
-  greenText:     '#15803D',
-  blueText:      '#1D4ED8',
+  activeGreen:   '#059669',
+  logoutBg:      '#FEE2E2',
+  logoutText:    '#DC2626',
   tabInactive:   '#786F66',
   tabBorder:     '#EAE4DB',
 };
@@ -44,9 +45,9 @@ export interface MoreOptionItem {
   id: string;
   title: string;
   subtitle: string;
-  badge?: string;
-  badgeType?: 'default' | 'alert' | 'success' | 'info' | 'purple' | 'teal';
   iconType:
+    | 'orders'
+    | 'sales'
     | 'customers'
     | 'wallet'
     | 'billing'
@@ -57,10 +58,7 @@ export interface MoreOptionItem {
     | 'staff'
     | 'profile'
     | 'settings'
-    | 'orders'
-    | 'sales';
-  iconBg: string;
-  iconColor: string;
+    | 'help';
 }
 
 export interface OptionGroup {
@@ -71,146 +69,104 @@ export interface OptionGroup {
 
 const OPTION_GROUPS: OptionGroup[] = [
   {
-    id: 'customer_ops',
-    title: 'Customer & Counter Operations',
+    id: 'operations',
+    title: 'OPERATIONS',
     items: [
-      {
-        id: 'customers',
-        title: 'Customers',
-        subtitle: 'Farmers, walk-in buyers, HORECA & B2B accounts',
-        badge: '48 Active',
-        badgeType: 'info',
-        iconType: 'customers',
-        iconBg: '#EEF2FF',
-        iconColor: '#4F46E5',
-      },
-      {
-        id: 'wallet',
-        title: 'Wallet & Cash Top-Up',
-        subtitle: 'Farmer cash deposits, balance lookups & QR top-ups',
-        badge: '₹18,500 Today',
-        badgeType: 'success',
-        iconType: 'wallet',
-        iconBg: '#ECFDF5',
-        iconColor: '#059669',
-      },
-      {
-        id: 'billing',
-        title: 'Billing & Invoices',
-        subtitle: 'Tax invoices, sales receipts & credit notes',
-        badge: '12 Issued',
-        badgeType: 'default',
-        iconType: 'billing',
-        iconBg: '#EFF6FF',
-        iconColor: '#2563EB',
-      },
-      {
-        id: 'returns',
-        title: 'Returns & Issues',
-        subtitle: 'Quality rejections, damage logs & refunds',
-        badge: '2 Pending',
-        badgeType: 'alert',
-        iconType: 'returns',
-        iconBg: '#FFF1F2',
-        iconColor: '#E11D48',
-      },
-    ],
-  },
-  {
-    id: 'finance_intel',
-    title: 'Finance & Analytics',
-    items: [
-      {
-        id: 'finance',
-        title: 'Warehouse Finance',
-        subtitle: 'Daily register closure, collections & petty cash',
-        badge: 'Verified',
-        badgeType: 'success',
-        iconType: 'finance',
-        iconBg: '#FFFBEB',
-        iconColor: '#D97706',
-      },
-      {
-        id: 'reports',
-        title: 'Reports',
-        subtitle: 'Daily throughput summaries, stock audits & sales analysis',
-        badge: 'Daily & MTD',
-        badgeType: 'purple',
-        iconType: 'reports',
-        iconBg: '#FAF5FF',
-        iconColor: '#9333EA',
-      },
-    ],
-  },
-  {
-    id: 'team_ops',
-    title: 'Operations & Team',
-    items: [
-      {
-        id: 'notifications',
-        title: 'Notifications & Tasks',
-        subtitle: 'Warehouse alerts, dispatch reminders & team checklists',
-        badge: '3 Unread',
-        badgeType: 'alert',
-        iconType: 'notifications',
-        iconBg: '#FFF7ED',
-        iconColor: '#EA580C',
-      },
-      {
-        id: 'staff',
-        title: 'Warehouse Staff',
-        subtitle: 'Shift schedules, staff attendance & operator roles',
-        badge: '6 on Duty',
-        badgeType: 'teal',
-        iconType: 'staff',
-        iconBg: '#F0FDFA',
-        iconColor: '#0D9488',
-      },
-    ],
-  },
-  {
-    id: 'system_prefs',
-    title: 'Facility & Account',
-    items: [
-      {
-        id: 'profile',
-        title: 'Warehouse Profile',
-        subtitle: 'Coonoor facility details, operating hours & docs',
-        badge: 'SW-04 Active',
-        badgeType: 'success',
-        iconType: 'profile',
-        iconBg: '#F1F5F9',
-        iconColor: '#475569',
-      },
-      {
-        id: 'settings',
-        title: 'Settings',
-        subtitle: 'Account profile, security, notifications & preferences',
-        badge: 'Config',
-        badgeType: 'default',
-        iconType: 'settings',
-        iconBg: '#F4F4F5',
-        iconColor: '#52525B',
-      },
       {
         id: 'orders',
         title: 'Customer Orders',
-        subtitle: 'Fulfillment queue, packing slips & dispatch statuses',
-        badge: '8 Pending',
-        badgeType: 'alert',
+        subtitle: 'Manage customer orders and fulfillment',
         iconType: 'orders',
-        iconBg: '#FEF3C7',
-        iconColor: '#B45309',
       },
       {
         id: 'sales',
         title: 'Direct / Market Sales',
-        subtitle: 'Point-of-sale registers, stall batches & daily totals',
-        badge: '₹24,850 Today',
-        badgeType: 'success',
+        subtitle: 'Manage direct and market sales',
         iconType: 'sales',
-        iconBg: '#DCFCE7',
-        iconColor: '#15803D',
+      },
+      {
+        id: 'customers',
+        title: 'Customers',
+        subtitle: 'View customers and purchase activity',
+        iconType: 'customers',
+      },
+    ],
+  },
+  {
+    id: 'finance_transactions',
+    title: 'FINANCE & TRANSACTIONS',
+    items: [
+      {
+        id: 'wallet',
+        title: 'Wallet & Cash Top-Up',
+        subtitle: 'Manage customer wallet cash top-ups',
+        iconType: 'wallet',
+      },
+      {
+        id: 'billing',
+        title: 'Billing & Invoices',
+        subtitle: 'View and manage invoices',
+        iconType: 'billing',
+      },
+      {
+        id: 'returns',
+        title: 'Returns & Issues',
+        subtitle: 'Manage returns and warehouse issues',
+        iconType: 'returns',
+      },
+      {
+        id: 'finance',
+        title: 'Warehouse Finance',
+        subtitle: 'View warehouse financial activity',
+        iconType: 'finance',
+      },
+    ],
+  },
+  {
+    id: 'management',
+    title: 'MANAGEMENT',
+    items: [
+      {
+        id: 'reports',
+        title: 'Reports',
+        subtitle: 'View warehouse reports and analytics',
+        iconType: 'reports',
+      },
+      {
+        id: 'notifications',
+        title: 'Notifications & Tasks',
+        subtitle: 'View alerts, notifications and assigned tasks',
+        iconType: 'notifications',
+      },
+      {
+        id: 'staff',
+        title: 'Warehouse Staff',
+        subtitle: 'View warehouse staff and attendance',
+        iconType: 'staff',
+      },
+      {
+        id: 'profile',
+        title: 'Warehouse Profile',
+        subtitle: 'View assigned warehouse information',
+        iconType: 'profile',
+      },
+    ],
+  },
+  {
+    id: 'account_settings',
+    title: 'ACCOUNT & SETTINGS',
+    items: [
+      {
+        id: 'settings',
+        title: 'Settings',
+        subtitle: 'Manage account and application settings',
+        iconType: 'settings',
+      },
+      {
+        id: 'help',
+        title: 'Help & Support',
+        subtitle: 'Get help and contact support',
+        iconType: 'help',
       },
     ],
   },
@@ -218,11 +174,11 @@ const OPTION_GROUPS: OptionGroup[] = [
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M12 19l-7-7 7-7"
+        d="M18 6L6 18M6 6l12 12"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -232,50 +188,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function GridMenuHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="7" height="7" rx="2" stroke={color} strokeWidth="2.2" />
-      <Rect x="14" y="3" width="7" height="7" rx="2" stroke={color} strokeWidth="2.2" />
-      <Rect x="3" y="14" width="7" height="7" rx="2" stroke={color} strokeWidth="2.2" />
-      <Rect x="14" y="14" width="7" height="7" rx="2" stroke={color} strokeWidth="2.2" />
-    </Svg>
-  );
-}
-
-function LockBadgeIcon() {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke="#FFFFFF" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BellHeaderIcon() {
-  return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
-        stroke="#FFFFFF"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SearchIcon({ size = 16, color = '#9CA3AF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" />
-      <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ChevronRightIcon({ size = 18, color = '#C2BBB2' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 16, color = '#8B5E3C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -289,94 +202,207 @@ function ChevronRightIcon({ size = 18, color = '#C2BBB2' }: { size?: number; col
   );
 }
 
-function CustomersIcon({ color = '#4F46E5' }: { color?: string }) {
+function WarehouseOutlineIcon({ color = '#8B5E3C', size = 22 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
-      <Path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 21v-7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v7"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M10 17h4"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
 
-function WalletIcon({ color = '#059669' }: { color?: string }) {
+function CustomerOrdersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 3H4a2 2 0 0 0-2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Rect x="9" y="3" width="6" height="4" rx="1.5" stroke={color} strokeWidth="2" />
+      <Path d="M9 12h6M9 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MarketSalesIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 8h16M7 4h10v4H7zM3 12h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="8" cy="16" r="1" fill={color} />
+      <Circle cx="12" cy="16" r="1" fill={color} />
+      <Circle cx="16" cy="16" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+function CustomersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path
+        d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function WalletIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 3H4a2 2 0 0 0-2 2v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <Circle cx="16" cy="14" r="1.5" fill={color} />
     </Svg>
   );
 }
 
-function BillingInvoiceIcon({ color = '#2563EB' }: { color?: string }) {
+function InvoicesIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function ReturnsIssuesIcon({ color = '#E11D48' }: { color?: string }) {
+function ReturnsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M21 3v5h-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 16H3v5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="2" />
+      <Path
+        d="M14 12H9m0 0l2.5-2.5M9 12l2.5 2.5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function FinanceIcon({ color = '#D97706' }: { color?: string }) {
+function FinanceIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M12 3L2 10h20L12 3z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function ReportsIcon({ color = '#9333EA' }: { color?: string }) {
+function ReportsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 20V10M12 20V4M6 20v-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 20h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Path
+        d="M8 17v-4M12 17V8M16 17v-6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function NotificationsTasksIcon({ color = '#EA580C' }: { color?: string }) {
+function NotificationsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 11l3 3L22 4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function StaffIcon({ color = '#0D9488' }: { color?: string }) {
+function StaffIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
-      <Path d="M22 11l-3 3-2-2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="5" width="16" height="15" rx="2" stroke={color} strokeWidth="2" />
+      <Circle cx="12" cy="11" r="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M8 17a4 4 0 0 1 8 0" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M9 2h6" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function WarehouseProfileIcon({ color = '#475569' }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
+function WarehouseProfileIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+  return <WarehouseOutlineIcon color={color} size={size} />;
 }
 
-function SettingsModuleIcon({ color = '#52525B' }: { color?: string }) {
+function SettingsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
       <Path
         d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
@@ -389,18 +415,39 @@ function SettingsModuleIcon({ color = '#52525B' }: { color?: string }) {
   );
 }
 
-function OrdersIcon({ color = '#B45309' }: { color?: string }) {
+function HelpSupportIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6M9 12h6M9 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path
+        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="17" r="0.75" fill={color} />
     </Svg>
   );
 }
 
-function SalesIcon({ color = '#15803D' }: { color?: string }) {
+function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 7h16M7 3h10v4H7zM3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9zM7 15h2M11 15h2M15 15h2M7 18h10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -409,8 +456,20 @@ function HomeTabIcon({ active }: { active: boolean }) {
   const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 21v-7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v7"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -419,8 +478,14 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
   const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="4" y="4" width="16" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path
+        d="M12 8v8M8 12l4 4 4-4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -429,8 +494,8 @@ function InventoryTabIcon({ active }: { active: boolean }) {
   const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -492,7 +557,9 @@ export function SubWarehouseMoreScreen({
   onLogout,
 }: SubWarehouseMoreScreenProps) {
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showReportsScreen, setShowReportsScreen] = useState(false);
+  const [showFinanceScreen, setShowFinanceScreen] = useState(false);
+  const [showVouchersScreen, setShowVouchersScreen] = useState(false);
 
   const handleTabPress = (tab: SubWHTab) => {
     if (tab === 'More') return;
@@ -509,29 +576,46 @@ export function SubWarehouseMoreScreen({
     }
 
     switch (item.id) {
+      case 'orders':
+        if (onNavigateToOrders) onNavigateToOrders();
+        else Alert.alert(item.title, 'Opening Customer Orders & Fulfillment...');
+        break;
+      case 'sales':
+        if (onNavigateToSales) onNavigateToSales();
+        else Alert.alert(item.title, 'Opening Direct / Market Sales...');
+        break;
       case 'customers':
         if (onNavigateToCustomers) onNavigateToCustomers();
-        else Alert.alert(item.title, 'Opening Customer List...');
+        else Alert.alert(item.title, 'Opening Customers Directory...');
         break;
       case 'wallet':
         if (onNavigateToWallet) onNavigateToWallet();
-        else Alert.alert(item.title, 'Opening Wallet & Cash Top-Up Operations...');
+        else Alert.alert(item.title, 'Opening Wallet & Cash Top-Up...');
         break;
       case 'billing':
-        if (onNavigateToBilling) onNavigateToBilling();
-        else Alert.alert(item.title, 'Opening Invoices & Billing Dashboard...');
+        if (onNavigateToBilling) {
+          onNavigateToBilling();
+        } else {
+          setShowVouchersScreen(true);
+        }
         break;
       case 'returns':
         if (onNavigateToReturns) onNavigateToReturns();
-        else Alert.alert(item.title, 'Opening Returns & Issues Management...');
+        else Alert.alert(item.title, 'Opening Returns & Issues...');
         break;
       case 'finance':
-        if (onNavigateToFinance) onNavigateToFinance();
-        else Alert.alert(item.title, 'Opening Warehouse Finance...');
+        if (onNavigateToFinance) {
+          onNavigateToFinance();
+        } else {
+          setShowFinanceScreen(true);
+        }
         break;
       case 'reports':
-        if (onNavigateToReports) onNavigateToReports();
-        else Alert.alert(item.title, 'Opening Warehouse Reports & Audits...');
+        if (onNavigateToReports) {
+          onNavigateToReports();
+        } else {
+          setShowReportsScreen(true);
+        }
         break;
       case 'notifications':
         if (onNavigateToNotifications) onNavigateToNotifications();
@@ -539,7 +623,7 @@ export function SubWarehouseMoreScreen({
         break;
       case 'staff':
         if (onNavigateToStaff) onNavigateToStaff();
-        else Alert.alert(item.title, 'Opening Warehouse Staff Directory...');
+        else Alert.alert(item.title, 'Opening Warehouse Staff...');
         break;
       case 'profile':
         if (onNavigateToProfile) onNavigateToProfile();
@@ -552,78 +636,63 @@ export function SubWarehouseMoreScreen({
           setShowSettingsScreen(true);
         }
         break;
-      case 'orders':
-        if (onNavigateToOrders) onNavigateToOrders();
-        else Alert.alert(item.title, 'Opening Customer Orders...');
-        break;
-      case 'sales':
-        if (onNavigateToSales) onNavigateToSales();
-        else Alert.alert(item.title, 'Opening Sales Dashboard...');
+      case 'help':
+        Alert.alert('Help & Support', 'Contacting Tohfa Sub-Warehouse Support: support@tohfa.com | +91 98765 43210');
         break;
       default:
         Alert.alert(item.title, `Opening ${item.title}...`);
     }
   };
 
-  const renderOptionIcon = (type: MoreOptionItem['iconType'], color: string) => {
-    switch (type) {
-      case 'customers':
-        return <CustomersIcon color={color} />;
-      case 'wallet':
-        return <WalletIcon color={color} />;
-      case 'billing':
-        return <BillingInvoiceIcon color={color} />;
-      case 'returns':
-        return <ReturnsIssuesIcon color={color} />;
-      case 'finance':
-        return <FinanceIcon color={color} />;
-      case 'reports':
-        return <ReportsIcon color={color} />;
-      case 'notifications':
-        return <NotificationsTasksIcon color={color} />;
-      case 'staff':
-        return <StaffIcon color={color} />;
-      case 'profile':
-        return <WarehouseProfileIcon color={color} />;
-      case 'settings':
-        return <SettingsModuleIcon color={color} />;
-      case 'orders':
-        return <OrdersIcon color={color} />;
-      case 'sales':
-        return <SalesIcon color={color} />;
-      default:
-        return <GridMenuHeaderIcon size={20} color={color} />;
-    }
+  const handleLogoutPress = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to sign out of this account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => {
+            if (onLogout) onLogout();
+            else if (onBack) onBack();
+          },
+        },
+      ]
+    );
   };
 
-  const renderBadge = (badgeText?: string, type?: MoreOptionItem['badgeType']) => {
-    if (!badgeText) return null;
-
-    let bg = '#F3F4F6';
-    let textCol = '#4B5563';
-
-    if (type === 'alert') {
-      bg = '#FEE2E2';
-      textCol = '#DC2626';
-    } else if (type === 'success') {
-      bg = '#DCFCE7';
-      textCol = '#15803D';
-    } else if (type === 'info') {
-      bg = '#EEF2FF';
-      textCol = '#4338CA';
-    } else if (type === 'purple') {
-      bg = '#F3E8FF';
-      textCol = '#7E22CE';
-    } else if (type === 'teal') {
-      bg = '#CCFBF1';
-      textCol = '#0F766E';
+  const renderOptionIcon = (type: MoreOptionItem['iconType']) => {
+    switch (type) {
+      case 'orders':
+        return <CustomerOrdersIcon color={PALETTE.iconColor} size={20} />;
+      case 'sales':
+        return <MarketSalesIcon color={PALETTE.iconColor} size={20} />;
+      case 'customers':
+        return <CustomersIcon color={PALETTE.iconColor} size={20} />;
+      case 'wallet':
+        return <WalletIcon color={PALETTE.iconColor} size={20} />;
+      case 'billing':
+        return <InvoicesIcon color={PALETTE.iconColor} size={20} />;
+      case 'returns':
+        return <ReturnsIcon color={PALETTE.iconColor} size={20} />;
+      case 'finance':
+        return <FinanceIcon color={PALETTE.iconColor} size={20} />;
+      case 'reports':
+        return <ReportsIcon color={PALETTE.iconColor} size={20} />;
+      case 'notifications':
+        return <NotificationsIcon color={PALETTE.iconColor} size={20} />;
+      case 'staff':
+        return <StaffIcon color={PALETTE.iconColor} size={20} />;
+      case 'profile':
+        return <WarehouseProfileIcon color={PALETTE.iconColor} size={20} />;
+      case 'settings':
+        return <SettingsIcon color={PALETTE.iconColor} size={20} />;
+      case 'help':
+        return <HelpSupportIcon color={PALETTE.iconColor} size={20} />;
+      default:
+        return <WarehouseOutlineIcon color={PALETTE.iconColor} size={20} />;
     }
-
-    return (
-      <View style={[styles.badgePill, { backgroundColor: bg }]}>
-        <Text style={[styles.badgeText, { color: textCol }]}>{badgeText}</Text>
-      </View>
-    );
   };
 
   if (showSettingsScreen) {
@@ -635,7 +704,36 @@ export function SubWarehouseMoreScreen({
     );
   }
 
-  const query = searchQuery.trim().toLowerCase();
+  if (showReportsScreen) {
+    return (
+      <SubWarehouseReportsScreen
+        onBack={() => setShowReportsScreen(false)}
+        onTabChange={onTabChange}
+        onNavigateToNotifications={onNavigateToNotifications}
+      />
+    );
+  }
+
+  if (showVouchersScreen) {
+    return (
+      <SubWarehouseVouchersScreen
+        warehouseName="Coonoor Warehouse"
+        onBack={() => setShowVouchersScreen(false)}
+        onTabChange={onTabChange}
+      />
+    );
+  }
+
+  if (showFinanceScreen) {
+    return (
+      <SubWarehouseFinanceScreen
+        onBack={() => setShowFinanceScreen(false)}
+        onTabChange={onTabChange}
+        onNavigateToNotifications={onNavigateToNotifications}
+        onNavigateToReports={onNavigateToReports}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -643,46 +741,22 @@ export function SubWarehouseMoreScreen({
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerLeftGroup}>
-            {onBack && (
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={onBack}
-                activeOpacity={0.75}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
-            <View style={styles.headerTitleRow}>
-              <GridMenuHeaderIcon size={22} color="#FFFFFF" />
-              <Text style={styles.headerTitleText}>More Options</Text>
-            </View>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTextCol}>
+            <Text style={styles.headerTitle}>More</Text>
+            <Text style={styles.headerSubtitle}>Coonoor Warehouse</Text>
           </View>
 
           <TouchableOpacity
-            style={styles.headerBellBtn}
+            style={styles.closeButton}
             onPress={() => {
-              if (onNavigateToNotifications) {
-                onNavigateToNotifications();
-              } else {
-                Alert.alert('Notifications', 'You have 3 unread warehouse notifications.');
-              }
+              if (onBack) onBack();
             }}
-            activeOpacity={0.8}
+            activeOpacity={0.75}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <BellHeaderIcon />
-            <View style={styles.notifBadgeDot} />
+            <CloseIcon size={18} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
-
-        {/* Warehouse Subtitle Pill */}
-        <View style={styles.warehouseBadgeRow}>
-          <View style={styles.warehouseBadge}>
-            <LockBadgeIcon />
-            <Text style={styles.warehouseBadgeText}>Coonoor Warehouse</Text>
-          </View>
         </View>
       </View>
 
@@ -692,77 +766,38 @@ export function SubWarehouseMoreScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Quick Summary Chips */}
-        <View style={styles.quickMetricsRow}>
-          <TouchableOpacity
-            style={styles.metricChip}
-            onPress={() => onNavigateToCustomers ? onNavigateToCustomers() : Alert.alert('Customers', '48 Active Registered Customers')}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricVal}>48</Text>
-            <Text style={styles.metricLabel}>Customers</Text>
-          </TouchableOpacity>
+        {/* ─── Profile / Sub Warehouse Admin Card ─── */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileTopRow}>
+            <View style={styles.profileIconWrap}>
+              <WarehouseOutlineIcon color={PALETTE.iconColor} size={22} />
+            </View>
+            <View style={styles.profileInfoCol}>
+              <Text style={styles.profileRoleTitle}>Sub Warehouse Admin</Text>
+              <Text style={styles.profileLocationText}>Coonoor Warehouse</Text>
+            </View>
+          </View>
 
-          <TouchableOpacity
-            style={styles.metricChip}
-            onPress={() => onNavigateToWallet ? onNavigateToWallet() : Alert.alert('Cash Top-Up', '₹18,500 Cash collected today')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.metricVal, { color: '#059669' }]}>₹18.5k</Text>
-            <Text style={styles.metricLabel}>Top-Up</Text>
-          </TouchableOpacity>
+          <View style={styles.profileDivider} />
 
-          <TouchableOpacity
-            style={styles.metricChip}
-            onPress={() => onNavigateToStaff ? onNavigateToStaff() : Alert.alert('Staff', '6 Warehouse Operators on duty')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.metricVal, { color: '#0D9488' }]}>06</Text>
-            <Text style={styles.metricLabel}>On Duty</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.metricChip}
-            onPress={() => onNavigateToReturns ? onNavigateToReturns() : Alert.alert('Issues', '2 Pending Returns or QC Rejections')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.metricVal, { color: '#DC2626' }]}>02</Text>
-            <Text style={styles.metricLabel}>Pending</Text>
-          </TouchableOpacity>
+          <View style={styles.profileBottomRow}>
+            <Text style={styles.warehouseCodeText}>WH-CNR</Text>
+            <View style={styles.activeStatusRow}>
+              <View style={styles.activeDot} />
+              <Text style={styles.activeStatusText}>Active</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Search / Filter Bar */}
-        <View style={styles.searchBarWrap}>
-          <SearchIcon size={17} color="#9CA3AF" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search operations, staff, reports..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-        </View>
-
-        {/* Grouped Option Cards */}
+        {/* ─── Grouped Section Cards ─── */}
         {OPTION_GROUPS.map((group) => {
-          const filteredItems = group.items.filter(
-            (item) =>
-              !query ||
-              item.title.toLowerCase().includes(query) ||
-              item.subtitle.toLowerCase().includes(query) ||
-              (item.badge && item.badge.toLowerCase().includes(query))
-          );
-
-          if (filteredItems.length === 0) return null;
-
           return (
             <View key={group.id} style={styles.groupContainer}>
               <Text style={styles.groupTitle}>{group.title}</Text>
 
               <View style={styles.groupCard}>
-                {filteredItems.map((item, index) => {
-                  const isLast = index === filteredItems.length - 1;
+                {group.items.map((item, index) => {
+                  const isLast = index === group.items.length - 1;
                   return (
                     <React.Fragment key={item.id}>
                       <TouchableOpacity
@@ -770,9 +805,9 @@ export function SubWarehouseMoreScreen({
                         onPress={() => handleOptionPress(item)}
                         activeOpacity={0.7}
                       >
-                        {/* Domain-Colored Icon */}
-                        <View style={[styles.iconWrap, { backgroundColor: item.iconBg }]}>
-                          {renderOptionIcon(item.iconType, item.iconColor)}
+                        {/* Soft Peach Icon Box */}
+                        <View style={styles.iconWrap}>
+                          {renderOptionIcon(item.iconType)}
                         </View>
 
                         {/* Title & Subtitle */}
@@ -783,10 +818,9 @@ export function SubWarehouseMoreScreen({
                           </Text>
                         </View>
 
-                        {/* Status Badge & Chevron */}
-                        <View style={styles.itemRightWrap}>
-                          {renderBadge(item.badge, item.badgeType)}
-                          <ChevronRightIcon size={18} color="#C2BBB2" />
+                        {/* Right Chevron */}
+                        <View style={styles.chevronWrap}>
+                          <ChevronRightIcon size={16} color={PALETTE.iconColor} />
                         </View>
                       </TouchableOpacity>
 
@@ -799,7 +833,22 @@ export function SubWarehouseMoreScreen({
           );
         })}
 
-        <View style={{ height: 28 }} />
+        {/* ─── Logout Standalone Card ─── */}
+        <TouchableOpacity
+          style={styles.logoutCard}
+          onPress={handleLogoutPress}
+          activeOpacity={0.75}
+        >
+          <View style={styles.logoutIconWrap}>
+            <LogoutIcon color={PALETTE.logoutText} size={20} />
+          </View>
+          <View style={styles.itemInfo}>
+            <Text style={styles.logoutTitle}>Logout</Text>
+            <Text style={styles.itemSubtitle}>Sign out of this account</Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={{ height: 24 }} />
       </ScrollView>
 
       {/* ─── Bottom Navigation Bar ─── */}
@@ -850,78 +899,37 @@ const styles = StyleSheet.create({
   },
   headerBanner: {
     backgroundColor: PALETTE.primary,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 22,
   },
-  headerTopRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
-  headerLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerTextCol: {
     flex: 1,
   },
-  backButton: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginTop: 2,
+  },
+  closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitleText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
-  },
-  warehouseBadgeRow: {
-    marginTop: 2,
-  },
-  warehouseBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  warehouseBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  headerBellBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  notifBadgeDot: {
-    position: 'absolute',
-    top: 7,
-    right: 8,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#FFFFFF',
   },
   scroll: {
     flex: 1,
@@ -930,86 +938,106 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
-  quickMetricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 14,
-  },
-  metricChip: {
-    flex: 1,
+
+  // ─── Profile Card ───
+  profileCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  metricVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.primary,
-    marginBottom: 2,
-  },
-  metricLabel: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-  },
-  searchBarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    gap: 10,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 1,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 13.5,
-    color: PALETTE.textInk,
-    padding: 0,
-    margin: 0,
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
+  profileIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: PALETTE.peachBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  profileInfoCol: {
+    flex: 1,
+  },
+  profileRoleTitle: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: PALETTE.textDark,
+  },
+  profileLocationText: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+  },
+  profileDivider: {
+    height: 1,
+    backgroundColor: PALETTE.divider,
+    marginVertical: 12,
+  },
+  profileBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  warehouseCodeText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#5C544E',
+  },
+  activeStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  activeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: PALETTE.activeGreen,
+  },
+  activeStatusText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: PALETTE.activeGreen,
+  },
+
+  // ─── Group Container ───
   groupContainer: {
     marginBottom: 16,
   },
   groupTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
-    textTransform: 'uppercase',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#5C544E',
     letterSpacing: 0.6,
+    textTransform: 'uppercase',
     marginBottom: 8,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   groupCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 1,
     overflow: 'hidden',
   },
   itemRow: {
@@ -1021,47 +1049,69 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 12,
+    backgroundColor: PALETTE.peachBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 13,
   },
   itemInfo: {
     flex: 1,
-    paddingRight: 6,
+    paddingRight: 8,
   },
   itemTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 2,
+    color: PALETTE.textDark,
   },
   itemSubtitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: PALETTE.textSecondary,
     fontWeight: '400',
-    lineHeight: 16,
+    marginTop: 2,
   },
-  itemRightWrap: {
-    flexDirection: 'row',
+  chevronWrap: {
     alignItems: 'center',
-    gap: 6,
-  },
-  badgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  badgeText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+    justifyContent: 'center',
   },
   rowDivider: {
     height: 1,
     backgroundColor: PALETTE.divider,
-    marginLeft: 69,
+    marginHorizontal: 14,
   },
+
+  // ─── Logout Card ───
+  logoutCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  logoutIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: PALETTE.logoutBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 13,
+  },
+  logoutTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: PALETTE.logoutText,
+  },
+
+  // ─── Bottom Navigation ───
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: PALETTE.cardBg,

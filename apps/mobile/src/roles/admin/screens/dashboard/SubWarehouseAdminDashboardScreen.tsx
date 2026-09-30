@@ -23,6 +23,7 @@ import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivitySc
 import { SubWarehouseNotificationsScreen } from './SubWarehouseNotificationsScreen';
 import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
+import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
 import { SubWarehouseMoreScreen } from './SubWarehouseMoreScreen';
@@ -777,6 +778,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
+  const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [user, setUser] = useState<UserMe | null>(null);
   const [notifications, setNotifications] = useState<WarehouseNotification[]>(INITIAL_NOTIFICATIONS);
 
@@ -1077,6 +1079,26 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToDocuments={() => {
           setShowProfile(false);
           if (onNavigate) onNavigate('SubWarehouseDocuments');
+        }}
+      />
+    );
+  }
+
+  if (showReportsScreen) {
+    return (
+      <SubWarehouseReportsScreen
+        onBack={() => setShowReportsScreen(false)}
+        onTabChange={(tab) => {
+          setShowReportsScreen(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToNotifications={() => {
+          setShowReportsScreen(false);
+          if (onNavigate) {
+            onNavigate('SubWarehouseNotifications');
+          } else {
+            setShowNotifications(true);
+          }
         }}
       />
     );
@@ -2647,8 +2669,8 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowSalesScreen(true);
             }}
             onNavigateToReports={() => {
-              if (onNavigate) onNavigate('SubWarehouseTodayOverview');
-              else setShowTodayOverview(true);
+              if (onNavigate) onNavigate('SubWarehouseReports');
+              else setShowReportsScreen(true);
             }}
             onNavigateToReturns={() => {
               if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
