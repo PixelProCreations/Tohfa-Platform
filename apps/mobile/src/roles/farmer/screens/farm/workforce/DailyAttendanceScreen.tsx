@@ -1,16 +1,297 @@
-import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Switch, Image } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Icon, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms } from '../../../api/farms';
+import {
+  listMyFarmAttendanceForDate,
+  listMyWorkers,
+  upsertMyFarmAttendance,
+  type AttendanceRecord,
+  type AttendanceUpsertItem,
+  type Worker,
+} from '../../../api/workforce';
+import { localProduceCropsCache } from '../crops/ProduceCalendarScreen';
+
+// ── Date helpers ─────────────────────────────────────────────────────────────
+
+const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const MONTHS_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+] as const;
+
+/** `Date` -> the `YYYY-MM-DD` workforce.schema.ts's `dateSchema` requires. */
+function toIsoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function todayIso(): string {
+  return toIsoDate(new Date());
+}
+
+/** e.g. "Thu · 16 July 2026" -- was a fixed mock string; now reflects the real date so it
+ * doesn't keep reading "16 July 2026" forever while the underlying data is today's. */
+function formatHeaderDate(d: Date): string {
+  return `${WEEKDAYS_SHORT[d.getDay()]} · ${d.getDate()} ${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ── Activity options ─────────────────────────────────────────────────────────
+
+/** WorkerDetailScreen.tsx's `DayActivity['type']` union -- kept identical so an
+ * activity logged here renders correctly on that screen's "Days worked" list. */
+type ActivityType = 'irrigation' | 'weeding' | 'fertigation' | 'harvesting' | 'landprep';
+
+const ACTIVITY_OPTIONS: { value: ActivityType; label: string }[] = [
+  { value: 'irrigation', label: 'Irrigation' },
+  { value: 'weeding', label: 'Weeding' },
+  { value: 'fertigation', label: 'Fertigation' },
+  { value: 'harvesting', label: 'Harvesting' },
+  { value: 'landprep', label: 'Land prep' },
+];
+
+function activityLabel(value: string | undefined): string {
+  return ACTIVITY_OPTIONS.find((o) => o.value === value)?.label ?? 'Select';
+}
+
+// ── Crop options ─────────────────────────────────────────────────────────────
+
+/**
+ * ProduceCalendarScreen has no real backend behind it (`localProduceCropsCache`
+ * is in-memory mock data, ids like `"crop-1"`, not `farm_crops` UUIDs) -- an
+ * already-accepted cross-feature gap, also flagged by CropWorkforceHoursScreen.tsx
+ * (`isUuid`/its docblock) and WorkforceScreen.tsx. workforce.schema.ts's
+ * attendance upsert requires `farmCropId` to be a real UUID when present, so a
+ * mock crop id can never be sent to the API -- it would just fail validation.
+ *
+ * This screen keeps the crop picker functional against that same mock list (so
+ * a farmer can still record *which* crop a worker's day went to, for their own
+ * reference) but only forwards `farmCropId` on save when it happens to already
+ * be a real UUID (i.e. it came back from a previous, real attendance record) --
+ * never a freshly mock-picked id. See `isUuid`/`buildUpsertItem` below.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(value: string | undefined | null): value is string {
+  return !!value && UUID_RE.test(value);
+}
+
+interface CropOption {
+  id: string;
+  name: string;
+}
+
+function cropOptions(): CropOption[] {
+  return localProduceCropsCache.map((c) => ({ id: c.id, name: c.name }));
+}
+
+// ── Per-worker form state ────────────────────────────────────────────────────
+
+interface WorkerAttendanceForm {
+  present: boolean;
+  activity: ActivityType | undefined;
+  /** Only ever a real UUID (see the crop-options docblock above); a freshly
+   * mock-picked crop lands in `cropLabel` only, never here. */
+  farmCropId: string | undefined;
+  cropLabel: string | undefined;
+  /** Raw text field value; parsed/validated at save time. */
+  hours: string;
+}
+
+const DEFAULT_HOURS = '8';
+
+function initialFormFor(worker: Worker, record: AttendanceRecord | undefined): WorkerAttendanceForm {
+  if (!record) {
+    // Not yet marked today -- default to present with a full working day, the
+    // same "sensible default" the old mock's Murugan/Lakshmi cards showed.
+    return { present: true, activity: undefined, farmCropId: undefined, cropLabel: undefined, hours: DEFAULT_HOURS };
+  }
+  const matchedCrop = record.farmCropId
+    ? cropOptions().find((c) => c.id === record.farmCropId)
+    : undefined;
+  return {
+    present: record.present,
+    activity: (record.activity as ActivityType | null) ?? undefined,
+    farmCropId: record.farmCropId ?? undefined,
+    // The saved farmCropId is a real backend UUID that will never match a mock
+    // crop's "crop-N" id, so it can't be resolved to a friendly name here --
+    // show an honest "Crop set" rather than fabricating one or silently
+    // dropping the fact that a crop was recorded.
+    cropLabel: matchedCrop ? matchedCrop.name : record.farmCropId ? 'Crop set' : undefined,
+    hours: record.hoursWorked != null ? String(record.hoursWorked) : DEFAULT_HOURS,
+  };
+}
+
+function buildUpsertItem(workerId: string, form: WorkerAttendanceForm): AttendanceUpsertItem {
+  const item: AttendanceUpsertItem = { workerId, present: form.present };
+  if (!form.present) return item;
+  if (form.activity) item.activity = form.activity;
+  if (isUuid(form.farmCropId)) item.farmCropId = form.farmCropId;
+  const hours = Number(form.hours);
+  if (form.hours.trim() !== '' && !isNaN(hours) && hours > 0 && hours <= 24) {
+    item.hoursWorked = hours;
+  }
+  return item;
+}
+
+function initialsOf(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+const AVATAR_PALETTE: { bg: string; fg: string }[] = [
+  { bg: P.twGreen100, fg: P.twGreen800 },
+  { bg: P.twPurple100, fg: P.twPurple700 },
+  { bg: P.twGray100, fg: P.twGray400 },
+];
 
 interface DailyAttendanceScreenProps {
+  /**
+   * Threaded down like WorkforceScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) otherwise -- App.tsx's
+   * `navigate('DailyAttendance')` passes no farmId today.
+   */
+  farmId?: string | undefined;
   onNavigateBack: () => void;
 }
 
-export function DailyAttendanceScreen({ onNavigateBack }: DailyAttendanceScreenProps): React.JSX.Element {
-  const [muruganPresent, setMuruganPresent] = useState(true);
-  const [lakshmiPresent, setLakshmiPresent] = useState(true);
-  const [selviPresent, setSelviPresent] = useState(false);
+export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanceScreenProps): React.JSX.Element {
+  // ── Farm context ── (same self-resolution pattern as WorkforceScreen.tsx)
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setContextLoading(true);
+      setContextError(null);
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (!fid) {
+          if (!cancelled) setContextError('No farm found. Add a farm before recording attendance.');
+          return;
+        }
+        if (!cancelled) setResolvedFarmId(fid);
+      } catch (err) {
+        if (!cancelled) setContextError(formatErrorMessage(err, 'Could not load your farm.'));
+      } finally {
+        if (!cancelled) setContextLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  // ── Roster + today's attendance ──
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [forms, setForms] = useState<Record<string, WorkerAttendanceForm>>({});
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const loadAttendance = useCallback(async () => {
+    if (!resolvedFarmId) return;
+    setDataLoading(true);
+    setDataError(null);
+    try {
+      const [workerList, records] = await Promise.all([
+        listMyWorkers(resolvedFarmId),
+        listMyFarmAttendanceForDate(resolvedFarmId, todayIso()),
+      ]);
+      setWorkers(workerList);
+      const nextForms: Record<string, WorkerAttendanceForm> = {};
+      for (const w of workerList) {
+        const record = records.find((r) => r.workerId === w.id);
+        nextForms[w.id] = initialFormFor(w, record);
+      }
+      setForms(nextForms);
+    } catch (err) {
+      setDataError(formatErrorMessage(err, 'Could not load today’s attendance.'));
+    } finally {
+      setDataLoading(false);
+    }
+  }, [resolvedFarmId]);
+
+  useEffect(() => {
+    void loadAttendance();
+  }, [loadAttendance]);
+
+  const presentCount = useMemo(
+    () => Object.values(forms).filter((f) => f.present).length,
+    [forms],
+  );
+
+  const updateForm = (workerId: string, patch: Partial<WorkerAttendanceForm>) => {
+    setForms((prev) => {
+      const current = prev[workerId];
+      if (!current) return prev;
+      return { ...prev, [workerId]: { ...current, ...patch } };
+    });
+  };
+
+  // ── Activity / crop picker modal ──
+  const [picker, setPicker] = useState<{ workerId: string; field: 'activity' | 'crop' } | null>(null);
+  const closePicker = () => setPicker(null);
+
+  // ── Save ──
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!resolvedFarmId || workers.length === 0) {
+      onNavigateBack();
+      return;
+    }
+    // Validate hours for anyone marked present before sending anything.
+    for (const w of workers) {
+      const form = forms[w.id];
+      if (!form || !form.present) continue;
+      const trimmed = form.hours.trim();
+      if (trimmed === '') continue;
+      const n = Number(trimmed);
+      if (isNaN(n) || n <= 0 || n > 24) {
+        Alert.alert('Check hours', `${w.name}’s hours must be a number between 0 and 24.`);
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      const items: AttendanceUpsertItem[] = workers.map((w) => buildUpsertItem(w.id, forms[w.id]!));
+      await upsertMyFarmAttendance(resolvedFarmId, todayIso(), items);
+      onNavigateBack();
+    } catch (err) {
+      Alert.alert('Could Not Save Attendance', formatErrorMessage(err, 'Please try again.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -20,174 +301,189 @@ export function DailyAttendanceScreen({ onNavigateBack }: DailyAttendanceScreenP
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Daily Attendance</Text>
-          <Text style={styles.headerSubtitle}>Thu · 16 July 2026</Text>
+          <Text style={styles.headerSubtitle}>{formatHeaderDate(new Date())}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>WHO WORKED TODAY</Text>
-          <Text style={styles.presentCount}>2 present</Text>
-        </View>
+        {contextError ? (
+          <Text style={styles.errorText}>{contextError}</Text>
+        ) : (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>WHO WORKED TODAY</Text>
+              <Text style={styles.presentCount}>{presentCount} present</Text>
+            </View>
 
-        {/* Card 1: Murugan R. */}
-        <View style={[styles.card, muruganPresent && styles.cardActive]}>
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.workerInfo}>
-              <View style={[styles.avatar, { backgroundColor: P.twGreen100 }]}>
-                <Text style={[styles.avatarText, { color: P.twGreen800 }]}>MR</Text>
+            {dataLoading ? (
+              <View style={{ gap: 16 }}>
+                <Skeleton height={90} width="100%" />
+                <Skeleton height={90} width="100%" />
+                <Skeleton height={90} width="100%" />
               </View>
-              <View>
-                <Text style={[styles.workerName, !muruganPresent && styles.textMuted]}>Murugan R.</Text>
-                <Text style={styles.workerRole}>Field Worker · ₹450/day</Text>
-              </View>
-            </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.micButton}>
-                <Image source={require('../../../../assets/images/mic.png')} style={{width: 18, height: 18, tintColor: P.twGray600}} />
-              </TouchableOpacity>
-              <Switch
-                value={muruganPresent}
-                onValueChange={setMuruganPresent}
-                trackColor={{ false: P.twGray200, true: P.twGreen800 }}
-                thumbColor={P.weatherCloudWhite}
-              />
-            </View>
-          </View>
-          {muruganPresent && (
-            <View style={styles.formGrid}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Crop</Text>
-                <View style={styles.selectInput}>
-                  <Text style={styles.selectText}>Carrot</Text>
-                  <Icon name="expand_more" size={16} color={P.twGray500} />
-                </View>
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Activity</Text>
-                <View style={styles.selectInput}>
-                  <Text style={styles.selectText}>Irrigation</Text>
-                  <Icon name="expand_more" size={16} color={P.twGray500} />
-                </View>
-              </View>
-              <View style={[styles.formGroup, { flex: 0.5 }]}>
-                <Text style={styles.label}>Hours</Text>
-                <TextInput style={styles.textInput} value="7" editable={false} />
-              </View>
-            </View>
-          )}
-        </View>
+            ) : dataError ? (
+              <Text style={styles.errorText}>{dataError}</Text>
+            ) : workers.length === 0 ? (
+              <Text style={styles.emptyText}>No workers added yet.</Text>
+            ) : (
+              workers.map((worker, idx) => {
+                const form = forms[worker.id];
+                if (!form) return null;
+                const avatar = AVATAR_PALETTE[idx % AVATAR_PALETTE.length]!;
+                return (
+                  <View key={worker.id} style={[styles.card, form.present && styles.cardActive]}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={styles.workerInfo}>
+                        <View style={[styles.avatar, { backgroundColor: avatar.bg }]}>
+                          <Text style={[styles.avatarText, { color: avatar.fg }]}>{initialsOf(worker.name)}</Text>
+                        </View>
+                        <View>
+                          <Text style={[styles.workerName, !form.present && styles.textMuted]}>{worker.name}</Text>
+                          <Text style={styles.workerRole}>
+                            {worker.roleTitle ?? 'Worker'} ·{' '}
+                            {worker.payType === 'monthly'
+                              ? 'Monthly'
+                              : `₹${Math.round(worker.payRatePaise / 100)}/day`}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.cardActions}>
+                        {/* "Mark present by voice" is an intentional, already-decided stub --
+                            no speech-to-text feature exists or was requested. Left non-functional. */}
+                        <TouchableOpacity style={styles.micButton} disabled>
+                          <Image
+                            // eslint-disable-next-line @typescript-eslint/no-require-imports -- RN's bundler special-cases require() for static image assets; there is no ESM equivalent.
+                            source={require('../../../../../assets/images/mic.png')}
+                            style={{
+                              width: 18,
+                              height: 18,
+                              tintColor: form.present ? P.twGray600 : P.twGray400,
+                              opacity: form.present ? 1 : 0.5,
+                            }}
+                          />
+                        </TouchableOpacity>
+                        <Switch
+                          value={form.present}
+                          onValueChange={(v) => updateForm(worker.id, { present: v })}
+                          trackColor={{ false: P.twGray200, true: P.twGreen800 }}
+                          thumbColor={P.weatherCloudWhite}
+                        />
+                      </View>
+                    </View>
+                    {form.present && (
+                      <View style={styles.formGrid}>
+                        <View style={styles.formGroup}>
+                          <Text style={styles.label}>Crop</Text>
+                          <TouchableOpacity
+                            style={styles.selectInput}
+                            onPress={() => setPicker({ workerId: worker.id, field: 'crop' })}
+                            activeOpacity={0.75}
+                          >
+                            <Text style={styles.selectText}>{form.cropLabel ?? 'Select'}</Text>
+                            <Icon name="expand_more" size={16} color={P.twGray500} />
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.formGroup}>
+                          <Text style={styles.label}>Activity</Text>
+                          <TouchableOpacity
+                            style={styles.selectInput}
+                            onPress={() => setPicker({ workerId: worker.id, field: 'activity' })}
+                            activeOpacity={0.75}
+                          >
+                            <Text style={styles.selectText}>{activityLabel(form.activity)}</Text>
+                            <Icon name="expand_more" size={16} color={P.twGray500} />
+                          </TouchableOpacity>
+                        </View>
+                        <View style={[styles.formGroup, { flex: 0.5 }]}>
+                          <Text style={styles.label}>Hours</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            value={form.hours}
+                            onChangeText={(v) => updateForm(worker.id, { hours: v.replace(/[^0-9.]/g, '') })}
+                            keyboardType="numeric"
+                            maxLength={5}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
 
-        {/* Card 2: Lakshmi D. */}
-        <View style={[styles.card, lakshmiPresent && styles.cardActive]}>
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.workerInfo}>
-              <View style={[styles.avatar, { backgroundColor: P.twPurple100 }]}>
-                <Text style={[styles.avatarText, { color: P.twPurple700 }]}>LD</Text>
-              </View>
-              <View>
-                <Text style={[styles.workerName, !lakshmiPresent && styles.textMuted]}>Lakshmi D.</Text>
-                <Text style={styles.workerRole}>General Hand · ₹400/day</Text>
-              </View>
+            <View style={styles.infoBanner}>
+              {/* eslint-disable-next-line @typescript-eslint/no-require-imports -- RN's bundler special-cases require() for static image assets; there is no ESM equivalent. */}
+              <Image source={require('../../../../../assets/images/mic.png')} style={{ width: 18, height: 18, tintColor: P.twAmber700 }} />
+              <Text style={styles.infoBannerText}>
+                Tap the mic to mark a worker present by voice — hands-free while out in the field.
+              </Text>
             </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.micButton}>
-                <Image source={require('../../../../assets/images/mic.png')} style={{width: 18, height: 18, tintColor: P.twGray600}} />
-              </TouchableOpacity>
-              <Switch
-                value={lakshmiPresent}
-                onValueChange={setLakshmiPresent}
-                trackColor={{ false: P.twGray200, true: P.twGreen800 }}
-                thumbColor={P.weatherCloudWhite}
-              />
-            </View>
-          </View>
-          {lakshmiPresent && (
-            <View style={styles.formGrid}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Crop</Text>
-                <View style={styles.selectInput}>
-                  <Text style={styles.selectText}>Cabbage</Text>
-                  <Icon name="expand_more" size={16} color={P.twGray500} />
-                </View>
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Activity</Text>
-                <View style={styles.selectInput}>
-                  <Text style={styles.selectText}>Weeding</Text>
-                  <Icon name="expand_more" size={16} color={P.twGray500} />
-                </View>
-              </View>
-              <View style={[styles.formGroup, { flex: 0.5 }]}>
-                <Text style={styles.label}>Hours</Text>
-                <TextInput style={styles.textInput} value="7" editable={false} />
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Card 3: Selvi K. */}
-        <View style={[styles.card, selviPresent && styles.cardActive]}>
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.workerInfo}>
-              <View style={[styles.avatar, { backgroundColor: P.twGray100 }]}>
-                <Text style={[styles.avatarText, { color: P.twGray400 }]}>SK</Text>
-              </View>
-              <View>
-                <Text style={[styles.workerName, !selviPresent && styles.textMuted]}>Selvi K.</Text>
-                <Text style={styles.workerRole}>Farm Supervisor · Monthly</Text>
-              </View>
-            </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.micButton}>
-                <Image source={require('../../../../assets/images/mic.png')} style={{width: 18, height: 18, tintColor: P.twGray400, opacity: 0.5}} />
-              </TouchableOpacity>
-              <Switch
-                value={selviPresent}
-                onValueChange={setSelviPresent}
-                trackColor={{ false: P.twGray200, true: P.twGreen800 }}
-                thumbColor={P.weatherCloudWhite}
-              />
-            </View>
-          </View>
-          {selviPresent && (
-            <View style={styles.formGrid}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Crop</Text>
-                <View style={styles.selectInput}>
-                  <Text style={styles.selectText}>Select</Text>
-                  <Icon name="expand_more" size={16} color={P.twGray500} />
-                </View>
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Activity</Text>
-                <View style={styles.selectInput}>
-                  <Text style={styles.selectText}>Select</Text>
-                  <Icon name="expand_more" size={16} color={P.twGray500} />
-                </View>
-              </View>
-              <View style={[styles.formGroup, { flex: 0.5 }]}>
-                <Text style={styles.label}>Hours</Text>
-                <TextInput style={styles.textInput} value="0" editable={false} />
-              </View>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.infoBanner}>
-          <Image source={require('../../../../assets/images/mic.png')} style={{width: 18, height: 18, tintColor: P.twAmber700}} />
-          <Text style={styles.infoBannerText}>
-            Tap the mic to mark a worker present by voice — hands-free while out in the field.
-          </Text>
-        </View>
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.saveButton} onPress={onNavigateBack}>
+        <TouchableOpacity
+          style={[styles.saveButton, (saving || contextLoading || !!contextError || dataLoading) && { opacity: 0.6 }]}
+          onPress={() => void handleSave()}
+          disabled={saving || contextLoading || !!contextError || dataLoading}
+        >
           <Icon name="check_circle" size={20} color={P.weatherCloudWhite} />
-          <Text style={styles.saveButtonText}>Save today's attendance</Text>
+          <Text style={styles.saveButtonText}>{saving ? 'Saving…' : "Save today's attendance"}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Activity / Crop picker modal */}
+      <Modal visible={!!picker} transparent animationType="fade" onRequestClose={closePicker}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closePicker}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{picker?.field === 'crop' ? 'Select Crop' : 'Select Activity'}</Text>
+            {picker?.field === 'activity' &&
+              ACTIVITY_OPTIONS.map((opt) => {
+                const currentForm = picker ? forms[picker.workerId] : undefined;
+                const isSelected = currentForm?.activity === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
+                    onPress={() => {
+                      updateForm(picker!.workerId, { activity: opt.value });
+                      closePicker();
+                    }}
+                  >
+                    <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
+                      {opt.label}
+                    </Text>
+                    {isSelected && <Icon name="check" size={18} color={P.twGreen800} />}
+                  </TouchableOpacity>
+                );
+              })}
+            {picker?.field === 'crop' &&
+              cropOptions().map((opt) => {
+                const currentForm = picker ? forms[picker.workerId] : undefined;
+                const isSelected = currentForm?.cropLabel === opt.name;
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
+                    onPress={() => {
+                      // Mock-only crop id (see cropOptions()'s docblock above) --
+                      // stored purely for display, never sent as farmCropId
+                      // unless it happens to already be a real UUID.
+                      updateForm(picker!.workerId, { cropLabel: opt.name, farmCropId: opt.id });
+                      closePicker();
+                    }}
+                  >
+                    <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
+                      {opt.name}
+                    </Text>
+                    {isSelected && <Icon name="check" size={18} color={P.twGreen800} />}
+                  </TouchableOpacity>
+                );
+              })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -230,6 +526,14 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 16,
   },
+  errorText: {
+    fontSize: typography.body,
+    color: P.twRed600,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -253,6 +557,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: P.twGray100,
+    marginBottom: 16,
   },
   cardActive: {
     borderColor: P.twGreen100,
@@ -383,5 +688,43 @@ const styles = StyleSheet.create({
     color: P.weatherCloudWhite,
     fontSize: typography.bodyLarge,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: P.weatherCloudWhite,
+    borderRadius: 18,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.twGray900,
+    marginBottom: 14,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  modalOptionSelected: {
+    backgroundColor: P.twGreen100,
+  },
+  modalOptionText: {
+    fontSize: typography.bodyLarge,
+    color: P.twGray700,
+  },
+  modalOptionTextSelected: {
+    fontWeight: '700',
+    color: P.twGreen800,
   },
 });

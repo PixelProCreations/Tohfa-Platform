@@ -75,6 +75,9 @@ import { livestockRouter } from './modules/livestock/livestock.routes.js';
 import { livestockAdminRouter } from './modules/livestock/livestock.admin.routes.js';
 import { farmAssetsRouter } from './modules/farm-assets/farm-assets.routes.js';
 import { adminFarmAssetsRouter } from './modules/farm-assets/farm-assets.admin.routes.js';
+import { soilRouter } from './modules/soil/soil.routes.js';
+import { pestLibraryRouter, pestRouter, weatherRiskNotesRouter } from './modules/pest/pest.routes.js';
+import { workforceRouter } from './modules/workforce/workforce.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -133,6 +136,11 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/farmers', router: adminFarmAssetsRouter },
   { prefix: '/v1/farmers/me/livestock', router: livestockRouter },
   { prefix: '/v1/admin/farmers', router: livestockAdminRouter },
+  { prefix: '/v1/farms', router: soilRouter },
+  { prefix: '/v1/farms', router: pestRouter },
+  { prefix: '/v1/farms', router: workforceRouter },
+  { prefix: '/v1/pest-library', router: pestLibraryRouter },
+  { prefix: '/v1/weather-risk-notes', router: weatherRiskNotesRouter },
 ];
 
 /**

@@ -69,6 +69,8 @@ info:
     | BR-35 | The audit trail is append-only |
     | BR-36 | Own-data ownership for farmers and customers |
     | BR-37 | Stock movements are ledger-first; adjustments need separate approval |
+    | BR-38 | No automated processes (manual data entry only); no advisory/recommendation content |
+    | BR-40 | Soil parameter classification bands are server-configured, not client-literal |
 
     ## Conventions
 
@@ -133,6 +135,30 @@ tags:
       (`livestock_lifecycle_events`). An animal can exit the herd at most once
       (BR-47). Read-only admin visibility into any farmer's herd, for
       organic-certification audit purposes.
+  - name: Soil Management
+    description: |
+      A farmer's soil diary (FR-F06) for a zone: lab test records (with BR-40
+      server-computed classification labels), amendments, moisture and erosion
+      observations, and the crop rotation plan. BR-36 own-data ownership applies
+      throughout; BR-38 bounds this feature to farmer-entered data only — no
+      generated advisory text, risk model or automated suggestion.
+  - name: Pest Management
+    description: |
+      A farmer's pest/disease log for a zone (FR-F07): detections, organic
+      treatment applications and follow-up reminders, plus the global pest
+      reference library and admin-authored regional weather risk notes.
+      BR-36 own-data ownership applies to the farmer-owned tables; BR-38
+      bounds this feature to farmer-entered data and static admin-curated
+      reference content only — no scheduled reminder job, computed risk
+      model or system-generated treatment suggestion.
+  - name: Farm Workforce
+    description: |
+      A farmer's worker roster, daily attendance, advances and payouts for a
+      farm (farm-scoped, not plot-scoped — see db/migrations/0025_workforce.sql).
+      BR-36 own-data ownership applies throughout; BR-41 requires gross/net
+      pay to be computed at read time from raw rows, never stored, and
+      extends BR-38's no-automation boundary to attendance and payouts —
+      both are exclusively farmer-initiated writes.
   - name: Pricing
     description: Super-Admin fair price ceilings and admin retail prices.
   - name: Marketing
@@ -1599,6 +1625,1689 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '204': { description: Zone removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/soil-tests:
+    get:
+      tags: [Soil Management]
+      operationId: listMySoilTests
+      summary: List a zone's soil test records
+      description: |
+        Lists lab soil test results logged for one of the caller's own zones, newest
+        `testDate` first. Every item carries the BR-40 classification labels
+        (`organicCarbonLabel`, `phLabel`, `ecLabel`, `tdsLabel`, `nitrogenLabel`,
+        `phosphorusLabel`, `potassiumLabel`) computed from `system_config` bands by the
+        one shared server-side function — never a client literal. A farm or plot id
+        that does not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-40]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's soil test records.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/SoilTestRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Soil Management]
+      operationId: createMySoilTest
+      summary: Log a soil test result
+      description: |
+        Logs a lab soil test result for one of the caller's own zones. `labReportUploadId`,
+        when supplied, must reference an upload (`POST /uploads/sign` with
+        `purpose: SOIL_TEST_REPORT`) the caller themself created — an upload id that does
+        not exist, or was created by someone else, is rejected as `VALIDATION_FAILED`
+        rather than silently linked. The response carries the same BR-40 classification
+        labels as the list/detail endpoints. A farm or plot id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-40]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SoilTestRecordCreate' }
+            example:
+              testDate: '2026-04-01'
+              nextDueDate: '2026-10-01'
+              organicCarbonPct: 0.6
+              ph: 6.8
+              ecDsPerM: 0.5
+              tdsPpm: 300
+              nitrogenKgPerHa: 400
+              phosphorusKgPerHa: 18
+              potassiumKgPerHa: 200
+              limeStatus: Harmless
+      responses:
+        '201':
+          description: Soil test record created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SoilTestRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/soil-tests/health-summary:
+    get:
+      tags: [Soil Management]
+      operationId: getMySoilTestHealthSummary
+      summary: Soil health tracker (pH, organic carbon, TDS trend)
+      description: |
+        Returns all three tracked metrics (`ph`, `organicCarbon`, `tds`) in one call rather
+        than accepting a `metric` query parameter, since the mobile tracker screen renders
+        all three together and this avoids three round trips. Each metric reports the
+        latest and previous reading, their arithmetic difference, a `trendDirection` that
+        only tracks whether the raw number rose, fell, or held (never a judgement about
+        whether that direction is agronomically good for the metric), and up to the last 6
+        readings as chart points. This is pure arithmetic over the zone's own records —
+        it deliberately carries no generated advisory or recommendation text, which is the
+        automated-advice territory BR-38 blocks pending client resolution. A farm or plot
+        id that does not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's soil health tracker summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SoilHealthSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/soil-tests/{testId}:
+    get:
+      tags: [Soil Management]
+      operationId: getMySoilTest
+      summary: Get one soil test record
+      description: |
+        Fetches one soil test record logged for one of the caller's own zones, with the
+        same BR-40 classification labels as the list endpoint. A farm, plot or test id
+        that does not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-40]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: testId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The soil test record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SoilTestRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/soil-amendments:
+    get:
+      tags: [Soil Management]
+      operationId: listMySoilAmendments
+      summary: List a zone's soil amendments
+      description: |
+        Lists amendments (compost, lime, manure, ...) applied to one of the caller's own
+        zones. A farm or plot id that does not exist, or belongs to another farmer, 404s
+        rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's soil amendments.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/SoilAmendment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Soil Management]
+      operationId: createMySoilAmendment
+      summary: Log a soil amendment
+      description: |
+        Logs an amendment applied to one of the caller's own zones. A farm or plot id
+        that does not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SoilAmendmentCreate' }
+            example:
+              amendmentType: Compost
+              quantityKg: 50
+              appliedDate: '2026-04-01'
+      responses:
+        '201':
+          description: Soil amendment created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SoilAmendment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/soil-amendments/{amendmentId}:
+    patch:
+      tags: [Soil Management]
+      operationId: updateMySoilAmendment
+      summary: Update a soil amendment
+      description: |
+        Partial update of an amendment logged under one of the caller's own zones; only
+        the fields present in the body change. This is a plain mutable row, not one of
+        root CLAUDE.md's four named append-only ledgers. A farm, plot or amendment id
+        that does not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: amendmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SoilAmendmentUpdate' }
+            example:
+              quantityKg: 75
+      responses:
+        '200':
+          description: Updated soil amendment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SoilAmendment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Soil Management]
+      operationId: deleteMySoilAmendment
+      summary: Remove a soil amendment
+      description: |
+        Hard-deletes an amendment logged under one of the caller's own zones. A farm,
+        plot or amendment id that does not exist, or belongs to another farmer, 404s
+        rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: amendmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Soil amendment removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/soil-moisture:
+    get:
+      tags: [Soil Management]
+      operationId: listMySoilMoisture
+      summary: List a zone's soil moisture observations
+      description: |
+        Lists ad-hoc soil moisture observations for one of the caller's own zones,
+        newest first. An append-only log in practice — there is no update/delete
+        endpoint. A farm or plot id that does not exist, or belongs to another farmer,
+        404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's soil moisture observations.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/SoilMoistureObservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Soil Management]
+      operationId: createMySoilMoisture
+      summary: Log a soil moisture observation
+      description: |
+        Logs a moisture observation for one of the caller's own zones. `observedBy` is
+        always the authenticated caller — never client-supplied. A farm or plot id that
+        does not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SoilMoistureObservationCreate' }
+            example:
+              level: Moist
+      responses:
+        '201':
+          description: Soil moisture observation logged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SoilMoistureObservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/erosion-notes:
+    get:
+      tags: [Soil Management]
+      operationId: listMyErosionNotes
+      summary: List a zone's erosion & conservation notes
+      description: |
+        Lists erosion risk assessments and conservation practice notes for one of the
+        caller's own zones, newest first. A farm or plot id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's erosion & conservation notes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ErosionConservationNote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Soil Management]
+      operationId: createMyErosionNote
+      summary: Log an erosion risk / conservation practice note
+      description: |
+        Logs an erosion risk assessment and/or conservation practice note for one of the
+        caller's own zones. `riskLevel` is a farmer self-assessment, entered from a fixed
+        mobile option list — it is NOT a server-computed risk model. Wiring this to
+        weather or GIS data would be exactly the automated risk-indicator territory BR-38
+        blocks pending client resolution. A farm or plot id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ErosionConservationNoteCreate' }
+            example:
+              riskLevel: Moderate Risk
+              practiceNotes: Contour bunding installed on the upper terrace.
+      responses:
+        '201':
+          description: Erosion / conservation note logged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErosionConservationNote' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/crop-rotation:
+    get:
+      tags: [Soil Management]
+      operationId: getMyCropRotation
+      summary: Get a zone's crop rotation plan
+      description: |
+        Returns the ordered crop rotation sequence plus the current/most relevant cover
+        crop window (if any) for one of the caller's own zones. Both are 100%
+        farmer-entered planning — never system-suggested — which is the BR-38 boundary
+        this endpoint sits on. A farm or plot id that does not exist, or belongs to
+        another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's crop rotation plan.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CropRotationPlan' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Soil Management]
+      operationId: putMyCropRotation
+      summary: Replace a zone's crop rotation sequence
+      description: |
+        Replaces the caller's whole ordered crop rotation sequence for one of their own
+        zones in one call (delete-then-insert inside one transaction) — the simplest
+        correct model for "the farmer edits their whole plan at once". Does not touch
+        the cover crop window. 100% farmer-entered planning, never system-suggested
+        (BR-38). A farm or plot id that does not exist, or belongs to another farmer,
+        404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sequence]
+              properties:
+                sequence:
+                  type: array
+                  items: { $ref: '#/components/schemas/CropRotationEntryInput' }
+            example:
+              sequence:
+                - sequenceOrder: 1
+                  cropName: Carrot
+                  status: CURRENT
+                - sequenceOrder: 2
+                  cropName: Beans
+                  plannedDate: '2026-08-01'
+                  status: NEXT
+      responses:
+        '200':
+          description: The replaced crop rotation plan.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CropRotationPlan' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/cover-crop-windows:
+    post:
+      tags: [Soil Management]
+      operationId: createMyCoverCropWindow
+      summary: Log a cover crop window
+      description: |
+        Logs a cover-crop planting window (date range + crop type) for one of the
+        caller's own zones, tracked alongside but separately from the ordered crop
+        rotation sequence. 100% farmer-entered planning, never system-suggested (BR-38).
+        A farm or plot id that does not exist, or belongs to another farmer, 404s rather
+        than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoverCropWindowCreate' }
+            example:
+              coverCropType: Sunn hemp
+              windowStart: '2026-06-01'
+              windowEnd: '2026-07-01'
+      responses:
+        '201':
+          description: Cover crop window logged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoverCropWindow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /pest-library:
+    get:
+      tags: [Pest Management]
+      operationId: listPestLibrary
+      summary: List the pest/disease reference library
+      description: |
+        Lists the global pest/disease/weed/deficiency reference catalog (FR-F07),
+        optionally filtered by a free-text query (matched against name/scientific
+        name) and/or a host crop. Unscoped — not farmer- or zone-specific — every
+        caller reads the same static, admin-curated catalog (BR-38: no generated
+        advisory text, this is reference content, not per-farmer advice).
+      x-permission: pest_library.view
+      x-business-rules: [BR-38]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 120 }
+          description: Free-text match against name and scientificName.
+        - name: crop
+          in: query
+          required: false
+          schema: { type: string, maxLength: 60 }
+          description: Filter to entries whose crops array contains this crop.
+      responses:
+        '200':
+          description: The pest reference library.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PestLibraryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /pest-library/{pestLibraryId}:
+    get:
+      tags: [Pest Management]
+      operationId: getPestLibraryEntry
+      summary: Get one pest/disease reference library entry
+      description: |
+        Fetches one entry from the global pest reference catalog (FR-F07).
+        Unscoped — not farmer- or zone-specific. A pestLibraryId that does not
+        exist 404s.
+      x-permission: pest_library.view
+      x-business-rules: [BR-38]
+      parameters:
+        - name: pestLibraryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The pest reference library entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestLibraryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /weather-risk-notes:
+    get:
+      tags: [Pest Management]
+      operationId: listWeatherRiskNotes
+      summary: List admin-authored regional weather risk notes
+      description: |
+        Lists admin-authored, region-scoped weather/risk advisory notes (FR-F07 —
+        the Pest Library screen's weather banner). This is static hand-typed
+        content an admin sets, never a computed risk model wired to a live
+        weather feed (BR-38). Unscoped by farm/zone; a future release may add a
+        `region` filter once the admin authoring UI exists.
+      x-permission: pest_library.view
+      x-business-rules: [BR-38]
+      responses:
+        '200':
+          description: Currently valid weather risk notes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WeatherRiskNote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/pest-detections:
+    get:
+      tags: [Pest Management]
+      operationId: listMyPestDetections
+      summary: List a zone's pest detections
+      description: |
+        Lists pest/disease sightings logged for one of the caller's own zones,
+        newest `detectedOn` first. A farm or plot id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's pest detections.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PestDetection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Pest Management]
+      operationId: createMyPestDetection
+      summary: Log a pest detection
+      description: |
+        Logs a pest/disease sighting for one of the caller's own zones. `pestName`/
+        `scientificName` are captured as free text at log time (not only a
+        `pestLibraryId` reference) so a farmer can record a sighting the catalog
+        does not yet cover. `photoUploadId`, when supplied, must reference an
+        upload (`POST /uploads/sign` with `purpose: PEST_PHOTO`) the caller
+        themself created — an upload id that does not exist, or was created by
+        someone else, is rejected as `VALIDATION_FAILED` rather than silently
+        linked. Farmer-entered observation only, never a system-detected alert
+        (BR-38). A farm or plot id that does not exist, or belongs to another
+        farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PestDetectionCreate' }
+            example:
+              pestName: Powdery Mildew
+              scientificName: Erysiphales
+              severity: Low
+              detectedOn: '2026-09-20'
+              notes: White powdery patches on the older beetroot leaves.
+      responses:
+        '201':
+          description: Pest detection logged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestDetection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/pest-detections/{detectionId}:
+    get:
+      tags: [Pest Management]
+      operationId: getMyPestDetection
+      summary: Get one pest detection
+      description: |
+        Fetches one pest detection logged for one of the caller's own zones. A
+        farm, plot or detection id that does not exist, or belongs to another
+        farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: detectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The pest detection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestDetection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Pest Management]
+      operationId: updateMyPestDetection
+      summary: Update a pest detection's status
+      description: |
+        Partial update of a detection logged under one of the caller's own zones —
+        typically marking it resolved and recording whether the farmer's own
+        treatment worked (`resolutionEffective` is the farmer's own after-the-fact
+        assessment, never a server-computed efficacy score, BR-38). Only the
+        fields present in the body change. A farm, plot or detection id that does
+        not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: detectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PestDetectionUpdate' }
+            example:
+              status: Resolved
+              resolutionEffective: true
+      responses:
+        '200':
+          description: Updated pest detection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestDetection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/pest-treatment-logs:
+    get:
+      tags: [Pest Management]
+      operationId: listMyPestTreatmentLogs
+      summary: List a zone's pest treatment logs
+      description: |
+        Lists treatment applications (organic spray, biological control, ...)
+        logged against one of the caller's own zones, newest `appliedOn` first. A
+        farm or plot id that does not exist, or belongs to another farmer, 404s
+        rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's pest treatment logs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PestTreatmentLog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Pest Management]
+      operationId: createMyPestTreatmentLog
+      summary: Log a pest treatment application
+      description: |
+        Logs a treatment application for one of the caller's own zones, optionally
+        against a specific `detectionId`. `intervalDays`/`phiDays` are typically
+        copied from the selected pest library entry at log time (or entered by
+        hand) so the row is a self-contained record of what the farmer actually
+        applied, not a live join that changes retroactively if the catalog entry
+        is later edited. `photoUploadId`, when supplied, must reference an upload
+        (`POST /uploads/sign` with `purpose: PEST_PHOTO`) the caller themself
+        created. Farmer-entered only, never a system-applied treatment (BR-38). A
+        farm or plot id that does not exist, or belongs to another farmer, 404s
+        rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PestTreatmentLogCreate' }
+            example:
+              pestName: Powdery Mildew
+              category: Disease
+              severity: Low
+              treatment: Wettable Sulphur / Trichoderma
+              intervalDays: 12
+              phiDays: 5
+              appliedOn: '2026-09-21'
+      responses:
+        '201':
+          description: Pest treatment log created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestTreatmentLog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/pest-treatment-reminders:
+    get:
+      tags: [Pest Management]
+      operationId: listMyPestTreatmentReminders
+      summary: List a zone's pest treatment reminders
+      description: |
+        Lists follow-up reminders the caller created for one of their own zones,
+        soonest `dueDate` first. Every row here was explicitly typed by the
+        farmer — no scheduled job writes to this table (BR-38). A farm or plot id
+        that does not exist, or belongs to another farmer, 404s rather than 403
+        (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The zone's pest treatment reminders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PestTreatmentReminder' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Pest Management]
+      operationId: createMyPestTreatmentReminder
+      summary: Create a pest treatment reminder
+      description: |
+        Creates a follow-up reminder for one of the caller's own zones, optionally
+        tied to the pest detection that prompted it. This is a farmer-entered
+        to-do, not an automatically generated notification — creating this
+        endpoint at all sits on the BR-38 boundary this feature stays on the
+        manual side of (docs/rules.md "Open contradictions" row 19): the server
+        only ever stores a reminder the farmer typed, never one it invented on
+        their behalf. A farm or plot id that does not exist, or belongs to
+        another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PestTreatmentReminderCreate' }
+            example:
+              title: Re-check for aphids
+              targetPest: Aphids
+              dueDate: '2026-09-28'
+              repeatInterval: ONE_TIME
+      responses:
+        '201':
+          description: Pest treatment reminder created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestTreatmentReminder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/plots/{plotId}/pest-treatment-reminders/{reminderId}:
+    patch:
+      tags: [Pest Management]
+      operationId: updateMyPestTreatmentReminder
+      summary: Update a pest treatment reminder
+      description: |
+        Partial update of a reminder created under one of the caller's own zones —
+        typically marking it done. Only the fields present in the body change.
+        The farmer setting `status: Overdue` by hand is the only way this value
+        changes; no job compares `dueDate` against the clock and writes to this
+        table (BR-38). A farm, plot or reminder id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: reminderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PestTreatmentReminderUpdate' }
+            example:
+              status: Completed
+      responses:
+        '200':
+          description: Updated pest treatment reminder.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestTreatmentReminder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/pest-analytics/summary:
+    get:
+      tags: [Pest Management]
+      operationId: getMyPestAnalyticsSummary
+      summary: Pest analytics summary across a farm's own logged data
+      description: |
+        Aggregates the caller's own pest detections and treatment logs across
+        every zone on one of their own farms: counts of detections by season,
+        the crops most frequently affected, and a per-treatment effectiveness
+        tally derived from `pest_detections.resolutionEffective` on detections
+        the farmer marked resolved after applying that treatment. This is a
+        read-only aggregate purely over the farmer's own already-logged data —
+        it is not automated advice, a risk model, or a system-generated
+        suggestion, and it does not reopen BR-38: nothing here is computed for
+        or written to a farmer who has not already logged the underlying rows
+        themself (same boundary BR-40 draws for soil's classification labels,
+        applied here to counting rather than labelling). A farm id that does
+        not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.pest.manage_own
+      x-business-rules: [BR-36, BR-38]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The farm's pest analytics summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PestAnalyticsSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workers:
+    get:
+      tags: [Farm Workforce]
+      operationId: listMyWorkers
+      summary: List a farm's worker roster
+      description: |
+        Lists workers on one of the caller's own farms, excluding soft-deleted
+        rows. Farm-scoped, not plot-scoped: a worker is hired by the farm as a
+        whole (BR-41, db/migrations/0025_workforce.sql). A farm id that does
+        not exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The farm's worker roster.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Worker' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Workforce]
+      operationId: createMyWorker
+      summary: Add a worker to a farm's roster
+      description: |
+        Adds a worker to one of the caller's own farms. `payRatePaise` must be a
+        positive integer (BR-41a) — never a float. `idProofUploadId`/
+        `photoUploadId`, when supplied, must reference an upload
+        (`POST /uploads/sign` with `purpose: WORKER_ID_PROOF` / `WORKER_PHOTO`)
+        the caller themself created — an upload id that does not exist, or was
+        created by someone else, is rejected as `VALIDATION_FAILED` rather than
+        silently linked. A farm id that does not exist, or belongs to another
+        farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkerCreate' }
+            example:
+              name: Muthu Selvam
+              roleTitle: Field Worker
+              payType: daily
+              payRatePaise: 60000
+      responses:
+        '201':
+          description: Worker created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Worker' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workers/{workerId}:
+    get:
+      tags: [Farm Workforce]
+      operationId: getMyWorker
+      summary: Get one worker
+      description: |
+        Fetches one worker on one of the caller's own farms. A farm or worker
+        id that does not exist, is soft-deleted, or belongs to another farmer,
+        404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The worker.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Worker' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Farm Workforce]
+      operationId: updateMyWorker
+      summary: Update a worker
+      description: |
+        Partial update of a worker on one of the caller's own farms; only the
+        fields present in the body change. A farm or worker id that does not
+        exist, is soft-deleted, or belongs to another farmer, 404s rather than
+        403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkerUpdate' }
+            example:
+              payRatePaise: 65000
+      responses:
+        '200':
+          description: Updated worker.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Worker' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farm Workforce]
+      operationId: deleteMyWorker
+      summary: Remove a worker from the active roster
+      description: |
+        Soft-deletes a worker on one of the caller's own farms (`deleted_at`,
+        db/migrations/0025_workforce.sql) — the row and its attendance/advance/
+        payout history are retained for the payroll audit trail; there is no
+        hard-delete path. A farm or worker id that does not exist, or belongs
+        to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Worker removed from the active roster. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/attendance:
+    get:
+      tags: [Farm Workforce]
+      operationId: listMyFarmAttendanceForDate
+      summary: List every worker's attendance for one day
+      description: |
+        Returns the attendance row for every worker on one of the caller's own
+        farms for a single `date`, so the mobile "mark attendance" screen can
+        render the whole roster in one call. Workers with no logged row for
+        that date are omitted, not backfilled with a synthetic absent record.
+        A farm id that does not exist, or belongs to another farmer, 404s
+        rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: One day's attendance across the farm's roster.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttendanceRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Workforce]
+      operationId: upsertMyFarmAttendance
+      summary: Bulk upsert one day's attendance across the farm's roster
+      description: |
+        Records attendance for one or more workers on one of the caller's own
+        farms for a single date, one call per day. Each item upserts against
+        the `(worker_id, work_date)` unique constraint (db/migrations/0025_
+        workforce.sql), so replaying the same day's submission edits the same
+        rows rather than duplicating them. `hoursWorked`, when present, must
+        fall in `(0, 24]` (BR-41b) — rejected by the database CHECK
+        independent of this validation. Written exclusively by the farmer
+        making this call; no scheduled job ever writes an attendance row
+        (BR-38, extended by BR-41d). Every `workerId` in the body must belong
+        to this farm's own roster, and a farm id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, items]
+              properties:
+                date: { type: string, format: date }
+                items:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/AttendanceUpsertItem' }
+            example:
+              date: '2026-09-29'
+              items:
+                - workerId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  present: true
+                  activity: Weeding
+                  hoursWorked: 8
+                - workerId: 9b2e1c34-1234-4a1b-9abc-1234567890ab
+                  present: false
+      responses:
+        '200':
+          description: The upserted attendance rows for the day.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttendanceRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workers/{workerId}/attendance:
+    get:
+      tags: [Farm Workforce]
+      operationId: listMyWorkerAttendance
+      summary: List one worker's attendance history
+      description: |
+        Lists attendance rows for one worker on one of the caller's own farms,
+        newest `workDate` first, optionally narrowed to one calendar `month`
+        (`YYYY-MM`) and/or one `farmCropId`. A farm or worker id that does not
+        exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: month
+          in: query
+          required: false
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+          description: 'YYYY-MM. Narrows results to work_date within that calendar month.'
+        - name: farmCropId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The worker's attendance history.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AttendanceRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workers/{workerId}/advances:
+    get:
+      tags: [Farm Workforce]
+      operationId: listMyWorkerAdvances
+      summary: List one worker's cash advances
+      description: |
+        Lists cash advances given to one worker on one of the caller's own
+        farms, newest `givenOn` first. Insert-only history (db/migrations/0025_
+        workforce.sql) — nothing here is ever edited. A farm or worker id that
+        does not exist, or belongs to another farmer, 404s rather than 403
+        (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The worker's cash advances.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WorkerAdvance' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Workforce]
+      operationId: createMyWorkerAdvance
+      summary: Log a cash advance to a worker
+      description: |
+        Logs a cash advance given to one worker on one of the caller's own
+        farms. `amountPaise` must be a positive integer (root CLAUDE.md §2.2).
+        The advance is deducted from gross pay when the payroll summary is
+        computed at read time (BR-41c), never subtracted from a stored
+        balance. A farm or worker id that does not exist, or belongs to
+        another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkerAdvanceCreate' }
+            example:
+              amountPaise: 50000
+              givenOn: '2026-09-15'
+              notes: Advance for medical expense
+      responses:
+        '201':
+          description: Advance recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerAdvance' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workers/{workerId}/payouts:
+    get:
+      tags: [Farm Workforce]
+      operationId: listMyWorkerPayouts
+      summary: List one worker's recorded payouts
+      description: |
+        Lists payroll payouts recorded for one worker on one of the caller's
+        own farms, newest `paidAt` first. A farm or worker id that does not
+        exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The worker's recorded payouts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WorkerPayout' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Workforce]
+      operationId: createMyWorkerPayout
+      summary: Record a payroll payout for a worker's pay period
+      description: |
+        Records a payout for one worker on one of the caller's own farms for a
+        `periodStart`/`periodEnd` pair. `amountPaise` must be a positive
+        integer (root CLAUDE.md §2.2). The `UNIQUE (worker_id, period_start,
+        period_end)` database constraint (db/migrations/0025_workforce.sql) is
+        defense in depth alongside the required `Idempotency-Key` header:
+        replaying the same key returns the original payout rather than
+        creating a second one. Written exclusively by the farmer making this
+        call — no scheduled job ever runs payroll (BR-38, extended by
+        BR-41d). A farm or worker id that does not exist, or belongs to
+        another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: workerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkerPayoutCreate' }
+            example:
+              periodStart: '2026-09-01'
+              periodEnd: '2026-09-30'
+              amountPaise: 1500000
+              paymentMethod: bank_transfer
+      responses:
+        '201':
+          description: Payout recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerPayout' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workforce/summary:
+    get:
+      tags: [Farm Workforce]
+      operationId: getMyWorkforceSummary
+      summary: Workforce summary for a farm's dashboard
+      description: |
+        Returns headline workforce numbers for one of the caller's own farms:
+        active worker count, total hours logged this calendar month, and the
+        payroll amount due for the current month. Every figure is computed at
+        read time from raw `worker_attendance`/`worker_advances`/
+        `worker_payouts` rows by the one shared payroll-computation function —
+        never a stored column (BR-41c). A farm id that does not exist, or
+        belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The farm's workforce summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkforceSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workforce/payroll-summary:
+    get:
+      tags: [Farm Workforce]
+      operationId: getMyWorkforcePayrollSummary
+      summary: Per-worker payroll summary for a pay period
+      description: |
+        Returns, for every worker on one of the caller's own farms, gross pay
+        for `period` (`YYYY-MM`) computed from that worker's attendance and
+        `payRatePaise`, advances given in the period, the resulting net
+        payable, and whether a matching payout has already been recorded.
+        Every figure is computed at read time by the one shared payroll-
+        computation function — never a stored column (BR-41c). A farm id that
+        does not exist, or belongs to another farmer, 404s rather than 403
+        (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: period
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+          description: 'YYYY-MM.'
+      responses:
+        '200':
+          description: The farm's per-worker payroll summary for the period.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PayrollSummaryItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/workforce/crop-hours-summary:
+    get:
+      tags: [Farm Workforce]
+      operationId: getMyWorkforceCropHoursSummary
+      summary: Labor cost and hours attributed to one planting
+      description: |
+        Aggregates the attendance rows one of the caller's own farms logged
+        against one `farmCropId` (db/migrations/0004_produce_pricing_
+        marketing.sql `farm_crops`, optionally linked from `worker_attendance`
+        — see db/migrations/0025_workforce.sql): total labor cost, total
+        hours logged, distinct workers involved, and the average pay rate
+        among them. Computed at read time from raw rows, never a stored
+        column (BR-41c). A farm id that does not exist, belongs to another
+        farmer, or a `farmCropId` not reachable from this farm's own plots,
+        404s rather than 403 (BR-36).
+      x-permission: farmer.workforce.manage_own
+      x-business-rules: [BR-36, BR-41]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: farmCropId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Labor cost and hours attributed to the planting.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CropHoursSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -5516,7 +7225,7 @@ components:
       properties:
         purpose:
           type: string
-          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE]
+          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE, SOIL_TEST_REPORT, PEST_PHOTO, WORKER_PHOTO, WORKER_ID_PROOF]
         contentType: { type: string, examples: [image/jpeg, application/pdf] }
         sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
         fileName: { type: string, maxLength: 200 }
@@ -6677,6 +8386,716 @@ components:
         soilType: { type: string, minLength: 1, maxLength: 60 }
         sunExposure: { type: string, minLength: 1, maxLength: 60 }
         irrigationType: { type: string, minLength: 1, maxLength: 60 }
+
+    SoilTestRecord:
+      type: object
+      description: >-
+        A lab soil test result for a zone (FR-F06 soil diary). The `*Label` fields are
+        computed server-side from `system_config` classification bands by one shared
+        function (BR-40) — never a client literal, never duplicated per endpoint.
+      required:
+        - id
+        - plotId
+        - testDate
+        - nextDueDate
+        - organicCarbonPct
+        - ph
+        - ecDsPerM
+        - organicCarbonLabel
+        - phLabel
+        - ecLabel
+        - createdAt
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        testDate: { type: string, format: date }
+        nextDueDate: { type: string, format: date }
+        organicCarbonPct: { type: number, minimum: 0, maximum: 100 }
+        ph: { type: number, minimum: 0, maximum: 14 }
+        ecDsPerM: { type: number, minimum: 0, description: Electrical conductivity, dS/m. }
+        tdsPpm: { type: [integer, 'null'], minimum: 0 }
+        nitrogenKgPerHa: { type: [number, 'null'], minimum: 0 }
+        phosphorusKgPerHa: { type: [number, 'null'], minimum: 0 }
+        potassiumKgPerHa: { type: [number, 'null'], minimum: 0 }
+        limeStatus:
+          type: [string, 'null']
+          enum: [Harmless, Slight, Moderate, Severe, null]
+        labReportUploadId: { type: [string, 'null'], format: uuid }
+        organicCarbonLabel: { type: string, description: 'BR-40 label, e.g. Low/Medium/High.' }
+        phLabel: { type: string, description: 'BR-40 label, e.g. Acidic/Good/Alkaline.' }
+        ecLabel: { type: string, description: 'BR-40 label, e.g. Good/High.' }
+        tdsLabel: { type: [string, 'null'], description: Null exactly when tdsPpm is null. }
+        nitrogenLabel: { type: [string, 'null'], description: Null exactly when nitrogenKgPerHa is null. }
+        phosphorusLabel: { type: [string, 'null'], description: Null exactly when phosphorusKgPerHa is null. }
+        potassiumLabel: { type: [string, 'null'], description: Null exactly when potassiumKgPerHa is null. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    SoilTestRecordCreate:
+      type: object
+      required: [testDate, nextDueDate, organicCarbonPct, ph, ecDsPerM]
+      properties:
+        testDate: { type: string, format: date }
+        nextDueDate: { type: string, format: date }
+        organicCarbonPct: { type: number, minimum: 0, maximum: 100 }
+        ph: { type: number, minimum: 0, maximum: 14 }
+        ecDsPerM: { type: number, minimum: 0 }
+        tdsPpm: { type: integer, minimum: 0 }
+        nitrogenKgPerHa: { type: number, minimum: 0 }
+        phosphorusKgPerHa: { type: number, minimum: 0 }
+        potassiumKgPerHa: { type: number, minimum: 0 }
+        limeStatus: { type: string, enum: [Harmless, Slight, Moderate, Severe] }
+        labReportUploadId:
+          type: string
+          format: uuid
+          description: Must reference an upload (purpose SOIL_TEST_REPORT) owned by the caller.
+
+    SoilHealthSummaryMetric:
+      type: object
+      description: >-
+        Pure arithmetic over the zone's own soil test records (BR-38: no generated
+        advisory text). `trendDirection` tracks only whether the raw reading rose,
+        fell, or held — never a judgement about whether that direction is good.
+      required: [currentValue, previousValue, deltaValue, trendDirection, chartPoints]
+      properties:
+        currentValue: { type: [number, 'null'] }
+        previousValue: { type: [number, 'null'] }
+        deltaValue: { type: [number, 'null'], description: currentValue - previousValue. }
+        trendDirection:
+          type: [string, 'null']
+          enum: [improving, declining, flat, null]
+        chartPoints:
+          type: array
+          description: Up to the last 6 readings that have a value for this metric, oldest first.
+          items:
+            type: object
+            required: [month, value]
+            properties:
+              month: { type: string, description: 'YYYY-MM, derived from testDate.' }
+              value: { type: number }
+
+    SoilHealthSummary:
+      type: object
+      required: [ph, organicCarbon, tds]
+      properties:
+        ph: { $ref: '#/components/schemas/SoilHealthSummaryMetric' }
+        organicCarbon: { $ref: '#/components/schemas/SoilHealthSummaryMetric' }
+        tds: { $ref: '#/components/schemas/SoilHealthSummaryMetric' }
+
+    SoilAmendment:
+      type: object
+      description: An amendment (compost, lime, manure, ...) applied to a zone (FR-F06 soil diary).
+      required: [id, plotId, amendmentType, quantityKg, appliedDate, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        amendmentType: { type: string, maxLength: 120 }
+        quantityKg: { type: number, exclusiveMinimum: 0 }
+        appliedDate: { type: string, format: date }
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    SoilAmendmentCreate:
+      type: object
+      required: [amendmentType, quantityKg, appliedDate]
+      properties:
+        amendmentType: { type: string, minLength: 1, maxLength: 120 }
+        quantityKg: { type: number, exclusiveMinimum: 0 }
+        appliedDate: { type: string, format: date }
+        notes: { type: string, maxLength: 2000 }
+
+    SoilAmendmentUpdate:
+      type: object
+      description: Every field is optional; only the keys present in the body change.
+      properties:
+        amendmentType: { type: string, minLength: 1, maxLength: 120 }
+        quantityKg: { type: number, exclusiveMinimum: 0 }
+        appliedDate: { type: string, format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    SoilMoistureObservation:
+      type: object
+      description: An ad-hoc soil moisture observation for a zone (FR-F06 soil diary).
+      required: [id, plotId, level, observedAt, observedBy, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        level: { type: string, enum: [Dry, Moist, Wet] }
+        observedAt: { type: string, format: date-time }
+        observedBy:
+          type: string
+          format: uuid
+          description: The authenticated caller who logged the observation — never client-supplied.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    SoilMoistureObservationCreate:
+      type: object
+      required: [level]
+      properties:
+        level: { type: string, enum: [Dry, Moist, Wet] }
+        observedAt:
+          type: string
+          format: date-time
+          description: Defaults to now() server-side when omitted.
+
+    ErosionConservationNote:
+      type: object
+      description: >-
+        An erosion risk assessment and/or conservation practice note for a zone
+        (FR-F06 soil diary). `riskLevel` is a farmer self-assessment (BR-38), never a
+        server-computed risk model.
+      required: [id, plotId, riskLevel, loggedAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        riskLevel: { type: string, enum: ['Low Risk', 'Moderate Risk', 'High Risk'] }
+        practiceNotes: { type: [string, 'null'] }
+        loggedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    ErosionConservationNoteCreate:
+      type: object
+      required: [riskLevel]
+      properties:
+        riskLevel: { type: string, enum: ['Low Risk', 'Moderate Risk', 'High Risk'] }
+        practiceNotes: { type: string, maxLength: 2000 }
+        loggedAt:
+          type: string
+          format: date-time
+          description: Defaults to now() server-side when omitted.
+
+    CropRotationEntry:
+      type: object
+      description: >-
+        One crop in a zone's ordered rotation plan (FR-F06 soil diary). 100%
+        farmer-entered planning, never system-suggested (BR-38).
+      required: [id, plotId, sequenceOrder, cropName, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        sequenceOrder: { type: integer, minimum: 1 }
+        cropName: { type: string, maxLength: 120 }
+        plannedDate: { type: [string, 'null'], format: date }
+        status: { type: string, enum: [CURRENT, NEXT, PLANNED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    CropRotationEntryInput:
+      type: object
+      required: [sequenceOrder, cropName, status]
+      properties:
+        sequenceOrder: { type: integer, minimum: 1 }
+        cropName: { type: string, minLength: 1, maxLength: 120 }
+        plannedDate: { type: string, format: date }
+        status: { type: string, enum: [CURRENT, NEXT, PLANNED] }
+
+    CropRotationPlan:
+      type: object
+      required: [sequence, coverCropWindow]
+      properties:
+        sequence:
+          type: array
+          items: { $ref: '#/components/schemas/CropRotationEntry' }
+        coverCropWindow:
+          description: The zone's current/most relevant cover crop window, or null if none has been logged.
+          oneOf:
+            - { $ref: '#/components/schemas/CoverCropWindow' }
+            - type: 'null'
+
+    CoverCropWindow:
+      type: object
+      description: >-
+        A cover-crop planting window (date range + crop type) for a zone, tracked
+        alongside but separately from the ordered crop rotation sequence (FR-F06 soil
+        diary). 100% farmer-entered planning, never system-suggested (BR-38).
+      required: [id, plotId, coverCropType, windowStart, windowEnd, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        coverCropType: { type: string, maxLength: 120 }
+        windowStart: { type: string, format: date }
+        windowEnd: { type: string, format: date }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    CoverCropWindowCreate:
+      type: object
+      required: [coverCropType, windowStart, windowEnd]
+      properties:
+        coverCropType: { type: string, minLength: 1, maxLength: 120 }
+        windowStart: { type: string, format: date }
+        windowEnd: { type: string, format: date, description: Must be on or after windowStart. }
+
+    PestLibraryEntry:
+      type: object
+      description: >-
+        A global pest/disease/weed/deficiency reference catalog entry (FR-F07).
+        NOT zone-scoped — every caller reads the same row. Static admin-curated
+        content: recommendedTreatment/intervalDays/phiDays describe the catalog
+        entry itself, never a system-generated per-farmer suggestion (BR-38).
+      required: [id, name, category, riskLevel, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        scientificName: { type: [string, 'null'] }
+        category:
+          type: string
+          enum: [Disease, Pest, Weed, Deficiency]
+        riskLevel:
+          type: string
+          enum: [High, Medium, Low]
+        crops:
+          type: array
+          items: { type: string }
+          description: Host crops this entry is known to affect.
+        season: { type: [string, 'null'] }
+        symptoms:
+          type: array
+          items: { type: string }
+        organicTreatments:
+          type: array
+          items: { type: string }
+        prevention:
+          type: array
+          items: { type: string }
+        recommendedTreatment: { type: [string, 'null'] }
+        intervalDays: { type: [integer, 'null'], minimum: 0 }
+        phiDays: { type: [integer, 'null'], minimum: 0, description: Pre-harvest interval, in days. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    WeatherRiskNote:
+      type: object
+      description: >-
+        An admin-authored, region-scoped weather/risk advisory note (FR-F07). NOT
+        farmer-owned. Static hand-typed content, not a computed risk model wired
+        to a live weather feed (BR-38).
+      required: [id, region, note, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        region: { type: string }
+        note: { type: string }
+        riskLevel:
+          type: [string, 'null']
+          enum: [High, Medium, Low, null]
+        validFrom: { type: [string, 'null'], format: date }
+        validUntil: { type: [string, 'null'], format: date }
+        createdBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    PestDetection:
+      type: object
+      description: >-
+        A farmer-logged pest/disease sighting on a zone (FR-F07). Farmer-entered
+        observation only, never a system-detected/computed alert (BR-38).
+      required: [id, plotId, pestName, severity, status, detectedOn, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        farmCropId: { type: [string, 'null'], format: uuid }
+        pestLibraryId: { type: [string, 'null'], format: uuid }
+        pestName: { type: string }
+        scientificName: { type: [string, 'null'] }
+        cropLabel:
+          type: [string, 'null']
+          description: >-
+            Free-text crop label the farmer picked in the Crop/Zone field when
+            reporting the detection (e.g. "Carrot — Nantes"). Null for
+            detections logged before this field existed, or when omitted.
+        severity:
+          type: string
+          enum: [High, Medium, Low]
+        status:
+          type: string
+          enum: [Ongoing, Resolved, Recurring]
+        detectedOn: { type: string, format: date }
+        notes: { type: [string, 'null'] }
+        photoUploadId: { type: [string, 'null'], format: uuid }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolutionEffective:
+          type: [boolean, 'null']
+          description: The farmer's own after-the-fact assessment of whether the treatment worked — never a server-computed efficacy score.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    PestDetectionCreate:
+      type: object
+      required: [pestName, severity, detectedOn]
+      properties:
+        farmCropId: { type: string, format: uuid }
+        pestLibraryId: { type: string, format: uuid }
+        pestName: { type: string, minLength: 1, maxLength: 120 }
+        scientificName: { type: string, maxLength: 160 }
+        cropLabel: { type: string, maxLength: 160 }
+        severity:
+          type: string
+          enum: [High, Medium, Low]
+        detectedOn: { type: string, format: date }
+        notes: { type: string, maxLength: 2000 }
+        photoUploadId:
+          type: string
+          format: uuid
+          description: Must reference an upload (purpose PEST_PHOTO) owned by the caller.
+
+    PestDetectionUpdate:
+      type: object
+      description: Partial update — typically marking a detection resolved.
+      properties:
+        status:
+          type: string
+          enum: [Ongoing, Resolved, Recurring]
+        resolutionEffective: { type: [boolean, 'null'] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    PestTreatmentLog:
+      type: object
+      description: >-
+        A farmer-logged treatment application on a zone, optionally against a
+        specific detection (FR-F07). Farmer-entered only — never a system-applied
+        treatment (BR-38).
+      required: [id, plotId, pestName, category, severity, treatment, appliedOn, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        farmCropId: { type: [string, 'null'], format: uuid }
+        detectionId: { type: [string, 'null'], format: uuid }
+        pestLibraryId: { type: [string, 'null'], format: uuid }
+        pestName: { type: string }
+        category:
+          type: string
+          enum: [Disease, Pest, Weed, Deficiency]
+        severity:
+          type: string
+          enum: [High, Medium, Low]
+        treatment: { type: string }
+        intervalDays: { type: [integer, 'null'], minimum: 0 }
+        phiDays: { type: [integer, 'null'], minimum: 0 }
+        appliedOn: { type: string, format: date }
+        nextApplicationDate: { type: [string, 'null'], format: date }
+        photoUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    PestTreatmentLogCreate:
+      type: object
+      required: [pestName, category, severity, treatment, appliedOn]
+      properties:
+        farmCropId: { type: string, format: uuid }
+        detectionId: { type: string, format: uuid }
+        pestLibraryId: { type: string, format: uuid }
+        pestName: { type: string, minLength: 1, maxLength: 120 }
+        category:
+          type: string
+          enum: [Disease, Pest, Weed, Deficiency]
+        severity:
+          type: string
+          enum: [High, Medium, Low]
+        treatment: { type: string, minLength: 1, maxLength: 200 }
+        intervalDays: { type: integer, minimum: 0 }
+        phiDays: { type: integer, minimum: 0 }
+        appliedOn: { type: string, format: date }
+        nextApplicationDate: { type: string, format: date }
+        photoUploadId:
+          type: string
+          format: uuid
+          description: Must reference an upload (purpose PEST_PHOTO) owned by the caller.
+
+    PestTreatmentReminder:
+      type: object
+      description: >-
+        A follow-up reminder a farmer explicitly created for a zone, optionally
+        tied to the detection that prompted it (FR-F07). Farmer-entered to-do —
+        no scheduled job writes to this table (BR-38).
+      required: [id, plotId, title, dueDate, repeatInterval, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        detectionId: { type: [string, 'null'], format: uuid }
+        title: { type: string }
+        targetPest: { type: [string, 'null'] }
+        dueDate: { type: string, format: date }
+        repeatInterval:
+          type: string
+          enum: [ONE_TIME, WEEKLY, BIWEEKLY, MONTHLY]
+        status:
+          type: string
+          enum: [Upcoming, Completed]
+        completedAt: { type: [string, 'null'], format: date-time }
+        notes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    PestTreatmentReminderCreate:
+      type: object
+      required: [title, dueDate]
+      properties:
+        detectionId: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        targetPest: { type: string, maxLength: 120 }
+        dueDate: { type: string, format: date }
+        repeatInterval:
+          type: string
+          enum: [ONE_TIME, WEEKLY, BIWEEKLY, MONTHLY]
+          default: ONE_TIME
+        notes: { type: string, maxLength: 2000 }
+
+    PestTreatmentReminderUpdate:
+      type: object
+      description: Partial update — typically marking a reminder done.
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        dueDate: { type: string, format: date }
+        status:
+          type: string
+          enum: [Upcoming, Completed]
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    PestAnalyticsSummary:
+      type: object
+      description: >-
+        A read-only aggregate over the caller's own already-logged pest data for
+        one of their own farms (FR-F07). Not automated advice, a risk model, or a
+        system-generated suggestion — nothing here is computed for or written to
+        a farmer who has not already logged the underlying detections/treatment
+        logs themself (BR-38).
+      required: [detectionsBySeason, mostAffectedCrops, treatmentEffectiveness]
+      properties:
+        detectionsBySeason:
+          type: array
+          items:
+            type: object
+            required: [season, count]
+            properties:
+              season: { type: string }
+              count: { type: integer, minimum: 0 }
+        mostAffectedCrops:
+          type: array
+          items:
+            type: object
+            required: [crop, count]
+            properties:
+              crop: { type: string }
+              count: { type: integer, minimum: 0 }
+        treatmentEffectiveness:
+          type: array
+          items:
+            type: object
+            required: [treatment, timesUsed, timesEffective]
+            properties:
+              treatment: { type: string }
+              timesUsed: { type: integer, minimum: 0 }
+              timesEffective: { type: integer, minimum: 0 }
+
+    Worker:
+      type: object
+      description: >-
+        A worker on a farm's roster. Farm-scoped, not plot-scoped
+        (db/migrations/0025_workforce.sql) — a worker is hired by the farm as
+        a whole and moves between plots over the course of a day/season.
+      required: [id, farmId, name, payType, payRatePaise, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        roleTitle: { type: [string, 'null'], maxLength: 120 }
+        dateOfBirth: { type: [string, 'null'], format: date }
+        gender: { type: [string, 'null'] }
+        idProofUploadId: { type: [string, 'null'], format: uuid }
+        photoUploadId: { type: [string, 'null'], format: uuid }
+        bankAccountNo: { type: [string, 'null'] }
+        ifscCode: { type: [string, 'null'] }
+        upiId: { type: [string, 'null'] }
+        payType:
+          type: string
+          enum: [daily, monthly]
+        payRatePaise:
+          type: integer
+          exclusiveMinimum: 0
+          description: BR-41a — a positive integer, never a float (root CLAUDE.md §2.2).
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    WorkerCreate:
+      type: object
+      required: [name, payType, payRatePaise]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        roleTitle: { type: string, maxLength: 120 }
+        dateOfBirth: { type: string, format: date }
+        gender: { type: string }
+        idProofUploadId:
+          type: string
+          format: uuid
+          description: Must reference an upload (purpose WORKER_ID_PROOF) owned by the caller.
+        photoUploadId:
+          type: string
+          format: uuid
+          description: Must reference an upload (purpose WORKER_PHOTO) owned by the caller.
+        bankAccountNo: { type: string, maxLength: 40 }
+        ifscCode: { type: string, maxLength: 20 }
+        upiId: { type: string, maxLength: 120 }
+        payType: { type: string, enum: [daily, monthly] }
+        payRatePaise: { type: integer, exclusiveMinimum: 0 }
+
+    WorkerUpdate:
+      type: object
+      description: Every field is optional; only the keys present in the body change.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        roleTitle: { type: [string, 'null'], maxLength: 120 }
+        dateOfBirth: { type: [string, 'null'], format: date }
+        gender: { type: [string, 'null'] }
+        idProofUploadId:
+          type: [string, 'null']
+          format: uuid
+          description: Must reference an upload (purpose WORKER_ID_PROOF) owned by the caller.
+        photoUploadId:
+          type: [string, 'null']
+          format: uuid
+          description: Must reference an upload (purpose WORKER_PHOTO) owned by the caller.
+        bankAccountNo: { type: [string, 'null'], maxLength: 40 }
+        ifscCode: { type: [string, 'null'], maxLength: 20 }
+        upiId: { type: [string, 'null'], maxLength: 120 }
+        payType: { type: string, enum: [daily, monthly] }
+        payRatePaise:
+          type: integer
+          exclusiveMinimum: 0
+          description: BR-41a — a positive integer, never a float (root CLAUDE.md §2.2).
+
+    AttendanceRecord:
+      type: object
+      description: >-
+        One worker's attendance for one day (db/migrations/0025_workforce.sql
+        `worker_attendance`, unique per worker/work_date).
+      required: [id, workerId, workDate, present, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        workerId: { type: string, format: uuid }
+        workerName:
+          type: string
+          description: Included when listing across workers for one day (GET /farms/{farmId}/attendance).
+        farmCropId: { type: [string, 'null'], format: uuid }
+        workDate: { type: string, format: date }
+        present: { type: boolean }
+        activity: { type: [string, 'null'], maxLength: 200 }
+        hoursWorked:
+          type: [number, 'null']
+          exclusiveMinimum: 0
+          maximum: 24
+          description: BR-41b — in (0, 24] when present, CHECKed at the database level.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    AttendanceUpsertItem:
+      type: object
+      description: One entry in a bulk attendance upsert (POST /farms/{farmId}/attendance).
+      required: [workerId, present]
+      properties:
+        workerId: { type: string, format: uuid }
+        present: { type: boolean }
+        farmCropId: { type: string, format: uuid }
+        activity: { type: string, maxLength: 200 }
+        hoursWorked:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 24
+          description: BR-41b — in (0, 24] when present, CHECKed at the database level.
+
+    WorkerAdvance:
+      type: object
+      description: >-
+        A cash advance given to a worker (db/migrations/0025_workforce.sql
+        `worker_advances`), insert-only — never edited after creation.
+      required: [id, workerId, amountPaise, givenOn, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        workerId: { type: string, format: uuid }
+        amountPaise: { type: integer, exclusiveMinimum: 0 }
+        givenOn: { type: string, format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+
+    WorkerAdvanceCreate:
+      type: object
+      required: [amountPaise, givenOn]
+      properties:
+        amountPaise: { type: integer, exclusiveMinimum: 0 }
+        givenOn: { type: string, format: date }
+        notes: { type: string, maxLength: 2000 }
+
+    WorkerPayout:
+      type: object
+      description: >-
+        A payroll payout recorded for a worker's pay period
+        (db/migrations/0025_workforce.sql `worker_payouts`), unique per
+        (worker, period). This is a record of an amount already paid, not a
+        stored gross/net figure the read-time payroll function depends on
+        (BR-41c).
+      required: [id, workerId, periodStart, periodEnd, amountPaise, paymentMethod, paidAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        workerId: { type: string, format: uuid }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        amountPaise: { type: integer, exclusiveMinimum: 0 }
+        paymentMethod: { type: string, enum: [cash, bank_transfer, upi] }
+        paidAt: { type: string, format: date-time }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+
+    WorkerPayoutCreate:
+      type: object
+      required: [periodStart, periodEnd, amountPaise, paymentMethod]
+      properties:
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        amountPaise: { type: integer, exclusiveMinimum: 0 }
+        paymentMethod: { type: string, enum: [cash, bank_transfer, upi] }
+        notes: { type: string, maxLength: 2000 }
+
+    WorkforceSummary:
+      type: object
+      description: >-
+        Headline workforce numbers for a farm, computed at read time from raw
+        attendance/advance/payout rows — never a stored column (BR-41c).
+      required: [workerCount, hoursThisMonth, payrollDueThisMonthPaise]
+      properties:
+        workerCount: { type: integer, minimum: 0 }
+        hoursThisMonth: { type: number, minimum: 0 }
+        payrollDueThisMonthPaise: { type: integer, minimum: 0 }
+
+    PayrollSummaryItem:
+      type: object
+      description: >-
+        One worker's payroll figures for a period, computed at read time from
+        raw attendance/advance/payout rows — never a stored column (BR-41c).
+      required: [workerId, workerName, grossPaise, advancesPaise, netPayablePaise, paidStatus]
+      properties:
+        workerId: { type: string, format: uuid }
+        workerName: { type: string }
+        grossPaise: { type: integer, minimum: 0 }
+        advancesPaise: { type: integer, minimum: 0 }
+        netPayablePaise: { type: integer, description: grossPaise - advancesPaise. }
+        paidStatus:
+          type: string
+          enum: [pending, paid]
+          description: paid when a worker_payouts row exists for this worker and period.
+
+    CropHoursSummary:
+      type: object
+      description: >-
+        Labor cost and hours attributed to one planting (farm_crops), computed
+        at read time from raw attendance rows — never a stored column (BR-41c).
+      required: [totalCostPaise, hoursLogged, workersInvolved, avgRatePaise]
+      properties:
+        totalCostPaise: { type: integer, minimum: 0 }
+        hoursLogged: { type: number, minimum: 0 }
+        workersInvolved: { type: integer, minimum: 0 }
+        avgRatePaise: { type: integer, minimum: 0 }
 
     FarmCropStatus:
       type: string

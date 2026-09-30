@@ -12,6 +12,10 @@ export const UploadPurpose = {
   ISSUE_PHOTO: 'ISSUE_PHOTO',
   DIARY_PHOTO: 'DIARY_PHOTO',
   DIARY_VOICE_NOTE: 'DIARY_VOICE_NOTE',
+  SOIL_TEST_REPORT: 'SOIL_TEST_REPORT',
+  PEST_PHOTO: 'PEST_PHOTO',
+  WORKER_PHOTO: 'WORKER_PHOTO',
+  WORKER_ID_PROOF: 'WORKER_ID_PROOF',
 } as const;
 
 export type UploadPurpose = (typeof UploadPurpose)[keyof typeof UploadPurpose];
@@ -28,6 +32,10 @@ export const signUploadBody = z.object({
     UploadPurpose.ISSUE_PHOTO,
     UploadPurpose.DIARY_PHOTO,
     UploadPurpose.DIARY_VOICE_NOTE,
+    UploadPurpose.SOIL_TEST_REPORT,
+    UploadPurpose.PEST_PHOTO,
+    UploadPurpose.WORKER_PHOTO,
+    UploadPurpose.WORKER_ID_PROOF,
   ]),
   contentType: z.enum(ALLOWED_MIME_TYPES, {
     errorMap: () => ({

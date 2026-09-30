@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -12,8 +13,26 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms, getPlots } from '../../../api/farms';
+import {
+  createPestDetection,
+  listPestDetections,
+  listPestLibrary,
+  listPestTreatmentLogs,
+  listPestTreatmentReminders,
+  updatePestDetection,
+  uploadPestPhoto,
+  type CreatePestDetectionInput,
+  type PestDetection,
+  type PestLibraryEntry,
+  type PestTreatmentLog,
+  type UpdatePestDetectionInput,
+} from '../../../api/pest';
 import { PestLibraryScreen } from './PestLibraryScreen';
 import { TreatmentScheduleScreen } from './TreatmentScheduleScreen';
 import { WeatherRiskAnalyticsScreen } from './WeatherRiskAnalyticsScreen';
@@ -180,24 +199,19 @@ function CheckIcon({ size = 18, color = P.white }: { size?: number; color?: stri
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface DetectionItem {
-  id: string;
-  name: string;
-  scientificName: string;
-  crop: string;
-  zone: string;
-  date: string;
-  severity: 'Low' | 'Medium' | 'High';
-  status: 'Ongoing' | 'Resolved' | 'Recurring';
-  referenceTreatments: Array<{ name: string; notes: string }>;
-  treatmentHistory: Array<{ treatment: string; date: string }>;
-}
-
 export interface PestManagementScreenProps {
+  /**
+   * Threaded down like SoilManagementScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) when this screen is the
+   * root of the pest subtree -- App.tsx's `navigate('PestManagement')` passes no
+   * farmId today, the same situation SoilManagementScreen resolves for its own
+   * subtree on mount.
+   */
+  farmId?: string | undefined;
   onBack?: () => void;
-  onNavigateToSchedule?: () => void;
-  onNavigateToPestLibrary?: () => void;
-  onNavigateToWeatherRisk?: () => void;
+  onNavigateToSchedule?: ((farmId: string) => void) | undefined;
+  onNavigateToPestLibrary?: ((farmId: string) => void) | undefined;
+  onNavigateToWeatherRisk?: ((farmId: string) => void) | undefined;
 }
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -213,61 +227,30 @@ function formatDisplayDate(d: Date): string {
   return `${day} ${month} ${year}`;
 }
 
-const INITIAL_DETECTIONS: DetectionItem[] = [
-  {
-    id: 'det-1',
-    name: 'Aphids',
-    scientificName: 'Aphidoidea',
-    crop: 'Carrot — Nantes',
-    zone: 'Zone 1',
-    date: '15 Jul 2026',
-    severity: 'Medium',
-    status: 'Ongoing',
-    referenceTreatments: [
-      { name: 'Neem Oil Spray', notes: 'Foliar application, repeat every 5-7 days' },
-      { name: 'Ladybird Release', notes: 'Biological control — natural predator' },
-    ],
-    treatmentHistory: [
-      { treatment: 'Neem Oil Spray applied', date: '16 Jul 2026' },
-    ],
-  },
-  {
-    id: 'det-2',
-    name: 'Powdery Mildew',
-    scientificName: 'Erysiphales',
-    crop: 'Beetroot',
-    zone: 'Zone 2',
-    date: '12 Jul 2026',
-    severity: 'High',
-    status: 'Recurring',
-    referenceTreatments: [
-      { name: 'Baking Soda Solution', notes: 'Spray affected leaves weekly' },
-      { name: 'Sulfur Dusting', notes: 'Certified organic fungicide application' },
-    ],
-    treatmentHistory: [
-      { treatment: 'Baking Soda Solution applied', date: '13 Jul 2026' },
-    ],
-  },
-  {
-    id: 'det-3',
-    name: 'Caterpillar',
-    scientificName: 'Pieris brassicae',
-    crop: 'Cabbage',
-    zone: 'Zone 3',
-    date: '03 Jul 2026',
-    severity: 'Low',
-    status: 'Resolved',
-    referenceTreatments: [
-      { name: 'Bacillus thuringiensis (Bt)', notes: 'Natural biological insecticide' },
-      { name: 'Handpicking & Netting', notes: 'Physical barrier protection' },
-    ],
-    treatmentHistory: [
-      { treatment: 'Handpicking & Netting completed', date: '04 Jul 2026' },
-    ],
-  },
-];
+/** `Date` -> the `YYYY-MM-DD` the API's `dateSchema` requires (pest.schema.ts). */
+function toIsoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** `YYYY-MM-DD` (or any ISO datetime) -> the `DD Mon YYYY` this screen displays. */
+function formatIsoDisplay(iso: string): string {
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+  if (isNaN(d.getTime())) return iso;
+  return formatDisplayDate(d);
+}
+
+/** `YYYY-MM-DD` -> the `DD Mon` short form the "Next Treatment" stat card used (e.g. "21 Sep"). */
+function formatIsoDisplayShort(iso: string): string {
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT[d.getMonth()]}`;
+}
 
 export function PestManagementScreen({
+  farmId,
   onBack,
   onNavigateToSchedule,
   onNavigateToPestLibrary,
@@ -275,18 +258,149 @@ export function PestManagementScreen({
 }: PestManagementScreenProps): React.JSX.Element {
   // Navigation view: 'hub' | 'log' | 'detail' | 'library' | 'schedule' | 'weatherRisk'
   const [currentView, setCurrentView] = useState<'hub' | 'log' | 'detail' | 'library' | 'schedule' | 'weatherRisk'>('hub');
-  const [selectedDetection, setSelectedDetection] = useState<DetectionItem>(INITIAL_DETECTIONS[0]!);
-  const [detections, setDetections] = useState<DetectionItem[]>(INITIAL_DETECTIONS);
+
+  // ── Farm / zone context this screen's data is scoped to ──
+  // No zone picker is drawn anywhere in this mock's UI, so -- same "no
+  // create-form UI to invent" limit UploadNewSoilTestScreen.tsx documents for
+  // soil -- pest data here is logged against the farm's first zone.
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [plotId, setPlotId] = useState('');
+  const [plotName, setPlotName] = useState('');
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setContextLoading(true);
+      setContextError(null);
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (!fid) {
+          if (!cancelled) setContextError('No farm found. Add a farm before managing pests.');
+          return;
+        }
+        const plots = await getPlots(fid);
+        const firstPlot = plots[0];
+        if (!firstPlot) {
+          if (!cancelled) setContextError('This farm has no zones yet. Add a zone before logging pest data.');
+          return;
+        }
+        if (!cancelled) {
+          setResolvedFarmId(fid);
+          setPlotId(firstPlot.id);
+          setPlotName(firstPlot.name);
+        }
+      } catch (err) {
+        if (!cancelled) setContextError(formatErrorMessage(err, 'Could not load your farm.'));
+      } finally {
+        if (!cancelled) setContextLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  // ── Next Treatment hub stat: earliest upcoming reminder's due date ──
+  const [nextTreatmentLabel, setNextTreatmentLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!resolvedFarmId || !plotId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const reminders = await listPestTreatmentReminders(resolvedFarmId, plotId);
+        const upcoming = reminders
+          .filter((r) => r.status === 'Upcoming')
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+        if (!cancelled) setNextTreatmentLabel(upcoming[0] ? formatIsoDisplayShort(upcoming[0].dueDate) : null);
+      } catch {
+        if (!cancelled) setNextTreatmentLabel(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedFarmId, plotId]);
+
+  // ── Detections ──
+  const [selectedDetection, setSelectedDetection] = useState<PestDetection | null>(null);
+  const [detections, setDetections] = useState<PestDetection[]>([]);
+  const [detectionsLoading, setDetectionsLoading] = useState(false);
+  const [detectionsError, setDetectionsError] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<'All' | 'Ongoing' | 'Resolved' | 'Recurring'>('All');
+
+  const loadDetections = useCallback(async () => {
+    if (!resolvedFarmId || !plotId) return;
+    setDetectionsLoading(true);
+    setDetectionsError(null);
+    try {
+      const items = await listPestDetections(resolvedFarmId, plotId);
+      setDetections(items);
+    } catch (err) {
+      setDetectionsError(formatErrorMessage(err, 'Could not load pest detections.'));
+    } finally {
+      setDetectionsLoading(false);
+    }
+  }, [resolvedFarmId, plotId]);
+
+  useEffect(() => {
+    void loadDetections();
+  }, [loadDetections]);
+
+  // ── Detection detail view: reference treatments (from the pest library) and
+  // this detection's own treatment history (this plot's treatment logs, filtered
+  // to the ones recorded against it). ──
+  const [referenceTreatments, setReferenceTreatments] = useState<string[]>([]);
+  const [detailTreatmentHistory, setDetailTreatmentHistory] = useState<PestTreatmentLog[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentView !== 'detail' || !selectedDetection || !resolvedFarmId || !plotId) return;
+    let cancelled = false;
+    void (async () => {
+      setDetailLoading(true);
+      try {
+        const [libraryMatches, logs] = await Promise.all([
+          listPestLibrary({ q: selectedDetection.pestName }),
+          listPestTreatmentLogs(resolvedFarmId, plotId),
+        ]);
+        if (cancelled) return;
+        setReferenceTreatments(libraryMatches[0]?.organicTreatments ?? []);
+        setDetailTreatmentHistory(logs.filter((l) => l.detectionId === selectedDetection.id));
+      } catch {
+        if (!cancelled) {
+          setReferenceTreatments([]);
+          setDetailTreatmentHistory([]);
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentView, selectedDetection, resolvedFarmId, plotId]);
 
   // Report Modal State
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
   const [newCropZone, setNewCropZone] = useState('Carrot — Nantes, Zone 1');
   const [isCropPickerOpen, setIsCropPickerOpen] = useState(false);
-  const [newPestType, setNewPestType] = useState('Aphids');
+  const [newPestType, setNewPestType] = useState('');
+  const [selectedPestLibraryId, setSelectedPestLibraryId] = useState<string | undefined>(undefined);
+  const [pestSuggestions, setPestSuggestions] = useState<PestLibraryEntry[]>([]);
+  const [isPestSuggestionsOpen, setIsPestSuggestionsOpen] = useState(false);
   const [newSeverity, setNewSeverity] = useState<'Low' | 'Medium' | 'High'>('Low');
   const [newDate, setNewDate] = useState('18 Sep 2026');
   const [newNotes, setNewNotes] = useState('');
+  const [newPhoto, setNewPhoto] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [savingDetection, setSavingDetection] = useState(false);
+  const [saveDetectionError, setSaveDetectionError] = useState<string | null>(null);
 
   // Calendar Modal for Date Detected
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -295,6 +409,14 @@ export function PestManagementScreen({
   const [calendarMonth, setCalendarMonth] = useState<number>(8);
   const [isYearPickerOpen, setIsYearPickerOpen] = useState(false);
 
+  // No crop-tracking API exists yet (known gap, out of scope here), so this
+  // stays a free-text picker, same as LogPestTreatmentScreen's crop/zone
+  // picker -- the crop half is sent as `cropLabel` (free text, 0024) below,
+  // never as a `farmCropId`. The zone half isn't sent at all: this screen has
+  // no real zone picker (see the farmId/plotId resolution effect above), so
+  // the detection is always logged against the farm's first zone regardless
+  // of what's picked here; the card/detail views show the *real* zone name
+  // (`plotName`) rather than this free-text guess.
   const cropZoneOptions = [
     'Carrot — Nantes, Zone 1',
     'Beetroot, Zone 2',
@@ -303,44 +425,187 @@ export function PestManagementScreen({
     'Beans, Zone 1',
   ];
 
-  const handleSaveDetection = () => {
+  // Live search against the pest library as the farmer types in "Pest Type"
+  // (the field already carried a search icon + "Chosen manually from the
+  // Pest Library" copy in the original mock, but was never wired to a real
+  // suggestion list). Debounced so quick typing doesn't fire a query per
+  // keystroke. A free-text pest not in the library is still accepted --
+  // `selectedPestLibraryId` just stays unset, matching the "no
+  // auto-detection" disclaimer's own point that this is farmer-driven, not
+  // enforced.
+  useEffect(() => {
+    if (selectedPestLibraryId) return; // just picked one; don't re-search it
+    const query = newPestType.trim();
+    if (query.length < 2) {
+      setPestSuggestions([]);
+      setIsPestSuggestionsOpen(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const results = await listPestLibrary({ q: query });
+          if (!cancelled) {
+            setPestSuggestions(results);
+            setIsPestSuggestionsOpen(results.length > 0);
+          }
+        } catch {
+          if (!cancelled) {
+            setPestSuggestions([]);
+            setIsPestSuggestionsOpen(false);
+          }
+        }
+      })();
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [newPestType, selectedPestLibraryId]);
+
+  const handleSelectPestSuggestion = (entry: PestLibraryEntry) => {
+    setNewPestType(entry.name);
+    setSelectedPestLibraryId(entry.id);
+    setIsPestSuggestionsOpen(false);
+  };
+
+  const handlePickPhoto = async () => {
+    try {
+      const picked = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.images],
+        copyTo: 'cachesDirectory',
+      });
+      setNewPhoto({
+        uri: picked.fileCopyUri ?? picked.uri,
+        name: picked.name ?? 'pest_photo.jpg',
+        type: picked.type ?? 'image/jpeg',
+      });
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        Alert.alert('Could Not Attach Photo', formatErrorMessage(err, 'Please try again.'));
+      }
+    }
+  };
+
+  const handleSaveDetection = async () => {
     if (!newPestType.trim()) {
       Alert.alert('Required Field', 'Please enter or select a pest type.');
       return;
     }
+    setSavingDetection(true);
+    setSaveDetectionError(null);
+    try {
+      // Same resilient on-demand resolution as AddWorkerScreen.tsx: rather
+      // than failing Save on a farmId/plotId race against this screen's own
+      // background getFarms()/getPlots() effect, resolve it here if it
+      // hasn't landed yet.
+      let saveFarmId = resolvedFarmId;
+      let savePlotId = plotId;
+      if (!saveFarmId || !savePlotId) {
+        const farms = await getFarms();
+        const fid = farms[0]?.id;
+        if (fid) {
+          const plots = await getPlots(fid);
+          const pid = plots[0]?.id;
+          if (pid) {
+            saveFarmId = fid;
+            savePlotId = pid;
+            setResolvedFarmId(fid);
+            setPlotId(pid);
+          }
+        }
+      }
+      if (!saveFarmId || !savePlotId) {
+        Alert.alert('No Farm Found', 'Add a farm and a zone before reporting a detection.');
+        setSavingDetection(false);
+        return;
+      }
 
-    const created: DetectionItem = {
-      id: `det-${Date.now()}`,
-      name: newPestType.trim(),
-      scientificName: `${newPestType.trim()} spp.`,
-      crop: newCropZone.split(',')[0]?.trim() || newCropZone,
-      zone: newCropZone.split(',')[1]?.trim() || 'Zone 1',
-      date: newDate,
-      severity: newSeverity,
-      status: 'Ongoing',
-      referenceTreatments: [
-        { name: 'Neem Oil Foliar Spray', notes: 'Apply every 5-7 days until resolved' },
-        { name: 'Targeted Biological Control', notes: 'Monitor affected foliage daily' },
-      ],
-      treatmentHistory: [],
-    };
+      if (newPhoto) {
+        try {
+          await uploadPestPhoto(newPhoto.uri, newPhoto.name, newPhoto.type);
+          // Spec gap (see pest.ts's uploadPestPhoto docblock): the photo is
+          // uploaded for safekeeping but photoUploadId cannot be linked yet.
+        } catch {
+          // Non-fatal: the detection itself is still worth logging.
+        }
+      }
 
-    setDetections([created, ...detections]);
-    setIsReportModalVisible(false);
-    setSelectedDetection(created);
-    setCurrentView('log');
-    Alert.alert('Detection Reported', `${created.name} detection has been logged successfully.`);
+      // Same split the original mock used before this screen was wired to the
+      // API: the "Crop/Zone" picker is one combined string, and only the crop
+      // half is meaningful data to persist (see the cropZoneOptions comment
+      // above for why the zone half isn't sent).
+      const cropLabel = newCropZone.split(',')[0]?.trim() || newCropZone;
+      const body: CreatePestDetectionInput = {
+        pestName: newPestType.trim(),
+        ...(selectedPestLibraryId ? { pestLibraryId: selectedPestLibraryId } : {}),
+        cropLabel,
+        severity: newSeverity,
+        detectedOn: toIsoDate(calendarDate),
+        ...(newNotes.trim() ? { notes: newNotes.trim() } : {}),
+      };
+      const created = await createPestDetection(saveFarmId, savePlotId, body);
+
+      setDetections((prev) => [created, ...prev]);
+      setIsReportModalVisible(false);
+      setSelectedDetection(created);
+      setNewPestType('');
+      setSelectedPestLibraryId(undefined);
+      setPestSuggestions([]);
+      setIsPestSuggestionsOpen(false);
+      setNewNotes('');
+      setNewPhoto(null);
+      setCurrentView('log');
+      Alert.alert('Detection Reported', `${created.pestName} detection has been logged successfully.`);
+    } catch (err) {
+      setSaveDetectionError(formatErrorMessage(err, 'Could not save this detection.'));
+    } finally {
+      setSavingDetection(false);
+    }
+  };
+
+  const applyDetectionUpdate = async (input: UpdatePestDetectionInput) => {
+    if (!resolvedFarmId || !plotId || !selectedDetection) return;
+    try {
+      const updated = await updatePestDetection(resolvedFarmId, plotId, selectedDetection.id, input);
+      setSelectedDetection(updated);
+      setDetections((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    } catch (err) {
+      Alert.alert('Could Not Update', formatErrorMessage(err, 'Please try again.'));
+    }
   };
 
   const handleToggleResolved = () => {
-    const nextStatus: 'Ongoing' | 'Resolved' =
-      selectedDetection.status === 'Resolved' ? 'Ongoing' : 'Resolved';
-    const updated: DetectionItem = { ...selectedDetection, status: nextStatus };
-    setSelectedDetection(updated);
-    setDetections(detections.map((d) => (d.id === updated.id ? updated : d)));
+    if (!selectedDetection) return;
+    if (selectedDetection.status === 'Resolved') {
+      void applyDetectionUpdate({ status: 'Ongoing' });
+      Alert.alert('Reopened Detection', 'Status updated to Ongoing.');
+      return;
+    }
+    // Closes the gap between the mock and what WeatherRiskAnalyticsScreen's
+    // effectiveness stat needs: `resolutionEffective` is the farmer's own
+    // after-the-fact assessment (BR-38), never guessed by the client.
     Alert.alert(
-      nextStatus === 'Resolved' ? 'Marked as Resolved' : 'Reopened Detection',
-      `Status updated to ${nextStatus}.`,
+      'Mark Resolved',
+      'Did your treatment work?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'No, not effective',
+          onPress: () => {
+            void applyDetectionUpdate({ status: 'Resolved', resolutionEffective: false });
+            Alert.alert('Marked as Resolved', 'Status updated to Resolved.');
+          },
+        },
+        {
+          text: 'Yes, effective',
+          onPress: () => {
+            void applyDetectionUpdate({ status: 'Resolved', resolutionEffective: true });
+            Alert.alert('Marked as Resolved', 'Status updated to Resolved.');
+          },
+        },
+      ],
     );
   };
 
@@ -413,21 +678,27 @@ export function PestManagementScreen({
               </Text>
             </View>
 
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{activeCount}</Text>
-                <Text style={styles.statLabel}>Active Detections</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>21 Sep</Text>
-                <Text style={styles.statLabel}>Next Treatment</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{resolvedCount}</Text>
-                <Text style={styles.statLabel}>Resolved This Month</Text>
-              </View>
-            </View>
+            {contextError ? (
+              <Text style={styles.loadErrorText}>{contextError}</Text>
+            ) : (
+              <>
+                {/* Stats Row */}
+                <View style={styles.statsRow}>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber}>{contextLoading ? '—' : activeCount}</Text>
+                    <Text style={styles.statLabel}>Active Detections</Text>
+                  </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber}>{nextTreatmentLabel ?? '—'}</Text>
+                    <Text style={styles.statLabel}>Next Treatment</Text>
+                  </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber}>{contextLoading ? '—' : resolvedCount}</Text>
+                    <Text style={styles.statLabel}>Resolved</Text>
+                  </View>
+                </View>
+              </>
+            )}
 
             {/* Features List */}
             <Text style={styles.sectionHeaderTitle}>FEATURES</Text>
@@ -456,7 +727,7 @@ export function PestManagementScreen({
                 activeOpacity={0.8}
                 onPress={() => {
                   if (onNavigateToPestLibrary) {
-                    onNavigateToPestLibrary();
+                    onNavigateToPestLibrary(resolvedFarmId);
                   } else {
                     setCurrentView('library');
                   }
@@ -479,7 +750,7 @@ export function PestManagementScreen({
                 activeOpacity={0.8}
                 onPress={() => {
                   if (onNavigateToSchedule) {
-                    onNavigateToSchedule();
+                    onNavigateToSchedule(resolvedFarmId);
                   } else {
                     setCurrentView('schedule');
                   }
@@ -502,7 +773,7 @@ export function PestManagementScreen({
                 activeOpacity={0.8}
                 onPress={() => {
                   if (onNavigateToWeatherRisk) {
-                    onNavigateToWeatherRisk();
+                    onNavigateToWeatherRisk(resolvedFarmId);
                   } else {
                     setCurrentView('weatherRisk');
                   }
@@ -524,9 +795,10 @@ export function PestManagementScreen({
           {/* Floating Report Detection CTA */}
           <View style={styles.floatingButtonContainer}>
             <TouchableOpacity
-              style={styles.reportCtaButton}
+              style={[styles.reportCtaButton, (contextLoading || !!contextError) && { opacity: 0.6 }]}
               activeOpacity={0.85}
               onPress={() => setIsReportModalVisible(true)}
+              disabled={contextLoading || !!contextError}
             >
               <Text style={styles.reportCtaPlus}>+</Text>
               <Text style={styles.reportCtaText}>Report Detection</Text>
@@ -557,7 +829,7 @@ export function PestManagementScreen({
               <View style={styles.logHeaderTitleCol}>
                 <Text style={styles.logHeaderTitle}>Detection Log</Text>
                 <Text style={styles.logHeaderSubtitle}>
-                  {activeCount} active · {resolvedCount} resolved this month
+                  {activeCount} active · {resolvedCount} resolved
                 </Text>
               </View>
             </View>
@@ -582,71 +854,82 @@ export function PestManagementScreen({
             </View>
 
             {/* Detections List */}
-            <View style={styles.detectionsList}>
-              {filteredDetections.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.detectionCard}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    setSelectedDetection(item);
-                    setCurrentView('detail');
-                  }}
-                >
-                  <View style={styles.detectionIconBox}>
-                    <PestBugIcon size={22} color={colors.brandGreen} />
-                  </View>
+            {detectionsLoading ? (
+              <View style={{ gap: 12 }}>
+                <Skeleton height={90} width="100%" />
+                <Skeleton height={90} width="100%" />
+              </View>
+            ) : detectionsError ? (
+              <Text style={styles.loadErrorText}>{detectionsError}</Text>
+            ) : filteredDetections.length === 0 ? (
+              <Text style={styles.treatmentHistoryEmpty}>No detections logged yet.</Text>
+            ) : (
+              <View style={styles.detectionsList}>
+                {filteredDetections.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.detectionCard}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setSelectedDetection(item);
+                      setCurrentView('detail');
+                    }}
+                  >
+                    <View style={styles.detectionIconBox}>
+                      <PestBugIcon size={22} color={colors.brandGreen} />
+                    </View>
 
-                  <View style={styles.detectionMainCol}>
-                    <Text style={styles.detectionName}>{item.name}</Text>
-                    <Text style={styles.detectionSub}>
-                      {item.crop} · {item.zone} · {item.date}
-                    </Text>
-                    <View style={styles.badgesRow}>
-                      <View
-                        style={[
-                          styles.severityBadge,
-                          item.severity === 'High' && styles.severityBadgeHigh,
-                          item.severity === 'Medium' && styles.severityBadgeMed,
-                          item.severity === 'Low' && styles.severityBadgeLow,
-                        ]}
-                      >
-                        <Text
+                    <View style={styles.detectionMainCol}>
+                      <Text style={styles.detectionName}>{item.pestName}</Text>
+                      <Text style={styles.detectionSub}>
+                        {[item.cropLabel, plotName, formatIsoDisplay(item.detectedOn)].filter(Boolean).join(' · ')}
+                      </Text>
+                      <View style={styles.badgesRow}>
+                        <View
                           style={[
-                            styles.severityBadgeText,
-                            item.severity === 'High' && styles.severityBadgeTextHigh,
-                            item.severity === 'Medium' && styles.severityBadgeTextMed,
-                            item.severity === 'Low' && styles.severityBadgeTextLow,
+                            styles.severityBadge,
+                            item.severity === 'High' && styles.severityBadgeHigh,
+                            item.severity === 'Medium' && styles.severityBadgeMed,
+                            item.severity === 'Low' && styles.severityBadgeLow,
                           ]}
                         >
-                          {item.severity}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              styles.severityBadgeText,
+                              item.severity === 'High' && styles.severityBadgeTextHigh,
+                              item.severity === 'Medium' && styles.severityBadgeTextMed,
+                              item.severity === 'Low' && styles.severityBadgeTextLow,
+                            ]}
+                          >
+                            {item.severity}
+                          </Text>
+                        </View>
 
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          item.status === 'Resolved' && styles.statusBadgeResolved,
-                          item.status === 'Recurring' && styles.statusBadgeRecurring,
-                          item.status === 'Ongoing' && styles.statusBadgeOngoing,
-                        ]}
-                      >
-                        <Text
+                        <View
                           style={[
-                            styles.statusBadgeText,
-                            item.status === 'Resolved' && styles.statusBadgeTextResolved,
-                            item.status === 'Recurring' && styles.statusBadgeTextRecurring,
-                            item.status === 'Ongoing' && styles.statusBadgeTextOngoing,
+                            styles.statusBadge,
+                            item.status === 'Resolved' && styles.statusBadgeResolved,
+                            item.status === 'Recurring' && styles.statusBadgeRecurring,
+                            item.status === 'Ongoing' && styles.statusBadgeOngoing,
                           ]}
                         >
-                          {item.status}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              item.status === 'Resolved' && styles.statusBadgeTextResolved,
+                              item.status === 'Recurring' && styles.statusBadgeTextRecurring,
+                              item.status === 'Ongoing' && styles.statusBadgeTextOngoing,
+                            ]}
+                          >
+                            {item.status}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </ScrollView>
 
           {/* Floating Report Detection CTA */}
@@ -666,7 +949,7 @@ export function PestManagementScreen({
       {/* ──────────────────────────────────────────────────────────────────────────
           VIEW 3: DETECTION DETAIL (Screenshot 5)
       ────────────────────────────────────────────────────────────────────────── */}
-      {currentView === 'detail' && (
+      {currentView === 'detail' && selectedDetection && (
         <View style={styles.container}>
           <ScrollView
             style={styles.scrollView}
@@ -692,11 +975,18 @@ export function PestManagementScreen({
 
             {/* Title & Scientific Name */}
             <View style={styles.detailMetaCard}>
-              <Text style={styles.detailPestTitle}>{selectedDetection.name}</Text>
-              <Text style={styles.detailScientificName}>{selectedDetection.scientificName}</Text>
+              <Text style={styles.detailPestTitle}>{selectedDetection.pestName}</Text>
+              {selectedDetection.scientificName ? (
+                <Text style={styles.detailScientificName}>{selectedDetection.scientificName}</Text>
+              ) : null}
               <Text style={styles.detailCropDate}>
-                {selectedDetection.crop} · {selectedDetection.zone} · Detected {selectedDetection.date}
+                {[selectedDetection.cropLabel, plotName].filter(Boolean).join(' · ')}
+                {selectedDetection.cropLabel || plotName ? ' · ' : ''}
+                Detected {formatIsoDisplay(selectedDetection.detectedOn)}
               </Text>
+              {selectedDetection.notes ? (
+                <Text style={styles.detailCropDate}>{selectedDetection.notes}</Text>
+              ) : null}
 
               <View style={styles.badgesRow}>
                 <View
@@ -744,12 +1034,17 @@ export function PestManagementScreen({
             {/* Reference Treatments Card */}
             <View style={styles.detailSectionCard}>
               <Text style={styles.cardHeaderTitle}>REFERENCE TREATMENTS FOR THIS PEST</Text>
-              {selectedDetection.referenceTreatments.map((t, idx) => (
-                <View key={idx} style={styles.referenceTreatmentItem}>
-                  <Text style={styles.referenceTreatmentName}>{t.name}</Text>
-                  <Text style={styles.referenceTreatmentNotes}>{t.notes}</Text>
-                </View>
-              ))}
+              {detailLoading ? (
+                <Skeleton height={40} width="100%" />
+              ) : referenceTreatments.length > 0 ? (
+                referenceTreatments.map((t, idx) => (
+                  <View key={idx} style={styles.referenceTreatmentItem}>
+                    <Text style={styles.referenceTreatmentName}>{t}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.treatmentHistoryEmpty}>No matching pest library entry found.</Text>
+              )}
 
               <View style={styles.detailCalloutBox}>
                 <InfoCircleIcon size={14} color={P.twGray500} />
@@ -762,11 +1057,13 @@ export function PestManagementScreen({
             {/* Treatment History Card */}
             <View style={styles.detailSectionCard}>
               <Text style={styles.cardHeaderTitle}>TREATMENT HISTORY</Text>
-              {selectedDetection.treatmentHistory.length > 0 ? (
-                selectedDetection.treatmentHistory.map((th, idx) => (
-                  <View key={idx} style={styles.treatmentHistoryItem}>
+              {detailLoading ? (
+                <Skeleton height={40} width="100%" />
+              ) : detailTreatmentHistory.length > 0 ? (
+                detailTreatmentHistory.map((th) => (
+                  <View key={th.id} style={styles.treatmentHistoryItem}>
                     <Text style={styles.treatmentHistoryName}>{th.treatment}</Text>
-                    <Text style={styles.treatmentHistoryDate}>{th.date}</Text>
+                    <Text style={styles.treatmentHistoryDate}>{formatIsoDisplay(th.appliedOn)}</Text>
                   </View>
                 ))
               ) : (
@@ -784,9 +1081,9 @@ export function PestManagementScreen({
               activeOpacity={0.8}
               onPress={() => {
                 if (onNavigateToSchedule) {
-                  onNavigateToSchedule();
+                  onNavigateToSchedule(resolvedFarmId);
                 } else {
-                  Alert.alert('Schedule Treatment', 'Set a treatment reminder in your calendar.');
+                  setCurrentView('schedule');
                 }
               }}
             >
@@ -816,9 +1113,14 @@ export function PestManagementScreen({
       ────────────────────────────────────────────────────────────────────────── */}
       {currentView === 'library' && (
         <PestLibraryScreen
+          farmId={resolvedFarmId || undefined}
           onBack={() => setCurrentView('hub')}
           onNavigateToSchedule={() => {
-            if (onNavigateToSchedule) onNavigateToSchedule();
+            if (onNavigateToSchedule) {
+              onNavigateToSchedule(resolvedFarmId);
+            } else {
+              setCurrentView('schedule');
+            }
           }}
         />
       )}
@@ -827,14 +1129,18 @@ export function PestManagementScreen({
           VIEW 5: TREATMENT SCHEDULE (Screen 43G / FR-F07-D)
       ────────────────────────────────────────────────────────────────────────── */}
       {currentView === 'schedule' && (
-        <TreatmentScheduleScreen onBack={() => setCurrentView('hub')} />
+        <TreatmentScheduleScreen
+          farmId={resolvedFarmId || undefined}
+          plotId={plotId || undefined}
+          onBack={() => setCurrentView('hub')}
+        />
       )}
 
       {/* ──────────────────────────────────────────────────────────────────────────
           VIEW 6: WEATHER RISK & ANALYTICS (FR-F07-E)
       ────────────────────────────────────────────────────────────────────────── */}
       {currentView === 'weatherRisk' && (
-        <WeatherRiskAnalyticsScreen onBack={() => setCurrentView('hub')} />
+        <WeatherRiskAnalyticsScreen farmId={resolvedFarmId || undefined} onBack={() => setCurrentView('hub')} />
       )}
 
       {/* ──────────────────────────────────────────────────────────────────────────
@@ -867,26 +1173,34 @@ export function PestManagementScreen({
             showsVerticalScrollIndicator={false}
           >
             {/* Add Photo Dashed Box */}
-            <TouchableOpacity
-              style={styles.photoUploadBox}
-              activeOpacity={0.8}
-              onPress={() =>
-                Alert.alert('Upload Photo', 'Choose photo from gallery or take a new photo with camera.', [
-                  { text: 'Take Photo', onPress: () => {} },
-                  { text: 'Choose Gallery', onPress: () => {} },
-                  { text: 'Cancel', style: 'cancel' },
-                ])
-              }
-            >
-              <CameraIcon size={28} color={colors.brandGreen} />
-              <Text style={styles.photoUploadText}>Add Photo</Text>
-            </TouchableOpacity>
+            {newPhoto ? (
+              <View style={styles.photoPreviewRow}>
+                <View style={styles.photoThumbContainer}>
+                  <Image source={{ uri: newPhoto.uri }} style={styles.photoThumb} />
+                  <TouchableOpacity
+                    style={styles.removePhotoBtn}
+                    onPress={() => setNewPhoto(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove photo"
+                  >
+                    <CloseIcon size={12} color={P.white} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.photoUploadBox}
+                activeOpacity={0.8}
+                onPress={() => void handlePickPhoto()}
+              >
+                <CameraIcon size={28} color={colors.brandGreen} />
+                <Text style={styles.photoUploadText}>Add Photo</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Crop / Zone Dropdown */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>
-                Crop / Zone <Text style={styles.requiredAsterisk}>*</Text>
-              </Text>
+              <Text style={styles.fieldLabel}>Crop / Zone</Text>
               <TouchableOpacity
                 style={styles.dropdownInput}
                 activeOpacity={0.8}
@@ -907,11 +1221,34 @@ export function PestManagementScreen({
                 <TextInput
                   style={styles.searchTextInput}
                   value={newPestType}
-                  onChangeText={setNewPestType}
-                  placeholder="Search Pest Library"
+                  onChangeText={(text) => {
+                    setNewPestType(text);
+                    setSelectedPestLibraryId(undefined);
+                  }}
+                  onFocus={() => {
+                    if (pestSuggestions.length > 0 && !selectedPestLibraryId) setIsPestSuggestionsOpen(true);
+                  }}
+                  placeholder="e.g. Aphids"
                   placeholderTextColor={P.twGray400}
                 />
               </View>
+              {isPestSuggestionsOpen && pestSuggestions.length > 0 ? (
+                <View style={styles.pestSuggestionsBox}>
+                  {pestSuggestions.map((entry) => (
+                    <TouchableOpacity
+                      key={entry.id}
+                      style={styles.pestSuggestionRow}
+                      onPress={() => handleSelectPestSuggestion(entry)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.pestSuggestionName}>{entry.name}</Text>
+                      {entry.scientificName ? (
+                        <Text style={styles.pestSuggestionScientific}>{entry.scientificName}</Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
               <View style={styles.infoCallout}>
                 <InfoCircleIcon size={16} color={P.googleBlue} />
                 <Text style={styles.infoCalloutText}>
@@ -982,6 +1319,8 @@ export function PestManagementScreen({
                 numberOfLines={3}
               />
             </View>
+
+            {saveDetectionError ? <Text style={styles.saveErrorText}>{saveDetectionError}</Text> : null}
           </ScrollView>
 
           {/* Modal Bottom Actions */}
@@ -989,17 +1328,25 @@ export function PestManagementScreen({
             <TouchableOpacity
               style={styles.modalCancelBtn}
               onPress={() => setIsReportModalVisible(false)}
+              disabled={savingDetection}
             >
               <Text style={styles.modalCancelBtnText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalSaveBtn}
+              style={[styles.modalSaveBtn, savingDetection && { opacity: 0.7 }]}
               activeOpacity={0.85}
-              onPress={handleSaveDetection}
+              onPress={() => void handleSaveDetection()}
+              disabled={savingDetection}
             >
-              <CheckIcon size={18} color={P.white} />
-              <Text style={styles.modalSaveBtnText}>Save Detection</Text>
+              {savingDetection ? (
+                <ActivityIndicator size="small" color={P.white} />
+              ) : (
+                <>
+                  <CheckIcon size={18} color={P.white} />
+                  <Text style={styles.modalSaveBtnText}>Save Detection</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -1773,6 +2120,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: P.twGray600,
   },
+  photoPreviewRow: {
+    flexDirection: 'row',
+  },
+  photoThumbContainer: {
+    position: 'relative',
+  },
+  photoThumb: {
+    width: 100,
+    height: 100,
+    borderRadius: 16,
+    backgroundColor: P.twGray100,
+  },
+  removePhotoBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fieldGroup: {
     gap: 6,
   },
@@ -1815,6 +2185,31 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.body,
     color: P.nearBlack,
+  },
+  pestSuggestionsBox: {
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    borderRadius: 12,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  pestSuggestionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: P.twGray100,
+  },
+  pestSuggestionName: {
+    fontSize: typography.body,
+    fontWeight: '500',
+    color: P.nearBlack,
+  },
+  pestSuggestionScientific: {
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   infoCallout: {
     flexDirection: 'row',
@@ -1913,6 +2308,17 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
+  },
+  saveErrorText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    color: P.red600,
+  },
+  loadErrorText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.red600,
+    marginBottom: 16,
   },
 
   // Dropdown Modal

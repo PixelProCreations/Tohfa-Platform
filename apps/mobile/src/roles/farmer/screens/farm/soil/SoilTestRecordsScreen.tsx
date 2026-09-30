@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
   Platform,
@@ -11,7 +11,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots } from '../../../api/farms';
+import { listSoilTests, type SoilTestRecord } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -68,35 +72,31 @@ export interface SoilTestRecordItem {
   id: string;
   zoneTitle: string;
   timeAgo: string;
+  /**
+   * No lab-name field exists on the backend's SoilTestRecord (soil.schema.ts) --
+   * this is a spec gap, not something to fake. Always '' until docs/rules.md and
+   * the soil module grow one; the render below omits the "· Lab: " segment
+   * entirely when this is empty rather than showing a dangling label.
+   */
   lab: string;
   phValue: string;
 }
 
-const TEST_RECORDS: SoilTestRecordItem[] = [
-  {
-    id: 'rec-1',
-    zoneTitle: 'North Slope — Zone 1',
-    timeAgo: '3 weeks ago',
-    lab: 'AgriTest Coimbatore',
-    phValue: 'pH 6.4',
-  },
-  {
-    id: 'rec-2',
-    zoneTitle: 'Terrace Field — Zone 2',
-    timeAgo: '2 months ago',
-    lab: 'AgriTest Coimbatore',
-    phValue: 'pH 6.1',
-  },
-  {
-    id: 'rec-3',
-    zoneTitle: 'Lower Basin — Zone 3',
-    timeAgo: '4 months ago',
-    lab: 'AgriTest Coimbatore',
-    phValue: 'pH 5.9',
-  },
-];
+/** `Plot.name` shown next to its most recent test's ph, newest first across every plot. */
+function toTimeAgo(dateStr: string): string {
+  const then = new Date(dateStr).getTime();
+  if (Number.isNaN(then)) return dateStr;
+  const days = Math.max(0, Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24)));
+  if (days < 1) return 'today';
+  if (days < 14) return `${days} day${days === 1 ? '' : 's'} ago`;
+  if (days < 60) return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months === 1 ? '' : 's'} ago`;
+}
 
 export interface SoilTestRecordsScreenProps {
+  /** The farm whose plots' test histories are shown, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
   onNavigateToRecordDetail?: ((recordId: string) => void) | undefined;
   onUploadNewTest?: (() => void) | undefined;
@@ -107,6 +107,7 @@ export interface SoilTestRecordsScreenProps {
 // ─────────────────────────────────────────────
 
 export function SoilTestRecordsScreen({
+  farmId,
   onBack,
   onNavigateToRecordDetail,
   onUploadNewTest,
@@ -122,6 +123,53 @@ export function SoilTestRecordsScreen({
     });
     return () => sub.remove();
   }, [onBack]);
+
+  const [records, setRecords] = useState<SoilTestRecordItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadRecords = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const plots = await getPlots(farmId);
+      // The mock's `zoneTitle` mixed several zones' records into one list --
+      // this screen shows the whole farm's test history, not one plot's, so
+      // every plot's records are fetched and merged, newest test date first.
+      const perPlot = await Promise.all(
+        plots.map(async (plot) => {
+          const plotRecords = await listSoilTests(farmId, plot.id);
+          return plotRecords.map((record: SoilTestRecord) => ({ record, plotName: plot.name }));
+        }),
+      );
+      const merged = perPlot
+        .flat()
+        .sort((a, b) => (a.record.testDate < b.record.testDate ? 1 : -1))
+        .map(
+          ({ record, plotName }): SoilTestRecordItem => ({
+            id: record.id,
+            zoneTitle: plotName,
+            timeAgo: toTimeAgo(record.testDate),
+            lab: '',
+            phValue: `pH ${record.ph}`,
+          }),
+        );
+      setRecords(merged);
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load soil test records.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadRecords();
+  }, [loadRecords]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -149,6 +197,17 @@ export function SoilTestRecordsScreen({
         </View>
       </View>
 
+      {loading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={78} width="100%" style={{ marginBottom: 12 }} />
+          <Skeleton height={78} width="100%" style={{ marginBottom: 12 }} />
+          <Skeleton height={78} width="100%" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -156,8 +215,11 @@ export function SoilTestRecordsScreen({
       >
         <Text style={styles.sectionHeading}>Test history</Text>
 
+        {records.length === 0 ? (
+          <Text style={styles.emptyText}>No soil test records yet.</Text>
+        ) : (
         <View style={styles.recordsList}>
-          {TEST_RECORDS.map((record) => (
+          {records.map((record) => (
             <TouchableOpacity
               key={record.id}
               style={styles.recordCard}
@@ -173,7 +235,7 @@ export function SoilTestRecordsScreen({
               <View style={styles.recordInfo}>
                 <Text style={styles.recordTitle}>{record.zoneTitle}</Text>
                 <Text style={styles.recordMeta}>
-                  {record.timeAgo} · Lab: {record.lab}
+                  {record.timeAgo}{record.lab ? ` · Lab: ${record.lab}` : ''}
                 </Text>
               </View>
 
@@ -181,7 +243,9 @@ export function SoilTestRecordsScreen({
             </TouchableOpacity>
           ))}
         </View>
+        )}
       </ScrollView>
+      )}
 
       {/* ── Bottom Fixed Button ── */}
       <View style={styles.bottomBar}>
@@ -275,6 +339,17 @@ const styles = StyleSheet.create({
     color: P.twGray600,
     marginBottom: 12,
     letterSpacing: 0.2,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+    paddingVertical: 24,
   },
   recordsList: {
     gap: 12,

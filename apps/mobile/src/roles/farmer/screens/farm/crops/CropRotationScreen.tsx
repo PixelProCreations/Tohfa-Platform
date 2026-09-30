@@ -10,12 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
-import { t } from '../../../../../i18n/farmer';
+import Svg, { Line, Path, Rect } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
-import { listDiaryPlots, type DiaryPlot } from '../../../api/farmDiary';
-import { getPlotRotationHistory } from '../../../api/crops';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots } from '../../../api/farms';
+import { getCropRotation, type CropRotationEntry, type CoverCropWindow } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -35,13 +35,17 @@ function ArrowBackIcon({ size = 20, color = P.twGreen800 }: { size?: number; col
   );
 }
 
-function LeafEmptyIcon({ size = 32, color = P.twGray400 }: { size?: number; color?: string }) {
+function CalendarSproutIcon({ size = 20, color = P.forestGreen }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="1.8" />
       <Path
-        d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 21 3c-1.5 4-2 5.5-3.1 11.2A7 7 0 0 1 11 20z"
+        d="M12 17v-3M12 14c-1.2-1.5-3-1.2-3.5-1 0 2 1.5 3 3.5 1zM12 13c1.2-1.5 3-1.2 3.5-1 0 2-1.5 3-3.5 1z"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -50,7 +54,7 @@ function LeafEmptyIcon({ size = 32, color = P.twGray400 }: { size?: number; colo
 }
 
 // ─────────────────────────────────────────────
-// Types & real-data mapping
+// Types & Data
 // ─────────────────────────────────────────────
 
 interface RotationStep {
@@ -67,36 +71,20 @@ interface ZoneRotation {
   steps: RotationStep[];
 }
 
-const STEP_BADGE_COLORS = [P.forestGreen, P.twOrange500, P.twGray300];
-
-/**
- * The real endpoint is a most-recent-first planting HISTORY for one plot
- * (past and current crops), not a forward rotation PLAN — there is no
- * backend concept of a recommended "next"/"then" crop. So this maps history
- * onto "Current / Previous / Before that" instead of the mock's "Now / Next
- * / Then", which would otherwise imply a prediction this API doesn't make.
- */
-function toZoneRotation(plot: DiaryPlot, history: { cropName: string; status: string }[]): ZoneRotation | null {
-  if (history.length === 0) return null;
-  const labels = [
-    t('farmer.crops.rotation.stepCurrent'),
-    t('farmer.crops.rotation.stepPrevious'),
-    t('farmer.crops.rotation.stepBefore'),
-  ];
-  return {
-    zoneId: plot.id,
-    zoneName: plot.name,
-    steps: history.slice(0, 3).map((h, idx) => ({
-      stepNum: idx + 1,
-      label: labels[idx] ?? labels[labels.length - 1]!,
-      crop: h.cropName,
-      badgeBg: STEP_BADGE_COLORS[idx] ?? P.twGray300,
-      textColor: P.white,
-    })),
-  };
+/** BR-40-style status -> badge, matching the mock's Now/Next/Then styling exactly. */
+function stepFor(entry: CropRotationEntry): RotationStep {
+  if (entry.status === 'CURRENT') {
+    return { stepNum: entry.sequenceOrder, label: 'Now', crop: entry.cropName, badgeBg: P.forestGreen, textColor: P.white };
+  }
+  if (entry.status === 'NEXT') {
+    return { stepNum: entry.sequenceOrder, label: 'Next', crop: entry.cropName, badgeBg: P.twOrange500, textColor: P.white };
+  }
+  return { stepNum: entry.sequenceOrder, label: 'Then', crop: entry.cropName, badgeBg: P.twGray300, textColor: P.white };
 }
 
 export interface CropRotationScreenProps {
+  /** The farm whose first plot's rotation plan is shown, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
 }
 
@@ -104,7 +92,7 @@ export interface CropRotationScreenProps {
 // Component
 // ─────────────────────────────────────────────
 
-export function CropRotationScreen({ onBack }: CropRotationScreenProps): React.JSX.Element {
+export function CropRotationScreen({ farmId, onBack }: CropRotationScreenProps): React.JSX.Element {
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (onBack) {
@@ -116,32 +104,59 @@ export function CropRotationScreen({ onBack }: CropRotationScreenProps): React.J
     return () => sub.remove();
   }, [onBack]);
 
-  const [zones, setZones] = useState<ZoneRotation[] | null>(null);
+  const [rotationData, setRotationData] = useState<ZoneRotation[]>([]);
+  const [coverCropWindow, setCoverCropWindow] = useState<CoverCropWindow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadRotation = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
-      const plots = await listDiaryPlots();
-      const perPlot = await Promise.all(
-        plots.map(async (plot) => ({ plot, result: await getPlotRotationHistory(plot.id) })),
+      const plots = await getPlots(farmId);
+      if (plots.length === 0) {
+        setRotationData([]);
+        setCoverCropWindow(null);
+        return;
+      }
+      const plans = await Promise.all(
+        plots.map(async (plot) => {
+          try {
+            const plan = await getCropRotation(farmId, plot.id);
+            return { plot, plan };
+          } catch {
+            return { plot, plan: null };
+          }
+        }),
       );
-      const built = perPlot
-        .map(({ plot, result }) => toZoneRotation(plot, result.history))
-        .filter((z): z is ZoneRotation => z !== null);
-      setZones(built);
-    } catch (err: unknown) {
-      setError(err);
+      const validPlans = plans.filter((p) => p.plan && p.plan.sequence.length > 0);
+      setRotationData(
+        validPlans.map(({ plot, plan }) => {
+          const sequence = [...(plan?.sequence ?? [])].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+          return {
+            zoneId: plot.id,
+            zoneName: plot.name,
+            steps: sequence.map(stepFor),
+          };
+        }),
+      );
+      const firstWindow = plans.find((p) => p.plan?.coverCropWindow)?.plan?.coverCropWindow ?? null;
+      setCoverCropWindow(firstWindow);
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load the crop rotation plan.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [farmId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadRotation();
+  }, [loadRotation]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -164,54 +179,63 @@ export function CropRotationScreen({ onBack }: CropRotationScreenProps): React.J
           <View style={styles.headerTitleGroup}>
             <Text style={styles.headerTag}>FR-F06</Text>
             <Text style={styles.headerTitle}>Crop Rotation & Cover Cropping</Text>
-            <Text style={styles.headerSubtitle}>Planting history by field</Text>
+            <Text style={styles.headerSubtitle}>Plan rotation cycles and cover windows</Text>
           </View>
         </View>
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <Skeleton width="100%" height={140} borderRadius={16} />
-          <Skeleton width="100%" height={140} borderRadius={16} />
+        <View style={styles.scrollContent}>
+          <Skeleton height={160} width="100%" />
         </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <ErrorState error={error} onRetry={load} />
+      ) : loadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Zone Rotation Cards ── */}
-          {(zones ?? []).map((item) => (
-            <View key={item.zoneId} style={styles.zoneCard}>
-              <Text style={styles.zoneName}>{item.zoneName}</Text>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Zone Rotation Cards ── */}
+        {rotationData.length === 0 ? (
+          <Text style={styles.emptyText}>No crop rotation plan recorded yet for this zone.</Text>
+        ) : (
+        rotationData.map((item) => (
+          <View key={item.zoneId} style={styles.zoneCard}>
+            <Text style={styles.zoneName}>{item.zoneName}</Text>
 
-              <View style={styles.stepsRow}>
-                {item.steps.map((step) => (
-                  <View key={step.stepNum} style={styles.stepColumn}>
-                    <View style={[styles.stepBadge, { backgroundColor: step.badgeBg }]}>
-                      <Text style={[styles.stepNumber, { color: step.textColor }]}>
-                        {step.stepNum}
-                      </Text>
-                    </View>
-                    <Text style={styles.stepLabel}>{step.label}</Text>
-                    <Text style={styles.stepCrop}>{step.crop}</Text>
+            <View style={styles.stepsRow}>
+              {item.steps.map((step) => (
+                <View key={step.stepNum} style={styles.stepColumn}>
+                  <View style={[styles.stepBadge, { backgroundColor: step.badgeBg }]}>
+                    <Text style={[styles.stepNumber, { color: step.textColor }]}>
+                      {step.stepNum}
+                    </Text>
                   </View>
-                ))}
-              </View>
+                  <Text style={styles.stepLabel}>{step.label}</Text>
+                  <Text style={styles.stepCrop}>{step.crop}</Text>
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
+        ))
+        )}
 
-          {(zones ?? []).length === 0 && (
-            <View style={styles.emptyState}>
-              <LeafEmptyIcon size={32} color={P.twGray400} />
-              <Text style={styles.emptyStateText}>{t('farmer.crops.rotation.emptyTitle')}</Text>
-            </View>
-          )}
-        </ScrollView>
+        {/* ── Cover Crop Window Banner ── */}
+        {coverCropWindow && (
+        <View style={styles.coverCropBanner}>
+          <View style={styles.coverCropIconBox}>
+            <CalendarSproutIcon size={20} color={P.forestGreen} />
+          </View>
+          <Text style={styles.coverCropText}>
+            <Text style={styles.coverCropBold}>Cover crop window: </Text>
+            {coverCropWindow.coverCropType} from {coverCropWindow.windowStart} to {coverCropWindow.windowEnd}.
+          </Text>
+        </View>
+        )}
+      </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -225,6 +249,17 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,
@@ -276,15 +311,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: P.twGray500,
     marginTop: 2,
-  },
-  loadingContainer: {
-    padding: 16,
-    gap: 14,
-  },
-  errorContainer: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
   },
   scrollContainer: {
     flex: 1,
@@ -349,14 +375,34 @@ const styles = StyleSheet.create({
     color: P.twGray900,
     textAlign: 'center',
   },
-  emptyState: {
+  coverCropBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: P.mintTintBg,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: P.twGreen100,
+    gap: 12,
+    marginTop: 4,
+  },
+  coverCropIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: P.white,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    gap: 10,
+    marginTop: 2,
   },
-  emptyStateText: {
-    fontSize: typography.body,
-    color: P.twGray500,
+  coverCropText: {
+    flex: 1,
+    fontSize: typography.bodySmall,
+    color: P.forestGreen,
+    lineHeight: 18,
+  },
+  coverCropBold: {
+    fontWeight: '700',
+    color: P.twGreen900,
   },
 });

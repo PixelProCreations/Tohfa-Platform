@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,8 +14,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms } from '../../../api/farms';
+import {
+  createMyWorker,
+  getMyWorker,
+  updateMyWorker,
+  uploadWorkerIdProof,
+  uploadWorkerPhoto,
+  type CreateWorkerInput,
+  type UpdateWorkerInput,
+  type Worker,
+} from '../../../api/workforce';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -147,6 +161,14 @@ function formatDisplayDate(d: Date): string {
   return `${day} ${month} ${year}`;
 }
 
+/** `Date` -> the `YYYY-MM-DD` workforce.schema.ts's `dateSchema` requires. */
+function toIsoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface WorkerFormData {
@@ -163,6 +185,13 @@ export interface WorkerFormData {
 }
 
 export interface AddWorkerScreenProps {
+  /**
+   * Threaded down like WorkforceScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) when this screen is
+   * reached directly -- App.tsx's `navigate('AddWorker')` passes no farmId
+   * today, the same situation WorkforceScreen resolves for itself.
+   */
+  farmId?: string | undefined;
   initialWorker?: Partial<WorkerFormData>;
   onBack?: () => void;
   onCancel?: () => void;
@@ -170,6 +199,7 @@ export interface AddWorkerScreenProps {
 }
 
 export function AddWorkerScreen({
+  farmId,
   initialWorker,
   onBack,
   onCancel,
@@ -177,8 +207,39 @@ export function AddWorkerScreen({
 }: AddWorkerScreenProps): React.JSX.Element {
   const isEditing = Boolean(initialWorker?.id || initialWorker?.name);
 
-  const [name, setName] = useState(initialWorker?.name || (isEditing ? 'Murugan R.' : ''));
-  const [dob, setDob] = useState(initialWorker?.dob || '14 Mar 1988');
+  // ── Farm context ── (same self-resolution pattern as WorkforceScreen.tsx)
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (fid && !cancelled) setResolvedFarmId(fid);
+      } catch {
+        // Swallowed: this is a background pre-fetch for the edit-mode worker
+        // load below; handleSave resolves the farm again on demand at save
+        // time, so a failure here just means that retry does the work instead.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  // ── Full worker record (edit mode) ──
+  // App.tsx's WorkerDetailScreen -> AddWorker navigation only forwards
+  // {id, name, role} (see WorkerDetailScreen.tsx's onNavigateToEditWorker
+  // call), not the full worker -- so the real bank/pay/DOB fields for an
+  // existing worker are fetched here rather than trusted from initialWorker.
+  const [fetchedWorker, setFetchedWorker] = useState<Worker | null>(null);
+
+  const [name, setName] = useState(initialWorker?.name || '');
+  const [dob, setDob] = useState(initialWorker?.dob || '');
   const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>(initialWorker?.gender || 'Male');
   const [isGenderPickerOpen, setIsGenderPickerOpen] = useState(false);
 
@@ -221,12 +282,44 @@ export function AddWorkerScreen({
     setIsDatePickerOpen(false);
   };
 
-  const [idProofName, setIdProofName] = useState(initialWorker?.idProofName || 'aadhaar_murugan.pdf');
-  const [accountNo, setAccountNo] = useState(initialWorker?.accountNo || '•••• 4821');
-  const [ifsc, setIfsc] = useState(initialWorker?.ifsc || 'CNRB0002841');
-  const [upiId, setUpiId] = useState(initialWorker?.upiId || 'murugan@okhdfcbank');
+  const [idProofName, setIdProofName] = useState(initialWorker?.idProofName || '');
+  const [accountNo, setAccountNo] = useState(initialWorker?.accountNo || '');
+  const [ifsc, setIfsc] = useState(initialWorker?.ifsc || '');
+  const [upiId, setUpiId] = useState(initialWorker?.upiId || '');
   const [salaryType, setSalaryType] = useState<'daily' | 'monthly'>(initialWorker?.salaryType || 'daily');
-  const [wageAmount, setWageAmount] = useState(initialWorker?.wageAmount || '450');
+  const [wageAmount, setWageAmount] = useState(initialWorker?.wageAmount || '');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing || !initialWorker?.id || !resolvedFarmId) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const w = await getMyWorker(resolvedFarmId, initialWorker.id!);
+        if (cancelled) return;
+        setFetchedWorker(w);
+        setName(w.name);
+        setDob(w.dateOfBirth ? formatDisplayDate(new Date(`${w.dateOfBirth}T00:00:00`)) : '');
+        setGender(w.gender === 'Female' || w.gender === 'Other' ? w.gender : 'Male');
+        setAccountNo(w.bankAccountNo ?? '');
+        setIfsc(w.ifscCode ?? '');
+        setUpiId(w.upiId ?? '');
+        setSalaryType(w.payType === 'monthly' ? 'monthly' : 'daily');
+        setWageAmount(String(Math.round(w.payRatePaise / 100)));
+        // The server only stores an upload id, never a filename -- there is no
+        // real filename to show here, so this stays blank rather than the
+        // mock's fabricated "aadhaar_murugan.pdf".
+      } catch {
+        // Swallowed: the form still renders with whatever initialWorker gave it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, initialWorker?.id, resolvedFarmId]);
 
   // Compute avatar initials
   const initials = name
@@ -236,52 +329,146 @@ export function AddWorkerScreen({
     .filter(Boolean)
     .slice(0, 2)
     .join('')
-    .toUpperCase() || 'MR';
+    .toUpperCase() || '?';
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Required Field', 'Please enter the worker name.');
       return;
     }
-
-    const payload: WorkerFormData = {
-      id: initialWorker?.id || `w-${Date.now()}`,
-      name: name.trim(),
-      dob,
-      gender,
-      idProofName,
-      accountNo,
-      ifsc,
-      upiId,
-      salaryType,
-      wageAmount,
-    };
-
-    if (onSave) {
-      onSave(payload);
-    } else {
+    const rupees = wageAmount.trim() ? Number(wageAmount.replace(/[^0-9.]/g, '')) : NaN;
+    if (!wageAmount.trim() || isNaN(rupees) || rupees <= 0) {
       Alert.alert(
-        isEditing ? 'Worker Updated' : 'Worker Added',
-        `${name.trim()} has been successfully saved to your workforce.`,
-        [{ text: 'OK', onPress: onBack || onCancel }],
+        'Required Field',
+        `Please enter a valid ${salaryType === 'daily' ? 'daily wage' : 'monthly salary'} amount.`,
       );
+      return;
+    }
+    // Rupee display string -> integer paise (root CLAUDE.md §2.2: money is
+    // never a float). Round guards a stray fractional-paise rupee value
+    // (e.g. "450.005") before it reaches the API's integer paise schema.
+    const payRatePaise = Math.round(rupees * 100);
+    const dateOfBirth = dob.trim() ? toIsoDate(parseDisplayDate(dob)) : undefined;
+
+    setSaving(true);
+    try {
+      // The `farmId` prop (or this screen's own background getFarms() call,
+      // see the effect above) may not have resolved yet if the caller's own
+      // farm data was still loading at navigation time -- rather than
+      // failing the save on that race, resolve it here on demand so Save
+      // never depends on timing.
+      let saveFarmId = resolvedFarmId;
+      if (!saveFarmId) {
+        const farms = await getFarms();
+        saveFarmId = farms[0]?.id ?? '';
+        if (saveFarmId) setResolvedFarmId(saveFarmId);
+      }
+      if (!saveFarmId) {
+        Alert.alert('No Farm Found', 'Add a farm before adding workers.');
+        setSaving(false);
+        return;
+      }
+
+      const workerId = fetchedWorker?.id ?? initialWorker?.id;
+      if (isEditing && workerId) {
+        const input: UpdateWorkerInput = {
+          name: name.trim(),
+          dateOfBirth: dateOfBirth ?? null,
+          gender,
+          bankAccountNo: accountNo.trim() || null,
+          ifscCode: ifsc.trim() || null,
+          upiId: upiId.trim() || null,
+          payType: salaryType,
+          payRatePaise,
+        };
+        await updateMyWorker(saveFarmId, workerId, input);
+      } else {
+        const input: CreateWorkerInput = {
+          name: name.trim(),
+          ...(dateOfBirth ? { dateOfBirth } : {}),
+          gender,
+          ...(accountNo.trim() ? { bankAccountNo: accountNo.trim() } : {}),
+          ...(ifsc.trim() ? { ifscCode: ifsc.trim() } : {}),
+          ...(upiId.trim() ? { upiId: upiId.trim() } : {}),
+          payType: salaryType,
+          payRatePaise,
+        };
+        await createMyWorker(saveFarmId, input);
+      }
+
+      const payload: WorkerFormData = {
+        id: workerId || `w-${Date.now()}`,
+        name: name.trim(),
+        dob,
+        gender,
+        idProofName,
+        accountNo,
+        ifsc,
+        upiId,
+        salaryType,
+        wageAmount,
+      };
+
+      if (onSave) {
+        onSave(payload);
+      } else {
+        Alert.alert(
+          isEditing ? 'Worker Updated' : 'Worker Added',
+          `${name.trim()} has been successfully saved to your workforce.`,
+          [{ text: 'OK', onPress: onBack || onCancel }],
+        );
+      }
+    } catch (err) {
+      Alert.alert('Could Not Save', formatErrorMessage(err, 'Please try again.'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUploadDoc = () => {
-    Alert.alert('Upload Document', 'Select a file or take a photo of Aadhaar / ID proof.', [
-      { text: 'Aadhaar Card (PDF)', onPress: () => setIdProofName('aadhaar_card.pdf') },
-      { text: 'Voter ID (JPG)', onPress: () => setIdProofName('voter_id.jpg') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const handleUploadDoc = async () => {
+    try {
+      const picked = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.images, DocumentPicker.types.pdf],
+        copyTo: 'cachesDirectory',
+      });
+      const uri = picked.fileCopyUri ?? picked.uri;
+      const fileName = picked.name ?? 'id_proof';
+      setIdProofName(fileName);
+      try {
+        await uploadWorkerIdProof(uri, fileName, picked.type ?? 'application/octet-stream');
+        // Spec gap (see workforce.ts's uploadWorkerIdProof docblock): the file
+        // is uploaded for safekeeping, but idProofUploadId cannot be linked to
+        // this worker yet -- POST /uploads/sign never returns the uploads-table
+        // row id requireOwnUpload() looks up by primary key.
+      } catch (err) {
+        Alert.alert('Upload Failed', formatErrorMessage(err, 'The file was picked but could not be uploaded.'));
+      }
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        Alert.alert('Could Not Attach Document', formatErrorMessage(err, 'Please try again.'));
+      }
+    }
   };
 
-  const handlePickPhoto = () => {
-    Alert.alert('Worker Photo', 'Choose an option to set profile photo:', [
-      { text: 'Take Photo', onPress: () => {} },
-      { text: 'Choose from Gallery', onPress: () => {} },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const handlePickPhoto = async () => {
+    try {
+      const picked = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.images],
+        copyTo: 'cachesDirectory',
+      });
+      const uri = picked.fileCopyUri ?? picked.uri;
+      setPhotoUri(uri);
+      try {
+        await uploadWorkerPhoto(uri, picked.name ?? 'worker_photo.jpg', picked.type ?? 'image/jpeg');
+        // Same photoUploadId linkage gap as handleUploadDoc above.
+      } catch (err) {
+        Alert.alert('Upload Failed', formatErrorMessage(err, 'The photo was picked but could not be uploaded.'));
+      }
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        Alert.alert('Could Not Attach Photo', formatErrorMessage(err, 'Please try again.'));
+      }
+    }
   };
 
   return (
@@ -338,9 +525,13 @@ export function AddWorkerScreen({
               accessibilityRole="button"
               accessibilityLabel="Change worker photo"
             >
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarInitials}>{initials}</Text>
-              </View>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.avatarCircle} />
+              ) : (
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                </View>
+              )}
 
               <View style={styles.cameraBadge}>
                 <CameraIcon size={13} color={P.white} />
@@ -519,13 +710,16 @@ export function AddWorkerScreen({
         {/* ── Bottom Floating Save Button ── */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSave}
+            style={[styles.saveButton, saving && { opacity: 0.6 }]}
+            onPress={() => void handleSave()}
             activeOpacity={0.85}
+            disabled={saving}
             accessibilityRole="button"
             accessibilityLabel={isEditing ? 'Save changes' : 'Add Worker'}
           >
-            <Text style={styles.saveButtonText}>{isEditing ? 'Save changes' : 'Add Worker'}</Text>
+            <Text style={styles.saveButtonText}>
+              {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Add Worker'}
+            </Text>
           </TouchableOpacity>
         </View>
 

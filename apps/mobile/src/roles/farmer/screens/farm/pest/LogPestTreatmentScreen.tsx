@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   Image,
@@ -14,8 +15,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getFarms, getPlots } from '../../../api/farms';
+import {
+  createPestTreatmentLog,
+  listPestLibrary,
+  uploadPestPhoto,
+  type CreatePestTreatmentLogInput,
+  type PestCategory,
+  type PestLibraryEntry,
+  type PestSeverity,
+  type PestTreatmentLog,
+} from '../../../api/pest';
 import { localProduceCropsCache, type CropItem } from '../crops/ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -159,78 +173,9 @@ function CloseIcon({ size = 16, color = P.white }: { size?: number; color?: stri
 }
 
 // ─────────────────────────────────────────────
-// Pest & Treatment Data Models
+// Static option lists (no reference-data endpoint for these -- same convention
+// as the treatment picker's TREATMENTS list below).
 // ─────────────────────────────────────────────
-
-interface PestItem {
-  id: string;
-  name: string;
-  scientificName: string;
-  season: string;
-  type: 'Disease' | 'Pest' | 'Deficiency';
-  severity: 'High' | 'Medium' | 'Low';
-  recommendedTreatment: string;
-  intervalDays: string;
-  phiDays: string;
-}
-
-const PEST_LIST: PestItem[] = [
-  {
-    id: 'p1',
-    name: 'Early Blight',
-    scientificName: 'Alternaria solani',
-    season: 'Jul-Sep',
-    type: 'Disease',
-    severity: 'High',
-    recommendedTreatment: 'Bordeaux mixture',
-    intervalDays: '7',
-    phiDays: '7',
-  },
-  {
-    id: 'p2',
-    name: 'Fruit Borer',
-    scientificName: 'Helicoverpa armigera',
-    season: 'Aug-Oct',
-    type: 'Pest',
-    severity: 'High',
-    recommendedTreatment: 'Neem oil spray (1500 ppm)',
-    intervalDays: '10',
-    phiDays: '3',
-  },
-  {
-    id: 'p3',
-    name: 'Leaf Curl Virus',
-    scientificName: 'Begomovirus / Whitefly vector',
-    season: 'Year-round',
-    type: 'Disease',
-    severity: 'High',
-    recommendedTreatment: 'Agniastra + Yellow Sticky Traps',
-    intervalDays: '7',
-    phiDays: '0',
-  },
-  {
-    id: 'p4',
-    name: 'Powdery Mildew',
-    scientificName: 'Leveillula taurica',
-    season: 'Sep-Nov',
-    type: 'Disease',
-    severity: 'Medium',
-    recommendedTreatment: 'Wettable Sulphur / Trichoderma',
-    intervalDays: '12',
-    phiDays: '5',
-  },
-  {
-    id: 'p5',
-    name: 'Aphids',
-    scientificName: 'Aphis gossypii',
-    season: 'Jul-Aug',
-    type: 'Pest',
-    severity: 'Medium',
-    recommendedTreatment: 'Dashparni kashayam',
-    intervalDays: '7',
-    phiDays: '0',
-  },
-];
 
 const TREATMENTS = [
   'Bordeaux mixture',
@@ -241,17 +186,46 @@ const TREATMENTS = [
   'Brahmastra decoction',
 ];
 
-const SEVERITIES: Array<'High' | 'Medium' | 'Low'> = ['High', 'Medium', 'Low'];
-const TYPES: Array<'Disease' | 'Pest' | 'Deficiency'> = ['Disease', 'Pest', 'Deficiency'];
+const SEVERITIES: PestSeverity[] = ['High', 'Medium', 'Low'];
+/** Matches pest.schema.ts's `pestCategorySchema` exactly (`Weed` included). */
+const CATEGORIES: PestCategory[] = ['Disease', 'Pest', 'Weed', 'Deficiency'];
+
+function toIsoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function todayIso(): string {
+  return toIsoDate(new Date());
+}
+
+function addDaysDisplay(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
 
 export interface LogPestTreatmentScreenProps {
   crop?: CropItem | null | undefined;
+  /**
+   * Threaded down when the caller already knows it (nothing in App.tsx does
+   * today -- InputManagementScreen has no farm/zone context of its own), else
+   * resolved locally (first farm + first zone), the same fallback
+   * PestManagementScreen and TreatmentScheduleScreen use.
+   */
+  farmId?: string | undefined;
+  plotId?: string | undefined;
   onBack?: (() => void) | undefined;
-  onSave?: ((data?: any) => void) | undefined;
+  onSave?: ((data?: PestTreatmentLog) => void) | undefined;
 }
 
 export function LogPestTreatmentScreen({
   crop,
+  farmId,
+  plotId,
   onBack,
   onSave,
 }: LogPestTreatmentScreenProps): React.JSX.Element {
@@ -267,7 +241,10 @@ export function LogPestTreatmentScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  // Selected crop (defaults to Tomato for Pest check)
+  // Selected crop (defaults to Tomato for Pest check) -- crop/zone selection stays
+  // on the mock ProduceCalendarScreen cache: there is no real crop-tracking API
+  // yet (known gap, out of scope here), so it is display/filter context only and
+  // is never sent as a `farmCropId` on the create body below.
   const initialCrop =
     crop ??
     localProduceCropsCache.find((c) => c.name.toLowerCase().includes('tomato')) ??
@@ -276,15 +253,95 @@ export function LogPestTreatmentScreen({
 
   const [selectedCrop, setSelectedCrop] = useState<CropItem | null>(initialCrop ?? null);
 
+  // Farm/zone context this treatment log is actually saved against.
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+  const [resolvedPlotId, setResolvedPlotId] = useState(plotId ?? '');
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setContextLoading(true);
+      setContextError(null);
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (!fid) {
+          if (!cancelled) setContextError('No farm found. Add a farm before logging pest treatments.');
+          return;
+        }
+        let pid = plotId;
+        if (!pid) {
+          const plots = await getPlots(fid);
+          pid = plots[0]?.id;
+        }
+        if (!pid) {
+          if (!cancelled) setContextError('This farm has no zones yet. Add a zone before logging pest treatments.');
+          return;
+        }
+        if (!cancelled) {
+          setResolvedFarmId(fid);
+          setResolvedPlotId(pid);
+        }
+      } catch (err) {
+        if (!cancelled) setContextError(formatErrorMessage(err, 'Could not load your farm.'));
+      } finally {
+        if (!cancelled) setContextLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId, plotId]);
+
+  // Pest / disease options, filtered to the selected crop -- listPestLibrary's
+  // `crop` query already does a case-insensitive exact match against the
+  // library's crops array, so no further client-side filtering is needed.
+  const [pestOptions, setPestOptions] = useState<PestLibraryEntry[]>([]);
+  const [pestOptionsLoading, setPestOptionsLoading] = useState(true);
+  const [pestOptionsError, setPestOptionsError] = useState<string | null>(null);
+  const [selectedPest, setSelectedPest] = useState<PestLibraryEntry | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setPestOptionsLoading(true);
+      setPestOptionsError(null);
+      try {
+        const items = await listPestLibrary(selectedCrop?.name ? { crop: selectedCrop.name } : undefined);
+        if (cancelled) return;
+        setPestOptions(items);
+        setSelectedPest((prev) => {
+          if (prev && items.some((i) => i.id === prev.id)) return prev;
+          const first = items[0];
+          if (first) applyPestDefaults(first);
+          return first ?? null;
+        });
+      } catch (err) {
+        if (!cancelled) setPestOptionsError(formatErrorMessage(err, 'Could not load the pest library.'));
+      } finally {
+        if (!cancelled) setPestOptionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCrop?.name]);
+
   // Selected pest & details
-  const [selectedPest, setSelectedPest] = useState<PestItem>(PEST_LIST[0]!);
-  const [type, setType] = useState<'Disease' | 'Pest' | 'Deficiency'>(PEST_LIST[0]!.type);
-  const [severity, setSeverity] = useState<'High' | 'Medium' | 'Low'>(PEST_LIST[0]!.severity);
-  const [treatment, setTreatment] = useState<string>(PEST_LIST[0]!.recommendedTreatment);
-  const [intervalDays, setIntervalDays] = useState<string>(PEST_LIST[0]!.intervalDays);
-  const [phiDays, setPhiDays] = useState<string>(PEST_LIST[0]!.phiDays);
-  const [hasPhoto, setHasPhoto] = useState<boolean>(true);
-  const [nextDate, setNextDate] = useState<string>('24 Jul 2026');
+  const [category, setCategory] = useState<PestCategory>('Disease');
+  const [severity, setSeverity] = useState<PestSeverity>('Low');
+  const [treatment, setTreatment] = useState<string>(TREATMENTS[0] ?? '');
+  const [intervalDays, setIntervalDays] = useState<string>('');
+  const [phiDays, setPhiDays] = useState<string>('');
+  const [photo, setPhoto] = useState<{ uri: string; name: string; type: string } | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Modals
   const [showCropModal, setShowCropModal] = useState(false);
@@ -293,44 +350,107 @@ export function LogPestTreatmentScreen({
   const [showSeverityModal, setShowSeverityModal] = useState(false);
   const [showTreatmentModal, setShowTreatmentModal] = useState(false);
 
-  const handleSelectPest = (pest: PestItem) => {
+  function applyPestDefaults(pest: PestLibraryEntry): void {
+    const cat = CATEGORIES.includes(pest.category as PestCategory) ? (pest.category as PestCategory) : 'Pest';
+    const sev = SEVERITIES.includes(pest.riskLevel as PestSeverity) ? (pest.riskLevel as PestSeverity) : 'Medium';
+    setCategory(cat);
+    setSeverity(sev);
+    setTreatment(pest.recommendedTreatment ?? TREATMENTS[0] ?? '');
+    setIntervalDays(pest.intervalDays != null ? String(pest.intervalDays) : '');
+    setPhiDays(pest.phiDays != null ? String(pest.phiDays) : '');
+  }
+
+  const handleSelectPest = (pest: PestLibraryEntry) => {
     setSelectedPest(pest);
-    setType(pest.type);
-    setSeverity(pest.severity);
-    setTreatment(pest.recommendedTreatment);
-    setIntervalDays(pest.intervalDays);
-    setPhiDays(pest.phiDays);
+    applyPestDefaults(pest);
     setShowPestModal(false);
   };
 
-  const handleSave = () => {
-    Alert.alert(
-      'Treatment Logged',
-      `${treatment} treatment for ${selectedPest.name} saved successfully.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onSave) {
-              onSave({
-                crop: selectedCrop,
-                pest: selectedPest,
-                type,
-                severity,
-                treatment,
-                intervalDays,
-                phiDays,
-                hasPhoto,
-                nextDate,
-              });
-            } else if (onBack) {
-              onBack();
-            }
-          },
-        },
-      ],
-    );
+  const handlePickPhoto = async () => {
+    try {
+      const picked = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.images],
+        copyTo: 'cachesDirectory',
+      });
+      setPhoto({
+        uri: picked.fileCopyUri ?? picked.uri,
+        name: picked.name ?? 'pest_photo.jpg',
+        type: picked.type ?? 'image/jpeg',
+      });
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        Alert.alert('Could Not Attach Photo', formatErrorMessage(err, 'Please try again.'));
+      }
+    }
   };
+
+  const handleSave = async () => {
+    if (!selectedPest) {
+      Alert.alert('Required Field', 'Please select a pest / disease.');
+      return;
+    }
+    if (!resolvedFarmId || !resolvedPlotId) {
+      Alert.alert('Not Ready', 'Still loading your farm — please try again in a moment.');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      if (photo) {
+        try {
+          await uploadPestPhoto(photo.uri, photo.name, photo.type);
+          // Spec gap (see pest.ts's uploadPestPhoto docblock): POST /uploads/sign
+          // never returns the uploads-table row id photoUploadId needs, so the
+          // photo is uploaded for safekeeping but cannot be linked here yet.
+        } catch {
+          // Non-fatal: the treatment log itself is still worth saving.
+        }
+      }
+
+      const intervalNum = intervalDays.trim() ? Number(intervalDays) : undefined;
+      const phiNum = phiDays.trim() ? Number(phiDays) : undefined;
+
+      const body: CreatePestTreatmentLogInput = {
+        pestLibraryId: selectedPest.id,
+        pestName: selectedPest.name,
+        category,
+        severity,
+        treatment,
+        appliedOn: todayIso(),
+        ...(intervalNum !== undefined && !Number.isNaN(intervalNum) ? { intervalDays: intervalNum } : {}),
+        ...(phiNum !== undefined && !Number.isNaN(phiNum) ? { phiDays: phiNum } : {}),
+        ...(intervalNum ? { nextApplicationDate: toIsoDate(new Date(Date.now() + intervalNum * 86_400_000)) } : {}),
+      };
+
+      const created = await createPestTreatmentLog(resolvedFarmId, resolvedPlotId, body);
+
+      Alert.alert(
+        'Treatment Logged',
+        `${treatment} treatment for ${selectedPest.name} saved successfully.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (onSave) {
+                onSave(created);
+              } else if (onBack) {
+                onBack();
+              }
+            },
+          },
+        ],
+      );
+    } catch (err) {
+      setSaveError(formatErrorMessage(err, 'Could not save this treatment.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const nextDateDisplay = intervalDays.trim() && !Number.isNaN(Number(intervalDays))
+    ? addDaysDisplay(Number(intervalDays))
+    : addDaysDisplay(0);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -409,34 +529,42 @@ export function LogPestTreatmentScreen({
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Select Pest or disease"
+            disabled={pestOptionsLoading}
           >
-            <Text style={styles.selectBoxText}>{selectedPest.name}</Text>
+            <Text style={styles.selectBoxText}>
+              {pestOptionsLoading ? 'Loading…' : selectedPest?.name ?? 'No matches'}
+            </Text>
             <ChevronDownIcon size={18} color={P.deepPurple600} />
           </TouchableOpacity>
 
           <Text style={styles.helpText}>
-            Filtered to pests known to affect {selectedCrop?.name ?? 'Tomato'} only.
+            Filtered to pests known to affect {selectedCrop?.name ?? 'this crop'} only.
           </Text>
+          {pestOptionsError ? <Text style={styles.errorText}>{pestOptionsError}</Text> : null}
         </View>
 
         {/* Pest Info Badge */}
-        <View style={styles.pestInfoCard}>
-          <View style={styles.pestInfoHeaderRow}>
-            <View style={styles.pestTitleRow}>
-              <View style={styles.redDot} />
-              <Text style={styles.scientificNameText}>{selectedPest.scientificName}</Text>
+        {selectedPest ? (
+          <View style={styles.pestInfoCard}>
+            <View style={styles.pestInfoHeaderRow}>
+              <View style={styles.pestTitleRow}>
+                <View style={styles.redDot} />
+                <Text style={styles.scientificNameText}>{selectedPest.scientificName ?? selectedPest.name}</Text>
+              </View>
+
+              {selectedPest.season ? (
+                <View style={styles.seasonBadge}>
+                  <CalendarIcon size={12} color={P.twGray500} />
+                  <Text style={styles.seasonBadgeText}>{selectedPest.season}</Text>
+                </View>
+              ) : null}
             </View>
 
-            <View style={styles.seasonBadge}>
-              <CalendarIcon size={12} color={P.twGray500} />
-              <Text style={styles.seasonBadgeText}>{selectedPest.season}</Text>
-            </View>
+            <Text style={styles.pestSubNote}>
+              {selectedPest.category} · typically {selectedPest.riskLevel} severity
+            </Text>
           </View>
-
-          <Text style={styles.pestSubNote}>
-            {selectedPest.type} · typically {selectedPest.severity} severity
-          </Text>
-        </View>
+        ) : null}
 
         {/* Row: Type & Severity */}
         <View style={styles.rowTwoCols}>
@@ -450,7 +578,7 @@ export function LogPestTreatmentScreen({
               accessibilityRole="button"
               accessibilityLabel="Select Type"
             >
-              <Text style={styles.inputBoxText}>{type}</Text>
+              <Text style={styles.inputBoxText}>{category}</Text>
               <ChevronDownIcon size={18} color={P.twGray500} />
             </TouchableOpacity>
           </View>
@@ -494,17 +622,12 @@ export function LogPestTreatmentScreen({
           </View>
 
           <View style={styles.photoRow}>
-            {hasPhoto && (
+            {photo && (
               <View style={styles.photoThumbContainer}>
-                <Image
-                  source={{
-                    uri: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&auto=format&fit=crop&q=85',
-                  }}
-                  style={styles.photoThumb}
-                />
+                <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
                 <TouchableOpacity
                   style={styles.removePhotoBtn}
-                  onPress={() => setHasPhoto(false)}
+                  onPress={() => setPhoto(null)}
                   activeOpacity={0.7}
                   accessibilityRole="button"
                   accessibilityLabel="Remove photo"
@@ -516,10 +639,10 @@ export function LogPestTreatmentScreen({
 
             <TouchableOpacity
               style={styles.addPhotoBtn}
-              onPress={() => setHasPhoto(true)}
+              onPress={() => void handlePickPhoto()}
               activeOpacity={0.75}
               accessibilityRole="button"
-              accessibilityLabel="Take or upload identification photo"
+              accessibilityLabel="Attach identification photo"
             >
               <CameraPlusIcon size={24} color={P.deepPurple600} />
             </TouchableOpacity>
@@ -591,23 +714,35 @@ export function LogPestTreatmentScreen({
           </View>
 
           <View style={styles.dateBox}>
-            <Text style={styles.dateText}>{nextDate}</Text>
+            <Text style={styles.dateText}>{nextDateDisplay}</Text>
             <View style={styles.dateDaysBadge}>
-              <Text style={styles.dateDaysBadgeText}>TODAY +7</Text>
+              <Text style={styles.dateDaysBadgeText}>
+                TODAY +{intervalDays.trim() || 0}
+              </Text>
             </View>
           </View>
         </View>
 
+        {contextError ? <Text style={styles.errorText}>{contextError}</Text> : null}
+        {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
+
         {/* Bottom Button: Save treatment */}
         <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={handleSave}
+          style={[styles.saveBtn, (saving || contextLoading || !!contextError) && { opacity: 0.7 }]}
+          onPress={() => void handleSave()}
           activeOpacity={0.88}
           accessibilityRole="button"
           accessibilityLabel="Save treatment"
+          disabled={saving || contextLoading || !!contextError}
         >
-          <CheckmarkIcon size={18} color={P.white} />
-          <Text style={styles.saveBtnText}>Save treatment</Text>
+          {saving ? (
+            <ActivityIndicator size="small" color={P.white} />
+          ) : (
+            <>
+              <CheckmarkIcon size={18} color={P.white} />
+              <Text style={styles.saveBtnText}>Save treatment</Text>
+            </>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -675,28 +810,32 @@ export function LogPestTreatmentScreen({
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {PEST_LIST.map((p) => {
-              const isSelected = selectedPest.id === p.id;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.modalItem, isSelected && styles.modalItemSelected]}
-                  onPress={() => handleSelectPest(p)}
-                >
-                  <Text
-                    style={[
-                      styles.modalItemText,
-                      isSelected && styles.modalItemTextSelected,
-                    ]}
+            {pestOptions.length === 0 ? (
+              <Text style={styles.modalSubItemText}>No pests found for this crop.</Text>
+            ) : (
+              pestOptions.map((p) => {
+                const isSelected = selectedPest?.id === p.id;
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                    onPress={() => handleSelectPest(p)}
                   >
-                    {p.name}
-                  </Text>
-                  <Text style={styles.modalSubItemText}>
-                    {p.scientificName} · {p.season}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        isSelected && styles.modalItemTextSelected,
+                      ]}
+                    >
+                      {p.name}
+                    </Text>
+                    <Text style={styles.modalSubItemText}>
+                      {p.scientificName ?? p.category} · {p.season ?? p.riskLevel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -720,14 +859,14 @@ export function LogPestTreatmentScreen({
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {TYPES.map((t) => {
-              const isSelected = type === t;
+            {CATEGORIES.map((t) => {
+              const isSelected = category === t;
               return (
                 <TouchableOpacity
                   key={t}
                   style={[styles.modalItem, isSelected && styles.modalItemSelected]}
                   onPress={() => {
-                    setType(t);
+                    setCategory(t);
                     setShowTypeModal(false);
                   }}
                 >
@@ -960,6 +1099,13 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     lineHeight: 16,
     color: P.twGray400,
+    marginTop: 6,
+  },
+  errorText: {
+    fontSize: typography.bodySmall,
+    lineHeight: 16,
+    color: P.twRed600,
+    fontWeight: '600',
     marginTop: 6,
   },
   pestInfoCard: {

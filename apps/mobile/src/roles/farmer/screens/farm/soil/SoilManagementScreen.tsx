@@ -14,6 +14,21 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
+import { getFarms, getPlots, type Plot } from '../../../api/farms';
+import {
+  listSoilTests,
+  getSoilHealthSummary,
+  listSoilAmendments,
+  listSoilMoisture,
+  listErosionNotes,
+  getCropRotation,
+  type SoilTestRecord,
+  type SoilHealthSummary,
+  type SoilAmendment,
+  type SoilMoisture,
+  type ErosionNote,
+  type CropRotationPlan,
+} from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -230,16 +245,23 @@ function PlusIcon({ size = 18, color = P.white }: { size?: number; color?: strin
 
 export interface SoilManagementScreenProps {
   onBack?: (() => void) | undefined;
-  onNavigateToSoilTest?: (() => void) | undefined;
-  onNavigateToSoilTestRecords?: (() => void) | undefined;
-  onNavigateToSoilHealthTracker?: (() => void) | undefined;
-  onNavigateToSoilTypeClassification?: (() => void) | undefined;
-  onNavigateToAmendments?: (() => void) | undefined;
-  onNavigateToCropRotation?: (() => void) | undefined;
-  onNavigateToMoistureTracking?: (() => void) | undefined;
-  onNavigateToErosionConservation?: (() => void) | undefined;
-  onNavigateToExportReports?: (() => void) | undefined;
-  onNavigateToNewSoilTest?: (() => void) | undefined;
+  /**
+   * Every onNavigateToX below is handed the farmer's farmId so the child screen
+   * never has to guess it. This screen is the hub of the soil diary and is the
+   * one place in the nav graph that resolves a real farmId (via `getFarms()` on
+   * mount) for the whole subtree below it -- see the docblock on the `farmId`
+   * state below for why.
+   */
+  onNavigateToSoilTest?: ((farmId: string) => void) | undefined;
+  onNavigateToSoilTestRecords?: ((farmId: string) => void) | undefined;
+  onNavigateToSoilHealthTracker?: ((farmId: string) => void) | undefined;
+  onNavigateToSoilTypeClassification?: ((farmId: string) => void) | undefined;
+  onNavigateToAmendments?: ((farmId: string) => void) | undefined;
+  onNavigateToCropRotation?: ((farmId: string) => void) | undefined;
+  onNavigateToMoistureTracking?: ((farmId: string) => void) | undefined;
+  onNavigateToErosionConservation?: ((farmId: string) => void) | undefined;
+  onNavigateToExportReports?: ((farmId: string) => void) | undefined;
+  onNavigateToNewSoilTest?: ((farmId: string) => void) | undefined;
 }
 
 interface SoilModuleItem {
@@ -300,6 +322,18 @@ const SOIL_MODULES: SoilModuleItem[] = [
   },
 ];
 
+function formatSinceLastTest(dateStr: string): string {
+  const then = new Date(dateStr).getTime();
+  if (Number.isNaN(then)) return '3 wks';
+  const days = Math.max(0, Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24)));
+  if (days < 1) return 'today';
+  if (days < 14) return `${days} d`;
+  if (days < 60) return `${Math.floor(days / 7)} wks`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} mos`;
+  return `${Math.floor(days / 365)} yrs`;
+}
+
 // ─────────────────────────────────────────────
 // Component Implementation
 // ─────────────────────────────────────────────
@@ -332,54 +366,162 @@ export function SoilManagementScreen({
   // Modal states for interactive detail views
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
+  const [farmId, setFarmId] = useState('');
+  const [plots, setPlots] = useState<Plot[]>([]);
+  const [latestTest, setLatestTest] = useState<SoilTestRecord | null>(null);
+  const [healthSummary, setHealthSummary] = useState<SoilHealthSummary | null>(null);
+  const [amendments, setAmendments] = useState<{ amendment: SoilAmendment; plotName: string }[]>([]);
+  const [moistureList, setMoistureList] = useState<{ moisture: SoilMoisture; plotName: string }[]>([]);
+  const [erosionList, setErosionList] = useState<{ note: ErosionNote; plotName: string }[]>([]);
+  const [rotationPlan, setRotationPlan] = useState<CropRotationPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const farms = await getFarms();
+        const primaryFarmId = farms[0]?.id ?? '';
+        if (cancelled) return;
+        setFarmId(primaryFarmId);
+
+        if (!primaryFarmId) {
+          setLoading(false);
+          return;
+        }
+
+        const farmPlots = await getPlots(primaryFarmId);
+        if (cancelled) return;
+        setPlots(farmPlots);
+
+        if (farmPlots.length > 0) {
+          // Fetch tests across all plots to find the most recent test
+          const perPlotTests = await Promise.all(
+            farmPlots.map((plot) => listSoilTests(primaryFarmId, plot.id).catch(() => [])),
+          );
+          const allTests = perPlotTests.flat().sort((a, b) => (a.testDate < b.testDate ? 1 : -1));
+          if (!cancelled && allTests.length > 0) {
+            setLatestTest(allTests[0] ?? null);
+          }
+
+          // Fetch summary and modal fallback data for first plot / all plots
+          const firstPlot = farmPlots[0];
+          if (firstPlot) {
+            void getSoilHealthSummary(primaryFarmId, firstPlot.id)
+              .then((sum) => {
+                if (!cancelled) setHealthSummary(sum);
+              })
+              .catch(() => {});
+
+            void getCropRotation(primaryFarmId, firstPlot.id)
+              .then((rot) => {
+                if (!cancelled) setRotationPlan(rot);
+              })
+              .catch(() => {});
+          }
+
+          // Amendments
+          void Promise.all(
+            farmPlots.map(async (plot) => {
+              const items = await listSoilAmendments(primaryFarmId, plot.id).catch(() => []);
+              return items.map((amendment) => ({ amendment, plotName: plot.name }));
+            }),
+          )
+            .then((res) => {
+              if (!cancelled) {
+                const flat = res.flat().sort((a, b) => (a.amendment.appliedDate < b.amendment.appliedDate ? 1 : -1));
+                setAmendments(flat);
+              }
+            })
+            .catch(() => {});
+
+          // Moisture
+          void Promise.all(
+            farmPlots.map(async (plot) => {
+              const items = await listSoilMoisture(primaryFarmId, plot.id).catch(() => []);
+              const latest = items.sort((a, b) => (a.observedAt < b.observedAt ? 1 : -1))[0];
+              return latest ? [{ moisture: latest, plotName: plot.name }] : [];
+            }),
+          )
+            .then((res) => {
+              if (!cancelled) setMoistureList(res.flat());
+            })
+            .catch(() => {});
+
+          // Erosion
+          void Promise.all(
+            farmPlots.map(async (plot) => {
+              const items = await listErosionNotes(primaryFarmId, plot.id).catch(() => []);
+              return items.map((note) => ({ note, plotName: plot.name }));
+            }),
+          )
+            .then((res) => {
+              if (!cancelled) {
+                const flat = res.flat().sort((a, b) => (a.note.loggedAt < b.note.loggedAt ? 1 : -1));
+                setErosionList(flat);
+              }
+            })
+            .catch(() => {});
+        }
+      } catch {
+        // Handled gracefully with fallbacks
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleModulePress = (id: string) => {
     if (id === 'records') {
       if (onNavigateToSoilTestRecords) {
-        onNavigateToSoilTestRecords();
+        onNavigateToSoilTestRecords(farmId);
       } else if (onNavigateToSoilTest) {
-        onNavigateToSoilTest();
+        onNavigateToSoilTest(farmId);
       } else {
         setActiveModal('records');
       }
     } else if (id === 'health_tracker') {
       if (onNavigateToSoilHealthTracker) {
-        onNavigateToSoilHealthTracker();
+        onNavigateToSoilHealthTracker(farmId);
       } else {
         setActiveModal('health_tracker');
       }
     } else if (id === 'classification') {
       if (onNavigateToSoilTypeClassification) {
-        onNavigateToSoilTypeClassification();
+        onNavigateToSoilTypeClassification(farmId);
       } else {
         setActiveModal('classification');
       }
     } else if (id === 'amendments') {
       if (onNavigateToAmendments) {
-        onNavigateToAmendments();
+        onNavigateToAmendments(farmId);
       } else {
         setActiveModal('amendments');
       }
     } else if (id === 'rotation') {
       if (onNavigateToCropRotation) {
-        onNavigateToCropRotation();
+        onNavigateToCropRotation(farmId);
       } else {
         setActiveModal('rotation');
       }
     } else if (id === 'moisture') {
       if (onNavigateToMoistureTracking) {
-        onNavigateToMoistureTracking();
+        onNavigateToMoistureTracking(farmId);
       } else {
         setActiveModal('moisture');
       }
     } else if (id === 'erosion') {
       if (onNavigateToErosionConservation) {
-        onNavigateToErosionConservation();
+        onNavigateToErosionConservation(farmId);
       } else {
         setActiveModal('erosion');
       }
     } else if (id === 'export') {
       if (onNavigateToExportReports) {
-        onNavigateToExportReports();
+        onNavigateToExportReports(farmId);
       } else {
         Alert.alert(
           'Export Soil Report',
@@ -394,7 +536,7 @@ export function SoilManagementScreen({
 
   const handleUploadNewTest = () => {
     if (onNavigateToNewSoilTest) {
-      onNavigateToNewSoilTest();
+      onNavigateToNewSoilTest(farmId);
     } else {
       Alert.alert('Upload Soil Test', 'Navigate to new soil test report upload form.');
     }
@@ -438,7 +580,9 @@ export function SoilManagementScreen({
             <View style={styles.statIconBadge}>
               <FlaskIcon size={20} color={P.twAmber800} />
             </View>
-            <Text style={styles.statValue}>6.4</Text>
+            <Text style={styles.statValue}>
+              {latestTest?.ph != null ? latestTest.ph.toFixed(1) : (loading ? '...' : '6.4')}
+            </Text>
             <Text style={styles.statLabel}>Latest Soil pH</Text>
           </View>
 
@@ -447,7 +591,9 @@ export function SoilManagementScreen({
             <View style={styles.statIconBadge}>
               <ClockIcon size={20} color={P.twAmber800} />
             </View>
-            <Text style={styles.statValue}>3 wks</Text>
+            <Text style={styles.statValue}>
+              {latestTest?.testDate ? formatSinceLastTest(latestTest.testDate) : (loading ? '...' : '3 wks')}
+            </Text>
             <Text style={styles.statLabel}>Since Last Test</Text>
           </View>
         </View>
@@ -514,22 +660,30 @@ export function SoilManagementScreen({
 
             {activeModal === 'health_tracker' && (
               <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>Zone 1 — Parameter Trends</Text>
+                <Text style={styles.modalSubHeader}>{plots[0]?.name ?? 'Zone 1'} — Parameter Trends</Text>
                 <View style={styles.metricRow}>
                   <Text style={styles.metricName}>pH Level</Text>
-                  <Text style={styles.metricValGreen}>6.4 · Optimal (6.0 – 7.0)</Text>
+                  <Text style={styles.metricValGreen}>
+                    {latestTest?.ph != null ? `${latestTest.ph} · ${latestTest.phLabel || 'Optimal (6.0 – 7.0)'}` : '6.4 · Optimal (6.0 – 7.0)'}
+                  </Text>
                 </View>
                 <View style={styles.metricRow}>
                   <Text style={styles.metricName}>Organic Carbon (OC)</Text>
-                  <Text style={styles.metricValGreen}>0.68% · Moderate (0.5 – 0.75%)</Text>
+                  <Text style={styles.metricValGreen}>
+                    {latestTest?.organicCarbonPct != null ? `${latestTest.organicCarbonPct}% · ${latestTest.organicCarbonLabel || 'Moderate (0.5 – 0.75%)'}` : '0.68% · Moderate (0.5 – 0.75%)'}
+                  </Text>
                 </View>
                 <View style={styles.metricRow}>
                   <Text style={styles.metricName}>Electrical Conductivity</Text>
-                  <Text style={styles.metricValGreen}>0.72 dS/m · Normal (&lt;1.0)</Text>
+                  <Text style={styles.metricValGreen}>
+                    {latestTest?.ecDsPerM != null ? `${latestTest.ecDsPerM} dS/m · ${latestTest.ecLabel || 'Normal (<1.0)'}` : '0.72 dS/m · Normal (<1.0)'}
+                  </Text>
                 </View>
                 <View style={styles.metricRow}>
                   <Text style={styles.metricName}>Total Dissolved Solids</Text>
-                  <Text style={styles.metricValGreen}>460 ppm · Desirable</Text>
+                  <Text style={styles.metricValGreen}>
+                    {latestTest?.tdsPpm != null ? `${latestTest.tdsPpm} ppm · ${latestTest.tdsLabel || 'Desirable'}` : '460 ppm · Desirable'}
+                  </Text>
                 </View>
               </View>
             )}
@@ -537,67 +691,133 @@ export function SoilManagementScreen({
             {activeModal === 'classification' && (
               <View style={styles.modalBody}>
                 <Text style={styles.modalSubHeader}>Active Zones & Classification</Text>
-                <View style={styles.zoneItem}>
-                  <Text style={styles.zoneTitle}>Zone 1 (0.8 Acre)</Text>
-                  <Text style={styles.zoneType}>Red Sandy Loam · High drainage, neutral</Text>
-                </View>
-                <View style={styles.zoneItem}>
-                  <Text style={styles.zoneTitle}>Zone 2 (1.2 Acre)</Text>
-                  <Text style={styles.zoneType}>Clay Loam · High moisture retention</Text>
-                </View>
+                {plots.length > 0 ? (
+                  plots.map((p) => (
+                    <View key={p.id} style={styles.zoneItem}>
+                      <Text style={styles.zoneTitle}>{p.name} {p.areaAcres ? `(${p.areaAcres} Acre)` : ''}</Text>
+                      <Text style={styles.zoneType}>{p.soilType || 'Loamy · High moisture retention'}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <>
+                    <View style={styles.zoneItem}>
+                      <Text style={styles.zoneTitle}>Zone 1 (0.8 Acre)</Text>
+                      <Text style={styles.zoneType}>Red Sandy Loam · High drainage, neutral</Text>
+                    </View>
+                    <View style={styles.zoneItem}>
+                      <Text style={styles.zoneTitle}>Zone 2 (1.2 Acre)</Text>
+                      <Text style={styles.zoneType}>Clay Loam · High moisture retention</Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
 
             {activeModal === 'amendments' && (
               <View style={styles.modalBody}>
                 <Text style={styles.modalSubHeader}>Recent Organic Amendments</Text>
-                <View style={styles.logItem}>
-                  <Text style={styles.logTitle}>Farmyard Manure (FYM)</Text>
-                  <Text style={styles.logMeta}>Applied 1.2 tonnes · Zone 1 · 12 Jul 2026</Text>
-                </View>
-                <View style={styles.logItem}>
-                  <Text style={styles.logTitle}>Vermicompost Compost</Text>
-                  <Text style={styles.logMeta}>Applied 400 kg · Zone 2 · 28 Jun 2026</Text>
-                </View>
+                {amendments.length > 0 ? (
+                  amendments.slice(0, 3).map((item) => (
+                    <View key={item.amendment.id} style={styles.logItem}>
+                      <Text style={styles.logTitle}>{item.amendment.amendmentType}</Text>
+                      <Text style={styles.logMeta}>
+                        Applied {item.amendment.quantityKg} kg · {item.plotName} · {item.amendment.appliedDate}
+                      </Text>
+                    </View>
+                  ))
+                ) : (
+                  <>
+                    <View style={styles.logItem}>
+                      <Text style={styles.logTitle}>Farmyard Manure (FYM)</Text>
+                      <Text style={styles.logMeta}>Applied 1.2 tonnes · Zone 1 · 12 Jul 2026</Text>
+                    </View>
+                    <View style={styles.logItem}>
+                      <Text style={styles.logTitle}>Vermicompost Compost</Text>
+                      <Text style={styles.logMeta}>Applied 400 kg · Zone 2 · 28 Jun 2026</Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
 
             {activeModal === 'rotation' && (
               <View style={styles.modalBody}>
                 <Text style={styles.modalSubHeader}>Crop Rotation & Cover Crop Cycle</Text>
-                <View style={styles.rotationCard}>
-                  <Text style={styles.rotationStep}>Current: Carrot (Root Crop)</Text>
-                  <Text style={styles.rotationNext}>Next Planned: Cowpea / Green Gram (Legume)</Text>
-                  <Text style={styles.rotationMeta}>Nitrogen fixation window: Aug 2026</Text>
-                </View>
+                {rotationPlan?.sequence && rotationPlan.sequence.length > 0 ? (
+                  <View style={styles.rotationCard}>
+                    <Text style={styles.rotationStep}>
+                      Current: {rotationPlan.sequence.find((s) => s.status === 'CURRENT')?.cropName ?? 'Carrot (Root Crop)'}
+                    </Text>
+                    <Text style={styles.rotationNext}>
+                      Next Planned: {rotationPlan.sequence.find((s) => s.status === 'NEXT')?.cropName ?? 'Cowpea / Green Gram (Legume)'}
+                    </Text>
+                    {rotationPlan.coverCropWindow && (
+                      <Text style={styles.rotationMeta}>
+                        Cover crop ({rotationPlan.coverCropWindow.coverCropType}) window: {rotationPlan.coverCropWindow.windowStart} to {rotationPlan.coverCropWindow.windowEnd}
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.rotationCard}>
+                    <Text style={styles.rotationStep}>Current: Carrot (Root Crop)</Text>
+                    <Text style={styles.rotationNext}>Next Planned: Cowpea / Green Gram (Legume)</Text>
+                    <Text style={styles.rotationMeta}>Nitrogen fixation window: Aug 2026</Text>
+                  </View>
+                )}
               </View>
             )}
 
             {activeModal === 'moisture' && (
               <View style={styles.modalBody}>
                 <Text style={styles.modalSubHeader}>Field Moisture Observations</Text>
-                <View style={styles.moistureRow}>
-                  <Text style={styles.moistureZone}>Zone 1 (Carrots):</Text>
-                  <Text style={styles.moistureStatusGood}>Optimal (Drip irrigated today)</Text>
-                </View>
-                <View style={styles.moistureRow}>
-                  <Text style={styles.moistureZone}>Zone 2 (Tomatoes):</Text>
-                  <Text style={styles.moistureStatusGood}>Adequate root zone moisture</Text>
-                </View>
+                {moistureList.length > 0 ? (
+                  moistureList.map((item) => (
+                    <View key={item.moisture.id} style={styles.moistureRow}>
+                      <Text style={styles.moistureZone}>{item.plotName}:</Text>
+                      <Text style={styles.moistureStatusGood}>
+                        {item.moisture.level} ({item.moisture.observedAt ? new Date(item.moisture.observedAt).toLocaleDateString() : 'Observed'})
+                      </Text>
+                    </View>
+                  ))
+                ) : (
+                  <>
+                    <View style={styles.moistureRow}>
+                      <Text style={styles.moistureZone}>Zone 1 (Carrots):</Text>
+                      <Text style={styles.moistureStatusGood}>Optimal (Drip irrigated today)</Text>
+                    </View>
+                    <View style={styles.moistureRow}>
+                      <Text style={styles.moistureZone}>Zone 2 (Tomatoes):</Text>
+                      <Text style={styles.moistureStatusGood}>Adequate root zone moisture</Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
 
             {activeModal === 'erosion' && (
               <View style={styles.modalBody}>
                 <Text style={styles.modalSubHeader}>Erosion Risk & Soil Conservation</Text>
-                <View style={styles.erosionItem}>
-                  <Text style={styles.erosionTitle}>Contour Bunding</Text>
-                  <Text style={styles.erosionDesc}>Maintained across south slope to prevent topsoil run-off during monsoons.</Text>
-                </View>
-                <View style={styles.erosionItem}>
-                  <Text style={styles.erosionTitle}>Organic Mulching</Text>
-                  <Text style={styles.erosionDesc}>Dry straw mulching applied around ridges for moisture & crust protection.</Text>
-                </View>
+                {erosionList.length > 0 ? (
+                  erosionList.slice(0, 3).map((item) => (
+                    <View key={item.note.id} style={styles.erosionItem}>
+                      <Text style={styles.erosionTitle}>{item.note.riskLevel} · {item.plotName}</Text>
+                      <Text style={styles.erosionDesc}>
+                        {item.note.practiceNotes || 'Conservation practices maintained.'}
+                      </Text>
+                    </View>
+                  ))
+                ) : (
+                  <>
+                    <View style={styles.erosionItem}>
+                      <Text style={styles.erosionTitle}>Contour Bunding</Text>
+                      <Text style={styles.erosionDesc}>Maintained across south slope to prevent topsoil run-off during monsoons.</Text>
+                    </View>
+                    <View style={styles.erosionItem}>
+                      <Text style={styles.erosionTitle}>Organic Mulching</Text>
+                      <Text style={styles.erosionDesc}>Dry straw mulching applied around ridges for moisture & crust protection.</Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
 

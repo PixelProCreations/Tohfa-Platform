@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -11,8 +11,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots } from '../../../api/farms';
+import { listSoilAmendments, type SoilAmendment } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -28,21 +32,6 @@ function ArrowBackIcon({ size = 20, color = P.twGreen800 }: { size?: number; col
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function LightbulbIcon({ size = 20, color = P.forestGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18h6M10 22h4M12 2a7 7 0 00-7 7c0 2.6 1.4 4.8 3.5 6h7c2.1-1.2 3.5-3.4 3.5-6a7 7 0 00-7-7z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="12" y1="2" x2="12" y2="4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -87,28 +76,20 @@ export interface AmendmentItem {
   quantity: string;
 }
 
-const AMENDMENT_LIST: AmendmentItem[] = [
-  {
-    id: 'a1',
-    name: 'FYM (Farmyard Manure)',
-    zoneInfo: 'Zone 1 · 5 days ago',
-    quantity: '80 kg',
-  },
-  {
-    id: 'a2',
-    name: 'Vermicompost',
-    zoneInfo: 'Zone 2 · 3 weeks ago',
-    quantity: '45 kg',
-  },
-  {
-    id: 'a3',
-    name: 'Neem Cake',
-    zoneInfo: 'Zone 1 · 6 weeks ago',
-    quantity: '20 kg',
-  },
-];
+function toTimeAgo(dateStr: string): string {
+  const then = new Date(dateStr).getTime();
+  if (Number.isNaN(then)) return dateStr;
+  const days = Math.max(0, Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24)));
+  if (days < 1) return 'today';
+  if (days < 14) return `${days} day${days === 1 ? '' : 's'} ago`;
+  if (days < 60) return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months === 1 ? '' : 's'} ago`;
+}
 
 export interface SoilAmendmentsLogScreenProps {
+  /** The farm whose plots' amendments are shown, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
   onLogAmendment?: (() => void) | undefined;
 }
@@ -118,6 +99,7 @@ export interface SoilAmendmentsLogScreenProps {
 // ─────────────────────────────────────────────
 
 export function SoilAmendmentsLogScreen({
+  farmId,
   onBack,
   onLogAmendment,
 }: SoilAmendmentsLogScreenProps): React.JSX.Element {
@@ -132,6 +114,49 @@ export function SoilAmendmentsLogScreen({
     });
     return () => sub.remove();
   }, [onBack]);
+
+  const [items, setItems] = useState<AmendmentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadAmendments = useCallback(async () => {
+    if (!farmId) {
+      setLoading(false);
+      setLoadError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const plots = await getPlots(farmId);
+      const perPlot = await Promise.all(
+        plots.map(async (plot) => {
+          const amendments = await listSoilAmendments(farmId, plot.id);
+          return amendments.map((a: SoilAmendment) => ({ amendment: a, plotName: plot.name }));
+        }),
+      );
+      const merged = perPlot
+        .flat()
+        .sort((a, b) => (a.amendment.appliedDate < b.amendment.appliedDate ? 1 : -1))
+        .map(
+          ({ amendment, plotName }): AmendmentItem => ({
+            id: amendment.id,
+            name: amendment.amendmentType,
+            zoneInfo: `${plotName} · ${toTimeAgo(amendment.appliedDate)}`,
+            quantity: `${amendment.quantityKg} kg`,
+          }),
+        );
+      setItems(merged);
+    } catch (err) {
+      setLoadError(formatErrorMessage(err, 'Could not load soil amendments.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadAmendments();
+  }, [loadAmendments]);
 
   const handleAdd = () => {
     if (onLogAmendment) {
@@ -167,28 +192,30 @@ export function SoilAmendmentsLogScreen({
         </View>
       </View>
 
+      {loading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={78} width="100%" style={{ marginBottom: 12 }} />
+          <Skeleton height={78} width="100%" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Recommendation Banner ── */}
-        <View style={styles.recommendationBanner}>
-          <View style={styles.recommendationIconBox}>
-            <LightbulbIcon size={20} color={P.forestGreen} />
-          </View>
-          <Text style={styles.recommendationText}>
-            <Text style={styles.recommendationBold}>Recommended: </Text>
-            Zone 3 organic carbon is low — consider adding vermicompost before next sowing.
-          </Text>
-        </View>
-
         {/* ── Section Heading ── */}
         <Text style={styles.sectionHeading}>Recent amendments</Text>
 
         {/* ── Amendments List ── */}
+        {items.length === 0 ? (
+          <Text style={styles.emptyText}>No amendments logged yet.</Text>
+        ) : (
         <View style={styles.amendmentsList}>
-          {AMENDMENT_LIST.map((item) => (
+          {items.map((item) => (
             <View key={item.id} style={styles.amendmentCard}>
               <View style={styles.iconBadge}>
                 <LeafSproutIcon size={22} color={P.forestGreen} />
@@ -203,7 +230,9 @@ export function SoilAmendmentsLogScreen({
             </View>
           ))}
         </View>
+        )}
       </ScrollView>
+      )}
 
       {/* ── Bottom Fixed Button ── */}
       <View style={styles.bottomBar}>
@@ -230,6 +259,17 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

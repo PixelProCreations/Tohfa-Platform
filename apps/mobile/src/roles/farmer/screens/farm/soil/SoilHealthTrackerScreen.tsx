@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BackHandler,
   Platform,
@@ -11,7 +11,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getPlots, type Plot } from '../../../api/farms';
+import { getSoilHealthSummary, listSoilTests, type SoilHealthSummary, type SoilTestRecord } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -57,6 +61,8 @@ function LeafSproutIcon({ size = 20, color = P.forestGreen }: { size?: number; c
 // ─────────────────────────────────────────────
 
 export interface SoilHealthTrackerScreenProps {
+  /** The farm whose plots are shown as zone pills, threaded from SoilManagementScreen. */
+  farmId: string;
   onBack?: (() => void) | undefined;
 }
 
@@ -70,81 +76,140 @@ interface ZoneReading {
   tds: string;
   tdsDiff: string;
   isTdsDown: boolean;
+  nitrogen: string;
+  nitrogenDiff: string;
+  phosphorus: string;
+  phosphorusDiff: string;
+  potassium: string;
+  potassiumDiff: string;
   chartBars: { month: string; value: number }[];
   insight: string;
 }
 
-const ZONE_DATA: Record<string, ZoneReading> = {
-  'Zone 1 — North Slope': {
-    ph: '6.4',
-    phDiff: '↑ +0.2 vs last test',
-    isPhImproving: true,
-    oc: '2.1%',
-    ocDiff: '↑ +0.3% vs last test',
-    isOcImproving: true,
-    tds: '180',
-    tdsDiff: '↓ -12 ppm vs last test',
-    isTdsDown: true,
-    chartBars: [
-      { month: 'Apr', value: 68 },
-      { month: 'May', value: 62 },
-      { month: 'Jun', value: 74 },
-      { month: 'Jul', value: 82 },
-      { month: 'Aug', value: 85 },
-      { month: 'Sep', value: 92 },
-    ],
-    insight: 'Zone 1 trending healthy — pH and organic carbon both improving since your last two amendments.',
-  },
-  'Zone 2 — Terrace': {
-    ph: '6.1',
-    phDiff: '↑ +0.1 vs last test',
-    isPhImproving: true,
-    oc: '1.8%',
-    ocDiff: '→ 0.0% vs last test',
-    isOcImproving: true,
-    tds: '210',
-    tdsDiff: '↓ -5 ppm vs last test',
-    isTdsDown: true,
-    chartBars: [
-      { month: 'Apr', value: 60 },
-      { month: 'May', value: 60 },
-      { month: 'Jun', value: 65 },
-      { month: 'Jul', value: 70 },
-      { month: 'Aug', value: 73 },
-      { month: 'Sep', value: 75 },
-    ],
-    insight: 'Zone 2 steady — clay loam structure holds nutrients well. Recommended to add light gypsum.',
-  },
-  'Zone 3 — Lower Basin': {
-    ph: '5.9',
-    phDiff: '↓ -0.1 vs last test',
-    isPhImproving: false,
-    oc: '1.4%',
-    ocDiff: '↓ -0.1% vs last test',
-    isOcImproving: false,
-    tds: '240',
-    tdsDiff: '↑ +8 ppm vs last test',
-    isTdsDown: false,
-    chartBars: [
-      { month: 'Apr', value: 75 },
-      { month: 'May', value: 72 },
-      { month: 'Jun', value: 68 },
-      { month: 'Jul', value: 65 },
-      { month: 'Aug', value: 62 },
-      { month: 'Sep', value: 60 },
-    ],
-    insight: 'Zone 3 slightly acidic — application of agricultural lime (200 kg/acre) recommended before next sowing.',
-  },
+const EMPTY_READING: ZoneReading = {
+  ph: '—',
+  phDiff: 'No test history yet',
+  isPhImproving: false,
+  oc: '—',
+  ocDiff: 'No test history yet',
+  isOcImproving: false,
+  tds: '—',
+  tdsDiff: 'No test history yet',
+  isTdsDown: false,
+  nitrogen: '—',
+  nitrogenDiff: 'No test history yet',
+  phosphorus: '—',
+  phosphorusDiff: 'No test history yet',
+  potassium: '—',
+  potassiumDiff: 'No test history yet',
+  chartBars: [],
+  insight: 'Not enough soil test history yet to show a trend.',
 };
 
-const ZONES = ['Zone 1 — North Slope', 'Zone 2 — Terrace', 'Zone 3 — Lower Basin'];
+function trendArrow(direction: 'improving' | 'declining' | 'flat' | null): string {
+  if (direction === 'improving') return '↑';
+  if (direction === 'declining') return '↓';
+  if (direction === 'flat') return '→';
+  return '';
+}
+
+/**
+ * Bar heights are rendered as a CSS-style `${value}%`, so raw pH/ppm readings
+ * (e.g. 6.4) would draw an almost-invisible bar. Min-max normalizes each
+ * series into a 25-100 range purely for the bar's visual height -- the actual
+ * number shown to the farmer is always the real reading in the "Current
+ * readings" card below, never this normalized value.
+ */
+function normalizeChartPoints(points: { month: string; value: number }[]): { month: string; value: number }[] {
+  if (points.length === 0) return [];
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return points.map((p) => ({
+    month: p.month,
+    value: 25 + ((p.value - min) / range) * 75,
+  }));
+}
+
+function buildInsight(summary: SoilHealthSummary): string {
+  const parts: string[] = [];
+  if (summary.ph.trendDirection) parts.push(`pH is ${summary.ph.trendDirection}`);
+  if (summary.organicCarbon.trendDirection) parts.push(`organic carbon is ${summary.organicCarbon.trendDirection}`);
+  if (summary.tds.trendDirection) parts.push(`TDS is ${summary.tds.trendDirection}`);
+  if (parts.length === 0) return EMPTY_READING.insight;
+  return `${parts.join(', ')} since the last test.`;
+}
+
+function toReading(summary: SoilHealthSummary | null, tests: SoilTestRecord[] = []): ZoneReading {
+  const ph = summary?.ph;
+  const organicCarbon = summary?.organicCarbon;
+  const tds = summary?.tds;
+
+  const sortedTests = [...tests].sort(
+    (a, b) => new Date(b.testDate || b.createdAt).getTime() - new Date(a.testDate || a.createdAt).getTime(),
+  );
+  const latest = sortedTests[0];
+  const previous = sortedTests[1];
+
+  const calcDiff = (currVal: number | null | undefined, prevVal: number | null | undefined, unit = 'kg/ha') => {
+    if (currVal == null) return 'No test history yet';
+    if (prevVal == null) return 'No prior test to compare';
+    const diff = Number((currVal - prevVal).toFixed(2));
+    const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+    return `${arrow} ${diff >= 0 ? '+' : ''}${diff} ${unit} vs last test`;
+  };
+
+  const nVal = latest?.nitrogenKgPerHa;
+  const prevN = previous?.nitrogenKgPerHa;
+  const pVal = latest?.phosphorusKgPerHa;
+  const prevP = previous?.phosphorusKgPerHa;
+  const kVal = latest?.potassiumKgPerHa;
+  const prevK = previous?.potassiumKgPerHa;
+
+  return {
+    ph: ph?.currentValue !== null && ph?.currentValue !== undefined ? `${ph.currentValue}` : latest?.ph != null ? `${latest.ph}` : '—',
+    phDiff:
+      ph?.deltaValue !== null && ph?.deltaValue !== undefined
+        ? `${trendArrow(ph.trendDirection)} ${ph.deltaValue >= 0 ? '+' : ''}${ph.deltaValue} vs last test`
+        : 'No prior test to compare',
+    isPhImproving: ph?.trendDirection === 'improving',
+    oc: organicCarbon?.currentValue !== null && organicCarbon?.currentValue !== undefined ? `${organicCarbon.currentValue}%` : latest?.organicCarbonPct != null ? `${latest.organicCarbonPct}%` : '—',
+    ocDiff:
+      organicCarbon?.deltaValue !== null && organicCarbon?.deltaValue !== undefined
+        ? `${trendArrow(organicCarbon.trendDirection)} ${organicCarbon.deltaValue >= 0 ? '+' : ''}${organicCarbon.deltaValue}% vs last test`
+        : 'No prior test to compare',
+    isOcImproving: organicCarbon?.trendDirection === 'improving',
+    tds: tds?.currentValue !== null && tds?.currentValue !== undefined ? `${tds.currentValue}` : latest?.tdsPpm != null ? `${latest.tdsPpm}` : '—',
+    tdsDiff:
+      tds?.deltaValue !== null && tds?.deltaValue !== undefined
+        ? `${trendArrow(tds.trendDirection)} ${tds.deltaValue >= 0 ? '+' : ''}${tds.deltaValue} ppm vs last test`
+        : 'No prior test to compare',
+    isTdsDown: tds?.trendDirection === 'improving',
+    nitrogen: nVal != null ? `${nVal}` : '—',
+    nitrogenDiff: calcDiff(nVal, prevN, 'kg/ha'),
+    phosphorus: pVal != null ? `${pVal}` : '—',
+    phosphorusDiff: calcDiff(pVal, prevP, 'kg/ha'),
+    potassium: kVal != null ? `${kVal}` : '—',
+    potassiumDiff: calcDiff(kVal, prevK, 'kg/ha'),
+    chartBars: normalizeChartPoints(ph?.chartPoints || []),
+    insight: summary ? buildInsight(summary) : EMPTY_READING.insight,
+  };
+}
 
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
 
-export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps): React.JSX.Element {
-  const [selectedZone, setSelectedZone] = useState<string>(ZONES[0] ?? 'Zone 1 — North Slope');
+export function SoilHealthTrackerScreen({ farmId, onBack }: SoilHealthTrackerScreenProps): React.JSX.Element {
+  const [plots, setPlots] = useState<Plot[]>([]);
+  const [selectedPlotId, setSelectedPlotId] = useState<string>('');
+  const [plotsLoading, setPlotsLoading] = useState(true);
+  const [plotsError, setPlotsError] = useState<string | null>(null);
+
+  const [reading, setReading] = useState<ZoneReading>(EMPTY_READING);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   // Android hardware back handler
   useEffect(() => {
@@ -158,7 +223,56 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
     return () => sub.remove();
   }, [onBack]);
 
-  const currentData = ZONE_DATA[selectedZone] ?? ZONE_DATA['Zone 1 — North Slope']!;
+  const loadPlots = useCallback(async () => {
+    if (!farmId) {
+      setPlotsLoading(false);
+      setPlotsError('No farm selected. Go back and choose a farm first.');
+      return;
+    }
+    setPlotsLoading(true);
+    setPlotsError(null);
+    try {
+      const list = await getPlots(farmId);
+      setPlots(list);
+      setSelectedPlotId((prev) => (list.some((p) => p.id === prev) ? prev : (list[0]?.id ?? '')));
+    } catch (err) {
+      setPlotsError(formatErrorMessage(err, 'Could not load this farm’s zones.'));
+    } finally {
+      setPlotsLoading(false);
+    }
+  }, [farmId]);
+
+  useEffect(() => {
+    void loadPlots();
+  }, [loadPlots]);
+
+  const loadSummary = useCallback(async () => {
+    if (!farmId || !selectedPlotId) {
+      setReading(EMPTY_READING);
+      return;
+    }
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const [summary, testRecords] = await Promise.all([
+        getSoilHealthSummary(farmId, selectedPlotId).catch(() => null),
+        listSoilTests(farmId, selectedPlotId).catch(() => []),
+      ]);
+      setReading(toReading(summary, testRecords));
+    } catch (err) {
+      setSummaryError(formatErrorMessage(err, 'Could not load soil health data for this zone.'));
+      setReading(EMPTY_READING);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [farmId, selectedPlotId]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
+
+  const currentData = reading;
+  const selectedZoneName = plots.find((p) => p.id === selectedPlotId)?.name ?? '';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -181,11 +295,21 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
           <View style={styles.headerTitleGroup}>
             <Text style={styles.headerTag}>FR-F06</Text>
             <Text style={styles.headerTitle}>Soil Health Tracker</Text>
-            <Text style={styles.headerSubtitle}>pH, organic carbon & TDS over time</Text>
+            <Text style={styles.headerSubtitle}>pH, OC, TDS & NPK over time</Text>
           </View>
         </View>
       </View>
 
+      {plotsLoading ? (
+        <View style={styles.scrollContent}>
+          <Skeleton height={40} width="100%" style={{ marginBottom: 16 }} />
+          <Skeleton height={160} width="100%" />
+        </View>
+      ) : plotsError ? (
+        <View style={styles.scrollContent}>
+          <Text style={styles.loadErrorText}>{plotsError}</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -197,19 +321,19 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.zonesRow}
         >
-          {ZONES.map((zone) => {
-            const isSelected = selectedZone === zone;
+          {plots.map((plot) => {
+            const isSelected = selectedPlotId === plot.id;
             return (
               <TouchableOpacity
-                key={zone}
+                key={plot.id}
                 style={[
                   styles.zoneChip,
                   isSelected ? styles.zoneChipActive : styles.zoneChipInactive,
                 ]}
-                onPress={() => setSelectedZone(zone)}
+                onPress={() => setSelectedPlotId(plot.id)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={zone}
+                accessibilityLabel={plot.name}
               >
                 <Text
                   style={[
@@ -217,12 +341,14 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
                     isSelected ? styles.zoneChipTextActive : styles.zoneChipTextInactive,
                   ]}
                 >
-                  {zone}
+                  {plot.name}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
+
+        {summaryError ? <Text style={styles.loadErrorText}>{summaryError}</Text> : null}
 
         {/* ── Bar Chart Card: Soil pH ── */}
         <View style={styles.chartCard}>
@@ -245,7 +371,7 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
 
         {/* ── Current Readings Card ── */}
         <View style={styles.readingsCard}>
-          <Text style={styles.readingsTitle}>Current readings — {selectedZone.split(' — ')[0]}</Text>
+          <Text style={styles.readingsTitle}>Current readings — {selectedZoneName}</Text>
 
           {/* Row 1: Soil pH */}
           <View style={styles.readingRow}>
@@ -276,7 +402,7 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
           </View>
 
           {/* Row 3: TDS (ppm) */}
-          <View style={[styles.readingRow, styles.lastReadingRow]}>
+          <View style={styles.readingRow}>
             <View style={styles.readingLabelCol}>
               <View style={styles.readingDotTitle}>
                 <View style={styles.blueDot} />
@@ -286,6 +412,48 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
             <View style={styles.readingValueCol}>
               <Text style={styles.readingNumber}>{currentData.tds}</Text>
               <Text style={styles.trendDownText}>{currentData.tdsDiff}</Text>
+            </View>
+          </View>
+
+          {/* Row 4: Available Nitrogen (N) */}
+          <View style={styles.readingRow}>
+            <View style={styles.readingLabelCol}>
+              <View style={styles.readingDotTitle}>
+                <View style={styles.purpleDot} />
+                <Text style={styles.readingParamName}>Available Nitrogen (N)</Text>
+              </View>
+            </View>
+            <View style={styles.readingValueCol}>
+              <Text style={styles.readingNumber}>{currentData.nitrogen}</Text>
+              <Text style={styles.trendUpText}>{currentData.nitrogenDiff}</Text>
+            </View>
+          </View>
+
+          {/* Row 5: Available Phosphorus (P) */}
+          <View style={styles.readingRow}>
+            <View style={styles.readingLabelCol}>
+              <View style={styles.readingDotTitle}>
+                <View style={styles.tealDot} />
+                <Text style={styles.readingParamName}>Available Phosphorus (P)</Text>
+              </View>
+            </View>
+            <View style={styles.readingValueCol}>
+              <Text style={styles.readingNumber}>{currentData.phosphorus}</Text>
+              <Text style={styles.trendUpText}>{currentData.phosphorusDiff}</Text>
+            </View>
+          </View>
+
+          {/* Row 6: Available Potassium (K) */}
+          <View style={[styles.readingRow, styles.lastReadingRow]}>
+            <View style={styles.readingLabelCol}>
+              <View style={styles.readingDotTitle}>
+                <View style={styles.orangeDot} />
+                <Text style={styles.readingParamName}>Available Potassium (K)</Text>
+              </View>
+            </View>
+            <View style={styles.readingValueCol}>
+              <Text style={styles.readingNumber}>{currentData.potassium}</Text>
+              <Text style={styles.trendUpText}>{currentData.potassiumDiff}</Text>
             </View>
           </View>
         </View>
@@ -298,6 +466,7 @@ export function SoilHealthTrackerScreen({ onBack }: SoilHealthTrackerScreenProps
           <Text style={styles.insightText}>{currentData.insight}</Text>
         </View>
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -310,6 +479,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
+  },
+  loadErrorText: {
+    color: P.red600,
+    fontSize: typography.body,
+    fontWeight: '600',
+    marginBottom: 12,
   },
   header: {
     paddingHorizontal: 16,
@@ -441,6 +616,24 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: P.twBlue600,
+  },
+  purpleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: P.deepPurple600,
+  },
+  tealDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: P.teal400,
+  },
+  orangeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: P.twOrange500,
   },
   barsContainer: {
     flexDirection: 'row',

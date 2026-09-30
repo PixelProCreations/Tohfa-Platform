@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
-  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,7 +11,29 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
+import { getFarms } from '../../../api/farms';
+import {
+  getMyWorkforceCropHoursSummary,
+  listMyWorkerAttendance,
+  listMyWorkers,
+  type CropHoursSummary,
+} from '../../../api/workforce';
 import type { CropItem } from './ProduceCalendarScreen';
+
+/**
+ * ProduceCalendarScreen's `CropItem.id` (e.g. `"crop-1"`) is local mock data
+ * -- there is no backend `farm_crops` table wired up behind it yet, so these
+ * ids are never real `farm_crops` UUIDs. workforce.schema.ts's
+ * `cropHoursSummaryQuery`/`workerAttendanceQuery` both require `farmCropId`
+ * to be `z.string().uuid()`, so sending a mock id would always fail
+ * validation (400), not just "not found". Rather than fire calls that are
+ * guaranteed to fail, this screen checks the shape first and falls back to a
+ * "no data" state when it isn't a real UUID -- see the effect below.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(value: string | undefined | null): value is string {
+  return !!value && UUID_RE.test(value);
+}
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -45,47 +66,48 @@ export interface WorkerItem {
   earnings: string;
 }
 
-const WORKERS_LIST: WorkerItem[] = [
-  {
-    id: 'w1',
-    initials: 'MS',
-    name: 'Murugan S.',
-    tasks: 'Weeding, Harvesting',
-    hours: '16 h',
-    earnings: '₹2,720',
-  },
-  {
-    id: 'w2',
-    initials: 'LP',
-    name: 'Lakshmi P.',
-    tasks: 'Fertigation, Weeding',
-    hours: '14 h',
-    earnings: '₹2,380',
-  },
-  {
-    id: 'w3',
-    initials: 'RK',
-    name: 'Ravi K.',
-    tasks: 'Pest treatment',
-    hours: '8 h',
-    earnings: '₹1,300',
-  },
-  {
-    id: 'w4',
-    initials: 'AN',
-    name: 'Anand N.',
-    tasks: 'Irrigation, Trellis setup',
-    hours: '6 h',
-    earnings: '₹1,020',
-  },
-];
+/** `irrigation|weeding|...` (WorkerDetailScreen.tsx's `DayActivity.type`) -> a display label. */
+const ACTIVITY_LABELS: Record<string, string> = {
+  irrigation: 'Irrigation',
+  weeding: 'Weeding',
+  fertigation: 'Fertigation',
+  harvesting: 'Harvesting',
+  landprep: 'Land prep',
+};
+function activityLabel(raw: string): string {
+  return ACTIVITY_LABELS[raw] ?? raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+function initialsOf(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+function formatPaiseFull(paise: number): string {
+  return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
+}
 
 export interface CropWorkforceHoursScreenProps {
+  /**
+   * Threaded down like WorkforceScreen's farmId when a caller already has
+   * one; resolved locally (first farm, via `getFarms()`) otherwise -- the
+   * CropWorkforceHours route in App.tsx passes no farmId today.
+   */
+  farmId?: string | undefined;
   crop?: CropItem | null;
   onBack?: () => void;
 }
 
 export function CropWorkforceHoursScreen({
+  farmId,
   crop,
   onBack,
 }: CropWorkforceHoursScreenProps): React.JSX.Element {
@@ -105,6 +127,96 @@ export function CropWorkforceHoursScreen({
   const variety = crop?.variety ?? 'Nantes';
   const zone = crop?.zoneShort || crop?.zone || 'Zone 1';
   const subtitle = `${cropName} — ${variety} · ${zone}`;
+
+  // ── Farm context ── (same self-resolution pattern as WorkforceScreen.tsx)
+  const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        let fid = farmId;
+        if (!fid) {
+          const farms = await getFarms();
+          fid = farms[0]?.id;
+        }
+        if (fid && !cancelled) setResolvedFarmId(fid);
+      } catch {
+        // Swallowed: nothing real to show without a farm, so the screen
+        // simply keeps rendering its zero-state defaults below.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId]);
+
+  // ── Hero stats + per-worker breakdown ──
+  const cropHasRealId = isUuid(crop?.id);
+  const [summary, setSummary] = useState<CropHoursSummary | null>(null);
+  const [workerRows, setWorkerRows] = useState<WorkerItem[]>([]);
+
+  const loadCropWorkforce = useCallback(async () => {
+    if (!resolvedFarmId) return;
+    if (!cropHasRealId) {
+      // ProduceCalendarScreen crop gap (see the isUuid() docblock above): this
+      // crop has no real farm_crops id to query against, so there is nothing
+      // real to fetch for it yet.
+      setSummary(null);
+      setWorkerRows([]);
+      return;
+    }
+    try {
+      const farmCropId = crop!.id;
+      const [cropSummary, workers] = await Promise.all([
+        getMyWorkforceCropHoursSummary(resolvedFarmId, farmCropId).catch(() => null),
+        listMyWorkers(resolvedFarmId),
+      ]);
+      setSummary(cropSummary);
+
+      // Per-worker breakdown: aggregate this worker's *present* attendance
+      // rows logged against this crop. `tasks` is the set of distinct
+      // activities logged; `hours` sums hoursWorked; `earnings` approximates
+      // this worker's pay for those hours using a standard 8h working day
+      // (daily-wage workers) or a 26-day/208h working month (monthly-salary
+      // workers) as the hourly-rate basis -- the API has no per-task/per-hour
+      // rate of its own to read, so this is a client-side estimate, not the
+      // authoritative payroll figure (that's PayrollScreen/getMyWorkforcePayrollSummary).
+      const rows = await Promise.all(
+        workers.map(async (w): Promise<WorkerItem | null> => {
+          let records;
+          try {
+            records = await listMyWorkerAttendance(resolvedFarmId, w.id, { farmCropId });
+          } catch {
+            return null;
+          }
+          const present = records.filter((r) => r.present);
+          if (present.length === 0) return null;
+          const hours = present.reduce((sum, r) => sum + (r.hoursWorked ?? 0), 0);
+          const tasks = Array.from(new Set(present.map((r) => r.activity).filter((a): a is string => !!a)))
+            .map(activityLabel)
+            .join(', ');
+          const hourlyRatePaise = w.payType === 'monthly' ? w.payRatePaise / 208 : w.payRatePaise / 8;
+          const earningsPaise = Math.round(hours * hourlyRatePaise);
+          return {
+            id: w.id,
+            initials: initialsOf(w.name),
+            name: w.name,
+            tasks: tasks || '—',
+            hours: `${hours} h`,
+            earnings: formatPaiseFull(earningsPaise),
+          };
+        }),
+      );
+      setWorkerRows(rows.filter((r): r is WorkerItem => r !== null));
+    } catch {
+      // Swallowed for the same reason as the farm-context resolution above.
+    }
+  }, [resolvedFarmId, cropHasRealId, crop]);
+
+  useEffect(() => {
+    void loadCropWorkforce();
+  }, [loadCropWorkforce]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -138,7 +250,7 @@ export function CropWorkforceHoursScreen({
           {/* ── Green Hero Summary Card ── */}
           <View style={styles.heroCard}>
             <Text style={styles.heroSubLabel}>Total Labour Cost</Text>
-            <Text style={styles.heroCostValue}>₹6,400</Text>
+            <Text style={styles.heroCostValue}>{formatPaiseFull(summary?.totalCostPaise ?? 0)}</Text>
 
             <View style={styles.heroDivider} />
 
@@ -146,19 +258,19 @@ export function CropWorkforceHoursScreen({
               {/* Col 1 */}
               <View style={styles.heroMetricCol}>
                 <Text style={styles.heroMetricLabel}>Hours Logged</Text>
-                <Text style={styles.heroMetricValue}>38 h</Text>
+                <Text style={styles.heroMetricValue}>{summary?.hoursLogged ?? 0} h</Text>
               </View>
 
               {/* Col 2 */}
               <View style={styles.heroMetricCol}>
                 <Text style={styles.heroMetricLabel}>Workers Involved</Text>
-                <Text style={styles.heroMetricValue}>3</Text>
+                <Text style={styles.heroMetricValue}>{summary?.workersInvolved ?? 0}</Text>
               </View>
 
               {/* Col 3 */}
               <View style={styles.heroMetricCol}>
                 <Text style={styles.heroMetricLabel}>Avg Rate</Text>
-                <Text style={styles.heroMetricValue}>₹168/h</Text>
+                <Text style={styles.heroMetricValue}>{formatPaiseFull(summary?.avgRatePaise ?? 0)}/h</Text>
               </View>
             </View>
           </View>
@@ -170,7 +282,7 @@ export function CropWorkforceHoursScreen({
 
           {/* ── Workers List ── */}
           <View style={styles.workersList}>
-            {WORKERS_LIST.map((worker) => (
+            {workerRows.map((worker) => (
               <View key={worker.id} style={styles.workerCard}>
                 {/* Initials Avatar */}
                 <View style={styles.avatarCircle}>

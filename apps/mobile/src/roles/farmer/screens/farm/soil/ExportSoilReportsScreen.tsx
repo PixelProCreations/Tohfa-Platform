@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
+  Linking,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -11,8 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Line, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
+import { getFarms, getPlots } from '../../../api/farms';
+import { getSoilReportDownloadLink } from '../../../api/soil';
+import { resolveUrl } from '../../../../../shell/api/client';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons
@@ -95,6 +99,7 @@ const INITIAL_INCLUDES: IncludeItem[] = [
 ];
 
 export interface ExportSoilReportsScreenProps {
+  farmId?: string | undefined;
   onBack?: (() => void) | undefined;
   onDownloadReport?: (() => void) | undefined;
 }
@@ -104,12 +109,15 @@ export interface ExportSoilReportsScreenProps {
 // ─────────────────────────────────────────────
 
 export function ExportSoilReportsScreen({
+  farmId: initialFarmId,
   onBack,
   onDownloadReport,
 }: ExportSoilReportsScreenProps): React.JSX.Element {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('6 months');
   const [includeItems, setIncludeItems] = useState<IncludeItem[]>(INITIAL_INCLUDES);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [resolvedFarmId, setResolvedFarmId] = useState<string>(initialFarmId || '');
+  const [zoneCount, setZoneCount] = useState<number>(3);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -122,27 +130,112 @@ export function ExportSoilReportsScreen({
     return () => sub.remove();
   }, [onBack]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFarmAndZones() {
+      try {
+        let currentFarmId = initialFarmId;
+        if (!currentFarmId) {
+          const farms = await getFarms();
+          if (farms.length > 0 && farms[0]?.id) {
+            currentFarmId = farms[0].id;
+            if (isMounted) {
+              setResolvedFarmId(currentFarmId);
+            }
+          }
+        }
+
+        if (currentFarmId) {
+          const plots = await getPlots(currentFarmId);
+          if (isMounted && plots.length > 0) {
+            setZoneCount(plots.length);
+          }
+        }
+      } catch {
+        // Use default zone count gracefully
+      }
+    }
+
+    void loadFarmAndZones();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialFarmId]);
+
   const toggleInclude = (id: string) => {
     setIncludeItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)),
     );
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (onDownloadReport) {
       onDownloadReport();
       return;
     }
 
+    const checkedIds = includeItems.filter((i) => i.checked).map((i) => i.id);
+    if (checkedIds.length === 0) {
+      Alert.alert('Selection Required', 'Please select at least one item to include in the soil report.');
+      return;
+    }
+
+    let targetFarmId = resolvedFarmId || initialFarmId;
+    if (!targetFarmId) {
+      try {
+        const farms = await getFarms();
+        if (farms.length > 0 && farms[0]?.id) {
+          targetFarmId = farms[0].id;
+          setResolvedFarmId(targetFarmId);
+        }
+      } catch {
+        // ignored
+      }
+    }
+
+    if (!targetFarmId) {
+      Alert.alert('Farm Not Found', 'Could not locate your farm details. Please ensure your farm is registered.');
+      return;
+    }
+
     setIsDownloading(true);
-    setTimeout(() => {
-      setIsDownloading(false);
+
+    try {
+      const includeStr = checkedIds.join(',');
+      const response = await getSoilReportDownloadLink(targetFarmId, {
+        period: selectedPeriod,
+        include: includeStr,
+      });
+
+      const fullUrl = resolveUrl(response.downloadUrl);
+
+      // Open download URL in browser / PDF viewer
+      const supported = await Linking.canOpenURL(fullUrl).catch(() => true);
+      if (supported) {
+        await Linking.openURL(fullUrl);
+      }
+
       Alert.alert(
         'Soil Report Downloaded',
-        `Soil_Health_Report_${selectedPeriod.replace(/\s+/g, '_')}.pdf (1.4 MB) has been generated successfully.`,
-        [{ text: 'Open PDF', onPress: () => {} }, { text: 'Done', style: 'cancel' }],
+        `${response.fileName} has been generated and queued for download.`,
+        [
+          {
+            text: 'Open PDF',
+            onPress: () => {
+              void Linking.openURL(fullUrl);
+            },
+          },
+          { text: 'Done', style: 'cancel' },
+        ],
       );
-    }, 600);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not generate report.';
+      Alert.alert('Download Error', `Failed to generate PDF: ${message}`);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const PERIODS: ReportPeriod[] = ['3 months', '6 months', 'All time'];
@@ -185,7 +278,7 @@ export function ExportSoilReportsScreen({
           </View>
           <Text style={styles.previewTitle}>Soil Report Preview</Text>
           <Text style={styles.previewSubtitle}>
-            All 3 zones · Tests, amendments, moisture & erosion notes
+            {`All ${zoneCount} zone${zoneCount > 1 ? 's' : ''} · Tests, amendments, moisture & erosion notes`}
           </Text>
         </View>
 
