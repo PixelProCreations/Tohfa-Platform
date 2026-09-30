@@ -13,11 +13,13 @@
  */
 import type { ErrorCode, Problem } from '@tohfa/shared-types';
 
+import { Platform } from 'react-native';
+
 /**
  * TODO(STORY-MOB-01): move to react-native-config so the URL comes from the
  * build flavour. 10.0.2.2 is the Android emulator's view of the host machine.
  */
-export const API_BASE_URL = 'http://10.0.2.2:3000';
+export const API_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 
 export function resolveUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
