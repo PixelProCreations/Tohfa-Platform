@@ -27,6 +27,43 @@ import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
 import { SubWarehouseMoreScreen } from './SubWarehouseMoreScreen';
+import {
+  SubWarehouseReturnsIssuesScreen,
+  INITIAL_RMA_ITEMS,
+  type RmaRecord,
+} from './SubWarehouseReturnsIssuesScreen';
+import { SubWarehouseRmaDetailScreen } from './SubWarehouseRmaDetailScreen';
+import { SubWarehouseInspectProductScreen } from './SubWarehouseInspectProductScreen';
+import { SubWarehouseReviewReturnRequestScreen } from './SubWarehouseReviewReturnRequestScreen';
+import { SubWarehouseRejectReturnRequestScreen } from './SubWarehouseRejectReturnRequestScreen';
+import { SubWarehouseRequestRejectedScreen } from './SubWarehouseRequestRejectedScreen';
+import { SubWarehouseApproveReturnScreen } from './SubWarehouseApproveReturnScreen';
+import { SubWarehouseReturnApprovedScreen } from './SubWarehouseReturnApprovedScreen';
+import { SubWarehouseRefundStatusScreen } from './SubWarehouseRefundStatusScreen';
+import { SubWarehouseRefundFailedScreen } from './SubWarehouseRefundFailedScreen';
+import { SubWarehouseRefundCompletedScreen } from './SubWarehouseRefundCompletedScreen';
+import {
+  SubWarehouseReturnHistoryScreen,
+  type ReturnHistoryRecord,
+} from './SubWarehouseReturnHistoryScreen';
+import { SubWarehouseReturnHistoryDetailScreen } from './SubWarehouseReturnHistoryDetailScreen';
+import {
+  SubWarehouseStaffScreen,
+  type StaffMember,
+} from './SubWarehouseStaffScreen';
+import { SubWarehouseStaffDetailScreen } from './SubWarehouseStaffDetailScreen';
+import { SubWarehouseAttendanceScreen } from './SubWarehouseAttendanceScreen';
+import { SubWarehouseTodayAttendanceScreen } from './SubWarehouseTodayAttendanceScreen';
+import { SubWarehouseAttendanceHistoryScreen } from './SubWarehouseAttendanceHistoryScreen';
+import { SubWarehouseRmaResolutionSuccessScreen } from './SubWarehouseRmaResolutionSuccessScreen';
+import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
+import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
+import { SubWarehouseMaterialHandlingScreen } from './SubWarehouseMaterialHandlingScreen';
+import { SubWarehouseMaterialDetailScreen } from './SubWarehouseMaterialDetailScreen';
+import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
+import { SubWarehouseStorageInfoScreen } from './SubWarehouseStorageInfoScreen';
+import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
+import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -777,7 +814,44 @@ export function SubWarehouseAdminDashboardScreen({
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
   const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showWarehouseOperations, setShowWarehouseOperations] = useState(false);
+  const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
+  const [showMaterialHandling, setShowMaterialHandling] = useState(false);
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+  const [showWarehouseCapacity, setShowWarehouseCapacity] = useState(false);
+  const [showStorageInfo, setShowStorageInfo] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
+  const [showWalletOperations, setShowWalletOperations] = useState(false);
+  const [showReturnsIssues, setShowReturnsIssues] = useState(false);
+  const [selectedRma, setSelectedRma] = useState<RmaRecord | null>(null);
+  const [inspectingRma, setInspectingRma] = useState<RmaRecord | null>(null);
+  const [reviewingRma, setReviewingRma] = useState<{
+    rma: RmaRecord;
+    inspectedQty: string;
+    notes: string;
+  } | null>(null);
+  const [resolutionSuccess, setResolutionSuccess] = useState<{
+    rma: RmaRecord;
+    status: 'Approved' | 'Rejected';
+    approvedQty: string;
+    refundAmount: string;
+  } | null>(null);
+  const [showRefundStatusRma, setShowRefundStatusRma] = useState<RmaRecord | null>(null);
+  const [showRefundFailedRma, setShowRefundFailedRma] = useState<RmaRecord | null>(null);
+  const [refundCompletedRma, setRefundCompletedRma] = useState<{ rma: RmaRecord; refundAmount: string } | null>(null);
+  const [rejectingRma, setRejectingRma] = useState<RmaRecord | null>(null);
+  const [rejectedRma, setRejectedRma] = useState<{ rma: RmaRecord; reason: string } | null>(null);
+  const [approvingRma, setApprovingRma] = useState<RmaRecord | null>(null);
+  const [returnApprovedRma, setReturnApprovedRma] = useState<RmaRecord | null>(null);
+  const [showReturnHistory, setShowReturnHistory] = useState(false);
+  const [selectedReturnHistoryRecord, setSelectedReturnHistoryRecord] = useState<ReturnHistoryRecord | null>(null);
+  const [showStaffScreen, setShowStaffScreen] = useState(false);
+  const [selectedStaffMember, setSelectedStaffMember] = useState<StaffMember | null>(null);
+  const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
+  const [showTodayAttendanceScreen, setShowTodayAttendanceScreen] = useState(false);
+  const [showAttendanceHistoryScreen, setShowAttendanceHistoryScreen] = useState(false);
+  const [showOperationalIssues, setShowOperationalIssues] = useState(false);
+  const [showReportIssue, setShowReportIssue] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [user, setUser] = useState<UserMe | null>(null);
   const [notifications, setNotifications] = useState<WarehouseNotification[]>(INITIAL_NOTIFICATIONS);
@@ -1022,6 +1096,114 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (selectedStorageLocationId) {
+    return (
+      <SubWarehouseStorageLocationDetailScreen
+        locationId={selectedStorageLocationId}
+        onBack={() => setSelectedStorageLocationId(null)}
+      />
+    );
+  }
+
+  if (showStorageInfo) {
+    return (
+      <SubWarehouseStorageInfoScreen
+        onBack={() => setShowStorageInfo(false)}
+        onTabChange={(tab) => {
+          setShowStorageInfo(false);
+          setActiveTab(tab);
+        }}
+        onSelectLocation={(id) => {
+          setShowStorageInfo(false);
+          setSelectedStorageLocationId(id);
+        }}
+      />
+    );
+  }
+
+  if (showWarehouseOperations) {
+    return (
+      <SubWarehouseWarehouseOperationsScreen
+        onBack={() => setShowWarehouseOperations(false)}
+        onNavigateToStorageLocations={() => {
+          setShowWarehouseOperations(false);
+          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
+          else setShowStorageInfo(true);
+        }}
+        onNavigateToCapacity={() => {
+          setShowWarehouseOperations(false);
+          setShowWarehouseCapacity(true);
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowWarehouseOperations(false);
+          setShowMaterialHandling(true);
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowWarehouseOperations(false);
+          setShowOperationalIssues(true);
+        }}
+        onTabChange={(tab) => {
+          setShowWarehouseOperations(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (selectedMaterialId) {
+    return (
+      <SubWarehouseMaterialDetailScreen
+        materialId={selectedMaterialId}
+        onBack={() => setSelectedMaterialId(null)}
+      />
+    );
+  }
+
+  if (showMaterialHandling) {
+    return (
+      <SubWarehouseMaterialHandlingScreen
+        onBack={() => setShowMaterialHandling(false)}
+        onSelectMaterial={(id) => setSelectedMaterialId(id)}
+      />
+    );
+  }
+
+  if (showWarehouseCapacity) {
+    return (
+      <SubWarehouseCapacityScreen
+        onBack={() => setShowWarehouseCapacity(false)}
+        onTabChange={(tab) => {
+          setShowWarehouseCapacity(false);
+          setActiveTab(tab as SubWHTab);
+        }}
+      />
+    );
+  }
+
+  if (showReportIssue) {
+    return (
+      <SubWarehouseReportIssueScreen
+        onBack={() => setShowReportIssue(false)}
+        onSubmit={() => {
+          setShowReportIssue(false);
+          setShowOperationalIssues(true);
+        }}
+      />
+    );
+  }
+
+  if (showOperationalIssues) {
+    return (
+      <SubWarehouseOperationalIssuesScreen
+        onBack={() => setShowOperationalIssues(false)}
+        onNavigateToReport={() => {
+          setShowOperationalIssues(false);
+          setShowReportIssue(true);
+        }}
+      />
+    );
+  }
+
   if (showRecentActivity) {
     return (
       <SubWarehouseRecentActivityScreen
@@ -1119,6 +1301,371 @@ export function SubWarehouseAdminDashboardScreen({
           } else {
             setShowNotifications(true);
           }
+        }}
+      />
+    );
+  }
+
+  if (showWalletOperations) {
+    return (
+      <SubWarehouseWalletOperationsScreen
+        warehouseName="Coonoor Warehouse"
+        onBack={() => setShowWalletOperations(false)}
+        onTabChange={(tab) => {
+          setShowWalletOperations(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToNotifications={() => {
+          setShowWalletOperations(false);
+          if (onNavigate) {
+            onNavigate('SubWarehouseNotifications');
+          } else {
+            setShowNotifications(true);
+          }
+        }}
+        onNavigateToProfile={() => {
+          setShowWalletOperations(false);
+          if (onNavigate) {
+            onNavigate('SubWarehouseProfile');
+          } else {
+            setShowProfile(true);
+          }
+        }}
+      />
+    );
+  }
+
+  if (showAttendanceScreen) {
+    return (
+      <SubWarehouseAttendanceScreen
+        warehouseName="Coonoor Warehouse"
+        onBack={() => setShowAttendanceScreen(false)}
+        onTabChange={(tab) => {
+          setShowAttendanceScreen(false);
+          setShowStaffScreen(false);
+          setSelectedStaffMember(null);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (selectedStaffMember) {
+    return (
+      <SubWarehouseStaffDetailScreen
+        staff={selectedStaffMember}
+        onBack={() => setSelectedStaffMember(null)}
+        onViewAttendance={() => {
+          setShowAttendanceScreen(true);
+        }}
+      />
+    );
+  }
+
+  if (showStaffScreen) {
+    return (
+      <SubWarehouseStaffScreen
+        warehouseName="Coonoor Warehouse"
+        onBack={() => setShowStaffScreen(false)}
+        onSelectStaff={(staff) => setSelectedStaffMember(staff)}
+        onTabChange={(tab) => {
+          setShowStaffScreen(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (selectedReturnHistoryRecord) {
+    return (
+      <SubWarehouseReturnHistoryDetailScreen
+        record={selectedReturnHistoryRecord}
+        onBack={() => setSelectedReturnHistoryRecord(null)}
+      />
+    );
+  }
+
+  if (showReturnHistory) {
+    return (
+      <SubWarehouseReturnHistoryScreen
+        onBack={() => setShowReturnHistory(false)}
+        onSelectRecord={(rec) => setSelectedReturnHistoryRecord(rec)}
+        onTabChange={(tab) => {
+          setShowReturnHistory(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (refundCompletedRma) {
+    return (
+      <SubWarehouseRefundCompletedScreen
+        rma={refundCompletedRma.rma}
+        refundAmount={refundCompletedRma.refundAmount}
+        transactionId="REF-2026-001245"
+        onBack={() => {
+          setRefundCompletedRma(null);
+          setShowRefundStatusRma(null);
+          setReturnApprovedRma(null);
+          setApprovingRma(null);
+          setReviewingRma(null);
+          setInspectingRma(null);
+          setSelectedRma(null);
+          setShowReturnsIssues(true);
+        }}
+      />
+    );
+  }
+
+  if (resolutionSuccess) {
+    return (
+      <SubWarehouseRmaResolutionSuccessScreen
+        rma={resolutionSuccess.rma}
+        status={resolutionSuccess.status}
+        approvedQty={resolutionSuccess.approvedQty}
+        refundAmount={resolutionSuccess.refundAmount}
+        onViewReturnsList={() => {
+          setResolutionSuccess(null);
+          setReviewingRma(null);
+          setInspectingRma(null);
+          setSelectedRma(null);
+          setShowReturnsIssues(true);
+        }}
+        onBackToMore={() => {
+          setResolutionSuccess(null);
+          setReviewingRma(null);
+          setInspectingRma(null);
+          setSelectedRma(null);
+          setShowReturnsIssues(false);
+          setActiveTab('More');
+        }}
+      />
+    );
+  }
+
+  if (rejectedRma) {
+    return (
+      <SubWarehouseRequestRejectedScreen
+        rma={rejectedRma.rma}
+        onDone={() => {
+          setRejectedRma(null);
+          setRejectingRma(null);
+          setReviewingRma(null);
+          setInspectingRma(null);
+          setSelectedRma(null);
+          setShowReturnsIssues(true);
+        }}
+      />
+    );
+  }
+
+  if (rejectingRma) {
+    return (
+      <SubWarehouseRejectReturnRequestScreen
+        rma={rejectingRma}
+        onBack={() => setRejectingRma(null)}
+        onRejectSuccess={(data) => {
+          setRejectedRma(data);
+          setRejectingRma(null);
+        }}
+      />
+    );
+  }
+
+  if (returnApprovedRma) {
+    return (
+      <SubWarehouseReturnApprovedScreen
+        rma={returnApprovedRma}
+        onBack={() => setReturnApprovedRma(null)}
+        onGoToRefundStatus={(rma) => {
+          setReturnApprovedRma(null);
+          setShowRefundStatusRma(rma);
+        }}
+      />
+    );
+  }
+
+  if (showRefundFailedRma) {
+    return (
+      <SubWarehouseRefundFailedScreen
+        rma={showRefundFailedRma}
+        onBack={() => setShowRefundFailedRma(null)}
+      />
+    );
+  }
+
+  if (showRefundStatusRma) {
+    return (
+      <SubWarehouseRefundStatusScreen
+        rma={showRefundStatusRma}
+        refundAmount="₹200.00"
+        onBack={() => setShowRefundStatusRma(null)}
+        onConfirmSuccess={(data) => {
+          setShowRefundStatusRma(null);
+          setRefundCompletedRma(data);
+        }}
+        onSimulateFailure={(rma) => {
+          setShowRefundFailedRma(rma);
+        }}
+      />
+    );
+  }
+
+  if (approvingRma) {
+    return (
+      <SubWarehouseApproveReturnScreen
+        rma={approvingRma}
+        onBack={() => setApprovingRma(null)}
+        onConfirmApprove={(rma) => {
+          setApprovingRma(null);
+          setReturnApprovedRma(rma);
+        }}
+      />
+    );
+  }
+
+  if (reviewingRma) {
+    return (
+      <SubWarehouseReviewReturnRequestScreen
+        rma={reviewingRma.rma}
+        inspectedQty={reviewingRma.inspectedQty}
+        inspectionNotes={reviewingRma.notes}
+        onBack={() => setReviewingRma(null)}
+        onApprove={(rma) => {
+          setApprovingRma(rma);
+        }}
+        onReject={(rma) => {
+          setRejectingRma(rma);
+        }}
+        onDecision={(decision) => {
+          if (decision.status === 'Approved') {
+            setApprovingRma(reviewingRma.rma);
+          } else {
+            setRejectingRma(reviewingRma.rma);
+          }
+        }}
+      />
+    );
+  }
+
+  if (inspectingRma) {
+    return (
+      <SubWarehouseInspectProductScreen
+        rma={inspectingRma}
+        onBack={() => setInspectingRma(null)}
+        onContinueToReview={(inspectionData) => {
+          setReviewingRma({
+            rma: inspectionData.rma,
+            inspectedQty: inspectionData.receivedQty,
+            notes: inspectionData.notes,
+          });
+        }}
+      />
+    );
+  }
+
+  if (selectedRma) {
+    return (
+      <SubWarehouseRmaDetailScreen
+        rma={selectedRma}
+        onBack={() => setSelectedRma(null)}
+        onInspectProduct={(rma) => setInspectingRma(rma)}
+      />
+    );
+  }
+
+  if (showReturnsIssues) {
+    return (
+      <SubWarehouseReturnsIssuesScreen
+        warehouseName="Coonoor Warehouse"
+        onBack={() => setShowReturnsIssues(false)}
+        onSelectRma={(rma) => setSelectedRma(rma)}
+        onNavigateToHistory={() => setShowReturnHistory(true)}
+        onTabChange={(tab) => {
+          setShowReturnsIssues(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToNotifications={() => {
+          setShowReturnsIssues(false);
+          if (onNavigate) {
+            onNavigate('SubWarehouseNotifications');
+          } else {
+            setShowNotifications(true);
+          }
+        }}
+      />
+    );
+  }
+
+  if (showAttendanceHistoryScreen) {
+    return (
+      <SubWarehouseAttendanceHistoryScreen
+        onBack={() => setShowAttendanceHistoryScreen(false)}
+        onNavigateToToday={() => {
+          setShowAttendanceHistoryScreen(false);
+          setShowTodayAttendanceScreen(true);
+        }}
+        onTabChange={(tab) => {
+          setShowAttendanceHistoryScreen(false);
+          setShowTodayAttendanceScreen(false);
+          setShowStaffScreen(false);
+          setSelectedStaffMember(null);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (showTodayAttendanceScreen) {
+    return (
+      <SubWarehouseTodayAttendanceScreen
+        onBack={() => setShowTodayAttendanceScreen(false)}
+        onNavigateToHistory={() => setShowAttendanceHistoryScreen(true)}
+        onTabChange={(tab) => {
+          setShowTodayAttendanceScreen(false);
+          setShowStaffScreen(false);
+          setSelectedStaffMember(null);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (showAttendanceScreen) {
+    return (
+      <SubWarehouseAttendanceScreen
+        onBack={() => setShowAttendanceScreen(false)}
+        onTabChange={(tab) => {
+          setShowAttendanceScreen(false);
+          setShowStaffScreen(false);
+          setSelectedStaffMember(null);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (selectedStaffMember) {
+    return (
+      <SubWarehouseStaffDetailScreen
+        staff={selectedStaffMember}
+        onBack={() => setSelectedStaffMember(null)}
+        onViewAttendance={() => setShowAttendanceScreen(true)}
+      />
+    );
+  }
+
+  if (showStaffScreen) {
+    return (
+      <SubWarehouseStaffScreen
+        onBack={() => setShowStaffScreen(false)}
+        onSelectStaff={(staff) => setSelectedStaffMember(staff)}
+        onNavigateToAttendance={() => setShowAttendanceScreen(true)}
+        onNavigateToTodayAttendance={() => setShowTodayAttendanceScreen(true)}
+        onTabChange={(tab) => {
+          setShowStaffScreen(false);
+          setActiveTab(tab);
         }}
       />
     );
@@ -1367,6 +1914,15 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.quickActionsGrid}>
                 <TouchableOpacity
                   style={styles.quickActionBtn}
+                  onPress={() => setShowWarehouseOperations(true)}
+                  activeOpacity={0.75}
+                >
+                  <BoxIcon color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Storage</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionBtn}
                   onPress={() => setReceivingWizardStep('start_receiving')}
                   activeOpacity={0.75}
                 >
@@ -1418,17 +1974,20 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseRecentActivity');
-                    } else {
-                      setShowRecentActivity(true);
-                    }
-                  }}
+                  onPress={() => setShowMaterialHandling(true)}
                   activeOpacity={0.75}
                 >
                   <ActivityHistoryActionIcon />
-                  <Text style={styles.quickActionLabel}>Activity</Text>
+                  <Text style={styles.quickActionLabel}>Materials</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionBtn}
+                  onPress={() => setShowWarehouseCapacity(true)}
+                  activeOpacity={0.75}
+                >
+                  <BoxIcon color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Capacity</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2659,6 +3218,7 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToWallet={() => {
               if (onNavigate) onNavigate('SubWarehouseWalletOperations');
+              else setShowWalletOperations(true);
             }}
             onNavigateToOrders={() => {
               if (onNavigate) onNavigate('SubWarehouseSales');
@@ -2673,8 +3233,23 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowReportsScreen(true);
             }}
             onNavigateToReturns={() => {
-              if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
-              else setShowReviewReceiving(true);
+              if (onNavigate) onNavigate('SubWarehouseReturnsIssues');
+              else setShowReturnsIssues(true);
+            }}
+            onNavigateToReturnHistory={() => {
+              if (onNavigate) onNavigate('SubWarehouseReturnHistory');
+              else setShowReturnHistory(true);
+            }}
+            onNavigateToStaff={() => {
+              if (onNavigate) onNavigate('SubWarehouseStaff');
+              else setShowStaffScreen(true);
+            }}
+            onNavigateToAttendance={() => {
+              if (onNavigate) onNavigate('SubWarehouseAttendance');
+              else setShowAttendanceScreen(true);
+            }}
+            onNavigateToWarehouseOperations={() => {
+              setShowWarehouseOperations(true);
             }}
             onLogout={onSignOut}
           />

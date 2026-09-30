@@ -181,15 +181,19 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   let response: Response;
+  const controller = options.signal ? null : new AbortController();
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
   try {
     response = await fetch(resolveUrl(path), {
       method: options.method ?? 'GET',
       headers,
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      signal: options.signal ?? controller?.signal,
     });
   } catch (error) {
     throw new NetworkError(error);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   // Handle mid-session 401 token expiry with collapsed refresh and single retry
