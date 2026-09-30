@@ -59,11 +59,10 @@ export interface MoreOptionItem {
     | 'attendance'
     | 'profile'
     | 'settings'
-    | 'orders'
-    | 'sales'
-    | 'warehouse_operations';
-  iconBg: string;
-  iconColor: string;
+    | 'warehouse_operations'
+    | 'help';
+  iconBg?: string;
+  iconColor?: string;
 }
 
 export interface OptionGroup {
