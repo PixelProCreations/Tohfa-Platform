@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,134 +11,21 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
   primary: '#F0562A',
-  primaryDark: '#D4451B',
-  primaryLight: '#FFF0EB',
-  primarySoft: '#FEF1EC',
-  primaryBorder: '#FCD9CE',
-
-  pageBg: '#FAF7F2',
+  pageBg: '#F7F5F0',
   cardBg: '#FFFFFF',
   textInk: '#1E1612',
   textSecondary: '#7A726C',
   textMuted: '#9E9690',
   border: '#EBE5DC',
-  divider: '#F4EFE9',
-
-  // Status Colors
-  greenBadge: '#DCFCE7',
-  greenText: '#15803D',
-  greenDot: '#10B981',
-
-  // Progress Bar
-  progressTrack: '#F2ECE5',
-  progressBar: '#F0562A',
-
-  // Info Banner (Blue)
-  infoBg: '#EFF6FF',
-  infoBorder: '#BFDBFE',
-  infoText: '#1D4ED8',
-
-  // Warning Banner (Red)
-  warningBg: '#FEF2F2',
-  warningBorder: '#FECACA',
-  warningText: '#DC2626',
-
-  tabInactive: '#827A74',
-  tabBorder: '#EAE4DB',
+  greenBadgeBg: '#E8F5E9',
+  greenBadgeText: '#064E3B',
+  redBadgeBg: '#FEE2E2',
+  redBadgeText: '#991B1B',
 };
 
-// ─── Mock Storage Location Items ─────────────────────────────────────────────
-interface StorageLocationItem {
-  id: string;
-  name: string;
-  code: string;
-  type: string;
-  status: 'Active' | 'Inactive';
-  capacityKg: number;
-  currentKg: number;
-}
-
-const MOCK_STORAGE_LOCATIONS: StorageLocationItem[] = [
-  {
-    id: '1',
-    name: 'Cold Storage A',
-    code: 'CS-A01',
-    type: 'Cold Storage (2°C - 6°C)',
-    status: 'Active',
-    capacityKg: 2000,
-    currentKg: 1650,
-  },
-  {
-    id: '2',
-    name: 'Dry Storage B',
-    code: 'DS-B01',
-    type: 'Ambient Dry (18°C - 24°C)',
-    status: 'Active',
-    capacityKg: 1500,
-    currentKg: 920,
-  },
-  {
-    id: '3',
-    name: 'Cold Storage B',
-    code: 'CS-B02',
-    type: 'Cold Storage (2°C - 6°C)',
-    status: 'Active',
-    capacityKg: 2000,
-    currentKg: 1480,
-  },
-  {
-    id: '4',
-    name: 'Ambient Staging C',
-    code: 'AM-C01',
-    type: 'Produce Sorting Area',
-    status: 'Active',
-    capacityKg: 1800,
-    currentKg: 1250,
-  },
-  {
-    id: '5',
-    name: 'Incoming QC Zone Q1',
-    code: 'QC-Q01',
-    type: 'Quality Inspection Holding',
-    status: 'Active',
-    capacityKg: 1000,
-    currentKg: 620,
-  },
-  {
-    id: '6',
-    name: 'Crate Buffer Bay D',
-    code: 'CB-D01',
-    type: 'Returnable Plastic Crates',
-    status: 'Active',
-    capacityKg: 1200,
-    currentKg: 900,
-  },
-  {
-    id: '7',
-    name: 'Reserve Rack R1',
-    code: 'RR-R01',
-    type: 'Emergency Buffer Storage',
-    status: 'Active',
-    capacityKg: 500,
-    currentKg: 600,
-  },
-  {
-    id: '8',
-    name: 'Deep Chill Vault (Maintenance)',
-    code: 'DC-V01',
-    type: 'Deep Freeze (-5°C)',
-    status: 'Inactive',
-    capacityKg: 0,
-    currentKg: 0,
-  },
-];
-
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
-
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -153,16 +39,16 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function LockIcon({ size = 12, color = PALETTE.textSecondary }: { size?: number; color?: string }) {
+function LockIcon({ size = 14, color = '#FFFFFF' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = PALETTE.textSecondary }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = PALETTE.textSecondary }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -171,58 +57,19 @@ function SearchIcon({ size = 18, color = PALETTE.textSecondary }: { size?: numbe
   );
 }
 
-function SlashCircleIcon({ size = 18, color = '#DC2626' }: { size?: number; color?: string }) {
+function SnowflakeIcon({ size = 18, color = PALETTE.textInk }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M4.93 4.93l14.14 14.14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+function BoxIcon({ size = 18, color = PALETTE.textInk }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
       <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
     </Svg>
   );
 }
@@ -230,614 +77,241 @@ function MoreTabIcon({ active }: { active: boolean }) {
 export interface SubWarehouseStorageInfoScreenProps {
   onBack: () => void;
   onTabChange?: ((tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void) | undefined;
+  onSelectLocation?: (id: string) => void;
 }
 
-type FilterType = 'All' | 'Active' | 'Inactive';
+const COLD_STORAGE_DATA = [
+  { id: 'cs1', title: 'Rack 02 · Shelf 03', section: 'Section A', stockItems: 12, status: 'Occupied', statusType: 'red' },
+  { id: 'cs2', title: 'Rack 01 · Shelf 01', section: 'Section A', stockItems: 6, status: 'Occupied', statusType: 'green' },
+  { id: 'cs3', title: 'Rack 03 · Shelf 02', section: 'Section B', stockItems: 0, status: 'Empty', statusType: 'red' },
+];
+
+const DRY_STORAGE_DATA = [
+  { id: 'ds1', title: 'Rack 01 · Shelf 01', section: 'Section C', stockItems: 0, status: 'Occupied', statusType: 'green' },
+];
 
 export function SubWarehouseStorageInfoScreen({
   onBack,
-  onTabChange,
+  onSelectLocation,
 }: SubWarehouseStorageInfoScreenProps) {
-  const [filter, setFilter] = useState<FilterType>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredLocations = MOCK_STORAGE_LOCATIONS.filter((item) => {
-    if (filter === 'Active' && item.status !== 'Active') return false;
-    if (filter === 'Inactive' && item.status !== 'Inactive') return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        item.name.toLowerCase().includes(q) ||
-        item.code.toLowerCase().includes(q) ||
-        item.type.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const renderCard = (item: any) => {
+    const isRed = item.statusType === 'red';
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.card}
+        activeOpacity={0.7}
+        onPress={() => onSelectLocation?.(item.id)}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <View style={[styles.badge, { backgroundColor: isRed ? PALETTE.redBadgeBg : PALETTE.greenBadgeBg }]}>
+            <Text style={[styles.badgeText, { color: isRed ? PALETTE.redBadgeText : PALETTE.greenBadgeText }]}>
+              {item.status}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.cardSectionText}>{item.section}</Text>
+        {item.stockItems > 0 && (
+          <View style={styles.stockInfoRow}>
+            <Text style={styles.stockLabel}>Stock Items</Text>
+            <Text style={styles.stockValue}>{item.stockItems}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      
+      {/* ─── Header ─── */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Storage Locations</Text>
+        </View>
+        <View style={styles.warehousePill}>
+          <LockIcon size={13} color="#FFFFFF" />
+          <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
+        </View>
+      </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        decelerationRate={0.985}
-        bounces={true}
-      >
-        {/* ─── Top Brand Header (#F0562A) ─── */}
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={onBack}
-              activeOpacity={0.75}
-            >
-              <ArrowBackIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Storage Information</Text>
-          </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <SearchIcon />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search location, rack, shelf"
+            placeholderTextColor={PALETTE.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
 
-        {/* ─── Sub-Header Locked Warehouse Row ─── */}
-        <View style={styles.subHeaderLockedRow}>
-          <LockIcon size={13} color={PALETTE.textSecondary} />
-          <Text style={styles.lockedWarehouseText}>Coonoor Warehouse</Text>
+        {/* Cold Storage */}
+        <View style={styles.sectionHeader}>
+          <SnowflakeIcon />
+          <Text style={styles.sectionTitle}>Cold Storage</Text>
+        </View>
+        <View style={styles.sectionList}>
+          {COLD_STORAGE_DATA.map(renderCard)}
         </View>
 
-        {/* ─── Main Content Container ─── */}
-        <View style={styles.mainContainer}>
-          {/* 1. 2x2 Metric Cards Grid */}
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>STORAGE LOCATIONS</Text>
-              <Text style={styles.metricValue}>8</Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>ACTIVE LOCATIONS</Text>
-              <Text style={styles.metricValue}>7</Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>OCCUPIED</Text>
-              <Text style={styles.metricValue}>6</Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>AVAILABLE</Text>
-              <Text style={styles.metricValue}>2</Text>
-            </View>
-          </View>
-
-          {/* 2. Storage Capacity Section */}
-          <Text style={styles.sectionHeading}>Storage Capacity</Text>
-          <View style={styles.card}>
-            <View style={styles.capacityHeaderRow}>
-              <Text style={styles.capacityHeaderLabel}>Capacity Used</Text>
-              <Text style={styles.capacityHeaderPercent}>74.2%</Text>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '74.2%' }]} />
-            </View>
-
-            <View style={styles.capacityDetailsRow}>
-              <View style={styles.capacityCol}>
-                <Text style={styles.capacityDetailLabel}>Total Capacity</Text>
-                <Text style={styles.capacityDetailValue}>10,000 kg</Text>
-              </View>
-
-              <View style={styles.capacityCol}>
-                <Text style={styles.capacityDetailLabel}>Current Occupancy</Text>
-                <Text style={styles.capacityDetailValue}>7,420 kg</Text>
-              </View>
-            </View>
-
-            <View style={[styles.capacityDetailsRow, { marginTop: 10 }]}>
-              <View style={styles.capacityCol}>
-                <Text style={styles.capacityDetailLabel}>Available Capacity</Text>
-                <Text style={styles.capacityDetailValue}>2,580 kg</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 3. Blue Info Notice Box */}
-          <View style={styles.blueNoticeBox}>
-            <Text style={styles.blueNoticeText}>
-              Capacity is displayed, never editable by SWA.
-            </Text>
-          </View>
-
-          {/* 4. Filter Pills Row */}
-          <View style={styles.filtersRow}>
-            {(['All', 'Active', 'Inactive'] as FilterType[]).map((tab) => {
-              const isActive = filter === tab;
-              return (
-                <TouchableOpacity
-                  key={tab}
-                  style={[styles.filterPill, isActive && styles.filterPillActive]}
-                  onPress={() => setFilter(tab)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
-                    {tab}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* 5. Search Bar Input */}
-          <View style={styles.searchBarContainer}>
-            <SearchIcon size={18} color={PALETTE.textSecondary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Location name, code, storage type"
-              placeholderTextColor={PALETTE.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-
-          {/* 6. Storage Location Cards List */}
-          <View style={styles.locationsList}>
-            {filteredLocations.map((item) => (
-              <View key={item.id} style={styles.locationCard}>
-                <View style={styles.locationCardHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.locationCardTitle}>{item.name}</Text>
-                    <Text style={styles.locationCardCode}>{item.code}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      item.status === 'Active' ? styles.statusBadgeActive : styles.statusBadgeInactive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        item.status === 'Active' ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive,
-                      ]}
-                    >
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.locationCardDataRow}>
-                  <View style={styles.locationDataCol}>
-                    <Text style={styles.locationDataLabel}>Capacity</Text>
-                    <Text style={styles.locationDataValue}>
-                      {item.capacityKg.toLocaleString()} kg
-                    </Text>
-                  </View>
-
-                  <View style={styles.locationDataColRight}>
-                    <Text style={styles.locationDataLabel}>Current</Text>
-                    <Text style={styles.locationDataValue}>
-                      {item.currentKg.toLocaleString()} kg
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {/* 7. Red Warning Alert Box */}
-          <View style={styles.redWarningBox}>
-            <SlashCircleIcon size={18} color={PALETTE.warningText} />
-            <Text style={styles.redWarningText}>
-              No Edit Capacity, Add Storage Location, or Delete Location — this screen is view-oriented for SWA.
-            </Text>
-          </View>
+        {/* Dry Storage */}
+        <View style={styles.sectionHeader}>
+          <BoxIcon />
+          <Text style={styles.sectionTitle}>Dry Storage</Text>
+        </View>
+        <View style={styles.sectionList}>
+          {DRY_STORAGE_DATA.map(renderCard)}
         </View>
       </ScrollView>
-
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomTabBar}>
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Home');
-            else onBack();
-          }}
-          accessibilityRole="tab"
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.tabLabel}>Home</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Receiving');
-          }}
-          accessibilityRole="tab"
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.tabLabel}>Receiving</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Inventory');
-          }}
-          accessibilityRole="tab"
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.tabLabel}>Inventory</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('More');
-          }}
-          accessibilityRole="tab"
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
-        </Pressable>
-      </View>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
+  root: { flex: 1, backgroundColor: PALETTE.primary },
+  header: {
     backgroundColor: PALETTE.primary,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
   },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  warehousePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginLeft: 44,
+    marginTop: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  warehousePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
   scroll: {
     flex: 1,
     backgroundColor: PALETTE.pageBg,
   },
   scrollContent: {
-    paddingBottom: 24,
+    padding: 16,
+    paddingBottom: 40,
   },
 
-  // ─── Header Banner ─────────────────────────────────────────────────────────
-  headerBanner: {
-    backgroundColor: PALETTE.primary,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerTopRow: {
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleText: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
-  },
-
-  // ─── Sub-Header Locked Warehouse ───────────────────────────────────────────
-  subHeaderLockedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 4,
-  },
-  lockedWarehouseText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-  },
-
-  // ─── Main Container ────────────────────────────────────────────────────────
-  mainContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-
-  // ─── 2x2 Metrics Grid ──────────────────────────────────────────────────────
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: 16,
-  },
-  metricCard: {
-    width: '48.5%',
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  metricLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
-    letterSpacing: 0.3,
-    marginBottom: 6,
-  },
-  metricValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-
-  // ─── Section Headings ──────────────────────────────────────────────────────
-  sectionHeading: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-    marginTop: 4,
-    marginBottom: 10,
-    letterSpacing: -0.2,
-  },
-
-  // ─── Standard Card & Capacity ──────────────────────────────────────────────
-  card: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  capacityHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  capacityHeaderLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  capacityHeaderPercent: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  progressBarTrack: {
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: PALETTE.progressTrack,
-    overflow: 'hidden',
-    marginBottom: 14,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 5,
-    backgroundColor: PALETTE.progressBar,
-  },
-  capacityDetailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  capacityCol: {
-    flex: 1,
-  },
-  capacityDetailLabel: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
-    marginBottom: 3,
-    fontWeight: '500',
-  },
-  capacityDetailValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-
-  // ─── Blue Info Box ─────────────────────────────────────────────────────────
-  blueNoticeBox: {
-    backgroundColor: PALETTE.infoBg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.infoBorder,
-    padding: 12,
-    marginBottom: 14,
-  },
-  blueNoticeText: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: PALETTE.infoText,
-    fontWeight: '600',
-  },
-
-  // ─── Filter Pills ──────────────────────────────────────────────────────────
-  filtersRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  filterPillActive: {
-    backgroundColor: PALETTE.primarySoft,
-    borderColor: PALETTE.primary,
-  },
-  filterPillText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-  },
-  filterPillTextActive: {
-    color: PALETTE.primary,
-    fontWeight: '800',
-  },
-
-  // ─── Search Bar ────────────────────────────────────────────────────────────
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
     borderColor: PALETTE.border,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 20,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: PALETTE.textInk,
     padding: 0,
   },
 
-  // ─── Location Cards List ───────────────────────────────────────────────────
-  locationsList: {
-    gap: 10,
-    marginBottom: 14,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    marginTop: 8,
   },
-  locationCard: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  sectionList: {
+    gap: 12,
+    paddingLeft: 14,
+    borderLeftWidth: 1,
+    borderColor: '#D7D0C8',
+    marginLeft: 8,
+    marginBottom: 16,
+  },
+  card: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 15,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 16,
   },
-  locationCardHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  locationCardTitle: {
-    fontSize: 14.5,
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
-  locationCardCode: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  statusBadge: {
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
   },
-  statusBadgeActive: {
-    backgroundColor: PALETTE.greenBadge,
-  },
-  statusBadgeInactive: {
-    backgroundColor: PALETTE.border,
-  },
-  statusBadgeText: {
-    fontSize: 11,
+  badgeText: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  statusBadgeTextActive: {
-    color: PALETTE.greenText,
-  },
-  statusBadgeTextInactive: {
-    color: PALETTE.textMuted,
-  },
-  locationCardDataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  locationDataCol: {
-    flex: 1,
-  },
-  locationDataColRight: {
-    alignItems: 'flex-end',
-  },
-  locationDataLabel: {
-    fontSize: 11.5,
+  cardSectionText: {
+    fontSize: 13,
     color: PALETTE.textSecondary,
-    marginBottom: 3,
-    fontWeight: '500',
+    marginBottom: 12,
   },
-  locationDataValue: {
-    fontSize: 14,
+  stockInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stockLabel: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+  },
+  stockValue: {
+    fontSize: 15,
     fontWeight: '800',
     color: PALETTE.textInk,
-  },
-
-  // ─── Red Warning Box ───────────────────────────────────────────────────────
-  redWarningBox: {
-    backgroundColor: PALETTE.warningBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: PALETTE.warningBorder,
-    padding: 13,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 8,
-  },
-  redWarningText: {
-    flex: 1,
-    fontSize: 11.5,
-    lineHeight: 17,
-    color: PALETTE.warningText,
-    fontWeight: '500',
-  },
-
-  // ─── Bottom Tab Bar ────────────────────────────────────────────────────────
-  bottomTabBar: {
-    flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'space-around',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  tabLabel: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
-    marginTop: 2.5,
-  },
-  tabLabelActive: {
-    color: PALETTE.primary,
-    fontWeight: '800',
   },
 });

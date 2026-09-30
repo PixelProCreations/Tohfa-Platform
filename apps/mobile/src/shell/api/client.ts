@@ -13,11 +13,13 @@
  */
 import type { ErrorCode, Problem } from '@tohfa/shared-types';
 
+import { Platform } from 'react-native';
+
 /**
  * TODO(STORY-MOB-01): move to react-native-config so the URL comes from the
  * build flavour. 10.0.2.2 is the Android emulator's view of the host machine.
  */
-export const API_BASE_URL = 'http://10.0.2.2:3000';
+export const API_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 
 export function resolveUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -179,15 +181,19 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   let response: Response;
+  const controller = options.signal ? null : new AbortController();
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
   try {
     response = await fetch(resolveUrl(path), {
       method: options.method ?? 'GET',
       headers,
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      signal: options.signal ?? controller?.signal,
     });
   } catch (error) {
     throw new NetworkError(error);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   // Handle mid-session 401 token expiry with collapsed refresh and single retry

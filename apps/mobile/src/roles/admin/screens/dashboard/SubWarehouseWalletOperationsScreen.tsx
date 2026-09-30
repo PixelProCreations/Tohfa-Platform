@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -14,13 +13,31 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Brand Palette) ──────────────
+import {
+  SubWarehouseCashTopUpScreen,
+  type CashTopUpData,
+} from './SubWarehouseCashTopUpScreen';
+import {
+  SubWarehouseConfirmCashTopUpScreen,
+  type ConfirmTopUpDetails,
+} from './SubWarehouseConfirmCashTopUpScreen';
+import { SubWarehouseCustomerSearchScreen } from './SubWarehouseCustomerSearchScreen';
+import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
+import { SubWarehouseFiscalTagScreen } from './SubWarehouseFiscalTagScreen';
+import { SubWarehouseTopUpHistoryScreen } from './SubWarehouseTopUpHistoryScreen';
+import { SubWarehouseDailyCashSummaryScreen } from './SubWarehouseDailyCashSummaryScreen';
+import {
+  SubWarehouseWalletAttentionScreen,
+  type AttentionCategory,
+} from './SubWarehouseWalletAttentionScreen';
+
+// ─── Design Tokens (#F0562A Tohfa Brand Palette) ─────────────────────────
 const PALETTE = {
   primary: '#F0562A',
   primaryDark: '#D4451B',
-  primaryLight: '#FFF0EB',
+  primaryLight: '#FFF2E8',
   primarySoft: '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primaryBorder: '#F5C6A0',
 
   pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
@@ -240,6 +257,10 @@ export interface SubWarehouseWalletOperationsScreenProps {
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
   onNavigateToNotifications?: () => void;
   onNavigateToProfile?: () => void;
+  onNavigateToCashTopUp?: () => void;
+  onNavigateToCustomerSearch?: () => void;
+  onNavigateToTopUpHistory?: () => void;
+  onNavigateToDailySummary?: () => void;
 }
 
 export function SubWarehouseWalletOperationsScreen({
@@ -248,12 +269,19 @@ export function SubWarehouseWalletOperationsScreen({
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
+  onNavigateToCashTopUp,
+  onNavigateToCustomerSearch,
+  onNavigateToTopUpHistory,
+  onNavigateToDailySummary,
 }: SubWarehouseWalletOperationsScreenProps) {
-  const [topUpModalVisible, setTopUpModalVisible] = useState(false);
-  const [findCustomerModalVisible, setFindCustomerModalVisible] = useState(false);
-  const [historyModalVisible, setHistoryModalVisible] = useState(false);
-  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
-  const [attentionModalVisible, setAttentionModalVisible] = useState<string | null>(null);
+  const [activeSubScreen, setActiveSubScreen] = useState<
+    'operations' | 'customer_wallet' | 'cash_top_up' | 'fiscal_tag' | 'confirm_top_up' | 'customer_search' | 'top_up_history' | 'daily_summary' | 'needs_attention'
+  >('operations');
+  const [attentionCategory, setAttentionCategory] = useState<AttentionCategory>('all');
+  const [currentFiscalTag, setCurrentFiscalTag] = useState<string>('FC-20260925-0012');
+  const [topUpData, setTopUpData] = useState<CashTopUpData | null>(null);
+  const [todayTopUpsCount, setTodayTopUpsCount] = useState<number>(24);
+  const [cashCollectedTotal, setCashCollectedTotal] = useState<number>(18500);
 
   // Cash Top-Up form state
   const [custSearch, setCustSearch] = useState('');
@@ -262,16 +290,161 @@ export function SubWarehouseWalletOperationsScreen({
     name: 'Ravi Kumar',
     code: 'CUS-001245',
     phone: '+91 98765 43210',
-    currentBalance: '₹3,450',
+    currentBalance: '₹4,500',
   });
 
-  const handleExecuteTopUp = () => {
-    setTopUpModalVisible(false);
-    Alert.alert(
-      'Cash Top-Up Successful! 🎉',
-      `Amount: ₹${topUpAmount}\nCustomer: ${selectedCustomer.name} (${selectedCustomer.code})\nFiscal Tag: FC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-0089\nNew Balance: ₹${(parseInt(topUpAmount || '0') + 3450).toLocaleString('en-IN')}\n\nSMS receipt dispatched to ${selectedCustomer.phone}.`
+  // ─── Sub-Screen Redirection: Customer Wallet (Screenshots 1 & 2) ───
+  if (activeSubScreen === 'customer_wallet') {
+    return (
+      <SubWarehouseCustomerWalletScreen
+        customer={{
+          name: selectedCustomer.name,
+          id: selectedCustomer.code,
+          mobile: selectedCustomer.phone,
+          balance: selectedCustomer.currentBalance.includes('.00')
+            ? selectedCustomer.currentBalance
+            : `${selectedCustomer.currentBalance}.00`,
+          totalCredited: '₹25,000',
+          totalUsed: '₹20,500',
+        }}
+        onBack={() => setActiveSubScreen('customer_search')}
+        onNavigateToCashTopUp={() => {
+          setActiveSubScreen('cash_top_up');
+        }}
+      />
     );
-  };
+  }
+
+  // ─── Sub-Screen Redirection: Cash Top-Up ───
+  if (activeSubScreen === 'cash_top_up') {
+    return (
+      <SubWarehouseCashTopUpScreen
+        warehouseName={warehouseName}
+        processedBy="SWA Name"
+        initialCustomer={{
+          name: selectedCustomer.name || 'Ravi Kumar',
+          code: selectedCustomer.code || 'CUS-001245',
+          currentBalance: 4500,
+        }}
+        onBack={() => setActiveSubScreen(selectedCustomer ? 'customer_wallet' : 'operations')}
+        onContinue={(data) => {
+          setTopUpData(data);
+          setActiveSubScreen('fiscal_tag');
+        }}
+      />
+    );
+  }
+
+  // ─── Sub-Screen Redirection: Fiscal Cash Tag (Screenshot 4 - in between Cash Top-Up and Confirm) ───
+  if (activeSubScreen === 'fiscal_tag') {
+    return (
+      <SubWarehouseFiscalTagScreen
+        initialData={{
+          customerName: topUpData?.customerName || selectedCustomer.name,
+          customerId: topUpData?.customerCode || selectedCustomer.code,
+          currentBalance: topUpData?.currentBalance ?? 4500,
+          topUpAmount: topUpData?.topUpAmount ?? 2000,
+          fiscalCashTag: currentFiscalTag,
+          warehouseName: warehouseName,
+          processedBy: 'SWA – Suresh',
+        }}
+        onBack={() => setActiveSubScreen('cash_top_up')}
+        onReviewTopUp={(tagData) => {
+          if (tagData.fiscalCashTag) {
+            setCurrentFiscalTag(tagData.fiscalCashTag);
+          }
+          setActiveSubScreen('confirm_top_up');
+        }}
+      />
+    );
+  }
+
+  // ─── Sub-Screen Redirection: Confirm Cash Top-Up (Screenshot 3) ───
+  if (activeSubScreen === 'confirm_top_up') {
+    return (
+      <SubWarehouseConfirmCashTopUpScreen
+        details={{
+          customerName: topUpData?.customerName || selectedCustomer.name || 'Ravi Kumar',
+          customerCode: topUpData?.customerCode || selectedCustomer.code || 'CUS-001245',
+          currentBalance: topUpData?.currentBalance ?? 4500,
+          topUpAmount: topUpData?.topUpAmount ?? 2000,
+          warehouseName: warehouseName,
+          processedBy: 'SWA – Suresh',
+          fiscalCashTag: currentFiscalTag || 'FC-20260925-0012',
+          dateStr: '25 Sep 2026',
+          timeStr: '10:42 AM',
+        }}
+        onBack={() => setActiveSubScreen('fiscal_tag')}
+        onSuccess={(confirmed) => {
+          setTodayTopUpsCount((prev) => prev + 1);
+          setCashCollectedTotal((prev) => prev + (confirmed.topUpAmount || 2000));
+          setActiveSubScreen('operations');
+        }}
+      />
+    );
+  }
+
+  // ─── Sub-Screen Redirection: Customer Search ───
+  if (activeSubScreen === 'customer_search') {
+    return (
+      <SubWarehouseCustomerSearchScreen
+        onBack={() => setActiveSubScreen('operations')}
+        onNavigateToWallet={(cust) => {
+          setSelectedCustomer({
+            name: cust.name,
+            code: cust.code,
+            phone: cust.phone || '+91 98765 43210',
+            currentBalance: cust.balance,
+          });
+          setActiveSubScreen('customer_wallet');
+        }}
+        onSelectCustomer={(cust: any) => {
+          setSelectedCustomer({
+            name: cust.name,
+            code: cust.code,
+            phone: cust.phone || '+91 98765 43210',
+            currentBalance: cust.balance,
+          });
+          setActiveSubScreen('customer_wallet');
+        }}
+        onNavigateToCashTopUp={() => {
+          setActiveSubScreen('cash_top_up');
+        }}
+      />
+    );
+  }
+
+  // ─── Sub-Screen Redirection: Top-Up History (Screenshot 2) ───
+  if (activeSubScreen === 'top_up_history') {
+    return (
+      <SubWarehouseTopUpHistoryScreen
+        onBack={() => setActiveSubScreen('operations')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
+    );
+  }
+
+  // ─── Sub-Screen Redirection: Daily Cash Summary (Screenshots 3 & 4) ───
+  if (activeSubScreen === 'daily_summary') {
+    return (
+      <SubWarehouseDailyCashSummaryScreen
+        onBack={() => setActiveSubScreen('operations')}
+        onViewTopUpHistory={() => setActiveSubScreen('top_up_history')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
+    );
+  }
+
+  // ─── Sub-Screen Redirection: Needs Attention (Full Screen) ───
+  if (activeSubScreen === 'needs_attention') {
+    return (
+      <SubWarehouseWalletAttentionScreen
+        initialCategory={attentionCategory}
+        onBack={() => setActiveSubScreen('operations')}
+        onNavigateToCashTopUp={() => setActiveSubScreen('cash_top_up')}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -333,12 +506,15 @@ export function SubWarehouseWalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => setHistoryModalVisible(true)}
+              onPress={() => {
+                if (onNavigateToTopUpHistory) onNavigateToTopUpHistory();
+                else setActiveSubScreen('top_up_history');
+              }}
             >
               <View style={styles.kpiIconWrap}>
                 <CalendarIcon size={19} color={PALETTE.primary} />
               </View>
-              <Text style={styles.kpiValue}>24</Text>
+              <Text style={styles.kpiValue}>{todayTopUpsCount}</Text>
               <Text style={styles.kpiLabel}>Today's Top-Ups</Text>
             </TouchableOpacity>
 
@@ -346,12 +522,15 @@ export function SubWarehouseWalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => setSummaryModalVisible(true)}
+              onPress={() => {
+                if (onNavigateToDailySummary) onNavigateToDailySummary();
+                else setActiveSubScreen('daily_summary');
+              }}
             >
               <View style={styles.kpiIconWrap}>
                 <CashIcon size={19} color={PALETTE.primary} />
               </View>
-              <Text style={styles.kpiValue}>₹18,500</Text>
+              <Text style={styles.kpiValue}>₹{cashCollectedTotal.toLocaleString('en-IN')}</Text>
               <Text style={styles.kpiLabel}>Cash Collected</Text>
             </TouchableOpacity>
 
@@ -359,7 +538,10 @@ export function SubWarehouseWalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => setAttentionModalVisible('pending')}
+              onPress={() => {
+                setAttentionCategory('pending');
+                setActiveSubScreen('needs_attention');
+              }}
             >
               <View style={styles.kpiIconWrap}>
                 <EllipsisPendingIcon size={19} color={PALETTE.amberAccent} />
@@ -372,7 +554,10 @@ export function SubWarehouseWalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => setAttentionModalVisible('failed')}
+              onPress={() => {
+                setAttentionCategory('failed');
+                setActiveSubScreen('needs_attention');
+              }}
             >
               <View style={styles.kpiIconWrap}>
                 <ExclamationFailedIcon size={19} color={PALETTE.redAccent} />
@@ -388,7 +573,13 @@ export function SubWarehouseWalletOperationsScreen({
             {/* Cash Top-Up */}
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => setTopUpModalVisible(true)}
+              onPress={() => {
+                if (onNavigateToCashTopUp) {
+                  onNavigateToCashTopUp();
+                } else {
+                  setActiveSubScreen('cash_top_up');
+                }
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
@@ -400,7 +591,10 @@ export function SubWarehouseWalletOperationsScreen({
             {/* Find Customer */}
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => setFindCustomerModalVisible(true)}
+              onPress={() => {
+                if (onNavigateToCustomerSearch) onNavigateToCustomerSearch();
+                else setActiveSubScreen('customer_search');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
@@ -412,7 +606,10 @@ export function SubWarehouseWalletOperationsScreen({
             {/* Top-Up History */}
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => setHistoryModalVisible(true)}
+              onPress={() => {
+                if (onNavigateToTopUpHistory) onNavigateToTopUpHistory();
+                else setActiveSubScreen('top_up_history');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
@@ -425,7 +622,10 @@ export function SubWarehouseWalletOperationsScreen({
           {/* Full Width Action: Daily Summary */}
           <TouchableOpacity
             style={styles.dailySummaryCard}
-            onPress={() => setSummaryModalVisible(true)}
+            onPress={() => {
+              if (onNavigateToDailySummary) onNavigateToDailySummary();
+              else setActiveSubScreen('daily_summary');
+            }}
             activeOpacity={0.75}
           >
             <View style={styles.dailySummaryIconWrap}>
@@ -439,10 +639,13 @@ export function SubWarehouseWalletOperationsScreen({
           <TouchableOpacity
             style={styles.recentTopUpCard}
             onPress={() => {
-              Alert.alert(
-                'Top-Up Receipt',
-                'Customer: Ravi Kumar (CUS-001245)\nAmount: ₹2,000\nFiscal Tag: FC-20260925-0012\nStatus: Completed\nTime: Today, 10:42 AM\nMethod: Cash Top-Up\nCollected By: Suresh M. (SWA)'
-              );
+              setSelectedCustomer({
+                name: 'Ravi Kumar',
+                code: 'CUS-001245',
+                phone: '+91 98765 43210',
+                currentBalance: '₹4,500',
+              });
+              setActiveSubScreen('customer_wallet');
             }}
             activeOpacity={0.8}
           >
@@ -454,24 +657,38 @@ export function SubWarehouseWalletOperationsScreen({
             </View>
 
             <Text style={styles.recentCustCode}>CUS-001245</Text>
-            <Text style={styles.recentFiscalTag}>Fiscal Tag: FC-20260925-0012</Text>
+
+            <View style={styles.recentTagAndAmountRow}>
+              <Text style={styles.recentFiscalTag}>Fiscal Tag: FC-20260925-0012</Text>
+              <Text style={styles.recentAmount}>₹2,000</Text>
+            </View>
 
             <View style={styles.recentBottomRow}>
-              <Text style={styles.recentTypeAndDate}>Cash Top-Up · Today, 10:42 AM</Text>
-              <Text style={styles.recentAmount}>₹2,000</Text>
+              <Text style={styles.recentTypeAndDate}>Cash Top-Up</Text>
+              <Text style={styles.recentDateText}>Today, 10:42 AM</Text>
             </View>
           </TouchableOpacity>
 
           {/* 4. Needs Attention Section (⚠️ Needs Attention) */}
-          <View style={styles.needsAttentionHeadingRow}>
+          <TouchableOpacity
+            style={styles.needsAttentionHeadingRow}
+            onPress={() => {
+              setAttentionCategory('all');
+              setActiveSubScreen('needs_attention');
+            }}
+            activeOpacity={0.7}
+          >
             <Text style={styles.needsAttentionHeading}>⚠️ Needs Attention</Text>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.needsAttentionList}>
             {/* 1. Pending top-up */}
             <TouchableOpacity
               style={[styles.attentionRowCard, { borderLeftColor: PALETTE.amberAccent }]}
-              onPress={() => setAttentionModalVisible('pending')}
+              onPress={() => {
+                setAttentionCategory('pending');
+                setActiveSubScreen('needs_attention');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.attentionLeftWrap}>
@@ -487,7 +704,10 @@ export function SubWarehouseWalletOperationsScreen({
             {/* 2. Failed transaction */}
             <TouchableOpacity
               style={[styles.attentionRowCard, { borderLeftColor: PALETTE.redAccent }]}
-              onPress={() => setAttentionModalVisible('failed')}
+              onPress={() => {
+                setAttentionCategory('failed');
+                setActiveSubScreen('needs_attention');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.attentionLeftWrap}>
@@ -503,7 +723,10 @@ export function SubWarehouseWalletOperationsScreen({
             {/* 3. Missing fiscal tag */}
             <TouchableOpacity
               style={[styles.attentionRowCard, { borderLeftColor: PALETTE.amberAccent }]}
-              onPress={() => setAttentionModalVisible('fiscal')}
+              onPress={() => {
+                setAttentionCategory('fiscal');
+                setActiveSubScreen('needs_attention');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.attentionLeftWrap}>
@@ -519,7 +742,10 @@ export function SubWarehouseWalletOperationsScreen({
             {/* 4. Reconciliation discrepancy */}
             <TouchableOpacity
               style={[styles.attentionRowCard, { borderLeftColor: PALETTE.amberAccent }]}
-              onPress={() => setAttentionModalVisible('reconciliation')}
+              onPress={() => {
+                setAttentionCategory('reconciliation');
+                setActiveSubScreen('needs_attention');
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.attentionLeftWrap}>
@@ -582,228 +808,6 @@ export function SubWarehouseWalletOperationsScreen({
           <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
         </Pressable>
       </View>
-
-      {/* ─── MODAL: Cash Top-Up ─── */}
-      <Modal visible={topUpModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>New Cash Top-Up</Text>
-              <TouchableOpacity onPress={() => setTopUpModalVisible(false)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSub}>Accept cash from buyer and credit wallet instantly.</Text>
-
-            {/* Customer Box */}
-            <View style={styles.customerBox}>
-              <View>
-                <Text style={styles.customerBoxName}>{selectedCustomer.name}</Text>
-                <Text style={styles.customerBoxSub}>{selectedCustomer.code} · {selectedCustomer.phone}</Text>
-              </View>
-              <View style={styles.balanceBadge}>
-                <Text style={styles.balanceBadgeText}>Bal: {selectedCustomer.currentBalance}</Text>
-              </View>
-            </View>
-
-            {/* Amount Selection */}
-            <Text style={styles.inputLabel}>Top-Up Amount (₹)</Text>
-            <View style={styles.quickAmountRow}>
-              {['500', '1000', '2000', '5000'].map((amt) => (
-                <TouchableOpacity
-                  key={amt}
-                  style={[styles.amtChip, topUpAmount === amt && styles.amtChipActive]}
-                  onPress={() => setTopUpAmount(amt)}
-                >
-                  <Text style={[styles.amtChipText, topUpAmount === amt && styles.amtChipTextActive]}>
-                    ₹{amt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              style={styles.amountInput}
-              keyboardType="numeric"
-              value={topUpAmount}
-              onChangeText={setTopUpAmount}
-              placeholder="Enter Custom Amount"
-              placeholderTextColor="#9E9690"
-            />
-
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleExecuteTopUp} activeOpacity={0.85}>
-              <Text style={styles.confirmBtnText}>Confirm ₹{topUpAmount} Cash Collected</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── MODAL: Find Customer ─── */}
-      <Modal visible={findCustomerModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Find Customer</Text>
-              <TouchableOpacity onPress={() => setFindCustomerModalVisible(false)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by name, phone or CUS-ID..."
-              placeholderTextColor="#9E9690"
-              value={custSearch}
-              onChangeText={setCustSearch}
-            />
-
-            <ScrollView style={{ maxHeight: 240, marginTop: 10 }}>
-              {[
-                { name: 'Ravi Kumar', code: 'CUS-001245', bal: '₹3,450' },
-                { name: 'Priya Sharma', code: 'CUS-001892', bal: '₹12,800' },
-                { name: 'Karthik Raja', code: 'CUS-002104', bal: '₹850' },
-                { name: 'Meena Devi', code: 'CUS-000782', bal: '₹4,200' },
-              ]
-                .filter((c) => c.name.toLowerCase().includes(custSearch.toLowerCase()) || c.code.toLowerCase().includes(custSearch.toLowerCase()))
-                .map((c, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={styles.searchedCustRow}
-                    onPress={() => {
-                      setSelectedCustomer({ ...selectedCustomer, name: c.name, code: c.code, currentBalance: c.bal });
-                      setFindCustomerModalVisible(false);
-                      setTopUpModalVisible(true);
-                    }}
-                  >
-                    <View>
-                      <Text style={styles.custRowName}>{c.name}</Text>
-                      <Text style={styles.custRowCode}>{c.code}</Text>
-                    </View>
-                    <Text style={styles.custRowBal}>{c.bal}</Text>
-                  </TouchableOpacity>
-                ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── MODAL: Top-Up History ─── */}
-      <Modal visible={historyModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Top-Up History (Today)</Text>
-              <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 280, marginTop: 10 }}>
-              {[
-                { name: 'Ravi Kumar', code: 'CUS-001245', amt: '₹2,000', time: '10:42 AM', tag: 'FC-20260925-0012', status: 'Completed' },
-                { name: 'Priya Sharma', code: 'CUS-001892', amt: '₹5,000', time: '09:30 AM', tag: 'FC-20260925-0011', status: 'Completed' },
-                { name: 'Anish Patel', code: 'CUS-003411', amt: '₹1,500', time: '09:15 AM', tag: 'FC-20260925-0010', status: 'Completed' },
-                { name: 'Kavitha R.', code: 'CUS-002140', amt: '₹1,000', time: '08:45 AM', tag: 'Awaiting Tag', status: 'Pending' },
-              ].map((item, idx) => (
-                <View key={idx} style={styles.historyRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyName}>{item.name}</Text>
-                    <Text style={styles.historyTag}>{item.tag} · {item.time}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.historyAmt}>{item.amt}</Text>
-                    <Text style={[styles.historyStatus, item.status === 'Pending' && { color: PALETTE.amberText }]}>
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── MODAL: Daily Summary ─── */}
-      <Modal visible={summaryModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Daily Cash Reconciliation</Text>
-              <TouchableOpacity onPress={() => setSummaryModalVisible(false)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.summaryBreakdown}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Opening Cash Balance</Text>
-                <Text style={styles.summaryVal}>₹5,000</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total Top-Ups Collected (24)</Text>
-                <Text style={[styles.summaryVal, { color: PALETTE.greenText }]}>+ ₹18,500</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Cash Drawer Total</Text>
-                <Text style={[styles.summaryVal, { fontWeight: '800', color: PALETTE.primary }]}>₹23,500</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={() => {
-                setSummaryModalVisible(false);
-                Alert.alert('Cash Reconciled', 'End of day cash verification registered.');
-              }}
-            >
-              <Text style={styles.confirmBtnText}>Close Day Reconciliation</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── MODAL: Needs Attention Item Action ─── */}
-      <Modal visible={attentionModalVisible !== null} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>
-                {attentionModalVisible === 'pending'
-                  ? 'Pending Verification'
-                  : attentionModalVisible === 'failed'
-                  ? 'Failed Transaction'
-                  : attentionModalVisible === 'fiscal'
-                  ? 'Missing Fiscal Tag'
-                  : 'Reconciliation Discrepancy'}
-              </Text>
-              <TouchableOpacity onPress={() => setAttentionModalVisible(null)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.attentionModalBody}>
-              {attentionModalVisible === 'pending'
-                ? 'Transaction TXN-00918 for ₹1,000 (Kavitha R.) received cash but SMS verification webhook timed out. Mark verified manually?'
-                : attentionModalVisible === 'failed'
-                ? 'Top-up attempt TXN-00912 for ₹500 failed due to network disruption. No funds were debited.'
-                : attentionModalVisible === 'fiscal'
-                ? 'Transaction TXN-00905 lacks Government Fiscal Audit Tag. Generating hash from secure enclave...'
-                : 'Yesterday\'s physical cash drawer had ₹100 variance vs POS ledger. Reviewed by Auditor.'}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={() => {
-                setAttentionModalVisible(null);
-                Alert.alert('Resolved', 'Action item resolved successfully.');
-              }}
-            >
-              <Text style={styles.confirmBtnText}>Resolve & Acknowledge</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1049,29 +1053,35 @@ const styles = StyleSheet.create({
   recentCustCode: {
     fontSize: 12,
     color: PALETTE.textSecondary,
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  recentTagAndAmountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 3,
   },
   recentFiscalTag: {
     fontSize: 11.5,
-    color: PALETTE.textMuted,
-    marginBottom: 8,
+    color: PALETTE.textSecondary,
+  },
+  recentAmount: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
   },
   recentBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.divider,
   },
   recentTypeAndDate: {
     fontSize: 11.5,
     color: PALETTE.textSecondary,
   },
-  recentAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+  recentDateText: {
+    fontSize: 11,
+    color: PALETTE.textSecondary,
   },
 
   // ─── Needs Attention ───────────────────────────────────────────────────────

@@ -203,6 +203,9 @@ function ShieldPolicyIcon({ size = 20, color = PALETTE.iconColor }: { size?: num
 
 export interface SubWarehouseMessageHistoryScreenProps {
   onBack?: () => void;
+  onNavigateToReturns?: () => void;
+  onNavigateToStaff?: () => void;
+  onNavigateToAttendance?: () => void;
 }
 
 export function SubWarehouseMessageHistoryScreen({

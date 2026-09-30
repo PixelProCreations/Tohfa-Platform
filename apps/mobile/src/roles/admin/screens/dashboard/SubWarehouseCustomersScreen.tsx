@@ -30,7 +30,7 @@ const PALETTE = {
   tabBorder:     '#EAE4DB',
 };
 
-export type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
+type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 export interface CustomerItem {
   id: string;
