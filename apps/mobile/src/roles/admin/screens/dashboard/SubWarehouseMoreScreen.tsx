@@ -127,8 +127,8 @@ const OPTION_GROUPS: OptionGroup[] = [
         badge: 'Verified',
         badgeType: 'success',
         iconType: 'finance',
-        iconBg: '#FFFBEB',
-        iconColor: '#D97706',
+        iconBg: '#FFF0EB',
+        iconColor: '#F0562A',
       },
       {
         id: 'reports',
@@ -199,8 +199,8 @@ const OPTION_GROUPS: OptionGroup[] = [
         badge: '8 Pending',
         badgeType: 'alert',
         iconType: 'orders',
-        iconBg: '#FEF3C7',
-        iconColor: '#B45309',
+        iconBg: '#FFF0EB',
+        iconColor: '#F0562A',
       },
       {
         id: 'sales',
@@ -329,7 +329,7 @@ function ReturnsIssuesIcon({ color = '#E11D48' }: { color?: string }) {
   );
 }
 
-function FinanceIcon({ color = '#D97706' }: { color?: string }) {
+function FinanceIcon({ color = '#F0562A' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -389,7 +389,7 @@ function SettingsModuleIcon({ color = '#52525B' }: { color?: string }) {
   );
 }
 
-function OrdersIcon({ color = '#B45309' }: { color?: string }) {
+function OrdersIcon({ color = '#F0562A' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6M9 12h6M9 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

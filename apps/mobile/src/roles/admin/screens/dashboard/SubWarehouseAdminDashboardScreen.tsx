@@ -22,6 +22,34 @@ import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScre
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
 import { SubWarehouseMoreScreen } from './SubWarehouseMoreScreen';
+import { SubWarehouseCustomersScreen } from './SubWarehouseCustomersScreen';
+import { SubWarehouseCustomerSearchScreen } from './SubWarehouseCustomerSearchScreen';
+import { SubWarehouseCustomerDetailsScreen } from './SubWarehouseCustomerDetailsScreen';
+import { SubWarehousePurchaseHistoryScreen } from './SubWarehousePurchaseHistoryScreen';
+import { SubWarehouseCustomerOrdersScreen } from './SubWarehouseCustomerOrdersScreen';
+import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
+import { SubWarehouseCashTopUpScreen } from './SubWarehouseCashTopUpScreen';
+import { SubWarehouseCustomerIssuesScreen } from './SubWarehouseCustomerIssuesScreen';
+import { SubWarehouseSupportHistoryScreen } from './SubWarehouseSupportHistoryScreen';
+import { SubWarehouseBillingHubScreen } from './SubWarehouseBillingHubScreen';
+import { SubWarehouseInvoiceListScreen } from './SubWarehouseInvoiceListScreen';
+import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
+import { SubWarehouseGenerateInvoiceScreen } from './SubWarehouseGenerateInvoiceScreen';
+import { SubWarehouseGSTInvoiceScreen } from './SubWarehouseGSTInvoiceScreen';
+import { SubWarehouseInvoicePreviewScreen } from './SubWarehouseInvoicePreviewScreen';
+import { SubWarehouseInvoiceHistoryScreen } from './SubWarehouseInvoiceHistoryScreen';
+import { SubWarehouseInvoiceFiltersScreen, InvoiceFilterState } from './SubWarehouseInvoiceFiltersScreen';
+import { SubWarehouseInvoiceHistoryFiltersScreen, InvoiceHistoryFilterState } from './SubWarehouseInvoiceHistoryFiltersScreen';
+import { SubWarehouseOrderFiltersScreen, OrderFilterState } from './SubWarehouseOrderFiltersScreen';
+import { SubWarehousePurchaseFiltersScreen, PurchaseFilterState } from './SubWarehousePurchaseFiltersScreen';
+import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
+import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
+import { SubWarehouseOrderDetailScreen } from './SubWarehouseOrderDetailScreen';
+import { SubWarehouseApprovalAlertsScreen } from './SubWarehouseApprovalAlertsScreen';
+import { SubWarehouseExpenseRecordScreen } from './SubWarehouseExpenseRecordScreen';
+import { SubWarehouseGoodsReceiptDetailScreen } from './SubWarehouseGoodsReceiptDetailScreen';
+import { SubWarehouseSystemMessagesScreen } from './SubWarehouseSystemMessagesScreen';
+import { SubWarehouseMessageHistoryScreen } from './SubWarehouseMessageHistoryScreen';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -365,6 +393,42 @@ export function SubWarehouseAdminDashboardScreen({
   const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
+  const [showCustomers, setShowCustomers] = useState(false);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [showCustomerDetails, setShowCustomerDetails] = useState(false);
+  const [showPurchaseHistory, setShowPurchaseHistory] = useState(false);
+  const [showCustomerOrders, setShowCustomerOrders] = useState(false);
+  const [showCustomerWallet, setShowCustomerWallet] = useState(false);
+  const [showCashTopUp, setShowCashTopUp] = useState(false);
+  const [showCustomerIssues, setShowCustomerIssues] = useState(false);
+  const [showSupportHistory, setShowSupportHistory] = useState(false);
+  const [showBillingHub, setShowBillingHub] = useState(false);
+  const [showInvoiceList, setShowInvoiceList] = useState(false);
+  const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
+  const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
+  const [showGSTInvoice, setShowGSTInvoice] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
+  const [showTasks, setShowTasks] = useState(false);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
+  const [showOrderDetail, setShowOrderDetail] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showExpenseRecord, setShowExpenseRecord] = useState(false);
+  const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
+  const [showSystemMessages, setShowSystemMessages] = useState(false);
+  const [showMessageHistory, setShowMessageHistory] = useState(false);
+  const [showPurchaseFilters, setShowPurchaseFilters] = useState(false);
+  const [showOrderFilters, setShowOrderFilters] = useState(false);
+  const [showInvoiceFilters, setShowInvoiceFilters] = useState(false);
+  const [showInvoiceHistoryFilters, setShowInvoiceHistoryFilters] = useState(false);
+
+  const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
+  const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
+  const [invoiceFilters, setInvoiceFilters] = useState<InvoiceFilterState | undefined>(undefined);
+  const [invoiceHistoryFilters, setInvoiceHistoryFilters] = useState<InvoiceHistoryFilterState | undefined>(undefined);
+
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('INV-2026-001245');
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [user, setUser] = useState<UserMe | null>(null);
 
   useEffect(() => {
@@ -375,6 +439,111 @@ export function SubWarehouseAdminDashboardScreen({
 
   const userName = user?.fullName?.split(' ')[0] ?? 'Suresh';
 
+  if (showMessageHistory) {
+    return (
+      <SubWarehouseMessageHistoryScreen
+        onBack={() => setShowMessageHistory(false)}
+      />
+    );
+  }
+
+  if (showTaskDetail) {
+    return (
+      <SubWarehouseTaskDetailScreen
+        onBack={() => setShowTaskDetail(false)}
+        onMarkInProgress={() => {
+          Alert.alert('Task Updated', 'Task marked as In Progress');
+          setShowTaskDetail(false);
+        }}
+      />
+    );
+  }
+
+  if (showOrderDetail) {
+    return (
+      <SubWarehouseOrderDetailScreen
+        onBack={() => setShowOrderDetail(false)}
+        onViewStatus={() =>
+          Alert.alert('Pickup Status', 'Ready for customer pickup at Bay 2.')
+        }
+      />
+    );
+  }
+
+  if (showExpenseRecord) {
+    return (
+      <SubWarehouseExpenseRecordScreen
+        onBack={() => setShowExpenseRecord(false)}
+        onApprove={() => {
+          Alert.alert('Approved', 'Expense EXP-001245 approved successfully.');
+          setShowExpenseRecord(false);
+        }}
+      />
+    );
+  }
+
+  if (showGoodsReceiptDetail) {
+    return (
+      <SubWarehouseGoodsReceiptDetailScreen
+        onBack={() => setShowGoodsReceiptDetail(false)}
+        onTakeAction={() => {
+          Alert.alert('Action Taken', 'Variance reconciliation initiated.');
+          setShowGoodsReceiptDetail(false);
+        }}
+      />
+    );
+  }
+
+  if (showTasks) {
+    return (
+      <SubWarehouseTaskActionCenterScreen
+        onBack={() => setShowTasks(false)}
+        onNavigateToTaskDetail={() => setShowTaskDetail(true)}
+        onNavigateToOrderDetail={() => setShowOrderDetail(true)}
+        onStartTask={(t) => {
+          if (t?.id === 'TSK-002' || t?.title?.includes('Pickup')) {
+            setShowOrderDetail(true);
+          } else {
+            setShowTaskDetail(true);
+          }
+        }}
+      />
+    );
+  }
+
+  if (showAlerts) {
+    return (
+      <SubWarehouseApprovalAlertsScreen
+        onBack={() => setShowAlerts(false)}
+        onNavigateToExpenseRecord={() => setShowExpenseRecord(true)}
+        onNavigateToGoodsReceiptDetail={() => setShowGoodsReceiptDetail(true)}
+        onOpenRecord={(alertId) => {
+          if (alertId === 'GR-00245') {
+            setShowGoodsReceiptDetail(true);
+          } else {
+            setShowExpenseRecord(true);
+          }
+        }}
+      />
+    );
+  }
+
+  if (showSystemMessages) {
+    return (
+      <SubWarehouseSystemMessagesScreen
+        onBack={() => setShowSystemMessages(false)}
+        onTabChange={(tab) => {
+          setShowSystemMessages(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToHistory={() => {
+          if (onNavigate) onNavigate('SubWarehouseMessageHistory');
+          else setShowMessageHistory(true);
+        }}
+      />
+    );
+  }
+
   if (showNotifications) {
     return (
       <SubWarehouseNotificationsScreen
@@ -382,6 +551,18 @@ export function SubWarehouseAdminDashboardScreen({
         onTabChange={(tab) => {
           setShowNotifications(false);
           setActiveTab(tab);
+        }}
+        onNavigateToTasks={() => {
+          if (onNavigate) onNavigate('SubWarehouseTaskActionCenter');
+          else setShowTasks(true);
+        }}
+        onNavigateToAlerts={() => {
+          if (onNavigate) onNavigate('SubWarehouseApprovalAlerts');
+          else setShowAlerts(true);
+        }}
+        onNavigateToSystemMessages={() => {
+          if (onNavigate) onNavigate('SubWarehouseSystemMessages');
+          else setShowSystemMessages(true);
         }}
         onNavigateToAction={(actionLabel) => {
           setShowNotifications(false);
@@ -522,6 +703,315 @@ export function SubWarehouseAdminDashboardScreen({
           } else {
             setShowNotifications(true);
           }
+        }}
+      />
+    );
+  }
+
+  if (showPurchaseFilters) {
+    return (
+      <SubWarehousePurchaseFiltersScreen
+        initialFilters={purchaseFilters}
+        onBack={() => setShowPurchaseFilters(false)}
+        onApplyFilters={(f) => {
+          setPurchaseFilters(f);
+          setShowPurchaseFilters(false);
+        }}
+      />
+    );
+  }
+
+  if (showPurchaseHistory) {
+    return (
+      <SubWarehousePurchaseHistoryScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowPurchaseHistory(false)}
+        onTabChange={(tab) => {
+          setShowPurchaseHistory(false);
+          setShowCustomerDetails(false);
+          setShowCustomers(false);
+          setActiveTab(tab);
+        }}
+        onOpenFilters={() => {
+          if (onNavigate) onNavigate('SubWarehousePurchaseFilters');
+          else setShowPurchaseFilters(true);
+        }}
+        appliedFilters={purchaseFilters}
+        onClearFilters={() => setPurchaseFilters(undefined)}
+      />
+    );
+  }
+
+  if (showOrderFilters) {
+    return (
+      <SubWarehouseOrderFiltersScreen
+        initialFilters={orderFilters}
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowOrderFilters(false)}
+        onApplyFilters={(f) => {
+          setOrderFilters(f);
+          setShowOrderFilters(false);
+        }}
+      />
+    );
+  }
+
+  if (showCustomerOrders) {
+    return (
+      <SubWarehouseCustomerOrdersScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowCustomerOrders(false)}
+        onOpenFilters={() => {
+          if (onNavigate) onNavigate('SubWarehouseOrderFilters');
+          else setShowOrderFilters(true);
+        }}
+        appliedFilters={orderFilters}
+        onClearFilters={() => setOrderFilters(undefined)}
+      />
+    );
+  }
+
+  if (showCashTopUp) {
+    return (
+      <SubWarehouseCashTopUpScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        customerCode={selectedCustomer?.code || 'CUS-00291'}
+        currentBalance="₹1,250"
+        onBack={() => setShowCashTopUp(false)}
+        onSuccess={() => setShowCashTopUp(false)}
+      />
+    );
+  }
+
+  if (showCustomerWallet) {
+    return (
+      <SubWarehouseCustomerWalletScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowCustomerWallet(false)}
+        onCashTopUp={() => setShowCashTopUp(true)}
+      />
+    );
+  }
+
+  if (showCustomerIssues) {
+    return (
+      <SubWarehouseCustomerIssuesScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowCustomerIssues(false)}
+      />
+    );
+  }
+
+  if (showSupportHistory) {
+    return (
+      <SubWarehouseSupportHistoryScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowSupportHistory(false)}
+      />
+    );
+  }
+
+  if (showCustomerDetails) {
+    return (
+      <SubWarehouseCustomerDetailsScreen
+        customer={selectedCustomer}
+        onBack={() => setShowCustomerDetails(false)}
+        onTabChange={(tab) => {
+          setShowCustomerDetails(false);
+          setShowCustomers(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToOrders={() => setShowCustomerOrders(true)}
+        onNavigateToPurchases={() => setShowPurchaseHistory(true)}
+        onNavigateToWallet={() => setShowCustomerWallet(true)}
+        onNavigateToIssues={() => setShowCustomerIssues(true)}
+        onNavigateToSupport={() => setShowSupportHistory(true)}
+      />
+    );
+  }
+
+  if (showCustomerSearch) {
+    return (
+      <SubWarehouseCustomerSearchScreen
+        onBack={() => setShowCustomerSearch(false)}
+        onSelectCustomer={(name, id) => {
+          setSelectedCustomer({ name, id: id || 'CUS-00291' });
+          setShowCustomerSearch(false);
+          setShowCustomerDetails(true);
+        }}
+      />
+    );
+  }
+
+  if (showCustomers) {
+    return (
+      <SubWarehouseCustomersScreen
+        onBack={() => {
+          setShowCustomers(false);
+          setActiveTab('More');
+        }}
+        onTabChange={(tab) => {
+          setShowCustomers(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToSearch={() => setShowCustomerSearch(true)}
+        onSelectCustomer={(customer) => {
+          setSelectedCustomer(customer);
+          setShowCustomerDetails(true);
+        }}
+        onNavigateToNotifications={() => {
+          if (onNavigate) onNavigate('SubWarehouseNotifications');
+          else setShowNotifications(true);
+        }}
+      />
+    );
+  }
+
+  if (showInvoicePreview) {
+    return (
+      <SubWarehouseInvoicePreviewScreen
+        invoiceId={selectedInvoiceId}
+        onBack={() => setShowInvoicePreview(false)}
+      />
+    );
+  }
+
+  if (showGSTInvoice) {
+    return (
+      <SubWarehouseGSTInvoiceScreen
+        onBack={() => setShowGSTInvoice(false)}
+        onViewExisting={() => {
+          setShowGSTInvoice(false);
+          setShowInvoiceDetail(true);
+        }}
+        onPreviewAuthorized={() => {
+          setShowGSTInvoice(false);
+          setShowInvoicePreview(true);
+        }}
+      />
+    );
+  }
+
+  if (showGenerateInvoice) {
+    return (
+      <SubWarehouseGenerateInvoiceScreen
+        onBack={() => setShowGenerateInvoice(false)}
+        onSelectTransaction={(tx) => {
+          setSelectedInvoiceId('INV-2026-001245');
+          setShowGenerateInvoice(false);
+          setShowInvoicePreview(true);
+        }}
+        onNavigateToGSTInvoice={() => {
+          setShowGenerateInvoice(false);
+          setShowGSTInvoice(true);
+        }}
+      />
+    );
+  }
+
+  if (showInvoiceHistoryFilters) {
+    return (
+      <SubWarehouseInvoiceHistoryFiltersScreen
+        initialFilters={invoiceHistoryFilters}
+        onBack={() => setShowInvoiceHistoryFilters(false)}
+        onApplyFilters={(f) => {
+          setInvoiceHistoryFilters(f);
+          setShowInvoiceHistoryFilters(false);
+        }}
+      />
+    );
+  }
+
+  if (showInvoiceHistory) {
+    return (
+      <SubWarehouseInvoiceHistoryScreen
+        onBack={() => setShowInvoiceHistory(false)}
+        onNavigateToInvoiceDetail={(id) => {
+          setSelectedInvoiceId(id);
+          setShowInvoiceHistory(false);
+          setShowInvoiceDetail(true);
+        }}
+        onOpenFilters={() => {
+          if (onNavigate) onNavigate('SubWarehouseInvoiceHistoryFilters');
+          else setShowInvoiceHistoryFilters(true);
+        }}
+        appliedFilters={invoiceHistoryFilters}
+        onClearFilters={() => setInvoiceHistoryFilters(undefined)}
+      />
+    );
+  }
+
+  if (showInvoiceDetail) {
+    return (
+      <SubWarehouseInvoiceDetailScreen
+        invoiceId={selectedInvoiceId}
+        onBack={() => setShowInvoiceDetail(false)}
+      />
+    );
+  }
+
+  if (showInvoiceFilters) {
+    return (
+      <SubWarehouseInvoiceFiltersScreen
+        initialFilters={invoiceFilters}
+        onBack={() => setShowInvoiceFilters(false)}
+        onApplyFilters={(f) => {
+          setInvoiceFilters(f);
+          setShowInvoiceFilters(false);
+        }}
+      />
+    );
+  }
+
+  if (showInvoiceList) {
+    return (
+      <SubWarehouseInvoiceListScreen
+        onBack={() => setShowInvoiceList(false)}
+        onNavigateToInvoiceDetail={(id) => {
+          setSelectedInvoiceId(id);
+          setShowInvoiceDetail(true);
+        }}
+        onOpenFilters={() => {
+          if (onNavigate) onNavigate('SubWarehouseInvoiceFilters');
+          else setShowInvoiceFilters(true);
+        }}
+        appliedFilters={invoiceFilters}
+        onClearFilters={() => setInvoiceFilters(undefined)}
+      />
+    );
+  }
+
+  if (showBillingHub) {
+    return (
+      <SubWarehouseBillingHubScreen
+        onBack={() => {
+          setShowBillingHub(false);
+          setActiveTab('More');
+        }}
+        onTabChange={(tab) => {
+          setShowBillingHub(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToInvoiceList={() => {
+          if (onNavigate) onNavigate('SubWarehouseInvoiceList');
+          else setShowInvoiceList(true);
+        }}
+        onNavigateToInvoiceDetail={(id) => {
+          setSelectedInvoiceId(id || 'INV-2026-001245');
+          if (onNavigate) onNavigate('SubWarehouseInvoiceDetail');
+          else setShowInvoiceDetail(true);
+        }}
+        onGenerateInvoice={() => {
+          if (onNavigate) onNavigate('SubWarehouseGenerateInvoice');
+          else setShowGenerateInvoice(true);
+        }}
+        onNavigateToInvoiceHistory={() => {
+          if (onNavigate) onNavigate('SubWarehouseInvoiceHistory');
+          else setShowInvoiceHistory(true);
+        }}
+        onNavigateToNotifications={() => {
+          if (onNavigate) onNavigate('SubWarehouseNotifications');
+          else setShowNotifications(true);
         }}
       />
     );
@@ -1347,6 +1837,14 @@ export function SubWarehouseAdminDashboardScreen({
             onNavigateToReturns={() => {
               if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
               else setShowReviewReceiving(true);
+            }}
+            onNavigateToCustomers={() => {
+              if (onNavigate) onNavigate('SubWarehouseCustomerList');
+              else setShowCustomers(true);
+            }}
+            onNavigateToBilling={() => {
+              if (onNavigate) onNavigate('SubWarehouseBillingHub');
+              else setShowBillingHub(true);
             }}
             onLogout={onSignOut}
           />
