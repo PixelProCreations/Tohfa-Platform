@@ -134,7 +134,7 @@ export function SubWarehouseCustomerWalletScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
-      {/* Header */}
+      {/* Header Banner */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -326,12 +326,14 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   headerSubtitle: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 12,
     opacity: 0.9,
@@ -344,6 +346,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 14,
+    paddingBottom: 24,
   },
   customerCard: {
     backgroundColor: PALETTE.cardBg,
@@ -354,20 +357,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   custName: {
+    fontFamily: 'Poppins',
     fontSize: 16,
     fontWeight: '700',
     color: PALETTE.textInk,
   },
   custId: {
+    fontFamily: 'Poppins',
     fontSize: 12,
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
   custMobileLabel: {
+    fontFamily: 'Poppins',
     fontSize: 11,
     color: PALETTE.textMuted,
   },
   custMobileValue: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     color: PALETTE.textInk,
     fontWeight: '500',
@@ -382,11 +389,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   balanceAmount: {
+    fontFamily: 'Poppins',
     fontSize: 26,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   balanceLabel: {
+    fontFamily: 'Poppins',
     fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
@@ -395,6 +404,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.textInk,
@@ -413,23 +423,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   summaryLabel: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     color: PALETTE.textSecondary,
   },
   summaryValue: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '600',
     color: PALETTE.textInk,
   },
   currentBalanceLabel: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
     color: PALETTE.textInk,
   },
   currentBalanceValue: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '800',
     color: PALETTE.primary,
@@ -443,29 +457,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   txTypeGreen: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '600',
     color: PALETTE.greenAmount,
   },
   txTypeRed: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '600',
     color: PALETTE.redAmount,
   },
   txDate: {
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     color: PALETTE.textMuted,
     marginTop: 2,
   },
   txAmountGreen: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.greenAmount,
   },
   txAmountRed: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.redAmount,
@@ -486,6 +505,7 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     color: PALETTE.noticeText,
     lineHeight: 16,
@@ -513,6 +533,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cashTopUpBtnText: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',

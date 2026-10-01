@@ -94,6 +94,54 @@ import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIs
 import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
+import {
+  M3S01_InventoryDashboard,
+  M3S02_StockList,
+  M3S03_ProductStockDetail,
+  M3S04_BatchList,
+  M3S05_BatchDetail,
+  M3S06_StockLedger,
+  M3S07_AllocationDashboard,
+  M3S08_StorageLocationStock,
+  M3S09_LowStock,
+  M3S10_StockVerification,
+  M3S11_PhysicalCount,
+  M3S12_VarianceReview,
+  M3S13_StockAdjustmentRequest,
+  M3S14_AdjustmentHistory,
+  M3S15_StockMovementDetail,
+  M3S16_InventoryFilters,
+  M3S17_AdjustmentDetail,
+  M3S18_StockMovementOptions,
+} from '../swa/inventory';
+import {
+  M5S01_OrdersDashboard,
+  M5S02_OrdersList,
+  M5S03_SearchFilters,
+  M5S04_OrderDetail,
+  M5S05_StockCheck,
+  M5S06_StockShortage,
+  M5S07_Packing,
+  M5S08_ConfirmPacking,
+  M5S08B_OrderPacked,
+  M5S09_ReadyForPickup,
+  M5S10_PickupVerification,
+  M5S11_PickupOTP,
+  M5S12_ConfirmHandover,
+  M5S12B_PickupCompleted,
+  M5S13_DeliveryPreparation,
+  M5S14_Dispatch,
+  M5S14B_ConfirmDispatch,
+  M5S14C_OrderDispatched,
+  M5S15_OrderStatusHistory,
+  M5S15B_EventDetail,
+  M5S16_OrderIssue,
+  M5S16B_IssueSubmitted,
+  M5S17_CancelOrder,
+  M5S17B_ConfirmCancellation,
+  M5S17C_OrderCancelled,
+  M5S18_OrderInvoice,
+} from '../swa/orders';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -819,6 +867,213 @@ interface SubWarehouseAdminDashboardScreenProps {
   onBack?: () => void;
 }
 
+// ─── Inventory Module Navigation Component ───────────────────────────────────
+function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void }) {
+  const [currentScreen, setCurrentScreen] = useState<string>('M3S01');
+  const [screenParams, setScreenParams] = useState<any>(null);
+  const [navigationStack, setNavigationStack] = useState<string[]>(['M3S01']);
+
+  const handleNavigate = (screen: string, params?: any) => {
+    setNavigationStack(prev => [...prev, screen]);
+    setCurrentScreen(screen);
+    setScreenParams(params || null);
+  };
+
+  const handleBack = () => {
+    if (navigationStack.length > 1) {
+      const newStack = [...navigationStack];
+      newStack.pop(); // Remove current screen
+      const previousScreen = newStack[newStack.length - 1];
+      setNavigationStack(newStack);
+      if (previousScreen) {
+        setCurrentScreen(previousScreen);
+      }
+      setScreenParams(null);
+    } else {
+      // At root (M3S01), exit to main dashboard
+      onBack();
+    }
+  };
+
+  // Render the appropriate screen based on currentScreen state
+  switch (currentScreen) {
+    case 'M3S01':
+      return <M3S01_InventoryDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+    case 'M3S02':
+      return <M3S02_StockList onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+    case 'M3S03':
+      return <M3S03_ProductStockDetail onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+    case 'M3S04':
+      return <M3S04_BatchList onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S05':
+      return <M3S05_BatchDetail onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+    case 'M3S06':
+      return <M3S06_StockLedger onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+    case 'M3S07':
+      return <M3S07_AllocationDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+    case 'M3S08':
+      return <M3S08_StorageLocationStock onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S09':
+      return <M3S09_LowStock onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S10':
+      return <M3S10_StockVerification onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S11':
+      return <M3S11_PhysicalCount onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S12':
+      return <M3S12_VarianceReview onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S13':
+      return <M3S13_StockAdjustmentRequest onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S14':
+      return <M3S14_AdjustmentHistory onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S15':
+      return <M3S15_StockMovementDetail onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S16':
+      return <M3S16_InventoryFilters onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S17':
+      return <M3S17_AdjustmentDetail onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M3S18':
+      return <M3S18_StockMovementOptions onNavigate={handleNavigate} onBack={handleBack} />;
+    default:
+      return <M3S01_InventoryDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+  }
+}
+
+// ─── Orders Module Navigation Component ──────────────────────────────────────
+function OrdersModule({ onBack, onTabChange }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void }) {
+  const [currentScreen, setCurrentScreen] = useState<string>('M5S01');
+  const [screenParams, setScreenParams] = useState<any>(null);
+  const [navigationStack, setNavigationStack] = useState<string[]>(['M5S01']);
+
+  const handleNavigate = (screen: string, params?: any) => {
+    setNavigationStack(prev => [...prev, screen]);
+    setCurrentScreen(screen);
+    setScreenParams(params || null);
+  };
+
+  const handleBack = () => {
+    if (navigationStack.length > 1) {
+      const newStack = [...navigationStack];
+      newStack.pop(); // Remove current screen
+      const previousScreen = newStack[newStack.length - 1];
+      setNavigationStack(newStack);
+      if (previousScreen) {
+        setCurrentScreen(previousScreen);
+      }
+      setScreenParams(null);
+    } else {
+      // At root (M5S01), exit to main dashboard
+      onBack();
+    }
+  };
+
+  // Render the appropriate screen based on currentScreen state
+  switch (currentScreen) {
+    case 'M5S01':
+    case 'M5S01_OrdersDashboard':
+      return (
+        <M5S01_OrdersDashboard
+          onNavigate={handleNavigate}
+          onBack={handleBack}
+          onTabChange={(tab) => {
+            if (tab === 'Home') {
+              onBack();
+            } else if (onTabChange) {
+              onBack();
+              onTabChange(tab as SubWHTab);
+            }
+          }}
+        />
+      );
+    case 'M5S02':
+    case 'M5S02_OrdersList':
+      return <M5S02_OrdersList onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S03':
+    case 'M5S03_SearchFilters':
+      return <M5S03_SearchFilters onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S04':
+    case 'M5S04_OrderDetail':
+      return <M5S04_OrderDetail orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S05':
+    case 'M5S05_StockCheck':
+      return <M5S05_StockCheck orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S06':
+    case 'M5S06_StockShortage':
+      return <M5S06_StockShortage orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S07':
+    case 'M5S07_Packing':
+      return <M5S07_Packing orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S08':
+    case 'M5S08_ConfirmPacking':
+      return <M5S08_ConfirmPacking orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S08B':
+    case 'M5S08_OrderPacked':
+      return <M5S08B_OrderPacked orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S09':
+    case 'M5S09_ReadyForPickup':
+      return <M5S09_ReadyForPickup onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S10':
+    case 'M5S10_PickupVerification':
+      return <M5S10_PickupVerification orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S11':
+    case 'M5S11_PickupOTP':
+      return <M5S11_PickupOTP orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S12':
+    case 'M5S12_ConfirmHandover':
+      return <M5S12_ConfirmHandover orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S12B':
+    case 'M5S12_PickupCompleted':
+      return <M5S12B_PickupCompleted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S13':
+    case 'M5S13_DeliveryPreparation':
+      return <M5S13_DeliveryPreparation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S14':
+    case 'M5S14_Dispatch':
+      return <M5S14_Dispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S14B':
+    case 'M5S14B_ConfirmDispatch':
+      return <M5S14B_ConfirmDispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S14C':
+    case 'M5S14C_OrderDispatched':
+      return <M5S14C_OrderDispatched orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S15':
+    case 'M5S15_OrderStatusHistory':
+      return <M5S15_OrderStatusHistory orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S15B':
+    case 'M5S15B_EventDetail':
+      return (
+        <M5S15B_EventDetail
+          orderId={screenParams?.orderId}
+          eventName={screenParams?.eventName}
+          eventTime={screenParams?.eventTime}
+          eventDate={screenParams?.eventDate}
+          performedBy={screenParams?.performedBy}
+          onNavigate={handleNavigate}
+          onBack={handleBack}
+        />
+      );
+    case 'M5S16':
+    case 'M5S16_OrderIssue':
+      return <M5S16_OrderIssue orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S16B':
+    case 'M5S16B_IssueSubmitted':
+      return <M5S16B_IssueSubmitted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S17':
+    case 'M5S17_CancelOrder':
+      return <M5S17_CancelOrder orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S17B':
+    case 'M5S17B_ConfirmCancellation':
+      return <M5S17B_ConfirmCancellation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S17C':
+    case 'M5S17C_OrderCancelled':
+      return <M5S17C_OrderCancelled orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    case 'M5S18':
+    case 'M5S18_OrderInvoice':
+      return <M5S18_OrderInvoice orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+    default:
+      return <M5S01_OrdersDashboard onNavigate={handleNavigate} onBack={handleBack} />;
+  }
+}
+
 export function SubWarehouseAdminDashboardScreen({
   onSignOut,
   onNavigate,
@@ -1039,10 +1294,16 @@ export function SubWarehouseAdminDashboardScreen({
     }
   };
 
+  const [showOrdersModule, setShowOrdersModule] = useState(false);
+
   useEffect(() => {
     const onHardwareBack = () => {
       if (showNotifications) {
         setShowNotifications(false);
+        return true;
+      }
+      if (showOrdersModule) {
+        setShowOrdersModule(false);
         return true;
       }
       if (receivingWizardStep !== null) {
@@ -1066,7 +1327,7 @@ export function SubWarehouseAdminDashboardScreen({
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [history, receivingWizardStep, activeTab, receivingSubView]);
+  }, [history, receivingWizardStep, activeTab, receivingSubView, showNotifications, showOrdersModule]);
 
   useEffect(() => {
     fetchMe()
@@ -2191,7 +2452,7 @@ export function SubWarehouseAdminDashboardScreen({
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
       <View style={{ flex: 1 }}>
-        {activeTab === 'Home' && (
+        {activeTab === 'Home' && !showOrdersModule && (
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
@@ -2330,7 +2591,7 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* 1. Pending Orders */}
                 <TouchableOpacity
                   style={styles.overviewCard}
-                  onPress={() => Alert.alert('Pending Orders', '12 Total Pending Orders. 8 require action.')}
+                  onPress={() => setShowOrdersModule(true)}
                   activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
@@ -2344,7 +2605,7 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* 2. Ready for Pickup */}
                 <TouchableOpacity
                   style={styles.overviewCard}
-                  onPress={() => Alert.alert('Ready for Pickup', '8 Orders packed and ready for handover.')}
+                  onPress={() => setShowOrdersModule(true)}
                   activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
@@ -2372,7 +2633,7 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* 4. Low Stock Items */}
                 <TouchableOpacity
                   style={styles.overviewCard}
-                  onPress={() => Alert.alert('Low Stock Alert', '5 produce batches below threshold.')}
+                  onPress={() => setActiveTab('Inventory')}
                   activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
@@ -2462,7 +2723,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => Alert.alert('View Orders', 'Opening pending order fulfillment queue...')}
+                  onPress={() => setShowOrdersModule(true)}
                   activeOpacity={0.75}
                 >
                   <ViewOrdersActionIcon />
@@ -2471,7 +2732,13 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => Alert.alert('Cash Top-Up', 'Enter Farmer Mobile or Scan QR to accept physical cash.')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseWalletOperations');
+                    } else {
+                      setActiveTab('More');
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <CashTopUpActionIcon />
@@ -2480,7 +2747,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => Alert.alert('Stock Verify', 'Initiate daily physical crate counting audit.')}
+                  onPress={() => setActiveTab('Inventory')}
                   activeOpacity={0.75}
                 >
                   <StockVerifyActionIcon />
@@ -3678,41 +3945,21 @@ export function SubWarehouseAdminDashboardScreen({
 
         {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.tabContentPad}
-            showsVerticalScrollIndicator={true}
-            decelerationRate={0.985}
-            scrollEventThrottle={16}
-          >
-            <View style={styles.tabHeaderBox}>
-              <Text style={styles.tabMainHeading}>Coonoor Inventory</Text>
-              <Text style={styles.tabSubHeading}>1,245 KG Available Stock across 14 Produce Lines</Text>
-            </View>
+          <InventoryModule 
+            onBack={() => setActiveTab('Home')} 
+            onTabChange={(tab) => setActiveTab(tab)}
+          />
+        )}
 
-            <View style={styles.infoTableCard}>
-              <View style={styles.infoTableRow}>
-                <Text style={styles.infoTableLabel}>Tomato - Grade 1</Text>
-                <Text style={styles.infoTableValue}>450 KG</Text>
-              </View>
-              <View style={styles.infoTableRow}>
-                <Text style={styles.infoTableLabel}>Carrot - Grade 1</Text>
-                <Text style={[styles.infoTableValue, { color: PALETTE.primary }]}>12 KG (Low)</Text>
-              </View>
-              <View style={styles.infoTableRow}>
-                <Text style={styles.infoTableLabel}>Nilgiris Potato</Text>
-                <Text style={styles.infoTableValue}>380 KG</Text>
-              </View>
-              <View style={styles.infoTableRow}>
-                <Text style={styles.infoTableLabel}>Cabbage</Text>
-                <Text style={styles.infoTableValue}>220 KG</Text>
-              </View>
-              <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.infoTableLabel}>Table Beetroot</Text>
-                <Text style={[styles.infoTableValue, { color: PALETTE.primary }]}>18 KG (Low)</Text>
-              </View>
-            </View>
-          </ScrollView>
+        {/* ─── Orders Module ─── */}
+        {showOrdersModule && (
+          <OrdersModule 
+            onBack={() => setShowOrdersModule(false)} 
+            onTabChange={(tab) => {
+              setShowOrdersModule(false);
+              setActiveTab(tab);
+            }}
+          />
         )}
 
         {/* ─── More Modules Directory Tab (Modules 5 to 16) ─── */}
@@ -3788,8 +4035,8 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Rendered for Home, Receiving, Inventory) ─── */}
-      {activeTab !== 'More' && !(activeTab === 'Receiving' && (receivingSubView === 'search_filters' || receivingSubView === 'shipment_detail')) && (
+      {/* ─── Bottom Navigation Bar (Rendered for Home, Receiving) ─── */}
+      {activeTab !== 'More' && activeTab !== 'Inventory' && !showOrdersModule && !(activeTab === 'Receiving' && (receivingSubView === 'search_filters' || receivingSubView === 'shipment_detail')) && (
         <View style={styles.bottomTabBar}>
           <TouchableOpacity
             style={styles.tabItem}
@@ -3818,8 +4065,8 @@ export function SubWarehouseAdminDashboardScreen({
             onPress={() => setActiveTab('Inventory')}
             accessibilityRole="tab"
           >
-            <InventoryTabIcon active={activeTab === 'Inventory'} />
-            <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+            <InventoryTabIcon active={false} />
+            <Text style={styles.tabLabel}>Inventory</Text>
           </Pressable>
 
           <TouchableOpacity
