@@ -160,6 +160,7 @@ interface PlotRow {
   soil_type: string | null;
   sun_exposure: string | null;
   irrigation_type: string | null;
+  boundary_geojson: GeoJsonPolygon | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -172,6 +173,7 @@ export interface Plot {
   soilType: string | null;
   sunExposure: string | null;
   irrigationType: string | null;
+  boundary: GeoJsonPolygon | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -185,6 +187,7 @@ function toPlot(row: PlotRow): Plot {
     soilType: row.soil_type,
     sunExposure: row.sun_exposure,
     irrigationType: row.irrigation_type,
+    boundary: row.boundary_geojson,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
   };
@@ -192,6 +195,7 @@ function toPlot(row: PlotRow): Plot {
 
 const PLOT_COLUMNS = `
   p.id, p.farm_id, p.name, p.area_acres, p.soil_type, p.sun_exposure, p.irrigation_type,
+  ST_AsGeoJSON(p.boundary)::json AS boundary_geojson,
   p.created_at, p.updated_at
 `;
 
@@ -202,6 +206,7 @@ export interface InsertPlotParams {
   soilType: string | null;
   sunExposure: string | null;
   irrigationType: string | null;
+  boundary: GeoJsonPolygon | null;
 }
 
 export interface PlotPatch {
@@ -210,6 +215,12 @@ export interface PlotPatch {
   soilType?: string;
   sunExposure?: string;
   irrigationType?: string;
+  /**
+   * Absent leaves the boundary untouched; `null` clears it. Unlike farms, a
+   * plot has no derived boundary columns (area/drawn_by/drawn_at/version —
+   * see db/migrations/0003), so a bare value is enough; no BoundaryPatch.
+   */
+  boundary?: GeoJsonPolygon | null;
 }
 
 // --------------------------------------------------------------------------
@@ -375,11 +386,24 @@ export const farmsRepo: FarmsRepo = {
   },
 
   async insertPlot(db, params) {
+    const boundaryJson = params.boundary === null ? null : JSON.stringify(params.boundary);
     const inserted = await db.query<{ id: string }>(
-      `INSERT INTO plots (farm_id, name, area_acres, soil_type, sun_exposure, irrigation_type)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO plots (farm_id, name, area_acres, soil_type, sun_exposure, irrigation_type, boundary)
+       VALUES (
+         $1, $2, $3, $4, $5, $6,
+         CASE WHEN $7::json IS NULL THEN NULL
+              ELSE ST_SetSRID(ST_GeomFromGeoJSON($7::json), 4326)::geography END
+       )
        RETURNING id`,
-      [params.farmId, params.name, params.areaAcres, params.soilType, params.sunExposure, params.irrigationType],
+      [
+        params.farmId,
+        params.name,
+        params.areaAcres,
+        params.soilType,
+        params.sunExposure,
+        params.irrigationType,
+        boundaryJson,
+      ],
     );
     const id = inserted.rows[0]?.id;
     if (id === undefined) throw new Error('plots insert returned no row');
@@ -405,6 +429,15 @@ export const farmsRepo: FarmsRepo = {
       if (value === undefined) continue;
       setClauses.push(`${column} = $${idx}`);
       values.push(value);
+      idx += 1;
+    }
+
+    if (patch.boundary !== undefined) {
+      values.push(patch.boundary === null ? null : JSON.stringify(patch.boundary));
+      setClauses.push(
+        `boundary = CASE WHEN $${idx}::json IS NULL THEN NULL
+                         ELSE ST_SetSRID(ST_GeomFromGeoJSON($${idx}::json), 4326)::geography END`,
+      );
       idx += 1;
     }
 

@@ -48,6 +48,12 @@ export interface SignUploadPayload {
 }
 
 export interface SignUploadResponse {
+  // The `uploads` table row id this signed target was recorded against
+  // (docs/openapi.yaml's `SignedUploadTarget`). Callers that must create a
+  // photo/document upload before the parent record exists (pest detections,
+  // soil test lab reports, workforce id proof/photos) pass this back as e.g.
+  // `photoUploadId`/`labReportUploadId`/`idProofUploadId` to link the two.
+  id: string;
   uploadUrl: string;
   fileUrl: string;
   storageKey: string;

@@ -352,6 +352,14 @@ export async function getMyWorkforceCropHoursSummary(
 
 export interface UploadWorkerFileResult {
   fileUrl: string;
+  /**
+   * The `uploads` table row id this file was recorded against (now returned by
+   * `POST /uploads/sign` -- see `SignedUploadTarget` in docs/openapi.yaml). Pass
+   * this back as `photoUploadId`/`idProofUploadId` when creating/updating the
+   * worker this file is for; workforce.schema.ts's `requireOwnUpload` looks it
+   * up by primary key and rejects anything the caller doesn't own.
+   */
+  uploadId: string;
 }
 
 /**
@@ -359,16 +367,6 @@ export interface UploadWorkerFileResult {
  * with `purpose: 'WORKER_PHOTO'`, then a PUT to the signed target), reusing
  * `signUpload`/`uploadWithResume` -- the same helpers pest.ts's
  * `uploadPestPhoto` and UploadNewSoilTestScreen.tsx already use.
- *
- * Spec gap (identical to the one pest.ts flags for `uploadPestPhoto`, and
- * UploadNewSoilTestScreen.tsx flags for `labReportUploadId`): `POST
- * /uploads/sign` only ever returns `{uploadUrl, fileUrl, method, headers,
- * expiresAt, resumable}` -- never the `uploads` table row id that
- * `photoUploadId` (workforce.schema.ts's `requireOwnUpload`, which looks the
- * id up by primary key) actually requires. The photo is still uploaded to
- * blob storage for safekeeping, but callers of this function cannot obtain a
- * `photoUploadId` to attach to a worker from it -- there isn't one to give
- * them. Do not guess one.
  */
 export async function uploadWorkerPhoto(
   uri: string,
@@ -393,13 +391,12 @@ export async function uploadWorkerPhoto(
     headers: signed.headers,
     method: signed.method,
   });
-  return { fileUrl: signed.fileUrl };
+  return { fileUrl: signed.fileUrl, uploadId: signed.id };
 }
 
 /**
  * Uploads a worker's ID proof document via the same sign+PUT flow, with
- * `purpose: 'WORKER_ID_PROOF'`. Same `idProofUploadId` linkage gap as
- * `uploadWorkerPhoto` above -- see that function's docblock.
+ * `purpose: 'WORKER_ID_PROOF'`.
  */
 export async function uploadWorkerIdProof(
   uri: string,
@@ -424,5 +421,5 @@ export async function uploadWorkerIdProof(
     headers: signed.headers,
     method: signed.method,
   });
-  return { fileUrl: signed.fileUrl };
+  return { fileUrl: signed.fileUrl, uploadId: signed.id };
 }

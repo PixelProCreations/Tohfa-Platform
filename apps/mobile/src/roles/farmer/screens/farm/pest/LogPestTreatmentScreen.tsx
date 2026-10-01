@@ -30,7 +30,7 @@ import {
   type PestSeverity,
   type PestTreatmentLog,
 } from '../../../api/pest';
-import { localProduceCropsCache, type CropItem } from '../crops/ProduceCalendarScreen';
+import { useActiveCropItems, type CropItem } from '../crops/cropItems';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -241,17 +241,14 @@ export function LogPestTreatmentScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  // Selected crop (defaults to Tomato for Pest check) -- crop/zone selection stays
-  // on the mock ProduceCalendarScreen cache: there is no real crop-tracking API
-  // yet (known gap, out of scope here), so it is display/filter context only and
-  // is never sent as a `farmCropId` on the create body below.
-  const initialCrop =
-    crop ??
-    localProduceCropsCache.find((c) => c.name.toLowerCase().includes('tomato')) ??
-    localProduceCropsCache[1] ??
-    localProduceCropsCache[0];
-
-  const [selectedCrop, setSelectedCrop] = useState<CropItem | null>(initialCrop ?? null);
+  // Selected crop -- picked from the farmer's real active crops (cropItems.ts).
+  // It is display/filter context only and is not sent as a `farmCropId` on the
+  // create body below.
+  const { items: cropOptions } = useActiveCropItems();
+  const [selectedCrop, setSelectedCrop] = useState<CropItem | null>(crop ?? null);
+  useEffect(() => {
+    if (!selectedCrop && cropOptions[0]) setSelectedCrop(cropOptions[0]);
+  }, [cropOptions, selectedCrop]);
 
   // Farm/zone context this treatment log is actually saved against.
   const [resolvedFarmId, setResolvedFarmId] = useState(farmId ?? '');
@@ -397,12 +394,11 @@ export function LogPestTreatmentScreen({
     setSaving(true);
     setSaveError(null);
     try {
+      let photoUploadId: string | undefined;
       if (photo) {
         try {
-          await uploadPestPhoto(photo.uri, photo.name, photo.type);
-          // Spec gap (see pest.ts's uploadPestPhoto docblock): POST /uploads/sign
-          // never returns the uploads-table row id photoUploadId needs, so the
-          // photo is uploaded for safekeeping but cannot be linked here yet.
+          const uploaded = await uploadPestPhoto(photo.uri, photo.name, photo.type);
+          photoUploadId = uploaded.uploadId;
         } catch {
           // Non-fatal: the treatment log itself is still worth saving.
         }
@@ -421,6 +417,7 @@ export function LogPestTreatmentScreen({
         ...(intervalNum !== undefined && !Number.isNaN(intervalNum) ? { intervalDays: intervalNum } : {}),
         ...(phiNum !== undefined && !Number.isNaN(phiNum) ? { phiDays: phiNum } : {}),
         ...(intervalNum ? { nextApplicationDate: toIsoDate(new Date(Date.now() + intervalNum * 86_400_000)) } : {}),
+        ...(photoUploadId ? { photoUploadId } : {}),
       };
 
       const created = await createPestTreatmentLog(resolvedFarmId, resolvedPlotId, body);
@@ -765,7 +762,7 @@ export function LogPestTreatmentScreen({
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {localProduceCropsCache.map((item) => {
+            {cropOptions.map((item) => {
               const isSelected = selectedCrop?.id === item.id;
               return (
                 <TouchableOpacity

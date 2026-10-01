@@ -405,15 +405,12 @@ export function UploadNewSoilTestScreen({
     setSaving(true);
     setSaveError(null);
     try {
-      // Best-effort lab report upload. Spec gap (flagged in the task report,
-      // not invented around): POST /uploads/sign only ever returns
-      // {uploadUrl, fileUrl, method, headers, expiresAt, resumable} -- never
-      // the uploads-table row id that soil.schema.ts's `labReportUploadId`
-      // actually requires (soil.service.ts's requireOwnUpload looks the id up
-      // by primary key). The file is still uploaded to blob storage for
-      // safekeeping, but it cannot be linked to the record it's for yet, so
-      // `labReportUploadId` is deliberately left unset below rather than
-      // guessing at a value.
+      // Best-effort lab report upload. POST /uploads/sign now returns the
+      // uploads-table row id (`id`) alongside the signed target, so it can be
+      // linked to this soil test record as `labReportUploadId` -- soil.service.ts's
+      // requireOwnUpload looks it up by primary key and rejects anything the
+      // caller doesn't own.
+      let labReportUploadId: string | undefined;
       if (attachedDoc) {
         try {
           const fileResp = await fetch(attachedDoc.uri);
@@ -434,6 +431,7 @@ export function UploadNewSoilTestScreen({
             headers: signed.headers,
             method: signed.method,
           });
+          labReportUploadId = signed.id;
         } catch {
           // Non-fatal: the soil test record itself is still worth saving even
           // if the report upload failed.
@@ -451,6 +449,7 @@ export function UploadNewSoilTestScreen({
         ...(phosphorus.trim() ? { phosphorusKgPerHa: parseFloat(phosphorus) } : {}),
         ...(potassium.trim() ? { potassiumKgPerHa: parseFloat(potassium) } : {}),
         limeStatus: limeStatus as LimeStatus,
+        ...(labReportUploadId ? { labReportUploadId } : {}),
       };
 
       const saved = await createSoilTest(farmId, plotId, body);

@@ -1,22 +1,40 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Image,
   Modal,
-  Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
+import { authPalette as P, typography } from '../../../theme';
+import type { DiaryPlot } from '../../../api/farmDiary';
+import {
+  ACTIVE_CROP_STATUSES,
+  loadFarmCropEntries,
+  type CropIllustrationType,
+  type CropItem,
+  type FarmCropEntry,
+} from './cropItems';
+
+// `CropItem` moved to ./cropItems (it is now built from real farm_crops rows);
+// re-exported here so the many screens that import the type from this file
+// keep compiling unchanged.
+export type { CropItem } from './cropItems';
+
+/**
+ * Width of the "Harvest soon" filter bucket. Purely a presentational grouping
+ * on this screen (the same window the original design used), not a business
+ * rule -- nothing is enforced or charged against it.
+ */
+const HARVEST_SOON_WINDOW_DAYS = 30;
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emoji, no raw hex)
@@ -92,41 +110,6 @@ function CalendarMiniIcon({ size = 13, color = P.twGray500 }: { size?: number; c
   );
 }
 
-function FertLeafIcon({ size = 13, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2C8 6 6 10 6 14a6 6 0 0 0 12 0c0-4-2-8-6-12z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 8v8M10 13l2-2 2 2"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function BugMiniIcon({ size = 13, color = P.twPurple600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="8" y="7" width="8" height="12" rx="4" stroke={color} strokeWidth="1.8" />
-      <Path
-        d="M12 4v3M9 6a3 3 0 0 1 6 0M5 10h3M16 10h3M4 15h4M16 15h4M6 20l2-2M18 20l-2-2"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
 function PlusIcon({ size = 18, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -137,7 +120,7 @@ function PlusIcon({ size = 18, color = P.white }: { size?: number; color?: strin
 }
 
 // ─────────────────────────────────────────────
-// Fallback Crop Illustrations (rendering offline)
+// Crop Illustrations (rendered offline; picked from the crop's real name)
 // ─────────────────────────────────────────────
 
 function CarrotIllustration({ size = 48 }: { size?: number }) {
@@ -180,13 +163,31 @@ function CabbageIllustration({ size = 48 }: { size?: number }) {
   );
 }
 
-function CropThumbnail({ cropType, imageUri }: { cropType: 'carrot' | 'tomato' | 'cabbage' | 'custom'; imageUri?: string | undefined }) {
+/** Generic sprout for any crop without a dedicated illustration. */
+function SproutIllustration({ size = 48 }: { size?: number }) {
+  return (
+    <View style={[styles.illustrationContainer, { width: size, height: size, backgroundColor: P.twGreen100 }]}>
+      <Svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M12 22V10M12 10c0-4 3-7 7-7 0 4-3 7-7 7zM12 14c0-3.5-2.5-6-6-6 0 3.5 2.5 6 6 6z"
+          stroke={P.twGreen700}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  );
+}
+
+function CropThumbnail({ cropType, imageUri }: { cropType: CropIllustrationType; imageUri?: string | undefined }) {
   const [imageError, setImageError] = useState(false);
 
   if (!imageUri || imageError) {
     if (cropType === 'carrot') return <CarrotIllustration />;
     if (cropType === 'tomato') return <TomatoIllustration />;
-    return <CabbageIllustration />;
+    if (cropType === 'cabbage') return <CabbageIllustration />;
+    return <SproutIllustration />;
   }
 
   return (
@@ -201,89 +202,45 @@ function CropThumbnail({ cropType, imageUri }: { cropType: 'carrot' | 'tomato' |
 }
 
 // ─────────────────────────────────────────────
-// Types & Initial Data
+// Filters
 // ─────────────────────────────────────────────
 
-export interface CropItem {
-  id: string;
-  name: string;
-  variety: string;
-  cropType: 'carrot' | 'tomato' | 'cabbage' | 'custom';
-  zone: string;
-  zoneShort: string;
-  area: string;
-  daysOld: number;
-  statusType: 'ready' | 'harvest' | 'growing';
-  statusDays: number;
-  statusText: string;
-  actionType?: 'fert' | 'pest' | null | undefined;
-  actionText?: string | undefined;
-  accentColor: string;
-  imageUri?: string | undefined;
+/** `'all'` or a real plot id. */
+type ZoneFilter = string;
+const ALL_ZONES: ZoneFilter = 'all';
+
+type StatusFilter = 'any' | 'ready' | 'harvestSoon';
+const STATUS_FILTERS: StatusFilter[] = ['any', 'ready', 'harvestSoon'];
+
+function statusFilterLabel(filter: StatusFilter): string {
+  switch (filter) {
+    case 'any':
+      return t('farmer.crops.calendar.statusAny');
+    case 'ready':
+      return t('farmer.crops.calendar.statusReady');
+    case 'harvestSoon':
+      return t('farmer.crops.calendar.statusHarvestSoon');
+  }
 }
 
-const INITIAL_CROPS: CropItem[] = [
-  {
-    id: 'crop-1',
-    name: 'Carrot',
-    variety: 'Nantes',
-    cropType: 'carrot',
-    zone: 'Zone 1 — Upper Field',
-    zoneShort: 'Zone 1',
-    area: '0.4 ha',
-    daysOld: 88,
-    statusType: 'ready',
-    statusDays: 3,
-    statusText: 'Ready in 3 days',
-    actionType: 'fert',
-    actionText: 'Fert due',
-    accentColor: P.twOrange500,
-    imageUri: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'crop-2',
-    name: 'Tomato',
-    variety: 'Roma',
-    cropType: 'tomato',
-    zone: 'Zone 2 — Lower Slope',
-    zoneShort: 'Zone 2',
-    area: '0.6 ha',
-    daysOld: 45,
-    statusType: 'harvest',
-    statusDays: 30,
-    statusText: 'Harvest in 30 days',
-    actionType: 'pest',
-    actionText: 'Pest check due',
-    accentColor: P.twOrange500,
-    imageUri: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'crop-3',
-    name: 'Cabbage',
-    variety: 'Green Coronet',
-    cropType: 'cabbage',
-    zone: 'Zone 3 — Terrace',
-    zoneShort: 'Zone 3',
-    area: '0.5 ha',
-    daysOld: 21,
-    statusType: 'harvest',
-    statusDays: 69,
-    statusText: 'Harvest in 69 days',
-    actionType: null,
-    actionText: undefined,
-    accentColor: P.twGreen600,
-    imageUri: 'https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=400&auto=format&fit=crop&q=85',
-  },
-];
-
-export let localProduceCropsCache: CropItem[] = [...INITIAL_CROPS];
-
-export function addProduceCropLocally(crop: CropItem): void {
-  localProduceCropsCache = [crop, ...localProduceCropsCache];
+function cropTitle(crop: CropItem): string {
+  return crop.variety && crop.variety !== crop.name
+    ? t('farmer.crops.calendar.cropTitle', { name: crop.name, variety: crop.variety })
+    : crop.name;
 }
+
+function cropZoneLine(crop: CropItem): string {
+  return crop.area ? t('farmer.crops.calendar.zoneArea', { zone: crop.zone, area: crop.area }) : crop.zone;
+}
+
+// ─────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────
 
 export interface ProduceCalendarScreenProps {
   onBack?: () => void;
+  /** Opens NewCropScreen, which creates the crop via createFarmCrop(). This
+   * screen reloads from the API when it is shown again. */
   onNavigateToNewCrop?: () => void;
   onNavigateToCropDetail?: (crop: CropItem) => void;
 }
@@ -293,13 +250,33 @@ export function ProduceCalendarScreen({
   onNavigateToNewCrop,
   onNavigateToCropDetail,
 }: ProduceCalendarScreenProps): React.JSX.Element {
-  const [crops, setCrops] = useState<CropItem[]>(() => [...localProduceCropsCache]);
-  const [selectedZone, setSelectedZone] = useState<string>('All zones');
-  const [selectedStatus, setSelectedStatus] = useState<string>('Any status');
+  const [entries, setEntries] = useState<FarmCropEntry[]>([]);
+  const [plots, setPlots] = useState<DiaryPlot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown | null>(null);
+
+  const [selectedZone, setSelectedZone] = useState<ZoneFilter>(ALL_ZONES);
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('any');
+  const [showZonePicker, setShowZonePicker] = useState<boolean>(false);
+  const [showStatusPicker, setShowStatusPicker] = useState<boolean>(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await loadFarmCropEntries({ statuses: ACTIVE_CROP_STATUSES });
+      setPlots(result.plots);
+      setEntries(result.entries);
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setCrops([...localProduceCropsCache]);
-  }, []);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -312,115 +289,50 @@ export function ProduceCalendarScreen({
     return () => subscription.remove();
   }, [onBack]);
 
-  // Modals state
-  const [showZonePicker, setShowZonePicker] = useState<boolean>(false);
-  const [showStatusPicker, setShowStatusPicker] = useState<boolean>(false);
-  const [showNewCropModal, setShowNewCropModal] = useState<boolean>(false);
-  const [selectedCropDetail, setSelectedCropDetail] = useState<CropItem | null>(null);
-
-  // New crop form state
-  const [newCropName, setNewCropName] = useState('');
-  const [newCropVariety, setNewCropVariety] = useState('');
-  const [newCropZone, setNewCropZone] = useState('Zone 1 — Upper Field');
-  const [newCropArea, setNewCropArea] = useState('0.5 ha');
-  const [newCropDaysToHarvest, setNewCropDaysToHarvest] = useState('60');
-
-  // Filtered crops list
   const filteredCrops = useMemo(() => {
-    return crops.filter((item) => {
-      // Zone filter
-      if (selectedZone !== 'All zones') {
-        if (!item.zone.includes(selectedZone) && item.zoneShort !== selectedZone) {
-          return false;
+    return entries
+      .filter((entry) => {
+        if (selectedZone !== ALL_ZONES && entry.plot.id !== selectedZone) return false;
+        if (selectedStatus === 'ready') return entry.item.statusType === 'ready';
+        if (selectedStatus === 'harvestSoon') {
+          return entry.item.statusDays !== null && entry.item.statusDays <= HARVEST_SOON_WINDOW_DAYS;
         }
-      }
-      // Status filter
-      if (selectedStatus === 'Ready') {
-        return item.statusType === 'ready';
-      }
-      if (selectedStatus === 'Harvest soon') {
-        return item.statusDays <= 30;
-      }
-      if (selectedStatus === 'Action due') {
-        return Boolean(item.actionType);
-      }
-      return true;
-    });
-  }, [crops, selectedZone, selectedStatus]);
+        return true;
+      })
+      .map((entry) => entry.item);
+  }, [entries, selectedZone, selectedStatus]);
 
-  const handleCreateCrop = () => {
-    if (!newCropName.trim()) {
-      Alert.alert('Crop Name Required', 'Please enter a crop name (e.g. Bell Pepper).');
-      return;
-    }
+  const selectedZoneLabel =
+    selectedZone === ALL_ZONES
+      ? t('farmer.crops.calendar.zoneAll')
+      : (plots.find((p) => p.id === selectedZone)?.name ?? t('farmer.crops.calendar.zoneAll'));
+  const selectedStatusLabel = statusFilterLabel(selectedStatus);
 
-    const lower = newCropName.toLowerCase();
-    let cropType: 'carrot' | 'tomato' | 'cabbage' | 'custom' = 'custom';
-    let accentColor: string = P.twGreen600;
-    if (lower.includes('carrot')) {
-      cropType = 'carrot';
-      accentColor = P.twOrange500;
-    } else if (lower.includes('tomato')) {
-      cropType = 'tomato';
-      accentColor = P.twOrange500;
-    } else if (lower.includes('cabbage')) {
-      cropType = 'cabbage';
-      accentColor = P.twGreen600;
-    }
+  const zoneOptions: { value: ZoneFilter; label: string }[] = [
+    { value: ALL_ZONES, label: t('farmer.crops.calendar.zoneAll') },
+    ...plots.map((plot) => ({ value: plot.id, label: plot.name })),
+  ];
 
-    const days = parseInt(newCropDaysToHarvest, 10) || 45;
-    const isReady = days <= 5;
-
-    const newCrop: CropItem = {
-      id: `crop-${Date.now()}`,
-      name: newCropName.trim(),
-      variety: newCropVariety.trim() || 'Local Hybrid',
-      cropType,
-      zone: newCropZone,
-      zoneShort: (newCropZone.split('—')[0] ?? newCropZone).trim(),
-      area: newCropArea.trim() || '0.5 ha',
-      daysOld: 1,
-      statusType: isReady ? 'ready' : 'harvest',
-      statusDays: days,
-      statusText: isReady ? `Ready in ${days} days` : `Harvest in ${days} days`,
-      actionType: null,
-      accentColor,
-    };
-
-    setCrops([newCrop, ...crops]);
-    setShowNewCropModal(false);
-    setNewCropName('');
-    setNewCropVariety('');
-    Alert.alert('Crop Added', `${newCrop.name} has been added to your Produce Calendar.`);
-  };
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
-
-      {/* ── Top Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <ArrowBackIcon size={20} color={P.twGreen800} />
-        </TouchableOpacity>
-
-        <View style={styles.headerTitleGroup}>
-          <Text style={styles.headerTitle}>Produce Calendar</Text>
-          <Text style={styles.headerSubtitle}>
-            {filteredCrops.length === 1
-              ? '1 crop actively growing'
-              : `${filteredCrops.length} crops actively growing`}
-          </Text>
+  const renderBody = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Skeleton width="100%" height={44} borderRadius={12} />
+          <Skeleton width="100%" height={120} borderRadius={16} />
+          <Skeleton width="100%" height={120} borderRadius={16} />
         </View>
-      </View>
+      );
+    }
 
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <ErrorState error={error} onRetry={load} />
+        </View>
+      );
+    }
+
+    return (
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -433,10 +345,10 @@ export function ProduceCalendarScreen({
             onPress={() => setShowZonePicker(true)}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Filter by zone, current: ${selectedZone}`}
+            accessibilityLabel={t('farmer.crops.calendar.filterZoneA11y', { value: selectedZoneLabel })}
           >
             <Text style={styles.filterButtonText} numberOfLines={1}>
-              {selectedZone}
+              {selectedZoneLabel}
             </Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
@@ -446,10 +358,10 @@ export function ProduceCalendarScreen({
             onPress={() => setShowStatusPicker(true)}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Filter by status, current: ${selectedStatus}`}
+            accessibilityLabel={t('farmer.crops.calendar.filterStatusA11y', { value: selectedStatusLabel })}
           >
             <Text style={styles.filterButtonText} numberOfLines={1}>
-              {selectedStatus}
+              {selectedStatusLabel}
             </Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
@@ -457,14 +369,19 @@ export function ProduceCalendarScreen({
 
         {/* ── Section Title ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>ACTIVE CROPS</Text>
+          <Text style={styles.sectionTitle}>{t('farmer.crops.calendar.sectionActive')}</Text>
         </View>
 
         {/* ── Crop Cards ── */}
-        {filteredCrops.length === 0 ? (
+        {entries.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No crops found</Text>
-            <Text style={styles.emptySubtitle}>Try changing your zone or status filters.</Text>
+            <Text style={styles.emptyTitle}>{t('farmer.crops.activeCrops.emptyTitle')}</Text>
+            <Text style={styles.emptySubtitle}>{t('farmer.crops.calendar.emptySubtitle')}</Text>
+          </View>
+        ) : filteredCrops.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>{t('farmer.crops.calendar.emptyFilteredTitle')}</Text>
+            <Text style={styles.emptySubtitle}>{t('farmer.crops.calendar.emptyFilteredSubtitle')}</Text>
           </View>
         ) : (
           <View style={styles.cropList}>
@@ -473,15 +390,10 @@ export function ProduceCalendarScreen({
                 key={crop.id}
                 style={styles.cropCard}
                 activeOpacity={0.85}
-                onPress={() => {
-                  if (onNavigateToCropDetail) {
-                    onNavigateToCropDetail(crop);
-                  } else {
-                    setSelectedCropDetail(crop);
-                  }
-                }}
+                disabled={!onNavigateToCropDetail}
+                onPress={() => onNavigateToCropDetail?.(crop)}
                 accessibilityRole="button"
-                accessibilityLabel={`${crop.name} ${crop.variety}, ${crop.zone}`}
+                accessibilityLabel={`${cropTitle(crop)}, ${cropZoneLine(crop)}`}
               >
                 {/* Left accent bar */}
                 <View style={[styles.cropCardAccent, { backgroundColor: crop.accentColor }]} />
@@ -493,15 +405,11 @@ export function ProduceCalendarScreen({
                     <CropThumbnail cropType={crop.cropType} imageUri={crop.imageUri} />
 
                     <View style={styles.cropTitleCol}>
-                      <Text style={styles.cropName}>
-                        {crop.name} — {crop.variety}
-                      </Text>
-                      <Text style={styles.cropZoneSubtitle}>
-                        {crop.zone} · {crop.area}
-                      </Text>
+                      <Text style={styles.cropName}>{cropTitle(crop)}</Text>
+                      <Text style={styles.cropZoneSubtitle}>{cropZoneLine(crop)}</Text>
                     </View>
 
-                    <ChevronRightIcon size={18} color={P.twGray400} />
+                    {onNavigateToCropDetail && <ChevronRightIcon size={18} color={P.twGray400} />}
                   </View>
 
                   {/* Badges row */}
@@ -509,7 +417,11 @@ export function ProduceCalendarScreen({
                     {/* Age badge */}
                     <View style={styles.badgeGray}>
                       <ClockMiniIcon size={12} color={P.twGray600} />
-                      <Text style={styles.badgeGrayText}>{crop.daysOld} days old</Text>
+                      <Text style={styles.badgeGrayText}>
+                        {crop.daysOld !== null
+                          ? t('farmer.crops.calendar.ageDays', { days: crop.daysOld })
+                          : t('farmer.crops.calendar.ageUnknown')}
+                      </Text>
                     </View>
 
                     {/* Status badge */}
@@ -524,21 +436,6 @@ export function ProduceCalendarScreen({
                         <Text style={styles.badgeGrayText}>{crop.statusText}</Text>
                       </View>
                     )}
-
-                    {/* Action badge */}
-                    {crop.actionType === 'fert' && (
-                      <View style={styles.badgeOrange}>
-                        <FertLeafIcon size={12} color={P.twOrange700} />
-                        <Text style={styles.badgeOrangeText}>{crop.actionText ?? 'Fert due'}</Text>
-                      </View>
-                    )}
-
-                    {crop.actionType === 'pest' && (
-                      <View style={styles.badgePurple}>
-                        <BugMiniIcon size={12} color={P.twPurple600} />
-                        <Text style={styles.badgePurpleText}>{crop.actionText ?? 'Pest check due'}</Text>
-                      </View>
-                    )}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -549,24 +446,51 @@ export function ProduceCalendarScreen({
         {/* Space for FAB */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+    );
+  };
 
-      {/* ── Floating Action Button: + New crop ── */}
-      <TouchableOpacity
-        style={styles.fabButton}
-        activeOpacity={0.85}
-        onPress={() => {
-          if (onNavigateToNewCrop) {
-            onNavigateToNewCrop();
-          } else {
-            setShowNewCropModal(true);
-          }
-        }}
-        accessibilityRole="button"
-        accessibilityLabel="Add new crop"
-      >
-        <PlusIcon size={18} color={P.white} />
-        <Text style={styles.fabText}>New crop</Text>
-      </TouchableOpacity>
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+
+      {/* ── Top Header ── */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.farmDiary.common.goBackLabel')}
+        >
+          <ArrowBackIcon size={20} color={P.twGreen800} />
+        </TouchableOpacity>
+
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.headerTitle}>{t('farmer.crops.calendar.title')}</Text>
+          {!loading && !error && (
+            <Text style={styles.headerSubtitle}>
+              {t('farmer.crops.activeCrops.countSubtitle', { count: filteredCrops.length })}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {renderBody()}
+
+      {/* ── Floating Action Button: + New crop (opens NewCropScreen) ── */}
+      {onNavigateToNewCrop && !loading && !error && (
+        <TouchableOpacity
+          style={styles.fabButton}
+          activeOpacity={0.85}
+          onPress={onNavigateToNewCrop}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.crops.calendar.newCropA11y')}
+        >
+          <PlusIcon size={18} color={P.white} />
+          <Text style={styles.fabText}>{t('farmer.crops.calendar.newCrop')}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── Zone Filter Modal ── */}
       <Modal visible={showZonePicker} transparent animationType="fade">
@@ -576,26 +500,26 @@ export function ProduceCalendarScreen({
           onPress={() => setShowZonePicker(false)}
         >
           <View style={styles.pickerModalContent}>
-            <Text style={styles.pickerTitle}>Select Zone</Text>
-            {['All zones', 'Zone 1', 'Zone 2', 'Zone 3'].map((zoneOpt) => (
+            <Text style={styles.pickerTitle}>{t('farmer.crops.calendar.selectZone')}</Text>
+            {zoneOptions.map((zoneOpt) => (
               <TouchableOpacity
-                key={zoneOpt}
+                key={zoneOpt.value}
                 style={[
                   styles.pickerOption,
-                  selectedZone === zoneOpt && styles.pickerOptionSelected,
+                  selectedZone === zoneOpt.value && styles.pickerOptionSelected,
                 ]}
                 onPress={() => {
-                  setSelectedZone(zoneOpt);
+                  setSelectedZone(zoneOpt.value);
                   setShowZonePicker(false);
                 }}
               >
                 <Text
                   style={[
                     styles.pickerOptionText,
-                    selectedZone === zoneOpt && styles.pickerOptionTextSelected,
+                    selectedZone === zoneOpt.value && styles.pickerOptionTextSelected,
                   ]}
                 >
-                  {zoneOpt}
+                  {zoneOpt.label}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -611,8 +535,8 @@ export function ProduceCalendarScreen({
           onPress={() => setShowStatusPicker(false)}
         >
           <View style={styles.pickerModalContent}>
-            <Text style={styles.pickerTitle}>Select Status</Text>
-            {['Any status', 'Ready', 'Harvest soon', 'Action due'].map((statusOpt) => (
+            <Text style={styles.pickerTitle}>{t('farmer.crops.calendar.selectStatus')}</Text>
+            {STATUS_FILTERS.map((statusOpt) => (
               <TouchableOpacity
                 key={statusOpt}
                 style={[
@@ -630,149 +554,12 @@ export function ProduceCalendarScreen({
                     selectedStatus === statusOpt && styles.pickerOptionTextSelected,
                   ]}
                 >
-                  {statusOpt}
+                  {statusFilterLabel(statusOpt)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </TouchableOpacity>
-      </Modal>
-
-      {/* ── Crop Detail Modal ── */}
-      <Modal visible={Boolean(selectedCropDetail)} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.detailModalContent}>
-            {selectedCropDetail && (
-              <>
-                <View style={styles.detailHeader}>
-                  <CropThumbnail
-                    cropType={selectedCropDetail.cropType}
-                    imageUri={selectedCropDetail.imageUri}
-                  />
-                  <View style={styles.detailHeaderInfo}>
-                    <Text style={styles.detailTitle}>
-                      {selectedCropDetail.name} — {selectedCropDetail.variety}
-                    </Text>
-                    <Text style={styles.detailSubtitle}>
-                      {selectedCropDetail.zone} · {selectedCropDetail.area}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailDivider} />
-
-                <View style={styles.detailStatRow}>
-                  <View style={styles.detailStatBox}>
-                    <Text style={styles.detailStatLabel}>Crop Age</Text>
-                    <Text style={styles.detailStatValue}>{selectedCropDetail.daysOld} days</Text>
-                  </View>
-                  <View style={styles.detailStatBox}>
-                    <Text style={styles.detailStatLabel}>Harvest Window</Text>
-                    <Text style={styles.detailStatValue}>{selectedCropDetail.statusText}</Text>
-                  </View>
-                </View>
-
-                {selectedCropDetail.actionText && (
-                  <View style={styles.detailActionBanner}>
-                    <Text style={styles.detailActionTitle}>Pending Farm Action</Text>
-                    <Text style={styles.detailActionDesc}>
-                      {selectedCropDetail.actionText === 'Fert due'
-                        ? 'Scheduled organic fertigation with jeevamrutha liquid feed.'
-                        : 'Routine preventive pest and foliage health inspection required.'}
-                    </Text>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={styles.detailCloseBtn}
-                  onPress={() => setSelectedCropDetail(null)}
-                >
-                  <Text style={styles.detailCloseText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── New Crop Modal ── */}
-      <Modal visible={showNewCropModal} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.newCropModalContent}>
-            <Text style={styles.newCropModalTitle}>Plant New Crop</Text>
-
-            <Text style={styles.inputLabel}>Crop Name</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Carrot, Tomato, Cabbage"
-              placeholderTextColor={P.twGray400}
-              value={newCropName}
-              onChangeText={setNewCropName}
-            />
-
-            <Text style={styles.inputLabel}>Variety</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Nantes, Roma, Green Coronet"
-              placeholderTextColor={P.twGray400}
-              value={newCropVariety}
-              onChangeText={setNewCropVariety}
-            />
-
-            <Text style={styles.inputLabel}>Zone</Text>
-            <View style={styles.zoneSelectorRow}>
-              {['Zone 1 — Upper Field', 'Zone 2 — Lower Slope', 'Zone 3 — Terrace'].map((z) => (
-                <TouchableOpacity
-                  key={z}
-                  style={[styles.zoneChip, newCropZone === z && styles.zoneChipSelected]}
-                  onPress={() => setNewCropZone(z)}
-                >
-                  <Text
-                    style={[styles.zoneChipText, newCropZone === z && styles.zoneChipTextSelected]}
-                  >
-                    {(z.split('—')[0] ?? z).trim()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.rowInputs}>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>Area</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="0.4 ha"
-                  placeholderTextColor={P.twGray400}
-                  value={newCropArea}
-                  onChangeText={setNewCropArea}
-                />
-              </View>
-              <View style={styles.halfCol}>
-                <Text style={styles.inputLabel}>Days to Harvest</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="60"
-                  keyboardType="numeric"
-                  placeholderTextColor={P.twGray400}
-                  value={newCropDaysToHarvest}
-                  onChangeText={setNewCropDaysToHarvest}
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setShowNewCropModal(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleCreateCrop}>
-                <Text style={styles.saveBtnText}>Save Crop</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -822,6 +609,18 @@ const styles = StyleSheet.create({
     color: P.twGreen700,
     marginTop: 2,
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: P.paleStoneBg,
+    padding: 16,
+    gap: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: P.paleStoneBg,
+    padding: 24,
+    justifyContent: 'center',
+  },
   scrollContainer: {
     flex: 1,
     backgroundColor: P.paleStoneBg,
@@ -849,6 +648,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   filterButtonText: {
+    flexShrink: 1,
     fontSize: typography.body,
     fontWeight: '500',
     color: P.twGray800,
@@ -957,34 +757,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.twGreen800,
   },
-  badgeOrange: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.twOrange100,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 4,
-  },
-  badgeOrangeText: {
-    fontSize: typography.caption,
-    fontWeight: '700',
-    color: P.twOrange700,
-  },
-  badgePurple: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.twPurple100,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 4,
-  },
-  badgePurpleText: {
-    fontSize: typography.caption,
-    fontWeight: '700',
-    color: P.twPurple600,
-  },
   bottomSpacer: {
     height: 80,
   },
@@ -1024,6 +796,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.twGray500,
     marginTop: 4,
+    textAlign: 'center',
   },
   modalBackdrop: {
     flex: 1,
@@ -1064,190 +837,5 @@ const styles = StyleSheet.create({
   pickerOptionTextSelected: {
     fontWeight: '700',
     color: P.twGreen900,
-  },
-  detailModalContent: {
-    backgroundColor: P.white,
-    borderRadius: 20,
-    width: '92%',
-    padding: 20,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailHeaderInfo: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  detailTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.ink,
-  },
-  detailSubtitle: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    marginTop: 3,
-  },
-  detailDivider: {
-    height: 1,
-    backgroundColor: P.twGray200,
-    marginVertical: 16,
-  },
-  detailStatRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  detailStatBox: {
-    flex: 1,
-    backgroundColor: P.twGray50,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-  },
-  detailStatLabel: {
-    fontSize: typography.caption,
-    fontWeight: '600',
-    color: P.twGray500,
-    textTransform: 'uppercase',
-  },
-  detailStatValue: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.ink,
-    marginTop: 4,
-  },
-  detailActionBanner: {
-    backgroundColor: P.twAmber50,
-    borderWidth: 1,
-    borderColor: P.twAmber200,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  detailActionTitle: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twAmber900,
-  },
-  detailActionDesc: {
-    fontSize: typography.bodySmall,
-    color: P.twAmber800,
-    marginTop: 4,
-    lineHeight: 17,
-  },
-  detailCloseBtn: {
-    backgroundColor: P.twGreen800,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  detailCloseText: {
-    color: P.white,
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-  },
-  newCropModalContent: {
-    backgroundColor: P.white,
-    borderRadius: 20,
-    width: '92%',
-    padding: 20,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  newCropModalTitle: {
-    fontSize: typography.title,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 14,
-  },
-  inputLabel: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.twGray700,
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  textInput: {
-    backgroundColor: P.twGray50,
-    borderWidth: 1,
-    borderColor: P.twGray300,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: typography.body,
-    color: P.twGray900,
-  },
-  zoneSelectorRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  zoneChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    backgroundColor: P.twGray50,
-  },
-  zoneChipSelected: {
-    backgroundColor: P.twGreen100,
-    borderColor: P.twGreen500,
-  },
-  zoneChipText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '600',
-    color: P.twGray600,
-  },
-  zoneChipTextSelected: {
-    color: P.twGreen900,
-  },
-  rowInputs: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfCol: {
-    flex: 1,
-  },
-  modalBtnRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.twGray300,
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.twGray700,
-  },
-  saveBtn: {
-    flex: 1,
-    backgroundColor: P.deepGreen,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  saveBtnText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.white,
   },
 });

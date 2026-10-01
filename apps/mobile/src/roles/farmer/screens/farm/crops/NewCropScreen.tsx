@@ -26,7 +26,7 @@ import {
   type ExpectedGrade,
   type SeedQuantityUnit,
 } from '../../../api/crops';
-import type { CropItem } from './ProduceCalendarScreen';
+import { toCropItem, type CropItem } from './cropItems';
 
 /** Backend enum values accepted by CreateFarmCropBody.seedQuantityUnit. */
 const SEED_QUANTITY_UNITS: SeedQuantityUnit[] = ['grams', 'kg', 'packets', 'units'];
@@ -467,35 +467,12 @@ export function NewCropScreen({
     try {
       const created = await createFarmCrop(selectedPlotId, body);
 
-      const lower = created.cropName.toLowerCase();
-      let cropType: 'carrot' | 'tomato' | 'cabbage' | 'custom' = 'custom';
-      let accentColor: string = P.twGreen600;
-      if (lower.includes('carrot')) {
-        cropType = 'carrot';
-        accentColor = P.twOrange500;
-      } else if (lower.includes('tomato')) {
-        cropType = 'tomato';
-        accentColor = P.twOrange500;
-      } else if (lower.includes('cabbage')) {
-        cropType = 'cabbage';
-        accentColor = P.twGreen600;
-      }
-
-      const createdCrop: CropItem = {
-        id: created.id,
-        name: created.cropName,
-        variety: created.seedVariety ?? created.cropName,
-        cropType,
-        zone: selectedZone,
-        zoneShort: (selectedZone.split('—')[0] ?? selectedZone).trim(),
-        area: areaAcres ? `${areaAcres} ac` : '',
-        daysOld: 0,
-        statusType: 'growing',
-        statusDays: 0,
-        statusText: '',
-        actionType: null,
-        accentColor,
+      const plot: DiaryPlot = plots.find((p) => p.id === selectedPlotId) ?? {
+        id: selectedPlotId,
+        name: selectedZone,
+        areaAcres: null,
       };
+      const createdCrop: CropItem = toCropItem(created, plot);
 
       if (onSaveCrop) {
         onSaveCrop(createdCrop);

@@ -24,7 +24,7 @@ import {
   type AttendanceUpsertItem,
   type Worker,
 } from '../../../api/workforce';
-import { localProduceCropsCache } from '../crops/ProduceCalendarScreen';
+import { ACTIVE_CROP_STATUSES, loadFarmCropEntries } from '../crops/cropItems';
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -73,18 +73,11 @@ function activityLabel(value: string | undefined): string {
 // ── Crop options ─────────────────────────────────────────────────────────────
 
 /**
- * ProduceCalendarScreen has no real backend behind it (`localProduceCropsCache`
- * is in-memory mock data, ids like `"crop-1"`, not `farm_crops` UUIDs) -- an
- * already-accepted cross-feature gap, also flagged by CropWorkforceHoursScreen.tsx
- * (`isUuid`/its docblock) and WorkforceScreen.tsx. workforce.schema.ts's
- * attendance upsert requires `farmCropId` to be a real UUID when present, so a
- * mock crop id can never be sent to the API -- it would just fail validation.
- *
- * This screen keeps the crop picker functional against that same mock list (so
- * a farmer can still record *which* crop a worker's day went to, for their own
- * reference) but only forwards `farmCropId` on save when it happens to already
- * be a real UUID (i.e. it came back from a previous, real attendance record) --
- * never a freshly mock-picked id. See `isUuid`/`buildUpsertItem` below.
+ * Crop options are the farmer's real active farm_crops (loaded with the
+ * roster, see `loadAttendance`), so a picked crop's id is a real UUID that
+ * workforce.schema.ts's attendance upsert accepts as `farmCropId`. The
+ * `isUuid` guard in `buildUpsertItem` is kept as a defensive check that only
+ * a well-formed id is ever sent.
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(value: string | undefined | null): value is string {
@@ -96,17 +89,12 @@ interface CropOption {
   name: string;
 }
 
-function cropOptions(): CropOption[] {
-  return localProduceCropsCache.map((c) => ({ id: c.id, name: c.name }));
-}
-
 // ── Per-worker form state ────────────────────────────────────────────────────
 
 interface WorkerAttendanceForm {
   present: boolean;
   activity: ActivityType | undefined;
-  /** Only ever a real UUID (see the crop-options docblock above); a freshly
-   * mock-picked crop lands in `cropLabel` only, never here. */
+  /** Real farm_crops UUID of the crop this day's work went to, if any. */
   farmCropId: string | undefined;
   cropLabel: string | undefined;
   /** Raw text field value; parsed/validated at save time. */
@@ -115,23 +103,26 @@ interface WorkerAttendanceForm {
 
 const DEFAULT_HOURS = '8';
 
-function initialFormFor(worker: Worker, record: AttendanceRecord | undefined): WorkerAttendanceForm {
+function initialFormFor(
+  worker: Worker,
+  record: AttendanceRecord | undefined,
+  crops: CropOption[],
+): WorkerAttendanceForm {
   if (!record) {
     // Not yet marked today -- default to present with a full working day, the
     // same "sensible default" the old mock's Murugan/Lakshmi cards showed.
     return { present: true, activity: undefined, farmCropId: undefined, cropLabel: undefined, hours: DEFAULT_HOURS };
   }
   const matchedCrop = record.farmCropId
-    ? cropOptions().find((c) => c.id === record.farmCropId)
+    ? crops.find((c) => c.id === record.farmCropId)
     : undefined;
   return {
     present: record.present,
     activity: (record.activity as ActivityType | null) ?? undefined,
     farmCropId: record.farmCropId ?? undefined,
-    // The saved farmCropId is a real backend UUID that will never match a mock
-    // crop's "crop-N" id, so it can't be resolved to a friendly name here --
-    // show an honest "Crop set" rather than fabricating one or silently
-    // dropping the fact that a crop was recorded.
+    // A saved crop that is no longer active (e.g. since harvested) is not in
+    // the active-crop options, so it can't be named here -- show an honest
+    // "Crop set" rather than dropping the fact that a crop was recorded.
     cropLabel: matchedCrop ? matchedCrop.name : record.farmCropId ? 'Crop set' : undefined,
     hours: record.hoursWorked != null ? String(record.hoursWorked) : DEFAULT_HOURS,
   };
@@ -213,6 +204,7 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
 
   // ── Roster + today's attendance ──
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [cropChoices, setCropChoices] = useState<CropOption[]>([]);
   const [forms, setForms] = useState<Record<string, WorkerAttendanceForm>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -222,15 +214,20 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
     setDataLoading(true);
     setDataError(null);
     try {
-      const [workerList, records] = await Promise.all([
+      const [workerList, records, cropData] = await Promise.all([
         listMyWorkers(resolvedFarmId),
         listMyFarmAttendanceForDate(resolvedFarmId, todayIso()),
+        // The crop is optional on an attendance row, so a failed crop fetch
+        // must not block recording attendance: the crop picker is just empty.
+        loadFarmCropEntries({ statuses: ACTIVE_CROP_STATUSES }).catch(() => ({ plots: [], entries: [] })),
       ]);
+      const crops: CropOption[] = cropData.entries.map((e) => ({ id: e.item.id, name: e.item.name }));
       setWorkers(workerList);
+      setCropChoices(crops);
       const nextForms: Record<string, WorkerAttendanceForm> = {};
       for (const w of workerList) {
         const record = records.find((r) => r.workerId === w.id);
-        nextForms[w.id] = initialFormFor(w, record);
+        nextForms[w.id] = initialFormFor(w, record, crops);
       }
       setForms(nextForms);
     } catch (err) {
@@ -459,17 +456,15 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
                 );
               })}
             {picker?.field === 'crop' &&
-              cropOptions().map((opt) => {
+              cropChoices.map((opt) => {
                 const currentForm = picker ? forms[picker.workerId] : undefined;
-                const isSelected = currentForm?.cropLabel === opt.name;
+                const isSelected = currentForm?.farmCropId === opt.id;
                 return (
                   <TouchableOpacity
                     key={opt.id}
                     style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
                     onPress={() => {
-                      // Mock-only crop id (see cropOptions()'s docblock above) --
-                      // stored purely for display, never sent as farmCropId
-                      // unless it happens to already be a real UUID.
+                      // Real farm_crops UUID -- sent as farmCropId on save.
                       updateForm(picker!.workerId, { cropLabel: opt.name, farmCropId: opt.id });
                       closePicker();
                     }}
