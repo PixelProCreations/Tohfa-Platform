@@ -68,11 +68,13 @@ function ClockOutlineIcon({ color = PALETTE.primary }) {
 export interface SubWarehouseStorageLocationDetailScreenProps {
   locationId: string;
   onBack: () => void;
+  onViewActivity?: () => void;
 }
 
 export function SubWarehouseStorageLocationDetailScreen({
   locationId,
   onBack,
+  onViewActivity,
 }: SubWarehouseStorageLocationDetailScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
@@ -167,7 +169,7 @@ export function SubWarehouseStorageLocationDetailScreen({
           <BoxOutlineIcon />
           <Text style={styles.actionBtnText}>View Stock</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn}>
+        <TouchableOpacity style={styles.actionBtn} onPress={onViewActivity}>
           <ClockOutlineIcon />
           <Text style={styles.actionBtnText}>View Activity</Text>
         </TouchableOpacity>

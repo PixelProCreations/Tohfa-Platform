@@ -10,6 +10,7 @@ import {
   Platform,
   ToastAndroid,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -621,6 +622,9 @@ export function GoodsReceivingWizard({
   const [receivedDate, setReceivedDate] = useState(shipment?.receivedDate ?? '24 Sep 2026');
   const [receivedTime, setReceivedTime] = useState(shipment?.receivedTime ?? '10:30 AM');
   const [startReceivingPhotos, setStartReceivingPhotos] = useState<string[]>([]);
+  const [startReceivedQty, setStartReceivedQty] = useState('');
+  const [startDamagedQty, setStartDamagedQty] = useState('');
+  const [startCondition, setStartCondition] = useState('Good condition');
 
   // Screen 3: Quality Check States
   type QCStatus = 'pass' | 'attention' | 'fail';
@@ -677,6 +681,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'start_receiving') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -698,6 +703,23 @@ export function GoodsReceivingWizard({
               </View>
               <Text style={styles.produceExpQty}>Exp. 150 KG</Text>
             </View>
+          </View>
+
+          <Text style={styles.sectionHeader}>Receiving Notes</Text>
+          <View style={styles.rowTwoCols}>
+            <View style={styles.colHalf}>
+              <Text style={styles.inputLabel}>Received Qty (KG)</Text>
+              <TextInput style={styles.textInput} placeholder="e.g. 148" placeholderTextColor="#999" value={startReceivedQty} onChangeText={setStartReceivedQty} keyboardType="numeric" />
+            </View>
+            <View style={styles.colHalf}>
+              <Text style={styles.inputLabel}>Damaged Qty (KG)</Text>
+              <TextInput style={styles.textInput} placeholder="e.g. 2" placeholderTextColor="#999" value={startDamagedQty} onChangeText={setStartDamagedQty} keyboardType="numeric" />
+            </View>
+          </View>
+          <Text style={styles.inputLabel}>Condition</Text>
+          <View style={[styles.textInput, { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' }]}>
+            <Text style={{ color: '#1E1612' }}>{startCondition}</Text>
+            <ChevronDownIcon />
           </View>
 
           <Text style={styles.sectionHeader}>Physical Information</Text>
@@ -751,6 +773,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'quantity_verification') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -836,6 +859,7 @@ export function GoodsReceivingWizard({
 
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -956,6 +980,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'receiving_decision') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1070,6 +1095,7 @@ export function GoodsReceivingWizard({
 
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1179,6 +1205,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'receipt_summary') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1360,6 +1387,7 @@ export function GoodsReceivingWizard({
 
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1439,6 +1467,7 @@ export function GoodsReceivingWizard({
 
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1591,6 +1620,7 @@ export function GoodsReceivingWizard({
 
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1729,6 +1759,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'record_handling') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1832,6 +1863,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'receiving_in_progress') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -1953,6 +1985,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'continue_receiving') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -2008,6 +2041,7 @@ export function GoodsReceivingWizard({
 
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -2266,6 +2300,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'submission_error') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />
@@ -2312,6 +2347,7 @@ export function GoodsReceivingWizard({
   if (currentStep === 'damage_mismatch') {
     return (
       <View style={styles.container}>
+        <StatusBar backgroundColor={PRIMARY_COLOR} barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
             <BackArrowIcon />

@@ -83,6 +83,8 @@ import { SubWarehouseStaffDetailScreen } from './SubWarehouseStaffDetailScreen';
 import { SubWarehouseAttendanceScreen } from './SubWarehouseAttendanceScreen';
 import { SubWarehouseTodayAttendanceScreen } from './SubWarehouseTodayAttendanceScreen';
 import { SubWarehouseAttendanceHistoryScreen } from './SubWarehouseAttendanceHistoryScreen';
+import { SubWarehouseStaffAndAttendanceScreen } from './SubWarehouseStaffAndAttendanceScreen';
+import { SubWarehouseAttendanceDetailScreen } from './SubWarehouseAttendanceDetailScreen';
 import { SubWarehouseRmaResolutionSuccessScreen } from './SubWarehouseRmaResolutionSuccessScreen';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
@@ -92,6 +94,9 @@ import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
 import { SubWarehouseStorageInfoScreen } from './SubWarehouseStorageInfoScreen';
 import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
 import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
+import { SubWarehouseIssueSubmittedScreen } from './SubWarehouseIssueSubmittedScreen';
+import { SubWarehouseOperationalIssueDetailScreen } from './SubWarehouseOperationalIssueDetailScreen';
+import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActivityScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import {
@@ -1116,6 +1121,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showWarehouseOperations, setShowWarehouseOperations] = useState(false);
+  const [showWarehouseActivity, setShowWarehouseActivity] = useState(false);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   const [showMaterialHandling, setShowMaterialHandling] = useState(false);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
@@ -1185,10 +1191,14 @@ export function SubWarehouseAdminDashboardScreen({
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [selectedStaffMember, setSelectedStaffMember] = useState<StaffMember | null>(null);
   const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
+  const [showStaffAndAttendance, setShowStaffAndAttendance] = useState(false);
+  const [selectedAttendanceStaffId, setSelectedAttendanceStaffId] = useState<string | null>(null);
   const [showTodayAttendanceScreen, setShowTodayAttendanceScreen] = useState(false);
   const [showAttendanceHistoryScreen, setShowAttendanceHistoryScreen] = useState(false);
   const [showOperationalIssues, setShowOperationalIssues] = useState(false);
   const [showReportIssue, setShowReportIssue] = useState(false);
+  const [showIssueSubmitted, setShowIssueSubmitted] = useState(false);
+  const [showIssueDetail, setShowIssueDetail] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
@@ -1558,11 +1568,35 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showWarehouseActivity) {
+    return (
+      <SubWarehouseWarehouseActivityScreen
+        onBack={() => {
+          // Back from Activity → return to the Storage Location Detail
+          setShowWarehouseActivity(false);
+          // selectedStorageLocationId still has the id, so detail screen renders
+        }}
+        onTabChange={(tab) => {
+          setShowWarehouseActivity(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowWarehouseOperations(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
   if (selectedStorageLocationId) {
     return (
       <SubWarehouseStorageLocationDetailScreen
         locationId={selectedStorageLocationId}
-        onBack={() => setSelectedStorageLocationId(null)}
+        onBack={() => {
+          // Back from detail → go back to Storage Info list
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(true);
+        }}
+        onViewActivity={() => setShowWarehouseActivity(true)}
       />
     );
   }
@@ -1570,7 +1604,11 @@ export function SubWarehouseAdminDashboardScreen({
   if (showStorageInfo) {
     return (
       <SubWarehouseStorageInfoScreen
-        onBack={() => setShowStorageInfo(false)}
+        onBack={() => {
+          // Back from Storage List → go back to Warehouse Operations
+          setShowStorageInfo(false);
+          setShowWarehouseOperations(true);
+        }}
         onTabChange={(tab) => {
           setShowStorageInfo(false);
           setActiveTab(tab);
@@ -1648,8 +1686,27 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowReportIssue(false)}
         onSubmit={() => {
           setShowReportIssue(false);
-          setShowOperationalIssues(true);
+          setShowIssueSubmitted(true);
         }}
+      />
+    );
+  }
+
+  if (showIssueSubmitted) {
+    return (
+      <SubWarehouseIssueSubmittedScreen
+        onViewIssue={() => {
+          setShowIssueSubmitted(false);
+          setShowIssueDetail(true);
+        }}
+      />
+    );
+  }
+
+  if (showIssueDetail) {
+    return (
+      <SubWarehouseOperationalIssueDetailScreen
+        onBack={() => setShowIssueDetail(false)}
       />
     );
   }
@@ -1661,6 +1718,10 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToReport={() => {
           setShowOperationalIssues(false);
           setShowReportIssue(true);
+        }}
+        onViewIssueDetail={() => {
+          setShowOperationalIssues(false);
+          setShowIssueDetail(true);
         }}
       />
     );
@@ -1731,7 +1792,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReportsScreen) {
     return (
       <SubWarehouseReportsScreen
-        onBack={() => setShowReportsScreen(false)}
+        onBack={() => {
+          setShowReportsScreen(false);
+          setActiveTab('More');
+        }}
         onTabChange={(tab) => {
           setShowReportsScreen(false);
           setActiveTab(tab);
@@ -1751,7 +1815,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showSalesScreen) {
     return (
       <SubWarehouseSalesScreen
-        onBack={() => setShowSalesScreen(false)}
+        onBack={() => {
+          setShowSalesScreen(false);
+          setActiveTab('More');
+        }}
         onTabChange={(tab) => {
           setShowSalesScreen(false);
           setActiveTab(tab);
@@ -2081,7 +2148,10 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseWalletOperationsScreen
         warehouseName="Coonoor Warehouse"
-        onBack={() => setShowWalletOperations(false)}
+        onBack={() => {
+          setShowWalletOperations(false);
+          setActiveTab('More');
+        }}
         onTabChange={(tab) => {
           setShowWalletOperations(false);
           setActiveTab(tab);
@@ -2442,10 +2512,38 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showStaffAndAttendance) {
+    return (
+      <SubWarehouseStaffAndAttendanceScreen
+        onBack={() => setShowStaffAndAttendance(false)}
+        onNavigateToDetail={(id) => {
+          setShowStaffAndAttendance(false);
+          setSelectedAttendanceStaffId(id);
+        }}
+        onTabChange={(tab) => {
+          setShowStaffAndAttendance(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (selectedAttendanceStaffId) {
+    return (
+      <SubWarehouseAttendanceDetailScreen
+        staffId={selectedAttendanceStaffId}
+        onBack={() => setSelectedAttendanceStaffId(null)}
+      />
+    );
+  }
+
   if (showFinanceScreen) {
     return (
       <SubWarehouseFinanceScreen
-        onBack={() => setShowFinanceScreen(false)}
+        onBack={() => {
+          setShowFinanceScreen(false);
+          setActiveTab('More');
+        }}
         onTabChange={(tab) => {
           setShowFinanceScreen(false);
           setActiveTab(tab);
@@ -2457,7 +2555,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showSettingsScreen) {
     return (
       <SubWarehouseSettingsScreen
-        onBack={() => setShowSettingsScreen(false)}
+        onBack={() => {
+          setShowSettingsScreen(false);
+          setActiveTab('More');
+        }}
         onLogout={onSignOut}
       />
     );
@@ -3709,8 +3810,12 @@ export function SubWarehouseAdminDashboardScreen({
                   scrollEventThrottle={16}
                 >
                   {/* 1. Today's Receiving Overview (6 Boxes) */}
-                  <Text style={styles.receivingSectionTitle}>Today's Receiving Overview</Text>
-
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={[styles.receivingSectionTitle, { marginBottom: 0 }]}>Today's Receiving Overview</Text>
+                    <TouchableOpacity onPress={() => navigateTo('Receiving', 'incoming_shipments')}>
+                      <Text style={{ color: '#E07A2A', fontWeight: 'bold' }}>View Details</Text>
+                    </TouchableOpacity>
+                  </View>
                   <View style={styles.receivingGrid}>
                     {/* Expected Today */}
                     <TouchableOpacity
@@ -3820,15 +3925,6 @@ export function SubWarehouseAdminDashboardScreen({
                     </TouchableOpacity>
                   </View>
 
-                  {/* 2. Start Receiving Button */}
-                  <TouchableOpacity
-                    style={styles.startReceivingBtn}
-                    onPress={() => navigateTo('Receiving', 'incoming_shipments')}
-                    activeOpacity={0.85}
-                  >
-                    <StartReceivingBoxIcon />
-                    <Text style={styles.startReceivingBtnText}>Start Receiving</Text>
-                  </TouchableOpacity>
 
                   {/* 3. Needs Attention Section */}
                   <View style={styles.needsAttentionHeader}>
@@ -4021,7 +4117,7 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToStaff={() => {
               if (onNavigate) onNavigate('SubWarehouseStaff');
-              else setShowStaffScreen(true);
+              else setShowStaffAndAttendance(true);
             }}
             onNavigateToAttendance={() => {
               if (onNavigate) onNavigate('SubWarehouseTodayAttendance');

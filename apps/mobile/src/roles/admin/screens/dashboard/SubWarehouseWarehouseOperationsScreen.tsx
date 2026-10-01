@@ -32,7 +32,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
       <Path
         d="M19 12H5M12 19l-7-7 7-7"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -234,6 +234,9 @@ export interface SubWarehouseWarehouseOperationsScreenProps {
   onNavigateToCapacity?: (() => void) | undefined;
   onNavigateToMaterialHandling?: (() => void) | undefined;
   onNavigateToOperationalIssues?: (() => void) | undefined;
+  onNavigateToStaffAttendance?: (() => void) | undefined;
+  onNavigateToReceiveGoods?: (() => void) | undefined;
+  onNavigateToWarehouseActivity?: (() => void) | undefined;
 }
 
 export function SubWarehouseWarehouseOperationsScreen({
@@ -243,6 +246,9 @@ export function SubWarehouseWarehouseOperationsScreen({
   onNavigateToCapacity,
   onNavigateToMaterialHandling,
   onNavigateToOperationalIssues,
+  onNavigateToStaffAttendance,
+  onNavigateToReceiveGoods,
+  onNavigateToWarehouseActivity,
 }: SubWarehouseWarehouseOperationsScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
@@ -260,7 +266,7 @@ export function SubWarehouseWarehouseOperationsScreen({
               <ArrowBackIcon size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.headerTitleRow}>
-              <GridMenuHeaderIcon size={22} color="#FFFFFF" />
+              <GridMenuHeaderIcon size={24} color="#FFFFFF" />
               <Text style={styles.headerTitleText}>Warehouse Operations</Text>
             </View>
           </View>
@@ -333,12 +339,12 @@ export function SubWarehouseWarehouseOperationsScreen({
             <View style={styles.qaIcon}><ErrorIcon color={PALETTE.primary} /></View>
             <Text style={styles.qaLabel}>Report Issue</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.qaCard}>
+          <TouchableOpacity style={styles.qaCard} onPress={onNavigateToStaffAttendance}>
             <View style={styles.qaIcon}><StaffBadgeIcon color={PALETTE.primary} /></View>
             <Text style={styles.qaLabel}>Staff Attendance</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.qaCard}>
-            <View style={styles.qaIcon}><DownloadBoxIcon color={PALETTE.primary} /></View>
+          <TouchableOpacity style={styles.qaCard} onPress={onNavigateToReceiveGoods}>
+            <View style={styles.qaIcon}><DownloadBoxIcon color="#0D9488" /></View>
             <Text style={styles.qaLabel}>Receive Goods</Text>
           </TouchableOpacity>
         </View>
@@ -349,8 +355,13 @@ export function SubWarehouseWarehouseOperationsScreen({
         </TouchableOpacity>
 
         {/* Today's Operational Status */}
-        <Text style={styles.sectionTitle}>Today's Operational Status</Text>
-        <View style={styles.opStatusGrid}>
+        <View style={styles.flexRowBetween}>
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Today's Operational Status</Text>
+          <TouchableOpacity onPress={onNavigateToWarehouseActivity}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.opStatusGrid, { marginTop: 16 }]}>
           <View style={styles.opStatusCard}>
             <Text style={styles.opStatusVal}>3</Text>
             <Text style={styles.opStatusLabel}>RECEIVING · SHIPMENTS</Text>
@@ -373,13 +384,16 @@ export function SubWarehouseWarehouseOperationsScreen({
         <View style={styles.flexRowBetween}>
           <View style={styles.flexRow}>
             <WarningCircleIcon color="#1E1612" />
-            <Text style={[styles.sectionTitle, { marginTop: 0, marginLeft: 6 }]}>Needs Attention</Text>
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0, marginLeft: 6 }]}>Needs Attention</Text>
           </View>
         </View>
 
         <View style={styles.attentionList}>
-          <TouchableOpacity style={[styles.attentionCard, { borderLeftColor: '#DC2626' }]}>
-            <View style={styles.attentionIcon}><LocationIssueIcon color="#DC2626" /></View>
+          <TouchableOpacity 
+            style={[styles.attentionCard, styles.attentionCardRed]} 
+            onPress={onNavigateToStorageLocations}
+          >
+            <View style={[styles.attentionIcon, { backgroundColor: '#FEE2E2' }]}><LocationIssueIcon color="#DC2626" /></View>
             <View style={styles.attentionTextWrap}>
               <Text style={styles.attentionTitle}>Storage Location Issue</Text>
               <Text style={styles.attentionSub}>Rack A-03 requires attention</Text>
@@ -387,8 +401,8 @@ export function SubWarehouseWarehouseOperationsScreen({
             <ChevronRight />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.attentionCard, { borderLeftColor: '#D97706' }]}>
-            <View style={styles.attentionIcon}><ClipboardIcon color="#D97706" /></View>
+          <TouchableOpacity style={[styles.attentionCard, styles.attentionCardAmber]}>
+            <View style={[styles.attentionIcon, { backgroundColor: '#FEF3C7' }]}><ClipboardIcon color="#D97706" /></View>
             <View style={styles.attentionTextWrap}>
               <Text style={styles.attentionTitle}>Material Low</Text>
               <Text style={styles.attentionSub}>Packaging boxes</Text>
@@ -396,8 +410,11 @@ export function SubWarehouseWarehouseOperationsScreen({
             <ChevronRight />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.attentionCard, { borderLeftColor: '#DC2626' }]} onPress={onNavigateToOperationalIssues}>
-            <View style={styles.attentionIcon}><MaintenanceIcon color="#DC2626" /></View>
+          <TouchableOpacity 
+            style={[styles.attentionCard, styles.attentionCardRed]} 
+            onPress={onNavigateToOperationalIssues}
+          >
+            <View style={[styles.attentionIcon, { backgroundColor: '#FEE2E2' }]}><MaintenanceIcon color="#DC2626" /></View>
             <View style={styles.attentionTextWrap}>
               <Text style={styles.attentionTitle}>Operational Issue</Text>
               <Text style={styles.attentionSub}>Cold storage maintenance</Text>
@@ -456,6 +473,7 @@ const styles = StyleSheet.create({
   backButton: { marginRight: 10, padding: 2 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitleText: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
+  backBtn: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', marginRight: 4 },
   warehouseBadgeRow: { marginTop: 2 },
   warehouseBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, alignSelf: 'flex-start', gap: 6 },
   warehouseBadgeText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
@@ -489,7 +507,32 @@ const styles = StyleSheet.create({
   opStatusLabel: { fontSize: 10, fontWeight: '700', color: PALETTE.textSecondary, letterSpacing: 0.5 },
 
   attentionList: { gap: 12, marginBottom: 24 },
-  attentionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: PALETTE.cardBg, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: PALETTE.border, borderLeftWidth: 4 },
+  attentionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderLeftWidth: 6,
+  },
+  attentionCardRed: {
+    borderLeftColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: -3, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  attentionCardAmber: {
+    borderLeftColor: '#D97706',
+    shadowColor: '#D97706',
+    shadowOffset: { width: -3, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 5,
+  },
   attentionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: PALETTE.pageBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   attentionTextWrap: { flex: 1 },
   attentionTitle: { fontSize: 15, fontWeight: '800', color: PALETTE.textInk, marginBottom: 2 },

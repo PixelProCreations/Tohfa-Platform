@@ -49,11 +49,13 @@ function PlusIcon({ color = '#FFFFFF' }) {
 export interface SubWarehouseOperationalIssuesScreenProps {
   onBack: () => void;
   onNavigateToReport: () => void;
+  onViewIssueDetail?: () => void;
 }
 
 export function SubWarehouseOperationalIssuesScreen({
   onBack,
   onNavigateToReport,
+  onViewIssueDetail,
 }: SubWarehouseOperationalIssuesScreenProps) {
   const [activeTab, setActiveTab] = useState('Open');
 
@@ -113,7 +115,7 @@ export function SubWarehouseOperationalIssuesScreen({
         </View>
 
         {/* Issue Card */}
-        <View style={styles.issueCard}>
+        <TouchableOpacity style={styles.issueCard} onPress={onViewIssueDetail} activeOpacity={0.7}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardId}>ISS-0028</Text>
             <View style={styles.badge}>
@@ -123,7 +125,7 @@ export function SubWarehouseOperationalIssuesScreen({
           <Text style={styles.cardSub}>Cold Storage · Section A</Text>
           <Text style={styles.cardTitle}>Cold storage maintenance required</Text>
           <Text style={styles.cardDate}>24 Sep · 11:20 AM</Text>
-        </View>
+        </TouchableOpacity>
 
       </ScrollView>
 
