@@ -287,36 +287,60 @@ export function SubWarehouseWarehouseOperationsScreen({
         {/* Operations Overview */}
         <Text style={styles.sectionTitle}>Operations Overview</Text>
         <View style={styles.overviewGrid}>
-          <View style={styles.overviewCard}>
+          <TouchableOpacity
+            style={styles.overviewCard}
+            onPress={onNavigateToStorageLocations}
+            activeOpacity={0.75}
+          >
             <View style={styles.cardIconWrap}><StorageIcon /></View>
             <Text style={styles.cardVal}>18</Text>
             <Text style={styles.cardLabel}>Storage Locations</Text>
-          </View>
-          <View style={styles.overviewCard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overviewCard}
+            onPress={onNavigateToCapacity}
+            activeOpacity={0.75}
+          >
             <View style={styles.cardIconWrap}><CircularProgressIcon /></View>
             <Text style={styles.cardVal}>68%</Text>
             <Text style={styles.cardLabel}>Current Occupancy</Text>
-          </View>
-          <View style={styles.overviewCard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overviewCard}
+            onPress={onNavigateToMaterialHandling}
+            activeOpacity={0.75}
+          >
             <View style={styles.cardIconWrap}><ClipboardIcon /></View>
             <Text style={styles.cardVal}>42</Text>
             <Text style={styles.cardLabel}>Material Items</Text>
-          </View>
-          <View style={styles.overviewCard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overviewCard}
+            onPress={onNavigateToOperationalIssues}
+            activeOpacity={0.75}
+          >
             <View style={styles.cardIconWrap}><WarningCircleIcon /></View>
             <Text style={[styles.cardVal, { color: PALETTE.redText }]}>3</Text>
             <Text style={styles.cardLabel}>Pending Issues</Text>
-          </View>
-          <View style={styles.overviewCard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overviewCard}
+            onPress={onNavigateToStaffAttendance}
+            activeOpacity={0.75}
+          >
             <View style={styles.cardIconWrap}><StaffBadgeIcon /></View>
             <Text style={styles.cardVal}>8 / 10</Text>
             <Text style={styles.cardLabel}>Staff Present</Text>
-          </View>
-          <View style={styles.overviewCard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overviewCard}
+            onPress={onNavigateToWarehouseActivity}
+            activeOpacity={0.75}
+          >
             <View style={styles.cardIconWrap}><CalendarIcon /></View>
             <Text style={styles.cardVal}>24</Text>
             <Text style={styles.cardLabel}>Today's Activities</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}

@@ -2228,7 +2228,7 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
-            onNavigateToStorageLocations={() => navigate('SubWarehouseStorageLocationDetail', { locationId: 'LOC-A1' })}
+            onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
             onNavigateToCapacity={() => navigate('SubWarehouseCapacity')}
             onNavigateToMaterialHandling={() => navigate('SubWarehouseMaterialHandling')}
             onNavigateToOperationalIssues={() => navigate('SubWarehouseOperationalIssues')}
