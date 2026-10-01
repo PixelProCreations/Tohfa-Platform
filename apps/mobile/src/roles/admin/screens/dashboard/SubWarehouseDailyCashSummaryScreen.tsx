@@ -124,12 +124,14 @@ function MoreTabIcon({ active }: { active: boolean }) {
 export interface SubWarehouseDailyCashSummaryScreenProps {
   onBack?: () => void;
   onViewTopUpHistory?: () => void;
+  onNavigateToDailyCash?: () => void;
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
 }
 
 export function SubWarehouseDailyCashSummaryScreen({
   onBack,
   onViewTopUpHistory,
+  onNavigateToDailyCash,
   onTabChange,
 }: SubWarehouseDailyCashSummaryScreenProps) {
   const [physicalCount, setPhysicalCount] = useState('18500');
@@ -268,9 +270,15 @@ export function SubWarehouseDailyCashSummaryScreen({
         {/* Reconciliation Status */}
         <Text style={styles.sectionTitle}>Reconciliation Status</Text>
         <View style={{ alignItems: 'flex-start', marginTop: 2, marginBottom: 8 }}>
-          <View style={styles.reconciledBadge}>
-            <Text style={styles.reconciledText}>Reconciled</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.reconciledBadge}
+            onPress={() => {
+              if (onNavigateToDailyCash) onNavigateToDailyCash();
+            }}
+            activeOpacity={onNavigateToDailyCash ? 0.75 : 1}
+          >
+            <Text style={styles.reconciledText}>Reconciled · View Details →</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Transaction Breakdown */}

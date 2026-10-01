@@ -16,26 +16,26 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 // ─── Design Tokens (Matching Exact Screenshots) ──────────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF2E8',
+  primary: '#F0562A',
+  primaryDark: '#D4451B',
+  primaryLight: '#FFF2E8',
   primaryBorder: '#F5C6A0',
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
+  pageBg: '#FAF7F2',
+  cardBg: '#FFFFFF',
+  textInk: '#1E1612',
   textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
+  textMuted: '#9CA3AF',
+  border: '#EBE5DC',
+  divider: '#F4EFE9',
 
   // Accent & Callout colors
-  blueInfoBg:    '#EBF3FC',
-  blueInfoBorder:'#BFDBFE',
-  blueInfoText:  '#1E40AF',
+  blueInfoBg: '#EBF3FC',
+  blueInfoBorder: '#BFDBFE',
+  blueInfoText: '#1E40AF',
 
-  greenAmount:   '#0D9488',
-  brownBalance:  '#92400E',
+  greenAmount: '#0D9488',
+  brownBalance: '#92400E',
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -88,7 +88,11 @@ export interface CashTopUpData {
 
 export interface SubWarehouseCashTopUpScreenProps {
   onBack?: () => void;
+  onSuccess?: (amount: number, newBalance: number) => void;
   onContinue?: (data: CashTopUpData) => void;
+  customerName?: string;
+  customerCode?: string;
+  currentBalance?: string | number;
   initialCustomer?: {
     name: string;
     code: string;
@@ -100,15 +104,21 @@ export interface SubWarehouseCashTopUpScreenProps {
 
 export function SubWarehouseCashTopUpScreen({
   onBack,
+  onSuccess,
   onContinue,
-  initialCustomer = {
-    name: 'Ravi Kumar',
-    code: 'CUS-001245',
-    currentBalance: 4500,
-  },
+  customerName = 'Rajesh Kumar',
+  customerCode = 'CUS-00291',
+  currentBalance = '₹1,250',
+  initialCustomer,
   warehouseName = 'Coonoor Warehouse',
-  processedBy = 'SWA Name',
+  processedBy = 'SWA – Suresh',
 }: SubWarehouseCashTopUpScreenProps) {
+  const custName = initialCustomer?.name || customerName;
+  const custCode = initialCustomer?.code || customerCode;
+  const baseBalance = typeof currentBalance === 'number'
+    ? currentBalance
+    : (initialCustomer?.currentBalance ?? (parseInt(String(currentBalance).replace(/[^0-9]/g, ''), 10) || 1250));
+
   const [amount, setAmount] = useState<number>(2000);
   const [customInputVisible, setCustomInputVisible] = useState<boolean>(false);
   const [customInputValue, setCustomInputValue] = useState<string>('2000');
@@ -130,10 +140,12 @@ export function SubWarehouseCashTopUpScreen({
     const parsed = parseInt(text.replace(/[^0-9]/g, ''), 10);
     if (!isNaN(parsed) && parsed > 0) {
       setAmount(parsed);
+    } else if (text === '') {
+      setAmount(0);
     }
   };
 
-  const newBalance = initialCustomer.currentBalance + (amount || 0);
+  const newBalance = baseBalance + (amount || 0);
 
   const handleProceed = () => {
     if (!amount || amount <= 0) {
@@ -141,10 +153,15 @@ export function SubWarehouseCashTopUpScreen({
       return;
     }
 
+    if (amount > 100000) {
+      Alert.alert('Amount Limit', 'Single cash deposit cannot exceed ₹1,00,000 as per warehouse cash handling limits.');
+      return;
+    }
+
     const payload: CashTopUpData = {
-      customerName: initialCustomer.name,
-      customerCode: initialCustomer.code,
-      currentBalance: initialCustomer.currentBalance,
+      customerName: custName,
+      customerCode: custCode,
+      currentBalance: baseBalance,
       topUpAmount: amount,
       warehouseName,
       processedBy,
@@ -153,8 +170,21 @@ export function SubWarehouseCashTopUpScreen({
 
     if (onContinue) {
       onContinue(payload);
+    } else if (onSuccess) {
+      Alert.alert(
+        'Confirm Cash Deposit',
+        `Accept ₹${amount.toLocaleString('en-IN')} cash from ${custName}?\n\nNew Wallet Balance will be ₹${newBalance.toLocaleString('en-IN')}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm & Collect Cash',
+            onPress: () => onSuccess(amount, newBalance),
+          },
+        ]
+      );
     } else {
-      Alert.alert('Continue', `Proceeding with ₹${amount.toLocaleString('en-IN')}`);
+      Alert.alert('Success', `Cash Top-Up of ₹${amount.toLocaleString('en-IN')} successful for ${custName}.`);
+      onBack?.();
     }
   };
 
@@ -187,12 +217,12 @@ export function SubWarehouseCashTopUpScreen({
         >
           {/* 1. Customer Card */}
           <View style={styles.customerCard}>
-            <Text style={styles.customerName}>{initialCustomer.name}</Text>
-            <Text style={styles.customerCode}>{initialCustomer.code}</Text>
+            <Text style={styles.customerName}>{custName}</Text>
+            <Text style={styles.customerCode}>{custCode}</Text>
 
             <Text style={styles.walletBalanceLabel}>Current Wallet Balance</Text>
             <Text style={styles.walletBalanceValue}>
-              ₹{initialCustomer.currentBalance.toLocaleString('en-IN')}
+              ₹{baseBalance.toLocaleString('en-IN')}
             </Text>
           </View>
 
@@ -273,7 +303,7 @@ export function SubWarehouseCashTopUpScreen({
             <View style={styles.previewRow}>
               <Text style={styles.previewLabel}>Current Balance</Text>
               <Text style={styles.previewValue}>
-                ₹{initialCustomer.currentBalance.toLocaleString('en-IN')}
+                ₹{baseBalance.toLocaleString('en-IN')}
               </Text>
             </View>
 
@@ -333,9 +363,10 @@ export function SubWarehouseCashTopUpScreen({
       {/* ─── Bottom Sticky Continue Button ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.continueBtn}
+          style={[styles.continueBtn, (!amount || amount <= 0) && styles.continueBtnDisabled]}
           onPress={handleProceed}
           activeOpacity={0.85}
+          disabled={!amount || amount <= 0}
         >
           <ArrowForwardIcon size={18} color="#FFFFFF" />
           <Text style={styles.continueBtnText}>Continue</Text>
@@ -649,6 +680,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 5,
     elevation: 3,
+  },
+  continueBtnDisabled: {
+    opacity: 0.5,
   },
   continueBtnText: {
     color: '#FFFFFF',

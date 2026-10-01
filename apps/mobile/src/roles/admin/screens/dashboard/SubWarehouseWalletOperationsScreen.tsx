@@ -52,9 +52,9 @@ const PALETTE = {
   greenText: '#15803D',
   greenDot: '#10B981',
 
-  amberBadge: '#FEF3C7',
-  amberText: '#B45309',
-  amberAccent: '#F59E0B',
+  amberBadge: '#FFF0EB',
+  amberText: '#F0562A',
+  amberAccent: '#F0562A',
 
   redBadge: '#FEE2E2',
   redText: '#DC2626',
@@ -131,7 +131,7 @@ function CashIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: str
   );
 }
 
-function EllipsisPendingIcon({ size = 20, color = '#F59E0B' }: { size?: number; color?: string }) {
+function EllipsisPendingIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -398,7 +398,7 @@ export function SubWarehouseWalletOperationsScreen({
           });
           setActiveSubScreen('customer_wallet');
         }}
-        onSelectCustomer={(cust) => {
+        onSelectCustomer={(cust: any) => {
           setSelectedCustomer({
             name: cust.name,
             code: cust.code,

@@ -63,6 +63,11 @@ export interface SubWarehouseFinanceScreenProps {
   onNavigateToReports?: (() => void) | undefined;
   onNavigateToRevenue?: (() => void) | undefined;
   onNavigateToExpenses?: (() => void) | undefined;
+  onNavigateToAddExpense?: (() => void) | undefined;
+  onNavigateToVouchers?: (() => void) | undefined;
+  onNavigateToDailyCash?: (() => void) | undefined;
+  onNavigateToHistory?: (() => void) | undefined;
+  onNavigateToCategories?: (() => void) | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -295,7 +300,11 @@ export function SubWarehouseFinanceScreen({
   onNavigateToRevenue,
   onNavigateToExpenses,
   onNavigateToAddExpense,
-}: SubWarehouseFinanceScreenProps & { onNavigateToAddExpense?: () => void }) {
+  onNavigateToVouchers,
+  onNavigateToDailyCash,
+  onNavigateToHistory,
+  onNavigateToCategories,
+}: SubWarehouseFinanceScreenProps) {
   const [activeTrendTab, setActiveTrendTab] = useState<'Revenue' | 'Expenses' | 'Net'>('Revenue');
   const [showRevenueScreen, setShowRevenueScreen] = useState(false);
   const [showExpensesScreen, setShowExpensesScreen] = useState(false);
@@ -342,11 +351,19 @@ export function SubWarehouseFinanceScreen({
   };
 
   const handleOpenVouchers = () => {
-    setShowVouchersScreen(true);
+    if (onNavigateToVouchers) {
+      onNavigateToVouchers();
+    } else {
+      setShowVouchersScreen(true);
+    }
   };
 
   const handleOpenDailyCash = () => {
-    setShowDailyCashScreen(true);
+    if (onNavigateToDailyCash) {
+      onNavigateToDailyCash();
+    } else {
+      setShowDailyCashScreen(true);
+    }
   };
 
   const handleOpenReports = () => {
@@ -358,11 +375,19 @@ export function SubWarehouseFinanceScreen({
   };
 
   const handleOpenFinanceHistory = () => {
-    setShowFinanceHistoryScreen(true);
+    if (onNavigateToHistory) {
+      onNavigateToHistory();
+    } else {
+      setShowFinanceHistoryScreen(true);
+    }
   };
 
   const handleOpenCategories = () => {
-    setShowExpenseCategoriesScreen(true);
+    if (onNavigateToCategories) {
+      onNavigateToCategories();
+    } else {
+      setShowExpenseCategoriesScreen(true);
+    }
   };
 
   const handleQuickAction = (actionName: string) => {

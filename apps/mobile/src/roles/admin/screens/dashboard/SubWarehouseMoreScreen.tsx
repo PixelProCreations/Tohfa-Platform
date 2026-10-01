@@ -18,25 +18,25 @@ import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  peachBg:       '#FDF0EB',
-  iconColor:     '#8B5E3C',
+  primary: '#F0562A',
+  primaryDark: '#D4451B',
+  primaryLight: '#FFF0EB',
+  peachBg: '#FDF0EB',
+  iconColor: '#8B5E3C',
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textDark:      '#1E1612',
+  pageBg: '#FAF7F2',
+  cardBg: '#FFFFFF',
+  textDark: '#1E1612',
   textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
+  textMuted: '#9CA3AF',
+  border: '#EBE5DC',
+  divider: '#F4EFE9',
 
-  activeGreen:   '#059669',
-  logoutBg:      '#FEE2E2',
-  logoutText:    '#DC2626',
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
+  activeGreen: '#059669',
+  logoutBg: '#FEE2E2',
+  logoutText: '#DC2626',
+  tabInactive: '#786F66',
+  tabBorder: '#EAE4DB',
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -46,23 +46,25 @@ export interface MoreOptionItem {
   title: string;
   subtitle: string;
   iconType:
-    | 'orders'
-    | 'sales'
-    | 'customers'
-    | 'wallet'
-    | 'billing'
-    | 'returns'
-    | 'finance'
-    | 'reports'
-    | 'notifications'
-    | 'staff'
-    | 'attendance'
-    | 'profile'
-    | 'settings'
-    | 'warehouse_operations'
-    | 'help';
+  | 'orders'
+  | 'sales'
+  | 'customers'
+  | 'wallet'
+  | 'billing'
+  | 'returns'
+  | 'finance'
+  | 'reports'
+  | 'notifications'
+  | 'staff'
+  | 'attendance'
+  | 'profile'
+  | 'settings'
+  | 'warehouse_operations'
+  | 'help';
   iconBg?: string;
   iconColor?: string;
+  badge?: string;
+  badgeType?: 'alert' | 'success' | 'neutral' | string;
 }
 
 export interface OptionGroup {
@@ -123,13 +125,9 @@ const OPTION_GROUPS: OptionGroup[] = [
         title: 'Warehouse Finance',
         subtitle: 'View warehouse financial activity',
         iconType: 'finance',
+        iconBg: '#FFF0EB',
+        iconColor: '#F0562A',
       },
-    ],
-  },
-  {
-    id: 'management',
-    title: 'MANAGEMENT',
-    items: [
       {
         id: 'reports',
         title: 'Reports',
@@ -173,10 +171,24 @@ const OPTION_GROUPS: OptionGroup[] = [
         iconType: 'settings',
       },
       {
-        id: 'help',
-        title: 'Help & Support',
-        subtitle: 'Get help and contact support',
-        iconType: 'help',
+        id: 'orders',
+        title: 'Customer Orders',
+        subtitle: 'Fulfillment queue, packing slips & dispatch statuses',
+        badge: '8 Pending',
+        badgeType: 'alert',
+        iconType: 'orders',
+        iconBg: '#FFF0EB',
+        iconColor: '#F0562A',
+      },
+      {
+        id: 'sales',
+        title: 'Direct / Market Sales',
+        subtitle: 'Point-of-sale registers, stall batches & daily totals',
+        badge: '₹24,850 Today',
+        badgeType: 'success',
+        iconType: 'sales',
+        iconBg: '#DCFCE7',
+        iconColor: '#15803D',
       },
     ],
   },
@@ -369,7 +381,7 @@ function FinanceIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: 
   );
 }
 
-function ReportsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function ReportsIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -454,7 +466,7 @@ function HelpSupportIcon({ color = '#8B5E3C', size = 20 }: { color?: string; siz
   );
 }
 
-function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: number }) {
+function OrdersIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -471,6 +483,14 @@ function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: n
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

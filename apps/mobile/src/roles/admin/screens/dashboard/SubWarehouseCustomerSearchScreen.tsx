@@ -14,19 +14,23 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
 
+// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
   pageBg:        '#FAF7F2',
   cardBg:        '#FFFFFF',
   textInk:       '#1E1612',
-  textSecondary: '#6B7280',
+  textSecondary: '#7A726C',
   textMuted:     '#9CA3AF',
+  textBody:      '#374151',
   border:        '#EBE5DC',
   divider:       '#F4EFE9',
+  greenBadge:    '#E6F5ED',
+  greenText:     '#10B981',
 
-  blueInfoBg:    '#EBF3FC',
-  blueInfoBorder:'#BFDBFE',
-  blueInfoText:  '#1E40AF',
+  orangeNoticeBg:     '#FFF5F2',
+  orangeNoticeBorder: '#FED7AA',
+  orangeNoticeText:   '#C2410C',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
@@ -43,19 +47,35 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" />
-      <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path
+        d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M21 21l-4.35-4.35"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
 
-function QrScanIcon({ size = 20, color = '#6B7280' }: { size?: number; color?: string }) {
+function QrScanIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path
+        d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
       <Rect x="8" y="8" width="3" height="3" fill={color} />
       <Rect x="13" y="8" width="3" height="3" fill={color} />
       <Rect x="8" y="13" width="3" height="3" fill={color} />
@@ -64,21 +84,40 @@ function QrScanIcon({ size = 20, color = '#6B7280' }: { size?: number; color?: s
   );
 }
 
-function ProhibitedIcon({ size = 18, color = '#1E40AF' }: { size?: number; color?: string }) {
+function InfoNoticeIcon({ size = 18, color = '#C2410C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M5.6 5.6l12.8 12.8" stroke={color} strokeWidth="2" />
+      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
+export interface CustomerSearchItem {
+  name: string;
+  code: string;
+  id?: string;
+  phone: string;
+  balance: string;
+  status?: string;
+}
+
 export interface SubWarehouseCustomerSearchScreenProps {
   onBack?: () => void;
-  onSelectCustomer?: (customer: { name: string; code: string; phone?: string; balance: string }) => void;
-  onNavigateToWallet?: (customer: { name: string; code: string; phone?: string; balance: string }) => void;
-  onNavigateToCashTopUp?: () => void;
+  onSelectCustomer?: ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);
+  onNavigateToWallet?: (customer: CustomerSearchItem) => void;
+  onNavigateToCashTopUp?: ((customer?: CustomerSearchItem) => void) | undefined;
 }
+
+const RECENT_SEARCHES = ['Rajesh Kumar', 'CUS-00192', 'XXXXX12345'];
+
+const SEARCH_DATABASE: CustomerSearchItem[] = [
+  { name: 'Rajesh Kumar', code: 'CUS-00291', id: 'CUS-00291', phone: '+91 98765 43210', balance: '₹4,500', status: 'Active' },
+  { name: 'Priya Stores', code: 'CUS-00152', id: 'CUS-00152', phone: '+91 98451 12345', balance: '₹2,100', status: 'Active' },
+  { name: 'Ganesh K.', code: 'CUS-00087', id: 'CUS-00087', phone: '+91 99887 76655', balance: '₹620', status: 'Inactive' },
+  { name: 'Ramesh Patel', code: 'CUS-00192', id: 'CUS-00192', phone: '+91 98111 12345', balance: '₹1,250', status: 'Active' },
+  { name: 'Anand Kumar', code: 'CUS-00188', id: 'CUS-00188', phone: '+91 97123 67890', balance: '₹850', status: 'Active' },
+];
 
 export function SubWarehouseCustomerSearchScreen({
   onBack,
@@ -87,14 +126,9 @@ export function SubWarehouseCustomerSearchScreen({
   onNavigateToCashTopUp,
 }: SubWarehouseCustomerSearchScreenProps) {
   const [query, setQuery] = useState('');
-  const [selectedCustomerForWallet, setSelectedCustomerForWallet] = useState<{
-    name: string;
-    code: string;
-    phone: string;
-    balance: string;
-  } | null>(null);
+  const [selectedCustomerForWallet, setSelectedCustomerForWallet] = useState<CustomerSearchItem | null>(null);
 
-  // If a customer is opened, show the Customer Wallet screen (Screenshots 1 & 2)
+  // If a customer is opened internally without onNavigateToWallet, show customer wallet
   if (selectedCustomerForWallet) {
     return (
       <SubWarehouseCustomerWalletScreen
@@ -111,32 +145,34 @@ export function SubWarehouseCustomerSearchScreen({
         onBack={() => setSelectedCustomerForWallet(null)}
         onNavigateToCashTopUp={() => {
           if (onNavigateToCashTopUp) {
-            onNavigateToCashTopUp();
+            onNavigateToCashTopUp(selectedCustomerForWallet);
           } else if (onSelectCustomer) {
-            onSelectCustomer(selectedCustomerForWallet);
+            handleCustomerPress(selectedCustomerForWallet);
           }
         }}
       />
     );
   }
 
-  const sampleCustomers = [
-    { name: 'Ravi Kumar', code: 'CUS-001245', phone: '+91 98765 43210', balance: '₹4,500' },
-    { name: 'Priya Stores', code: 'CUS-00152', phone: '+91 98451 12345', balance: '₹2,100' },
-    { name: 'Anand Kumar', code: 'CUS-00188', phone: '+91 97123 67890', balance: '₹850' },
-  ];
-
-  const filteredCustomers = query.trim().length > 0
-    ? sampleCustomers.filter((c) =>
-        c.name.toLowerCase().includes(query.toLowerCase()) ||
-        c.code.toLowerCase().includes(query.toLowerCase()) ||
-        c.phone.includes(query)
+  const trimmed = query.trim().toLowerCase();
+  const searchResults = trimmed
+    ? SEARCH_DATABASE.filter(
+        (c) =>
+          c.name.toLowerCase().includes(trimmed) ||
+          c.code.toLowerCase().includes(trimmed) ||
+          c.phone.toLowerCase().includes(trimmed)
       )
-    : sampleCustomers;
+    : SEARCH_DATABASE;
 
-  const handleCustomerPress = (c: { name: string; code: string; phone: string; balance: string }) => {
+  const handleCustomerPress = (c: CustomerSearchItem) => {
     if (onNavigateToWallet) {
       onNavigateToWallet(c);
+    } else if (onSelectCustomer) {
+      if ((onSelectCustomer as any).length >= 2) {
+        (onSelectCustomer as any)(c.name, c.code);
+      } else {
+        (onSelectCustomer as any)(c);
+      }
     } else {
       setSelectedCustomerForWallet(c);
     }
@@ -146,7 +182,7 @@ export function SubWarehouseCustomerSearchScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
-      {/* Header */}
+      {/* ─── Header (Orange Theme with Back Arrow) ─── */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -156,64 +192,95 @@ export function SubWarehouseCustomerSearchScreen({
         >
           <ArrowBackIcon size={22} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Customer Search</Text>
+        <Text style={styles.headerTitle}>Search Customers</Text>
       </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Search input with QR scan button */}
+        {/* ─── Search Bar ─── */}
         <View style={styles.searchBarContainer}>
-          <SearchIcon size={19} color={PALETTE.textSecondary} />
+          <SearchIcon size={18} color={PALETTE.textSecondary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search Customer ID or mobile number"
             placeholderTextColor={PALETTE.textMuted}
             value={query}
             onChangeText={setQuery}
+            autoFocus={true}
+            clearButtonMode="while-editing"
           />
           <TouchableOpacity
             onPress={() => Alert.alert('QR Scanner', 'Opening QR & Barcode scanner...')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <QrScanIcon size={22} color={PALETTE.textSecondary} />
+            <QrScanIcon size={20} color={PALETTE.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Notice Info Banner */}
+        {/* ─── Notice Info Banner ─── */}
         <View style={styles.noticeBanner}>
           <View style={styles.noticeIconWrap}>
-            <ProhibitedIcon size={18} color={PALETTE.blueInfoText} />
+            <InfoNoticeIcon size={18} color={PALETTE.orangeNoticeText} />
           </View>
           <Text style={styles.noticeBannerText}>
-            No "Create Customer" action exists here — customer creation isn't an SWA permission in this build.
+            Select a customer to view wallet balance and perform authorized top-ups.
           </Text>
         </View>
 
-        {/* Customer List (Matching or Recent/Suggested) */}
-        <View style={{ marginTop: 20 }}>
+        {/* ─── Customer Results ─── */}
+        <View style={styles.sectionWrap}>
           <Text style={styles.resultsHeader}>
-            {query.trim().length > 0 ? 'Matching Customers' : 'Recent / Suggested Customers'}
+            {trimmed ? 'Matching Customers' : 'Recent / Suggested Customers'}
           </Text>
-          {filteredCustomers.map((c) => (
-            <TouchableOpacity
-              key={c.code}
-              style={styles.customerResultCard}
-              onPress={() => handleCustomerPress(c)}
-              activeOpacity={0.75}
-            >
-              <View>
-                <Text style={styles.custResultName}>{c.name}</Text>
-                <Text style={styles.custResultSub}>{c.code} · {c.phone}</Text>
-              </View>
-              <View style={styles.custBalancePill}>
-                <Text style={styles.custBalanceText}>{c.balance}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+
+          {searchResults.length > 0 ? (
+            searchResults.map((c) => (
+              <TouchableOpacity
+                key={c.code}
+                style={styles.customerResultCard}
+                onPress={() => handleCustomerPress(c)}
+                activeOpacity={0.75}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.custResultName}>{c.name}</Text>
+                  <Text style={styles.custResultSub}>
+                    {c.code} · {c.phone}
+                  </Text>
+                </View>
+                <View style={styles.custBalancePill}>
+                  <Text style={styles.custBalanceText}>{c.balance}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>No matching customers found</Text>
+            </View>
+          )}
         </View>
+
+        {/* ─── Quick Recent Tags (when not typing) ─── */}
+        {!trimmed && (
+          <View style={[styles.sectionWrap, { marginTop: 10 }]}>
+            <Text style={styles.resultsHeader}>Recent Searches</Text>
+            <View style={styles.recentTagsWrap}>
+              {RECENT_SEARCHES.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.recentTag}
+                  onPress={() => setQuery(item)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.recentTagText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -229,7 +296,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 12 : 6,
+    paddingTop: Platform.OS === 'android' ? 12 : 8,
     paddingBottom: 14,
     gap: 12,
   },
@@ -238,9 +305,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   scroll: {
     flex: 1,
@@ -248,37 +315,33 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 14,
+    paddingBottom: 28,
   },
   searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 6,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
-    gap: 10,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: PALETTE.textInk,
+    paddingVertical: 0,
   },
   noticeBanner: {
-    backgroundColor: PALETTE.blueInfoBg,
+    backgroundColor: PALETTE.orangeNoticeBg,
     borderWidth: 1,
-    borderColor: PALETTE.blueInfoBorder,
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 14,
+    borderColor: PALETTE.orangeNoticeBorder,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -288,10 +351,13 @@ const styles = StyleSheet.create({
   },
   noticeBannerText: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '500',
-    color: PALETTE.blueInfoText,
-    lineHeight: 17,
+    color: PALETTE.orangeNoticeText,
+    lineHeight: 16,
+  },
+  sectionWrap: {
+    marginTop: 18,
   },
   resultsHeader: {
     fontSize: 14,
@@ -301,7 +367,7 @@ const styles = StyleSheet.create({
   },
   customerResultCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -311,7 +377,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   custResultName: {
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: '700',
     color: PALETTE.textInk,
   },
@@ -321,14 +387,39 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   custBalancePill: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: PALETTE.greenBadge,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   custBalanceText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#059669',
+    color: PALETTE.greenText,
+  },
+  emptyWrap: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+  },
+  recentTagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  recentTag: {
+    backgroundColor: PALETTE.cardBg,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  recentTagText: {
+    fontSize: 12,
+    color: PALETTE.textBody,
   },
 });

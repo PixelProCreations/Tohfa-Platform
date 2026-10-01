@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -21,14 +22,15 @@ const PALETTE = {
   cardBg:        '#FFFFFF',
   textInk:       '#1E1612',
   textSecondary: '#6B7280',
+  textMuted:     '#9CA3AF',
   border:        '#EBE5DC',
   divider:       '#F4EFE9',
 
   greenAmount:   '#059669',
   redAmount:     '#DC2626',
-  redCalloutBg:  '#FFF1F2',
-  redCalloutBorder:'#FECDD3',
-  redCalloutText:'#BE123C',
+  noticeBg:      '#FFF5F2',
+  noticeBorder:  '#FED7AA',
+  noticeText:    '#C2410C',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
@@ -49,13 +51,13 @@ function CashIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: str
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+      <Circle cx="12" cy="12" r="2" stroke={color} strokeWidth="2" />
       <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function LockIcon({ size = 16, color = '#BE123C' }: { size?: number; color?: string }) {
+function LockNoticeIcon({ size = 16, color = '#C2410C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2" />
@@ -64,40 +66,58 @@ function LockIcon({ size = 16, color = '#BE123C' }: { size?: number; color?: str
   );
 }
 
+export interface CustomerWalletData {
+  name: string;
+  id: string;
+  mobile?: string;
+  balance?: string;
+  totalCredited?: string;
+  totalUsed?: string;
+}
+
 export interface SubWarehouseCustomerWalletScreenProps {
   onBack?: () => void;
-  onNavigateToCashTopUp?: () => void;
+  customerName?: string;
+  onCashTopUp?: (customer?: CustomerWalletData) => void;
+  onNavigateToCashTopUp?: (customer?: CustomerWalletData) => void;
   onNavigateToTransactionDetail?: (data: TransactionDetailData) => void;
-  customer?: {
-    name: string;
-    id: string;
-    mobile: string;
-    balance: string;
-    totalCredited: string;
-    totalUsed: string;
-  };
+  customer?: CustomerWalletData;
 }
 
 export function SubWarehouseCustomerWalletScreen({
   onBack,
+  customerName = 'Rajesh Kumar',
+  onCashTopUp,
   onNavigateToCashTopUp,
   onNavigateToTransactionDetail,
-  customer = {
-    name: 'Ravi Kumar',
+  customer,
+}: SubWarehouseCustomerWalletScreenProps) {
+  const [selectedTx, setSelectedTx] = useState<TransactionDetailData | null>(null);
+
+  const activeCustomer: CustomerWalletData = customer || {
+    name: customerName,
     id: 'CUS-001245',
-    mobile: '+91 XXXXX XXXXX',
+    mobile: '+91 98765 43210',
     balance: '₹4,500.00',
     totalCredited: '₹25,000',
     totalUsed: '₹20,500',
-  },
-}: SubWarehouseCustomerWalletScreenProps) {
-  const [selectedTx, setSelectedTx] = useState<TransactionDetailData | null>(null);
+  };
 
   const handleOpenTransaction = (tx: TransactionDetailData) => {
     if (onNavigateToTransactionDetail) {
       onNavigateToTransactionDetail(tx);
     } else {
       setSelectedTx(tx);
+    }
+  };
+
+  const handleTopUpPress = () => {
+    if (onNavigateToCashTopUp) {
+      onNavigateToCashTopUp(activeCustomer);
+    } else if (onCashTopUp) {
+      onCashTopUp(activeCustomer);
+    } else {
+      Alert.alert('Cash Top-Up', `Initiating top-up for ${activeCustomer.name}`);
     }
   };
 
@@ -109,6 +129,7 @@ export function SubWarehouseCustomerWalletScreen({
       />
     );
   }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -123,7 +144,10 @@ export function SubWarehouseCustomerWalletScreen({
         >
           <ArrowBackIcon size={22} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Customer Wallet</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Customer Wallet</Text>
+          <Text style={styles.headerSubtitle}>{activeCustomer.name}</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -133,15 +157,19 @@ export function SubWarehouseCustomerWalletScreen({
       >
         {/* Customer Top Card */}
         <View style={styles.customerCard}>
-          <Text style={styles.custName}>{customer.name}</Text>
-          <Text style={styles.custId}>Customer ID: {customer.id}</Text>
-          <Text style={styles.custMobileLabel}>Mobile</Text>
-          <Text style={styles.custMobileValue}>{customer.mobile}</Text>
+          <Text style={styles.custName}>{activeCustomer.name}</Text>
+          <Text style={styles.custId}>Customer ID: {activeCustomer.id}</Text>
+          {activeCustomer.mobile && (
+            <View style={{ marginTop: 6 }}>
+              <Text style={styles.custMobileLabel}>Mobile</Text>
+              <Text style={styles.custMobileValue}>{activeCustomer.mobile}</Text>
+            </View>
+          )}
         </View>
 
         {/* Large Balance Banner Card */}
         <View style={styles.balanceBanner}>
-          <Text style={styles.balanceAmount}>{customer.balance}</Text>
+          <Text style={styles.balanceAmount}>{activeCustomer.balance || '₹4,500.00'}</Text>
           <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
         </View>
 
@@ -150,26 +178,28 @@ export function SubWarehouseCustomerWalletScreen({
         <View style={styles.card}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Total Credited</Text>
-            <Text style={styles.summaryValue}>{customer.totalCredited}</Text>
+            <Text style={styles.summaryValue}>{activeCustomer.totalCredited || '₹25,000'}</Text>
           </View>
           <View style={styles.divider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Total Used</Text>
-            <Text style={styles.summaryValue}>{customer.totalUsed}</Text>
+            <Text style={styles.summaryValue}>{activeCustomer.totalUsed || '₹20,500'}</Text>
           </View>
           <View style={styles.divider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.currentBalanceLabel}>Current Balance</Text>
-            <Text style={styles.currentBalanceValue}>{customer.balance.split('.')[0]}</Text>
+            <Text style={styles.currentBalanceValue}>
+              {(activeCustomer.balance || '₹4,500').split('.')[0]}
+            </Text>
           </View>
         </View>
 
         {/* Recent Wallet Transactions */}
         <Text style={styles.sectionTitle}>Recent Wallet Transactions</Text>
         <View style={styles.card}>
-          {/* Item 1 - Cash Top-Up (Opens Transaction Detail screen from screenshot) */}
+          {/* Item 1 - Cash Top-Up */}
           <TouchableOpacity
             style={styles.txRow}
             onPress={() =>
@@ -250,11 +280,13 @@ export function SubWarehouseCustomerWalletScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Red Warning Banner (Image 2) */}
-        <View style={styles.redWarningBox}>
-          <LockIcon size={16} color={PALETTE.redCalloutText} />
-          <Text style={styles.redWarningText}>
-            No Edit Balance / Set Balance / Adjust Wallet / Manual Credit action exists anywhere on this screen.
+        {/* Notice Info Box */}
+        <View style={styles.noticeBox}>
+          <View style={styles.noticeIconWrap}>
+            <LockNoticeIcon size={16} color={PALETTE.noticeText} />
+          </View>
+          <Text style={styles.noticeText}>
+            No Edit Balance / Set Balance / Manual Credit action exists on this screen. Cash top-up happens through the authorized transaction flow.
           </Text>
         </View>
 
@@ -265,7 +297,7 @@ export function SubWarehouseCustomerWalletScreen({
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.cashTopUpBtn}
-          onPress={onNavigateToCashTopUp}
+          onPress={handleTopUpPress}
           activeOpacity={0.85}
         >
           <CashIcon size={20} color="#FFFFFF" />
@@ -286,7 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 12 : 6,
+    paddingTop: Platform.OS === 'android' ? 12 : 8,
     paddingBottom: 14,
     gap: 12,
   },
@@ -295,9 +327,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.9,
+    marginTop: 1,
   },
   scroll: {
     flex: 1,
@@ -305,106 +343,96 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 14,
   },
   customerCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   custName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.textInk,
   },
   custId: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    fontSize: 12,
+    color: PALETTE.textSecondary,
     marginTop: 2,
   },
   custMobileLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
-    marginTop: 10,
+    fontSize: 11,
+    color: PALETTE.textMuted,
   },
   custMobileValue: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
     color: PALETTE.textInk,
-    marginTop: 2,
+    fontWeight: '500',
+    marginTop: 1,
   },
   balanceBanner: {
     backgroundColor: PALETTE.primary,
-    borderRadius: 16,
-    paddingVertical: 24,
+    borderRadius: 14,
+    paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
   },
   balanceAmount: {
-    fontSize: 34,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.5,
   },
   balanceLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.85)',
-    letterSpacing: 0.6,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    letterSpacing: 0.8,
     marginTop: 4,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.textInk,
-    marginTop: 8,
-    marginBottom: 8,
+    marginBottom: 10,
+    marginTop: 4,
   },
   card: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   summaryLabel: {
     fontSize: 13,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
   },
   summaryValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: PALETTE.textInk,
+  },
+  currentBalanceLabel: {
     fontSize: 13.5,
     fontWeight: '700',
     color: PALETTE.textInk,
   },
-  currentBalanceLabel: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
   currentBalanceValue: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: PALETTE.textInk,
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.primary,
   },
   divider: {
     height: 1,
@@ -415,65 +443,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 6,
   },
   txTypeGreen: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13.5,
+    fontWeight: '600',
     color: PALETTE.greenAmount,
   },
   txTypeRed: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13.5,
+    fontWeight: '600',
     color: PALETTE.redAmount,
   },
   txDate: {
-    fontSize: 11,
-    color: PALETTE.textSecondary,
+    fontSize: 11.5,
+    color: PALETTE.textMuted,
     marginTop: 2,
   },
   txAmountGreen: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: PALETTE.greenAmount,
   },
   txAmountRed: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: PALETTE.redAmount,
   },
-  redWarningBox: {
-    backgroundColor: PALETTE.redCalloutBg,
-    borderColor: PALETTE.redCalloutBorder,
+  noticeBox: {
+    backgroundColor: PALETTE.noticeBg,
     borderWidth: 1,
+    borderColor: PALETTE.noticeBorder,
     borderRadius: 12,
     padding: 12,
     flexDirection: 'row',
+    gap: 10,
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  redWarningText: {
+  noticeIconWrap: {
+    marginTop: 2,
+  },
+  noticeText: {
     flex: 1,
     fontSize: 11.5,
-    fontWeight: '700',
-    color: PALETTE.redCalloutText,
+    color: PALETTE.noticeText,
     lineHeight: 16,
+    fontWeight: '500',
   },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: PALETTE.cardBg,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 24 : 14,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.divider,
+    borderTopColor: PALETTE.border,
   },
   cashTopUpBtn: {
     backgroundColor: PALETTE.primary,
-    borderRadius: 14,
+    borderRadius: 12,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',

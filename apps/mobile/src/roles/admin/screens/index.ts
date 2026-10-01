@@ -1,3 +1,4 @@
+export type { InvoiceItem } from './sales';
 export * from './dashboard';
 export * from './audits';
 export * from './finance';
