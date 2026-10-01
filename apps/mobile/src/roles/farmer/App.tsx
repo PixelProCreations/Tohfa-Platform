@@ -223,12 +223,17 @@ import {
   SubWarehouseVouchersScreen,
   SubWarehouseVoucherDetailScreen,
   SubWarehouseWarehouseOperationsScreen,
+  SubWarehouseWarehouseActivityScreen,
   SubWarehouseStorageLocationDetailScreen,
   SubWarehouseMaterialHandlingScreen,
   SubWarehouseMaterialDetailScreen,
   SubWarehouseCapacityScreen,
   SubWarehouseOperationalIssuesScreen,
   SubWarehouseReportIssueScreen,
+  SubWarehouseIssueSubmittedScreen,
+  SubWarehouseOperationalIssueDetailScreen,
+  SubWarehouseStaffAndAttendanceScreen,
+  SubWarehouseAttendanceDetailScreen,
   SubWarehouseReportsScreen,
   SubWarehouseSettingsScreen,
   SubWarehouseHelpSupportScreen,
@@ -422,12 +427,17 @@ export type ScreenName =
   | 'SubWarehouseFinanceReports'
   | 'SubWarehouseVouchers'
   | 'SubWarehouseWarehouseOperations'
+  | 'SubWarehouseWarehouseActivity'
   | 'SubWarehouseStorageLocationDetail'
   | 'SubWarehouseMaterialHandling'
   | 'SubWarehouseMaterialDetail'
   | 'SubWarehouseCapacity'
   | 'SubWarehouseOperationalIssues'
   | 'SubWarehouseReportIssue'
+  | 'SubWarehouseIssueSubmitted'
+  | 'SubWarehouseOperationalIssueDetail'
+  | 'SubWarehouseStaffAndAttendance'
+  | 'SubWarehouseAttendanceDetail'
   | 'SubWarehouseReports'
   | 'SubWarehouseSettings'
   | 'SubWarehouseCustomers'
@@ -614,6 +624,7 @@ export type ScreenName =
   | 'SubWarehouseFinanceHistory'
   | 'SubWarehouseFinanceReports'
   | 'SubWarehouseWarehouseOperations'
+  | 'SubWarehouseWarehouseActivity'
   | 'SubWarehouseReturnsIssues'
   | 'SubWarehouseRmaDetail'
   | 'SubWarehouseInspectProduct'
@@ -640,6 +651,10 @@ export type ScreenName =
   | 'SubWarehouseStorageInfo'
   | 'SubWarehouseOperationalIssues'
   | 'SubWarehouseReportIssue'
+  | 'SubWarehouseIssueSubmitted'
+  | 'SubWarehouseOperationalIssueDetail'
+  | 'SubWarehouseStaffAndAttendance'
+  | 'SubWarehouseAttendanceDetail'
   | 'SubWarehouseNewSale'
   | 'SubWarehouseSelectProducts'
   | 'SubWarehouseSaleSummary'
@@ -993,6 +1008,7 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SubWarehouseStorageInfo' ? (
           <SubWarehouseStorageInfoScreen
             onBack={goBack}
+            onSelectLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
@@ -2216,6 +2232,22 @@ export default function App(): React.JSX.Element {
             onNavigateToCapacity={() => navigate('SubWarehouseCapacity')}
             onNavigateToMaterialHandling={() => navigate('SubWarehouseMaterialHandling')}
             onNavigateToOperationalIssues={() => navigate('SubWarehouseOperationalIssues')}
+            onNavigateToStaffAttendance={() => navigate('SubWarehouseStaffAndAttendance')}
+            onNavigateToReceiveGoods={() => navigate('ReceivingQcScreen' as any)}
+            onNavigateToWarehouseActivity={() => navigate('SubWarehouseWarehouseActivity')}
+          />
+        ) : screen === 'SubWarehouseWarehouseActivity' ? (
+          <SubWarehouseWarehouseActivityScreen
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+            onNavigateToSearch={() => {
+              // Open search functionality
+            }}
           />
         ) : screen === 'SubWarehouseStorageLocationDetail' ? (
           <SubWarehouseStorageLocationDetailScreen
@@ -2246,14 +2278,36 @@ export default function App(): React.JSX.Element {
           <SubWarehouseOperationalIssuesScreen
             onBack={goBack}
             onNavigateToReport={() => navigate('SubWarehouseReportIssue')}
+            onViewIssueDetail={() => navigate('SubWarehouseOperationalIssueDetail')}
           />
         ) : screen === 'SubWarehouseReportIssue' ? (
           <SubWarehouseReportIssueScreen
             onBack={goBack}
-            onSubmit={() => {
-              Alert.alert('Issue Submitted', 'Your operational issue has been logged.');
-              goBack();
+            onSubmit={() => navigate('SubWarehouseIssueSubmitted')}
+          />
+        ) : screen === 'SubWarehouseIssueSubmitted' ? (
+          <SubWarehouseIssueSubmittedScreen
+            onViewIssue={() => navigate('SubWarehouseOperationalIssueDetail')}
+          />
+        ) : screen === 'SubWarehouseOperationalIssueDetail' ? (
+          <SubWarehouseOperationalIssueDetailScreen
+            onBack={goBack}
+          />
+        ) : screen === 'SubWarehouseStaffAndAttendance' ? (
+          <SubWarehouseStaffAndAttendanceScreen
+            onBack={goBack}
+            onNavigateToDetail={(staffId) => navigate('SubWarehouseAttendanceDetail', { staffId })}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
             }}
+          />
+        ) : screen === 'SubWarehouseAttendanceDetail' ? (
+          <SubWarehouseAttendanceDetailScreen
+            staffId={(params['staffId'] as string) || 'STAFF-1'}
+            onBack={goBack}
           />
         ) : screen === 'SubWarehouseReports' ? (
           <SubWarehouseReportsScreen

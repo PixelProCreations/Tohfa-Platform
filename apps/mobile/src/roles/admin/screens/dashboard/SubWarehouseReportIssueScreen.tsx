@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primaryBtn: {
-    backgroundColor: '#E88B5A',
+    backgroundColor: PALETTE.primary,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
