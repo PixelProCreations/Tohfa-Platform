@@ -141,16 +141,17 @@ export function SubWarehouseSaleConfirmationScreen({
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
-          {onBack && (
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={onBack}
-              activeOpacity={0.8}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <ArrowBackIcon size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => {
+              if (onBack) onBack();
+              else if (onNewSale) onNewSale();
+            }}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Sale Confirmation</Text>
         </View>
       </View>

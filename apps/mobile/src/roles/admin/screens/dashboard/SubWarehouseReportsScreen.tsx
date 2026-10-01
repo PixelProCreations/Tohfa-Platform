@@ -2290,16 +2290,17 @@ export function SubWarehouseReportsScreen({
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerLeftGroup}>
-            {onBack && (
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={onBack}
-                activeOpacity={0.75}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (onBack) onBack();
+                else if (onTabChange) onTabChange('Home');
+              }}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
             <View style={styles.headerTitleRow}>
               <ReportDocHeaderIcon size={22} color="#FFFFFF" />
               <Text style={styles.headerTitleText}>Reports</Text>

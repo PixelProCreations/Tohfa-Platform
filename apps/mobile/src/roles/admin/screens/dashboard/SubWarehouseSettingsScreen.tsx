@@ -504,11 +504,15 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
       {/* Header */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
-          {onBack && (
-            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (onBack) onBack();
+            }}
+            activeOpacity={0.75}
+          >
+            <ArrowBackIcon size={22} />
+          </TouchableOpacity>
           <View style={styles.headerTitleRow}>
             <SettingsGearIcon size={22} />
             <Text style={styles.headerTitleText}>Settings</Text>

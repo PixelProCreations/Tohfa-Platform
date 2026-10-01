@@ -72,6 +72,20 @@ export interface SubWarehouseFinanceScreenProps {
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function GridMenuIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -338,7 +352,7 @@ export function SubWarehouseFinanceScreen({
     if (onNavigateToExpenses) {
       onNavigateToExpenses();
     } else {
-      setShowExpenseDetailScreen(true);
+      setShowExpensesScreen(true);
     }
   };
 
@@ -367,11 +381,7 @@ export function SubWarehouseFinanceScreen({
   };
 
   const handleOpenReports = () => {
-    if (onNavigateToReports) {
-      onNavigateToReports();
-    } else {
-      setShowFinanceReportsScreen(true);
-    }
+    setShowFinanceReportsScreen(true);
   };
 
   const handleOpenFinanceHistory = () => {
@@ -466,10 +476,6 @@ export function SubWarehouseFinanceScreen({
         warehouseName="Coonoor Warehouse"
         onBack={() => setShowVouchersScreen(false)}
         onTabChange={onTabChange}
-        onSelectVoucher={() => {
-          setShowVouchersScreen(false);
-          setShowExpenseDetailScreen(true);
-        }}
       />
     );
   }
@@ -532,14 +538,20 @@ export function SubWarehouseFinanceScreen({
       {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.headerTitleGroup}
-            onPress={onBack}
-            activeOpacity={0.8}
-          >
-            <GridMenuIcon size={22} color="#FFFFFF" />
+          <View style={styles.headerLeftGroup}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (onBack) onBack();
+                else if (onTabChange) onTabChange('Home');
+              }}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>Warehouse Finance</Text>
-          </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={styles.bellButton}
@@ -1029,11 +1041,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
-  headerTitleGroup: {
+  headerLeftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     flex: 1,
+  },
+  backButton: {
+    marginRight: 10,
+    padding: 2,
   },
   headerTitle: {
     fontSize: 22,

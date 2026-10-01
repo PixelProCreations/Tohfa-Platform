@@ -20,8 +20,8 @@ import { AppRegistry, LogBox } from 'react-native';
 import App from './src/roles/farmer/App';
 
 LogBox.ignoreLogs([
-  '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.',
-  '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.',
+  'new NativeEventEmitter()',
+  'new NativeEventEmitter',
 ]);
 
 AppRegistry.registerComponent('TohfaMobile', () => App);

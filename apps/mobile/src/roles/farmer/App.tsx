@@ -191,6 +191,8 @@ import {
   SubWarehouseSystemMessagesScreen,
   SubWarehouseMessageHistoryScreen,
   SubWarehouseReturnsIssuesScreen,
+  INITIAL_RMA_ITEMS,
+  type RmaRecord,
   SubWarehouseRmaDetailScreen,
   SubWarehouseInspectProductScreen,
   SubWarehouseReviewReturnRequestScreen,
@@ -219,6 +221,7 @@ import {
   SubWarehouseFinanceHistoryScreen,
   SubWarehouseFinanceReportsScreen,
   SubWarehouseVouchersScreen,
+  SubWarehouseVoucherDetailScreen,
   SubWarehouseWarehouseOperationsScreen,
   SubWarehouseStorageLocationDetailScreen,
   SubWarehouseMaterialHandlingScreen,
@@ -228,9 +231,8 @@ import {
   SubWarehouseReportIssueScreen,
   SubWarehouseReportsScreen,
   SubWarehouseSettingsScreen,
+  SubWarehouseHelpSupportScreen,
   type StaffMember,
-  INITIAL_RMA_ITEMS,
-  type RmaRecord,
   AuditCalendarScreen,
   type AuditEntry,
   ScheduleNewAuditScreen,
@@ -589,7 +591,78 @@ export type ScreenName =
   | 'AdminApplicationDetail'
   | 'AdminApplicationApprove'
   | 'AdminApplicationReject'
-  | 'AdminApplicationRequestInfo';
+  | 'AdminApplicationRequestInfo'
+  | 'SubWarehouseAdminDashboard'
+  | 'SubWarehouseOverview'
+  | 'SubWarehouseRecentActivity'
+  | 'SubWarehouseNotifications'
+  | 'SubWarehouseProfile'
+  | 'SubWarehouseReviewReceiving'
+  | 'SubWarehouseTodayOverview'
+  | 'SubWarehouseReports'
+  | 'SubWarehouseSales'
+  | 'SubWarehouseWalletOperations'
+  | 'SubWarehouseMore'
+  | 'SubWarehouseHelpSupport'
+  | 'SubWarehouseFinance'
+  | 'SubWarehouseExpenses'
+  | 'SubWarehouseRevenue'
+  | 'SubWarehouseVouchers'
+  | 'SubWarehouseVoucherDetail'
+  | 'SubWarehouseDailyCash'
+  | 'SubWarehouseExpenseCategories'
+  | 'SubWarehouseFinanceHistory'
+  | 'SubWarehouseFinanceReports'
+  | 'SubWarehouseWarehouseOperations'
+  | 'SubWarehouseReturnsIssues'
+  | 'SubWarehouseRmaDetail'
+  | 'SubWarehouseInspectProduct'
+  | 'SubWarehouseReviewReturnRequest'
+  | 'SubWarehouseRejectReturnRequest'
+  | 'SubWarehouseRequestRejected'
+  | 'SubWarehouseApproveReturn'
+  | 'SubWarehouseReturnApproved'
+  | 'SubWarehouseRefundStatus'
+  | 'SubWarehouseRefundFailed'
+  | 'SubWarehouseRefundCompleted'
+  | 'SubWarehouseReturnHistory'
+  | 'SubWarehouseReturnHistoryDetail'
+  | 'SubWarehouseStaff'
+  | 'SubWarehouseStaffDetail'
+  | 'SubWarehouseAttendance'
+  | 'SubWarehouseTodayAttendance'
+  | 'SubWarehouseAttendanceHistory'
+  | 'SubWarehouseRmaResolutionSuccess'
+  | 'SubWarehouseStorageLocationDetail'
+  | 'SubWarehouseMaterialHandling'
+  | 'SubWarehouseMaterialDetail'
+  | 'SubWarehouseCapacity'
+  | 'SubWarehouseStorageInfo'
+  | 'SubWarehouseOperationalIssues'
+  | 'SubWarehouseReportIssue'
+  | 'SubWarehouseNewSale'
+  | 'SubWarehouseSelectProducts'
+  | 'SubWarehouseSaleSummary'
+  | 'SubWarehouseSelectCustomer'
+  | 'SubWarehousePayment'
+  | 'SubWarehouseSaleConfirmation'
+  | 'SubWarehouseSalesHistory'
+  | 'SubWarehouseSaleDetail'
+  | 'SubWarehouseMarketDaySales'
+  | 'SubWarehouseHorecaSales'
+  | 'SubWarehouseB2BSales'
+  | 'SubWarehouseCashTopUp'
+  | 'SubWarehouseFiscalTag'
+  | 'SubWarehouseConfirmCashTopUp'
+  | 'SubWarehouseCustomerSearch'
+  | 'SubWarehouseCustomerWallet'
+  | 'SubWarehouseTopUpHistory'
+  | 'SubWarehouseDailyCashSummary'
+  | 'SubWarehouseTopUpDetails'
+  | 'SubWarehouseTransactionDetail'
+  | 'SubWarehouseTopUpSuccess'
+  | 'SubWarehouseNeedsAttention'
+  | 'SubWarehouseWalletAttention';
 
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
@@ -1043,7 +1116,7 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SubWarehouseSelectCustomer' ? (
           <SubWarehouseSelectCustomerScreen
             onBack={goBack}
-            onContinueToPayment={(cust) => {
+            onContinueToPayment={(cust: any) => {
               navigate('SubWarehousePayment', { customerName: cust.name, customerCode: cust.code });
             }}
           />
@@ -1213,6 +1286,17 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('SubWarehouseWalletOperations');
             }}
           />
+        ) : screen === 'SubWarehouseHelpSupport' ? (
+          <SubWarehouseHelpSupportScreen
+            warehouseName="Coonoor Warehouse"
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
+            }}
+          />
         ) : screen === 'SubWarehouseMore' ? (
           <SubWarehouseMoreScreen
             onBack={goBack}
@@ -1220,10 +1304,9 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('SubWarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
-            onNavigateToWallet={() => navigate('SubWarehouseWalletOperations')}
             onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
             onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
             onNavigateToOrders={() => navigate('SubWarehouseCustomerOrders')}

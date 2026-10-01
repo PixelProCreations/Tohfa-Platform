@@ -428,16 +428,17 @@ export function SubWarehouseSalesScreen({
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerLeftGroup}>
-            {onBack && (
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={onBack}
-                activeOpacity={0.75}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (onBack) onBack();
+                else if (onTabChange) onTabChange('Home');
+              }}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
             <View style={styles.headerTitleRow}>
               <CashRegisterHeaderIcon size={24} color="#FFFFFF" />
               <Text style={styles.headerTitleText}>Sales</Text>
