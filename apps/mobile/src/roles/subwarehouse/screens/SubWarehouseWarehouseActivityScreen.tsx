@@ -314,6 +314,33 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
   },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  gridCard: {
+    width: '48%',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+  },
+  gridVal: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginBottom: 4,
+  },
+  gridLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: PALETTE.textSecondary,
+    letterSpacing: 0.5,
+  },
   searchInput: {
     flex: 1,
     fontSize: 14,

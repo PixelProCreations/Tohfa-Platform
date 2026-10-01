@@ -13,10 +13,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { fetchMe, type UserMe } from '../../../farmer/api/auth';
-import { AdminProfileScreen } from './AdminProfileScreen';
-import { GoodsReceivingWizard, type ReceivingWizardStep } from '../warehouse/GoodsReceivingWizard';
-import { WarehouseNotificationsScreen, type WarehouseNotification } from '../warehouse/WarehouseNotificationsScreen';
+import { fetchMe, type UserMe } from '../../farmer/api/auth';
+import { AdminProfileScreen } from '../../admin/screens/dashboard/AdminProfileScreen';
+import { GoodsReceivingWizard, type ReceivingWizardStep } from '../../admin/screens/warehouse/GoodsReceivingWizard';
+import { WarehouseNotificationsScreen, type WarehouseNotification } from '../../admin/screens/warehouse/WarehouseNotificationsScreen';
 import { SubWarehouseProfileScreen } from './SubWarehouseProfileScreen';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
@@ -118,7 +118,7 @@ import {
   M3S16_InventoryFilters,
   M3S17_AdjustmentDetail,
   M3S18_StockMovementOptions,
-} from '../swa/inventory';
+} from '../../admin/screens/swa/inventory';
 import {
   M5S01_OrdersDashboard,
   M5S02_OrdersList,
@@ -146,7 +146,7 @@ import {
   M5S17B_ConfirmCancellation,
   M5S17C_OrderCancelled,
   M5S18_OrderInvoice,
-} from '../swa/orders';
+} from '../../admin/screens/swa/orders';
 
 // ─── Design Tokens (Brand Color: #F0562A Unified Subwarehouse Palette) ───────
 const PALETTE = {
