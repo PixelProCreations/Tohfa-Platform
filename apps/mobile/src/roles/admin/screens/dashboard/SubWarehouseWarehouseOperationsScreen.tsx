@@ -26,6 +26,20 @@ const PALETTE = {
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function GridMenuHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -215,11 +229,11 @@ export type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 export interface SubWarehouseWarehouseOperationsScreenProps {
   onBack: () => void;
-  onTabChange?: (tab: SubWHTab) => void;
-  onNavigateToStorageLocations?: () => void;
-  onNavigateToCapacity?: () => void;
-  onNavigateToMaterialHandling?: () => void;
-  onNavigateToOperationalIssues?: () => void;
+  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  onNavigateToStorageLocations?: (() => void) | undefined;
+  onNavigateToCapacity?: (() => void) | undefined;
+  onNavigateToMaterialHandling?: (() => void) | undefined;
+  onNavigateToOperationalIssues?: (() => void) | undefined;
 }
 
 export function SubWarehouseWarehouseOperationsScreen({
@@ -237,8 +251,16 @@ export function SubWarehouseWarehouseOperationsScreen({
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerLeftGroup}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack || (() => onTabChange?.('Home'))}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
             <View style={styles.headerTitleRow}>
-              <GridMenuHeaderIcon size={24} color="#FFFFFF" />
+              <GridMenuHeaderIcon size={22} color="#FFFFFF" />
               <Text style={styles.headerTitleText}>Warehouse Operations</Text>
             </View>
           </View>
@@ -431,6 +453,7 @@ const styles = StyleSheet.create({
   headerBanner: { backgroundColor: PALETTE.primary, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   headerLeftGroup: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  backButton: { marginRight: 10, padding: 2 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitleText: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
   warehouseBadgeRow: { marginTop: 2 },

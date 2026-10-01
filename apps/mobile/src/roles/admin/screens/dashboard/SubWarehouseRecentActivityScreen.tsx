@@ -238,17 +238,17 @@ export function SubWarehouseRecentActivityScreen({
       {/* ─── Top Brand Header ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
-          {onBack && (
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={onBack}
-              activeOpacity={0.8}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Go back"
-            >
-              <ArrowBackIcon size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => {
+              if (onBack) onBack();
+            }}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Go back"
+          >
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Recent Activity</Text>
         </View>
       </View>

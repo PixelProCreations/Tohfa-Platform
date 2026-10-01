@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { SubWarehouseVoucherDetailScreen } from './SubWarehouseVoucherDetailScreen';
+
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
@@ -215,6 +217,7 @@ export function SubWarehouseVouchersScreen({
 }: SubWarehouseVouchersScreenProps) {
   const [filterTab, setFilterTab] = useState<'All' | 'Expense' | 'Revenue'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedVoucher, setSelectedVoucher] = useState<VoucherRecord | null>(null);
 
   const handleTabPress = (tab: SubWHTab) => {
     if (onTabChange) {
@@ -223,6 +226,25 @@ export function SubWarehouseVouchersScreen({
       onBack();
     }
   };
+
+  if (selectedVoucher) {
+    return (
+      <SubWarehouseVoucherDetailScreen
+        voucherId={selectedVoucher.id}
+        type={selectedVoucher.type}
+        title={selectedVoucher.title}
+        amount={selectedVoucher.amount}
+        referenceId={selectedVoucher.referenceId}
+        date={selectedVoucher.date}
+        status={selectedVoucher.status}
+        warehouse={warehouseName}
+        createdBy="SWA – Suresh"
+        paymentMethod={selectedVoucher.type === 'Revenue' ? 'Cash / UPI' : 'Cash'}
+        onBack={() => setSelectedVoucher(null)}
+        onTabChange={onTabChange}
+      />
+    );
+  }
 
   const filteredVouchers = SAMPLE_VOUCHERS.filter((vch) => {
     if (filterTab !== 'All' && vch.type !== filterTab) {
@@ -346,10 +368,7 @@ export function SubWarehouseVouchersScreen({
                   if (onSelectVoucher) {
                     onSelectVoucher(item);
                   } else {
-                    Alert.alert(
-                      item.id,
-                      `${item.title}\nAmount: ₹${item.amount.toLocaleString()}\nReference: ${item.referenceId}\nStatus: ${item.status}`
-                    );
+                    setSelectedVoucher(item);
                   }
                 }}
                 activeOpacity={0.75}

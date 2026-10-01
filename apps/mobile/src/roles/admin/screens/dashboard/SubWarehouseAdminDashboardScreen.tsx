@@ -143,7 +143,7 @@ import {
   M5S18_OrderInvoice,
 } from '../swa/orders';
 
-// ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
+// ─── Design Tokens (Brand Color: #F0562A Unified Subwarehouse Palette) ───────
 const PALETTE = {
   primary: '#F0562A',
   primaryDark: '#D4451B',
@@ -169,6 +169,7 @@ const PALETTE = {
   tealText: '#0284C7',
   tabInactive: '#827A74',
   tabBorder: '#EAE4DB',
+  linkText: '#F0562A',
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -177,14 +178,15 @@ type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 function WarehouseHeaderIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
         stroke="#FFFFFF"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Path d="M9 21V12h6v9" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -286,55 +288,69 @@ function WalletIcon({ color = PALETTE.primary }: { color?: string }) {
   );
 }
 
-function ReceiveGoodsActionIcon() {
+function PackageBagIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 6h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 10a4 4 0 0 1-8 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function CashRegisterActionIcon() {
+function ReceiveGoodsActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 7h16M7 3h10v4H7zM3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9zM7 15h2M11 15h2M15 15h2M7 18h10" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="4" y="3" width="16" height="18" rx="2.5" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 7v7M8.5 10.5L12 14l3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 17h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function ViewOrdersActionIcon() {
+function CashRegisterActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 4h14a1 1 0 0 1 1 1v3H4V5a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 12h2M11 12h2M15 12h2M7 16h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function CashTopUpActionIcon() {
+function ViewOrdersActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={PALETTE.primary} strokeWidth="2" />
-      <Path d="M12 9v6M9 12h6" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M4 3v18l3-1.5 3 1.5 3-1.5 3 1.5 4-2V3H4z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 7h8M8 11h8M8 15h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function StockVerifyActionIcon() {
+function CashTopUpActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 11l3 3L22 4" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="2" y="6" width="20" height="12" rx="2.5" stroke={color} strokeWidth="1.8" />
+      <Circle cx="12" cy="12" r="2.5" stroke={color} strokeWidth="1.8" />
     </Svg>
   );
 }
 
-function ActivityHistoryActionIcon() {
+function StockVerifyActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 7v5l3 3" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="4" y="4" width="16" height="17" rx="2.5" stroke={color} strokeWidth="1.8" />
+      <Path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" />
+      <Path d="M8.5 12.5l2.5 2.5 5-5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ActivityHistoryActionIcon({ color = PALETTE.primary }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M3.05 11a9 9 0 1 1 .5 4m-.5-4v-5m0 5h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -416,7 +432,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? '#F0562A' : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path d="M4 14h4l2 3h4l2-3h4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -426,7 +442,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? '#F0562A' : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -436,7 +452,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? '#F0562A' : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -1532,7 +1548,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToOrders={() => {
           setShowWarehouseOverview(false);
-          setShowSalesScreen(true);
+          setShowOrdersModule(true);
         }}
         onNavigateToOperations={() => {
           setShowWarehouseOverview(false);
@@ -2581,10 +2597,9 @@ export function SubWarehouseAdminDashboardScreen({
                     }
                   }}
                   activeOpacity={0.75}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}
+                  style={{ paddingVertical: 4 }}
                 >
-                  <Text style={styles.viewAllText}>See all</Text>
-                  <ChevronRight />
+                  <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.overviewGrid}>
@@ -2639,9 +2654,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
                   </View>
-                  <Text style={[styles.overviewNumber, { color: PALETTE.primary }]}>05</Text>
+                  <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
-                  <Text style={[styles.overviewSub, { color: PALETTE.primary }]}>Needs attention</Text>
+                  <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
                 </TouchableOpacity>
 
                 {/* 5. Today's Sales */}
@@ -2690,15 +2705,6 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.quickActionsGrid}>
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => setShowWarehouseOperations(true)}
-                  activeOpacity={0.75}
-                >
-                  <BoxIcon color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Storage</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
                   onPress={() => setReceivingWizardStep('start_receiving')}
                   activeOpacity={0.75}
                 >
@@ -2718,7 +2724,7 @@ export function SubWarehouseAdminDashboardScreen({
                   activeOpacity={0.75}
                 >
                   <CashRegisterActionIcon />
-                  <Text style={styles.quickActionLabel}>Sales</Text>
+                  <Text style={styles.quickActionLabel}>New Sale</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2751,25 +2757,22 @@ export function SubWarehouseAdminDashboardScreen({
                   activeOpacity={0.75}
                 >
                   <StockVerifyActionIcon />
-                  <Text style={styles.quickActionLabel}>Stock Verify</Text>
+                  <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => setShowMaterialHandling(true)}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseRecentActivity');
+                    } else {
+                      setShowRecentActivity(true);
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <ActivityHistoryActionIcon />
-                  <Text style={styles.quickActionLabel}>Materials</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={() => setShowWarehouseCapacity(true)}
-                  activeOpacity={0.75}
-                >
-                  <BoxIcon color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Capacity</Text>
+                  <Text style={styles.quickActionLabel}>Activity</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2882,7 +2885,7 @@ export function SubWarehouseAdminDashboardScreen({
                   }}
                 >
                   <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>GR-1024</Text>
+                    <Text style={styles.itemCodeBold}>GR-00124</Text>
                     <View style={styles.awaitingQcBadge}>
                       <Text style={styles.awaitingQcText}>Awaiting QC</Text>
                     </View>
@@ -2891,7 +2894,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.produceTitle}>Tomato · Grade 1</Text>
                   <View style={styles.rowBetween}>
                     <Text style={styles.detailText}>Expected: 150 KG</Text>
-                    <Text style={styles.timeText}>10:30 AM</Text>
+                    <Text style={styles.timeText}>09:40 AM</Text>
                   </View>
                 </TouchableOpacity>
 
@@ -2903,7 +2906,7 @@ export function SubWarehouseAdminDashboardScreen({
                   }}
                 >
                   <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>GR-1023</Text>
+                    <Text style={styles.itemCodeBold}>GR-00123</Text>
                     <View style={styles.qcCompletedBadge}>
                       <Text style={styles.qcCompletedText}>✓ QC Completed</Text>
                     </View>
@@ -2989,7 +2992,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.infoTableLabel}>Low Stock</Text>
-                  <Text style={[styles.infoTableValue, { color: PALETTE.primary }]}>05</Text>
+                  <Text style={[styles.infoTableValue, { color: '#E11D48' }]}>05</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
@@ -3053,7 +3056,13 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => Alert.alert('Sales Report', 'Sales collections verified and synced to ledger.')}
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('SubWarehouseSales');
+                    } else {
+                      setShowSalesScreen(true);
+                    }
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View Sales Report →</Text>
@@ -3080,7 +3089,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* 12. Recent Activity (Matching Screenshot) */}
+              {/* 12. Recent Activity */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Recent Activity</Text>
                 <TouchableOpacity
@@ -3091,6 +3100,8 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowRecentActivity(true);
                     }
                   }}
+                  activeOpacity={0.75}
+                  style={{ paddingVertical: 4 }}
                 >
                   <Text style={styles.viewAllText}>View all</Text>
                 </TouchableOpacity>
@@ -3124,7 +3135,7 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* Activity 2 */}
                 <View style={styles.activityItemRow}>
                   <View style={styles.activityIconBox}>
-                    <ClipboardClockIcon />
+                    <PackageBagIcon />
                   </View>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.activityItemTitle}>Order Packed</Text>
@@ -3138,7 +3149,7 @@ export function SubWarehouseAdminDashboardScreen({
                 {/* Activity 3 */}
                 <View style={styles.activityItemRow}>
                   <View style={styles.activityIconBox}>
-                    <BanknotesIcon />
+                    <CashTopUpActionIcon />
                   </View>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.activityItemTitle}>Cash Top-Up</Text>
@@ -3148,7 +3159,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
               </TouchableOpacity>
 
-              {/* 13. Warehouse Alerts (Matching Screenshot) */}
+              {/* 13. Warehouse Alerts */}
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
               <View style={styles.alertsContainerCard}>
                 <View style={styles.alertBulletRow}>
@@ -3171,7 +3182,7 @@ export function SubWarehouseAdminDashboardScreen({
         )}
 
         {/* ─── Receiving Tab ─── */}
-        {activeTab === 'Receiving' && (
+        {activeTab === 'Receiving' && !showOrdersModule && (
           <View style={styles.receivingContainer}>
             {/* 1. VIEW: Incoming Shipments (Image 2) */}
             {receivingSubView === 'incoming_shipments' && (
@@ -3944,17 +3955,17 @@ export function SubWarehouseAdminDashboardScreen({
         )}
 
         {/* ─── Inventory Tab ─── */}
-        {activeTab === 'Inventory' && (
-          <InventoryModule 
-            onBack={() => setActiveTab('Home')} 
+        {activeTab === 'Inventory' && !showOrdersModule && (
+          <InventoryModule
+            onBack={() => setActiveTab('Home')}
             onTabChange={(tab) => setActiveTab(tab)}
           />
         )}
 
         {/* ─── Orders Module ─── */}
         {showOrdersModule && (
-          <OrdersModule 
-            onBack={() => setShowOrdersModule(false)} 
+          <OrdersModule
+            onBack={() => setShowOrdersModule(false)}
             onTabChange={(tab) => {
               setShowOrdersModule(false);
               setActiveTab(tab);
@@ -3963,7 +3974,7 @@ export function SubWarehouseAdminDashboardScreen({
         )}
 
         {/* ─── More Modules Directory Tab (Modules 5 to 16) ─── */}
-        {activeTab === 'More' && (
+        {activeTab === 'More' && !showOrdersModule && (
           <SubWarehouseMoreScreen
             onBack={() => setActiveTab('Home')}
             onTabChange={(tab) => {
@@ -3983,16 +3994,14 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowWalletOperations(true);
             }}
             onNavigateToOrders={() => {
-              if (onNavigate) onNavigate('SubWarehouseCustomerOrders');
-              else setShowCustomerOrders(true);
+              setShowOrdersModule(true);
             }}
             onNavigateToSales={() => {
               if (onNavigate) onNavigate('SubWarehouseSales');
               else setShowSalesScreen(true);
             }}
             onNavigateToReports={() => {
-              if (onNavigate) onNavigate('SubWarehouseReports');
-              else setShowReportsScreen(true);
+              setShowReportsScreen(true);
             }}
             onNavigateToReturns={() => {
               if (onNavigate) onNavigate('SubWarehouseReturnsIssues');
@@ -4309,9 +4318,9 @@ const styles = StyleSheet.create({
     color: PALETTE.textSecondary,
   },
   viewAllText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: PALETTE.primary,
+    color: PALETTE.linkText,
   },
 
   // ─── Today's Overview Grid ─────────────────────────────────────────────────
@@ -4371,7 +4380,7 @@ const styles = StyleSheet.create({
     width: '31.6%',
     backgroundColor: PALETTE.cardBg,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -4383,6 +4392,10 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     gap: 6,
+  },
+  quickActionBtnHighlight: {
+    borderColor: PALETTE.primary,
+    backgroundColor: PALETTE.primarySoft,
   },
   quickActionLabel: {
     fontSize: 10.5,
@@ -4455,8 +4468,8 @@ const styles = StyleSheet.create({
   awaitingQcBadge: {
     backgroundColor: PALETTE.amberBadge,
     borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   awaitingQcText: {
     fontSize: 10,
@@ -4464,26 +4477,26 @@ const styles = StyleSheet.create({
     color: PALETTE.amberText,
   },
   qcCompletedBadge: {
-    backgroundColor: PALETTE.greenBadge,
+    backgroundColor: PALETTE.tealBadge,
     borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   qcCompletedText: {
     fontSize: 10,
     fontWeight: '700',
-    color: PALETTE.greenText,
+    color: PALETTE.tealText,
   },
   readyPickupBadge: {
-    backgroundColor: '#E6FFFA',
+    backgroundColor: PALETTE.tealBadge,
     borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   readyPickupText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0D9488',
+    color: PALETTE.tealText,
   },
   routeText: {
     fontSize: 11,
@@ -4515,9 +4528,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkButtonText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: PALETTE.primary,
+    color: PALETTE.linkText,
   },
 
   // ─── Status Summary Row ────────────────────────────────────────────────────
@@ -4591,9 +4604,9 @@ const styles = StyleSheet.create({
     borderBottomColor: PALETTE.divider,
   },
   salesTotalAmount: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    color: PALETTE.textInk,
+    color: PALETTE.primary,
     letterSpacing: -0.4,
   },
   salesTxnCount: {
@@ -4606,8 +4619,8 @@ const styles = StyleSheet.create({
   activityCardContainer: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
     marginBottom: 14,
@@ -4615,7 +4628,7 @@ const styles = StyleSheet.create({
   activityItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 11,
   },
   activityIconBox: {
     width: 36,
@@ -4626,15 +4639,15 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.primaryBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 11,
+    marginRight: 12,
   },
   activityItemTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: PALETTE.textInk,
   },
   activityItemSub: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
@@ -4657,16 +4670,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     marginBottom: 14,
-    gap: 10,
+    gap: 12,
   },
   alertBulletRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 9,
   },
   alertBulletText: {
     fontSize: 12.5,
-    fontWeight: '600',
+    fontWeight: '500',
     color: PALETTE.textInk,
   },
 

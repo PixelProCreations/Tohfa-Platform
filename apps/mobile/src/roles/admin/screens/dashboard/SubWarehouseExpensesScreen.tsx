@@ -64,35 +64,35 @@ const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
     id: 'EXP-001245',
     categoryRef: 'Transport · Coonoor → Warehouse',
     amount: 2400,
-    timestamp: '25 Sep · 09:30 AM',
+    timestamp: '25 Sep - 09:30 AM',
     status: 'Recorded',
   },
   {
     id: 'EXP-001244',
     categoryRef: 'Loading / Unloading · Morning unloading',
     amount: 1800,
-    timestamp: '25 Sep · 08:15 AM',
+    timestamp: '25 Sep - 08:15 AM',
     status: 'Pending',
   },
   {
     id: 'EXP-001241',
     categoryRef: 'Warehouse Operations · Storage Crates & Pallets',
     amount: 1200,
-    timestamp: '24 Sep · 05:45 PM',
+    timestamp: '24 Sep - 05:45 PM',
     status: 'Approved',
   },
   {
     id: 'EXP-001238',
     categoryRef: 'Utilities · Generator Diesel & Power',
     amount: 620,
-    timestamp: '24 Sep · 02:30 PM',
+    timestamp: '24 Sep - 02:30 PM',
     status: 'Recorded',
   },
   {
     id: 'EXP-001235',
     categoryRef: 'Maintenance · Digital Weigh Scale Calibration',
     amount: 400,
-    timestamp: '24 Sep · 11:00 AM',
+    timestamp: '24 Sep - 11:00 AM',
     status: 'Recorded',
   },
 ];
@@ -473,7 +473,7 @@ export function SubWarehouseExpensesScreen({
                       ? { backgroundColor: PALETTE.greenBg }
                       : item.status === 'Pending'
                       ? { backgroundColor: PALETTE.amberBg }
-                      : { backgroundColor: PALETTE.amberBg },
+                      : { backgroundColor: '#FDEEE9' },
                   ]}
                 >
                   <Text
@@ -483,7 +483,7 @@ export function SubWarehouseExpensesScreen({
                         ? { color: PALETTE.greenText }
                         : item.status === 'Pending'
                         ? { color: PALETTE.amberText }
-                        : { color: PALETTE.amberText },
+                        : { color: '#8B5E3C' },
                     ]}
                   >
                     {item.status}

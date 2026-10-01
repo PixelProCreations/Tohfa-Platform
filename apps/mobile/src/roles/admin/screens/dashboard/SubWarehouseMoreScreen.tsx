@@ -15,6 +15,8 @@ import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
+import { SubWarehouseHelpSupportScreen } from './SubWarehouseHelpSupportScreen';
+import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -588,6 +590,7 @@ export interface SubWarehouseMoreScreenProps {
   onNavigateToStaff?: (() => void) | undefined;
   onNavigateToAttendance?: (() => void) | undefined;
   onNavigateToSettings?: (() => void) | undefined;
+  onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
 }
@@ -610,10 +613,13 @@ export function SubWarehouseMoreScreen({
   onNavigateToStaff,
   onNavigateToAttendance,
   onNavigateToSettings,
+  onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
   onLogout,
 }: SubWarehouseMoreScreenProps) {
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
+  const [showHelpSupportScreen, setShowHelpSupportScreen] = useState(false);
+  const [showWarehouseOperationsScreen, setShowWarehouseOperationsScreen] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
@@ -703,11 +709,18 @@ export function SubWarehouseMoreScreen({
         }
         break;
       case 'help':
-        Alert.alert('Help & Support', 'Contacting Tohfa Sub-Warehouse Support: support@tohfa.com | +91 98765 43210');
+        if (onNavigateToHelpSupport) {
+          onNavigateToHelpSupport();
+        } else {
+          setShowHelpSupportScreen(true);
+        }
         break;
       case 'warehouse_operations':
-        if (onNavigateToWarehouseOperations) onNavigateToWarehouseOperations();
-        else Alert.alert(item.title, 'Opening Warehouse Operations...');
+        if (onNavigateToWarehouseOperations) {
+          onNavigateToWarehouseOperations();
+        } else {
+          setShowWarehouseOperationsScreen(true);
+        }
         break;
       default:
         Alert.alert(item.title, `Opening ${item.title}...`);
@@ -804,7 +817,25 @@ export function SubWarehouseMoreScreen({
         onBack={() => setShowFinanceScreen(false)}
         onTabChange={onTabChange}
         onNavigateToNotifications={onNavigateToNotifications}
-        onNavigateToReports={onNavigateToReports}
+      />
+    );
+  }
+
+  if (showHelpSupportScreen) {
+    return (
+      <SubWarehouseHelpSupportScreen
+        warehouseName="Coonoor Warehouse"
+        onBack={() => setShowHelpSupportScreen(false)}
+        onTabChange={onTabChange}
+      />
+    );
+  }
+
+  if (showWarehouseOperationsScreen) {
+    return (
+      <SubWarehouseWarehouseOperationsScreen
+        onBack={() => setShowWarehouseOperationsScreen(false)}
+        onTabChange={onTabChange}
       />
     );
   }
