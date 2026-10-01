@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
-import { localProduceCropsCache, type CropItem } from './ProduceCalendarScreen';
+import type { CropItem } from './ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -257,27 +257,21 @@ export function InputManagementScreen({
     return () => sub.remove();
   }, [onBack]);
 
+  // No crop is pre-selected: the log screens load the farmer's real crops
+  // and let them pick one (the old mock cache pre-picked "carrot"/"tomato").
   const handleLogFertigation = () => {
-    const carrotCrop =
-      localProduceCropsCache.find((c) => c.name.toLowerCase().includes('carrot')) ??
-      localProduceCropsCache[0] ??
-      null;
     if (onNavigateToLogFertigation) {
-      onNavigateToLogFertigation(carrotCrop);
+      onNavigateToLogFertigation(null);
     } else if (onNavigateToLogInput) {
-      onNavigateToLogInput(carrotCrop, 'Fertigation');
+      onNavigateToLogInput(null, 'Fertigation');
     }
   };
 
   const handleLogPestMgmt = () => {
-    const tomatoCrop =
-      localProduceCropsCache.find((c) => c.name.toLowerCase().includes('tomato')) ??
-      localProduceCropsCache[1] ??
-      null;
     if (onNavigateToLogPestTreatment) {
-      onNavigateToLogPestTreatment(tomatoCrop);
+      onNavigateToLogPestTreatment(null);
     } else if (onNavigateToLogInput) {
-      onNavigateToLogInput(tomatoCrop, 'Pest Treatment');
+      onNavigateToLogInput(null, 'Pest Treatment');
     }
   };
 

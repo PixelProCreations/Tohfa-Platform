@@ -3,9 +3,8 @@ import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
-import type { SignedUploadTarget } from '../../storage/blobStorage.js';
 import { uploadsService, type UploadsService } from '../uploads/uploads.service.js';
-import type { SignUploadBody } from '../uploads/uploads.schema.js';
+import type { SignUploadBody, SignUploadResponse } from '../uploads/uploads.schema.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
 import {
   farmerApplicationsRepo,
@@ -123,7 +122,7 @@ function mapApplicationResponse(row: FarmerApplicationRow) {
 export interface FarmerApplicationsService {
   createDraft(input: CreateFarmerApplicationBody, actor?: Actor | undefined): Promise<unknown>;
   updateStep(actor: Actor | undefined, id: string, step: number, payload: unknown): Promise<unknown>;
-  requestDocumentUploadUrl(id: string, body: SignUploadBody): Promise<SignedUploadTarget>;
+  requestDocumentUploadUrl(id: string, body: SignUploadBody): Promise<SignUploadResponse>;
   submitApplication(actor: Actor | undefined, id: string): Promise<unknown>;
   getStatusTimeline(actor: Actor | undefined, id: string): Promise<unknown>;
   getFullDraft(actor: Actor | undefined, id: string): Promise<unknown>;
@@ -497,6 +496,9 @@ export function createFarmerApplicationsService(
         ratingTier: profile.rating_tier_code,
         isMarketBlocked: profile.is_market_blocked,
         marketBlockReason: profile.market_block_reason,
+        // Already YYYY-MM-DD from the repo (dob::text); null for farmers who never supplied it.
+        dob: profile.dob,
+        gender: profile.gender,
         createdAt: profile.created_at.toISOString(),
       };
     },
@@ -547,6 +549,8 @@ export function createFarmerApplicationsService(
         ratingTier: updated.rating_tier_code,
         isMarketBlocked: updated.is_market_blocked,
         marketBlockReason: updated.market_block_reason,
+        dob: updated.dob,
+        gender: updated.gender,
         createdAt: updated.created_at.toISOString(),
       };
     },

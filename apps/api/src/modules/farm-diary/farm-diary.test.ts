@@ -97,6 +97,7 @@ function fakePlot(id: string, farmId: string, name: string, areaAcres: number | 
     soilType: null,
     sunExposure: null,
     irrigationType: null,
+    boundary: null,
     createdAt: new Date(0).toISOString(),
     updatedAt: null,
   };

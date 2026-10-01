@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -8,7 +8,42 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
+import {
+  getPlotRotationHistory,
+  listCropMaster,
+  type CropMasterResponse,
+  type PlotRotationHistoryResponse,
+} from '../../api/crops';
+import {
+  ACTIVE_CROP_STATUSES,
+  daysBetween,
+  loadFarmCropEntries,
+  type FarmCropEntry,
+} from '../farm/crops/cropItems';
+
+/*
+ * What this screen can and cannot show.
+ *
+ * The original design compared farm-wide SUPPLY against customer DEMAND per
+ * crop ("Under-supplied / Balanced / Over-supplied", kg bars, "plant more /
+ * switch crop" advice). No endpoint the farmer app can call exposes market
+ * supply or customer demand -- only the farmer's own farm_crops, the
+ * crop_master taxonomy, and per-plot rotation history. Those supply/demand
+ * elements are therefore removed and replaced by a clearly-labelled
+ * "not available yet" banner, rather than faked.
+ *
+ * Everything below is derived client-side from those three real sources:
+ *   - "You grow this" / currently-on plots / expected yield: the farmer's
+ *     PLANNED or GROWING farm_crops for that crop_master id.
+ *   - In season / off season: crop_master.seasonMonths vs the current month
+ *     (badge omitted when crop_master has no season data).
+ *   - Past harvests / last harvested: the farmer's HARVESTED farm_crops.
+ *   - Back-to-back signal: a plot whose two most recent rotation-history
+ *     entries are the same crop.
+ */
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -31,28 +66,6 @@ const FarmerIcon = ({ color = P.twGreen700 }: { color?: string }) => (
   </Svg>
 );
 
-const SeedlingIcon = ({ color = P.twGreen700 }: { color?: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22V12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M7 12C7 9.24 9.24 7 12 7C14.76 7 17 9.24 17 12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M4 8C4 5 7 2 12 2C17 2 20 5 20 8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-  </Svg>
-);
-
-const CheckCircleIcon = ({ color = P.twGray500 }: { color?: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-    <Path d="M8 12L11 15L16 9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
-const ArrowsIcon = ({ color = P.twOrange700 }: { color?: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M7 17L17 7" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M7 7H17V17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
 const PlusCircleIcon = ({ color = P.twGreen700 }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -69,132 +82,123 @@ const SwitchIcon = ({ color = P.twOrange700 }: { color?: string }) => (
   </Svg>
 );
 
-const DiversifyIcon = ({ color = P.twAmber800 }: { color?: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 3V12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M12 12L6 18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M12 12L18 18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M12 12L4 8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    <Path d="M12 12L20 8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-  </Svg>
-);
-
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type CropStatus = 'Under-supplied' | 'Balanced' | 'Over-supplied';
-type FilterType = 'All' | CropStatus;
+type FilterType = 'all' | 'youGrow' | 'inSeason';
+const FILTERS: FilterType[] = ['all', 'youGrow', 'inSeason'];
+
+type Signal = { kind: 'repeat'; plotName: string } | { kind: 'inSeasonNotGrown' };
 
 interface CropInsight {
+  cropMasterId: string;
   name: string;
   youGrow: boolean;
-  status: CropStatus;
-  supplyKg: number;
-  demandKg: number;
-  demandEstimated?: boolean;
-  insightBold: string;
-  insightBody: string;
+  /** null when crop_master has no seasonMonths for this crop. */
+  inSeason: boolean | null;
+  currentPlots: string[];
+  /** Sum of expectedYieldKg over active plantings that recorded one; null if none did. */
+  expectedYieldKg: number | null;
+  pastHarvests: number;
+  /** Days since the most recent actualHarvestOn; null if never harvested. */
+  lastHarvestDaysAgo: number | null;
+  signal: Signal | null;
 }
 
-// ── Data ─────────────────────────────────────────────────────────────────────
-
-const CROPS: CropInsight[] = [
-  {
-    name: 'Carrot',
-    youGrow: true,
-    status: 'Under-supplied',
-    supplyKg: 6800,
-    demandKg: 8400,
-    insightBold: 'Plant more.',
-    insightBody: 'Demand is running 24% ahead of supply — expand next cycle.',
-  },
-  {
-    name: 'Beetroot',
-    youGrow: false,
-    status: 'Under-supplied',
-    supplyKg: 2100,
-    demandKg: 3600,
-    insightBold: 'Consider adding this crop.',
-    insightBody: 'Demand is 71% ahead of supply — a fresh opportunity.',
-  },
-  {
-    name: 'Tomato',
-    youGrow: true,
-    status: 'Balanced',
-    supplyKg: 6600,
-    demandKg: 7200,
-    insightBold: 'Continue as-is.',
-    insightBody: 'Supply and demand are well matched — no strong signal.',
-  },
-  {
-    name: 'Cabbage',
-    youGrow: true,
-    status: 'Over-supplied',
-    supplyKg: 7400,
-    demandKg: 4100,
-    insightBold: 'Consider diversifying.',
-    insightBody: 'Supply exceeds demand by 80% — ease back next cycle.',
-  },
-  {
-    name: 'Potato',
-    youGrow: false,
-    status: 'Over-supplied',
-    supplyKg: 9200,
-    demandKg: 4600,
-    demandEstimated: true,
-    insightBold: 'Switch crop.',
-    insightBody: 'The market is well stocked — a higher-demand crop would pay off more.',
-  },
-];
-
-// ── Style helpers ────────────────────────────────────────────────────────────
-
-function statusConfig(status: CropStatus) {
-  switch (status) {
-    case 'Under-supplied':
-      return {
-        badgeBg: P.twGreen100,
-        badgeText: P.twGreen700,
-        supplyBarColor: P.leafGreen,
-        demandBarColor: colors.brandGreen,
-        insightBg: P.twGreen50,
-        insightBorder: P.twEmerald100,
-        insightIconColor: P.twGreen700,
-      };
-    case 'Balanced':
-      return {
-        badgeBg: P.twGray100,
-        badgeText: P.twGray700,
-        supplyBarColor: P.twBlue400,
-        demandBarColor: P.twBlue800,
-        insightBg: P.twGray50,
-        insightBorder: P.twGray200,
-        insightIconColor: P.twGray500,
-      };
-    case 'Over-supplied':
-      return {
-        badgeBg: P.twAmber100,
-        badgeText: P.twAmber800,
-        supplyBarColor: P.twAmber400,
-        demandBarColor: P.twAmber600,
-        insightBg: P.twAmber50,
-        insightBorder: P.twAmber200,
-        insightIconColor: P.twAmber800,
-      };
+function filterLabel(filter: FilterType): string {
+  switch (filter) {
+    case 'all':
+      return t('farmer.crops.insight.filterAll');
+    case 'youGrow':
+      return t('farmer.crops.insight.filterYouGrow');
+    case 'inSeason':
+      return t('farmer.crops.insight.filterInSeason');
   }
 }
 
-function getInsightIcon(crop: CropInsight) {
-  const cfg = statusConfig(crop.status);
-  if (crop.status === 'Under-supplied') {
-    if (crop.youGrow) return <SeedlingIcon color={cfg.insightIconColor} />;
-    return <PlusCircleIcon color={cfg.insightIconColor} />;
+// ── Derivation ───────────────────────────────────────────────────────────────
+
+/**
+ * Plots whose two most recent rotation entries are the same crop, keyed by
+ * crop_master id. History is most-recent-first (crops.ts's
+ * PlotRotationHistoryResponse); an entry is mapped to its crop_master id via
+ * the farmer's own farm_crops rows (history carries only farmCropId/cropName).
+ */
+function repeatPlotsByCrop(
+  histories: PlotRotationHistoryResponse[],
+  entries: FarmCropEntry[],
+): Map<string, string> {
+  const byFarmCropId = new Map(entries.map((e) => [e.crop.id, e]));
+  const result = new Map<string, string>();
+  for (const history of histories) {
+    const [latest, previous] = history.history;
+    if (!latest || !previous) continue;
+    const latestEntry = byFarmCropId.get(latest.farmCropId);
+    const previousEntry = byFarmCropId.get(previous.farmCropId);
+    if (!latestEntry || !previousEntry) continue;
+    if (latestEntry.crop.cropMasterId !== previousEntry.crop.cropMasterId) continue;
+    if (!result.has(latestEntry.crop.cropMasterId)) {
+      result.set(latestEntry.crop.cropMasterId, latestEntry.plot.name);
+    }
   }
-  if (crop.status === 'Balanced') {
-    return <CheckCircleIcon color={cfg.insightIconColor} />;
+  return result;
+}
+
+function buildInsights(
+  cropMaster: CropMasterResponse[],
+  entries: FarmCropEntry[],
+  histories: PlotRotationHistoryResponse[],
+  today: Date,
+): CropInsight[] {
+  const currentMonth = today.getMonth() + 1; // seasonMonths are 1-12
+  const repeats = repeatPlotsByCrop(histories, entries);
+  const insights: CropInsight[] = [];
+
+  for (const master of cropMaster) {
+    const mine = entries.filter((e) => e.crop.cropMasterId === master.id);
+    const active = mine.filter((e) => ACTIVE_CROP_STATUSES.includes(e.crop.status));
+    const harvested = mine.filter((e) => e.crop.status === 'HARVESTED');
+    const inSeason = master.seasonMonths && master.seasonMonths.length > 0
+      ? master.seasonMonths.includes(currentMonth)
+      : null;
+
+    // Only crops with something real to say: ones the farmer grows or has
+    // grown, plus in-season crops (a planning option). Inactive taxonomy
+    // entries are skipped unless the farmer has history with them.
+    if (mine.length === 0 && !(master.isActive && inSeason === true)) continue;
+
+    const yields = active
+      .map((e) => e.crop.expectedYieldKg)
+      .filter((kg): kg is number => kg !== null);
+    const lastHarvest = harvested.reduce<Date | null>((latest, e) => {
+      if (!e.crop.actualHarvestOn) return latest;
+      const d = new Date(e.crop.actualHarvestOn);
+      return !latest || d > latest ? d : latest;
+    }, null);
+
+    const repeatPlot = repeats.get(master.id);
+    let signal: Signal | null = null;
+    if (repeatPlot !== undefined) {
+      signal = { kind: 'repeat', plotName: repeatPlot };
+    } else if (inSeason === true && active.length === 0) {
+      signal = { kind: 'inSeasonNotGrown' };
+    }
+
+    insights.push({
+      cropMasterId: master.id,
+      name: master.name,
+      youGrow: active.length > 0,
+      inSeason,
+      currentPlots: Array.from(new Set(active.map((e) => e.plot.name))),
+      expectedYieldKg: yields.length > 0 ? yields.reduce((sum, kg) => sum + kg, 0) : null,
+      pastHarvests: harvested.length,
+      lastHarvestDaysAgo: lastHarvest ? Math.max(0, daysBetween(lastHarvest, today)) : null,
+      signal,
+    });
   }
-  // Over-supplied
-  if (crop.youGrow) return <DiversifyIcon color={cfg.insightIconColor} />;
-  return <SwitchIcon color={cfg.insightIconColor} />;
+
+  // Crops you grow first, then in-season options, then the rest; by name within.
+  const rank = (c: CropInsight) => (c.youGrow ? 0 : c.inSeason === true ? 1 : 2);
+  return insights.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -204,119 +208,203 @@ interface CropPlanningInsightScreenProps {
 }
 
 export function CropPlanningInsightScreen({ onNavigateBack }: CropPlanningInsightScreenProps): React.JSX.Element {
-  const [filter, setFilter] = useState<FilterType>('All');
+  const [filter, setFilter] = useState<FilterType>('all');
+  const [insights, setInsights] = useState<CropInsight[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown | null>(null);
 
-  const filteredCrops = filter === 'All' ? CROPS : CROPS.filter(c => c.status === filter);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [{ plots, entries }, cropMaster] = await Promise.all([
+        loadFarmCropEntries(),
+        listCropMaster(),
+      ]);
+      const histories = await Promise.all(plots.map((plot) => getPlotRotationHistory(plot.id)));
+      setInsights(buildInsights(cropMaster, entries, histories, new Date()));
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const FILTERS: FilterType[] = ['All', 'Under-supplied', 'Balanced', 'Over-supplied'];
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  return (
-    <SafeAreaView style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onNavigateBack} activeOpacity={0.7}>
-          <ChevronLeft />
-        </TouchableOpacity>
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>Crop Planning Insight</Text>
-          <Text style={styles.headerSubtitle}>Supply vs. customer demand</Text>
-        </View>
+  const filteredCrops = useMemo(() => {
+    if (filter === 'youGrow') return insights.filter((c) => c.youGrow);
+    if (filter === 'inSeason') return insights.filter((c) => c.inSeason === true);
+    return insights;
+  }, [filter, insights]);
+
+  const renderCard = (crop: CropInsight) => (
+    <View key={crop.cropMasterId} style={styles.cropCard}>
+      {/* Card Header */}
+      <View style={styles.cropCardHeader}>
+        <Text style={styles.cropName}>{crop.name}</Text>
+        {crop.youGrow && (
+          <View style={styles.youGrowBadge}>
+            <FarmerIcon color={P.twGreen700} />
+            <Text style={styles.youGrowText}>{t('farmer.crops.insight.youGrowBadge')}</Text>
+          </View>
+        )}
+        {crop.inSeason !== null && (
+          <View style={[styles.statusBadge, crop.inSeason ? styles.statusBadgeIn : styles.statusBadgeOff]}>
+            <Text style={[styles.statusBadgeText, crop.inSeason ? styles.statusBadgeTextIn : styles.statusBadgeTextOff]}>
+              {t(crop.inSeason ? 'farmer.crops.insight.inSeason' : 'farmer.crops.insight.offSeason')}
+            </Text>
+          </View>
+        )}
       </View>
 
+      {/* Facts from the farmer's own records */}
+      {crop.currentPlots.length > 0 && (
+        <View style={styles.factRow}>
+          <Text style={styles.factLabel}>{t('farmer.crops.insight.currentlyOnLabel')}</Text>
+          <Text style={styles.factValue}>{crop.currentPlots.join(', ')}</Text>
+        </View>
+      )}
+      {crop.expectedYieldKg !== null && (
+        <View style={styles.factRow}>
+          <Text style={styles.factLabel}>{t('farmer.crops.insight.expectedYieldLabel')}</Text>
+          <Text style={styles.factValue}>
+            {t('farmer.crops.activeCrops.estYieldKg', { qty: crop.expectedYieldKg })}
+          </Text>
+        </View>
+      )}
+      {crop.pastHarvests > 0 && (
+        <View style={styles.factRow}>
+          <Text style={styles.factLabel}>{t('farmer.crops.insight.pastHarvestsLabel')}</Text>
+          <Text style={styles.factValue}>{crop.pastHarvests}</Text>
+        </View>
+      )}
+      {crop.lastHarvestDaysAgo !== null && (
+        <View style={styles.factRow}>
+          <Text style={styles.factLabel}>{t('farmer.crops.insight.lastHarvestLabel')}</Text>
+          <Text style={styles.factValue}>
+            {t('farmer.crops.insight.daysAgo', { days: crop.lastHarvestDaysAgo })}
+          </Text>
+        </View>
+      )}
+
+      {/* Derived planning signal */}
+      {crop.signal && (
+        <View
+          style={[
+            styles.insightCard,
+            crop.signal.kind === 'repeat' ? styles.insightCardWarn : styles.insightCardOpportunity,
+          ]}
+        >
+          <View style={styles.insightIconWrap}>
+            {crop.signal.kind === 'repeat' ? (
+              <SwitchIcon color={P.twAmber800} />
+            ) : (
+              <PlusCircleIcon color={P.twGreen700} />
+            )}
+          </View>
+          <Text style={styles.insightText}>
+            {crop.signal.kind === 'repeat'
+              ? t('farmer.crops.insight.signalRepeat', { plot: crop.signal.plotName })
+              : t('farmer.crops.insight.signalInSeasonNotGrown')}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderBody = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Skeleton width="100%" height={72} borderRadius={12} />
+          <Skeleton width="100%" height={140} borderRadius={14} />
+          <Skeleton width="100%" height={140} borderRadius={14} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <ErrorState error={error} onRetry={load} />
+        </View>
+      );
+    }
+
+    return (
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Info Banner */}
+        {/* Unavailable-data banner: supply vs. demand has no backing source */}
         <View style={styles.infoBanner}>
           <View style={styles.infoBannerIcon}>
             <LightbulbIcon />
           </View>
-          <Text style={styles.infoBannerText}>
-            This is a <Text style={styles.bold}>planning signal, not a guarantee</Text>. It compares what farmers grow against what customers are asking for.
-          </Text>
+          <View style={styles.infoBannerTextWrap}>
+            <Text style={styles.bold}>{t('farmer.crops.insight.unavailableTitle')}</Text>
+            <Text style={styles.infoBannerText}>{t('farmer.crops.insight.unavailableBody')}</Text>
+          </View>
         </View>
 
-        {/* Filter Pills */}
-        <View style={styles.filterRow}>
-          {FILTERS.map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.filterPill, filter === f && styles.filterPillActive]}
-              onPress={() => setFilter(f)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Crop Cards */}
-        {filteredCrops.map((crop) => {
-          const cfg = statusConfig(crop.status);
-          const maxVal = Math.max(crop.supplyKg, crop.demandKg);
-          const supplyPercent = (crop.supplyKg / maxVal) * 100;
-          const demandPercent = (crop.demandKg / maxVal) * 100;
-
-          return (
-            <View key={crop.name} style={styles.cropCard}>
-              {/* Card Header */}
-              <View style={styles.cropCardHeader}>
-                <Text style={styles.cropName}>{crop.name}</Text>
-                {crop.youGrow && (
-                  <View style={styles.youGrowBadge}>
-                    <FarmerIcon color={P.twGreen700} />
-                    <Text style={styles.youGrowText}>You grow this</Text>
-                  </View>
-                )}
-                <View style={[styles.statusBadge, { backgroundColor: cfg.badgeBg }]}>
-                  <Text style={[styles.statusBadgeText, { color: cfg.badgeText }]}>{crop.status}</Text>
-                </View>
-              </View>
-
-              {/* Supply Bar */}
-              <View style={styles.barSection}>
-                <View style={styles.barLabelRow}>
-                  <Text style={styles.barLabel}>Supply</Text>
-                  <Text style={styles.barValue}>{crop.supplyKg.toLocaleString()} kg</Text>
-                </View>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${supplyPercent}%`, backgroundColor: cfg.supplyBarColor }]} />
-                </View>
-              </View>
-
-              {/* Demand Bar */}
-              <View style={styles.barSection}>
-                <View style={styles.barLabelRow}>
-                  <Text style={styles.barLabel}>Demand</Text>
-                  <Text style={styles.barValue}>
-                    {crop.demandKg.toLocaleString()} kg{crop.demandEstimated ? '  est.' : ''}
+        {insights.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>{t('farmer.crops.insight.emptyTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('farmer.crops.insight.emptyBody')}</Text>
+          </View>
+        ) : (
+          <>
+            {/* Filter Pills */}
+            <View style={styles.filterRow}>
+              {FILTERS.map((f) => (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.filterPill, filter === f && styles.filterPillActive]}
+                  onPress={() => setFilter(f)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>
+                    {filterLabel(f)}
                   </Text>
-                </View>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${demandPercent}%`, backgroundColor: cfg.demandBarColor }]} />
-                </View>
-              </View>
-
-              {/* Insight Card */}
-              <View style={[styles.insightCard, { backgroundColor: cfg.insightBg, borderColor: cfg.insightBorder }]}>
-                <View style={styles.insightIconWrap}>
-                  {getInsightIcon(crop)}
-                </View>
-                <Text style={styles.insightText}>
-                  <Text style={styles.bold}>{crop.insightBold}</Text> {crop.insightBody}
-                </Text>
-              </View>
+                </TouchableOpacity>
+              ))}
             </View>
-          );
-        })}
 
-        {/* Footer Note */}
-        <Text style={styles.footerNote}>
-          Demand for crops outside the wishlist top-5 (est.) is a placeholder baseline pending real figures.
-        </Text>
+            {filteredCrops.length === 0 ? (
+              <Text style={styles.emptyBody}>{t('farmer.crops.insight.emptyFiltered')}</Text>
+            ) : (
+              filteredCrops.map(renderCard)
+            )}
+          </>
+        )}
       </ScrollView>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onNavigateBack}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.farmDiary.common.goBackLabel')}
+        >
+          <ChevronLeft />
+        </TouchableOpacity>
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.headerTitle}>{t('farmer.crops.insight.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('farmer.crops.insight.subtitle')}</Text>
+        </View>
+      </View>
+
+      {renderBody()}
     </SafeAreaView>
   );
 }
@@ -364,6 +452,17 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
+  // Loading / error
+  loadingContainer: {
+    padding: 16,
+    gap: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+
   // Scroll
   scrollView: {
     flex: 1,
@@ -393,13 +492,17 @@ const styles = StyleSheet.create({
     marginRight: 12,
     marginTop: 2,
   },
-  infoBannerText: {
+  infoBannerTextWrap: {
     flex: 1,
+    gap: 4,
+  },
+  infoBannerText: {
     fontSize: typography.body,
     lineHeight: 19,
     color: P.greenDeep5,
   },
   bold: {
+    fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
   },
@@ -446,7 +549,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cropName: {
     fontSize: typography.title,
@@ -472,40 +575,42 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
+  statusBadgeIn: {
+    backgroundColor: P.twGreen100,
+  },
+  statusBadgeOff: {
+    backgroundColor: P.twGray100,
+  },
   statusBadgeText: {
     fontSize: typography.caption,
     fontWeight: '600',
   },
-
-  // Bar Section
-  barSection: {
-    marginBottom: 10,
+  statusBadgeTextIn: {
+    color: P.twGreen700,
   },
-  barLabelRow: {
+  statusBadgeTextOff: {
+    color: P.twGray700,
+  },
+
+  // Facts
+  factRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
+    gap: 12,
   },
-  barLabel: {
+  factLabel: {
     fontSize: typography.body,
     fontWeight: '500',
     color: colors.textSubtle,
   },
-  barValue: {
+  factValue: {
+    flexShrink: 1,
+    textAlign: 'right',
     fontSize: typography.body,
     fontWeight: '700',
     color: colors.textDark,
-  },
-  barTrack: {
-    height: 8,
-    backgroundColor: colors.borderSoft,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: 8,
-    borderRadius: 4,
   },
 
   // Insight Card
@@ -518,6 +623,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 10,
   },
+  insightCardWarn: {
+    backgroundColor: P.twAmber50,
+    borderColor: P.twAmber200,
+  },
+  insightCardOpportunity: {
+    backgroundColor: P.twGreen50,
+    borderColor: P.twEmerald100,
+  },
   insightIconWrap: {
     marginTop: 2,
   },
@@ -528,15 +641,20 @@ const styles = StyleSheet.create({
     color: P.twGray700,
   },
 
-  // Footer
-  footerNote: {
-    fontSize: typography.caption,
-    fontWeight: '400',
-    color: P.legal,
+  // Empty
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  emptyBody: {
+    fontSize: typography.body,
+    color: colors.textSubtle,
     textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
-    lineHeight: 16,
-    paddingHorizontal: 20,
   },
 });

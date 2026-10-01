@@ -324,6 +324,14 @@ export async function getPestAnalyticsSummary(farmId: string): Promise<PestAnaly
 
 export interface UploadPestPhotoResult {
   fileUrl: string;
+  /**
+   * The `uploads` table row id this photo was recorded against (now returned by
+   * `POST /uploads/sign` -- see `SignedUploadTarget` in docs/openapi.yaml). Pass
+   * this back as `photoUploadId` when creating/updating the pest detection or
+   * treatment log this photo is for; pest.schema.ts's `requireOwnUpload` looks it
+   * up by primary key and rejects anything the caller doesn't own.
+   */
+  uploadId: string;
 }
 
 /**
@@ -333,15 +341,6 @@ export interface UploadPestPhotoResult {
  * UploadNewSoilTestScreen.tsx already uses for lab report uploads. There is no
  * pest-specific upload endpoint; this is the one general-purpose sign flow with a
  * different `purpose` value.
- *
- * Spec gap (identical to the one flagged in UploadNewSoilTestScreen.tsx for
- * `labReportUploadId`): `POST /uploads/sign` only ever returns
- * `{uploadUrl, fileUrl, method, headers, expiresAt, resumable}` -- never the
- * `uploads` table row id that `photoUploadId` (pest.schema.ts's
- * `requireOwnUpload`, which looks the id up by primary key) actually requires.
- * The photo is still uploaded to blob storage for safekeeping, but callers of this
- * function cannot obtain a `photoUploadId` to attach to a detection or treatment
- * log from it -- there isn't one to give them. Do not guess one.
  */
 export async function uploadPestPhoto(
   uri: string,
@@ -366,5 +365,5 @@ export async function uploadPestPhoto(
     headers: signed.headers,
     method: signed.method,
   });
-  return { fileUrl: signed.fileUrl };
+  return { fileUrl: signed.fileUrl, uploadId: signed.id };
 }

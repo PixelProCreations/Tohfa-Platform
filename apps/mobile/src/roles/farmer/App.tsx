@@ -35,12 +35,7 @@ import { WorkforceScreen } from './screens/farm/workforce/WorkforceScreen';
 import { AddWorkerScreen } from './screens/farm/workforce/AddWorkerScreen';
 import { WorkerDetailScreen } from './screens/farm/workforce/WorkerDetailScreen';
 import { PayrollScreen } from './screens/farm/workforce/PayrollScreen';
-import {
-  ProduceCalendarScreen,
-  addProduceCropLocally,
-  localProduceCropsCache,
-  type CropItem,
-} from './screens/farm/crops/ProduceCalendarScreen';
+import { ProduceCalendarScreen, type CropItem } from './screens/farm/crops/ProduceCalendarScreen';
 import { NewCropScreen } from './screens/farm/crops/NewCropScreen';
 import { CropDetailScreen } from './screens/farm/crops/CropDetailScreen';
 import { CropMilestonesScreen } from './screens/farm/crops/CropMilestonesScreen';
@@ -109,7 +104,6 @@ import { AboutSupportScreen } from './screens/profile/AboutSupportScreen';
 import { FMBSketchScreen } from './screens/profile/FMBSketchScreen';
 import { FieldContextScreen } from './screens/profile/FieldContextScreen';
 import { ZonesScreen } from './screens/profile/ZonesScreen';
-import { AddZoneScreen } from './screens/profile/AddZoneScreen';
 import { PersonalDetailsScreen } from './screens/profile/PersonalDetailsScreen';
 import { FarmRatingsScreen } from './screens/profile/FarmRatingsScreen';
 import { SoilTestScreen } from './screens/profile/SoilTestScreen';
@@ -157,7 +151,6 @@ export type ScreenName =
   | 'FMBSketch'
   | 'FieldContext'
   | 'Zones'
-  | 'AddZone'
   | 'EditCertification'
   | 'Notifications'
   | 'PersonalDetails'
@@ -544,13 +537,6 @@ export default function App(): React.JSX.Element {
           <ZonesScreen
             farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
             onNavigateBack={goBack}
-            onNavigateToAddZone={(farmId) => navigate('AddZone', { farmId })}
-            onSave={goBack}
-          />
-        ) : screen === 'AddZone' ? (
-          <AddZoneScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onNavigateBack={goBack}
             onSave={goBack}
           />
         ) : screen === 'PersonalDetails' ? (
@@ -740,8 +726,9 @@ export default function App(): React.JSX.Element {
           <NewCropScreen
             onBack={() => goBack('ProduceCalendar')}
             onCancel={() => goBack('ProduceCalendar')}
-            onSaveCrop={(newCrop) => {
-              addProduceCropLocally(newCrop);
+            onSaveCrop={() => {
+              // NewCropScreen already persisted the crop via createFarmCrop();
+              // ProduceCalendarScreen re-fetches from the API when it remounts.
               goBack('ProduceCalendar');
             }}
           />
@@ -1369,13 +1356,10 @@ export default function App(): React.JSX.Element {
                   onNavigateToLearningHub={() => navigate('LearningHub')}
                   onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
                   onNavigateToInventory={() => navigate('FarmInventory')}
-                  onNavigateToCropDetail={(cropName: string) => {
-                    const found = localProduceCropsCache.find(
-                      (c: CropItem) => c.name.toLowerCase() === cropName.toLowerCase(),
-                    ) ?? localProduceCropsCache[0];
-                    setSelectedCrop(found ?? null);
-                    navigate('CropDetail');
-                  }}
+                  // No onNavigateToCropDetail: the dashboard's crop cards only
+                  // carry a crop *name*, not a real farm_crops id, so there is
+                  // no crop to open. DashboardScreen falls back to
+                  // onNavigateToProduceCalendar, which lists the real crops.
                 />
               ) : currentTab === 'Listings' ? (
                 <ListingsScreen

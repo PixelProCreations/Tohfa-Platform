@@ -3,6 +3,10 @@
  * Honours the `resumable` flag from POST /uploads/sign.
  * A killed or interrupted upload resumes from the last uploaded offset instead of restarting from zero.
  */
+import {
+  isAndroidLocalhostFallbackCandidate,
+  toAndroidLocalhostFallbackUrl,
+} from '../../../shell/api/client';
 
 export interface UploadOptions {
   uploadUrl: string;
@@ -100,6 +104,22 @@ export async function uploadWithResume(options: UploadOptions): Promise<UploadRe
 
   let currentOffset = startOffset;
 
+  // The URL this call actually fetches. Starts as the signed `uploadUrl` and,
+  // if a chunk's fetch throws at the network layer (not an HTTP error status)
+  // while pointing at `localhost` on an Android emulator, is swapped once for
+  // the `10.0.2.2` host-loopback alias -- the same substitution
+  // shell/api/client.ts's request() already does for JSON calls. This
+  // function's fetch is a raw byte PUT to a presigned target, so it never
+  // goes through request() and can't reuse that retry directly.
+  //
+  // The upload SESSION below stays keyed by the original `uploadUrl` param
+  // throughout, never by `effectiveUploadUrl`: a caller resuming an
+  // interrupted upload calls this function again with the same signed
+  // `uploadUrl` it started with (it has no idea a substitution happened), so
+  // the session map lookup must not depend on which host actually served a
+  // given attempt.
+  let effectiveUploadUrl = uploadUrl;
+
   while (currentOffset < totalBytes) {
     if (abortSignal?.aborted) {
       throw new Error('Upload aborted by user');
@@ -122,12 +142,38 @@ export async function uploadWithResume(options: UploadOptions): Promise<UploadRe
     }
 
     try {
-      const res = await fetch(uploadUrl, {
-        method: options.method ?? 'PUT',
-        headers,
-        body: chunk,
-        signal: abortSignal,
-      });
+      const doFetch = (url: string) =>
+        fetch(url, {
+          method: options.method ?? 'PUT',
+          headers,
+          body: chunk,
+          signal: abortSignal,
+        });
+
+      let res: Response;
+      try {
+        res = await doFetch(effectiveUploadUrl);
+      } catch (networkErr) {
+        // A genuine fetch/network-layer throw (RN's generic "Network request
+        // failed"), not an HTTP error response -- eligible for the same
+        // localhost -> 10.0.2.2 substitution client.ts's request() uses.
+        // Only tried once: if effectiveUploadUrl has already been swapped to
+        // the fallback host, this branch's guard is false and the error
+        // propagates instead of retrying the same host forever.
+        if (
+          effectiveUploadUrl === uploadUrl &&
+          isAndroidLocalhostFallbackCandidate(effectiveUploadUrl)
+        ) {
+          const fallbackUrl = toAndroidLocalhostFallbackUrl(effectiveUploadUrl);
+          res = await doFetch(fallbackUrl);
+          // Success: latch it so every remaining chunk in this call goes
+          // straight to the working host instead of re-attempting (and
+          // re-failing on) localhost first each time.
+          effectiveUploadUrl = fallbackUrl;
+        } else {
+          throw networkErr;
+        }
+      }
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');

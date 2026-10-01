@@ -7235,8 +7235,9 @@ components:
       description: |
         A pre-signed direct-upload target, returned by `POST /uploads/sign` and its
         registration-scoped sibling `POST /farmers/applications/{id}/uploads/sign`.
-      required: [uploadUrl, fileUrl, storageKey, method, expiresAt]
+      required: [id, uploadUrl, fileUrl, storageKey, method, expiresAt]
       properties:
+        id: { type: string, format: uuid, description: The `uploads` table row id this signed target was recorded against. Pass this back as e.g. `photoUploadId`/`labReportUploadId`/`idProofUploadId` when creating the parent record (a pest detection, a soil test, a worker, etc.) so it can be linked to this upload. }
         uploadUrl: { type: string, format: uri }
         fileUrl: { type: string, format: uri, description: The durable URL to send back to the API once the upload completes. }
         storageKey: { type: string, description: The key this upload was minted under — pass it back to whatever endpoint needs to reference the finished upload (e.g. attaching a diary photo, a listing photo, etc.). }
@@ -7734,8 +7735,11 @@ components:
           pattern: '^[0-9]{4}$'
           readOnly: true
           description: Locked field; the full number is never returned (BR-33).
-        dob: { type: [string, 'null'], format: date }
-        gender: { type: [string, 'null'], enum: [MALE, FEMALE, OTHER, null] }
+        dob: { type: [string, 'null'], format: date, description: Calendar date (YYYY-MM-DD) copied from registration at approval; null if never supplied. }
+        gender:
+          type: [string, 'null']
+          enum: [MALE, FEMALE, OTHER, UNDISCLOSED, null]
+          description: Matches the farmers.gender CHECK constraint; null if never supplied.
         farmingExperienceYears: { type: [integer, 'null'] }
         address: { type: [string, 'null'] }
         zoneId: { type: [string, 'null'], format: uuid }
@@ -8364,6 +8368,13 @@ components:
         soilType: { type: [string, 'null'] }
         sunExposure: { type: [string, 'null'] }
         irrigationType: { type: [string, 'null'] }
+        boundary:
+          description: >-
+            The drawn zone polygon, or null when none has been drawn yet. Farm-anonymous
+            rule BR-16 applies — never reaches a customer response.
+          oneOf:
+            - { $ref: '#/components/schemas/GeoJsonPolygon' }
+            - type: 'null'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
 
@@ -8373,6 +8384,7 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         areaAcres: { type: number, exclusiveMinimum: 0 }
+        boundary: { $ref: '#/components/schemas/GeoJsonPolygon' }
         soilType: { type: string, minLength: 1, maxLength: 60 }
         sunExposure: { type: string, minLength: 1, maxLength: 60 }
         irrigationType: { type: string, minLength: 1, maxLength: 60 }
@@ -8383,6 +8395,11 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         areaAcres: { type: number, exclusiveMinimum: 0 }
+        boundary:
+          description: A GeoJSON Polygon to (re)draw the zone boundary, or null to clear it.
+          oneOf:
+            - { $ref: '#/components/schemas/GeoJsonPolygon' }
+            - type: 'null'
         soilType: { type: string, minLength: 1, maxLength: 60 }
         sunExposure: { type: string, minLength: 1, maxLength: 60 }
         irrigationType: { type: string, minLength: 1, maxLength: 60 }

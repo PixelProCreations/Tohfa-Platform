@@ -105,11 +105,22 @@ async function runDemoSeed() {
       );
 
 
-      // Farmer
+      // Farmer. dob/gender/farming_experience_years/aadhaar_last4 mirror the exact values this
+      // same loop writes into this farmer's farmer_applications.step1_personal below -- a real
+      // approval copies those step1 fields onto this row (see farmer-applications.service.ts's
+      // approval handler), but this demo seed inserts the farmer directly, bypassing that copy, so
+      // without this they silently stayed null and the Profile screen showed truncated personal
+      // details for every demo farmer.
       await client.query(
-        `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, application_status, kyc_status, is_market_blocked, rejection_reason, market_block_reason)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (id) DO UPDATE SET application_status = EXCLUDED.application_status, is_market_blocked = EXCLUDED.is_market_blocked`,
+        `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, application_status, kyc_status, is_market_blocked, rejection_reason, market_block_reason, dob, gender, farming_experience_years, aadhaar_last4)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (id) DO UPDATE SET
+           application_status = EXCLUDED.application_status,
+           is_market_blocked = EXCLUDED.is_market_blocked,
+           dob = COALESCE(farmers.dob, EXCLUDED.dob),
+           gender = COALESCE(farmers.gender, EXCLUDED.gender),
+           farming_experience_years = COALESCE(farmers.farming_experience_years, EXCLUDED.farming_experience_years),
+           aadhaar_last4 = COALESCE(farmers.aadhaar_last4, EXCLUDED.aadhaar_last4)`,
         [
           fId,
           uId,
@@ -120,6 +131,10 @@ async function runDemoSeed() {
           f.blocked,
           f.status === 'REJECTED' ? 'Incomplete land title documentation' : null,
           f.blocked ? 'Pending unexpired PGS/NPOP certification' : null,
+          '1985-05-15',
+          'MALE',
+          10 + f.num,
+          '4321',
         ],
       );
 
@@ -131,6 +146,46 @@ async function runDemoSeed() {
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
         [farmId, fId, `${f.name}'s Organic Farm`, `SF-${100 + f.num}/A`, 3.5 + (f.num * 0.5), f.num],
       );
+
+      // Farmer 3 (Suresh Gowda, 9870000003) additionally gets a real FMB boundary polygon, so this
+      // specific demo account has something to view/edit in FMBSketchScreen -- every other seeded
+      // farmer intentionally still has none (matching the app's own "not positioned yet" state).
+      if (f.num === 3) {
+        const boundaryGeoJson = JSON.stringify({
+          type: 'Polygon',
+          coordinates: [[
+            [76.70435, 11.42436],
+            [76.70565, 11.42436],
+            [76.70565, 11.42564],
+            [76.70435, 11.42564],
+            [76.70435, 11.42436],
+          ]],
+        });
+        await client.query(
+          `UPDATE farms
+           SET boundary = ST_GeomFromGeoJSON($2)::geography,
+               boundary_area_acres = 5.00,
+               boundary_drawn_by = $3,
+               boundary_drawn_at = now(),
+               boundary_version = 1
+           WHERE id = $1`,
+          [farmId, boundaryGeoJson, uId],
+        );
+      }
+
+      // Farmer 3 (Suresh Gowda) also gets a SECOND farm with no boundary at all, so this demo
+      // account exercises both FMBSketchScreen states: one farm with an existing boundary to
+      // edit (above), and one still "not positioned yet" that needs a boundary drawn from
+      // scratch -- matching every other seeded farmer's single, boundary-less farm.
+      if (f.num === 3) {
+        const secondFarmId = '30000000-0000-0000-0000-000000000103';
+        await client.query(
+          `INSERT INTO farms (id, farmer_id, name, survey_number, area_acres, centroid_lat, centroid_lng, village, district, is_primary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)
+           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+          [secondFarmId, fId, "Suresh Gowda's Second Plot", 'SF-203/B', 2.0, 11.4350, 76.7150, 'Kodanad', 'The Nilgiris'],
+        );
+      }
 
       // Certification if present
       if (f.cert) {

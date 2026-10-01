@@ -5,8 +5,8 @@ import { createApp } from '../../app.js';
 import type * as PoolModule from '../../db/pool.js';
 import { RoleCode } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
-import type { SignedUploadTarget } from '../../storage/blobStorage.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
+import type { SignUploadResponse } from '../uploads/uploads.schema.js';
 import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
 import {
@@ -100,7 +100,10 @@ function farmerInsert(tx: RecordingTx): RecordedQuery {
  */
 const FARMER_EXPERIENCE_PARAM_INDEX = 3;
 
-function mockFarmerApplicationsRepo(initialApp?: Partial<FarmerApplicationRow>): FarmerApplicationsRepo {
+function mockFarmerApplicationsRepo(
+  initialApp?: Partial<FarmerApplicationRow>,
+  profileOverrides?: Partial<FarmerProfileRow>,
+): FarmerApplicationsRepo {
   let appState: FarmerApplicationRow | null = initialApp
     ? ({
         id: initialApp.id ?? '11111111-1111-1111-1111-111111111111',
@@ -146,7 +149,10 @@ function mockFarmerApplicationsRepo(initialApp?: Partial<FarmerApplicationRow>):
     rating_tier_code: null,
     is_market_blocked: false,
     market_block_reason: null,
+    dob: null,
+    gender: null,
     created_at: new Date(),
+    ...profileOverrides,
   };
 
   return {
@@ -467,7 +473,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       calls: Array<{ ownership: unknown; body: unknown }>;
     } {
       const calls: Array<{ ownership: unknown; body: unknown }> = [];
-      const target: SignedUploadTarget = {
+      const target: SignUploadResponse = {
+        id: '22222222-2222-2222-2222-222222222222',
         uploadUrl: 'http://localhost:3000/v1/uploads/mock/farmer_document/abc.pdf',
         fileUrl: 'http://localhost:3000/v1/uploads/mock/farmer_document/abc.pdf',
         storageKey: 'farmer_document/abc.pdf',
@@ -1434,6 +1441,70 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     });
   });
 
+  // docs/openapi.yaml's FarmerProfile has always declared `dob` and `gender`, and approval
+  // has always copied them from step1_personal into farmers.dob / farmers.gender -- but
+  // the read path never SELECTed them, so GET /v1/farmers/me silently dropped both. No
+  // BR-xx rule governs these fields; these are plain contract tests for that read path.
+  describe('Farmer profile: dob and gender', () => {
+    const farmerUserId = '00000000-0000-0000-0000-000000000002';
+
+    it('getMyProfile returns dob as a YYYY-MM-DD date and gender when the farmers row has them', async () => {
+      const repo = mockFarmerApplicationsRepo(undefined, { dob: '1990-05-21', gender: 'FEMALE' });
+      const service = createFarmerApplicationsService(repo);
+
+      const profile = (await service.getMyProfile(anActor({ userId: farmerUserId }))) as Record<string, unknown>;
+
+      expect(profile['dob']).toBe('1990-05-21');
+      expect(profile['gender']).toBe('FEMALE');
+    });
+
+    it('getMyProfile returns dob: null and gender: null for a farmer row that predates them', async () => {
+      const repo = mockFarmerApplicationsRepo(undefined, { dob: null, gender: null });
+      const service = createFarmerApplicationsService(repo);
+
+      const profile = (await service.getMyProfile(anActor({ userId: farmerUserId }))) as Record<string, unknown>;
+
+      // Present-and-null, not absent: FarmerProfile declares both as nullable.
+      expect(profile).toHaveProperty('dob', null);
+      expect(profile).toHaveProperty('gender', null);
+    });
+
+    it('updateMyProfile returns dob and gender too, since PATCH /farmers/me responds with the same FarmerProfile schema', async () => {
+      const repo = mockFarmerApplicationsRepo(undefined, { dob: '1984-11-02', gender: 'MALE' });
+      const service = createFarmerApplicationsService(repo);
+
+      const updated = (await service.updateMyProfile(anActor({ userId: farmerUserId }), {
+        fullName: 'Murugan Selvam',
+      })) as Record<string, unknown>;
+
+      expect(updated['dob']).toBe('1984-11-02');
+      expect(updated['gender']).toBe('MALE');
+    });
+
+    it('findFarmerByUserId and findFarmerById both SELECT farmers.dob (as text, never a timezone-shifted Date) and farmers.gender', async () => {
+      // The pg driver parses DATE into a local-midnight JS Date; under IST, a
+      // `.toISOString().slice(0, 10)` of that value is the PREVIOUS day. Casting to
+      // text in SQL (the convention livestock and farm-diary already use) avoids it.
+      const { farmerApplicationsRepo } = await import('./farmer-applications.repo.js');
+      const sqls: string[] = [];
+      const executor = {
+        query: async (sql: string) => {
+          sqls.push(sql);
+          return { rows: [], rowCount: 0 };
+        },
+      } as unknown as PoolClient;
+
+      await farmerApplicationsRepo.findFarmerByUserId(executor, farmerUserId);
+      await farmerApplicationsRepo.findFarmerById(executor, IDS.farmer);
+
+      expect(sqls).toHaveLength(2);
+      for (const sql of sqls) {
+        expect(sql).toMatch(/f\.dob::text AS dob/);
+        expect(sql).toMatch(/f\.gender\b/);
+      }
+    });
+  });
+
   describeIfDatabase('Integration against PostgreSQL', () => {
     const app = createApp();
     const uniqueMobile = `+9198${Date.now().toString().slice(-8)}`;
@@ -1810,6 +1881,91 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(detailRes.status).toBe(200);
       expect(detailRes.body.step1Personal).not.toHaveProperty('aadhaarNumber');
       expect(JSON.stringify(detailRes.body)).not.toContain(fullAadhaar);
+    });
+
+    /**
+     * Drives a fresh application through approval over HTTP and returns a FARMER access
+     * token for the farmer it created, so GET /v1/farmers/me can be exercised against a
+     * real farmers row end to end.
+     */
+    async function approveFreshFarmer(step1: Record<string, unknown>): Promise<{ farmerToken: string }> {
+      const { signAccessToken } = await import('../../auth/jwt.js');
+      const { pool } = await import('../../db/pool.js');
+      const mobile = `+9193${Date.now().toString().slice(-8)}`;
+
+      const createRes = await request(app)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: 'Kavitha M' });
+      expect(createRes.status).toBe(201);
+      const appId = createRes.body.id as string;
+
+      const step1Res = await request(app)
+        .patch(`/v1/farmers/applications/${appId}/steps/1`)
+        .send({ fullName: 'Kavitha M', district: 'The Nilgiris', ...step1 });
+      expect(step1Res.status).toBe(200);
+
+      const step2Res = await request(app)
+        .patch(`/v1/farmers/applications/${appId}/steps/2`)
+        .send({ farmName: 'Misty Ridge', typeOfFarming: 'Vegetables', experienceYears: 3, totalAreaAcres: 1, numberOfFarms: 1 });
+      expect(step2Res.status).toBe(200);
+
+      const step3Res = await request(app)
+        .patch(`/v1/farmers/applications/${appId}/steps/3`)
+        .send({ locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, gpsCaptured: true, latitude: 11.41, longitude: 76.69 }] });
+      expect(step3Res.status).toBe(200);
+
+      const adminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+      const approveRes = await request(app)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+      expect(approveRes.status).toBe(200);
+
+      const farmer = await pool.query<{ id: string; user_id: string }>(
+        `SELECT f.id, f.user_id FROM farmers f JOIN users u ON u.id = f.user_id WHERE u.mobile = $1`,
+        [mobile],
+      );
+      expect(farmer.rows).toHaveLength(1);
+      const { id: farmerId, user_id: userId } = farmer.rows[0]!;
+
+      return {
+        farmerToken: signAccessToken({
+          sub: userId,
+          roles: [{ code: 'FARMER' }],
+          farmerId,
+          customerId: null,
+        }),
+      };
+    }
+
+    it('GET /v1/farmers/me returns the dob and gender that approval copied into the farmers row', async () => {
+      if (!(await databaseReady('farmer_applications')) || !(await databaseReady('farmers'))) return;
+
+      const { farmerToken } = await approveFreshFarmer({ dob: '21 / 05 / 1990', gender: 'Female' });
+
+      const meRes = await request(app).get('/v1/farmers/me').set('Authorization', `Bearer ${farmerToken}`);
+
+      expect(meRes.status).toBe(200);
+      // Exactly the stored calendar date -- no timezone shift to 1990-05-20.
+      expect(meRes.body.dob).toBe('1990-05-21');
+      expect(meRes.body.gender).toBe('FEMALE');
+    });
+
+    it('GET /v1/farmers/me returns dob: null and gender: null when registration never captured them', async () => {
+      if (!(await databaseReady('farmer_applications')) || !(await databaseReady('farmers'))) return;
+
+      const { farmerToken } = await approveFreshFarmer({});
+
+      const meRes = await request(app).get('/v1/farmers/me').set('Authorization', `Bearer ${farmerToken}`);
+
+      expect(meRes.status).toBe(200);
+      expect(meRes.body).toHaveProperty('dob', null);
+      expect(meRes.body).toHaveProperty('gender', null);
     });
   });
 });

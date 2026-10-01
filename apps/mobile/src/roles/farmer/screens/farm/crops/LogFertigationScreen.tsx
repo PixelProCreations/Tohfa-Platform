@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
-import { localProduceCropsCache, type CropItem } from './ProduceCalendarScreen';
+import { useActiveCropItems, type CropItem } from './cropItems';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -285,12 +285,12 @@ export function LogFertigationScreen({
   }, [onBack]);
 
   // Selected crop / field
-  const initialCrop =
-    crop ??
-    localProduceCropsCache.find((c) => c.name.toLowerCase().includes('carrot')) ??
-    localProduceCropsCache[0];
-
-  const [selectedCrop, setSelectedCrop] = useState<CropItem | null>(initialCrop ?? null);
+  // Crop picker options: the farmer's real active crops (see cropItems.ts).
+  const { items: cropOptions } = useActiveCropItems();
+  const [selectedCrop, setSelectedCrop] = useState<CropItem | null>(crop ?? null);
+  useEffect(() => {
+    if (!selectedCrop && cropOptions[0]) setSelectedCrop(cropOptions[0]);
+  }, [cropOptions, selectedCrop]);
 
   // Selected input
   const [selectedInput, setSelectedInput] = useState<ApprovedInput>(DEFAULT_INPUT);
@@ -621,7 +621,7 @@ export function LogFertigationScreen({
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {localProduceCropsCache.map((item) => {
+            {cropOptions.map((item) => {
               const isSelected = selectedCrop?.id === item.id;
               return (
                 <TouchableOpacity

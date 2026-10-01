@@ -522,11 +522,11 @@ export function PestManagementScreen({
         return;
       }
 
+      let photoUploadId: string | undefined;
       if (newPhoto) {
         try {
-          await uploadPestPhoto(newPhoto.uri, newPhoto.name, newPhoto.type);
-          // Spec gap (see pest.ts's uploadPestPhoto docblock): the photo is
-          // uploaded for safekeeping but photoUploadId cannot be linked yet.
+          const uploaded = await uploadPestPhoto(newPhoto.uri, newPhoto.name, newPhoto.type);
+          photoUploadId = uploaded.uploadId;
         } catch {
           // Non-fatal: the detection itself is still worth logging.
         }
@@ -544,6 +544,7 @@ export function PestManagementScreen({
         severity: newSeverity,
         detectedOn: toIsoDate(calendarDate),
         ...(newNotes.trim() ? { notes: newNotes.trim() } : {}),
+        ...(photoUploadId ? { photoUploadId } : {}),
       };
       const created = await createPestDetection(saveFarmId, savePlotId, body);
 

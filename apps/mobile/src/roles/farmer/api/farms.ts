@@ -77,6 +77,8 @@ export interface Plot {
   soilType: string | null;
   sunExposure: string | null;
   irrigationType: string | null;
+  /** The drawn zone polygon, or null when none has been drawn yet. */
+  boundary: GeoPolygon | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -84,6 +86,7 @@ export interface Plot {
 export interface CreatePlotInput {
   name: string;
   areaAcres?: number | undefined;
+  boundary?: GeoPolygon | undefined;
   soilType?: string | undefined;
   sunExposure?: string | undefined;
   irrigationType?: string | undefined;
@@ -92,6 +95,8 @@ export interface CreatePlotInput {
 export interface UpdatePlotInput {
   name?: string | undefined;
   areaAcres?: number | undefined;
+  /** A polygon (re)draws the zone boundary; `null` clears it; omitted leaves it unchanged. */
+  boundary?: GeoPolygon | null | undefined;
   soilType?: string | undefined;
   sunExposure?: string | undefined;
   irrigationType?: string | undefined;

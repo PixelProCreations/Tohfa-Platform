@@ -27,6 +27,25 @@ export function setApiBaseUrl(url: string): void {
   API_BASE_URL = url;
 }
 
+/**
+ * True when `url` is a plausible candidate for the Android-emulator
+ * localhost workaround: it names `localhost` and we're actually running on
+ * Android, where `localhost` means the emulator itself, not the dev machine
+ * hosting the API. Shared by `request()`'s own retry below and by
+ * `roles/farmer/api/uploader.ts`'s raw `fetch` of a presigned upload target
+ * (`apps/api/src/storage/blobStorage.ts`'s dev-mode `LocalDiskBlobStorage`
+ * bakes `http://localhost:3000` into every signed URL unconditionally), which
+ * bypasses `request()` entirely and so cannot reuse the try/catch below.
+ */
+export function isAndroidLocalhostFallbackCandidate(url: string): boolean {
+  return url.includes('localhost') && Platform.OS === 'android';
+}
+
+/** 10.0.2.2 is the Android emulator's special alias for the host loopback interface. */
+export function toAndroidLocalhostFallbackUrl(url: string): string {
+  return url.replace('localhost', '10.0.2.2');
+}
+
 export function resolveUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
@@ -204,9 +223,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
   } catch (error) {
-    if (API_BASE_URL.includes('localhost') && Platform.OS === 'android') {
+    if (isAndroidLocalhostFallbackCandidate(API_BASE_URL)) {
       try {
-        const fallbackUrl = resolveUrl(path).replace('localhost', '10.0.2.2');
+        const fallbackUrl = toAndroidLocalhostFallbackUrl(resolveUrl(path));
         response = await fetch(fallbackUrl, {
           method: options.method ?? 'GET',
           headers,

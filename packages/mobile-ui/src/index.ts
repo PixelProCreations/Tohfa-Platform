@@ -9,4 +9,5 @@ export * from './ErrorState';
 export * from './Skeleton';
 export * from './Icon';
 export * from './FarmBoundaryMap';
+export * from './pointInRing';
 export * from './DatePicker';

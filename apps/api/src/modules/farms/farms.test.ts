@@ -30,6 +30,7 @@ import {
   createFarmBody,
   createPlotBody,
   geoJsonPolygonSchema,
+  plotResponse,
   updateFarmBody,
   updatePlotBody,
 } from './farms.schema.js';
@@ -119,6 +120,7 @@ function aPlot(overrides: Partial<Plot> = {}): Plot {
     soilType: null,
     sunExposure: null,
     irrigationType: null,
+    boundary: null,
     createdAt: '2026-04-01T06:00:00.000Z',
     updatedAt: null,
     ...overrides,
@@ -255,6 +257,7 @@ function fakeRepo(options: FakeRepoOptions = {}): { repo: FarmsRepo; calls: Repo
         soilType: params.soilType,
         sunExposure: params.sunExposure,
         irrigationType: params.irrigationType,
+        boundary: params.boundary,
       });
       plots.set(plot.id, plot);
       return plot;
@@ -335,11 +338,42 @@ describe('farms.schema validation', () => {
 
   it('createPlotBody requires a name and rejects unknown fields', () => {
     expect(createPlotBody.safeParse({}).success).toBe(false);
-    expect(createPlotBody.safeParse({ name: 'North bed', boundary: SQUARE_POLYGON }).success).toBe(false);
+    expect(createPlotBody.safeParse({ name: 'North bed', farmerId: 'sneaky' }).success).toBe(false);
+  });
+
+  it('createPlotBody accepts a valid GeoJSON boundary and still accepts none', () => {
+    expect(createPlotBody.safeParse({ name: 'North bed', boundary: SQUARE_POLYGON }).success).toBe(true);
+    expect(createPlotBody.safeParse({ name: 'North bed' }).success).toBe(true);
+  });
+
+  it('createPlotBody rejects an invalid boundary polygon', () => {
+    expect(
+      createPlotBody.safeParse({ name: 'North bed', boundary: { type: 'Point', coordinates: [76.69, 11.41] } })
+        .success,
+    ).toBe(false);
+    expect(createPlotBody.safeParse({ name: 'North bed', boundary: { foo: 'bar' } }).success).toBe(false);
   });
 
   it('updatePlotBody accepts a partial update', () => {
     expect(updatePlotBody.safeParse({ sunExposure: 'Full sun' }).success).toBe(true);
+  });
+
+  it('updatePlotBody accepts a polygon boundary, an explicit null (clears it) and rejects a non-Polygon', () => {
+    expect(updatePlotBody.safeParse({ boundary: SQUARE_POLYGON }).success).toBe(true);
+    expect(updatePlotBody.safeParse({ boundary: null }).success).toBe(true);
+    expect(updatePlotBody.safeParse({ boundary: { foo: 'bar' } }).success).toBe(false);
+  });
+
+  it('plotResponse accepts a null boundary and a valid polygon boundary', () => {
+    expect(plotResponse.safeParse(aPlot({ boundary: null })).success).toBe(true);
+    const parsed = plotResponse.safeParse(aPlot({ boundary: SQUARE_POLYGON }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.success ? parsed.data.boundary : undefined).toEqual(SQUARE_POLYGON);
+  });
+
+  it('plotResponse requires the boundary key (null when none is drawn)', () => {
+    const { boundary: _boundary, ...withoutBoundary } = aPlot();
+    expect(plotResponse.safeParse(withoutBoundary).success).toBe(false);
   });
 });
 
@@ -605,6 +639,68 @@ describe('farmsService plots — BR-36 ownership via the parent farm', () => {
     expect(updated.sunExposure).toBe('Full sun');
   });
 
+  it('createPlot: a boundary is passed to the repo and round-trips through plotResponse', async () => {
+    const farm = aFarm({ farmerId: FARMER_A });
+    const { svc, calls } = service({ farms: [farm] });
+
+    const plot = await svc.createPlot(
+      farmerScope(),
+      farm.id,
+      createPlotBody.parse({ name: 'North bed', boundary: SQUARE_POLYGON }),
+    );
+
+    expect(calls.insertPlot[0]?.boundary).toEqual(SQUARE_POLYGON);
+    expect(plot.boundary).toEqual(SQUARE_POLYGON);
+    expect(plotResponse.parse(plot).boundary).toEqual(SQUARE_POLYGON);
+  });
+
+  it('createPlot: without a boundary inserts boundary null, as before', async () => {
+    const farm = aFarm({ farmerId: FARMER_A });
+    const { svc, calls } = service({ farms: [farm] });
+
+    const plot = await svc.createPlot(farmerScope(), farm.id, createPlotBody.parse({ name: 'North bed' }));
+
+    expect(calls.insertPlot[0]?.boundary).toBeNull();
+    expect(plotResponse.parse(plot).boundary).toBeNull();
+  });
+
+  it('updatePlot: a supplied boundary is passed through to the repo patch', async () => {
+    const farm = aFarm({ farmerId: FARMER_A });
+    const plot = aPlot({ farmId: farm.id });
+    const { svc, calls } = service({ farms: [farm], plots: [plot] });
+
+    const updated = await svc.updatePlot(
+      farmerScope(),
+      farm.id,
+      plot.id,
+      updatePlotBody.parse({ boundary: SQUARE_POLYGON }),
+    );
+
+    expect(calls.updatePlot[0]?.patch.boundary).toEqual(SQUARE_POLYGON);
+    expect(updated.boundary).toEqual(SQUARE_POLYGON);
+    expect(plotResponse.parse(updated).boundary).toEqual(SQUARE_POLYGON);
+  });
+
+  it('updatePlot: boundary null clears it; an omitted boundary leaves it untouched', async () => {
+    const farm = aFarm({ farmerId: FARMER_A });
+    const plot = aPlot({ farmId: farm.id, boundary: SQUARE_POLYGON });
+    const { svc, calls } = service({ farms: [farm], plots: [plot] });
+
+    const renamed = await svc.updatePlot(farmerScope(), farm.id, plot.id, updatePlotBody.parse({ name: 'x' }));
+    expect(Object.prototype.hasOwnProperty.call(calls.updatePlot[0]?.patch, 'boundary')).toBe(false);
+    expect(renamed.boundary).toEqual(SQUARE_POLYGON);
+
+    const cleared = await svc.updatePlot(
+      farmerScope(),
+      farm.id,
+      plot.id,
+      updatePlotBody.parse({ boundary: null }),
+    );
+    expect(Object.prototype.hasOwnProperty.call(calls.updatePlot[1]?.patch, 'boundary')).toBe(true);
+    expect(calls.updatePlot[1]?.patch.boundary).toBeNull();
+    expect(cleared.boundary).toBeNull();
+  });
+
   it('removePlot: BR-36 rejects before deleting when the farm is not the caller own', async () => {
     const otherFarm = aFarm({ farmerId: FARMER_B });
     const plot = aPlot({ farmId: otherFarm.id });
@@ -681,14 +777,21 @@ describeIfDatabase('farmsService (integration against PostgreSQL/PostGIS)', () =
       const plot = await svc.createPlot(
         scope,
         created.id,
-        createPlotBody.parse({ name: 'Zone A', soilType: 'Loam', sunExposure: 'Full sun' }),
+        createPlotBody.parse({
+          name: 'Zone A',
+          soilType: 'Loam',
+          sunExposure: 'Full sun',
+          boundary: SQUARE_POLYGON,
+        }),
       );
       expect(plot.farmId).toBe(created.id);
+      expect(plot.boundary).toEqual(SQUARE_POLYGON);
 
       const plots = await svc.listPlots(scope, created.id);
       expect(plots.map((p) => p.id)).toEqual([plot.id]);
+      expect(plots[0]?.boundary).toEqual(SQUARE_POLYGON);
 
-      // 4. update the plot.
+      // 4. update the plot — an omitted boundary is left untouched…
       const updatedPlot = await svc.updatePlot(
         scope,
         created.id,
@@ -696,6 +799,16 @@ describeIfDatabase('farmsService (integration against PostgreSQL/PostGIS)', () =
         updatePlotBody.parse({ sunExposure: 'Partial' }),
       );
       expect(updatedPlot.sunExposure).toBe('Partial');
+      expect(updatedPlot.boundary).toEqual(SQUARE_POLYGON);
+
+      // …and an explicit null clears it.
+      const clearedPlot = await svc.updatePlot(
+        scope,
+        created.id,
+        plot.id,
+        updatePlotBody.parse({ boundary: null }),
+      );
+      expect(clearedPlot.boundary).toBeNull();
 
       // 5. update the farm's boundary — round-trips through ST_GeomFromGeoJSON
       // / ST_AsGeoJSON again, and bumps boundary_version.

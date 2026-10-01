@@ -13,8 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Polygon } from 'react-native-svg';
-import { Icon, Skeleton } from '@tohfa/mobile-ui';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { FarmBoundaryMap, Icon, Skeleton } from '@tohfa/mobile-ui';
 import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,
@@ -29,11 +29,15 @@ import {
   type Certification,
   type FarmRating,
 } from '../../api/farmer';
-import { getFarms, getPlots } from '../../api/farms';
+import { getFarms, getPlots, updateFarm, type Farm } from '../../api/farms';
 import { listSoilTests, type SoilTestRecord } from '../../api/soil';
 import { LOCALES, setLocale, t, type Locale, type TranslationKey } from '../../../../i18n/farmer';
-import { colors, authPalette as P, typography } from '../../theme';
+import { colors, authPalette as P, spacing, typography } from '../../theme';
+import { calculatePolygonMetrics } from '../../utils/geo';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
+
+/** The Farm & FMB preview map is `readOnly`, so it never emits a change; the prop is required. */
+const noopPolygonChange = (): void => {};
 
 interface ProfileScreenProps {
   onNavigateToHome?: () => void;
@@ -163,6 +167,9 @@ export function ProfileScreen({
     tags: [],
   });
 
+  const [farmsList, setFarmsList] = useState<Farm[]>([]);
+  const [farmsLoading, setFarmsLoading] = useState<boolean>(true);
+
   // Real TOHFA farmer id from GET /v1/farmers/me; empty until first fetch.
   const [farmerId, setFarmerId] = useState<string>('');
 
@@ -207,6 +214,80 @@ export function ProfileScreen({
   const [saving, setSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
+  const loadFarms = useCallback(async () => {
+    setFarmsLoading(true);
+    try {
+      const list = await getFarms();
+      setFarmsList(list);
+      if (list.length > 0) {
+        const primary = list.find((f) => f.isPrimary) ?? list[0]!;
+
+        // Calculate total acres across all farms
+        const totalAcres = list.reduce((acc, f) => {
+          const a = f.areaAcres ?? f.boundaryAreaAcres ?? 0;
+          return acc + a;
+        }, 0);
+
+        // Calculate total zones across all farms
+        const totalZones = list.reduce((acc, f) => acc + (f.plotCount ?? 0), 0);
+
+        // Count FMB points on primary farm
+        const primaryRing = primary.boundary?.coordinates?.[0];
+        const fmbPointCount =
+          Array.isArray(primaryRing) && primaryRing.length > 0
+            ? primaryRing.length > 1 &&
+              primaryRing[0] &&
+              primaryRing[primaryRing.length - 1] &&
+              primaryRing[0][0] === primaryRing[primaryRing.length - 1]![0] &&
+              primaryRing[0][1] === primaryRing[primaryRing.length - 1]![1]
+              ? primaryRing.length - 1
+              : primaryRing.length
+            : 0;
+
+        // Extract unique water sources
+        const waterSources = Array.from(
+          new Set(list.flatMap((f) => f.waterSources || []).filter(Boolean))
+        );
+
+        // Context tags mapping for readable labels
+        const rawTags = primary.landBoundaryContext || [];
+        const tagLabels: Record<string, string> = {
+          stand_alone: 'Stand alone',
+          lower_hill: 'Lower part of hill',
+          forest_boundaries: 'Forest boundaries',
+          upper_hill: 'Upper hill',
+          forest_fire: 'Forest fire zone',
+          wildlife_zone: 'Wildlife zone',
+          chemical_sprayed: 'Sharing with chemical sprayed farm',
+        };
+        const formattedTags = rawTags.map((tag) => tagLabels[tag] || tag.replace(/_/g, ' '));
+
+        setFarmDetails({
+          acres: totalAcres > 0 ? `${Number(totalAcres.toFixed(2))}` : primary.areaAcres ? `${primary.areaAcres}` : '—',
+          zones: `${totalZones}`,
+          farms: `${list.length}`,
+          fmbPts: fmbPointCount > 0 ? `${fmbPointCount}` : '—',
+          waterSource: waterSources.length > 0 ? waterSources.join(', ') : '—',
+          tags: formattedTags,
+        });
+
+        if (primary.name) {
+          setPersonalDetails((prev) => ({
+            ...prev,
+            farmName: prev.farmName || primary.name,
+            location:
+              prev.location ||
+              (primary.village ? `${primary.village}, ${primary.district}` : primary.district),
+          }));
+        }
+      }
+    } catch {
+      // Fallback gracefully
+    } finally {
+      setFarmsLoading(false);
+    }
+  }, []);
+
   // Attempt to load from API in background, maintaining rich defaults if mock
   useEffect(() => {
     async function fetchProfile() {
@@ -221,6 +302,12 @@ export function ProfileScreen({
             fullName: res.fullName || prev.fullName,
             mobile: res.mobile ? maskMobile(res.mobile) : prev.mobile,
             aadhaar: res.aadhaarLast4 ? maskAadhaar(res.aadhaarLast4) : prev.aadhaar,
+            // `FarmerProfile.dob` was already part of the API response but was never read into
+            // this screen's state, so Date of Birth always showed blank regardless of what the
+            // backend actually had.
+            dob: res.dob
+              ? new Date(res.dob).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              : prev.dob,
             yearsInOrganic: res.farmingExperienceYears
               ? `${res.farmingExperienceYears} years`
               : prev.yearsInOrganic,
@@ -256,8 +343,9 @@ export function ProfileScreen({
     }
 
     void fetchProfile();
+    void loadFarms();
     void fetchSoilTest();
-  }, []);
+  }, [loadFarms]);
 
   const loadCerts = useCallback(async () => {
     try {
@@ -360,27 +448,76 @@ export function ProfileScreen({
     }
   };
 
+  const primaryFarm = farmsList.find((f) => f.isPrimary) ?? farmsList[0] ?? null;
+  const primaryRing = (primaryFarm?.boundary?.coordinates?.[0] as [number, number][] | undefined) ?? [];
+  const hasBoundary = Array.isArray(primaryRing) && primaryRing.length >= 3;
+
+  // Camera center + boundary for the Farm & FMB preview map, derived exactly as FMBSketchScreen's
+  // `mapInitialCenter`/`mapInitialPolygon` are: the saved ring's OWN centroid first (the stored
+  // centroidLat/Lng can drift from a boundary redrawn later), then the stored centroid, then nothing.
+  const previewRingMetrics = hasBoundary ? calculatePolygonMetrics(primaryRing) : null;
+  const previewCenter: [number, number] | null = previewRingMetrics
+    ? [previewRingMetrics.centroid.longitude, previewRingMetrics.centroid.latitude]
+    : primaryFarm?.centroidLng != null && primaryFarm?.centroidLat != null
+      ? [primaryFarm.centroidLng, primaryFarm.centroidLat]
+      : null;
+  const previewPolygon: [number, number][] | null = hasBoundary ? primaryRing : null;
+
+  // GPS badge text -- unchanged from the static-image preview this map replaced: the stored
+  // centroid, falling back to the boundary's bounding-box midpoint.
+  let gpsStatusLabel = 'GPS boundary pending';
+  if (hasBoundary) {
+    const lngs = primaryRing.map((pt) => pt[0]);
+    const lats = primaryRing.map((pt) => pt[1]);
+    const cLat = primaryFarm?.centroidLat ?? (Math.min(...lats) + Math.max(...lats)) / 2;
+    const cLng = primaryFarm?.centroidLng ?? (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    gpsStatusLabel = `${cLat.toFixed(4)}° N, ${cLng.toFixed(4)}° E`;
+  } else if (primaryFarm?.centroidLat && primaryFarm?.centroidLng) {
+    gpsStatusLabel = `${primaryFarm.centroidLat.toFixed(4)}° N, ${primaryFarm.centroidLng.toFixed(4)}° E`;
+  }
+
   const openFarmEdit = () => {
     if (onNavigateToFMBSketch) {
       onNavigateToFMBSketch();
     } else {
-      setTempAcres(farmDetails.acres);
-      setTempZones(farmDetails.zones);
-      setTempWaterSource(farmDetails.waterSource);
+      setTempAcres(farmDetails.acres === '—' ? '' : farmDetails.acres);
+      setTempZones(farmDetails.zones === '—' ? '' : farmDetails.zones);
+      setTempWaterSource(farmDetails.waterSource === '—' ? '' : farmDetails.waterSource);
       setIsEditFarmModalVisible(true);
     }
   };
 
-  const handleSaveFarmDetails = () => {
-    setFarmDetails((prev) => ({
-      ...prev,
-      acres: tempAcres.trim() || '2.5',
-      zones: tempZones.trim() || '3',
-      waterSource: tempWaterSource.trim() || 'Borewell + Rainwater',
-    }));
-    setIsEditFarmModalVisible(false);
-    setSaveSuccessMsg('Farm & FMB details updated!');
-    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  const handleSaveFarmDetails = async () => {
+    setSaving(true);
+    try {
+      const acresNum = parseFloat(tempAcres);
+      const waterList = tempWaterSource
+        ? tempWaterSource
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
+
+      if (primaryFarm?.id) {
+        await updateFarm(primaryFarm.id, {
+          areaAcres: isNaN(acresNum) ? undefined : acresNum,
+          waterSources: waterList,
+        }).catch(() => {});
+      }
+
+      setFarmDetails((prev) => ({
+        ...prev,
+        acres: tempAcres.trim() || prev.acres,
+        zones: tempZones.trim() || prev.zones,
+        waterSource: tempWaterSource.trim() || prev.waterSource,
+      }));
+      setIsEditFarmModalVisible(false);
+      setSaveSuccessMsg('Farm & FMB details updated!');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+      void loadFarms();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -573,7 +710,6 @@ export function ProfileScreen({
           </View>
         </View>
 
-        {/* MOCK: GET /v1/farmers/me returns no farm name, survey number, area/acres, zones, FMB point count, water source or boundary geometry. The farms/plots tables exist (db/migrations/0003) but have no farmer-facing read endpoint; farms.boundary is documented as deferred. */}
         {/* ================= CARD 2: FARM & FMB ================= */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeaderRow}>
@@ -589,54 +725,75 @@ export function ProfileScreen({
             </TouchableOpacity>
           </View>
 
-          {/* FMB Map Preview — ESRI World Imagery satellite tile */}
-          <View style={styles.fmbMapContainer}>
-            <Image
-              source={{
-                uri:
-                  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export' +
-                  '?bbox=76.6882,11.4034,76.7002,11.4114&bboxSR=4326&size=640,270&format=jpg&transparent=false&f=image',
-              }}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode="cover"
-            />
-            {/* FMB polygon overlay on satellite tile */}
-            <Svg width="100%" height="135" viewBox="0 0 320 135" style={StyleSheet.absoluteFillObject}>
-              <Polygon
-                points="45,40 270,30 250,110 65,115"
-                fill="rgba(165, 214, 167, 0.45)"
-                stroke={colors.brandGreen}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-              />
-              <Circle cx="158" cy="68" r="7" fill={P.orange600} stroke={colors.white} strokeWidth="2.5" />
-            </Svg>
+          {/* FMB Map Preview — the same Mapbox FarmBoundaryMap as FMB Sketch, read-only. The whole
+              preview is one tap target into FMB Sketch. The map's own gestures are off and its
+              wrapper is `pointerEvents="none"`, so a swipe that starts on it scrolls this page
+              and a tap lands on the TouchableOpacity rather than inside the native map. */}
+          <TouchableOpacity
+            style={styles.fmbMapContainer}
+            onPress={openFarmEdit}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.profile.farm.a11y.openMap')}
+            testID="profile-fmb-map-preview"
+          >
+            {farmsLoading ? (
+              <Skeleton borderRadius={0} style={styles.fmbMapSkeleton} />
+            ) : previewCenter ? (
+              <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <FarmBoundaryMap
+                  // FarmBoundaryMap reads initialCenter/initialPolygon only at mount, so remount
+                  // whenever the farm or its saved boundary changes (e.g. after an FMB Sketch save).
+                  key={`${primaryFarm?.id ?? 'none'}:${primaryFarm?.boundaryVersion ?? 0}:${primaryFarm?.updatedAt ?? ''}`}
+                  initialCenter={previewCenter}
+                  initialPolygon={previewPolygon}
+                  // A farm with only a stored centroid has no shape to draw; pin the point instead.
+                  markerCoordinate={previewPolygon ? null : previewCenter}
+                  onPolygonChange={noopPolygonChange}
+                  readOnly
+                  gesturesEnabled={false}
+                  // Two levels below FarmBoundaryMap's own default (17, tuned for a full-screen
+                  // editor) -- this card is only ~135px tall, and at 17 a farm of a few acres runs
+                  // off the top/bottom edge instead of showing the whole shape with some margin.
+                  initialZoom={15}
+                  searchPlaceholder={t('farmer.map.searchPlaceholder')}
+                  testID="profile-fmb-map"
+                />
+              </View>
+            ) : (
+              <View style={styles.fmbMapEmpty}>
+                <Icon name="place" size={22} color={P.slate400} />
+                <Text style={styles.fmbMapEmptyText}>{t('farmer.profile.farm.mapEmpty')}</Text>
+              </View>
+            )}
 
             {/* GPS Tag */}
-            <View style={styles.gpsCoordinatesBadge}>
-              <Text style={styles.gpsCoordinatesText}>GPS boundary pending</Text>
-            </View>
-          </View>
+            {!farmsLoading ? (
+              <View style={styles.gpsCoordinatesBadge} pointerEvents="none">
+                <Text style={styles.gpsCoordinatesText}>{gpsStatusLabel}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
 
           {/* 4 Metrics Strip */}
           <View style={styles.fmbMetricsStrip}>
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.acres}</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.acres}</Text>
               <Text style={styles.fmbMetricLabel}>ACRES</Text>
             </View>
             <View style={styles.fmbMetricDivider} />
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.zones}</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.zones}</Text>
               <Text style={styles.fmbMetricLabel}>ZONES</Text>
             </View>
             <View style={styles.fmbMetricDivider} />
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.farms}</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.farms}</Text>
               <Text style={styles.fmbMetricLabel}>FARMS</Text>
             </View>
             <View style={styles.fmbMetricDivider} />
             <View style={styles.fmbMetricItem}>
-              <Text style={styles.fmbMetricValue}>{farmDetails.fmbPts}</Text>
+              <Text style={styles.fmbMetricValue}>{farmsLoading ? '—' : farmDetails.fmbPts}</Text>
               <Text style={styles.fmbMetricLabel}>FMB PTS</Text>
             </View>
           </View>
@@ -644,7 +801,7 @@ export function ProfileScreen({
           {/* Water Source Row */}
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Water Source</Text>
-            <Text style={styles.detailValue}>{farmDetails.waterSource}</Text>
+            <Text style={styles.detailValue}>{farmsLoading ? '—' : farmDetails.waterSource}</Text>
           </View>
 
           {/* Land Context Pills — only shown once tags are available */}
@@ -1266,7 +1423,9 @@ export function ProfileScreen({
                   <Text style={[styles.lockedSectionTitle, { marginBottom: 0 }]}>Cadastral Survey FMB</Text>
                 </View>
                 <Text style={styles.lockedSectionSubtitle}>
-                  FMB boundary points (8 points) verified by Department of Land Survey, Ooty. Coordinates: 11.4064° N, 76.6932° E.
+                  {hasBoundary
+                    ? `FMB boundary points (${farmDetails.fmbPts} points) active. Coordinates: ${gpsStatusLabel}.`
+                    : 'FMB boundary pending. Use the FMB Sketch screen to map boundary coordinates and land context.'}
                 </Text>
               </View>
             </ScrollView>
@@ -1957,6 +2116,22 @@ const styles = StyleSheet.create({
     borderColor: P.slate200,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fmbMapSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+  },
+  fmbMapEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  fmbMapEmptyText: {
+    fontSize: typography.caption,
+    fontWeight: '600',
+    color: P.slate500,
+    textAlign: 'center',
   },
   gpsCoordinatesBadge: {
     position: 'absolute',
