@@ -140,6 +140,7 @@ const STAFF_DATA = [
 export function SubWarehouseStaffAndAttendanceScreen({
   onBack,
   onNavigateToDetail,
+  onTabChange,
 }: SubWarehouseStaffAndAttendanceScreenProps) {
   const [activeTab, setActiveTab] = useState("Today's Attendance");
 

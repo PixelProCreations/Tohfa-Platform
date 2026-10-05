@@ -131,4 +131,4 @@ export * from '../../../subwarehouse/screens/SubWarehouseIssueSubmittedScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssueDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseStaffAndAttendanceScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseWarehouseActivityScreen';
+export { SubWarehouseWarehouseActivityScreen, type SubWarehouseWarehouseActivityScreenProps } from '../../../subwarehouse/screens/SubWarehouseWarehouseActivityScreen';
