@@ -14,6 +14,7 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { MainWarehouseMoreScreen } from './MainWarehouseMoreScreen';
 import {
   WarehouseOverviewScreen,
   StockLedgerScreen,
@@ -764,10 +765,10 @@ export function MainWarehouseAdminDashboardScreen({
 
         {/* ─── More Tab ─── */}
         {activeTab === 'More' && (
-          <AdminProfileScreen
-            role="MAIN_WH_ADMIN"
-            onSignOut={onSignOut}
+          <MainWarehouseMoreScreen
             onBack={() => setActiveTab('Home')}
+            onLogout={onSignOut}
+            onTabChange={(tab) => setActiveTab(tab)}
           />
         )}
 
@@ -845,7 +846,7 @@ export function MainWarehouseAdminDashboardScreen({
       </View>
 
       {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */}
-      {(whSubView === 'overview' || activeTab !== 'Home') && (
+      {activeTab !== 'More' && (whSubView === 'overview' || activeTab !== 'Home') && (
         <View style={styles.bottomTabBar}>
           {/* Home */}
           <TouchableOpacity
@@ -903,8 +904,8 @@ export function MainWarehouseAdminDashboardScreen({
             accessibilityRole="tab"
             activeOpacity={0.7}
           >
-            <MoreTabNavIcon active={activeTab === 'More'} />
-            <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+            <MoreTabNavIcon active={false} />
+            <Text style={styles.tabLabel}>More</Text>
           </TouchableOpacity>
         </View>
       )}
