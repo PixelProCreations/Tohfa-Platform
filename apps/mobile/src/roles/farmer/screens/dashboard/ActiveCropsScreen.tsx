@@ -12,8 +12,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
-import { listDiaryPlots, type DiaryPlot } from '../../api/farmDiary';
-import { listFarmCrops, type FarmCropResponse } from '../../api/crops';
+import type { DiaryPlot } from '../../api/farmDiary';
+import { listAllActiveFarmCrops, type FarmCropResponse } from '../../api/crops';
 import type { CropItem } from '../farm/crops/ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -115,7 +115,7 @@ function CheckMiniIcon({ size = 12, color = P.twGreen700 }: { size?: number; col
 // Types & real-data mapping
 // ─────────────────────────────────────────────
 
-interface ActiveCropData extends CropItem {
+export interface ActiveCropData extends CropItem {
   progressPercent: number;
   stageName: string;
   estYield: string;
@@ -138,8 +138,11 @@ function daysBetween(a: Date, b: Date): number {
  * separate, out-of-scope concept — root task notes it has no backing
  * table), so `progressPercent`/`stageName` here are derived only from the
  * dates and status this API does provide, not a real stage model.
+ *
+ * Exported so the Dashboard's crop preview hands CropDetailScreen exactly the
+ * payload this screen does.
  */
-function toActiveCropData(crop: FarmCropResponse, plot: DiaryPlot): ActiveCropData {
+export function toActiveCropData(crop: FarmCropResponse, plot: DiaryPlot): ActiveCropData {
   const today = new Date();
   const plantedOn = crop.plantedOn ? new Date(crop.plantedOn) : null;
   const expectedHarvestOn = crop.expectedHarvestOn ? new Date(crop.expectedHarvestOn) : null;
@@ -226,23 +229,12 @@ export function ActiveCropsScreen({
     setLoading(true);
     setError(null);
     try {
-      const fetchedPlots = await listDiaryPlots();
-      // "All Active Crops" spans the whole farm, not one zone, so every plot
-      // is queried — the real endpoint (GET .../plots/:plotId/crops) is
-      // per-plot, unlike this screen's farm-wide view.
-      const perPlot = await Promise.all(
-        fetchedPlots.map(async (plot) => ({ plot, result: await listFarmCrops(plot.id) })),
-      );
-      const active: ActiveCropData[] = [];
-      for (const { plot, result } of perPlot) {
-        for (const crop of result.items) {
-          if (crop.status === 'PLANNED' || crop.status === 'GROWING') {
-            active.push(toActiveCropData(crop, plot));
-          }
-        }
-      }
+      // "All Active Crops" spans the whole farm, not one zone: every plot is
+      // queried for GROWING and PLANNED crops with each cursor walked to the
+      // end (shared with the Dashboard preview, so its count matches this list).
+      const { plots: fetchedPlots, items } = await listAllActiveFarmCrops();
       setPlots(fetchedPlots);
-      setCrops(active);
+      setCrops(items.map(({ crop, plot }) => toActiveCropData(crop, plot)));
     } catch (err: unknown) {
       setError(err);
     } finally {

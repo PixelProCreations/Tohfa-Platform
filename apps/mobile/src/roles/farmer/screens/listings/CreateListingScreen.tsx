@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
-import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { getLocale, t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
+import { listCropMaster, type CropMasterResponse } from '../../api/crops';
+import { type ListingCropChoice } from '../../api/listings';
+import { cropPhotoFor } from './cropImages';
 
 // Custom Icons
 const ChevronLeft = () => (
@@ -36,43 +41,65 @@ const EmptyCircle = () => (
   </Svg>
 );
 
-// Crop Icons
-const CropCarrot = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M17.414 4.586A2 2 0 0 0 16 4H8a2 2 0 0 0-1.414.586l-2 2a2 2 0 0 0 0 2.828l6 6a2 2 0 0 0 2.828 0l6-6a2 2 0 0 0 0-2.828l-2-2z" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M12 2V4M9 2V4M15 2V4" stroke={P.orange700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
-const CropCabbage = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M12 12C12 12 8 16 6 12C4 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M12 12C12 12 16 16 18 12C20 8 12 6 12 6" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M12 12V22" stroke={P.green700} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
-const CropBeetroot = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="14" r="6" stroke={P.pink800} strokeWidth="2" />
-    <Circle cx="12" cy="14" r="2" fill={P.pink800} />
-    <Path d="M12 8V2M9 4L12 8M15 4L12 8" stroke={P.pink800} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
 interface CreateListingScreenProps {
   onSuccess?: () => void;
   onCancel?: () => void;
-  onNext?: () => void;
+  /** Step 2 needs the crop's id (for `POST /listings` and the ceiling lookup) and its display name. */
+  onNext?: (crop: ListingCropChoice) => void;
+}
+
+// ─────────────────────────────────────────────
+// Data: the active crop taxonomy from GET /farmers/me/crop-master
+// (`listCropMaster`). Left out of the approved design because crop_master has
+// no such fields (not faked): the per-crop grade badge and the
+// "Zone A · 180 kg available" line -- there is no harvest-record endpoint that
+// yields a grade, zone or available quantity for a listing.
+// ─────────────────────────────────────────────
+
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'error'; error: unknown }
+  | { kind: 'ready'; crops: CropMasterResponse[] };
+
+function displayNameOf(crop: CropMasterResponse): string {
+  return getLocale() === 'ta' && crop.nameTa ? crop.nameTa : crop.name;
 }
 
 export function CreateListingScreen({
-  onSuccess,
   onCancel,
   onNext,
 }: CreateListingScreenProps): React.JSX.Element {
-  const [selectedId, setSelectedId] = useState<string>('carrot');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const load = useCallback(async () => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setState({ kind: 'loading' });
+    try {
+      const crops = await listCropMaster(controller.signal);
+      if (controller.signal.aborted) return;
+      setState({ kind: 'ready', crops });
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setState({ kind: 'error', error });
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    return () => controllerRef.current?.abort();
+  }, [load]);
+
+  const selectedCrop =
+    state.kind === 'ready' ? (state.crops.find((c) => c.id === selectedId) ?? null) : null;
+
+  const handleNext = () => {
+    if (selectedCrop === null) return;
+    onNext?.({ id: selectedCrop.id, slug: selectedCrop.slug, displayName: displayNameOf(selectedCrop) });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -85,20 +112,20 @@ export function CreateListingScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('farmer.common.back')}
           >
             <ChevronLeft />
           </TouchableOpacity>
           <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Create Listing</Text>
-            <Text style={styles.headerSub}>Step 1 of 2 · Pick crop</Text>
+            <Text style={styles.headerTitle}>{t('farmer.listings.create.step1.title')}</Text>
+            <Text style={styles.headerSub}>{t('farmer.listings.create.step1.subtitle')}</Text>
           </View>
           <TouchableOpacity
             onPress={onCancel}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t('farmer.common.cancel')}
           >
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>{t('farmer.common.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -117,79 +144,62 @@ export function CreateListingScreen({
             <InfoCircle />
           </View>
           <Text style={styles.infoText}>
-            Only crops you marked <Text style={{ fontWeight: '700' }}>harvest-ready</Text> in Produce Calendar can be listed. One listing sells one harvest batch.
+            {t('farmer.listings.create.step1.infoPrefix')}
+            <Text style={{ fontWeight: '700' }}>{t('farmer.listings.create.step1.infoBold')}</Text>
+            {t('farmer.listings.create.step1.infoSuffix')}
           </Text>
         </View>
 
         {/* List Header */}
-        <Text style={styles.sectionTitle}>HARVEST-READY CROPS</Text>
+        <Text style={styles.sectionTitle}>{t('farmer.listings.create.step1.sectionTitle')}</Text>
 
         {/* Crop Selection Cards */}
-        <TouchableOpacity
-          style={[styles.cropCard, selectedId === 'carrot' ? styles.cropCardSelected : null]}
-          onPress={() => setSelectedId('carrot')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.cropIconBox, { backgroundColor: P.orange50 }]}>
-            <Image source={require('../../../../assets/images/real_carrot.jpg')} style={styles.realCropImg} />
-          </View>
-          <View style={styles.cropTextCol}>
-            <View style={styles.cropTitleRow}>
-              <Text style={styles.cropTitle}>Carrot · Ooty</Text>
-              <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade 1</Text>
-              </View>
-            </View>
-            <Text style={styles.cropSub}>Zone A · 180 kg available</Text>
-          </View>
-          <View style={styles.radioBox}>
-            {selectedId === 'carrot' ? <CheckCircle /> : <EmptyCircle />}
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.cropCard, selectedId === 'cabbage' ? styles.cropCardSelected : null]}
-          onPress={() => setSelectedId('cabbage')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.cropIconBox, { backgroundColor: colors.brandGreenLight }]}>
-            <Image source={require('../../../../assets/images/real_cabbage.jpg')} style={styles.realCropImg} />
-          </View>
-          <View style={styles.cropTextCol}>
-            <View style={styles.cropTitleRow}>
-              <Text style={styles.cropTitle}>Cabbage</Text>
-              <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade 2</Text>
-              </View>
-            </View>
-            <Text style={styles.cropSub}>Zone B · 260 kg available</Text>
-          </View>
-          <View style={styles.radioBox}>
-            {selectedId === 'cabbage' ? <CheckCircle /> : <EmptyCircle />}
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.cropCard, selectedId === 'beetroot' ? styles.cropCardSelected : null]}
-          onPress={() => setSelectedId('beetroot')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.cropIconBox, { backgroundColor: P.pink50 }]}>
-            <Image source={require('../../../../assets/images/real_beetroot.jpg')} style={styles.realCropImg} />
-          </View>
-          <View style={styles.cropTextCol}>
-            <View style={styles.cropTitleRow}>
-              <Text style={styles.cropTitle}>Beetroot</Text>
-              <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade 1</Text>
-              </View>
-            </View>
-            <Text style={styles.cropSub}>Zone A · 90 kg available</Text>
-          </View>
-          <View style={styles.radioBox}>
-            {selectedId === 'beetroot' ? <CheckCircle /> : <EmptyCircle />}
-          </View>
-        </TouchableOpacity>
+        {state.kind === 'loading' ? (
+          <>
+            <Skeleton width="100%" height={80} borderRadius={16} />
+            <View style={styles.skeletonGap} />
+            <Skeleton width="100%" height={80} borderRadius={16} />
+            <View style={styles.skeletonGap} />
+            <Skeleton width="100%" height={80} borderRadius={16} />
+          </>
+        ) : state.kind === 'error' ? (
+          <ErrorState
+            error={state.error}
+            message={t('farmer.listings.create.step1.loadError')}
+            retryTitle={t('farmer.common.retry')}
+            offlineMessage={t('farmer.common.offline')}
+            onRetry={() => void load()}
+          />
+        ) : state.crops.length === 0 ? (
+          <Text style={styles.emptyText}>{t('farmer.listings.create.step1.empty')}</Text>
+        ) : (
+          state.crops.map((crop) => {
+            const isSelected = crop.id === selectedId;
+            const photo = cropPhotoFor(crop.slug, crop.name);
+            return (
+              <TouchableOpacity
+                key={crop.id}
+                style={[styles.cropCard, isSelected ? styles.cropCardSelected : null]}
+                onPress={() => setSelectedId(crop.id)}
+                activeOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+              >
+                <View style={[styles.cropIconBox, { backgroundColor: colors.brandGreenLight }]}>
+                  {photo !== null ? <Image source={photo} style={styles.realCropImg} /> : null}
+                </View>
+                <View style={styles.cropTextCol}>
+                  <View style={styles.cropTitleRow}>
+                    <Text style={styles.cropTitle}>{displayNameOf(crop)}</Text>
+                  </View>
+                </View>
+                <View style={styles.radioBox}>
+                  {isSelected ? <CheckCircle /> : <EmptyCircle />}
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -197,12 +207,14 @@ export function CreateListingScreen({
       {/* Footer / Next Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.nextBtn}
-          onPress={onNext}
+          style={[styles.nextBtn, selectedCrop === null ? styles.btnDisabled : null]}
+          onPress={handleNext}
+          disabled={selectedCrop === null}
           accessibilityRole="button"
-          accessibilityLabel="Next"
+          accessibilityLabel={t('farmer.listings.create.step1.next')}
+          accessibilityState={{ disabled: selectedCrop === null }}
         >
-          <Text style={styles.nextBtnText}>Next</Text>
+          <Text style={styles.nextBtnText}>{t('farmer.listings.create.step1.next')}</Text>
           <ArrowRight />
         </TouchableOpacity>
       </View>
@@ -383,5 +395,17 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge,
     fontWeight: '800',
     marginRight: 8,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  skeletonGap: {
+    height: 12,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.grey600,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
 });

@@ -1,19 +1,35 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  Modal,
+  Linking,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { t } from '../../../../i18n/farmer';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
+import {
+  auditConductedBy,
+  auditDisplayDate,
+  auditScore,
+  fullMonthKey,
+  getMyAudit,
+  getMyAuditReportUrl,
+  isAuditNotFound,
+  istDateParts,
+  pad2,
+  scoreFraction,
+  shortMonthKey,
+  tierLabelKey,
+  type AuditReportVariant,
+  type FarmerAuditDetail,
+} from '../../api/audits';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -110,25 +126,6 @@ function PdfFileIcon({ size = 22, color = P.twRed600 }: { size?: number; color?:
   );
 }
 
-function PhotoGalleryIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Circle cx="8.5" cy="8.5" r="1.5" fill={color} />
-      <Path d="M21 15l-5-5L5 21" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function FlagIcon({ size = 16, color = P.twGray700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Line x1="4" y1="22" x2="4" y2="15" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function UserAvatarIcon({ size = 36 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 36 36" fill="none">
@@ -141,9 +138,22 @@ function UserAvatarIcon({ size = 36 }: { size?: number }) {
 
 // ─────────────────────────────────────────────
 // Gauge Speedometer Component
+//
+// Contract scale: 10 categories x 0-10 = total out of 100, plus a tier the
+// server resolves from rating_tier_config (BR-04a). The four arc segments are
+// decorative quarters; the tier bands themselves are server config the client
+// does not know, so the legend states the scale, not thresholds, and the label
+// under the number is the server's tier, never derived here.
 // ─────────────────────────────────────────────
 
-function RatingGauge({ score = 815 }: { score?: number }) {
+const GAUGE_CX = 100;
+const GAUGE_CY = 95;
+const GAUGE_NEEDLE_LENGTH = 68;
+
+function RatingGauge({ score, max, tierLabel }: { score: number; max: number; tierLabel: string | null }) {
+  const angle = Math.PI * (1 - scoreFraction(score, max));
+  const needleX = GAUGE_CX + GAUGE_NEEDLE_LENGTH * Math.cos(angle);
+  const needleY = GAUGE_CY - GAUGE_NEEDLE_LENGTH * Math.sin(angle);
   return (
     <View style={gaugeStyles.container}>
       <Svg width={220} height={120} viewBox="0 0 200 115">
@@ -153,18 +163,21 @@ function RatingGauge({ score = 815 }: { score?: number }) {
         <Path d="M 100 20 A 75 75 0 0 1 153.03 41.97" stroke={P.twBlue600} strokeWidth="14" fill="none" />
         <Path d="M 153.03 41.97 A 75 75 0 0 1 175 95" stroke={P.primary} strokeWidth="14" strokeLinecap="round" fill="none" />
 
-        {/* Gauge Needle pointing towards green / 815 */}
-        <Line x1="100" y1="95" x2="162" y2="66" stroke={P.twGray800} strokeWidth="3.5" strokeLinecap="round" />
+        {/* Gauge Needle at score / max */}
+        <Line x1={GAUGE_CX} y1={GAUGE_CY} x2={needleX} y2={needleY} stroke={P.twGray800} strokeWidth="3.5" strokeLinecap="round" />
 
         {/* Pivot center */}
-        <Circle cx="100" cy="95" r="7" fill={P.twGray800} />
-        <Circle cx="100" cy="95" r="3" fill={P.white} />
+        <Circle cx={GAUGE_CX} cy={GAUGE_CY} r="7" fill={P.twGray800} />
+        <Circle cx={GAUGE_CX} cy={GAUGE_CY} r="3" fill={P.white} />
       </Svg>
 
       {/* Score and Rating Text in the center below needle */}
       <View style={gaugeStyles.scoreBox}>
-        <Text style={gaugeStyles.scoreNumber}>{score}</Text>
-        <Text style={gaugeStyles.scoreLabel}>{t('farmer.profile.rating.excellent')}</Text>
+        <Text style={gaugeStyles.scoreNumber}>
+          {score}
+          {t('farmer.profile.rating.outOf', { max })}
+        </Text>
+        {tierLabel !== null ? <Text style={gaugeStyles.scoreLabel}>{tierLabel}</Text> : null}
       </View>
 
       {/* Scale Category Labels */}
@@ -176,7 +189,7 @@ function RatingGauge({ score = 815 }: { score?: number }) {
       </View>
 
       {/* Legend subtext */}
-      <Text style={gaugeStyles.scaleSubtext}>{t('farmer.auditResult.gauge.scaleLegend')}</Text>
+      <Text style={gaugeStyles.scaleSubtext}>{t('farmer.auditResult.gauge.scaleLegend100')}</Text>
     </View>
   );
 }
@@ -228,11 +241,20 @@ const gaugeStyles = StyleSheet.create({
 // ─────────────────────────────────────────────
 // Main AuditResultScreen
 //
-// Specification gap: there is no audits endpoint in `../../api/farmer` or
-// `docs/openapi.yaml` yet. `auditId` is accepted (App.tsx passes the id the
-// farmer tapped in AuditsScreen) but this screen still renders the same
-// fixed mock report regardless of which id was passed, exactly as it did in
-// farm-rating -- wiring it to a real per-audit report is future work.
+// Data: GET /farmers/me/audits/{id} (api/audits.ts). Another farmer's id, or
+// an unknown one, is a 404 from the server (BR-36a) and renders the
+// not-found state. Scores and findings only exist for a COMPLETED audit;
+// otherwise the screen shows the schedule and a plain "results later" note.
+//
+// Report PDFs: `getMyAuditReportUrl` resolves the authenticated report
+// endpoint to a short-lived signed URL and Linking opens it (see that
+// function for why the endpoint itself cannot be handed to Linking).
+//
+// Removed from the approved design because the contract has no field or
+// endpoint for them: "time on farm", the outcome headline banner for a
+// completed audit, the named lead auditor/person, the Photos attachment, the
+// "Reviewed"/"Published" timeline steps (no publish gate exists), the report
+// file size, and "Dispute a finding" with its modal.
 // ─────────────────────────────────────────────
 
 interface AuditResultScreenProps {
@@ -240,258 +262,376 @@ interface AuditResultScreenProps {
   auditId?: string | undefined;
 }
 
-export function AuditResultScreen({ onBack, auditId: _auditId }: AuditResultScreenProps): React.JSX.Element {
-  const [isCorrectiveActionOpen, setIsCorrectiveActionOpen] = useState(true);
-  const [isDisputeModalVisible, setIsDisputeModalVisible] = useState(false);
-  const [disputeReason, setDisputeReason] = useState('');
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'notFound' }
+  | { kind: 'error'; error: unknown }
+  | { kind: 'ready'; audit: FarmerAuditDetail };
 
-  const handleDownload = () => {
-    Alert.alert(t('farmer.auditResult.download.title'), t('farmer.auditResult.download.body'), [{ text: t('farmer.common.ok') }]);
-  };
+function k(key: string): TranslationKey {
+  return key as TranslationKey;
+}
 
-  const handleOpenAttachment = (name: string) => {
-    Alert.alert(t('farmer.auditResult.attachment.openingTitle'), t('farmer.auditResult.attachment.openingBody', { name }), [
-      { text: t('farmer.common.ok') },
-    ]);
-  };
+function formatHeadingDate(iso: string): string {
+  const p = istDateParts(iso);
+  if (p === null) return '';
+  return t('farmer.auditResult.dateHeading', { day: p.day, month: t(k(fullMonthKey(p.monthIndex))), year: p.year });
+}
 
-  const handleSubmitDispute = () => {
-    if (!disputeReason.trim()) {
-      Alert.alert(t('farmer.auditResult.dispute.requiredTitle'), t('farmer.auditResult.dispute.requiredBody'));
+function formatDueDate(isoDate: string): string {
+  // `dueDate` is a calendar date (YYYY-MM-DD) with no time zone; read it as-is.
+  const [y, m, d] = isoDate.split('-').map((part) => Number(part));
+  if (!y || !m || !d) return isoDate;
+  return t('farmer.auditResult.dateHeading', { day: pad2(d), month: t(k(shortMonthKey(m - 1))), year: y });
+}
+
+export function AuditResultScreen({ onBack, auditId }: AuditResultScreenProps): React.JSX.Element {
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [openFindingIds, setOpenFindingIds] = useState<Record<string, boolean>>({});
+  const [isOpeningReport, setIsOpeningReport] = useState(false);
+
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      if (auditId === undefined) {
+        setState({ kind: 'notFound' });
+        return;
+      }
+      setState({ kind: 'loading' });
+      try {
+        const audit = await getMyAudit(auditId, signal);
+        if (signal?.aborted) return;
+        // First finding starts expanded, as in the approved design.
+        const first = audit.findings[0];
+        setOpenFindingIds(first ? { [first.id]: true } : {});
+        setState({ kind: 'ready', audit });
+      } catch (error) {
+        if (signal?.aborted) return;
+        setState(isAuditNotFound(error) ? { kind: 'notFound' } : { kind: 'error', error });
+      }
+    },
+    [auditId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  const audit = state.kind === 'ready' ? state.audit : null;
+  const isCompleted = audit?.status === 'COMPLETED';
+
+  const handleOpenReport = async (variant: AuditReportVariant) => {
+    if (audit === null || isOpeningReport) return;
+    if (variant === 'generated' && !isCompleted) {
+      Alert.alert(t('farmer.auditResult.download.title'), t('farmer.auditResult.download.notReady'), [{ text: t('farmer.common.ok') }]);
       return;
     }
-    Alert.alert(t('farmer.auditResult.dispute.submittedTitle'), t('farmer.auditResult.dispute.submittedBody'), [
-      {
-        text: t('farmer.common.ok'),
-        onPress: () => {
-          setIsDisputeModalVisible(false);
-          setDisputeReason('');
-        },
-      },
-    ]);
+    setIsOpeningReport(true);
+    try {
+      const url = await getMyAuditReportUrl(audit.id, variant);
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(t('farmer.auditResult.download.errorTitle'), t('farmer.auditResult.download.errorBody'), [{ text: t('farmer.common.ok') }]);
+    } finally {
+      setIsOpeningReport(false);
+    }
   };
+
+  const toggleFinding = (id: string) => setOpenFindingIds((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const header = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={onBack}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('farmer.common.back')}
+      >
+        <ArrowBackIcon size={20} color={P.twGray800} />
+      </TouchableOpacity>
+
+      <View style={styles.headerTextCol}>
+        <Text style={styles.headerTitle}>{t('farmer.auditResult.title')}</Text>
+        {audit !== null ? (
+          <Text style={styles.headerSubtitle}>
+            {audit.auditType === 'EXTERNAL' ? t('farmer.audits.upcoming.titleExternal') : t('farmer.audits.upcoming.titleInternal')}
+          </Text>
+        ) : null}
+      </View>
+
+      {isCompleted ? (
+        <TouchableOpacity
+          style={styles.downloadBtn}
+          onPress={() => void handleOpenReport('generated')}
+          activeOpacity={0.7}
+          disabled={isOpeningReport}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.auditResult.download.title')}
+        >
+          <DownloadIcon size={18} color={P.twGreen700} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+
+  if (state.kind === 'loading') {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        {header}
+        <View style={styles.scrollContent}>
+          <Skeleton width="100%" height={90} borderRadius={16} />
+          <View style={styles.skeletonGap} />
+          <Skeleton width="100%" height={220} borderRadius={16} />
+          <View style={styles.skeletonGap} />
+          <Skeleton width="100%" height={80} borderRadius={16} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (state.kind === 'notFound') {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        {header}
+        <View style={styles.centerFill}>
+          <Text style={styles.emptyTitle}>{t('farmer.auditResult.notFound.title')}</Text>
+          <Text style={styles.emptyBody}>{t('farmer.auditResult.notFound.body')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (state.kind === 'error' || audit === null) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        {header}
+        <View style={styles.centerFill}>
+          <ErrorState
+            error={state.kind === 'error' ? state.error : undefined}
+            message={t('farmer.auditResult.loadError')}
+            retryTitle={t('farmer.common.retry')}
+            offlineMessage={t('farmer.common.offline')}
+            onRetry={() => void load()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const score = auditScore(audit);
+  const tierKey = tierLabelKey(audit.tier);
+  const conductedBy = auditConductedBy(audit);
+  const isCancelled = audit.status === 'CANCELLED';
+  const showGeneratedReport = isCompleted;
+  const showAttachments = showGeneratedReport || audit.hasAgencyReport;
 
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={t('farmer.common.back')}
-        >
-          <ArrowBackIcon size={20} color={P.twGray800} />
-        </TouchableOpacity>
-
-        <View style={styles.headerTextCol}>
-          <Text style={styles.headerTitle}>{t('farmer.auditResult.title')}</Text>
-          <Text style={styles.headerSubtitle}>{t('farmer.audits.upcoming.titleExternal')}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.downloadBtn}
-          onPress={handleDownload}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={t('farmer.auditResult.download.title')}
-        >
-          <DownloadIcon size={18} color={P.twGreen700} />
-        </TouchableOpacity>
-      </View>
+      {header}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ── Meta Block: Pill + Date + Auditor + Time ── */}
+        {/* ── Meta Block: Pill + Date + Auditor ── */}
         <View style={styles.metaContainer}>
           <View style={styles.externalBadgePill}>
             <ShieldCheckIcon size={15} color={P.sky600} />
-            <Text style={styles.externalBadgeText}>{t('farmer.auditResult.externalAudit')}</Text>
+            <Text style={styles.externalBadgeText}>
+              {audit.auditType === 'EXTERNAL' ? t('farmer.auditResult.externalAudit') : t('farmer.auditResult.internalAudit')}
+            </Text>
           </View>
 
-          <Text style={styles.auditDateHeading}>18 July 2025</Text>
-          <Text style={styles.auditorSubtitle}>{t('farmer.audits.auditor.pgsMeenakshi')}</Text>
+          <Text style={styles.auditDateHeading}>{formatHeadingDate(auditDisplayDate(audit))}</Text>
+          {conductedBy !== null ? <Text style={styles.auditorSubtitle}>{conductedBy}</Text> : null}
+          <Text style={styles.auditorSubtitle}>
+            {t('farmer.audits.quarterLabel', { quarter: audit.quarter, fiscalYear: audit.fiscalYear })}
+          </Text>
+        </View>
 
-          <View style={styles.timeOnFarmRow}>
-            <ClockIcon size={14} color={P.twGray500} />
-            <Text style={styles.timeOnFarmText}>{t('farmer.auditResult.timeOnFarm', { hours: 1, minutes: 45 })}</Text>
+        {/* ── Status Banner: only when there are no results to show ── */}
+        {!isCompleted ? (
+          <View style={styles.compliantBanner}>
+            <ClockIcon size={18} color={P.twGreen700} />
+            <Text style={styles.compliantBannerText}>
+              {isCancelled
+                ? audit.cancelledReason
+                  ? t('farmer.auditResult.cancelledWithReason', { reason: audit.cancelledReason })
+                  : t('farmer.auditResult.cancelledBanner')
+                : t('farmer.auditResult.pendingResults')}
+            </Text>
           </View>
-        </View>
+        ) : null}
 
-        {/* ── Compliant Banner ── */}
-        <View style={styles.compliantBanner}>
-          <CheckCircleIcon size={18} color={P.twGreen700} />
-          <Text style={styles.compliantBannerText}>{t('farmer.audits.outcome.minorObservation')}</Text>
-        </View>
-
-        {/* ── Card: ADMIN RATING ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('farmer.auditResult.adminRating')}</Text>
-          <RatingGauge score={815} />
-        </View>
-
-        {/* ── 2 Metric Boxes (Major / Minor findings) ── */}
-        <View style={styles.findingsRow}>
-          <View style={styles.majorBox}>
-            <Text style={styles.majorNumber}>0</Text>
-            <Text style={styles.majorLabel}>{t('farmer.auditResult.majorFindings')}</Text>
-          </View>
-
-          <View style={styles.minorBox}>
-            <Text style={styles.minorNumber}>1</Text>
-            <Text style={styles.minorLabel}>{t('farmer.auditResult.minorFindings')}</Text>
-          </View>
-        </View>
-
-        {/* ── Section: CORRECTIVE ACTIONS (1) ── */}
-        <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.correctiveActions', { count: 1 })}</Text>
-
-        <TouchableOpacity style={styles.correctiveCard} activeOpacity={0.9} onPress={() => setIsCorrectiveActionOpen(!isCorrectiveActionOpen)}>
-          <View style={styles.correctiveTopRow}>
-            <AlertTriangleIcon size={18} color={P.twOrange600} />
-            <Text style={styles.correctiveTitle}>{t('farmer.auditResult.corrective.bufferZoneSignage')}</Text>
-            <View style={styles.pendingBadge}>
-              <Text style={styles.pendingBadgeText}>{t('farmer.auditResult.corrective.pending')}</Text>
+        {score !== null ? (
+          <>
+            {/* ── Card: ADMIN RATING ── */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>{t('farmer.auditResult.adminRating')}</Text>
+              <RatingGauge score={score.score} max={score.max} tierLabel={tierKey !== null ? t(k(tierKey)) : null} />
             </View>
-            <ChevronDownIcon size={14} color={P.twGray500} isOpen={isCorrectiveActionOpen} />
-          </View>
 
-          {isCorrectiveActionOpen && (
-            <View style={styles.correctiveDetails}>
-              <Text style={styles.correctiveDesc}>{t('farmer.auditResult.corrective.desc')}</Text>
-              <View style={styles.dueDateRow}>
-                <CalendarIcon size={14} color={P.twOrange600} />
-                <Text style={styles.dueDateText}>{t('farmer.auditResult.corrective.due', { date: '30 Sep 2025' })}</Text>
+            {/* ── 2 Metric Boxes (Major / Minor findings) ── */}
+            <View style={styles.findingsRow}>
+              <View style={styles.majorBox}>
+                <Text style={styles.majorNumber}>{audit.findingCounts.major}</Text>
+                <Text style={styles.majorLabel}>{t('farmer.auditResult.majorFindings')}</Text>
+              </View>
+
+              <View style={styles.minorBox}>
+                <Text style={styles.minorNumber}>{audit.findingCounts.minor}</Text>
+                <Text style={styles.minorLabel}>{t('farmer.auditResult.minorFindings')}</Text>
               </View>
             </View>
-          )}
-        </TouchableOpacity>
+          </>
+        ) : null}
+
+        {/* ── Section: CORRECTIVE ACTIONS (findings) ── */}
+        {isCompleted && audit.findings.length > 0 ? (
+          <>
+            <Text style={styles.sectionHeader}>
+              {t('farmer.auditResult.section.correctiveActions', { count: audit.findings.length })}
+            </Text>
+            {audit.findings.map((finding) => {
+              const isOpen = openFindingIds[finding.id] === true;
+              const isResolved = finding.resolvedAt !== null;
+              return (
+                <TouchableOpacity
+                  key={finding.id}
+                  style={styles.correctiveCard}
+                  activeOpacity={0.9}
+                  onPress={() => toggleFinding(finding.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isOpen }}
+                >
+                  <View style={styles.correctiveTopRow}>
+                    {isResolved ? (
+                      <CheckCircleIcon size={18} color={P.twGreen700} />
+                    ) : (
+                      <AlertTriangleIcon size={18} color={finding.severity === 'MAJOR' ? P.twRed600 : P.twOrange600} />
+                    )}
+                    <Text style={styles.correctiveTitle}>{finding.description}</Text>
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>
+                        {isResolved ? t('farmer.auditResult.corrective.resolved') : t('farmer.auditResult.corrective.pending')}
+                      </Text>
+                    </View>
+                    <ChevronDownIcon size={14} color={P.twGray500} isOpen={isOpen} />
+                  </View>
+
+                  {isOpen && (finding.correctiveAction !== null || finding.dueDate !== null) ? (
+                    <View style={styles.correctiveDetails}>
+                      {finding.correctiveAction !== null ? (
+                        <Text style={styles.correctiveDesc}>{finding.correctiveAction}</Text>
+                      ) : null}
+                      {finding.dueDate !== null ? (
+                        <View style={styles.dueDateRow}>
+                          <CalendarIcon size={14} color={P.twOrange600} />
+                          <Text style={styles.dueDateText}>
+                            {t('farmer.auditResult.corrective.due', { date: formatDueDate(finding.dueDate) })}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        ) : null}
 
         {/* ── Section: AUDITOR REMARKS ── */}
-        <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.auditorRemarks')}</Text>
-        <View style={styles.card}>
-          <View style={styles.auditorRow}>
-            <UserAvatarIcon size={38} />
-            <View style={styles.auditorNameCol}>
-              <Text style={styles.auditorName}>R. Meenakshi</Text>
-              <Text style={styles.auditorRole}>{t('farmer.auditResult.leadAuditor')}</Text>
+        {isCompleted && audit.summary !== null && audit.summary.trim() !== '' ? (
+          <>
+            <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.auditorRemarks')}</Text>
+            <View style={styles.card}>
+              <View style={styles.auditorRow}>
+                <UserAvatarIcon size={38} />
+                <View style={styles.auditorNameCol}>
+                  {conductedBy !== null ? <Text style={styles.auditorName}>{conductedBy}</Text> : null}
+                  <Text style={styles.auditorRole}>
+                    {audit.auditType === 'EXTERNAL'
+                      ? t('farmer.auditResult.auditorRole.external')
+                      : t('farmer.auditResult.auditorRole.internal')}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.auditorQuote}>{audit.summary}</Text>
             </View>
-          </View>
-          <Text style={styles.auditorQuote}>{t('farmer.auditResult.quote')}</Text>
-        </View>
+          </>
+        ) : null}
 
         {/* ── Section: ATTACHMENTS ── */}
-        <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.attachments')}</Text>
-        <View style={styles.attachmentsRow}>
-          <TouchableOpacity style={styles.attachmentCard} activeOpacity={0.7} onPress={() => handleOpenAttachment('Report.pdf')}>
-            <PdfFileIcon size={22} color={P.twRed600} />
-            <View style={styles.attachmentTextCol}>
-              <Text style={styles.attachmentName}>Report.pdf</Text>
-              <Text style={styles.attachmentMeta}>640 KB</Text>
+        {showAttachments ? (
+          <>
+            <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.attachments')}</Text>
+            <View style={styles.attachmentsRow}>
+              {showGeneratedReport ? (
+                <TouchableOpacity
+                  style={styles.attachmentCard}
+                  activeOpacity={0.7}
+                  disabled={isOpeningReport}
+                  onPress={() => void handleOpenReport('generated')}
+                  accessibilityRole="button"
+                >
+                  <PdfFileIcon size={22} color={P.twRed600} />
+                  <View style={styles.attachmentTextCol}>
+                    <Text style={styles.attachmentName}>{t('farmer.auditResult.attachment.auditReport')}</Text>
+                    <Text style={styles.attachmentMeta}>{t('farmer.auditResult.attachment.pdf')}</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
+
+              {audit.hasAgencyReport ? (
+                <TouchableOpacity
+                  style={styles.attachmentCard}
+                  activeOpacity={0.7}
+                  disabled={isOpeningReport}
+                  onPress={() => void handleOpenReport('agency')}
+                  accessibilityRole="button"
+                >
+                  <PdfFileIcon size={22} color={P.twRed600} />
+                  <View style={styles.attachmentTextCol}>
+                    <Text style={styles.attachmentName}>{t('farmer.auditResult.attachment.agencyReport')}</Text>
+                    <Text style={styles.attachmentMeta}>{t('farmer.auditResult.attachment.pdf')}</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          </TouchableOpacity>
+          </>
+        ) : null}
 
-          <TouchableOpacity
-            style={styles.attachmentCard}
-            activeOpacity={0.7}
-            onPress={() => handleOpenAttachment(t('farmer.auditResult.photosCount', { count: 12 }))}
-          >
-            <PhotoGalleryIcon size={22} color={P.twGreen700} />
-            <View style={styles.attachmentTextCol}>
-              <Text style={styles.attachmentName}>{t('farmer.auditResult.photos')}</Text>
-              <Text style={styles.attachmentMeta}>{t('farmer.auditResult.imagesCount', { count: 12 })}</Text>
+        {/* ── Section: AUDIT TIMELINE (not shown for a cancelled audit) ── */}
+        {!isCancelled ? (
+          <>
+            <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.timeline')}</Text>
+            <View style={styles.timelineRow}>
+              {[
+                { key: 'scheduled', label: t('farmer.auditResult.timeline.scheduled'), done: true },
+                { key: 'started', label: t('farmer.auditResult.timeline.started'), done: audit.startedAt !== null },
+                { key: 'completed', label: t('farmer.auditResult.timeline.completed'), done: isCompleted },
+              ].map((step, index) => (
+                <React.Fragment key={step.key}>
+                  {index > 0 ? (
+                    <View style={[styles.timelineConnectorLine, !step.done && styles.timelineConnectorPending]} />
+                  ) : null}
+                  <View style={styles.timelineStep}>
+                    <View style={[styles.timelineCheckCircle, !step.done && styles.timelinePendingCircle]}>
+                      {step.done ? <Text style={styles.timelineCheckMark}>✓</Text> : null}
+                    </View>
+                    <Text style={styles.timelineStepLabel}>{step.label}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
             </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Section: AUDIT TIMELINE ── */}
-        <Text style={styles.sectionHeader}>{t('farmer.auditResult.section.timeline')}</Text>
-        <View style={styles.timelineRow}>
-          {/* Step 1 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineCheckCircle}>
-              <Text style={styles.timelineCheckMark}>✓</Text>
-            </View>
-            <Text style={styles.timelineStepLabel}>{t('farmer.auditResult.timeline.scheduled')}</Text>
-          </View>
-
-          <View style={styles.timelineConnectorLine} />
-
-          {/* Step 2 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineCheckCircle}>
-              <Text style={styles.timelineCheckMark}>✓</Text>
-            </View>
-            <Text style={styles.timelineStepLabel}>{t('farmer.auditResult.timeline.visited')}</Text>
-          </View>
-
-          <View style={styles.timelineConnectorLine} />
-
-          {/* Step 3 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineCheckCircle}>
-              <Text style={styles.timelineCheckMark}>✓</Text>
-            </View>
-            <Text style={styles.timelineStepLabel}>{t('farmer.auditResult.timeline.reviewed')}</Text>
-          </View>
-
-          <View style={styles.timelineConnectorLine} />
-
-          {/* Step 4 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineCheckCircle}>
-              <Text style={styles.timelineCheckMark}>✓</Text>
-            </View>
-            <Text style={styles.timelineStepLabel}>{t('farmer.auditResult.timeline.published')}</Text>
-          </View>
-        </View>
-
-        {/* ── Bottom Dispute Button ── */}
-        <TouchableOpacity style={styles.disputeButton} activeOpacity={0.8} onPress={() => setIsDisputeModalVisible(true)}>
-          <FlagIcon size={16} color={P.twGray700} />
-          <Text style={styles.disputeButtonText}>{t('farmer.auditResult.disputeFinding')}</Text>
-        </TouchableOpacity>
+          </>
+        ) : null}
       </ScrollView>
-
-      {/* ── Modal: Dispute a finding ── */}
-      <Modal visible={isDisputeModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsDisputeModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('farmer.auditResult.disputeModal.title')}</Text>
-                <Text style={styles.modalSub}>{t('farmer.auditResult.disputeModal.sub', { date: '18 July 2025' })}</Text>
-              </View>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setIsDisputeModalVisible(false)}>
-                <Text style={styles.modalCloseBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.disputeFieldLabel}>{t('farmer.auditResult.disputeModal.fieldLabel')}</Text>
-            <TextInput
-              style={styles.disputeInput}
-              multiline
-              numberOfLines={4}
-              placeholder={t('farmer.auditResult.disputeModal.placeholder')}
-              placeholderTextColor={P.twGray400}
-              value={disputeReason}
-              onChangeText={setDisputeReason}
-            />
-
-            <View style={styles.disputeActionRow}>
-              <TouchableOpacity style={styles.cancelDisputeBtn} onPress={() => setIsDisputeModalVisible(false)}>
-                <Text style={styles.cancelDisputeBtnText}>{t('farmer.common.cancel')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.submitDisputeBtn} onPress={handleSubmitDispute}>
-                <Text style={styles.submitDisputeBtnText}>{t('farmer.auditResult.disputeModal.submit')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -584,16 +724,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.twGray600,
     marginTop: 4,
-  },
-  timeOnFarmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-  },
-  timeOnFarmText: {
-    fontSize: typography.body,
-    color: P.twGray500,
   },
 
   /* Compliant Banner */
@@ -852,115 +982,33 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
-  /* Dispute Button */
-  disputeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.twGray300,
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginBottom: 10,
+  timelinePendingCircle: {
+    backgroundColor: P.twGray200,
   },
-  disputeButtonText: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.twGray700,
+  timelineConnectorPending: {
+    backgroundColor: P.twGray200,
   },
 
-  /* Dispute Modal */
-  modalOverlay: {
+  /* Loading / error / not-found states */
+  skeletonGap: {
+    height: 12,
+  },
+  centerFill: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: P.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 28,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: P.surfaceMuted,
+    padding: 24,
   },
-  modalTitle: {
+  emptyTitle: {
     fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
+    textAlign: 'center',
   },
-  modalSub: {
-    fontSize: typography.bodySmall,
+  emptyBody: {
+    fontSize: typography.body,
     color: P.twGray500,
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: P.twGray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseBtnText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray500,
-  },
-  disputeFieldLabel: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray700,
-    marginBottom: 8,
-  },
-  disputeInput: {
-    borderWidth: 1,
-    borderColor: P.twGray300,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: typography.body,
-    color: P.twGray900,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-  },
-  disputeActionRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelDisputeBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.twGray300,
-    alignItems: 'center',
-  },
-  cancelDisputeBtnText: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '600',
-    color: P.twGray700,
-  },
-  submitDisputeBtn: {
-    flex: 1.4,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: P.primary,
-    alignItems: 'center',
-  },
-  submitDisputeBtnText: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.white,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

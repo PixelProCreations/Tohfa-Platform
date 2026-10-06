@@ -124,6 +124,11 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
   const [toolsCategory, setToolsCategory] = useState<CategoryData | null>(null);
   const [equipmentCategory, setEquipmentCategory] = useState<CategoryData | null>(null);
   const [machineryCategory, setMachineryCategory] = useState<CategoryData | null>(null);
+  const [servicingSummary, setServicingSummary] = useState<{
+    dueSoonCount: number;
+    overdueCount: number;
+    totalNeedService: number;
+  }>({ dueSoonCount: 0, overdueCount: 0, totalNeedService: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown | null>(null);
 
@@ -136,6 +141,15 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
         listFarmAssets({ category: 'EQUIPMENT', limit: 100 }),
         listFarmAssets({ category: 'MACHINERY', limit: 100 }),
       ]);
+
+      const allAssets = [...tools.items, ...equipment.items, ...machinery.items];
+      const overdue = allAssets.filter((item) => item.status === 'OVERDUE').length;
+      const dueSoon = allAssets.filter((item) => item.status === 'DUE_SOON').length;
+      setServicingSummary({
+        dueSoonCount: dueSoon,
+        overdueCount: overdue,
+        totalNeedService: overdue + dueSoon,
+      });
 
       setToolsCategory({
         name: 'Tools',
@@ -236,8 +250,16 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
             <WrenchAlertIcon />
           </View>
           <View style={styles.alertTextWrap}>
-            <Text style={styles.alertTitle}>8 items need servicing</Text>
-            <Text style={styles.alertSubtitle}>4 due soon · 4 overdue across all categories</Text>
+            <Text style={styles.alertTitle}>
+              {servicingSummary.totalNeedService > 0
+                ? `${servicingSummary.totalNeedService} ${servicingSummary.totalNeedService === 1 ? 'item needs' : 'items need'} servicing`
+                : 'All items up to date'}
+            </Text>
+            <Text style={styles.alertSubtitle}>
+              {servicingSummary.totalNeedService > 0
+                ? `${servicingSummary.dueSoonCount} due soon · ${servicingSummary.overdueCount} overdue across all categories`
+                : 'No servicing overdue or due soon'}
+            </Text>
           </View>
         </View>
 

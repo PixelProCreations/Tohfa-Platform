@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -13,11 +13,14 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import {
   evalCertificateWarning,
+  FALLBACK_CERT_EXPIRY_WARNING_DAYS,
+  getCachedCertifications,
   getMyCertifications,
   getSystemConfig,
   type Certification,
 } from '../../api/farmer';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { certificationDisplayName } from './certificationForm';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 
@@ -102,14 +105,6 @@ function Pencil({ size = 15, color = P.twGray700 }: { size?: number; color?: str
   );
 }
 
-function Trash({ size = 15, color = P.twRed600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function Plus({ size = 24, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -146,6 +141,20 @@ function StatusBadge({ status }: { status: DisplayStatus }) {
   );
 }
 
+/**
+ * The admin-verification state (BR-02 / BR-49), shown next to the expiry badge:
+ * an edit sends a VERIFIED certificate back to UNVERIFIED and that must be
+ * visible here, not hidden behind an "ACTIVE" expiry badge.
+ */
+function VerificationLabel({ status }: { status: Certification['verificationStatus'] }) {
+  const color = status === 'VERIFIED' ? P.twGreen600 : status === 'REJECTED' ? P.twRed600 : P.twAmber600;
+  return (
+    <Text style={{ fontSize: typography.caption, fontWeight: '700', color, marginTop: 3 }}>
+      {t(`farmer.certifications.status.${status}`)}
+    </Text>
+  );
+}
+
 // ─────────────────────────────────────────────
 // Cert card
 // ─────────────────────────────────────────────
@@ -154,10 +163,12 @@ function CertCard({
   item,
   warningThreshold,
   onEdit,
+  onViewDocument,
 }: {
   item: Certification;
   warningThreshold: number;
   onEdit: (cert: Certification) => void;
+  onViewDocument: (url: string | null) => void;
 }) {
   const status = displayStatus(item, warningThreshold);
   const active = status === 'active';
@@ -176,8 +187,9 @@ function CertCard({
           {active ? <Leaf size={20} color={iconColor} /> : <Gear size={20} color={iconColor} />}
         </View>
         <View style={C.nameCol}>
-          <Text style={C.certName}>{item.certType}</Text>
+          <Text style={C.certName}>{certificationDisplayName(item, t)}</Text>
           <Text style={C.issuer}>{item.issuingBody}</Text>
+          <VerificationLabel status={item.verificationStatus} />
         </View>
         <StatusBadge status={status} />
       </View>
@@ -221,48 +233,28 @@ function CertCard({
         </View>
       </View>
 
-      {/* ── Row 4: action buttons ── */}
+      {/* ── Row 4: action buttons -- every certificate can be viewed and edited ── */}
+      {expiring && (
+        <TouchableOpacity style={C.primBtn} activeOpacity={0.85} onPress={() => onEdit(item)}>
+          <Pencil size={15} color={P.white} />
+          <Text style={C.primTxt}>{t('farmer.certifications.renewNow')}</Text>
+        </TouchableOpacity>
+      )}
       <View style={C.actRow}>
-        {active && (
-          <>
-            <TouchableOpacity style={C.outBtn} activeOpacity={0.75}>
-              <Doc />
-              <Text style={C.outTxt}>{t('farmer.common.view')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={C.outBtn} activeOpacity={0.75} onPress={() => onEdit(item)}>
-              <Pencil />
-              <Text style={C.outTxt}>{t('farmer.common.edit')}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {expiring && (
-          <>
-            <TouchableOpacity style={C.primBtn} activeOpacity={0.85} onPress={() => onEdit(item)}>
-              <Pencil size={15} color={P.white} />
-              <Text style={C.primTxt}>{t('farmer.certifications.renewNow')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={C.outBtn} activeOpacity={0.75}>
-              <Doc />
-              <Text style={C.outTxt}>{t('farmer.common.view')}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {expired && (
-          <>
-            <TouchableOpacity style={C.outBtn} activeOpacity={0.75}>
-              <Doc />
-              <Text style={C.outTxt}>{t('farmer.common.view')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[C.outBtn, { borderColor: P.twRed300 }]}
-              activeOpacity={0.75}
-              onPress={() => onEdit(item)}
-            >
-              <Trash />
-              <Text style={[C.outTxt, { color: P.twRed600 }]}>{t('farmer.common.manage')}</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        <TouchableOpacity style={C.outBtn} activeOpacity={0.75} onPress={() => onViewDocument(item.documentUrl ?? null)}>
+          <Doc />
+          <Text style={C.outTxt}>{t('farmer.common.view')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={C.outBtn}
+          activeOpacity={0.75}
+          onPress={() => onEdit(item)}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.common.edit')}
+        >
+          <Pencil />
+          <Text style={C.outTxt}>{t('farmer.common.edit')}</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -313,54 +305,94 @@ const C = StyleSheet.create({
 // Main screen
 // ─────────────────────────────────────────────
 
+/** Page size of the one list request (the API's LimitParam maximum, docs/openapi.yaml). */
+const CERT_LIST_LIMIT = 100;
+
 interface CertificationsScreenProps {
   onBack?: () => void;
   onNavigateToAddCertification?: () => void;
   onNavigateToEditCertification?: (certification: Certification) => void;
+  onNavigateToViewDocument?: (url: string) => void;
 }
 
 export function CertificationsScreen({
   onBack,
   onNavigateToAddCertification,
   onNavigateToEditCertification,
+  onNavigateToViewDocument,
 }: CertificationsScreenProps): React.JSX.Element {
-  const [certs, setCerts] = useState<Certification[]>([]);
-  const [warningThreshold, setWarningThreshold] = useState<number>(30);
-  const [loading, setLoading] = useState<boolean>(true);
+  // Instant redisplay from the last REAL server answer (empty on first open and
+  // after sign-out); the request below always runs and replaces it.
+  const [certs, setCerts] = useState<Certification[]>(() => getCachedCertifications());
+  const [warningThreshold, setWarningThreshold] = useState<number>(FALLBACK_CERT_EXPIRY_WARNING_DAYS);
+  const [loading, setLoading] = useState<boolean>(() => getCachedCertifications().length === 0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  // The failure itself (not a string): ErrorState tells a network failure from a server one.
+  const [loadError, setLoadError] = useState<{ error: unknown } | null>(null);
 
-  const loadCerts = useCallback(async () => {
+  const loadCerts = useCallback(async (signal?: AbortSignal) => {
+    setLoadError(null);
     try {
-      setError(null);
       const [certsRes, configRes] = await Promise.all([
-        getMyCertifications(),
-        getSystemConfig().catch(() => ({ certExpiryWarningDays: 30 })),
+        getMyCertifications(undefined, CERT_LIST_LIMIT, signal),
+        getSystemConfig(),
       ]);
-      setCerts(certsRes?.items ?? []);
-      setWarningThreshold(configRes?.certExpiryWarningDays ?? 30);
-    } catch {
-      setError(t('error.generic') || 'Unable to load certifications.');
+      if (signal?.aborted) return;
+      setCerts(certsRes.items);
+      setWarningThreshold(configRes.certExpiryWarningDays);
+    } catch (error) {
+      if (signal?.aborted) return;
+      setLoadError({ error });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void loadCerts();
+    const controller = new AbortController();
+    void loadCerts(controller.signal);
+    return () => controller.abort();
   }, [loadCerts]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    void loadCerts();
-  }, [loadCerts]);
+  // Retry / pull-to-refresh outlive the effect's controller; the screen unmounting
+  // aborts whichever is in flight.
+  const retryController = useRef<AbortController | null>(null);
+  useEffect(() => () => retryController.current?.abort(), []);
+  const reload = useCallback(
+    (showSkeleton: boolean) => {
+      retryController.current?.abort();
+      const controller = new AbortController();
+      retryController.current = controller;
+      if (showSkeleton) setLoading(true);
+      else setRefreshing(true);
+      void loadCerts(controller.signal);
+    },
+    [loadCerts],
+  );
+
+  const onRefresh = useCallback(() => reload(false), [reload]);
+  const onRetry = useCallback(() => reload(true), [reload]);
 
   const handleEdit = (cert: Certification) => {
     if (onNavigateToEditCertification) {
       onNavigateToEditCertification(cert);
     } else {
       Alert.alert(t('farmer.certifications.edit.title'), t('farmer.certifications.edit.missingBody'));
+    }
+  };
+
+  const handleViewDocument = (url: string | null) => {
+    if (!url) {
+      Alert.alert(t('farmer.certifications.noDocument.title'), t('farmer.certifications.noDocument.body'));
+      return;
+    }
+    if (onNavigateToViewDocument) {
+      onNavigateToViewDocument(url);
+    } else {
+      Alert.alert(t('farmer.certifications.viewDocument.title'), url);
     }
   };
 
@@ -395,6 +427,16 @@ export function CertificationsScreen({
           <Skeleton height={140} width="100%" style={S.skeletonCard} />
           <Skeleton height={140} width="100%" style={S.skeletonCard} />
         </View>
+      ) : loadError !== null && certs.length === 0 ? (
+        <View style={S.centerFill}>
+          <ErrorState
+            error={loadError.error}
+            message={t('farmer.certifications.loadError')}
+            retryTitle={t('farmer.common.retry')}
+            offlineMessage={t('farmer.common.offline')}
+            onRetry={onRetry}
+          />
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={S.scroll}
@@ -425,9 +467,13 @@ export function CertificationsScreen({
             </View>
           </View>
 
-          {error ? (
-            <View style={S.errorBox}>
-              <Text style={S.errorTxt}>{error}</Text>
+          {/* A refresh that failed while a (stale) list is on screen: keep the list, say so, offer Retry. */}
+          {loadError !== null ? (
+            <View style={S.errorBox} accessibilityRole="alert">
+              <Text style={S.errorTxt}>{t('farmer.certifications.loadError')}</Text>
+              <TouchableOpacity onPress={onRetry} accessibilityRole="button" accessibilityLabel={t('farmer.common.retry')}>
+                <Text style={S.errorRetry}>{t('farmer.common.retry')}</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
 
@@ -436,7 +482,13 @@ export function CertificationsScreen({
             <Text style={S.emptyTxt}>{t('farmer.certifications.empty')}</Text>
           ) : (
             certs.map((item) => (
-              <CertCard key={item.id} item={item} warningThreshold={warningThreshold} onEdit={handleEdit} />
+              <CertCard
+                key={item.id}
+                item={item}
+                warningThreshold={warningThreshold}
+                onEdit={handleEdit}
+                onViewDocument={handleViewDocument}
+              />
             ))
           )}
 
@@ -527,6 +579,8 @@ const S = StyleSheet.create({
     marginBottom: 16,
   },
   errorTxt: { color: P.twRed600, fontSize: typography.body },
+  errorRetry: { color: P.twRed600, fontSize: typography.body, fontWeight: '700', marginTop: 6 },
+  centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
 
   emptyTxt: {
     textAlign: 'center',

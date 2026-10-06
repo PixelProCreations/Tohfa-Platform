@@ -38,7 +38,6 @@ import { PayrollScreen } from './screens/farm/workforce/PayrollScreen';
 import {
   ProduceCalendarScreen,
   addProduceCropLocally,
-  localProduceCropsCache,
   type CropItem,
 } from './screens/farm/crops/ProduceCalendarScreen';
 import { NewCropScreen } from './screens/farm/crops/NewCropScreen';
@@ -85,6 +84,7 @@ import { MachineryListScreen, type MachineryItem } from './screens/farm/assets/M
 import { AddMachineryScreen } from './screens/farm/assets/AddMachineryScreen';
 import { EditMachineryScreen } from './screens/farm/assets/EditMachineryScreen';
 import { RemoveItemScreen, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
+import { deleteFarmAsset } from './api/farmAssets';
 import { LearningHubScreen } from './screens/learning/LearningHubScreen';
 import { ContentDetailScreen, type ContentDetailItem } from './screens/learning/ContentDetailScreen';
 import { GroupsScreen, type GroupItem } from './screens/learning/GroupsScreen';
@@ -125,12 +125,8 @@ import { CashTopUpScreen } from './screens/payment/CashTopUpScreen';
 import { NewSoilTestScreen } from './screens/profile/NewSoilTestScreen';
 import { RegistrationFlowScreen } from './screens/registration/RegistrationFlowScreen';
 import { WalletScreen } from './screens/wallet/WalletScreen';
-import { type Listing } from './api/listings';
-import {
-  type Certification,
-  updateCertificationLocally,
-  deleteCertificationLocally,
-} from './api/farmer';
+import { type Listing, type ListingCropChoice } from './api/listings';
+import { type Certification } from './api/farmer';
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
 
@@ -284,6 +280,8 @@ export default function App(): React.JSX.Element {
   const [history, setHistory] = useState<StackEntry[]>([]);
   const [currentTab, setCurrentTab] = useState<TabName>('Home');
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  // Crop picked on create-listing step 1, carried to step 2.
+  const [listingDraftCrop, setListingDraftCrop] = useState<ListingCropChoice | null>(null);
   const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentDetailItem | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupItem | null>(null);
@@ -479,14 +477,9 @@ export default function App(): React.JSX.Element {
           <EditCertificationScreen
             certification={selectedCertification}
             onCancel={() => navigate('Certifications')}
-            onSave={(updated) => {
-              if (updated) updateCertificationLocally(updated);
-              navigate('Certifications');
-            }}
-            onDelete={(id) => {
-              if (id) deleteCertificationLocally(id);
-              navigate('Certifications');
-            }}
+            // The screen has already saved / deleted through the API; the list reloads on mount.
+            onSaved={() => navigate('Certifications')}
+            onDeleted={() => navigate('Certifications')}
           />
         ) : screen === 'CreateListing' ? (
           <CreateListingScreen
@@ -495,34 +488,43 @@ export default function App(): React.JSX.Element {
               navigate('MainTabs');
             }}
             onCancel={goBack}
-            onNext={() => navigate('CreateListingStep2')}
+            onNext={(crop) => {
+              setListingDraftCrop(crop);
+              navigate('CreateListingStep2');
+            }}
           />
         ) : screen === 'CreateListingStep2' ? (
           <CreateListingStep2Screen
+            crop={listingDraftCrop}
             onCancel={goBack}
             onBack={goBack}
             onSuccess={() => {
-              navigate('MyListings');
+              // Land on My Listings (it fetches on mount, so the new listing is
+              // on it) with the create flow dropped from history: Back goes to
+              // the Marketing tab, not to an emptied step 2. The draft crop is
+              // cleared last so step 2 never re-renders without it.
+              setHistory([{ screen: 'MainTabs', params: {}, tab: 'Listings' }]);
+              setCurrentTab('Listings');
+              setParams({});
+              setScreen('MyListings');
+              setListingDraftCrop(null);
             }}
           />
         ) : screen === 'CounterOffer' ? (
           <CounterOfferScreen
             listing={selectedListing}
-            listingId={selectedListing?.id}
-            cropName={selectedListing?.cropName}
-            offer={selectedListing?.activeCounterOffer}
-            onAccept={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
-            onReject={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
+            listingId={
+              typeof params['listingId'] === 'string' ? params['listingId'] : selectedListing?.id
+            }
+            // The screen we return to re-fetches on mount, so it shows the new
+            // status. selectedListing is left as-is (the next open overwrites it):
+            // clearing it here would re-render this screen as "no longer open"
+            // for a frame before the back navigation lands.
+            onSuccess={() => goBack()}
             onCancel={goBack}
           />
         ) : screen === 'ListingDetail' ? (
-          <ListingDetailScreen onBack={goBack} />
+          <ListingDetailScreen listing={selectedListing} onBack={goBack} />
         ) : screen === 'FMBSketch' ? (
           <FMBSketchScreen
             onNavigateBack={goBack}
@@ -559,29 +561,15 @@ export default function App(): React.JSX.Element {
           <NotificationsScreen
             onBack={goBack}
             onNavigateToCounterOffer={(listingId) => {
-              setSelectedListing({
-                id: listingId || 'dummy-listing',
-                listingNumber: 'L-9821',
-                cropName: 'Carrot - Ooty - Grade 1',
-                quantityKg: '150',
-                askingPricePerKg: '40',
-                ceilingPricePerKg: '45',
-                status: 'COUNTER_OFFER',
-                grade: 'Grade 1',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                activeCounterOffer: {
-                  id: 'dummy-offer',
-                  pricePerKg: '34',
-                  quantityKg: '150',
-                  message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                  round: 1,
-                  expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-              } as any);
-              navigate('CounterOffer');
+              // Only the id is known here; CounterOfferScreen resolves the real
+              // listing from the farmer's own listings (no GET /listings/{id}).
+              setSelectedListing(null);
+              if (listingId) {
+                navigate('CounterOffer', { listingId });
+              } else {
+                setCurrentTab('Listings');
+                navigate('MainTabs');
+              }
             }}
           />
         ) : screen === 'AuditResult' ? (
@@ -1077,7 +1065,14 @@ export default function App(): React.JSX.Element {
         ) : screen === 'MyListings' ? (
           <MyListingsScreen
             onNavigateBack={goBack}
-            onNavigateToListingDetail={() => navigate('ListingDetail')}
+            onNavigateToListingDetail={(listing) => {
+              setSelectedListing(listing);
+              navigate('ListingDetail');
+            }}
+            onNavigateToCounterOffer={(listing) => {
+              setSelectedListing(listing);
+              navigate('CounterOffer');
+            }}
           />
         ) : screen === 'TohfaCalendar' ? (
           <TohfaCalendarScreen
@@ -1253,7 +1248,14 @@ export default function App(): React.JSX.Element {
           <RemoveItemScreen
             item={selectedItemForRemove ?? undefined}
             onNavigateBack={goBack}
-            onConfirmRemove={() => {
+            onConfirmRemove={async () => {
+              if (selectedItemForRemove?.id && selectedItemForRemove.category !== 'Trees') {
+                try {
+                  await deleteFarmAsset(selectedItemForRemove.id);
+                } catch {
+                  // Ignore error and navigate back to list which refreshes
+                }
+              }
               if (selectedItemForRemove?.category === 'Tools') {
                 navigate('ToolsList');
               } else if (selectedItemForRemove?.category === 'Equipment') {
@@ -1331,32 +1333,11 @@ export default function App(): React.JSX.Element {
                   onNavigateToCounterOffer={(item) => {
                     if (item && item.id) {
                       setSelectedListing(item);
+                      navigate('CounterOffer');
                     } else {
-                      setSelectedListing({
-                        id: 'dummy-listing',
-                        listingNumber: 'L-9821',
-                        cropName: 'Carrot - Ooty - Grade 1',
-                        quantityKg: '150',
-                        askingPricePerKg: '40',
-                        ceilingPricePerKg: '45',
-                        status: 'COUNTER_OFFERED',
-                        grade: 'GRADE_1',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        activeCounterOffer: {
-                          id: 'dummy-offer',
-                          listingId: 'dummy-listing',
-                          round: 1,
-                          offeredBy: 'ADMIN',
-                          pricePerKg: '34',
-                          quantityKg: '150',
-                          message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                          status: 'PENDING',
-                          expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                        },
-                      } as any);
+                      // No specific offer: the Marketing tab lists every one that needs a reply.
+                      setCurrentTab('Listings');
                     }
-                    navigate('CounterOffer');
                   }}
                   onNavigateToFarmManagement={() => navigate('CropManagement')}
                   onNavigateToCropManagement={() => navigate('CropManagement')}
@@ -1369,46 +1350,24 @@ export default function App(): React.JSX.Element {
                   onNavigateToLearningHub={() => navigate('LearningHub')}
                   onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
                   onNavigateToInventory={() => navigate('FarmInventory')}
-                  onNavigateToCropDetail={(cropName: string) => {
-                    const found = localProduceCropsCache.find(
-                      (c: CropItem) => c.name.toLowerCase() === cropName.toLowerCase(),
-                    ) ?? localProduceCropsCache[0];
-                    setSelectedCrop(found ?? null);
+                  onNavigateToCropDetail={(crop) => {
+                    setSelectedCrop(crop);
                     navigate('CropDetail');
                   }}
+                  onNavigateToAudits={() => navigate('Audits')}
                 />
               ) : currentTab === 'Listings' ? (
                 <ListingsScreen
                   onNavigateToCreateListing={() => navigate('CreateListing')}
-                  onNavigateToCounterOffer={(item) => {
-                    if (item && item.id) {
-                      setSelectedListing(item);
-                    } else {
-                      setSelectedListing({
-                        id: 'dummy-listing',
-                        listingNumber: 'L-9821',
-                        cropName: 'Carrot - Ooty - Grade 1',
-                        quantityKg: '150',
-                        askingPricePerKg: '40',
-                        ceilingPricePerKg: '45',
-                        status: 'COUNTER_OFFER',
-                        grade: 'Grade 1',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        activeCounterOffer: {
-                          id: 'dummy-offer',
-                          pricePerKg: '34',
-                          quantityKg: '150',
-                          message: 'On inspection the batch grades as Grade 2 (minor forking & size variance), not the claimed Grade 1. Counter reflects the Grade 2 ceiling.',
-                          round: 1,
-                          expiresAt: new Date(Date.now() + (22 * 60 * 60 + 30 * 60) * 1000).toISOString(),
-                          createdAt: new Date().toISOString(),
-                          updatedAt: new Date().toISOString(),
-                        },
-                      } as any);
-                    }
+                  onNavigateToCounterOffer={(listing) => {
+                    setSelectedListing(listing);
                     navigate('CounterOffer');
                   }}
+                  onNavigateToListingDetail={(listing) => {
+                    setSelectedListing(listing);
+                    navigate('ListingDetail');
+                  }}
+                  onNavigateToMyListings={() => navigate('MyListings')}
                 />
               ) : currentTab === 'Wallet' ? (
                 <WalletScreen

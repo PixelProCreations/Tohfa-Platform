@@ -1,19 +1,32 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Platform } from 'react-native';
-import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
+import { formatMoneyAmount } from '../../api/wallet';
+import {
+  buildCreateListingInput,
+  checkAskingPrice,
+  checkQuantity,
+  createIdempotencyKeyCache,
+  createListing,
+  formatKg,
+  getFairPriceCeilings,
+  lineTotal,
+  listingErrorMessageKey,
+  SELLABLE_GRADES,
+  type CeilingLookup,
+  type CreateListingFormError,
+  type Grade,
+  type Listing,
+  type ListingCropChoice,
+} from '../../api/listings';
+import { gradeLabel, moneyOrDash, tk } from './listingFormat';
 
 // Custom Icons
 const ChevronLeft = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
-const LockIcon = () => (
-  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <Rect x="5" y="11" width="14" height="10" rx="2" stroke={P.grey500} strokeWidth="2" />
-    <Path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke={P.grey500} strokeWidth="2" />
   </Svg>
 );
 
@@ -67,47 +80,228 @@ const TagIcon = () => (
 );
 
 interface CreateListingStep2ScreenProps {
-  onSuccess?: () => void;
+  /** The crop picked on step 1. */
+  crop?: ListingCropChoice | null | undefined;
+  /** Called with the created listing once `POST /listings` returns 201. */
+  onSuccess?: (listing: Listing) => void;
   onCancel?: () => void;
   onBack?: () => void;
 }
 
+// ─────────────────────────────────────────────
+// Data: the fair price ceiling for the chosen crop + grade from
+// GET /fair-prices (BR-07), and POST /listings with an Idempotency-Key.
+// The server is the BR-07 gate; the inline ceiling hint only says early what
+// it will say, and its own PRICE_ABOVE_CEILING is surfaced if they disagree.
+//
+// Judgment call, flagged in the hand-off: the design has no grade control
+// (it shows the grade as "locked from your harvest record", and no harvest
+// record endpoint exists), so the grade badge opens a system picker of the
+// three sellable grades. No grade is pre-selected.
+//
+// Left out of the approved design because nothing backs them (not faked):
+//   - "180 kg available" and "Locked from your harvest record": no harvest
+//     record / stock endpoint;
+//   - the "+10%" TOHFA markup: a business threshold with no farmer-readable
+//     config, shown as a neutral dash.
+// The dashed PHOTO box is kept as the design's placeholder; the design has no
+// add-photo affordance, so listing photo upload is not wired.
+// ─────────────────────────────────────────────
+
+type CeilingState = { status: 'idle' } | { status: 'loading' } | { status: 'error' } | CeilingLookup;
+
+function formErrorKey(error: CreateListingFormError): string {
+  switch (error) {
+    case 'NO_CROP':
+      return 'farmer.listings.create.step2.missingCrop';
+    case 'NO_GRADE':
+      return 'farmer.listings.create.step2.noGrade';
+    case 'QUANTITY_INVALID':
+      return 'farmer.listings.create.step2.quantityInvalid';
+    case 'PRICE_INVALID':
+      return 'farmer.listings.create.step2.priceInvalid';
+    case 'NO_CEILING':
+      return 'farmer.listings.create.step2.noCeiling';
+    case 'PRICE_ABOVE_CEILING':
+      return 'farmer.listings.error.PRICE_ABOVE_CEILING';
+  }
+}
+
 export function CreateListingStep2Screen({
+  crop,
   onSuccess,
   onCancel,
   onBack,
 }: CreateListingStep2ScreenProps): React.JSX.Element {
+  const [grade, setGrade] = useState<Grade | null>(null);
+  const [quantityInput, setQuantityInput] = useState<string>('');
+  const [priceInput, setPriceInput] = useState<string>('');
+  const [ceiling, setCeiling] = useState<CeilingState>({ status: 'idle' });
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const mountedRef = useRef<boolean>(true);
+  const inFlightRef = useRef<boolean>(false);
+  // Same key for a retry of the same body; a new key once the body changes.
+  const idempotencyRef = useRef(createIdempotencyKeyCache());
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const cropId = crop?.id ?? null;
+
+  // BR-07: the ceiling in effect today for this crop + grade.
+  useEffect(() => {
+    if (cropId === null || grade === null) {
+      setCeiling({ status: 'idle' });
+      return;
+    }
+    const controller = new AbortController();
+    setCeiling({ status: 'loading' });
+    getFairPriceCeilings(cropId, grade, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const row = res.items[0];
+        setCeiling(row ? { status: 'found', price: row.ceilingPrice } : { status: 'none' });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCeiling({ status: 'error' });
+      });
+    return () => controller.abort();
+  }, [cropId, grade]);
+
+  const ceilingPrice = ceiling.status === 'found' ? ceiling.price : null;
+  const quantityCheck = checkQuantity(quantityInput);
+  const priceCheck = checkAskingPrice(priceInput, ceilingPrice);
+  const priceOk = priceCheck === 'WITHIN_CEILING' || priceCheck === 'NO_CEILING';
+  const estimatedTotal =
+    quantityCheck === 'OK' && priceOk ? lineTotal(priceInput, quantityInput) : null;
+  const priceHasError =
+    priceCheck === 'INVALID' || priceCheck === 'ABOVE_CEILING' || (priceOk && ceiling.status === 'none');
+
+  const openGradePicker = () => {
+    // Exactly three sellable grades, which fits Android's three-button alert.
+    Alert.alert(
+      t('farmer.listings.create.step2.gradePickerTitle'),
+      t('farmer.listings.create.step2.gradePickerBody'),
+      SELLABLE_GRADES.map((g) => ({ text: gradeLabel(g), onPress: () => setGrade(g) })),
+      { cancelable: true },
+    );
+  };
+
+  const handleSubmit = async () => {
+    // A ref, not `submitting`: two taps inside one render would both see false.
+    if (inFlightRef.current) return;
+    const result = buildCreateListingInput({
+      cropId,
+      grade,
+      quantityInput,
+      priceInput,
+      ceiling:
+        ceiling.status === 'found' || ceiling.status === 'none' ? ceiling : { status: 'unknown' },
+    });
+    if (!result.ok) {
+      Alert.alert(t('farmer.listings.create.step2.submitErrorTitle'), t(tk(formErrorKey(result.error))), [
+        { text: t('farmer.common.ok') },
+      ]);
+      return;
+    }
+    inFlightRef.current = true;
+    setSubmitting(true);
+    try {
+      const created = await createListing(
+        result.input,
+        idempotencyRef.current.keyFor(JSON.stringify(result.input)),
+      );
+      inFlightRef.current = false;
+      idempotencyRef.current.reset();
+      if (!mountedRef.current) return;
+      setSubmitting(false);
+      onSuccess?.(created);
+    } catch (error) {
+      inFlightRef.current = false;
+      if (!mountedRef.current) return;
+      setSubmitting(false);
+      Alert.alert(
+        t('farmer.listings.create.step2.submitErrorTitle'),
+        t(tk(listingErrorMessageKey(error, 'farmer.listings.error.generic'))),
+        [{ text: t('farmer.common.ok') }],
+      );
+    }
+  };
+
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={onBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.common.back')}
+        >
+          <ChevronLeft />
+        </TouchableOpacity>
+        <View style={styles.headerTextCol}>
+          <Text style={styles.headerTitle}>{t('farmer.listings.create.step1.title')}</Text>
+          <Text style={styles.headerSub}>{t('farmer.listings.create.step2.subtitle')}</Text>
+        </View>
+        <TouchableOpacity onPress={onCancel} accessibilityRole="button" accessibilityLabel={t('farmer.common.cancel')}>
+          <Text style={styles.cancelText}>{t('farmer.common.cancel')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Progress Bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressActive} />
+        <View style={styles.progressActive} />
+      </View>
+    </View>
+  );
+
+  if (!crop) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {header}
+        <View style={styles.centerFill}>
+          <Text style={styles.emptyText}>{t('farmer.listings.create.step2.missingCrop')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const ceilingSub =
+    grade === null
+      ? t('farmer.listings.create.step2.ceilingSubNoGrade')
+      : ceiling.status === 'found'
+        ? t('farmer.listings.create.step2.ceilingSub', { grade: gradeLabel(grade) })
+        : ceiling.status === 'none'
+          ? t('farmer.listings.create.step2.ceilingNone')
+          : ceiling.status === 'error'
+            ? t('farmer.listings.create.step2.ceilingError')
+            : '';
+
+  const priceMessage =
+    priceCheck === 'WITHIN_CEILING' && ceilingPrice !== null
+      ? t('farmer.listings.create.step2.withinCeiling', { price: formatMoneyAmount(ceilingPrice) })
+      : priceCheck === 'ABOVE_CEILING' && ceilingPrice !== null
+        ? t('farmer.listings.create.step2.aboveCeiling', { price: formatMoneyAmount(ceilingPrice) })
+        : priceCheck === 'INVALID'
+          ? t('farmer.listings.create.step2.priceInvalid')
+          : priceOk && ceiling.status === 'none'
+            ? t('farmer.listings.create.step2.noCeiling')
+            : null;
+
+  const submitDisabled = submitting || ceiling.status === 'loading';
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <ChevronLeft />
-          </TouchableOpacity>
-          <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Create Listing</Text>
-            <Text style={styles.headerSub}>Step 2 of 2 · Quantity & price</Text>
-          </View>
-          <TouchableOpacity onPress={onCancel}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressActive} />
-          <View style={styles.progressActive} />
-        </View>
-      </View>
+      {header}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -115,18 +309,22 @@ export function CreateListingStep2Screen({
         <View style={styles.cropCard}>
           <View style={styles.photoBox}>
             <PhotoIcon />
-            <Text style={styles.photoText}>PHOTO</Text>
+            <Text style={styles.photoText}>{t('farmer.listings.create.step2.photo')}</Text>
           </View>
           <View style={styles.cropTextCol}>
             <View style={styles.cropTitleRow}>
-              <Text style={styles.cropTitle}>Carrot · Ooty</Text>
-              <View style={styles.gradeBadge}>
-                <Text style={styles.gradeBadgeText}>Grade 1</Text>
-              </View>
-            </View>
-            <View style={styles.cropSubRow}>
-              <LockIcon />
-              <Text style={styles.cropSubText}>Locked from your harvest record</Text>
+              <Text style={styles.cropTitle}>{crop.displayName}</Text>
+              <TouchableOpacity
+                style={styles.gradeBadge}
+                onPress={openGradePicker}
+                accessibilityRole="button"
+                accessibilityLabel={grade === null ? t('farmer.listings.create.selectGrade') : gradeLabel(grade)}
+                accessibilityHint={t('farmer.listings.create.step2.gradeA11yHint')}
+              >
+                <Text style={styles.gradeBadgeText}>
+                  {grade === null ? t('farmer.listings.create.selectGrade') : gradeLabel(grade)}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -137,24 +335,37 @@ export function CreateListingStep2Screen({
             <ShieldCheckOrange />
           </View>
           <Text style={styles.alertText}>
-            Grade 1 is <Text style={{ fontWeight: '700' }}>your claim.</Text> TOHFA verifies grade on inspection — a counter-offer on grade is normal, not a rejection.
+            {grade === null
+              ? t('farmer.listings.create.step2.claimPrefixNoGrade')
+              : t('farmer.listings.create.step2.claimPrefix', { grade: gradeLabel(grade) })}
+            <Text style={{ fontWeight: '700' }}>{t('farmer.listings.create.step2.claimBold')}</Text>
+            {t('farmer.listings.create.step2.claimSuffix')}
           </Text>
         </View>
 
         {/* Quantity Input */}
         <View style={styles.inputSection}>
           <View style={styles.labelRow}>
-            <Text style={styles.inputLabel}>Quantity to sell (kg) <Text style={{ color: P.red700 }}>*</Text></Text>
-            <Text style={styles.inputLabelRight}>180 kg available</Text>
+            <Text style={styles.inputLabel}>
+              {t('farmer.listings.create.step2.quantityLabel')}{' '}
+              <Text style={{ color: P.red700 }}>{t('farmer.listings.create.step2.requiredMark')}</Text>
+            </Text>
           </View>
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, quantityCheck === 'INVALID' ? styles.inputWrapperError : null]}>
             <TextInput
               style={styles.input}
-              value="120"
-              keyboardType="numeric"
-              editable={false}
+              value={quantityInput}
+              onChangeText={setQuantityInput}
+              keyboardType="decimal-pad"
+              editable={!submitting}
+              accessibilityLabel={t('farmer.listings.create.step2.quantityLabel')}
             />
           </View>
+          {quantityCheck === 'INVALID' ? (
+            <View style={styles.validationRow}>
+              <Text style={styles.validationErrorText}>{t('farmer.listings.create.step2.quantityInvalid')}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Pricing Info Row */}
@@ -162,48 +373,69 @@ export function CreateListingStep2Screen({
           <View style={[styles.pricingBox, { backgroundColor: P.lightGreen50, borderColor: P.lightGreen100, borderWidth: 1 }]}>
             <View style={styles.pricingBoxHeaderRow}>
               <ShieldCheckGreen />
-              <Text style={styles.pricingBoxTitleGreen}>FAIR PRICE CEILING</Text>
+              <Text style={styles.pricingBoxTitleGreen}>{t('farmer.listings.create.step2.ceilingTitle')}</Text>
             </View>
-            <Text style={styles.pricingBoxValueGreen}>₹42<Text style={styles.pricingBoxUnit}>/kg</Text></Text>
-            <Text style={styles.pricingBoxSub}>Grade 1 - set by admin</Text>
+            {ceilingPrice !== null ? (
+              <Text style={styles.pricingBoxValueGreen}>
+                {formatMoneyAmount(ceilingPrice)}
+                <Text style={styles.pricingBoxUnit}>{t('farmer.listings.common.perKgUnit')}</Text>
+              </Text>
+            ) : (
+              <Text style={styles.pricingBoxValueGreen}>{t('farmer.listings.common.dash')}</Text>
+            )}
+            <Text style={styles.pricingBoxSub}>{ceilingSub}</Text>
           </View>
 
           <View style={[styles.pricingBox, { backgroundColor: P.grey100, borderColor: P.borderLight, borderWidth: 1 }]}>
             <View style={styles.pricingBoxHeaderRow}>
               <PlusCircle />
-              <Text style={styles.pricingBoxTitleGray}>TOHFA MARKUP</Text>
+              <Text style={styles.pricingBoxTitleGray}>{t('farmer.listings.create.step2.markupTitle')}</Text>
             </View>
-            <Text style={styles.pricingBoxValueGray}>+10%</Text>
-            <Text style={styles.pricingBoxSub}>added for customer, not deducted</Text>
+            <Text style={styles.pricingBoxValueGray}>{t('farmer.listings.common.dash')}</Text>
+            <Text style={styles.pricingBoxSub}>{t('farmer.listings.create.step2.markupSub')}</Text>
           </View>
         </View>
 
         {/* Asking Price Input */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Your asking price (₹/kg) <Text style={{ color: P.red700 }}>*</Text></Text>
-          <View style={[styles.inputWrapper, { borderColor: colors.brandGreen }]}>
-            <Text style={styles.currencySymbol}>₹</Text>
+          <Text style={styles.inputLabel}>
+            {t('farmer.listings.create.step2.priceLabel')}{' '}
+            <Text style={{ color: P.red700 }}>{t('farmer.listings.create.step2.requiredMark')}</Text>
+          </Text>
+          <View style={[styles.inputWrapper, { borderColor: priceHasError ? P.red700 : colors.brandGreen }]}>
+            <Text style={styles.currencySymbol}>{t('farmer.listings.common.rupee')}</Text>
             <TextInput
               style={styles.inputWithSymbol}
-              value="38"
-              keyboardType="numeric"
-              editable={false}
+              value={priceInput}
+              onChangeText={setPriceInput}
+              keyboardType="decimal-pad"
+              editable={!submitting}
+              accessibilityLabel={t('farmer.listings.create.step2.priceLabel')}
             />
-            <CheckCircleGreen />
+            {priceCheck === 'WITHIN_CEILING' ? <CheckCircleGreen /> : null}
           </View>
-          <View style={styles.validationRow}>
-            <CheckIconSmall />
-            <Text style={styles.validationText}>Within the ₹42/kg ceiling</Text>
-          </View>
+          {priceMessage !== null ? (
+            <View style={styles.validationRow}>
+              {priceCheck === 'WITHIN_CEILING' ? <CheckIconSmall /> : null}
+              <Text style={priceHasError ? styles.validationErrorText : styles.validationText}>{priceMessage}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Sale Value Box */}
         <View style={styles.saleValueBox}>
           <View style={styles.saleValueCol}>
-            <Text style={styles.saleValueTitle}>ESTIMATED SALE VALUE</Text>
-            <Text style={styles.saleValueSub}>120 kg × ₹38/kg</Text>
+            <Text style={styles.saleValueTitle}>{t('farmer.listings.create.step2.saleValueTitle')}</Text>
+            {estimatedTotal !== null ? (
+              <Text style={styles.saleValueSub}>
+                {t('farmer.listings.create.step2.saleValueSub', {
+                  qty: formatKg(quantityInput),
+                  price: formatMoneyAmount(priceInput.trim()),
+                })}
+              </Text>
+            ) : null}
           </View>
-          <Text style={styles.saleValueAmount}>₹4,560</Text>
+          <Text style={styles.saleValueAmount}>{moneyOrDash(estimatedTotal)}</Text>
         </View>
 
         <View style={{ height: 40 }} />
@@ -211,9 +443,16 @@ export function CreateListingStep2Screen({
 
       {/* Footer / Submit Button */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.submitBtn} onPress={onSuccess}>
+        <TouchableOpacity
+          style={[styles.submitBtn, submitDisabled ? styles.btnDisabled : null]}
+          onPress={() => void handleSubmit()}
+          disabled={submitDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.listings.create.step2.submit')}
+          accessibilityState={{ disabled: submitDisabled, busy: submitting }}
+        >
           <TagIcon />
-          <Text style={styles.submitBtnText}>Submit listing</Text>
+          <Text style={styles.submitBtnText}>{t('farmer.listings.create.step2.submit')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -512,5 +751,27 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge,
     fontWeight: '800',
     marginLeft: 8,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  inputWrapperError: {
+    borderColor: P.red700,
+  },
+  validationErrorText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.red700,
+  },
+  centerFill: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.grey600,
+    textAlign: 'center',
   },
 });

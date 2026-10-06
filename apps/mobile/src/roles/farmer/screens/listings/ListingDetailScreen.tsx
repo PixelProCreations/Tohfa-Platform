@@ -1,7 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
-import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import Svg, { Path, Circle, Line } from 'react-native-svg';
+import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
+import {
+  effectivePricePerKg,
+  effectiveQuantityKg,
+  lineTotal,
+  type Listing,
+} from '../../api/listings';
+import {
+  fullDateLabel,
+  gradeLabel,
+  kgLabel,
+  moneyOrDash,
+  pricePerKgLabel,
+  statusLabel,
+} from './listingFormat';
 
 // Custom Icons
 const ChevronLeft = () => (
@@ -26,15 +41,6 @@ const TimelineCheck = () => (
   </View>
 );
 
-const TimelinePaid = () => (
-  <View style={styles.timelineIconBox}>
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={P.weatherCloudWhite} strokeWidth="2" />
-      <Circle cx="12" cy="12" r="2" stroke={P.weatherCloudWhite} strokeWidth="2" />
-    </Svg>
-  </View>
-);
-
 const RemarksIcon = () => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke={P.grey600} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -44,146 +50,167 @@ const RemarksIcon = () => (
 );
 
 interface ListingDetailScreenProps {
+  /**
+   * Passed in from the list that was just fetched: docs/openapi.yaml has no
+   * `GET /listings/{id}`, so there is nothing to re-load here.
+   */
+  listing?: Listing | null | undefined;
   onBack?: () => void;
 }
 
-export function ListingDetailScreen({ onBack }: ListingDetailScreenProps): React.JSX.Element {
+// ─────────────────────────────────────────────
+// Left out of the approved design because no field or endpoint backs them
+// (not faked):
+//   - "Zone": a listing carries no zone;
+//   - timeline "Reviewed · grade confirmed" and "Paid · to bank" steps, and
+//     dates on any step after "Submitted": the Listing schema has no review,
+//     approval or payout timestamps (the server sends approvedAt/rejectedAt,
+//     but they are not in docs/openapi.yaml);
+//   - "TOHFA commission (10%)" and "Net payout": the commission rate is a
+//     business threshold with no farmer-readable config, and its own footer
+//     said it was a placeholder.
+// ─────────────────────────────────────────────
+
+/** Statuses that are a step after "Submitted" on the timeline. */
+const LATER_TIMELINE_STATUSES = new Set(['COUNTER_OFFERED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN', 'EXPIRED']);
+
+export function ListingDetailScreen({ listing, onBack }: ListingDetailScreenProps): React.JSX.Element {
+  const header = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel={t('farmer.common.back')}
+      >
+        <ChevronLeft />
+      </TouchableOpacity>
+      <View style={styles.headerTextCol}>
+        <Text style={styles.headerTitle}>{t('farmer.listings.detail.title')}</Text>
+        {listing ? <Text style={styles.headerSub}>{listing.cropName}</Text> : null}
+      </View>
+    </View>
+  );
+
+  if (!listing) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {header}
+        <View style={styles.centerFill}>
+          <Text style={styles.emptyText}>{t('farmer.listings.detail.missing')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const price = effectivePricePerKg(listing);
+  const quantity = effectiveQuantityKg(listing);
+  const total = lineTotal(price, quantity);
+  const adminOffer = listing.activeCounterOffer?.offeredBy === 'ADMIN' ? listing.activeCounterOffer : null;
+  const remarks = listing.rejectionReason ?? adminOffer?.message ?? null;
+  const showLaterStep = LATER_TIMELINE_STATUSES.has(listing.status);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-          <ChevronLeft />
-        </TouchableOpacity>
-        <View style={styles.headerTextCol}>
-          <Text style={styles.headerTitle}>Listing Detail</Text>
-          <Text style={styles.headerSub}>Tomato · Hybrid</Text>
-        </View>
-      </View>
+      {header}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Top Green Box */}
         <View style={styles.greenBox}>
           <View style={styles.greenBoxTopRow}>
             <View style={styles.paidBadge}>
               <PaidIcon />
-              <Text style={styles.paidBadgeText}>Paid</Text>
+              <Text style={styles.paidBadgeText}>{statusLabel(listing.status)}</Text>
             </View>
-            <Text style={styles.listingId}>Listing #TM-2211</Text>
+            <Text style={styles.listingId}>
+              {t('farmer.listings.detail.listingNumber', { number: listing.listingNumber })}
+            </Text>
           </View>
-          <Text style={styles.totalValueLabel}>TOTAL SALE VALUE</Text>
-          <Text style={styles.totalValueAmount}>₹7,600</Text>
+          <Text style={styles.totalValueLabel}>{t('farmer.listings.detail.totalLabel')}</Text>
+          <Text style={styles.totalValueAmount}>{moneyOrDash(total)}</Text>
         </View>
 
         {/* Details Table */}
         <View style={styles.detailsCard}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Zone</Text>
-            <Text style={styles.detailValue}>Zone C</Text>
+            <Text style={styles.detailLabel}>{t('farmer.listings.detail.grade')}</Text>
+            <Text style={styles.detailValue}>{gradeLabel(listing.grade)}</Text>
           </View>
           <View style={styles.divider} />
-          
+
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Grade</Text>
-            <Text style={styles.detailValue}>Grade 1</Text>
+            <Text style={styles.detailLabel}>{t('farmer.listings.detail.quantity')}</Text>
+            <Text style={styles.detailValue}>{kgLabel(quantity)}</Text>
           </View>
           <View style={styles.divider} />
-          
+
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Quantity</Text>
-            <Text style={styles.detailValue}>200 kg</Text>
+            <Text style={styles.detailLabel}>
+              {listing.finalPricePerKg !== null
+                ? t('farmer.listings.detail.agreedPrice')
+                : t('farmer.listings.detail.askingPrice')}
+            </Text>
+            <Text style={styles.detailValue}>{pricePerKgLabel(price)}</Text>
           </View>
           <View style={styles.divider} />
-          
+
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Agreed price</Text>
-            <Text style={styles.detailValue}>₹38/kg</Text>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Fair price ceiling</Text>
-            <Text style={styles.detailValueGreen}>₹40/kg</Text>
+            <Text style={styles.detailLabel}>{t('farmer.listings.detail.ceiling')}</Text>
+            <Text style={styles.detailValueGreen}>{pricePerKgLabel(listing.ceilingPricePerKg)}</Text>
           </View>
         </View>
 
         {/* Timeline Section */}
-        <Text style={styles.sectionTitle}>TIMELINE</Text>
-        
+        <Text style={styles.sectionTitle}>{t('farmer.listings.detail.timelineTitle')}</Text>
+
         <View style={styles.timelineCard}>
           {/* Timeline connecting line */}
-          <View style={styles.timelineLine} />
-          
-          <View style={styles.timelineItem}>
+          {showLaterStep ? <View style={styles.timelineLine} /> : null}
+
+          <View style={[styles.timelineItem, showLaterStep ? null : { marginBottom: 0 }]}>
             <TimelineCheck />
             <View style={styles.timelineTextCol}>
-              <Text style={styles.timelineTitle}>Submitted</Text>
-              <Text style={styles.timelineSub}>09 Jul 2026</Text>
+              <Text style={styles.timelineTitle}>{t('farmer.listings.detail.submitted')}</Text>
+              <Text style={styles.timelineSub}>{fullDateLabel(listing.createdAt)}</Text>
             </View>
           </View>
 
-          <View style={styles.timelineItem}>
-            <TimelineCheck />
-            <View style={styles.timelineTextCol}>
-              <Text style={styles.timelineTitle}>Reviewed</Text>
-              <Text style={styles.timelineSub}>10 Jul 2026 · grade confirmed</Text>
+          {showLaterStep ? (
+            <View style={[styles.timelineItem, { marginBottom: 0 }]}>
+              <TimelineCheck />
+              <View style={styles.timelineTextCol}>
+                <Text style={styles.timelineTitle}>{statusLabel(listing.status)}</Text>
+              </View>
             </View>
-          </View>
-
-          <View style={styles.timelineItem}>
-            <TimelineCheck />
-            <View style={styles.timelineTextCol}>
-              <Text style={styles.timelineTitle}>Approved</Text>
-              <Text style={styles.timelineSub}>10 Jul 2026</Text>
-            </View>
-          </View>
-
-          <View style={[styles.timelineItem, { marginBottom: 0 }]}>
-            <TimelinePaid />
-            <View style={styles.timelineTextCol}>
-              <Text style={styles.timelineTitle}>Paid</Text>
-              <Text style={styles.timelineSub}>13 Jul 2026 · to bank · · 4821</Text>
-            </View>
-          </View>
+          ) : null}
         </View>
 
-        {/* Admin Remarks Card */}
-        <View style={styles.remarksCard}>
-          <View style={styles.remarksHeader}>
-            <RemarksIcon />
-            <Text style={styles.remarksTitle}>Admin remarks</Text>
+        {/* Admin Remarks Card: rejection reason, or the admin's counter-offer note */}
+        {remarks !== null ? (
+          <View style={styles.remarksCard}>
+            <View style={styles.remarksHeader}>
+              <RemarksIcon />
+              <Text style={styles.remarksTitle}>{t('farmer.listings.detail.remarksTitle')}</Text>
+            </View>
+            <Text style={styles.remarksText}>{remarks}</Text>
           </View>
-          <Text style={styles.remarksText}>
-            Grade 1 confirmed on inspection. Good uniform size. Cleared for immediate payout.
-          </Text>
-        </View>
+        ) : null}
 
-        {/* Payment Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>PAYMENT</Text>
-        
-        <View style={styles.paymentCard}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Gross sale value</Text>
-            <Text style={styles.detailValue}>₹7,600</Text>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>TOHFA commission (10%)</Text>
-            <Text style={styles.detailValueRed}>– ₹760</Text>
-          </View>
-          <View style={styles.divider} />
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabelBold}>Net payout</Text>
-            <Text style={styles.detailValueGreenLarge}>₹6,840</Text>
-          </View>
-        </View>
+        {/* Payment Section: only once a price is agreed */}
+        {listing.status === 'ACCEPTED' ? (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('farmer.listings.detail.paymentTitle')}</Text>
 
-        <Text style={styles.paymentFooter}>
-          Commission % is a placeholder pending client confirmation
-        </Text>
+            <View style={styles.paymentCard}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{t('farmer.listings.detail.grossValue')}</Text>
+                <Text style={styles.detailValue}>{moneyOrDash(total)}</Text>
+              </View>
+            </View>
+          </>
+        ) : null}
 
       </ScrollView>
     </SafeAreaView>
@@ -411,5 +438,16 @@ const styles = StyleSheet.create({
     color: P.grey500,
     textAlign: 'center',
     paddingHorizontal: 20,
-  }
+  },
+  centerFill: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.grey500,
+    textAlign: 'center',
+  },
 });

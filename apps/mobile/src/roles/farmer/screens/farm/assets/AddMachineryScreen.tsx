@@ -106,8 +106,10 @@ export interface AddMachineryScreenProps {
 
 export function AddMachineryScreen({ onNavigateBack, onSave }: AddMachineryScreenProps): React.JSX.Element {
   const [name, setName] = useState('');
+  const [makeModel, setMakeModel] = useState('');
   const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
   const [showPurchaseDateCalendar, setShowPurchaseDateCalendar] = useState(false);
+  const [fuelType, setFuelType] = useState('');
   const [serviceInterval, setServiceInterval] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
@@ -160,6 +162,8 @@ export function AddMachineryScreen({ onNavigateBack, onSave }: AddMachineryScree
         category: 'MACHINERY',
         name: name.trim(),
         serviceIntervalDays: intervalDays,
+        ...(makeModel.trim() ? { makeModel: makeModel.trim() } : {}),
+        ...(fuelType.trim() ? { fuelType: fuelType.trim() } : {}),
         ...(purchaseDate ? { purchasedOn: toCalendarDateString(purchaseDate) } : {}),
       });
 
@@ -221,6 +225,18 @@ export function AddMachineryScreen({ onNavigateBack, onSave }: AddMachineryScree
           />
         </View>
 
+        {/* Make / Model Field */}
+        <Text style={styles.fieldLabel}>Make / Model</Text>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={makeModel}
+            onChangeText={setMakeModel}
+            placeholder="e.g. VST Shakti MX 130"
+            placeholderTextColor={P.twGray400}
+          />
+        </View>
+
         {/* Purchase Date Field */}
         <Text style={styles.fieldLabel}>Purchase date</Text>
         <TouchableOpacity
@@ -239,6 +255,18 @@ export function AddMachineryScreen({ onNavigateBack, onSave }: AddMachineryScree
           </Text>
           <CalendarIcon />
         </TouchableOpacity>
+
+        {/* Fuel Type Field */}
+        <Text style={styles.fieldLabel}>Fuel type</Text>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={fuelType}
+            onChangeText={setFuelType}
+            placeholder="e.g. Diesel"
+            placeholderTextColor={P.twGray400}
+          />
+        </View>
 
         {/* Service Interval Field */}
         <Text style={styles.fieldLabel}>
