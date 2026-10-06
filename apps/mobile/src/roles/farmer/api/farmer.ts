@@ -9,7 +9,7 @@ export interface FarmerProfile {
   mobile: string;
   aadhaarLast4: string | null;
   dob?: string | null;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'UNDISCLOSED' | null;
   farmingExperienceYears?: number | null;
   address?: string | null;
   zoneId?: string | null;

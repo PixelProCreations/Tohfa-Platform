@@ -53,6 +53,14 @@ export const signUploadBody = z.object({
 export type SignUploadBody = z.infer<typeof signUploadBody>;
 
 export const signUploadResponse = z.object({
+  // The `uploads` table row id this signed target was recorded against
+  // (uploads.repo.ts's `createUpload` `RETURNING id`) -- surfaced so callers
+  // that must create a photo/document *before* the parent record exists
+  // (pest detections, soil test lab reports, workforce id proof/photos) can
+  // send it back as e.g. `photoUploadId`/`labReportUploadId` when they create
+  // that parent record. Previously discarded; see uploads.service.ts's
+  // `signUploadForOwner`.
+  id: z.string().uuid(),
   uploadUrl: z.string().url(),
   fileUrl: z.string().url(),
   storageKey: z.string(),

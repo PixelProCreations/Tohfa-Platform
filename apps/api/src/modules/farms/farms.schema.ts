@@ -84,6 +84,7 @@ export const createPlotBody = z
   .object({
     name: nameSchema,
     areaAcres: z.number().positive().optional(),
+    boundary: geoJsonPolygonSchema.optional(),
     soilType: optionSchema.optional(),
     sunExposure: optionSchema.optional(),
     irrigationType: optionSchema.optional(),
@@ -91,11 +92,16 @@ export const createPlotBody = z
   .strict();
 export type CreatePlotBody = z.infer<typeof createPlotBody>;
 
-/** PATCH /farms/{farmId}/plots/{plotId} */
+/**
+ * PATCH /farms/{farmId}/plots/{plotId}. As with updateFarmBody, `boundary`
+ * is nullable on top of optional: omitted leaves it untouched, `null` clears
+ * it (see farms.service.ts#updatePlot).
+ */
 export const updatePlotBody = z
   .object({
     name: nameSchema.optional(),
     areaAcres: z.number().positive().optional(),
+    boundary: geoJsonPolygonSchema.nullable().optional(),
     soilType: optionSchema.optional(),
     sunExposure: optionSchema.optional(),
     irrigationType: optionSchema.optional(),
@@ -149,6 +155,8 @@ export const plotResponse = z.object({
   soilType: z.string().nullable(),
   sunExposure: z.string().nullable(),
   irrigationType: z.string().nullable(),
+  /** The drawn zone polygon, or null when none has been drawn. BR-16: never customer-facing. */
+  boundary: geoJsonPolygonSchema.nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 });

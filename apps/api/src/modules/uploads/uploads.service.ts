@@ -4,10 +4,10 @@ import type { Actor } from '../../auth/requireAuth.js';
 import { config } from '../../config.js';
 import { pool } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
-import { defaultBlobStorage, type BlobStorage, type SignedUploadTarget } from '../../storage/blobStorage.js';
+import { defaultBlobStorage, type BlobStorage } from '../../storage/blobStorage.js';
 import { isAllowedMimeType, sniffMimeType, stripExifAndGps } from '../../storage/imageProcessor.js';
 import { uploadsRepo, type UploadsRepo } from './uploads.repo.js';
-import type { SignUploadBody } from './uploads.schema.js';
+import type { SignUploadBody, SignUploadResponse } from './uploads.schema.js';
 
 function getExtension(mimeType: string, fileName?: string): string {
   if (fileName !== undefined && fileName.length > 0) {
@@ -48,14 +48,14 @@ export interface UploadOwnership {
 }
 
 export interface UploadsService {
-  signUpload(actor: Actor, input: SignUploadBody): Promise<SignedUploadTarget>;
+  signUpload(actor: Actor, input: SignUploadBody): Promise<SignUploadResponse>;
   /**
    * The shared core of `signUpload`, generalised to any owner -- used directly by
    * callers that have no `Actor` at all (e.g. farmer-applications' pre-account
    * registration upload endpoint), which sign on behalf of an application row
    * instead of a logged-in user.
    */
-  signUploadForOwner(ownership: UploadOwnership, input: SignUploadBody): Promise<SignedUploadTarget>;
+  signUploadForOwner(ownership: UploadOwnership, input: SignUploadBody): Promise<SignUploadResponse>;
   processAndSanitizeImage(key: string, buffer: Buffer): Promise<{ sanitizedBuffer: Buffer; mimeType: string }>;
 }
 
@@ -66,7 +66,7 @@ export function createUploadsService(
   async function signUploadForOwner(
     ownership: UploadOwnership,
     input: SignUploadBody,
-  ): Promise<SignedUploadTarget> {
+  ): Promise<SignUploadResponse> {
     if (!isAllowedMimeType(input.contentType)) {
       throw new AppError('VALIDATION_FAILED', {
         status: 422,
@@ -87,8 +87,10 @@ export function createUploadsService(
       expiresInMinutes: 15,
     });
 
-    // Record in the uploads audit table
-    await repo.createUpload(pool, {
+    // Record in the uploads audit table. The row's `id` is what a caller must
+    // send back (e.g. `photoUploadId`) when creating the parent record that
+    // owns this upload -- see this function's return below.
+    const createdUpload = await repo.createUpload(pool, {
       storageKey,
       bucket: config.AZURE_BLOB_CONTAINER,
       mimeType: input.contentType,
@@ -99,7 +101,7 @@ export function createUploadsService(
       entityId: ownership.entityId,
     });
 
-    return uploadTarget;
+    return { ...uploadTarget, id: createdUpload.id };
   }
 
   return {

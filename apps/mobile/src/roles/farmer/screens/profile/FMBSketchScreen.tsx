@@ -332,10 +332,17 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
     }
   }
 
+  // Real GPS-grounded center: the loaded boundary's OWN centroid takes priority over the farm's
+  // separately-stored centroidLat/Lng, since those are never updated by this screen's save
+  // handler above and can drift arbitrarily far from a boundary drawn/edited here (see
+  // Step3Location.tsx's `mapInitialCenter`, which follows the same "ring centroid first" order
+  // for the same reason -- the camera and the polygon it centers on can never disagree this way).
   const mapInitialCenter: [number, number] | null =
-    selectedFarm?.centroidLng != null && selectedFarm?.centroidLat != null
-      ? [selectedFarm.centroidLng, selectedFarm.centroidLat]
-      : null;
+    coords.length >= 3
+      ? [metrics.centroid.longitude, metrics.centroid.latitude]
+      : selectedFarm?.centroidLng != null && selectedFarm?.centroidLat != null
+        ? [selectedFarm.centroidLng, selectedFarm.centroidLat]
+        : null;
   const mapInitialPolygon: [number, number][] | null = coords.length >= 3 ? coords : null;
 
   return (

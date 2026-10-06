@@ -22,7 +22,7 @@ import {
   type PayrollSummaryItem,
   type WorkerPayout,
 } from '../../../api/workforce';
-import { localProduceCropsCache } from '../crops/ProduceCalendarScreen';
+import { loadFarmCropEntries } from '../crops/cropItems';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -155,9 +155,9 @@ function TractorIcon({ size = 18, color = P.twGreen700 }: { size?: number; color
 interface DayActivity {
   id: string;
   activity: string;
-  /** Undefined when a real record's crop can't be resolved (see the
-   * `cropFilterOptions()` docblock below) -- the row then just omits the
-   * "· crop" segment rather than showing invented explanatory text. */
+  /** Undefined when the record has no crop, or its farmCropId isn't one of
+   * the farmer's crops -- the row then just omits the "· crop" segment
+   * rather than showing invented explanatory text. */
   crop: string | undefined;
   date: string;
   hours: number;
@@ -242,20 +242,12 @@ function formatPaiseCompact(paise: number): string {
   return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
 }
 
-/**
- * ProduceCalendarScreen has no real backend behind it (`localProduceCropsCache`
- * ids like `"crop-1"` are mock, not `farm_crops` UUIDs) -- the same gap
- * CropWorkforceHoursScreen.tsx and DailyAttendanceScreen.tsx flag. This
- * screen's crop filter stays selectable against that mock list (so the UI
- * isn't silently missing a control the mock had), but a real attendance
- * record's `farmCropId` is always a backend UUID that can never match one of
- * these mock ids -- so selecting a specific crop cannot actually narrow the
- * "days worked" list yet. The picker stays selectable (matching the original
- * mock's always-present filter control) rather than showing an explanatory
- * disclaimer the mock never had; it just doesn't filter anything yet.
- */
-function cropFilterOptions(): string[] {
-  return ['All crops', ...localProduceCropsCache.map((c) => c.name)];
+/** Crop filter value: every crop, or one real farm_crops id. */
+const ALL_CROPS = 'all';
+
+interface CropFilterOption {
+  id: string;
+  label: string;
 }
 
 export interface WorkerDetailScreenProps {
@@ -314,12 +306,39 @@ export function WorkerDetailScreen({
 
   const months = monthOptions();
   const [selectedMonth, setSelectedMonth] = useState(months[0]!.value);
-  const [selectedCrop, setSelectedCrop] = useState('All crops');
+  const [selectedCropId, setSelectedCropId] = useState<string>(ALL_CROPS);
 
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isCropPickerOpen, setIsCropPickerOpen] = useState(false);
 
-  const crops = cropFilterOptions();
+  // The farmer's real crops (every status, since past attendance can point at
+  // a since-harvested crop) -- used to name each day's crop and to filter the
+  // "days worked" list by farmCropId. The crop is optional context on this
+  // screen, so a failed fetch degrades to "All crops" only.
+  const [farmCrops, setFarmCrops] = useState<{ id: string; name: string; zone: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    loadFarmCropEntries()
+      .then(({ entries }) => {
+        if (!cancelled) {
+          setFarmCrops(entries.map((e) => ({ id: e.item.id, name: e.item.name, zone: e.item.zone })));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFarmCrops([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const cropNames = new Map(farmCrops.map((c) => [c.id, c.name]));
+
+  const crops: CropFilterOption[] = [
+    { id: ALL_CROPS, label: 'All crops' },
+    // Plot name disambiguates the same crop planted on two plots.
+    ...farmCrops.map((c) => ({ id: c.id, label: `${c.name} · ${c.zone}` })),
+  ];
+  const selectedCropLabel = crops.find((c) => c.id === selectedCropId)?.label ?? 'All crops';
 
   // Initials
   const initials = workerName
@@ -392,15 +411,13 @@ export function WorkerDetailScreen({
   const wagesAccruedPaise = payrollItem?.grossPaise ?? 0;
 
   const activities: DayActivity[] = presentRecords
+    .filter((r) => selectedCropId === ALL_CROPS || r.farmCropId === selectedCropId)
     .slice()
     .sort((a, b) => b.workDate.localeCompare(a.workDate))
     .map((r) => ({
       id: r.id,
       activity: activityLabel(r.activity),
-      // No fabricated crop name -- see cropFilterOptions()'s docblock above
-      // for why a real record's farmCropId can't be resolved to one of
-      // ProduceCalendarScreen's mock crop names. The row omits the segment.
-      crop: undefined,
+      crop: r.farmCropId ? cropNames.get(r.farmCropId) : undefined,
       date: formatWorkDate(r.workDate),
       hours: r.hoursWorked ?? 0,
       type: activityType(r.activity),
@@ -513,7 +530,7 @@ export function WorkerDetailScreen({
               onPress={() => setIsCropPickerOpen(true)}
               activeOpacity={0.75}
             >
-              <Text style={styles.filterPillText}>{selectedCrop}</Text>
+              <Text style={styles.filterPillText}>{selectedCropLabel}</Text>
               <ChevronDownIcon size={15} color={P.twGray500} />
             </TouchableOpacity>
           </View>
@@ -669,23 +686,23 @@ export function WorkerDetailScreen({
               <Text style={styles.modalTitle}>Select Crop</Text>
               {crops.map((c) => (
                 <TouchableOpacity
-                  key={c}
+                  key={c.id}
                   style={[
                     styles.modalOption,
-                    selectedCrop === c && styles.modalOptionSelected,
+                    selectedCropId === c.id && styles.modalOptionSelected,
                   ]}
                   onPress={() => {
-                    setSelectedCrop(c);
+                    setSelectedCropId(c.id);
                     setIsCropPickerOpen(false);
                   }}
                 >
                   <Text
                     style={[
                       styles.modalOptionText,
-                      selectedCrop === c && styles.modalOptionTextSelected,
+                      selectedCropId === c.id && styles.modalOptionTextSelected,
                     ]}
                   >
-                    {c}
+                    {c.label}
                   </Text>
                 </TouchableOpacity>
               ))}

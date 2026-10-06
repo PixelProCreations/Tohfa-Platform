@@ -30,8 +30,9 @@ function mockUploadsRepo(): UploadsRepo {
 }
 
 /** Same shape as `mockUploadsRepo`, but also records every `createUpload` call so a test can
- * assert on exactly what was persisted -- `signUpload`/`signUploadForOwner` only return the
- * signed target, not the created row. */
+ * assert on exactly what was persisted -- `signUpload`/`signUploadForOwner` return the created
+ * row's `id` alongside the signed target, but not the rest of the row (bucket, checksum, etc),
+ * so this is still how a test inspects the full params a call was made with. */
 function recordingUploadsRepo(): { repo: UploadsRepo; calls: CreateUploadParams[] } {
   const calls: CreateUploadParams[] = [];
   const base = mockUploadsRepo();
@@ -123,6 +124,10 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       expect(target.uploadUrl).not.toContain('..');
       expect(target.uploadUrl).toContain('certificate/');
       expect(target.fileUrl).toContain('.pdf');
+      // Regression: the created `uploads` row's id must be surfaced so callers that
+      // upload a file before the parent record exists (pest detections, soil test
+      // reports, workforce id proof/photos) can link the two. Previously discarded.
+      expect(target.id).toBe('00000000-0000-0000-0000-000000000001');
     });
 
     it('rejects disallowed MIME type with 422', async () => {
@@ -155,6 +160,7 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
 
       expect(target.method).toBe('PUT');
       expect(target.resumable).toBe(false);
+      expect(target.id).toBe('00000000-0000-0000-0000-000000000001');
       expect(calls).toHaveLength(1);
       // No Actor was ever involved -- uploaded_by must land as null (the column is
       // nullable precisely for this case), never coerced to some placeholder id.
@@ -331,6 +337,9 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       expect(res.body).toHaveProperty('method', 'PUT');
       expect(res.body).toHaveProperty('expiresAt');
       expect(res.body).toHaveProperty('resumable', false);
+      // Regression: the uploads-table row id must round-trip to the caller.
+      expect(res.body).toHaveProperty('id');
+      expect(typeof res.body.id).toBe('string');
     });
   });
 });

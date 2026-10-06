@@ -221,6 +221,7 @@ export function createFarmsService(deps: Partial<FarmsServiceDeps> = {}): FarmsS
             soilType: body.soilType ?? null,
             sunExposure: body.sunExposure ?? null,
             irrigationType: body.irrigationType ?? null,
+            boundary: body.boundary ?? null,
           });
           await writeAuditLog(tx, {
             actorId: scope.userId,
@@ -246,8 +247,12 @@ export function createFarmsService(deps: Partial<FarmsServiceDeps> = {}): FarmsS
     async updatePlot(scope, farmId, plotId, body) {
       return runTx(async (tx) => {
         const existing = await requireOwnPlot(tx, scope, farmId, plotId);
+        // Same `hasOwnProperty` idiom as `update` above: an explicit
+        // `boundary: null` clears the zone polygon, an omitted key leaves it.
+        const hasBoundaryKey = Object.prototype.hasOwnProperty.call(body, 'boundary');
         try {
           const updated = await repo.updatePlot(tx, farmId, plotId, {
+            ...(hasBoundaryKey ? { boundary: body.boundary ?? null } : {}),
             ...(body.name !== undefined ? { name: body.name } : {}),
             ...(body.areaAcres !== undefined ? { areaAcres: body.areaAcres } : {}),
             ...(body.soilType !== undefined ? { soilType: body.soilType } : {}),

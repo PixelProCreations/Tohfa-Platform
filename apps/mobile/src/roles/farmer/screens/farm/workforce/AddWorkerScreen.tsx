@@ -291,6 +291,12 @@ export function AddWorkerScreen({
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // `POST /uploads/sign` now returns the uploads-table row id alongside the
+  // signed target, so the worker's id proof / photo can actually be linked to
+  // the worker record on save -- see handleUploadDoc/handlePickPhoto below.
+  const [idProofUploadId, setIdProofUploadId] = useState<string | undefined>(undefined);
+  const [photoUploadId, setPhotoUploadId] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     if (!isEditing || !initialWorker?.id || !resolvedFarmId) {
       return;
@@ -380,6 +386,8 @@ export function AddWorkerScreen({
           upiId: upiId.trim() || null,
           payType: salaryType,
           payRatePaise,
+          ...(idProofUploadId ? { idProofUploadId } : {}),
+          ...(photoUploadId ? { photoUploadId } : {}),
         };
         await updateMyWorker(saveFarmId, workerId, input);
       } else {
@@ -392,6 +400,8 @@ export function AddWorkerScreen({
           ...(upiId.trim() ? { upiId: upiId.trim() } : {}),
           payType: salaryType,
           payRatePaise,
+          ...(idProofUploadId ? { idProofUploadId } : {}),
+          ...(photoUploadId ? { photoUploadId } : {}),
         };
         await createMyWorker(saveFarmId, input);
       }
@@ -435,11 +445,8 @@ export function AddWorkerScreen({
       const fileName = picked.name ?? 'id_proof';
       setIdProofName(fileName);
       try {
-        await uploadWorkerIdProof(uri, fileName, picked.type ?? 'application/octet-stream');
-        // Spec gap (see workforce.ts's uploadWorkerIdProof docblock): the file
-        // is uploaded for safekeeping, but idProofUploadId cannot be linked to
-        // this worker yet -- POST /uploads/sign never returns the uploads-table
-        // row id requireOwnUpload() looks up by primary key.
+        const uploaded = await uploadWorkerIdProof(uri, fileName, picked.type ?? 'application/octet-stream');
+        setIdProofUploadId(uploaded.uploadId);
       } catch (err) {
         Alert.alert('Upload Failed', formatErrorMessage(err, 'The file was picked but could not be uploaded.'));
       }
@@ -459,8 +466,8 @@ export function AddWorkerScreen({
       const uri = picked.fileCopyUri ?? picked.uri;
       setPhotoUri(uri);
       try {
-        await uploadWorkerPhoto(uri, picked.name ?? 'worker_photo.jpg', picked.type ?? 'image/jpeg');
-        // Same photoUploadId linkage gap as handleUploadDoc above.
+        const uploaded = await uploadWorkerPhoto(uri, picked.name ?? 'worker_photo.jpg', picked.type ?? 'image/jpeg');
+        setPhotoUploadId(uploaded.uploadId);
       } catch (err) {
         Alert.alert('Upload Failed', formatErrorMessage(err, 'The photo was picked but could not be uploaded.'));
       }
