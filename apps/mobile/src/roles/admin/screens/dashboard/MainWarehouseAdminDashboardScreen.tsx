@@ -15,6 +15,7 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { MainWarehouseMoreScreen } from './MainWarehouseMoreScreen';
+import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
 import {
   WarehouseOverviewScreen,
   StockLedgerScreen,
@@ -24,44 +25,59 @@ import {
   WarehouseSettingsScreen,
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
+  NewDirectSaleScreen,
+  SelectProductsScreen,
+  SaleSummaryScreen,
+  SelectCustomerScreen,
+  PaymentScreen,
+  SaleConfirmationScreen,
+  SaleDetailsScreen,
+  MarketDaySalesScreen,
+  HorecaSalesScreen,
+  B2bSalesScreen,
+  SalesHistoryScreen,
+  type ProductItem,
+  type DirectSaleCustomerItem,
+  type PaymentMethodType,
+  type SaleRecordItem,
   type StockBatchItem,
   type VerifyStockAdjustmentData,
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
 
-// ─── Design Tokens (Matching D01 · Main Dashboard Mockup) ────────────────────
+// ─── Design Tokens (Matching Brand Color #F0562A · Main Dashboard Mockup) ────
 const PALETTE = {
-  headerBg:      '#D96B27', // Rich warm header orange
-  headerBgDark:  '#C25717',
-  headerPillBg:  'rgba(255, 255, 255, 0.22)',
-  headerText:    '#FFFFFF',
+  headerBg: '#F0562A', // Vibrant header orange #F0562A
+  headerBgDark: '#D4451B',
+  headerPillBg: 'rgba(255, 255, 255, 0.22)',
+  headerText: '#FFFFFF',
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  border:        '#EDE8E0',
-  borderLight:   '#F4EFE9',
+  pageBg: '#FAF7F2',
+  cardBg: '#FFFFFF',
+  border: '#EDE8E0',
+  borderLight: '#F4EFE9',
 
-  textInk:       '#1E1612',
+  textInk: '#1E1612',
   textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
+  textMuted: '#9E9690',
 
-  primary:       '#D96B27',
-  primarySoft:   '#FEF3EC',
-  primaryBorder: '#FCDCCE',
+  primary: '#F0562A',
+  primarySoft: '#FEF1EC',
+  primaryBorder: '#FCD9CE',
 
-  amber:         '#C07D14',
-  green:         '#0D6B4F',
-  greenBg:       '#DCFCE7',
-  greenText:     '#15803D',
+  amber: '#C07D14',
+  green: '#0D6B4F',
+  greenBg: '#DCFCE7',
+  greenText: '#15803D',
 
-  red:           '#DC2626',
-  redBg:         '#FEE2E2',
-  redBorder:     '#FCA5A5',
+  red: '#DC2626',
+  redBg: '#FEE2E2',
+  redBorder: '#FCA5A5',
 
-  tabInactive:   '#827A74',
-  tabActive:     '#D96B27',
-  tabBorder:     '#EDE8E0',
+  tabInactive: '#827A74',
+  tabActive: '#F0562A',
+  tabBorder: '#EDE8E0',
 };
 
 export type MainWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -75,6 +91,19 @@ type WarehouseSubView =
   | 'inter_warehouse_transfer'
   | 'initiate_new_transfer'
   | 'warehouse_settings'
+  | 'sales'
+  | 'direct_sale_new'
+  | 'direct_sale_select_products'
+  | 'direct_sale_summary'
+  | 'direct_sale_select_customer'
+  | 'direct_sale_payment'
+  | 'direct_sale_confirmation'
+  | 'sale_details'
+  | 'sales_market_day'
+  | 'sales_horeca'
+  | 'sales_b2b'
+  | 'sales_history'
+  | 'customer_orders'
   | 'profile';
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
@@ -251,6 +280,70 @@ function ProhibitedSlashIcon({ size = 18, color = '#7A726C' }: { size?: number; 
   );
 }
 
+function StockVerificationIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="3" width="16" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 7h8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M8 17h5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function HorizontalTransferIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M8 7h12m0 0l-3.5-3.5M20 7l-3.5 3.5M16 17H4m0 0l3.5 3.5M4 17l3.5-3.5"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ShoppingCartIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="9" cy="21" r="1" stroke={color} strokeWidth="2" />
+      <Circle cx="20" cy="21" r="1" stroke={color} strokeWidth="2" />
+      <Path
+        d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function SalesHistoryClockIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // ─── Bottom Navigation Tab Icons ─────────────────────────────────────────────
 
 function HomeTabNavIcon({ active }: { active: boolean }) {
@@ -343,6 +436,14 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedBatch, setSelectedBatch] = useState<StockBatchItem | null>(null);
   const [adjustmentRecord, setAdjustmentRecord] = useState<VerifyStockAdjustmentData | null>(null);
   const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
+  const [cartProducts, setCartProducts] = useState<ProductItem[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<DirectSaleCustomerItem | null>({
+    id: 'c1',
+    name: 'Arun Kumar',
+    customerId: 'CUS-00251',
+    phone: '+91 98765 43210',
+  });
+  const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState<PaymentMethodType>('Cash');
   const [user, setUser] = useState<UserMe | null>(null);
 
   const WAREHOUSE_OPTIONS = ['All Warehouses', 'Ooty', 'Coonoor', 'Kotagiri', 'Gudalur'];
@@ -369,7 +470,7 @@ export function MainWarehouseAdminDashboardScreen({
   useEffect(() => {
     fetchMe()
       .then((me) => setUser(me))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const displayName = user?.fullName ?? 'Suresh';
@@ -475,10 +576,7 @@ export function MainWarehouseAdminDashboardScreen({
                 {/* Today's Orders */}
                 <TouchableOpacity
                   style={styles.kpiCard}
-                  onPress={() => {
-                    if (onNavigate) onNavigate('SubWarehouseCustomerOrders');
-                    else navigateWh('stock_ledger');
-                  }}
+                  onPress={() => navigateWh('customer_orders')}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
@@ -490,10 +588,7 @@ export function MainWarehouseAdminDashboardScreen({
                 {/* Sales */}
                 <TouchableOpacity
                   style={styles.kpiCard}
-                  onPress={() => {
-                    if (onNavigate) onNavigate('SubWarehouseSales');
-                    else navigateWh('stock_ledger');
-                  }}
+                  onPress={() => navigateWh('sales')}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.kpiLabel}>SALES</Text>
@@ -746,21 +841,207 @@ export function MainWarehouseAdminDashboardScreen({
           />
         )}
 
-        {/* ─── Inventory Tab ─── */}
-        {activeTab === 'Inventory' && (
-          <WarehouseOverviewScreen
-            onBack={() => setActiveTab('Home')}
-            onSelectWarehouse={(whName) => {
-              setSelectedWHName(whName);
-              navigateWh('stock_ledger');
-            }}
-            onViewLowStock={() => {
-              navigateWh('low_stock_alerts');
-            }}
-            onOpenSettings={() => {
-              navigateWh('warehouse_settings');
-            }}
-          />
+        {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
+        {activeTab === 'Inventory' && whSubView === 'overview' && (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollPad}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header Banner */}
+            <View style={styles.headerBanner}>
+              {/* Header Title Row */}
+              <View style={styles.headerTopRow}>
+                <View style={styles.headerTitleWrap}>
+                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                  <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
+                </View>
+              </View>
+
+              {/* Warehouse Dropdown Filter Pill */}
+              <TouchableOpacity
+                style={styles.whFilterPill}
+                onPress={() => setShowFilterModal(true)}
+                activeOpacity={0.8}
+              >
+                <BuildingWarehouseIcon size={15} color="#FFFFFF" />
+                <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
+                <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content Container */}
+            <View style={styles.contentBody}>
+              {/* 1. KPI 2x2 Grid */}
+              <View style={styles.kpiGrid}>
+                {/* Total Stock */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
+                  <Text style={styles.kpiValue}>12,840 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Incoming Today */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
+                  <Text style={styles.kpiValue}>1,240 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Allocated */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
+                  <Text style={styles.kpiValue}>240 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </TouchableOpacity>
+
+                {/* Low Stock SKUs */}
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
+                  <Text style={styles.kpiValue}>5</Text>
+                  <Text style={styles.kpiSub}>SKUs</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 2. Warehouse Summary */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('stock_ledger')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View →</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.summaryListCard}>
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => {
+                    setSelectedWHName('Ooty Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Ooty</Text>
+                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
+                </TouchableOpacity>
+
+                <View style={styles.summaryDivider} />
+
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => {
+                    setSelectedWHName('Coonoor Warehouse');
+                    navigateWh('stock_ledger');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Coonoor</Text>
+                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 3. Inventory Activity */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Inventory Activity</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('stock_ledger')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View →</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.summaryListCard}
+                onPress={() => navigateWh('stock_ledger')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.inventoryActivityText}>
+                  Receipt → Batch Created → Allocation → Reservation → Sale / Transfer / Adjustment
+                </Text>
+              </TouchableOpacity>
+
+              {/* 4. Pending Actions */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Pending Actions</Text>
+                <TouchableOpacity
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllLink}>View →</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.summaryListCard}>
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
+                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
+                </TouchableOpacity>
+
+                <View style={styles.summaryDivider} />
+
+                <TouchableOpacity
+                  style={styles.summaryItemRow}
+                  onPress={() => navigateWh('stock_adjustment_approval')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
+                  <Text style={styles.summaryItemValue}>2</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
+              <View style={styles.quickActionsDualRow}>
+                <TouchableOpacity
+                  style={styles.quickActionDualCard}
+                  onPress={() => navigateWh('verify_stock')}
+                  activeOpacity={0.8}
+                >
+                  <StockVerificationIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionDualCard}
+                  onPress={() => navigateWh('inter_warehouse_transfer')}
+                  activeOpacity={0.8}
+                >
+                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ height: 20 }} />
+            </View>
+          </ScrollView>
         )}
 
         {/* ─── More Tab ─── */}
@@ -768,13 +1049,30 @@ export function MainWarehouseAdminDashboardScreen({
           <MainWarehouseMoreScreen
             onBack={() => setActiveTab('Home')}
             onLogout={onSignOut}
-            onTabChange={(tab) => setActiveTab(tab)}
+            onTabChange={(tab) => {
+              setActiveTab(tab as any);
+              setWhSubView('overview');
+            }}
+            onNavigateToOrders={() => navigateWh('customer_orders')}
           />
         )}
 
-        {/* ─── Sub Views for Interactive Navigation ─── */}
-        {activeTab === 'Home' && whSubView !== 'overview' && (
-          whSubView === 'stock_ledger' ? (
+        {/* ─── Sub Views for Interactive Navigation (shared across all tabs) ─── */}
+        {whSubView !== 'overview' && (
+          whSubView === 'customer_orders' ? (
+            <MainWarehouseCustomerOrdersScreen
+              onBack={goBackWh}
+              onTabChange={(tab) => {
+                if (tab === 'Home') {
+                  setActiveTab('Home');
+                  setWhSubView('overview');
+                } else {
+                  setActiveTab(tab as any);
+                  setWhSubView('overview');
+                }
+              }}
+            />
+          ) : whSubView === 'stock_ledger' ? (
             <StockLedgerScreen
               warehouseName={selectedWHName}
               onBack={goBackWh}
@@ -840,6 +1138,227 @@ export function MainWarehouseAdminDashboardScreen({
             <WarehouseSettingsScreen
               warehouseName={selectedWHName}
               onBack={goBackWh}
+            />
+          ) : whSubView === 'sales' ? (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollPad}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Header Banner */}
+              <View style={styles.headerBanner}>
+                <View style={styles.headerTopRow}>
+                  <TouchableOpacity
+                    style={styles.headerBackBtn}
+                    onPress={goBackWh}
+                    activeOpacity={0.8}
+                  >
+                    <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <View style={[styles.headerTitleWrap, { marginLeft: 8 }]}>
+                    <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                    <Text style={styles.headerGreetingText}>Sales</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Content Body */}
+              <View style={styles.contentBody}>
+                {/* 1. KPI 2x2 Grid */}
+                <View style={styles.kpiGrid}>
+                  {/* Today's Sales */}
+                  <TouchableOpacity
+                    style={styles.kpiCard}
+                    onPress={() => navigateWh('sales_history')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.kpiLabel}>TODAY'S SALES</Text>
+                    <Text style={styles.kpiValue}>₹24,850</Text>
+                  </TouchableOpacity>
+
+                  {/* Market Sales */}
+                  <TouchableOpacity
+                    style={styles.kpiCard}
+                    onPress={() => navigateWh('sales_market_day')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.kpiLabel}>MARKET SALES</Text>
+                    <Text style={styles.kpiValue}>₹7,200</Text>
+                  </TouchableOpacity>
+
+                  {/* HORECA */}
+                  <TouchableOpacity
+                    style={styles.kpiCard}
+                    onPress={() => navigateWh('sales_horeca')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.kpiLabel}>HORECA</Text>
+                    <Text style={styles.kpiValue}>₹4,800</Text>
+                  </TouchableOpacity>
+
+                  {/* B2B */}
+                  <TouchableOpacity
+                    style={styles.kpiCard}
+                    onPress={() => navigateWh('sales_b2b')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.kpiLabel}>B2B</Text>
+                    <Text style={styles.kpiValue}>₹4,400</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 2. Warehouse Sales Summary */}
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeading}>Warehouse Sales Summary</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedWHName('Coonoor Warehouse');
+                      navigateWh('stock_ledger');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.viewAllLink}>View →</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.summaryListCard}>
+                  <View style={styles.summaryItemRow}>
+                    <Text style={styles.summaryItemName}>Coonoor</Text>
+                    <View style={styles.greenBadgePill}>
+                      <Text style={styles.greenBadgeText}>₹8,450</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 3. Needs Attention */}
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeading}>Needs Attention</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert('Stock Updated', '2 sales in cart require review before payment.');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.viewAllLink}>View →</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.needsAttentionAlertCard}
+                  onPress={() => {
+                    Alert.alert('Stock Updated', '2 sales in cart require review before payment.');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.needsAttentionIconWrap}>
+                    <WarningTriangleIcon size={22} color={PALETTE.primary} />
+                  </View>
+                  <View style={styles.needsAttentionTextWrap}>
+                    <Text style={styles.needsAttentionTitle}>Stock Updated — 2 sales in cart</Text>
+                    <Text style={styles.needsAttentionSub}>Requires review before payment</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* 4. Quick Actions */}
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionHeading}>Quick Actions</Text>
+                </View>
+                <View style={styles.quickActionsDualRow}>
+                  <TouchableOpacity
+                    style={styles.quickActionDualCard}
+                    onPress={() => navigateWh('direct_sale_new')}
+                    activeOpacity={0.8}
+                  >
+                    <ShoppingCartIcon size={26} color={PALETTE.primary} />
+                    <Text style={styles.quickActionDualLabel}>New Direct Sale</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionDualCard}
+                    onPress={() => navigateWh('sales_history')}
+                    activeOpacity={0.8}
+                  >
+                    <SalesHistoryClockIcon size={26} color={PALETTE.primary} />
+                    <Text style={styles.quickActionDualLabel}>Sales History</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ height: 24 }} />
+              </View>
+            </ScrollView>
+          ) : whSubView === 'direct_sale_new' ? (
+            <NewDirectSaleScreen
+              warehouseName={selectedWHName.replace(' Warehouse', '')}
+              onBack={goBackWh}
+              onSelectProducts={() => navigateWh('direct_sale_select_products')}
+              cartItems={cartProducts}
+            />
+          ) : whSubView === 'direct_sale_select_products' ? (
+            <SelectProductsScreen
+              onBack={goBackWh}
+              onReviewCart={(selected) => {
+                setCartProducts(selected);
+                navigateWh('direct_sale_summary');
+              }}
+            />
+          ) : whSubView === 'direct_sale_summary' ? (
+            <SaleSummaryScreen
+              onBack={goBackWh}
+              saleItems={cartProducts.length > 0 ? cartProducts : undefined}
+              onContinueToCustomer={() => navigateWh('direct_sale_select_customer')}
+            />
+          ) : whSubView === 'direct_sale_select_customer' ? (
+            <SelectCustomerScreen
+              onBack={goBackWh}
+              onSelectCustomer={(cust) => {
+                setSelectedCustomer(cust);
+                navigateWh('direct_sale_payment');
+              }}
+            />
+          ) : whSubView === 'direct_sale_payment' ? (
+            <PaymentScreen
+              amount={
+                cartProducts.length > 0
+                  ? cartProducts.reduce((acc, p) => acc + p.pricePerKg * p.quantitySelected, 0)
+                  : 320
+              }
+              onBack={goBackWh}
+              onConfirmPayment={(method) => {
+                setConfirmedPaymentMethod(method);
+                navigateWh('direct_sale_confirmation');
+              }}
+            />
+          ) : whSubView === 'direct_sale_confirmation' ? (
+            <SaleConfirmationScreen
+              saleId="SALE-00251"
+              warehouseName={selectedWHName.replace(' Warehouse', '') || 'Coonoor'}
+              customerName={selectedCustomer?.name ?? 'Arun Kumar'}
+              amount={
+                cartProducts.length > 0
+                  ? cartProducts.reduce((acc, p) => acc + p.pricePerKg * p.quantitySelected, 0)
+                  : 320
+              }
+              onBack={goBackWh}
+              onViewInvoice={() => navigateWh('sale_details')}
+              onNewSale={() => {
+                setCartProducts([]);
+                setWhSubView('direct_sale_new');
+                setWhHistory(['sales']);
+              }}
+            />
+          ) : whSubView === 'sale_details' ? (
+            <SaleDetailsScreen onBack={goBackWh} />
+          ) : whSubView === 'sales_market_day' ? (
+            <MarketDaySalesScreen
+              onBack={goBackWh}
+              onSelectSummary={() => navigateWh('sale_details')}
+            />
+          ) : whSubView === 'sales_horeca' ? (
+            <HorecaSalesScreen onBack={goBackWh} />
+          ) : whSubView === 'sales_b2b' ? (
+            <B2bSalesScreen onBack={goBackWh} />
+          ) : whSubView === 'sales_history' ? (
+            <SalesHistoryScreen
+              onBack={goBackWh}
+              onSelectRecord={() => navigateWh('sale_details')}
             />
           ) : null
         )}
@@ -1318,7 +1837,68 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: PALETTE.tabActive,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+
+  // ─── Inventory & Stock View Specific Styles ───
+  summaryListCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 2,
+  },
+  summaryItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  summaryItemName: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  summaryItemValue: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: PALETTE.border,
+    marginVertical: 12,
+  },
+  inventoryActivityText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#4B433E',
+    lineHeight: 18,
+  },
+  quickActionsDualRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  quickActionDualCard: {
+    flex: 1,
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionDualLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginTop: 8,
+    textAlign: 'center',
   },
 
   // ─── Filter Modal ───
@@ -1365,5 +1945,53 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     color: PALETTE.primary,
+  },
+
+  // ─── Sales View Specific Styles ───
+  greenBadgePill: {
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  greenBadgeText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0D6B4F',
+  },
+  needsAttentionAlertCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDBA74',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  needsAttentionIconWrap: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  needsAttentionTextWrap: {
+    flex: 1,
+  },
+  needsAttentionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  needsAttentionSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+  },
+  headerBackBtn: {
+    padding: 4,
+    marginRight: 4,
   },
 });

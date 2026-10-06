@@ -13,6 +13,8 @@
     "predev:api": "pnpm build:packages",
     "dev": "docker compose up -d --wait postgres redis && concurrently --handle-input false -n api,admin -c green,cyan \"pnpm --filter @tohfa/api dev\" \"pnpm --filter @tohfa/admin-web start\"",
     "dev:api": "pnpm --filter @tohfa/api dev",
+    "dev:mobile": "pnpm --filter @tohfa/mobile start",
+    "mobile:start": "pnpm --filter @tohfa/mobile start",
     "dev:worker": "pnpm --filter @tohfa/api dev:worker",
     "build": "tsc -b tsconfig.json",
     "typecheck": "tsc -b tsconfig.json && pnpm --filter @tohfa/admin-web --filter @tohfa/mobile typecheck",
