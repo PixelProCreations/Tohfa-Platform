@@ -28,10 +28,10 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
   );
 }
 
-function UploadIcon({ color = '#FFFFFF' }) {
+function PlusIcon({ color = '#FFFFFF' }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -39,11 +39,13 @@ function UploadIcon({ color = '#FFFFFF' }) {
 export interface SubWarehouseMaterialDetailScreenProps {
   materialId: string;
   onBack: () => void;
+  onAddStock?: () => void;
 }
 
 export function SubWarehouseMaterialDetailScreen({
   materialId,
   onBack,
+  onAddStock,
 }: SubWarehouseMaterialDetailScreenProps) {
   return (
     <SafeAreaView style={styles.root}>
@@ -151,9 +153,9 @@ export function SubWarehouseMaterialDetailScreen({
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8}>
-          <UploadIcon color="#FFFFFF" />
-          <Text style={styles.primaryBtnText}>Issue Material</Text>
+        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onAddStock}>
+          <PlusIcon color="#FFFFFF" />
+          <Text style={styles.primaryBtnText}>Add Stock</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

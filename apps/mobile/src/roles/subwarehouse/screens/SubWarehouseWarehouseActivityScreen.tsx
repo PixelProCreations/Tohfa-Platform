@@ -12,7 +12,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 const PALETTE = {
-  primary: '#D97706',
+  primary: '#F0562A',
   pageBg: '#F7F5F0',
   cardBg: '#FFFFFF',
   textInk: '#1E1612',
@@ -153,42 +153,30 @@ export function SubWarehouseWarehouseActivityScreen({
       
       {/* ─── Header ─── */}
       <View style={styles.header}>
-        <View style={[styles.headerTop, { justifyContent: 'space-between' }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-              <ArrowBackIcon size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View>
-              <Text style={styles.headerTitle}>Today's Operations</Text>
-              <Text style={styles.headerSubtitle}>24 Activities · 24 Sep 2026</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.filterHeaderBtn} onPress={onNavigateToSearch} activeOpacity={0.7}>
-            <FilterSlidersIcon size={20} color="#FFFFFF" />
+        <View style={styles.headerTop}>
+          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+            <ArrowBackIcon size={24} color="#FFFFFF" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Warehouse Activity</Text>
+        </View>
+        <View style={styles.warehousePill}>
+          <LockIcon />
+          <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
         </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         
-        {/* Top Grid */}
-        <View style={styles.grid}>
-          <View style={styles.gridCard}>
-            <Text style={styles.gridVal}>3</Text>
-            <Text style={styles.gridLabel}>RECEIVING</Text>
-          </View>
-          <View style={styles.gridCard}>
-            <Text style={styles.gridVal}>8</Text>
-            <Text style={styles.gridLabel}>STORAGE</Text>
-          </View>
-          <View style={styles.gridCard}>
-            <Text style={styles.gridVal}>2</Text>
-            <Text style={styles.gridLabel}>VERIFICATION</Text>
-          </View>
-          <View style={styles.gridCard}>
-            <Text style={styles.gridVal}>3</Text>
-            <Text style={styles.gridLabel}>ISSUES</Text>
-          </View>
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <SearchIcon />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search activity"
+            placeholderTextColor={PALETTE.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
 
         {/* Filters */}
@@ -224,25 +212,6 @@ export function SubWarehouseWarehouseActivityScreen({
         </View>
       </ScrollView>
 
-      {/* Bottom Nav */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Home')}>
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Receiving')}>
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Inventory')}>
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} activeOpacity={1} onPress={() => onTabChange?.('More')}>
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

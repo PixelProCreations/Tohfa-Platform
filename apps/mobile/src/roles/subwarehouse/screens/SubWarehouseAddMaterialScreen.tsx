@@ -12,13 +12,14 @@ import {
 import Svg, { Path, Polyline, Circle, Rect } from 'react-native-svg';
 
 const PALETTE = {
-  primary: '#F0562A',
-  pageBg: '#F7F5F0',
+  primary: '#DD8227', // The orange from mockup
+  pageBg: '#F0EBE0', // The beige from mockup
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EBE5DC',
+  textInk: '#33261D', // Dark brown/black
+  textSecondary: '#9A581F', // Brown for inactive/labels
+  textMuted: '#9A581F',
+  border: '#E8DFD3',
+  lightOrange: '#F6E9DA', // For disabled inputs / inactive toggles
 };
 
 function ArrowBackIcon({ size = 24, color = '#FFFFFF' }) {
@@ -166,9 +167,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: PALETTE.pageBg },
   scrollContent: { padding: 16, paddingBottom: 100 },
 
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: PALETTE.primary, marginTop: 16, marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: PALETTE.textInk, marginBottom: 8 },
-  required: { color: PALETTE.primary },
+  sectionTitle: { fontSize: 12, fontWeight: '800', color: '#A76527', marginTop: 16, marginBottom: 12 },
+  label: { fontSize: 14, fontWeight: '700', color: '#1E1612', marginBottom: 8 },
+  required: { color: '#E11D48' },
 
   inputContainer: {
     flexDirection: 'row',
@@ -184,21 +185,21 @@ const styles = StyleSheet.create({
   },
   inputText: { fontSize: 15, color: PALETTE.textInk },
   textInput: { flex: 1, fontSize: 15, color: PALETTE.textInk, height: '100%' },
-  disabledInput: { backgroundColor: '#F3F0EA' },
+  disabledInput: { backgroundColor: PALETTE.lightOrange },
   disabledText: { fontSize: 15, color: PALETTE.textMuted },
-  minusBtn: { backgroundColor: '#FFF0EA', padding: 4, borderRadius: 8 },
+  minusBtn: { backgroundColor: PALETTE.lightOrange, padding: 6, borderRadius: 8 },
 
   toggleGroup: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   toggleBtn: {
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F3F0EA',
+    backgroundColor: PALETTE.lightOrange,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleBtnActive: { backgroundColor: PALETTE.primary },
-  toggleText: { fontSize: 15, fontWeight: '700', color: PALETTE.textSecondary },
+  toggleText: { fontSize: 15, fontWeight: '800', color: PALETTE.textSecondary },
   toggleTextActive: { color: '#FFFFFF' },
 
   helperText: { fontSize: 12, color: PALETTE.textSecondary, marginTop: -8, marginBottom: 16 },
