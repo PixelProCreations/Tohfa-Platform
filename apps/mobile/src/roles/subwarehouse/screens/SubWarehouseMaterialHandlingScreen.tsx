@@ -78,6 +78,14 @@ function DownloadIcon({ color = '#B45309' }) {
   );
 }
 
+function PlusIcon({ size = 20, color = '#FFFFFF' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 const MOCK_MATERIALS = [
   { id: 'mat1', name: 'Packaging Box', code: 'MAT-0021', available: 120, status: 'Available', date: 'Today, 10:30 AM' },
   { id: 'mat2', name: 'Crates', code: 'MAT-0034', available: 8, status: 'Low Stock', date: 'Today, 9:15 AM' },
@@ -87,11 +95,13 @@ const MOCK_MATERIALS = [
 export interface SubWarehouseMaterialHandlingScreenProps {
   onBack: () => void;
   onSelectMaterial: (id: string) => void;
+  onAddMaterial?: () => void;
 }
 
 export function SubWarehouseMaterialHandlingScreen({
   onBack,
   onSelectMaterial,
+  onAddMaterial,
 }: SubWarehouseMaterialHandlingScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
@@ -199,9 +209,9 @@ export function SubWarehouseMaterialHandlingScreen({
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8}>
-          <DownloadIcon color="#FFFFFF" />
-          <Text style={styles.primaryBtnText}>Receive Material</Text>
+        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onAddMaterial}>
+          <PlusIcon color="#FFFFFF" />
+          <Text style={styles.primaryBtnText}>Add Material</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

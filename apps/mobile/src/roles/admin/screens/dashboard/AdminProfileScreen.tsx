@@ -17,17 +17,17 @@ import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
   primary: '#F0562A',       // Exact requested brand orange
-  primaryLight: '#FFF0EB',  // Soft peach/orange tint
-  primaryBorder: '#FCDCD1', // Soft orange border
+  primaryLight: '#FDF3F0',  // Soft peach/orange tint
+  primaryBorder: '#EEDCD3', // Soft orange border
   primaryDark: '#D4451C',   // Pressed/darker orange
 
-  pageBg: '#FAF8F5',        // Warm off-white background
+  pageBg: '#F3EFE9',        // App canvas soft cream
   cardBg: '#FFFFFF',        // Pure white card surfaces
-  ink: '#1A1412',           // Deep charcoal/black text
-  labelMuted: '#6D6761',    // Secondary muted gray-brown
-  border: '#EFEAE3',        // Soft divider border
+  ink: '#1A1A1A',           // Deep charcoal/black text
+  labelMuted: '#5F5E5A',    // Secondary muted gray-brown
+  border: '#EEDCD3',        // Soft divider border
   borderLight: '#F5F2EC',   // Subtle card inner border
-  inputBg: '#FDFCFB',       // Form input background
+  inputBg: '#FFFFFF',       // Form input background
 
   green: '#16A34A',
   greenLight: '#EAF5EA',
@@ -122,11 +122,46 @@ function LogOutIcon({ size = 18, color = PALETTE.danger }: { size?: number; colo
   );
 }
 
+function ReceiptDocIcon({ size = 18, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function BuildingWarehouseIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M2.5 21h19M4.5 21V9a1 1 0 0 1 1-1h2.5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9h3a1 1 0 0 1 1 1v7"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M10.5 21v-4h3v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6.5 11h1M6.5 14h1M6.5 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10.5 6.5h1M13 6.5h1M10.5 9.5h1M13 9.5h1M10.5 12.5h1M13 12.5h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16.5 15.5h1M16.5 18h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ─── Props & Role Specific Configurations ─────────────────────────────────────
 export interface AdminProfileScreenProps {
   role?: 'SUPER_ADMIN' | 'TOHFA_ADMIN' | 'FARMER_ADMIN' | 'MAIN_WH_ADMIN' | 'SUB_WH_ADMIN';
   onBack?: () => void;
   onSignOut: () => void;
+  onNavigateCustomers?: () => void;
+  onNavigateBillingInvoices?: () => void;
+  onNavigateWarehouseOperations?: () => void;
 }
 
 type InnerScreenView = 'main' | 'edit' | 'permissions' | 'security' | 'preferences' | 'support';
@@ -345,6 +380,9 @@ export function AdminProfileScreen({
   role = 'SUPER_ADMIN',
   onBack,
   onSignOut,
+  onNavigateCustomers,
+  onNavigateBillingInvoices,
+  onNavigateWarehouseOperations,
 }: AdminProfileScreenProps): React.JSX.Element {
   const spec: RoleProfileSpec = getRoleSpec(role);
 
@@ -910,6 +948,70 @@ export function AdminProfileScreen({
           </View>
         </View>
 
+        {/* Module Entries: Warehouse Operations, Customers & Billing & Invoices */}
+        {(onNavigateWarehouseOperations || onNavigateCustomers || onNavigateBillingInvoices) && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionHeader}>Operational Modules</Text>
+
+            {onNavigateWarehouseOperations && (
+              <>
+                <TouchableOpacity
+                  style={styles.menuRow}
+                  onPress={onNavigateWarehouseOperations}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
+                    <BuildingWarehouseIcon size={20} color={PALETTE.primary} />
+                  </View>
+                  <View style={styles.menuTextBox}>
+                    <Text style={styles.menuTitle}>Warehouse Operations</Text>
+                    <Text style={styles.menuSubtitle}>Hub operations, storage & material flow</Text>
+                  </View>
+                  <ChevronRightIcon />
+                </TouchableOpacity>
+                {(onNavigateCustomers || onNavigateBillingInvoices) && <View style={styles.rowDivider} />}
+              </>
+            )}
+
+            {onNavigateCustomers && (
+              <>
+                <TouchableOpacity
+                  style={styles.menuRow}
+                  onPress={onNavigateCustomers}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
+                    <UserIcon size={18} color={PALETTE.primary} />
+                  </View>
+                  <View style={styles.menuTextBox}>
+                    <Text style={styles.menuTitle}>Customers</Text>
+                    <Text style={styles.menuSubtitle}>Customer list, orders & directory</Text>
+                  </View>
+                  <ChevronRightIcon />
+                </TouchableOpacity>
+                {onNavigateBillingInvoices && <View style={styles.rowDivider} />}
+              </>
+            )}
+
+            {onNavigateBillingInvoices && (
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={onNavigateBillingInvoices}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
+                  <ReceiptDocIcon size={18} color={PALETTE.primary} />
+                </View>
+                <View style={styles.menuTextBox}>
+                  <Text style={styles.menuTitle}>Billing & Invoices</Text>
+                  <Text style={styles.menuSubtitle}>Invoices, receipts & billing records</Text>
+                </View>
+                <ChevronRightIcon />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Section 2: Full Screen Navigation to Sub-Screens */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>Controls & Operations</Text>
@@ -1210,7 +1312,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: PALETTE.ink,
   },
