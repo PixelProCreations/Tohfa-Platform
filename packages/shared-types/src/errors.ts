@@ -17,6 +17,8 @@ export const ErrorCode = {
   CERT_EXPIRED: 'CERT_EXPIRED',
   /** Certificate document exists but has not been verified by an admin. */
   CERT_UNVERIFIED: 'CERT_UNVERIFIED',
+  /** The farmer has no certificate that could qualify: none on file, or only rejected ones (BR-02). */
+  CERT_MISSING: 'CERT_MISSING',
   /** Asking price exceeds the Super-Admin-set fair price ceiling for the crop. */
   PRICE_ABOVE_CEILING: 'PRICE_ABOVE_CEILING',
   /** Customer-facing retail price exceeds the ceiling for that crop + grade. */
@@ -67,6 +69,8 @@ export const ErrorCode = {
   AUDIT_QUARTER_TAKEN: 'AUDIT_QUARTER_TAKEN',
   /** A rating/audit category score falls outside its allowed range. */
   SCORE_OUT_OF_RANGE: 'SCORE_OUT_OF_RANGE',
+  /** An audit cannot be completed: one or more of the 10 category scores is missing (BR-06). */
+  AUDIT_INCOMPLETE: 'AUDIT_INCOMPLETE',
   /** A field only a Super Admin may change (Aadhaar, mobile) was submitted. */
   FIELD_LOCKED: 'FIELD_LOCKED',
   /** Requested state transition is not legal from the current state. */

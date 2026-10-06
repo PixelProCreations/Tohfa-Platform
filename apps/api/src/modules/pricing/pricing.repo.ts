@@ -8,8 +8,9 @@ export interface FairPriceRow {
   grade: GradeEnum;
   ceiling_price: string;
   frequency: 'DAILY' | 'WEEKLY';
-  effective_from: Date;
-  effective_to: Date | null;
+  /** `date` column read ::text ('YYYY-MM-DD'), never a JS Date: pg builds a Date at LOCAL midnight, so toISOString() shifted it a day on a non-UTC host. */
+  effective_from: string;
+  effective_to: string | null;
   set_by: string | null;
   notes: string | null;
   created_at: Date;
@@ -25,8 +26,9 @@ export interface RetailPriceRow {
   markup_pct: number | null;
   gst_inclusive: boolean;
   fair_price_id: string | null;
-  effective_from: Date;
-  effective_to: Date | null;
+  /** `date` column read ::text ('YYYY-MM-DD'), never a JS Date: pg builds a Date at LOCAL midnight, so toISOString() shifted it a day on a non-UTC host. */
+  effective_from: string;
+  effective_to: string | null;
   set_by: string;
   created_at: Date;
 }
@@ -115,7 +117,7 @@ export const pricingRepo: PricingRepo = {
     const result = await db.query<FairPriceRow>(
       `SELECT fp.id, fp.crop_id, cm.name AS crop_name, fp.grade,
               fp.ceiling_price::text AS ceiling_price, fp.frequency,
-              fp.effective_from, fp.effective_to, fp.set_by, fp.notes, fp.created_at
+              fp.effective_from::text AS effective_from, fp.effective_to::text AS effective_to, fp.set_by, fp.notes, fp.created_at
          FROM fair_prices fp
          JOIN crop_master cm ON cm.id = fp.crop_id
         WHERE fp.crop_id = $1
@@ -156,7 +158,7 @@ export const pricingRepo: PricingRepo = {
     const result = await db.query<FairPriceRow>(
       `SELECT fp.id, fp.crop_id, cm.name AS crop_name, fp.grade,
               fp.ceiling_price::text AS ceiling_price, fp.frequency,
-              fp.effective_from, fp.effective_to, fp.set_by, fp.notes, fp.created_at
+              fp.effective_from::text AS effective_from, fp.effective_to::text AS effective_to, fp.set_by, fp.notes, fp.created_at
          FROM fair_prices fp
          JOIN crop_master cm ON cm.id = fp.crop_id
         WHERE ${conditions.join(' AND ')}
@@ -193,7 +195,8 @@ export const pricingRepo: PricingRepo = {
        VALUES ($1, $2, $3, $4, $5::date, $6, $7)
        RETURNING id, crop_id, (SELECT name FROM crop_master WHERE id = $1) AS crop_name,
                  grade, ceiling_price::text AS ceiling_price, frequency,
-                 effective_from, effective_to, set_by, notes, created_at`,
+                 effective_from::text AS effective_from, effective_to::text AS effective_to,
+                 set_by, notes, created_at`,
       [
         input.cropId,
         input.grade,
@@ -211,7 +214,8 @@ export const pricingRepo: PricingRepo = {
       `SELECT rp.id, rp.crop_id, cm.name AS crop_name, rp.grade,
               rp.price::text AS price, $4::text AS ceiling_price,
               rp.markup_pct::float AS markup_pct, rp.gst_inclusive,
-              rp.fair_price_id, rp.effective_from, rp.effective_to,
+              rp.fair_price_id, rp.effective_from::text AS effective_from,
+              rp.effective_to::text AS effective_to,
               rp.set_by, rp.created_at
          FROM retail_prices rp
          JOIN crop_master cm ON cm.id = rp.crop_id
@@ -256,7 +260,7 @@ export const pricingRepo: PricingRepo = {
     const result = await db.query<FairPriceRow>(
       `SELECT fp.id, fp.crop_id, cm.name AS crop_name, fp.grade,
               fp.ceiling_price::text AS ceiling_price, fp.frequency,
-              fp.effective_from, fp.effective_to, fp.set_by, fp.notes, fp.created_at
+              fp.effective_from::text AS effective_from, fp.effective_to::text AS effective_to, fp.set_by, fp.notes, fp.created_at
          FROM fair_prices fp
          JOIN crop_master cm ON cm.id = fp.crop_id
         WHERE ${conditions.join(' AND ')}
@@ -300,7 +304,8 @@ export const pricingRepo: PricingRepo = {
       `SELECT rp.id, rp.crop_id, cm.name AS crop_name, rp.grade,
               rp.price::text AS price, COALESCE(fp.ceiling_price::text, '0.00') AS ceiling_price,
               rp.markup_pct::float AS markup_pct, rp.gst_inclusive,
-              rp.fair_price_id, rp.effective_from, rp.effective_to,
+              rp.fair_price_id, rp.effective_from::text AS effective_from,
+              rp.effective_to::text AS effective_to,
               rp.set_by, rp.created_at
          FROM retail_prices rp
          JOIN crop_master cm ON cm.id = rp.crop_id
@@ -342,7 +347,8 @@ export const pricingRepo: PricingRepo = {
                  grade, price::text AS price,
                  (SELECT ceiling_price::text FROM fair_prices WHERE id = $6) AS ceiling_price,
                  markup_pct::float AS markup_pct, gst_inclusive, fair_price_id,
-                 effective_from, effective_to, set_by, created_at`,
+                 effective_from::text AS effective_from, effective_to::text AS effective_to,
+                 set_by, created_at`,
       [
         input.cropId,
         input.grade,

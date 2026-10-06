@@ -398,8 +398,20 @@ export function assertPredicate(scope: ResolvedScope, subject: PredicateSubject)
       return;
     }
 
+    case 'SUPPORT_ONLY': {
+      // docs/rbac.json: the actor may attend and support an audit but may not
+      // log findings, score categories or finalise it. The only routes guarded
+      // by a SUPPORT_ONLY permission (audit.conduct) are the audit state
+      // transitions (start, complete), so reaching here is always a violation.
+      // Callers load the audit through the zone-scoped view first, so an
+      // out-of-zone audit is 404 before this 403 is ever reached.
+      throw new AppError('FORBIDDEN', {
+        detail: 'You may support this audit but not change its state.',
+        meta: { predicate: scope.predicate },
+      });
+    }
+
     default:
-      // TODO(STORY-AUTH-07): implement SUPPORT_ONLY once the audit module lands.
       throw new AppError('FORBIDDEN', {
         status: 501,
         detail: `Predicate "${scope.predicate}" is not implemented yet.`,

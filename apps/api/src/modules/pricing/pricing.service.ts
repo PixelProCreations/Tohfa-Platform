@@ -1,3 +1,4 @@
+import { compare, greaterThan, isMoney, parseMoney, toPaise, ZERO, type Paise } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
@@ -17,12 +18,22 @@ import type {
   RetailPriceCreate,
 } from './pricing.schema.js';
 
-export function parseMoneyToPaise(money: string): number {
-  return Math.round(Number(money) * 100);
+/**
+ * Exact integer paise via @tohfa/shared-types — never `Number(x) * 100`, which
+ * turned "1.005" into 100 paise (NUMERIC(12,2) would store 1.01). A malformed
+ * or sub-paise value throws MoneyError rather than being silently rounded.
+ */
+export function parseMoneyToPaise(money: string): Paise {
+  return toPaise(parseMoney(money));
 }
 
-export function compareMoney(a: string, b: string): number {
-  return parseMoneyToPaise(a) - parseMoneyToPaise(b);
+export function compareMoney(a: string, b: string): -1 | 0 | 1 {
+  return compare(parseMoney(a), parseMoney(b));
+}
+
+/** True for a well-formed money string (≤ 2 decimals) strictly above zero. */
+function isPositiveMoney(value: string): boolean {
+  return isMoney(value) && greaterThan(parseMoney(value), ZERO);
 }
 
 export function getTodayKolkata(): string {
@@ -34,23 +45,16 @@ export function getTodayKolkata(): string {
   }).format(new Date());
 }
 
-function formatDateOnly(val: unknown): string {
-  if (val instanceof Date) {
-    return val.toISOString().slice(0, 10);
-  }
-  return String(val).slice(0, 10);
-}
-
 function mapFairPriceResponse(row: FairPriceRow) {
   return {
     id: row.id,
     cropId: row.crop_id,
     cropName: row.crop_name,
     grade: row.grade,
-    ceilingPrice: Number(row.ceiling_price).toFixed(2),
+    ceilingPrice: parseMoney(row.ceiling_price),
     frequency: row.frequency,
-    effectiveFrom: formatDateOnly(row.effective_from),
-    effectiveTo: row.effective_to ? formatDateOnly(row.effective_to) : null,
+    effectiveFrom: row.effective_from,
+    effectiveTo: row.effective_to,
     setBy: row.set_by,
     notes: row.notes,
   };
@@ -62,12 +66,12 @@ function mapRetailPriceResponse(row: RetailPriceRow) {
     cropId: row.crop_id,
     cropName: row.crop_name,
     grade: row.grade,
-    price: Number(row.price).toFixed(2),
-    ceilingPrice: Number(row.ceiling_price).toFixed(2),
+    price: parseMoney(row.price),
+    ceilingPrice: parseMoney(row.ceiling_price),
     markupPct: row.markup_pct,
     gstInclusive: row.gst_inclusive,
-    effectiveFrom: formatDateOnly(row.effective_from),
-    effectiveTo: row.effective_to ? formatDateOnly(row.effective_to) : null,
+    effectiveFrom: row.effective_from,
+    effectiveTo: row.effective_to,
   };
 }
 
@@ -174,11 +178,11 @@ export function createPricingService(
         }
         seen.add(key);
 
-        if (parseMoneyToPaise(item.ceilingPrice) <= 0) {
+        if (!isPositiveMoney(item.ceilingPrice)) {
           errors.push({
             index: idx,
             field: 'ceilingPrice',
-            message: 'Ceiling price must be greater than 0',
+            message: 'Ceiling price must be greater than 0 with at most 2 decimal places',
           });
         }
       });
@@ -268,6 +272,16 @@ export function createPricingService(
     },
 
     async createRetailPrice(actor, body) {
+      // Refuse, never round, a sub-paise price: "100.005" compared equal to a
+      // 100.00 ceiling through a float and NUMERIC(12,2) then stored 100.01.
+      if (!isPositiveMoney(body.price)) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: 'Retail price must be greater than 0 with at most 2 decimal places.',
+          errors: { 'body.price': ['Must be greater than 0 with at most 2 decimal places.'] },
+        });
+      }
+
       const created = await runTx(async (tx) => {
         const ceiling = await repo.findEffectiveFairPrice(
           tx,
@@ -288,8 +302,8 @@ export function createPricingService(
             status: 422,
             detail: `Retail price (${body.price}) cannot exceed the fair price ceiling (${ceiling.ceiling_price}).`,
             meta: {
-              ceilingPrice: Number(ceiling.ceiling_price).toFixed(2),
-              attemptedPrice: Number(body.price).toFixed(2),
+              ceilingPrice: parseMoney(ceiling.ceiling_price),
+              attemptedPrice: parseMoney(body.price),
             },
           });
         }

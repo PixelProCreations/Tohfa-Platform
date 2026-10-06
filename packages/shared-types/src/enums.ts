@@ -20,14 +20,15 @@ export const Grade = {
 } as const;
 export type Grade = (typeof Grade)[keyof typeof Grade];
 
-/** Farm certification schemes recognised by TOHFA. */
+/**
+ * Farm certification schemes recognised by TOHFA — the `certification_type`
+ * enum (0001 + 0029). Only PGS and NPOP can qualify a farmer to list (BR-02);
+ * OTHER covers any other organic scheme, named in `issuingBody`.
+ */
 export const CertificationType = {
-  ORGANIC: 'ORGANIC',
+  PGS: 'PGS',
   NPOP: 'NPOP',
-  PGS_INDIA: 'PGS_INDIA',
-  GLOBAL_GAP: 'GLOBAL_GAP',
-  NATURAL_FARMING: 'NATURAL_FARMING',
-  NONE: 'NONE',
+  OTHER: 'OTHER',
 } as const;
 export type CertificationType = (typeof CertificationType)[keyof typeof CertificationType];
 

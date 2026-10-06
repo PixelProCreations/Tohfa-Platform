@@ -42,6 +42,8 @@ info:
     | BR-01 | Expired certificate blocks market listings |
     | BR-02 | Unverified certificate blocks market listings; verification is manual |
     | BR-03 | Four audits per year, one per quarter |
+    | BR-04 | Audit rating scale and compliance tiers (read from `rating_tier_config`) |
+    | BR-05 | Major violation count red-flag threshold (CONTESTED: stored, never derived) |
     | BR-06 | Farm rating is 10 categories x 10 points |
     | BR-07 | Listing price must not exceed the fair price ceiling |
     | BR-08 | Fair price ceiling is set by Super Admin only |
@@ -71,13 +73,14 @@ info:
     | BR-37 | Stock movements are ledger-first; adjustments need separate approval |
     | BR-38 | No automated processes (manual data entry only); no advisory/recommendation content |
     | BR-40 | Soil parameter classification bands are server-configured, not client-literal |
+    | BR-48 | Certificate entry is strictly validated; a lapsed certificate may be recorded only within `cert_expiry_max_past_days` |
 
     ## Conventions
 
     * All money is a **decimal string** (see the `Money` schema) — never a JSON number.
     * All timestamps are RFC 3339 UTC (`2026-08-18T06:30:00Z`).
     * All list endpoints are cursor-paginated and return a `page` object.
-    * All errors are `application/problem+json` per RFC 9457 and carry a `correlationId`.
+    * All errors are `application/problem+json` per RFC 9457 and carry a `traceId` (also sent as the `x-correlation-id` header).
     * Quantities are kilograms with 3 decimal places.
   contact:
     name: TOHFA Platform Engineering
@@ -104,8 +107,20 @@ tags:
     description: Farmer self-service profile and PGS/NPOP certification lifecycle.
   - name: Farm Rating
     description: |
-      The 10-category, 0-100 farm rating (BR-06): admin scoring and the farmer's own
-      read-only view of it.
+      The 10-category, 0-100 farm rating (BR-06), READ-ONLY over HTTP. Since the
+      2026-10-01 product decision a rating is created only by completing an INTERNAL
+      audit (`POST /admin/audits/{id}/complete`); there is no manual rating write.
+      Admin review and the farmer's own view both read the newest rating; older
+      ratings are kept as history.
+  - name: Audits
+    description: |
+      Quarterly farm audits (BR-03: four per farmer per April-March fiscal year, one
+      per quarter, internal and external mixed), scored on the same 10 categories as
+      the farm rating (BR-06, 0-100, tier from `rating_tier_config` per BR-04),
+      findings, the manual red flag (BR-05b), compliance reporting (BR-03b), and the
+      farmer's own read-only audit history (BR-36). External audits are records an
+      admin enters from an outside agency's report; there is no agency login. Audit
+      results change nothing automatically.
   - name: Farm Diary
     description: |
       The farmer's own day-by-day field activity log (BR-40, BR-41, BR-42): plots,
@@ -1211,7 +1226,9 @@ paths:
               example:
                 items:
                   - id: c1a2b3c4-d5e6-4f70-8899-aabbccddeeff
+                    farmerId: f1a2b3c4-d5e6-4f70-8899-aabbccddeeff
                     certType: PGS
+                    customTypeName: null
                     certNumber: PGS-TN-2025-00871
                     issuingBody: PGS Organic India Council
                     issuedOn: '2025-04-01'
@@ -1219,6 +1236,7 @@ paths:
                     verificationStatus: VERIFIED
                     daysToExpiry: -140
                     blocksListings: true
+                    createdAt: '2025-04-01T06:12:00.000Z'
                 page: { nextCursor: null, hasMore: false }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -1229,9 +1247,42 @@ paths:
       description: |
         The farmer keys in the certificate details and attaches a document previously
         uploaded through `POST /uploads/sign`. The record starts `UNVERIFIED`, which
-        blocks market listings until an admin verifies it (BR-02).
+        blocks market listings until an admin verifies it (BR-02). An `OTHER`
+        certificate is recorded and may be verified, but never qualifies the farmer
+        to list; only a verified, unexpired PGS or NPOP certificate does (BR-02).
+
+        Validation (BR-48) answers 422 `VALIDATION_FAILED` with one entry per failing
+        field in `errors`, keyed `body.<field>` (e.g. `body.expiresOn`):
+        * `issuedOn` and `expiresOn` are required real calendar dates, exactly
+          `YYYY-MM-DD` (no time; `2026-02-30` is rejected), and `expiresOn` must be
+          strictly after `issuedOn`.
+        * `issuedOn` must not be after today (Asia/Kolkata).
+        * `expiresOn` may already have passed — a lapsed certificate may be recorded —
+          but not by more than `system_config.cert_expiry_max_past_days` days (seeded
+          365; exposed as `certExpiryMaxPastDays` by `GET /config/farmer`): with 365,
+          exactly 365 days before today is accepted, 366 is rejected.
+        * `expiresOn` may not lie more than `system_config.cert_expiry_max_future_days`
+          days after today (seeded 730, 2 years; exposed as
+          `certExpiryMaxFutureDays`): exactly 730 days ahead is accepted, 731 is
+          rejected (BR-48h).
+        * `certNumber` / `issuingBody` are trimmed and must be 1-80 / 1-160 characters;
+          `certType` must be `PGS`, `NPOP` or `OTHER`.
+        * `customTypeName` (BR-48i) is required when `certType` is `OTHER` (the scheme's
+          name, trimmed, 1-80 characters) and must be null or omitted for `PGS` and
+          `NPOP`; either violation is reported on `body.customTypeName`.
+        * `certType` + `certNumber` (after trimming) must not already belong to a live
+          certificate — the caller's own or any other farmer's (BR-48j). This is
+          reported on `body.certNumber` with one generic message ("This certificate
+          number can't be used. Check the number and try again.") that is identical
+          whoever holds the number and never names the holder. A number freed by
+          `DELETE` may be recorded again; the same number under another `certType` is
+          not a duplicate. Two concurrent requests for one number get one 201 and one
+          422, never a 409 or 500.
+
+        One `certification.create` audit row records the certificate as created, with
+        the farmer as actor, in the same transaction (BR-35).
       x-permission: certification.manage_own
-      x-business-rules: [BR-02]
+      x-business-rules: [BR-02, BR-35, BR-48]
       requestBody:
         required: true
         content:
@@ -1252,7 +1303,123 @@ paths:
               schema: { $ref: '#/components/schemas/Certification' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '422':
+          description: |
+            `VALIDATION_FAILED`, one entry per failing field keyed `body.<field>` (BR-48),
+            including `body.certNumber` when the `certType` + `certNumber` is already on
+            record for a live certificate, whoever holds it (BR-48j).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://api.tohfa.in/problems/validation-failed
+                title: Validation failed
+                status: 422
+                detail: One or more fields are invalid.
+                code: VALIDATION_FAILED
+                traceId: 01J9F1B2C3D4E5F6G7H8J9KG
+                errors:
+                  body.certNumber: ["This certificate number can't be used. Check the number and try again."]
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/certifications/{id}:
+    patch:
+      tags: [Farmer Profile & Certifications]
+      operationId: updateMyCertification
+      summary: Edit an own certification
+      description: |
+        Partially updates one of the caller's own certificates. Send any of `certType`,
+        `customTypeName`, `certNumber`, `issuingBody`, `issuedOn`, `expiresOn`,
+        `documentUrl`; at least one is required (an empty body is 422 keyed `body`).
+        `farmerId`, `verificationStatus` and other unknown keys are ignored — the
+        owner comes from the caller's token, never the body.
+
+        The stored certificate with this patch applied must pass exactly the
+        validation `POST /farmers/me/certifications` applies (BR-48, both expiry
+        windows included), with errors keyed `body.<field>` even for a field the
+        patch did not send (BR-49c). Moving a certificate away from `OTHER` therefore
+        requires `customTypeName: null`; moving it to `OTHER` requires a
+        `customTypeName`. A new `documentUrl` records a new certificate document and
+        points the certificate at it (the old document is kept). Moving the
+        certificate onto a `certType` + `certNumber` that another live certificate
+        already has — the caller's own or any other farmer's — is 422 on
+        `body.certNumber` with the same generic message `POST` uses, and nothing
+        changes (BR-48j); keeping its own number is never a conflict.
+
+        Verification reset (BR-49a): any change to a field above sends the
+        certificate back for verification — `verificationStatus` becomes
+        `UNVERIFIED` and `verifiedAt`, `verifiedBy`, `verificationNotes` and
+        `portalCheckedUrl` are cleared, whether it was `VERIFIED` or `REJECTED` —
+        and the farmer's market block is recomputed in the same transaction. A
+        patch whose values all equal the stored ones is a no-op: 200 with the
+        certificate unchanged and its verification kept (BR-49b).
+
+        Another farmer's certificate, a deleted one and an unknown id all return
+        404, never 403 (BR-36, BR-49d).
+      x-permission: certification.manage_own
+      x-business-rules: [BR-36, BR-48, BR-49]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CertificationUpdate' }
+            example:
+              certType: OTHER
+              customTypeName: Jaivik Bharat
+              certNumber: JAIVIK/TN/2026/0042
+      responses:
+        '200':
+          description: The updated certification (UNVERIFIED after any real change).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Certification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: |
+            `VALIDATION_FAILED` on the merged result (BR-48, BR-49c), keyed `body.<field>`,
+            including `body.certNumber` when the edit would give the certificate a
+            `certType` + `certNumber` another live certificate already has, whoever holds
+            it (BR-48j).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://api.tohfa.in/problems/validation-failed
+                title: Validation failed
+                status: 422
+                detail: One or more fields are invalid.
+                code: VALIDATION_FAILED
+                traceId: 01J9F1B2C3D4E5F6G7H8J9KG
+                errors:
+                  body.certNumber: ["This certificate number can't be used. Check the number and try again."]
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farmer Profile & Certifications]
+      operationId: deleteMyCertification
+      summary: Delete an own certification
+      description: |
+        Soft delete (BR-50): the row and its document are kept, `deleted_at` is set.
+        The certificate disappears from `GET /farmers/me/certifications`, the admin
+        list and detail, admin verify/unverify (404), listing eligibility and the
+        market-block recompute, which runs in the same transaction — deleting the
+        only qualifying certificate blocks the farmer from listing. The same
+        `certType` + `certNumber` may be recorded again afterwards.
+
+        Another farmer's certificate, an already-deleted one and an unknown id all
+        return 404, never 403 (BR-36).
+      x-permission: certification.manage_own
+      x-business-rules: [BR-36, BR-50]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204': { description: Certification deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -1263,12 +1430,19 @@ paths:
       summary: Farmer-facing global platform config
       description: |
         Global, non-farmer-specific config thresholds the farmer app needs client-side
-        (currently just the certificate-expiry warning window). Not scoped to the caller's
-        own farm — this is platform-wide config, not farm data, so no BR-16 concern applies.
+        (the certificate-expiry warning window, and how long ago a recorded certificate
+        may have expired). Not scoped to the caller's own farm — this is platform-wide
+        config, not farm data, so no BR-16 concern applies.
 
         Backed by `system_config`. `certExpiryWarningDays` is a specification-gap placeholder
         (30) pending client confirmation — see db/seed/001_reference.sql.
+        `certExpiryMaxPastDays` is `cert_expiry_max_past_days` (seeded 365) and
+        `certExpiryMaxFutureDays` is `cert_expiry_max_future_days` (seeded 730): the
+        BR-48 windows `POST /farmers/me/certifications` and
+        `PATCH /farmers/me/certifications/{id}` enforce. They are exposed so the app can
+        pre-check its form; the server check is the enforcement.
       x-permission: farmer.config.view
+      x-business-rules: [BR-48]
       responses:
         '200':
           description: Farmer-facing config values.
@@ -1276,13 +1450,23 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [certExpiryWarningDays]
+                required: [certExpiryWarningDays, certExpiryMaxPastDays, certExpiryMaxFutureDays]
                 properties:
                   certExpiryWarningDays:
                     type: integer
                     minimum: 1
+                  certExpiryMaxPastDays:
+                    type: integer
+                    minimum: 0
+                    description: An expiresOn more than this many days before today (Asia/Kolkata) is rejected on create and edit (BR-48).
+                  certExpiryMaxFutureDays:
+                    type: integer
+                    minimum: 0
+                    description: An expiresOn more than this many days after today (Asia/Kolkata) is rejected on create and edit (BR-48h).
               example:
                 certExpiryWarningDays: 30
+                certExpiryMaxPastDays: 365
+                certExpiryMaxFutureDays: 730
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -1292,9 +1476,11 @@ paths:
       operationId: getMyFarmRating
       summary: Own farm rating
       description: |
-        Returns the caller's own current/most-recent rating cycle: all 10 categories, in
-        sort order, with a null score for any category not yet scored. A farmer who has
-        never been rated gets all-null scores and `status: DRAFT` — never a 404 (BR-06).
+        Returns the caller's own current (newest) rating: all 10 categories, in sort
+        order. Ratings are derived from completed INTERNAL audits (`source: AUDIT`);
+        legacy manual ratings read as `source: MANUAL`. A farmer who has never been
+        rated gets all-null scores, `status: DRAFT` and `source: null` — never a 404
+        (BR-06).
       x-permission: farmer.rating.view
       x-business-rules: [BR-06]
       responses:
@@ -1626,6 +1812,127 @@ paths:
       responses:
         '204': { description: Zone removed. }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/soil-reports/download-link:
+    get:
+      tags: [Soil Management]
+      operationId: getMySoilReportDownloadLink
+      summary: Get a short-lived signed link to the soil health report PDF
+      description: |
+        Returns a signed, relative `downloadUrl` pointing at
+        `GET /farms/{farmId}/soil-reports/export`, valid for 15 minutes (`expiresAt` is
+        epoch milliseconds), so the mobile app can hand the PDF to the device browser or
+        share sheet without attaching a bearer token. `period` defaults to `6 months`;
+        `include` and `plotId` are carried into the signed link. A farm id that does not
+        exist, or belongs to another farmer, 404s rather than 403 (BR-36).
+      x-permission: farmer.soil.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: ['3 months', '6 months', 'All time'], default: 6 months }
+        - name: include
+          in: query
+          required: false
+          schema: { type: string }
+        - name: plotId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: token
+          in: query
+          required: false
+          schema: { type: string }
+        - name: expires
+          in: query
+          required: false
+          schema: { type: number }
+        - name: redirect
+          in: query
+          required: false
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: The signed download link.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [downloadUrl, fileName, expiresAt]
+                properties:
+                  downloadUrl: { type: string }
+                  fileName: { type: string }
+                  expiresAt: { type: number }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farms/{farmId}/soil-reports/export:
+    get:
+      tags: [Soil Management]
+      operationId: exportMySoilReport
+      summary: Download the soil health report PDF
+      description: |
+        Returns the farm's soil health report as `application/pdf` (attachment named
+        `Soil_Health_Report_<period>.pdf`). Authorised either by a valid bearer token or by
+        the `token` and `expires` query parameters of a link from
+        `GET /farms/{farmId}/soil-reports/download-link`; this route therefore carries
+        `security: []` and does not use `requirePermission`. With neither, it
+        is 401; a signature that is invalid or expired is 403. With `redirect=true` an
+        authenticated caller instead receives a 302 to the signed `downloadUrl`
+        (a missing farm, or one owned by another farmer, is 404 in that mode). `period`
+        defaults to `6 months`.
+      security: []
+      x-business-rules: [BR-36]
+      parameters:
+        - name: farmId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: ['3 months', '6 months', 'All time'], default: 6 months }
+        - name: include
+          in: query
+          required: false
+          schema: { type: string }
+        - name: plotId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: token
+          in: query
+          required: false
+          schema: { type: string }
+        - name: expires
+          in: query
+          required: false
+          schema: { type: number }
+        - name: redirect
+          in: query
+          required: false
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: The soil health report.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '302':
+          description: Redirect to the signed download URL (`redirect=true`).
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -3312,6 +3619,141 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/certifications:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: adminListCertifications
+      summary: List certifications across all farmers
+      description: |
+        Admin-wide read of certification records, ahead of a verify/unverify decision.
+        Unlike `GET /farmers/me/certifications`, this is not scoped to the caller's own
+        farmer record and includes `farmerId` on each item (admin-only context; never
+        reaches the customer surface, BR-16).
+      x-permission: certification.view
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - { name: status, in: query, schema: { type: string, enum: [UNVERIFIED, VERIFIED, REJECTED] } }
+        - { name: farmerId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Paged certifications across all farmers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Certification' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/certifications/{id}:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: adminGetCertification
+      summary: Fetch a single certification by ID
+      description: |
+        Fetches a certification regardless of which farmer it belongs to. Not
+        scope-restricted beyond the `certification.view` permission check (BR-16 context
+        notes still apply — `farmerId` on the response is admin-only).
+      x-permission: certification.view
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: The certification.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Certification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Farmer Profile & Certifications]
+      operationId: adminUpdateCertification
+      summary: Edit any farmer's certification (TOHFA staff)
+      description: |
+        Lets TOHFA staff correct a farmer's certificate record (BR-51). Same request
+        body, validation and effects as `PATCH /farmers/me/certifications/{id}`: the
+        stored certificate with the patch applied must pass all of BR-48 (both expiry
+        windows, `issuedOn` not in the future, date order, the `customTypeName`
+        coupling), errors keyed `body.<field>` (BR-49c); a `certType` + `certNumber`
+        another live certificate already has is 422 on `body.certNumber` with the
+        generic message (BR-48j).
+
+        Any real change sends the certificate back for verification — `UNVERIFIED`,
+        verifier fields cleared — exactly as the farmer's own edit does (BR-49a), so an
+        edit can never stand in for a verification; a patch equal to the stored values
+        is a no-op that keeps the verification (BR-49b). The market block is
+        recomputed in the same transaction for the farmer who OWNS the certificate,
+        read from the stored row; `farmerId` and other unknown keys in the body are
+        ignored. One `certification.admin_update` audit row names the admin as actor,
+        with before/after images (BR-35).
+
+        An unknown or deleted id is 404.
+      x-permission: certification.manage_any
+      x-business-rules: [BR-35, BR-48, BR-49, BR-51]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CertificationUpdate' }
+            example:
+              certNumber: PGS/TN/2026/00872
+      responses:
+        '200':
+          description: The updated certification (UNVERIFIED after any real change).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Certification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: |
+            `VALIDATION_FAILED` on the merged result (BR-48, BR-49c), keyed `body.<field>`,
+            including `body.certNumber` when the edit would give the certificate a
+            `certType` + `certNumber` another live certificate already has (BR-48j); also
+            a malformed id (`params.id`) or an empty body (`body`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farmer Profile & Certifications]
+      operationId: adminDeleteCertification
+      summary: Remove any farmer's certification (TOHFA staff)
+      description: |
+        Soft delete of a farmer's certificate by TOHFA staff (BR-51), with the effects of
+        the farmer's own `DELETE /farmers/me/certifications/{id}` (BR-50): the row and its
+        document are kept with `deleted_at` set; the certificate disappears from the
+        farmer's list, the admin list and detail, verify/unverify, listing eligibility and
+        the market-block recompute, which runs in the same transaction for the farmer who
+        owns the certificate. The same `certType` + `certNumber` may be recorded again.
+        One `certification.admin_delete` audit row names the admin as actor (BR-35).
+
+        An unknown or already-deleted id is 404.
+      x-permission: certification.manage_any
+      x-business-rules: [BR-35, BR-50, BR-51]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204': { description: Certification deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/certifications/{id}/verify:
     post:
       tags: [Farmer Profile & Certifications]
@@ -3320,9 +3762,11 @@ paths:
       description: |
         The admin checks the certificate against the issuing body's portal and records the
         outcome manually. Verifying lifts the listing block, unless the certificate is
-        already expired (BR-01 still applies).
+        already expired (BR-01 still applies). One `certification.verify` audit row
+        records the verification state before and after (note and portal reference
+        included), with the admin as actor, in the same transaction (BR-35).
       x-permission: certification.mark_verified
-      x-business-rules: [BR-01, BR-02]
+      x-business-rules: [BR-01, BR-02, BR-35]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -3352,9 +3796,13 @@ paths:
       tags: [Farmer Profile & Certifications]
       operationId: unverifyCertification
       summary: Revoke verification and block listings
-      description: Immediately re-blocks the farmer's market listings (BR-02) and withdraws any listing still pending approval.
+      description: |
+        Immediately re-blocks the farmer's market listings (BR-02) and withdraws any listing
+        still pending approval. One `certification.unverify` audit row records the
+        verification state before and after (the reason included), with the admin as
+        actor, in the same transaction (BR-35).
       x-permission: certification.mark_verified
-      x-business-rules: [BR-02]
+      x-business-rules: [BR-02, BR-35]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -3384,9 +3832,11 @@ paths:
       operationId: getFarmerRating
       summary: Farm rating detail for admin review
       description: |
-        Returns all 10 categories, in sort order, with a null score for any category not
-        yet scored for the farmer's current cycle. A farmer never rated gets all-null
-        scores and `status: DRAFT` — never a 404 for that reason alone. 404 means the
+        Returns the farmer's current (newest) rating: all 10 categories, in sort order,
+        with `source` (`AUDIT` when derived from a completed INTERNAL audit, `MANUAL` for
+        a legacy row) and `sourceAuditId`. There is no write on this path: the manual
+        PUT was removed on 2026-10-01 (BR-06). A farmer never rated gets all-null
+        scores, `status: DRAFT` and `source: null` — never a 404 for that reason alone. 404 means the
         farmer does not exist, or exists outside the caller's scope (root CLAUDE.md
         §2.1 — a cross-scope read must not be distinguishable from a nonexistent row).
       x-permission: farmer.rating.view
@@ -3402,42 +3852,695 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
-    put:
-      tags: [Farm Rating]
-      operationId: setFarmerRating
-      summary: Submit category scores for a farm rating cycle
+
+  /admin/audits:
+    get:
+      tags: [Audits]
+      operationId: listAudits
+      summary: Audit calendar / list
       description: |
-        Submits 1-10 category scores; a cycle may be built up incrementally across
-        multiple calls. Only once all 10 currently-active categories have been scored
-        does `total_score` get computed (a direct sum, no multiplier), `tier_code` get
-        resolved from `rating_tier_config` (BR-04), and `status` flip to `COMPLETE`
-        (BR-06). A Farmer Admin may only edit a farmer in their own zone
-        (`WAREHOUSE_SCOPE_VIOLATION`, 403).
-      x-permission: farmer.rating.edit
-      x-business-rules: [BR-06, BR-04]
+        Cursor-paginated audits with filters, for the audit calendar, a farmer's audit
+        history and the compliance drill-downs. A Farmer Admin sees only audits of
+        farmers in their own zone(s) (OWN_ZONE_ONLY, filtered on the farmer's current
+        zone); rows outside the caller's scope are simply absent, never 403. `tier` is
+        resolved at read time from `rating_tier_config` (BR-04a), never stored.
+        `overdue=true` returns SCHEDULED/IN_PROGRESS audits whose `scheduledFor` is in
+        the past. `hasOpenMajorFindings=true` returns audits with at least one
+        unresolved MAJOR finding.
+      x-permission: audit.view
+      x-business-rules: [BR-03, BR-04, BR-36]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - { name: farmerId, in: query, schema: { type: string, format: uuid } }
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+        - name: status
+          in: query
+          description: One or more statuses, comma-separated (e.g. `SCHEDULED,IN_PROGRESS`).
+          schema: { type: string, examples: ['SCHEDULED,IN_PROGRESS'] }
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/AuditType' } }
+        - { name: fiscalYear, in: query, schema: { $ref: '#/components/schemas/FiscalYear' } }
+        - { name: quarter, in: query, schema: { type: integer, minimum: 1, maximum: 4 } }
+        - { name: scheduledFrom, in: query, schema: { type: string, format: date-time } }
+        - { name: scheduledTo, in: query, schema: { type: string, format: date-time } }
+        - { name: redFlagged, in: query, schema: { type: boolean } }
+        - { name: overdue, in: query, schema: { type: boolean } }
+        - { name: hasOpenMajorFindings, in: query, schema: { type: boolean } }
+        - name: sort
+          in: query
+          description: '`scheduledFor` ascending (calendar) or `-scheduledFor` descending (history).'
+          schema: { type: string, enum: [scheduledFor, -scheduledFor], default: -scheduledFor }
+      responses:
+        '200':
+          description: Paged audits.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AuditSummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Audits]
+      operationId: scheduleAudit
+      summary: Schedule an internal or external audit
+      description: |
+        Creates a SCHEDULED audit. `fiscalYear` (April-March, e.g. `2026-27`) and
+        `quarter` (Q1 Apr-Jun ... Q4 Jan-Mar) are derived server-side from
+        `scheduledFor` in Asia/Kolkata — the client never sends them. A second
+        non-cancelled audit for the same (farmer, fiscalYear, quarter) is refused with
+        409 `AUDIT_QUARTER_TAKEN` (BR-03a); a CANCELLED audit frees its quarter.
+        EXTERNAL requires `externalAgencyName` and forbids nothing else; INTERNAL
+        forbids `externalAgencyName` and may leave `auditorUserId` unassigned until
+        start. `farmId`, when sent, must belong to the farmer. Writes an `audit_log`
+        row (`audit.schedule`) in the same transaction.
+      x-permission: audit.schedule
+      x-business-rules: [BR-03]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditCreate' }
+            example:
+              farmerId: 3f0c1d52-8d4e-4a51-9a63-0d8f7a1b2c3d
+              auditType: EXTERNAL
+              scheduledFor: '2026-11-05T04:30:00Z'
+              externalAgencyName: PGS Regional Council
+      responses:
+        '201':
+          description: Scheduled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/compliance:
+    get:
+      tags: [Audits]
+      operationId: getAuditCompliance
+      summary: Compliance alerts and fiscal-year summary
+      description: |
+        Dashboard counts plus a cursor-paginated per-farmer compliance list for one
+        fiscal year (default: the current one). BR-03b: a farmer with fewer than 4
+        COMPLETED audits once the fiscal year has ended is `NON_COMPLIANT` — never
+        silently passed. Before year end such a farmer is `PENDING`. "4" is the number
+        of fiscal quarters (one audit per quarter, BR-03 LOCKED and enforced by the
+        unique index), not a tunable threshold. The population is approved,
+        non-deleted farmers in the caller's scope (a Farmer Admin: own zone(s) only).
+        Counts are computed at read time; nothing is stored or derived into other
+        tables, and nothing here red-flags anyone (BR-05b).
+      x-permission: audit.view
+      x-business-rules: [BR-03, BR-05]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - { name: fiscalYear, in: query, schema: { $ref: '#/components/schemas/FiscalYear' } }
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+        - name: complianceStatus
+          in: query
+          description: Filters the `farmers` page only; `counts` always cover the whole population.
+          schema: { $ref: '#/components/schemas/AuditComplianceStatus' }
+      responses:
+        '200':
+          description: Compliance summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditComplianceSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/bulk-reschedule:
+    post:
+      tags: [Audits]
+      operationId: bulkRescheduleAudits
+      summary: Reschedule several audits at once
+      description: |
+        Moves each listed audit to `newScheduledFor`, or shifts its current
+        `scheduledFor` by `shiftDays` (exactly one of the two). Each audit is processed
+        in its own transaction with its own `audit_log` row (`audit.reschedule`), so
+        the batch may partially succeed; the response reports every item. An item
+        fails with `NOT_FOUND` (missing or outside the caller's scope),
+        `INVALID_STATE_TRANSITION` (not SCHEDULED), `AUDIT_QUARTER_TAKEN` (the new date
+        falls in a quarter that already has a live audit for that farmer, BR-03a) or
+        `CONFLICT` (`expectedScheduledFor` was sent and no longer matches — this is
+        what makes replaying a `shiftDays` request safe instead of shifting twice).
+      x-permission: audit.schedule
+      x-business-rules: [BR-03]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditBulkRescheduleRequest' }
+            example:
+              items:
+                - { auditId: 0b6a2f9e-1c3d-4e5f-8a7b-9c0d1e2f3a4b, expectedScheduledFor: '2026-10-14T04:30:00Z' }
+              shiftDays: 7
+              reason: Heavy rainfall
+      responses:
+        '200':
+          description: Per-audit outcome.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditBulkRescheduleResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}:
+    get:
+      tags: [Audits]
+      operationId: getAudit
+      summary: Audit detail
+      description: |
+        One audit with all 10 category scores (in `rating_categories.sort_order`, a null
+        `score` for any category not yet scored — missing is incomplete, not zero,
+        BR-06) and its findings. 404 when the audit does not exist or is outside the
+        caller's scope (indistinguishable on purpose).
+      x-permission: audit.view
+      x-business-rules: [BR-04, BR-06]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Audit detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Audits]
+      operationId: updateAudit
+      summary: Reschedule or reassign a scheduled audit
+      description: |
+        Allowed only while SCHEDULED (otherwise 409 `INVALID_STATE_TRANSITION`). A new
+        `scheduledFor` re-derives `fiscalYear`/`quarter`; moving into a quarter that
+        already has a live audit for the farmer is 409 `AUDIT_QUARTER_TAKEN` (BR-03a).
+        `auditType` cannot change — cancel and schedule a new audit instead. Writes an
+        `audit_log` row (`audit.reschedule`) in the same transaction, carrying `reason`.
+      x-permission: audit.schedule
+      x-business-rules: [BR-03]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/FarmRatingUpdate' }
-            example:
-              modules:
-                - { categoryCode: CERTIFICATION, score: 8 }
-                - { categoryCode: SOIL_LAND, score: 7 }
-              notes: Strong compost practice; irrigation log incomplete.
+            schema: { $ref: '#/components/schemas/AuditUpdate' }
       responses:
         '200':
-          description: Updated farm rating (DRAFT until all 10 categories are scored).
+          description: Updated.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FarmRating' }
+              schema: { $ref: '#/components/schemas/AuditDetail' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/cancel:
+    post:
+      tags: [Audits]
+      operationId: cancelAudit
+      summary: Cancel an audit
+      description: |
+        SCHEDULED or IN_PROGRESS -> CANCELLED (otherwise 409
+        `INVALID_STATE_TRANSITION`). Cancelling frees the (farmer, fiscalYear, quarter)
+        slot for a replacement audit (BR-03a). The row, its scores and findings are kept
+        as history. Writes an `audit_log` row (`audit.cancel`).
+      x-permission: audit.schedule
+      x-business-rules: [BR-03]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '200':
+          description: Cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/start:
+    post:
+      tags: [Audits]
+      operationId: startAudit
+      summary: Start an audit (SCHEDULED -> IN_PROGRESS)
+      description: |
+        SCHEDULED -> IN_PROGRESS, stamping `startedAt` (otherwise 409
+        `INVALID_STATE_TRANSITION`). An INTERNAL audit must have an auditor: send
+        `auditorUserId` here or assign it earlier, else 422 `VALIDATION_FAILED` on
+        `auditorUserId`. For an EXTERNAL audit this opens the record so an admin can
+        enter the agency's scores and findings. `audit.conduct` is conditional for a
+        Farmer Admin under SUPPORT_ONLY, which forbids state transitions, so a Farmer
+        Admin gets 403 here. Writes an `audit_log` row (`audit.start`).
+      x-permission: audit.conduct
+      x-business-rules: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                auditorUserId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Started.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/scores:
+    put:
+      tags: [Audits]
+      operationId: setAuditScores
+      summary: Enter category scores (all or some)
+      description: |
+        Upserts 1-10 category scores while the audit is IN_PROGRESS (otherwise 409
+        `INVALID_STATE_TRANSITION`); a score sheet may be built up across several
+        calls. Categories are the 10 seeded `rating_categories` (BR-06b); an unknown
+        `categoryCode` is 422 `VALIDATION_FAILED`. A score that is not 0-10 is 422
+        `SCORE_OUT_OF_RANGE` (BR-06a) — the request schema checks integer-ness only so
+        the domain code, not the generic one, is returned. Optional `summary` and
+        `reportStorageKey` (an upload with purpose `AUDIT_REPORT`, typically the
+        external agency's own report) may be saved in the same call. Nothing is
+        totalled or tiered until completion. Writes an `audit_log` row (`audit.score`).
+      x-permission: audit.score.categories
+      x-business-rules: [BR-06]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditScoresUpdate' }
+            example:
+              scores:
+                - { categoryCode: CERTIFICATION, score: 8 }
+                - { categoryCode: SOIL_LAND, score: 7, remarks: Mulching inconsistent on the east plot. }
+      responses:
+        '200':
+          description: Updated audit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/findings:
+    post:
+      tags: [Audits]
+      operationId: createAuditFinding
+      summary: Log a finding
+      description: |
+        Adds a MAJOR / MINOR / OBSERVATION finding while the audit is IN_PROGRESS
+        (otherwise 409 `INVALID_STATE_TRANSITION`). MAJOR findings are counted into
+        `majorViolationsCount` on completion (BR-05a); logging one never red-flags the
+        farm (BR-05b). Writes an `audit_log` row (`audit.finding.create`).
+      x-permission: audit.findings.log
+      x-business-rules: [BR-05]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditFindingCreate' }
+      responses:
+        '201':
+          description: Finding created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditFinding' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/findings/{findingId}:
+    patch:
+      tags: [Audits]
+      operationId: updateAuditFinding
+      summary: Edit or resolve a finding
+      description: |
+        While the audit is IN_PROGRESS every field may change, and `resolved` may be set
+        or cleared. Once the audit is COMPLETED only resolution is allowed:
+        `resolved: true` (with optional `resolutionNote`) stamps `resolvedAt`/
+        `resolvedBy`; any other field, or `resolved: false`, is 409
+        `INVALID_STATE_TRANSITION`. Nothing may change on a CANCELLED audit. Resolving
+        does not change `majorViolationsCount` (it records what was found) or the red
+        flag. Writes an `audit_log` row (`audit.finding.update`).
+      x-permission: audit.findings.log
+      x-business-rules: [BR-05]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/AuditFindingIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditFindingUpdate' }
+      responses:
+        '200':
+          description: Updated finding.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditFinding' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/complete:
+    post:
+      tags: [Audits]
+      operationId: completeAudit
+      summary: Complete an audit (IN_PROGRESS -> COMPLETED)
+      description: |
+        IN_PROGRESS -> COMPLETED (otherwise 409 `INVALID_STATE_TRANSITION`). Requires a
+        score for all 10 categories; any missing one is 422 `AUDIT_INCOMPLETE` with the
+        missing category codes in `errors[]` — a missing category is incomplete, never
+        zero (BR-06). In one transaction it persists `totalScore` (direct sum, 0-100),
+        `majorViolationsCount` (number of MAJOR findings, BR-05a) and `completedAt`,
+        and writes an `audit_log` row (`audit.complete`). The tier in the response is
+        resolved from `rating_tier_config` (BR-04a).
+
+        FARM RATING (product decision 2026-10-01, BR-06). Completing an INTERNAL audit
+        also creates, in the SAME transaction, a new COMPLETE farm rating for the farmer:
+        the audit's 10 category scores (and remarks), the direct-sum total, the tier
+        from `rating_tier_config`, period `<fiscalYear> Q<quarter>`, linked by
+        `sourceAuditId`, with its own `audit_log` row (`farm_rating.create_from_audit`).
+        It becomes the farmer's current rating; earlier ratings are kept unchanged as
+        history. If the rating cannot be written, the audit is NOT completed. An
+        EXTERNAL audit creates no rating. Completion changes nothing else — no
+        certification, payout, market-block or red-flag effect (BR-05b). A Farmer
+        Admin gets 403 (SUPPORT_ONLY forbids finalising).
+      x-permission: audit.conduct
+      x-business-rules: [BR-04, BR-05, BR-06]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditCompleteRequest' }
+      responses:
+        '200':
+          description: Completed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/red-flag:
+    post:
+      tags: [Audits]
+      operationId: redFlagAudit
+      summary: Red-flag a completed audit
+      description: |
+        The ONLY way `redFlagged` becomes true (BR-05b): an explicit admin action with a
+        reason. Allowed on a COMPLETED audit that is not already flagged (otherwise 409
+        `INVALID_STATE_TRANSITION`). No rule derives it from `majorViolationsCount` —
+        BR-05 is CONTESTED. Changes nothing else. Writes an `audit_log` row
+        (`audit.red_flag`).
+      x-permission: audit.red_flag.manage
+      x-business-rules: [BR-05]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              additionalProperties: false
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '200':
+          description: Red-flagged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/clear-red-flag:
+    post:
+      tags: [Audits]
+      operationId: clearAuditRedFlag
+      summary: Clear an audit's red flag
+      description: |
+        Explicit admin action (BR-05b). 409 `INVALID_STATE_TRANSITION` when the audit is
+        not flagged. Clears `redFlagged`, `redFlagReason`, `redFlaggedBy` and
+        `redFlaggedAt`; the flag's history lives in `audit_log` (`audit.red_flag.clear`,
+        with the before-image and `note`).
+      x-permission: audit.red_flag.manage
+      x-business-rules: [BR-05]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                note: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Cleared.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/audits/{id}/report:
+    get:
+      tags: [Audits]
+      operationId: downloadAuditReport
+      summary: Download the audit report
+      description: |
+        `variant=generated` (default) renders the TOHFA audit report PDF for a COMPLETED
+        audit (409 `INVALID_STATE_TRANSITION` before completion): farmer, audit type,
+        agency or auditor, dates, the 10 category scores, total /100, tier from
+        `rating_tier_config`, findings and summary. `variant=agency` returns the
+        uploaded agency report file (`reportUpload`), 404 when none was attached.
+        `redirect=true` returns a 302 to a short-lived signed URL instead of the bytes,
+        as `/invoices/{id}/download` does. Same scope rules as `GET /admin/audits/{id}`:
+        the route also requires `audit.view`, so a Farmer Admin (whose
+        `audit.report.generate` grant is `all`) is limited to their own zone(s) and
+        gets 404 outside them.
+      x-permission: audit.report.generate
+      x-business-rules: [BR-04, BR-06]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: variant, in: query, schema: { type: string, enum: [generated, agency], default: generated } }
+        - { name: redirect, in: query, schema: { type: boolean, default: false } }
+        - name: token
+          in: query
+          description: Signature from a `redirect=true` link (HMAC over audit id, variant, audience and expiry). With `expires`, authorises this one download without a bearer token; never construct it client-side.
+          schema: { type: string, maxLength: 128 }
+        - name: expires
+          in: query
+          description: Expiry of a signed link, epoch milliseconds (5 minutes after it was issued).
+          schema: { type: integer }
+      responses:
+        '200':
+          description: The report file (`application/pdf` for `generated`; the upload's own type for `agency`).
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '302':
+          description: Redirect to a signed URL valid for 5 minutes.
+          headers:
+            Location: { schema: { type: string, format: uri } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/audits:
+    get:
+      tags: [Audits]
+      operationId: listMyAudits
+      summary: Own audit history and upcoming audits
+      description: |
+        The caller's own audits only (BR-36), read-only, newest `scheduledFor` first by
+        default. Includes upcoming (SCHEDULED) and CANCELLED audits so the app can show
+        "next audit" and "n of 4 done this year" by filtering on `fiscalYear`/`status`.
+        Never exposes red-flag or internal admin fields (the schema is an allow-list).
+      x-permission: audit.view
+      x-business-rules: [BR-03, BR-04, BR-36]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - { name: fiscalYear, in: query, schema: { $ref: '#/components/schemas/FiscalYear' } }
+        - name: status
+          in: query
+          description: One or more statuses, comma-separated.
+          schema: { type: string, examples: [COMPLETED] }
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/AuditType' } }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [scheduledFor, -scheduledFor], default: -scheduledFor }
+      responses:
+        '200':
+          description: Paged own audits.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FarmerAuditSummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/audits/{id}:
+    get:
+      tags: [Audits]
+      operationId: getMyAudit
+      summary: Own audit result
+      description: |
+        One of the caller's own audits (BR-36). Another farmer's audit id returns 404 —
+        indistinguishable from a nonexistent one (BR-36a). Category scores and findings
+        are returned only once the audit is COMPLETED; before that `categoryScores`
+        carries null scores and `findings` is empty, so a farmer never sees a
+        half-entered score sheet.
+      x-permission: audit.view
+      x-business-rules: [BR-04, BR-06, BR-36]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Own audit detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerAuditDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/audits/{id}/report:
+    get:
+      tags: [Audits]
+      operationId: downloadMyAuditReport
+      summary: Download own audit report
+      description: |
+        Same file as `GET /admin/audits/{id}/report` (same `variant` and `redirect`
+        parameters), for the caller's own audit only. Another farmer's audit is 404 on
+        this PDF endpoint too, not only on the JSON one (BR-36b pattern). Either variant
+        is available only once the audit is COMPLETED (409 `INVALID_STATE_TRANSITION`).
+      x-permission: audit.report.generate
+      x-business-rules: [BR-36]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - { name: variant, in: query, schema: { type: string, enum: [generated, agency], default: generated } }
+        - { name: redirect, in: query, schema: { type: boolean, default: false } }
+        - name: token
+          in: query
+          description: Signature from a `redirect=true` link (HMAC over audit id, variant, audience and expiry). With `expires`, authorises this one download without a bearer token; never construct it client-side.
+          schema: { type: string, maxLength: 128 }
+        - name: expires
+          in: query
+          description: Expiry of a signed link, epoch milliseconds (5 minutes after it was issued).
+          schema: { type: integer }
+      responses:
+        '200':
+          description: The report file.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '302':
+          description: Redirect to a signed URL valid for 5 minutes.
+          headers:
+            Location: { schema: { type: string, format: uri } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me/diary/plots:
@@ -4831,7 +5934,7 @@ paths:
                 status: 422
                 detail: Ceiling for Carrot GRADE_1 effective 2026-08-19 is INR 48.00.
                 code: PRICE_ABOVE_CEILING
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K0
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K0
         '500': { $ref: '#/components/responses/ServerError' }
 
   /listings:
@@ -4840,10 +5943,20 @@ paths:
       operationId: createListing
       summary: Create a produce listing
       description: |
-        Server-side gates, in order: expired certificate (BR-01, `CERT_EXPIRED`),
-        unverified certificate (BR-02, `CERT_UNVERIFIED`), free-tier listing quota
-        (BR-14, `FREE_TIER_LIMIT`), and price ceiling (BR-07, `PRICE_ABOVE_CEILING`).
-        A `REJECT` grade may not be listed.
+        Server-side gates, in order: certificate eligibility (BR-01, BR-02), free-tier
+        listing quota (BR-14, `FREE_TIER_LIMIT`), and price ceiling (BR-07,
+        `PRICE_ABOVE_CEILING`). A `REJECT` grade may not be listed.
+
+        Certificate eligibility is decided for the farmer, not per certificate. Holding
+        any one verified, unexpired PGS or NPOP certificate is enough; other expired,
+        unverified or rejected certificates never block. A certificate stays valid
+        through its `expiresOn` date (Asia/Kolkata). If no certificate qualifies, the
+        response is `CERT_UNVERIFIED` when an unexpired certificate is awaiting admin
+        verification, `CERT_EXPIRED` otherwise when one has expired, and `CERT_MISSING`
+        when the farmer has no certificate at all or only unexpired rejected ones. This
+        check does not depend on `farmers.is_market_blocked`. A farmer whose market block
+        is set also gets `CERT_EXPIRED`, checked after certificate eligibility. All
+        three are 422.
       x-permission: listing.create_own
       x-business-rules: [BR-01, BR-02, BR-07, BR-14]
       parameters:
@@ -4869,19 +5982,56 @@ paths:
               schema: { $ref: '#/components/schemas/Listing' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403':
-          description: Listings blocked by certificate state.
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: |
+            Refused with 422 in every case: field validation (`VALIDATION_FAILED`, also for a
+            `REJECT` grade), certificate eligibility (`CERT_MISSING`, `CERT_UNVERIFIED`,
+            `CERT_EXPIRED`; BR-01, BR-02 — see the operation description), free-tier quota
+            (`FREE_TIER_LIMIT`; BR-14) or price ceiling (`PRICE_ABOVE_CEILING`; BR-07). Only PGS
+            and NPOP certificates are considered: a farmer holding only `OTHER` certificates gets
+            `CERT_MISSING`, and an `OTHER` certificate is never the one named as pending or expired.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
-              example:
-                type: https://api.tohfa.in/problems/cert-expired
-                title: Certification expired
-                status: 403
-                detail: NPOP certificate NPOP/TN/2025/11902 expired on 2026-03-31.
-                code: CERT_EXPIRED
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K1
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+              examples:
+                certMissing:
+                  summary: No PGS or NPOP certificate on file (none, only OTHER ones, or only rejected ones)
+                  value:
+                    type: https://api.tohfa.in/problems/cert-missing
+                    title: No qualifying certificate on file
+                    status: 422
+                    detail: No verified PGS or NPOP certificate on file. Add one and have it verified to list produce.
+                    code: CERT_MISSING
+                    traceId: 01J9F1B2C3D4E5F6G7H8J9K1
+                certUnverified:
+                  summary: Nothing qualifies, and an unexpired PGS or NPOP certificate awaits admin verification
+                  value:
+                    type: https://api.tohfa.in/problems/cert-unverified
+                    title: Certification is not verified
+                    status: 422
+                    detail: Certificate PGS/TN/2026/0042 is pending verification.
+                    code: CERT_UNVERIFIED
+                    traceId: 01J9F1B2C3D4E5F6G7H8J9K1
+                certExpired:
+                  summary: Nothing qualifies or pending, and a PGS or NPOP certificate has expired
+                  value:
+                    type: https://api.tohfa.in/problems/cert-expired
+                    title: Certification has expired
+                    status: 422
+                    detail: NPOP certificate NPOP/TN/2025/11902 expired on 2026-03-31.
+                    code: CERT_EXPIRED
+                    traceId: 01J9F1B2C3D4E5F6G7H8J9K1
+                priceAboveCeiling:
+                  summary: Asking price above the fair price ceiling
+                  value:
+                    type: https://api.tohfa.in/problems/price-above-ceiling
+                    title: Price exceeds the fair price ceiling
+                    status: 422
+                    detail: Asking price ₹52.01 exceeds fair price ceiling of ₹52.00.
+                    code: PRICE_ABOVE_CEILING
+                    meta: { ceilingPrice: '52.00', attemptedPrice: '52.01' }
+                    traceId: 01J9F1B2C3D4E5F6G7H8J9K1
         '500': { $ref: '#/components/responses/ServerError' }
     get:
       tags: [Marketing]
@@ -5058,7 +6208,7 @@ paths:
                 status: 403
                 detail: A Farmer Admin cannot approve their own listing; it has been routed to another admin.
                 code: SELF_APPROVAL_FORBIDDEN
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K2
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K2
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -5154,7 +6304,7 @@ paths:
                 status: 409
                 detail: This listing has already been countered 3 times; approve or reject it.
                 code: COUNTER_LIMIT_REACHED
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K3
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K3
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -5877,7 +7027,7 @@ paths:
                 status: 409
                 detail: Only 0.750 kg of Carrot GRADE_1 remains at Coonoor today.
                 code: STOCK_UNAVAILABLE
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K4
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K4
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -5925,7 +7075,7 @@ paths:
                 status: 402
                 detail: Order total is INR 412.50 and the wallet holds INR 180.00.
                 code: WALLET_INSUFFICIENT
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K5
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K5
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
     get:
@@ -6108,7 +7258,7 @@ paths:
                 status: 403
                 detail: You are assigned to Coonoor and may not query Gudalur.
                 code: WAREHOUSE_SCOPE_VIOLATION
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K6
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K6
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/orders/{id}/assign-warehouse:
@@ -6193,7 +7343,7 @@ paths:
                 status: 409
                 detail: Cannot pack an order in status DISPATCHED.
                 code: INVALID_STATE_TRANSITION
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K7
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K7
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/orders/{id}/dispatch:
@@ -6278,7 +7428,7 @@ paths:
                 status: 422
                 detail: 2 attempts remaining before this OTP is locked.
                 code: OTP_INVALID
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K8
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K8
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -6465,7 +7615,7 @@ paths:
                 status: 422
                 detail: Cash top-up is capped at INR 10,000.00 per transaction.
                 code: CASH_LIMIT_EXCEEDED
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9K9
+                traceId: 01J9F1B2C3D4E5F6G7H8J9K9
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/payout-dues:
@@ -6589,7 +7739,7 @@ paths:
                 status: 403
                 detail: You initiated payout PO-2026-000871; a different approver is required.
                 code: SAME_ACTOR_APPROVAL
-                correlationId: 01J9F1B2C3D4E5F6G7H8J9KA
+                traceId: 01J9F1B2C3D4E5F6G7H8J9KA
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -6959,6 +8109,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    AuditFindingIdParam:
+      name: findingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     CursorParam:
       name: cursor
       in: query
@@ -6994,7 +8149,7 @@ components:
             status: 400
             detail: Request body is not valid JSON.
             code: BAD_REQUEST
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KB
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KB
     Unauthorized:
       description: Missing, expired or invalid credentials.
       content:
@@ -7006,7 +8161,7 @@ components:
             status: 401
             detail: The access token has expired.
             code: UNAUTHENTICATED
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KC
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KC
     Forbidden:
       description: Authenticated but not permitted — RBAC or warehouse scope.
       content:
@@ -7018,7 +8173,7 @@ components:
             status: 403
             detail: Your role does not hold listing.approve.
             code: FORBIDDEN
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KD
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KD
     NotFound:
       description: No such resource, or it is outside your scope.
       content:
@@ -7030,7 +8185,7 @@ components:
             status: 404
             detail: No listing with id 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.
             code: NOT_FOUND
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KE
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KE
     Conflict:
       description: The resource is not in a state that allows this operation.
       content:
@@ -7042,7 +8197,7 @@ components:
             status: 409
             detail: The listing is already approved.
             code: INVALID_STATE_TRANSITION
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KF
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KF
     UnprocessableEntity:
       description: Well-formed but semantically invalid — field validation or a business rule.
       content:
@@ -7054,10 +8209,10 @@ components:
             status: 422
             detail: 2 fields failed validation.
             code: VALIDATION_FAILED
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KG
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KG
             errors:
-              - { field: askingPricePerKg, code: PRICE_ABOVE_CEILING, message: Must not exceed 48.00. }
-              - { field: quantityKg, code: MIN, message: Must be at least 1.000 kg. }
+              body.askingPricePerKg: [Must be a positive amount with at most 2 decimal places.]
+              body.quantityKg: [Must be at least 1.000 kg.]
     TooManyRequests:
       description: Rate limited.
       headers:
@@ -7073,9 +8228,9 @@ components:
             status: 429
             detail: OTP resend is limited to one per 60 seconds.
             code: RATE_LIMITED
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KH
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KH
     ServerError:
-      description: Unexpected server error. Quote the correlationId to support.
+      description: Unexpected server error. Quote the traceId to support.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
@@ -7085,7 +8240,7 @@ components:
             status: 500
             detail: An unexpected error occurred.
             code: INTERNAL
-            correlationId: 01J9F1B2C3D4E5F6G7H8J9KJ
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KJ
 
   schemas:
     Warehouse:
@@ -7120,8 +8275,9 @@ components:
         `packages/shared-types/src/errors.ts`, and `pnpm spec:drift` fails the build if
         this list and that file disagree:
 
-        * `CERT_EXPIRED` — the farmer's certificate has expired; listings are blocked (BR-01).
-        * `CERT_UNVERIFIED` — the certificate has not been verified by an admin (BR-02).
+        * `CERT_EXPIRED` — the farmer holds no verified, unexpired certificate (one has expired, or the farmer's market block is set); listings are blocked (BR-01).
+        * `CERT_UNVERIFIED` — the farmer holds no verified, unexpired certificate and an unexpired one is awaiting admin verification (BR-02).
+        * `CERT_MISSING` — the farmer holds no verified, unexpired PGS or NPOP certificate and none is pending or expired: no certificate on file, or only rejected ones; listings are blocked (BR-02).
         * `PRICE_ABOVE_CEILING` — a listing price exceeds the fair price ceiling (BR-07).
         * `RETAIL_ABOVE_CEILING` — a retail price exceeds the fair price ceiling (BR-09).
         * `FREE_TIER_LIMIT` — the free-tier listing quota is exhausted; a subscription is required (BR-14).
@@ -7145,8 +8301,9 @@ components:
         * `OTP_LOCKED` — three failed attempts; a new challenge is required (BR-32).
         * `OTP_RESEND_TOO_SOON` — a resend was requested inside the 60-second window (BR-32).
         * `OTP_SMS_DELIVERY_FAILED` — the configured SMS provider rejected or failed to send the OTP (BR-32).
-        * `AUDIT_QUARTER_TAKEN` — that farmer already has an audit in this quarter (BR-03).
+        * `AUDIT_QUARTER_TAKEN` — that farmer already has a non-cancelled audit in this fiscal year and quarter (BR-03).
         * `SCORE_OUT_OF_RANGE` — a rating or audit category score is out of range (BR-06).
+        * `AUDIT_INCOMPLETE` — an audit cannot be completed because one or more of its 10 category scores is missing; a missing category is incomplete, not zero (BR-06).
         * `FIELD_LOCKED` — Aadhaar or mobile may only be changed by a Super Admin (BR-33).
         * `INVALID_STATE_TRANSITION` — the entity is not in a state that permits this operation.
         * `IDEMPOTENCY_KEY_REUSED` — the key was reused with a different payload.
@@ -7161,7 +8318,7 @@ components:
         * `DIARY_WAGE_RATE_INVALID` — a diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44).
         * `CROP_PLOT_ALREADY_GROWING` — the plot already has another live crop in status GROWING (BR-46).
         * `LIVESTOCK_ALREADY_EXITED` — the animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47).
-      required: [type, title, status, code, correlationId]
+      required: [type, title, status, code]
       properties:
         type:
           type: string
@@ -7188,22 +8345,35 @@ components:
           pattern: '^[A-Z][A-Z0-9_]*$'
           description: Machine-readable error code in SCREAMING_SNAKE_CASE. Switch on this.
           examples: [PRICE_ABOVE_CEILING, CART_LOCK_EXPIRED]
-        correlationId:
+        traceId:
           type: string
-          description: Request correlation id, echoed in logs and traces. Always quote this to support.
+          description: |
+            Request correlation id: the same value the server returns in the `x-correlation-id`
+            response header and writes on every log line for the request. Always quote this to
+            support. Omitted only for an error rendered outside a request context. (Earlier
+            revisions of this spec named this field `correlationId`; the server sends `traceId`,
+            see `AppError.toProblem` in `apps/api/src/http/problem.ts`.)
           examples: ['01J9F1B2C3D4E5F6G7H8J9K0']
         errors:
-          type: array
-          description: Per-field validation failures. Present on 422, and on 400 for structural errors.
-          items:
-            type: object
-            required: [field, code, message]
-            properties:
-              field:
-                type: string
-                description: JSON pointer-ish path to the offending field, e.g. `items[2].qtyKg`.
-              code: { type: string, pattern: '^[A-Z][A-Z0-9_]*$' }
-              message: { type: string }
+          type: object
+          description: |
+            Per-field validation failures, present on 422 `VALIDATION_FAILED`. A map, not a list:
+            each key is the dotted path of the offending input prefixed with the request part
+            (`body.`, `query.`, `params.`), e.g. `body.expiresOn` or `body.items.2.qtyKg` (`body`
+            alone when the whole body is wrong); each value is a non-empty list of English,
+            human-readable messages for that input. Clients bind errors to form fields by key and
+            should treat the message text as a display fallback, never parse it.
+          additionalProperties:
+            type: array
+            minItems: 1
+            items: { type: string }
+          examples:
+            - body.expiresOn: ['Must be a real calendar date in YYYY-MM-DD format']
+              body.certNumber: ['String must contain at least 1 character(s)']
+        meta:
+          type: object
+          additionalProperties: true
+          description: Extra machine-readable context for some codes, e.g. `ceilingPrice` and `attemptedPrice` on `PRICE_ABOVE_CEILING`.
 
     PageMeta:
       type: object
@@ -7225,7 +8395,7 @@ components:
       properties:
         purpose:
           type: string
-          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE, SOIL_TEST_REPORT, PEST_PHOTO, WORKER_PHOTO, WORKER_ID_PROOF]
+          enum: [FARMER_DOCUMENT, CERTIFICATE, LISTING_PHOTO, GRN_PHOTO, QC_PHOTO, POD_PHOTO, PROFILE_PHOTO, ISSUE_PHOTO, DIARY_PHOTO, DIARY_VOICE_NOTE, SOIL_TEST_REPORT, PEST_PHOTO, WORKER_PHOTO, WORKER_ID_PROOF, AUDIT_REPORT]
         contentType: { type: string, examples: [image/jpeg, application/pdf] }
         sizeBytes: { type: integer, minimum: 1, maximum: 26214400 }
         fileName: { type: string, maxLength: 200 }
@@ -7285,8 +8455,13 @@ components:
 
     CertificationType:
       type: string
-      enum: [PGS, NPOP]
-      description: PGS Organic or NPOP. These are the only two certifications TOHFA recognises.
+      enum: [PGS, NPOP, OTHER]
+      description: |
+        PGS Organic, NPOP, or OTHER (any other organic certification — e.g. Jaivik
+        Bharat, USDA Organic, EU Organic — entered as free text in `issuingBody`). The
+        farmer app's certification-type picker already offered these other schemes
+        under `OTHER` before the backend accepted the value; `OTHER` was added here to
+        match, not to introduce new client behaviour.
 
     OrderStatus:
       type: string
@@ -7455,7 +8630,7 @@ components:
           enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN]
         warehouseId: { type: [string, 'null'], format: uuid, description: Set, and required, for SUB_WH_ADMIN (BR-30). }
         warehouseName: { type: [string, 'null'] }
-        zoneId: { type: [string, 'null'], format: uuid, description: Scopes a Farmer Admin's own-zone rating edits. }
+        zoneId: { type: [string, 'null'], format: uuid, description: Scopes a Farmer Admin's own-zone grants (e.g. audit.view). }
 
     CurrentUser:
       type: object
@@ -7850,13 +9025,21 @@ components:
     FarmRating:
       type: object
       description: |
-        BR-06 (LOCKED): exactly 10 named categories, each scored 0-10 by an admin, summed
-        DIRECTLY to a 0-100 total — no multiplier. A rating missing any category score is
-        DRAFT/incomplete, not zero; `status` stays `DRAFT` until all 10 are scored.
-      required: [farmerId, periodLabel, status, modules, overallRating, ratingTier, ratedAt]
+        BR-06 (LOCKED): exactly 10 named categories, each scored 0-10, summed DIRECTLY to
+        a 0-100 total — no multiplier. A rating missing any category score is
+        incomplete, not zero. Read-only: since 2026-10-01 a rating is created only by
+        completing an INTERNAL audit, always `COMPLETE`; a `DRAFT` with partial scores
+        can only be a legacy manual row, and a never-rated farmer gets an all-null
+        `DRAFT` shell with `source: null`.
+      required: [farmerId, periodLabel, status, modules, overallRating, ratingTier, ratedAt, source, sourceAuditId]
       properties:
         farmerId: { type: string, format: uuid }
-        periodLabel: { type: string, description: Identifies the rating cycle this snapshot belongs to. }
+        periodLabel:
+          type: string
+          description: |
+            Identifies the rating cycle. Audit-derived ratings use the audit's fiscal
+            period, e.g. `2026-27 Q1`; legacy manual rows use `CYCLE-n`. A never-rated
+            farmer gets the placeholder `CYCLE-1` (not persisted).
         status: { type: string, enum: [DRAFT, COMPLETE] }
         modules:
           type: array
@@ -7866,34 +9049,456 @@ components:
         overallRating: { type: [number, 'null'], description: Direct sum of the 10 category scores (0-100). }
         ratingTier: { type: [string, 'null'], enum: [POOR, MODERATE, GOOD, EXCELLENT, null] }
         ratedAt: { type: [string, 'null'], format: date-time, description: Set only once status is COMPLETE. }
+        source:
+          type: [string, 'null']
+          enum: [AUDIT, MANUAL, null]
+          readOnly: true
+          description: |
+            `AUDIT` = derived from a completed INTERNAL audit (see `sourceAuditId`);
+            `MANUAL` = legacy rating entered through the removed manual PUT, kept as
+            history; null = the farmer has never been rated.
+        sourceAuditId:
+          type: [string, 'null']
+          format: uuid
+          readOnly: true
+          description: The completed INTERNAL audit this rating was derived from; null unless `source` is `AUDIT`.
 
-    FarmRatingUpdate:
+    AuditType:
+      type: string
+      description: INTERNAL is conducted by a TOHFA admin; EXTERNAL records an outside agency's visit, entered by an admin from the agency's report (no agency login).
+      enum: [INTERNAL, EXTERNAL]
+
+    AuditStatus:
+      type: string
+      description: SCHEDULED -> IN_PROGRESS -> COMPLETED; SCHEDULED or IN_PROGRESS -> CANCELLED.
+      enum: [SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED]
+
+    AuditFindingSeverity:
+      type: string
+      enum: [MAJOR, MINOR, OBSERVATION]
+
+    AuditTier:
+      type: [string, 'null']
+      description: |
+        Resolved at read time from `rating_tier_config` (BR-04a) for `totalScore`; null
+        until the audit is COMPLETED. Never stored on the audit.
+      enum: [POOR, MODERATE, GOOD, EXCELLENT, null]
+
+    AuditComplianceStatus:
+      type: string
+      description: |
+        BR-03b. `COMPLIANT`: 4 COMPLETED audits in the fiscal year. `PENDING`: fewer than
+        4 and the fiscal year has not ended. `NON_COMPLIANT`: fewer than 4 and the fiscal
+        year has ended — never silently passed.
+      enum: [COMPLIANT, PENDING, NON_COMPLIANT]
+
+    FiscalYear:
+      type: string
+      description: Indian fiscal year April-March, e.g. `2026-27` (same format as invoices).
+      pattern: '^[0-9]{4}-[0-9]{2}$'
+      examples: ['2026-27']
+
+    RatingCategoryCode:
+      type: string
+      description: The 10 seeded `rating_categories` (BR-06), shared by farm ratings and audits. Clients own display names via i18n.
+      enum:
+        [
+          CERTIFICATION,
+          SOIL_LAND,
+          FARMING_PRACTICES,
+          ENVIRONMENTAL,
+          PRODUCE_QUALITY,
+          TRACEABILITY,
+          SOCIAL_LABOR,
+          FINANCIAL,
+          MARKET_RELATIONS,
+          INNOVATION,
+        ]
+
+    AuditFindingCounts:
+      type: object
+      description: Computed at read time from `audit_findings`. `openMajor` counts unresolved MAJOR findings.
+      required: [major, minor, observation, openMajor]
+      properties:
+        major: { type: integer, minimum: 0 }
+        minor: { type: integer, minimum: 0 }
+        observation: { type: integer, minimum: 0 }
+        openMajor: { type: integer, minimum: 0 }
+
+    AuditReportUpload:
+      type: object
+      description: The optional uploaded report file (typically the external agency's own report). Download it via the report endpoint with `variant=agency`.
+      required: [uploadId, mimeType, sizeBytes]
+      properties:
+        uploadId: { type: string, format: uuid }
+        mimeType: { type: string, examples: [application/pdf] }
+        sizeBytes: { type: integer, minimum: 1 }
+
+    AuditCategoryScore:
       type: object
       description: |
-        Accepts 1-10 category scores so a cycle can be built up incrementally across
-        multiple calls. The cycle completes only once all 10 active categories have a
-        score (BR-06).
-      required: [modules]
+        One category's score on an audit. Always 10 of these, in `rating_categories`
+        sort order; `score` is null for a category not yet scored (incomplete, not zero —
+        BR-06). No display name on purpose (clients own names via i18n, as with
+        `FarmRatingModule`).
+      required: [categoryCode, score, maxScore]
       properties:
-        modules:
+        categoryCode: { $ref: '#/components/schemas/RatingCategoryCode' }
+        score: { type: [integer, 'null'], minimum: 0, maximum: 10 }
+        maxScore: { type: integer, enum: [10] }
+        remarks: { type: [string, 'null'] }
+
+    AuditFinding:
+      type: object
+      required: [id, auditId, severity, description, categoryCode, correctiveAction, dueDate, resolvedAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        auditId: { type: string, format: uuid }
+        severity: { $ref: '#/components/schemas/AuditFindingSeverity' }
+        categoryCode:
+          oneOf:
+            - { $ref: '#/components/schemas/RatingCategoryCode' }
+            - { type: 'null' }
+        description: { type: string }
+        correctiveAction: { type: [string, 'null'] }
+        dueDate: { type: [string, 'null'], format: date }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolvedByName: { type: [string, 'null'], description: Admin views only; omitted from farmer responses. }
+        resolutionNote: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    AuditSummary:
+      type: object
+      description: One row of the admin audit list / calendar / farmer history.
+      required:
+        [id, farmerId, tohfaFarmerId, farmerName, farmId, farmName, zoneId, zoneName, fiscalYear, quarter,
+         auditType, status, scheduledFor, startedAt, completedAt, auditorUserId, auditorName,
+         externalAgencyName, totalScore, maxScore, tier, majorViolationsCount, findingCounts, redFlagged]
+      properties:
+        id: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid }
+        tohfaFarmerId: { type: string, examples: [TOHFA-F-2026-0234] }
+        farmerName: { type: string }
+        farmId: { type: [string, 'null'], format: uuid }
+        farmName: { type: [string, 'null'] }
+        zoneId: { type: [string, 'null'], format: uuid, description: The zone the audit was scheduled in (snapshot). }
+        zoneName: { type: [string, 'null'] }
+        fiscalYear: { $ref: '#/components/schemas/FiscalYear' }
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+        auditType: { $ref: '#/components/schemas/AuditType' }
+        status: { $ref: '#/components/schemas/AuditStatus' }
+        scheduledFor: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        auditorUserId: { type: [string, 'null'], format: uuid }
+        auditorName: { type: [string, 'null'], description: Internal auditor's name. }
+        externalAgencyName: { type: [string, 'null'], description: EXTERNAL audits only. }
+        totalScore: { type: [integer, 'null'], minimum: 0, maximum: 100, description: Direct sum of the 10 category scores; set on completion. }
+        maxScore: { type: integer, enum: [100] }
+        tier: { $ref: '#/components/schemas/AuditTier' }
+        majorViolationsCount: { type: integer, minimum: 0, description: 'BR-05a: persisted on completion; 0 before.' }
+        findingCounts: { $ref: '#/components/schemas/AuditFindingCounts' }
+        redFlagged: { type: boolean, description: 'BR-05b: set only by an explicit admin action.' }
+
+    Audit:
+      description: The full audit record (admin view), without its score sheet and findings.
+      allOf:
+        - { $ref: '#/components/schemas/AuditSummary' }
+        - type: object
+          required:
+            [summary, reportUpload, redFlagReason, redFlaggedAt, redFlaggedByName, cancelledReason,
+             cancelledAt, createdByName, createdAt, updatedAt]
+          properties:
+            summary: { type: [string, 'null'], description: Auditor's overall remarks. }
+            reportUpload:
+              oneOf:
+                - { $ref: '#/components/schemas/AuditReportUpload' }
+                - { type: 'null' }
+            redFlagReason: { type: [string, 'null'] }
+            redFlaggedAt: { type: [string, 'null'], format: date-time }
+            redFlaggedByName: { type: [string, 'null'] }
+            cancelledReason: { type: [string, 'null'] }
+            cancelledAt: { type: [string, 'null'], format: date-time }
+            createdByName: { type: string }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: [string, 'null'], format: date-time }
+
+    AuditDetail:
+      description: An audit with its 10-category score sheet and its findings (admin view).
+      allOf:
+        - { $ref: '#/components/schemas/Audit' }
+        - type: object
+          required: [categoryScores, findings]
+          properties:
+            categoryScores:
+              type: array
+              minItems: 10
+              maxItems: 10
+              items: { $ref: '#/components/schemas/AuditCategoryScore' }
+            findings:
+              type: array
+              items: { $ref: '#/components/schemas/AuditFinding' }
+
+    FarmerAuditSummary:
+      type: object
+      description: |
+        The farmer's own audit (BR-36). An ALLOW-LIST: red-flag fields, creator and other
+        internal admin fields are deliberately absent, so adding a column to `audits`
+        cannot leak it to the farmer app.
+      required:
+        [id, farmId, farmName, fiscalYear, quarter, auditType, status, scheduledFor, startedAt, completedAt,
+         auditorName, externalAgencyName, totalScore, maxScore, tier, majorViolationsCount, findingCounts]
+      properties:
+        id: { type: string, format: uuid }
+        farmId: { type: [string, 'null'], format: uuid }
+        farmName: { type: [string, 'null'] }
+        fiscalYear: { $ref: '#/components/schemas/FiscalYear' }
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+        auditType: { $ref: '#/components/schemas/AuditType' }
+        status: { $ref: '#/components/schemas/AuditStatus' }
+        scheduledFor: { type: string, format: date-time }
+        startedAt: { type: [string, 'null'], format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        auditorName: { type: [string, 'null'] }
+        externalAgencyName: { type: [string, 'null'] }
+        totalScore: { type: [integer, 'null'], minimum: 0, maximum: 100, description: Null until COMPLETED. }
+        maxScore: { type: integer, enum: [100] }
+        tier: { $ref: '#/components/schemas/AuditTier' }
+        majorViolationsCount: { type: integer, minimum: 0 }
+        findingCounts: { $ref: '#/components/schemas/AuditFindingCounts' }
+
+    FarmerAuditDetail:
+      description: The farmer's own audit with scores and findings (populated only once COMPLETED).
+      allOf:
+        - { $ref: '#/components/schemas/FarmerAuditSummary' }
+        - type: object
+          required: [summary, hasAgencyReport, cancelledReason, categoryScores, findings]
+          properties:
+            summary: { type: [string, 'null'] }
+            hasAgencyReport: { type: boolean, description: True when `variant=agency` can be downloaded. }
+            cancelledReason: { type: [string, 'null'] }
+            categoryScores:
+              type: array
+              minItems: 10
+              maxItems: 10
+              items: { $ref: '#/components/schemas/AuditCategoryScore' }
+            findings:
+              type: array
+              items: { $ref: '#/components/schemas/AuditFinding' }
+
+    AuditCreate:
+      type: object
+      description: |
+        `fiscalYear`/`quarter` are NOT accepted — they are derived from `scheduledFor`
+        (Asia/Kolkata). EXTERNAL requires `externalAgencyName`; INTERNAL forbids it.
+      required: [farmerId, auditType, scheduledFor]
+      additionalProperties: false
+      properties:
+        farmerId: { type: string, format: uuid }
+        farmId: { type: string, format: uuid, description: Optional; must belong to the farmer. }
+        auditType: { $ref: '#/components/schemas/AuditType' }
+        scheduledFor: { type: string, format: date-time }
+        auditorUserId: { type: string, format: uuid, description: INTERNAL only; may be assigned later. }
+        externalAgencyName: { type: string, minLength: 2, maxLength: 200 }
+
+    AuditUpdate:
+      type: object
+      description: Reschedule / reassign. SCHEDULED audits only. At least one field besides `reason`.
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        scheduledFor: { type: string, format: date-time }
+        farmId: { type: [string, 'null'], format: uuid }
+        auditorUserId: { type: [string, 'null'], format: uuid, description: INTERNAL only. }
+        externalAgencyName: { type: string, minLength: 2, maxLength: 200, description: EXTERNAL only. }
+        reason: { type: string, maxLength: 500, description: Recorded in the audit_log row. }
+
+    AuditScoresUpdate:
+      type: object
+      description: |
+        1-10 category scores, upserted. `score` is checked for integer-ness only in the
+        schema; a value outside 0-10 is 422 `SCORE_OUT_OF_RANGE` from the service
+        (BR-06a).
+      required: [scores]
+      additionalProperties: false
+      properties:
+        scores:
           type: array
           minItems: 1
           maxItems: 10
           items:
             type: object
             required: [categoryCode, score]
+            additionalProperties: false
             properties:
-              categoryCode: { type: string }
-              score: { type: integer, minimum: 0, maximum: 10 }
-        notes: { type: string, maxLength: 500 }
+              categoryCode: { $ref: '#/components/schemas/RatingCategoryCode' }
+              score: { type: integer }
+              remarks: { type: string, maxLength: 1000 }
+        summary: { type: string, maxLength: 4000 }
+        reportStorageKey:
+          type: string
+          maxLength: 512
+          description: '`storageKey` from `POST /uploads/sign` with purpose `AUDIT_REPORT`.'
+
+    AuditCompleteRequest:
+      type: object
       additionalProperties: false
+      properties:
+        summary: { type: string, maxLength: 4000 }
+        reportStorageKey:
+          type: string
+          maxLength: 512
+          description: '`storageKey` from `POST /uploads/sign` with purpose `AUDIT_REPORT`.'
+
+    AuditFindingCreate:
+      type: object
+      required: [severity, description]
+      additionalProperties: false
+      properties:
+        severity: { $ref: '#/components/schemas/AuditFindingSeverity' }
+        categoryCode: { $ref: '#/components/schemas/RatingCategoryCode' }
+        description: { type: string, minLength: 3, maxLength: 2000 }
+        correctiveAction: { type: string, maxLength: 2000 }
+        dueDate: { type: string, format: date }
+
+    AuditFindingUpdate:
+      type: object
+      description: 'After COMPLETED only `resolved: true` and `resolutionNote` are accepted.'
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        severity: { $ref: '#/components/schemas/AuditFindingSeverity' }
+        categoryCode:
+          oneOf:
+            - { $ref: '#/components/schemas/RatingCategoryCode' }
+            - { type: 'null' }
+        description: { type: string, minLength: 3, maxLength: 2000 }
+        correctiveAction: { type: [string, 'null'], maxLength: 2000 }
+        dueDate: { type: [string, 'null'], format: date }
+        resolved: { type: boolean }
+        resolutionNote: { type: string, maxLength: 2000 }
+
+    AuditBulkRescheduleRequest:
+      type: object
+      description: Exactly one of `newScheduledFor` or `shiftDays`.
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required: [auditId]
+            additionalProperties: false
+            properties:
+              auditId: { type: string, format: uuid }
+              expectedScheduledFor:
+                type: string
+                format: date-time
+                description: Optional optimistic-concurrency guard; the item fails with `CONFLICT` if the audit's current `scheduledFor` differs.
+        newScheduledFor: { type: string, format: date-time }
+        shiftDays: { type: integer, minimum: -90, maximum: 365, not: { const: 0 } }
+        reason: { type: string, maxLength: 500, description: Recorded in each audit_log row. }
+      oneOf:
+        - { required: [newScheduledFor] }
+        - { required: [shiftDays] }
+
+    AuditBulkRescheduleResult:
+      type: object
+      required: [results, rescheduledCount, failedCount]
+      properties:
+        rescheduledCount: { type: integer, minimum: 0 }
+        failedCount: { type: integer, minimum: 0 }
+        results:
+          type: array
+          items:
+            type: object
+            required: [auditId, outcome]
+            properties:
+              auditId: { type: string, format: uuid }
+              outcome: { type: string, enum: [RESCHEDULED, FAILED] }
+              code:
+                type: string
+                description: Present when FAILED.
+                enum: [NOT_FOUND, INVALID_STATE_TRANSITION, AUDIT_QUARTER_TAKEN, CONFLICT]
+              detail: { type: string }
+              audit:
+                description: Present when RESCHEDULED.
+                allOf:
+                  - { $ref: '#/components/schemas/AuditSummary' }
+
+    AuditComplianceFarmer:
+      type: object
+      required:
+        [farmerId, tohfaFarmerId, farmerName, zoneId, zoneName, completedCount, requiredCount, complianceStatus,
+         currentQuarterAudit, redFlaggedAuditCount, openMajorFindingCount]
+      properties:
+        farmerId: { type: string, format: uuid }
+        tohfaFarmerId: { type: string }
+        farmerName: { type: string }
+        zoneId: { type: [string, 'null'], format: uuid }
+        zoneName: { type: [string, 'null'] }
+        completedCount: { type: integer, minimum: 0, maximum: 4 }
+        requiredCount: { type: integer, enum: [4], description: One per fiscal quarter (BR-03). }
+        complianceStatus: { $ref: '#/components/schemas/AuditComplianceStatus' }
+        currentQuarterAudit:
+          description: The farmer's live audit in the current quarter, or null (null for a past fiscal year).
+          oneOf:
+            - type: object
+              required: [auditId, status, scheduledFor, overdue]
+              properties:
+                auditId: { type: string, format: uuid }
+                status: { $ref: '#/components/schemas/AuditStatus' }
+                scheduledFor: { type: string, format: date-time }
+                overdue: { type: boolean, description: SCHEDULED/IN_PROGRESS with scheduledFor in the past. }
+            - { type: 'null' }
+        redFlaggedAuditCount: { type: integer, minimum: 0 }
+        openMajorFindingCount: { type: integer, minimum: 0 }
+
+    AuditComplianceSummary:
+      type: object
+      description: |
+        Read-time compliance view for one fiscal year (BR-03b). `counts` cover the whole
+        in-scope population; `farmers` is one cursor page. Drill into the audits behind a
+        count with `GET /admin/audits` (`overdue`, `redFlagged`, `hasOpenMajorFindings`).
+      required: [fiscalYear, isFiscalYearClosed, currentQuarter, currentQuarterEndsOn, asOf, counts, farmers, page]
+      properties:
+        fiscalYear: { $ref: '#/components/schemas/FiscalYear' }
+        isFiscalYearClosed: { type: boolean, description: True once 31 March of the fiscal year has passed (Asia/Kolkata). }
+        currentQuarter: { type: [integer, 'null'], minimum: 1, maximum: 4, description: Null unless `fiscalYear` is the current one. }
+        currentQuarterEndsOn: { type: [string, 'null'], format: date, description: Last day of the current quarter (for "window closes in n days"). }
+        asOf: { type: string, format: date-time }
+        counts:
+          type: object
+          required:
+            [farmersInScope, compliant, pending, nonCompliant, overdueAudits, farmersWithoutCurrentQuarterAudit,
+             redFlaggedAudits, redFlaggedFarmers, openMajorFindings, scheduledThisQuarter]
+          properties:
+            farmersInScope: { type: integer, minimum: 0 }
+            compliant: { type: integer, minimum: 0 }
+            pending: { type: integer, minimum: 0 }
+            nonCompliant: { type: integer, minimum: 0 }
+            overdueAudits: { type: integer, minimum: 0, description: SCHEDULED/IN_PROGRESS audits in this fiscal year with scheduledFor in the past. }
+            farmersWithoutCurrentQuarterAudit: { type: integer, minimum: 0, description: Farmers with no non-cancelled audit in the current quarter; 0 for a past fiscal year. }
+            redFlaggedAudits: { type: integer, minimum: 0 }
+            redFlaggedFarmers: { type: integer, minimum: 0 }
+            openMajorFindings: { type: integer, minimum: 0 }
+            scheduledThisQuarter: { type: integer, minimum: 0 }
+        farmers:
+          type: array
+          items: { $ref: '#/components/schemas/AuditComplianceFarmer' }
+        page: { $ref: '#/components/schemas/PageMeta' }
 
     Certification:
       type: object
-      required: [id, certType, certNumber, expiresOn, verificationStatus, blocksListings]
+      required: [id, farmerId, certType, customTypeName, certNumber, expiresOn, verificationStatus, blocksListings, createdAt]
       properties:
         id: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid, description: Admin-only context; never reaches the customer surface (BR-16). }
         certType: { $ref: '#/components/schemas/CertificationType' }
+        customTypeName: { type: [string, 'null'], maxLength: 80, description: "The scheme an OTHER certificate belongs to (e.g. Jaivik Bharat). Always null for PGS and NPOP (BR-48i)." }
         certNumber: { type: string, maxLength: 80 }
         issuingBody: { type: string, maxLength: 160 }
         issuedOn: { type: string, format: date }
@@ -7902,19 +9507,43 @@ components:
         verificationStatus: { type: string, enum: [UNVERIFIED, VERIFIED, REJECTED] }
         verifiedAt: { type: [string, 'null'], format: date-time }
         verifiedBy: { type: [string, 'null'], format: uuid }
+        verificationNotes: { type: [string, 'null'] }
+        portalCheckedUrl: { type: [string, 'null'] }
         daysToExpiry: { type: integer, description: Negative once expired. Drives the farmer-app countdown. }
-        blocksListings: { type: boolean, description: True when expired (BR-01) or unverified (BR-02). }
+        blocksListings: { type: boolean, description: "Per certificate only: true when THIS certificate does not qualify on its own, because it is expired (BR-01), not VERIFIED (BR-02), or of type OTHER, which never qualifies (BR-02). It is not the farmer's eligibility. A farmer who holds any other qualifying certificate (verified, unexpired, PGS or NPOP) can still list." }
+        createdAt: { type: string, format: date-time }
 
     CertificationCreate:
       type: object
+      description: Validated per BR-48; see `POST /farmers/me/certifications`.
       required: [certType, certNumber, issuingBody, issuedOn, expiresOn]
       properties:
         certType: { $ref: '#/components/schemas/CertificationType' }
-        certNumber: { type: string, maxLength: 80 }
-        issuingBody: { type: string, maxLength: 160 }
-        issuedOn: { type: string, format: date }
-        expiresOn: { type: string, format: date }
+        customTypeName: { type: [string, 'null'], minLength: 1, maxLength: 80, description: "Required (trimmed, 1-80 characters) when certType is OTHER; must be null or omitted for PGS and NPOP (BR-48i)." }
+        certNumber: { type: string, minLength: 1, maxLength: 80, description: Trimmed; blank is rejected. }
+        issuingBody: { type: string, minLength: 1, maxLength: 160, description: Trimmed; blank is rejected. }
+        issuedOn: { type: string, format: date, description: "A real calendar date, YYYY-MM-DD; not after today (Asia/Kolkata) and strictly before expiresOn (BR-48)." }
+        expiresOn: { type: string, format: date, description: "A real calendar date, YYYY-MM-DD. May be in the past, but not more than system_config.cert_expiry_max_past_days (seeded 365) days before today, and not more than system_config.cert_expiry_max_future_days (seeded 730) days after today (Asia/Kolkata) (BR-48)." }
         documentUrl: { type: string, format: uri }
+
+    CertificationUpdate:
+      type: object
+      description: |
+        `PATCH /farmers/me/certifications/{id}` (BR-49) and its admin counterpart
+        `PATCH /admin/certifications/{id}` (BR-51). Every field is optional but at
+        least one is required. Each present field is checked as in
+        `CertificationCreate`; the stored certificate with the patch applied must then
+        pass all of BR-48. `customTypeName: null` clears the scheme name (required when
+        moving a certificate from OTHER to PGS or NPOP). Unknown keys are ignored.
+      minProperties: 1
+      properties:
+        certType: { $ref: '#/components/schemas/CertificationType' }
+        customTypeName: { type: [string, 'null'], minLength: 1, maxLength: 80, description: "Trimmed. Send null to clear it; the merged result must have one iff certType is OTHER (BR-48i)." }
+        certNumber: { type: string, minLength: 1, maxLength: 80, description: Trimmed; blank is rejected. }
+        issuingBody: { type: string, minLength: 1, maxLength: 160, description: Trimmed; blank is rejected. }
+        issuedOn: { type: string, format: date, description: "A real calendar date, YYYY-MM-DD (BR-48)." }
+        expiresOn: { type: string, format: date, description: "A real calendar date, YYYY-MM-DD, within both BR-48 windows." }
+        documentUrl: { type: string, format: uri, description: Replaces the certificate's document; the previous document is kept on record. }
 
     DiaryPlot:
       type: object

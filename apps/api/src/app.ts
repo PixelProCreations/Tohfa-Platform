@@ -65,6 +65,7 @@ import {
 } from './modules/payouts/payouts.routes.js';
 import { invoicesRouter } from './modules/invoices/invoices.routes.js';
 import { adminFarmRatingsRouter, farmRatingsFarmerRouter } from './modules/farm-ratings/farm-ratings.routes.js';
+import { adminAuditsRouter, farmerAuditsRouter } from './modules/audits/audits.routes.js';
 import { weatherFarmerRouter } from './modules/weather/weather.routes.js';
 import { farmDiaryRouter } from './modules/farm-diary/farm-diary.routes.js';
 import { adminDiaryTaxonomyRouter } from './modules/farm-diary/farm-diary.admin.routes.js';
@@ -126,6 +127,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/invoices', router: invoicesRouter },
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
+  { prefix: '/v1/admin/audits', router: adminAuditsRouter },
+  { prefix: '/v1/farmers/me/audits', router: farmerAuditsRouter },
   { prefix: '/v1/farmers/me/weather', router: weatherFarmerRouter },
   { prefix: '/v1/farmers/me/diary', router: farmDiaryRouter },
   { prefix: '/v1/admin/diary', router: adminDiaryTaxonomyRouter },

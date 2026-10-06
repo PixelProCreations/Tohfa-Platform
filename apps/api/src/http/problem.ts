@@ -44,6 +44,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
 
   CERT_EXPIRED: 409,
   CERT_UNVERIFIED: 409,
+  CERT_MISSING: 422,
   PRICE_ABOVE_CEILING: 422,
   RETAIL_ABOVE_CEILING: 422,
   FREE_TIER_LIMIT: 402,
@@ -69,6 +70,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   OTP_SMS_DELIVERY_FAILED: 502,
   AUDIT_QUARTER_TAKEN: 409,
   SCORE_OUT_OF_RANGE: 422,
+  AUDIT_INCOMPLETE: 422,
   FIELD_LOCKED: 403,
   INVALID_STATE_TRANSITION: 409,
   IDEMPOTENCY_KEY_REUSED: 409,
@@ -98,6 +100,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
 
   CERT_EXPIRED: 'Certification has expired',
   CERT_UNVERIFIED: 'Certification is not verified',
+  CERT_MISSING: 'No qualifying certificate on file',
   PRICE_ABOVE_CEILING: 'Price exceeds the fair price ceiling',
   RETAIL_ABOVE_CEILING: 'Retail price exceeds the fair price ceiling',
   FREE_TIER_LIMIT: 'Free tier limit reached',
@@ -123,6 +126,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   OTP_SMS_DELIVERY_FAILED: 'Could not send OTP SMS',
   AUDIT_QUARTER_TAKEN: 'That quarter already has an audit',
   SCORE_OUT_OF_RANGE: 'Score is outside the allowed range',
+  AUDIT_INCOMPLETE: 'Audit is missing category scores',
   FIELD_LOCKED: 'That field is locked',
   INVALID_STATE_TRANSITION: 'Invalid state transition',
   IDEMPOTENCY_KEY_REUSED: 'Idempotency key reused with a different body',

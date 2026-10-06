@@ -4,17 +4,25 @@ import { AppError } from '../../http/problem.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { aScope, aSubWarehouseAdmin, anActor, IDS } from '../../test/factories.js';
+import {
+  aScope,
+  aSubWarehouseAdmin,
+  anActor,
+  databaseReady,
+  describeIfDatabase,
+  IDS,
+} from '../../test/factories.js';
 import {
   calculateTotalAmountPaise,
   createPurchaseOrdersService,
   formatPoRowToResponse,
   type ListingForApproval,
 } from './purchase-orders.service.js';
-import type {
-  InsertPurchaseOrderData,
-  PurchaseOrdersRepo,
-  PurchaseOrderRow,
+import {
+  purchaseOrdersRepo,
+  type InsertPurchaseOrderData,
+  type PurchaseOrdersRepo,
+  type PurchaseOrderRow,
 } from './purchase-orders.repo.js';
 
 describe('PurchaseOrdersService (Unit & Business Rules)', () => {
@@ -312,5 +320,128 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
 
     expect(result).toBeDefined();
     expect(result.id).toBe(samplePoRow.id);
+  });
+});
+
+// RFC 3339 with millisecond precision, e.g. 2026-10-05T07:42:36.490Z. Postgres's own
+// text form ("2026-10-05 07:42:36.490266+00") is not date-time and Hermes parses it as NaN.
+const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+/** Executor whose n-th query() returns the n-th rows array; rows are shaped like pg returns them. */
+function fakeExecutor(...results: unknown[][]): Executor {
+  let call = 0;
+  return {
+    query: async () => ({ rows: results[call++] ?? [] }),
+  } as unknown as Executor;
+}
+
+describe('Purchase order timestamps are ISO-8601 on the wire (docs/openapi.yaml: format date-time)', () => {
+  const allScope = aScope({
+    level: ScopeLevel.ALL,
+    permission: 'purchase.order.view',
+    roleCode: RoleCode.SUPER_ADMIN,
+  });
+  // pg parses timestamptz into a Date; the repo must serialize it itself.
+  const poFields = {
+    id: '3f1c7b52-0000-4000-8000-000000000001',
+    poNumber: 'PO-2026-000001',
+    farmerId: IDS.farmer,
+    listingId: '3f1c7b52-0000-4000-8000-000000000002',
+    warehouseId: IDS.warehouseOoty,
+    cropId: '3f1c7b52-0000-4000-8000-000000000003',
+    grade: 'GRADE_1',
+    quantityKg: '250.000',
+    pricePerKg: '52.00',
+    totalAmount: '13000.00',
+    status: 'ISSUED',
+    expectedDeliveryDate: '2026-08-30',
+  };
+
+  it('issuedAt and goods-receipt receivedAt on PO detail are ISO-8601 UTC, not Postgres text', async () => {
+    const tx = fakeExecutor(
+      [{ ...poFields, issuedAt: new Date('2026-10-05T07:42:36.490Z'), farmerName: 'F', tohfaFarmerId: 'T-1' }],
+      [
+        {
+          id: '3f1c7b52-0000-4000-8000-000000000009',
+          grnNumber: 'GRN-2026-000001',
+          purchaseOrderId: poFields.id,
+          warehouseId: IDS.warehouseOoty,
+          grossQtyKg: '100.000',
+          acceptedQtyKg: '0.000',
+          rejectedQtyKg: '0.000',
+          status: 'AWAITING_QC',
+          receivedAt: new Date('2026-10-05T09:00:01.250Z'),
+        },
+      ],
+    );
+
+    const detail = await purchaseOrdersRepo.findPurchaseOrderById(tx, poFields.id, allScope);
+
+    expect(detail?.issuedAt).toMatch(ISO_DATE_TIME);
+    expect(detail?.issuedAt).toBe('2026-10-05T07:42:36.490Z');
+    expect(detail?.goodsReceipts[0]?.receivedAt).toMatch(ISO_DATE_TIME);
+    expect(detail?.goodsReceipts[0]?.receivedAt).toBe('2026-10-05T09:00:01.250Z');
+    // calendar date stays a plain date
+    expect(detail?.expectedDeliveryDate).toBe('2026-08-30');
+  });
+
+  it('list items carry ISO issuedAt and nextCursor keeps the full microsecond instant', async () => {
+    const rows = [
+      { ...poFields, id: 'a', issuedAt: new Date('2026-10-05T07:42:36.490Z'), cursorIssuedAt: '2026-10-05T07:42:36.490266Z' },
+      { ...poFields, id: 'b', issuedAt: new Date('2026-10-04T07:42:36.100Z'), cursorIssuedAt: '2026-10-04T07:42:36.100999Z' },
+    ];
+    const page = await purchaseOrdersRepo.listPurchaseOrders(fakeExecutor(rows), allScope, { limit: 1 } as never);
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.issuedAt).toMatch(ISO_DATE_TIME);
+    // A millisecond-truncated cursor would skip rows created later in the same millisecond.
+    expect(page.nextCursor).toBe('2026-10-05T07:42:36.490266Z');
+    expect(page.hasMore).toBe(true);
+    // the helper column used to build the cursor is not part of the response
+    expect(Object.keys(page.items[0]!)).not.toContain('cursorIssuedAt');
+  });
+
+  describeIfDatabase('against PostgreSQL (rolled-back transaction)', () => {
+    it('issuedAt/receivedAt read back equal the stored instant; a microsecond cursor pages correctly', async () => {
+      if (!(await databaseReady('purchase_orders'))) return;
+      const { pool } = await import('../../db/pool.js');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const tx = client as unknown as Executor;
+        const po = await client.query<{ id: string; farm_id: string; warehouse_id: string }>(
+          'SELECT id, farmer_id AS farm_id, warehouse_id FROM purchase_orders LIMIT 1',
+        );
+        if (po.rows.length === 0) return; // no PO in this database to borrow
+        const { id, farm_id: farmerId, warehouse_id: warehouseId } = po.rows[0]!;
+
+        await client.query(`UPDATE purchase_orders SET issued_at = '2031-03-04T05:06:07.123456Z' WHERE id = $1`, [id]);
+        await client.query(
+          `INSERT INTO goods_receipts (grn_number, purchase_order_id, warehouse_id, farmer_id, gross_qty_kg, received_by, created_at)
+           VALUES ('GRN-TSTEST-1', $1, $2, $3, 10, $4, '2031-03-04T05:06:08.654321Z')`,
+          [id, warehouseId, farmerId, IDS.userSuperAdmin],
+        );
+
+        const detail = await purchaseOrdersRepo.findPurchaseOrderById(tx, id, allScope);
+        expect(detail?.issuedAt).toBe('2031-03-04T05:06:07.123Z');
+        expect(detail?.goodsReceipts[0]?.receivedAt).toBe('2031-03-04T05:06:08.654Z');
+
+        // Strictly-less-than cursor: the exact instant excludes the row, one microsecond later includes it.
+        const at = await purchaseOrdersRepo.listPurchaseOrders(tx, allScope, {
+          limit: 10,
+          cursor: '2031-03-04T05:06:07.123456Z',
+        } as never);
+        expect(at.items.map((i) => i.id)).not.toContain(id);
+        const after = await purchaseOrdersRepo.listPurchaseOrders(tx, allScope, {
+          limit: 10,
+          cursor: '2031-03-04T05:06:07.123457Z',
+        } as never);
+        expect(after.items.map((i) => i.id)).toContain(id);
+        expect(after.items.find((i) => i.id === id)?.issuedAt).toMatch(ISO_DATE_TIME);
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    });
   });
 });
