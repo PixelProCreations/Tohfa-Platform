@@ -248,14 +248,6 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) =
                   <Text style={styles.timeText}>{order.time}</Text>
                 </View>
 
-                {/* Full-Width Action Button matching Left Reference */}
-                <TouchableOpacity
-                  style={styles.cardActionButton}
-                  activeOpacity={0.7}
-                  onPress={() => onNavigate(order.actionScreen, { orderId: order.id })}
-                >
-                  <Text style={styles.cardActionText}>{order.action}</Text>
-                </TouchableOpacity>
               </TouchableOpacity>
             );
           })}
