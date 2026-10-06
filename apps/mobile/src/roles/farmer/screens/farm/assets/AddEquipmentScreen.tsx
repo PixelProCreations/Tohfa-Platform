@@ -105,6 +105,7 @@ export function AddEquipmentScreen({ onNavigateBack, onSave }: AddEquipmentScree
   const [name, setName] = useState('');
   const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
   const [showPurchaseDateCalendar, setShowPurchaseDateCalendar] = useState(false);
+  const [coverageArea, setCoverageArea] = useState('');
   const [serviceInterval, setServiceInterval] = useState('');
 
   const [isSaving, setIsSaving] = useState(false);
@@ -140,6 +141,17 @@ export function AddEquipmentScreen({ onNavigateBack, onSave }: AddEquipmentScree
       return;
     }
 
+    const trimmedArea = coverageArea.trim();
+    let coverageAreaAcres: number | undefined;
+    if (trimmedArea.length > 0) {
+      const parsedArea = Number(trimmedArea);
+      if (!Number.isFinite(parsedArea) || parsedArea < 0) {
+        setFieldErrors({ coverageArea: t('farmer.farmAssets.areaInvalid') });
+        return;
+      }
+      coverageAreaAcres = parsedArea;
+    }
+
     setIsSaving(true);
     try {
       // No farm-picker exists on this screen (the mocks never had one) — the
@@ -157,6 +169,7 @@ export function AddEquipmentScreen({ onNavigateBack, onSave }: AddEquipmentScree
         category: 'EQUIPMENT',
         name: name.trim(),
         serviceIntervalDays: intervalDays,
+        ...(coverageAreaAcres !== undefined ? { coverageAreaAcres } : {}),
         ...(purchaseDate ? { purchasedOn: toCalendarDateString(purchaseDate) } : {}),
       });
 
@@ -236,6 +249,22 @@ export function AddEquipmentScreen({ onNavigateBack, onSave }: AddEquipmentScree
           </Text>
           <CalendarIcon />
         </TouchableOpacity>
+
+        {/* Coverage Area Field */}
+        <Text style={styles.fieldLabel}>Coverage area (acres)</Text>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={coverageArea}
+            onChangeText={setCoverageArea}
+            placeholder="e.g. 2.5"
+            placeholderTextColor={P.twGray400}
+            keyboardType="decimal-pad"
+          />
+        </View>
+        {fieldErrors.coverageArea && (
+          <Text style={styles.fieldErrorText}>{fieldErrors.coverageArea}</Text>
+        )}
 
         {/* Service Interval Field */}
         <Text style={styles.fieldLabel}>

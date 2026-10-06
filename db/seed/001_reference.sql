@@ -294,6 +294,14 @@ INSERT INTO system_config (key, value, data_type, description) VALUES
      '30'::jsonb, 'number',
      'Specification gap: no source document defines how many days before certificate expiry the farmer app should start warning. 30 days is a placeholder, matching the mobile client''s pre-existing hardcoded fallback so behaviour does not silently change for existing users. The farmer app reads this key from GET /v1/config/farmer, backed by system_config — it is NOT a literal in the component. The client must confirm the correct value.'),
 
+    ('cert_expiry_max_past_days',
+     '365'::jsonb, 'number',
+     'BR-48: how many days before today (Asia/Kolkata) a certificate''s expiresOn may lie when a farmer records it. A lapsed certificate may be recorded, but not one that expired more than this many days ago: with 365, an expiresOn exactly 365 days ago is accepted and 366 days ago is 422 VALIDATION_FAILED. User decision 2026-10-05 ("not very old, one year maximum"). certifications.service.ts reads this key through certificationsRepo.getCertExpiryMaxPastDays and GET /v1/config/farmer exposes it as certExpiryMaxPastDays — it is NOT a literal in the service. The upper bound on future expiry dates is cert_expiry_max_future_days.'),
+
+    ('cert_expiry_max_future_days',
+     '730'::jsonb, 'number',
+     'BR-48h: how many days after today (Asia/Kolkata) a certificate''s expiresOn may lie, on POST and on the merged result of PATCH /farmers/me/certifications/{id}. With 730 (2 years), an expiresOn exactly 730 days ahead is accepted and 731 days ahead is 422 VALIDATION_FAILED on body.expiresOn. User decision 2026-10-05, raised from 548 to 730 on 2026-10-06. certifications.service.ts reads this key through certificationsRepo.getCertExpiryMaxFutureDays (fallback 730 when missing or not a non-negative integer) and GET /v1/config/farmer exposes it as certExpiryMaxFutureDays — it is NOT a literal in the service.'),
+
     ('asset_service_due_soon_days',
      '14'::jsonb, 'number',
      'Specification gap: no source document defines the farm_assets DUE_SOON window. 14 days is a placeholder chosen to match the MachineryListScreen/ToolsListScreen/EquipmentListScreen mock fixture data (their "Due soon" rows sit at 2-9 days away, their "OK" rows at 39+ days away), the same "match the client''s existing mock/fallback until they confirm" reasoning as cert_expiry_warning_days above. farm-assets.service.ts reads this key — it is NOT a literal in the service. The client must confirm the correct value.')

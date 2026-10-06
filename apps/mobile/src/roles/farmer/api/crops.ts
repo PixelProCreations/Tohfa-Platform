@@ -1,4 +1,5 @@
 import { api } from '../../../shell/api/client';
+import { listDiaryPlots, type DiaryPlot } from './farmDiary';
 
 // ---------------------------------------------------------------------------
 // Enums — mirror apps/api/src/modules/crops/crops.schema.ts exactly.
@@ -198,4 +199,85 @@ export async function getPlotRotationHistory(
   signal?: AbortSignal,
 ): Promise<PlotRotationHistoryResponse> {
   return api.get<PlotRotationHistoryResponse>(`/farmers/me/plots/${plotId}/crop-rotation`, signal);
+}
+
+// ---------------------------------------------------------------------------
+// Farm-wide active crops
+// ---------------------------------------------------------------------------
+
+/** The statuses that make a planting "active": in the ground, or planned for a plot. */
+export const ACTIVE_FARM_CROP_STATUSES: readonly FarmCropStatus[] = ['GROWING', 'PLANNED'];
+
+/**
+ * A guard against a server bug looping the cursor, not a business limit:
+ * BR-46 allows one GROWING crop per plot, so a real plot has a handful of
+ * active rows. If it is ever hit, the result says so (`complete: false`).
+ */
+const MAX_CROP_PAGES = 20;
+const CROP_PAGE_SIZE = 100; // LimitParam maximum in docs/openapi.yaml
+
+export interface PlotFarmCrop {
+  plot: DiaryPlot;
+  crop: FarmCropResponse;
+}
+
+export interface ActiveFarmCropsResult {
+  plots: DiaryPlot[];
+  /** Every active crop across every plot, once each. */
+  items: PlotFarmCrop[];
+  /** False only when a plot's cursor had to be abandoned at MAX_CROP_PAGES. */
+  complete: boolean;
+}
+
+async function listAllFarmCropsWithStatus(
+  plotId: string,
+  status: FarmCropStatus,
+  signal?: AbortSignal,
+): Promise<{ items: FarmCropResponse[]; complete: boolean }> {
+  const items: FarmCropResponse[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < MAX_CROP_PAGES; i += 1) {
+    const page = await listFarmCrops(
+      plotId,
+      { status, limit: CROP_PAGE_SIZE, ...(cursor === undefined ? {} : { cursor }) },
+      signal,
+    );
+    items.push(...page.items);
+    if (!page.page.hasMore || page.page.nextCursor === null) return { items, complete: true };
+    cursor = page.page.nextCursor;
+  }
+  return { items, complete: false };
+}
+
+/**
+ * The farmer's active crops across the whole farm. The crops endpoint is
+ * per-plot and takes a single `status`, so this asks each plot once per
+ * active status (never an unfiltered list that would page through years of
+ * HARVESTED history) and walks each cursor to the end.
+ */
+export async function listAllActiveFarmCrops(signal?: AbortSignal): Promise<ActiveFarmCropsResult> {
+  const plots = await listDiaryPlots(signal);
+  const perQuery = await Promise.all(
+    plots.flatMap((plot) =>
+      ACTIVE_FARM_CROP_STATUSES.map(async (status) => ({
+        plot,
+        ...(await listAllFarmCropsWithStatus(plot.id, status, signal)),
+      })),
+    ),
+  );
+
+  // A crop whose status changes between the two status queries could come
+  // back from both; it is shown once.
+  const seen = new Set<string>();
+  const items: PlotFarmCrop[] = [];
+  let complete = true;
+  for (const result of perQuery) {
+    if (!result.complete) complete = false;
+    for (const crop of result.items) {
+      if (seen.has(crop.id)) continue;
+      seen.add(crop.id);
+      items.push({ plot: result.plot, crop });
+    }
+  }
+  return { plots, items, complete };
 }

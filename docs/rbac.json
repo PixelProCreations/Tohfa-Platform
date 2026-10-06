@@ -32,7 +32,7 @@
       "level": 3,
       "colorHex": "#3F7D32",
       "scopeDimension": "zone_id",
-      "summary": "Elected farmer, not paid staff. Approves peer produce listings but never their own (auto-routed), supports audits, mediates disputes, moderates community groups, edits farm ratings for their own zone only. NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
+      "summary": "Elected farmer, not paid staff. Approves peer produce listings but never their own (auto-routed), supports audits, mediates disputes, moderates community groups, edits farm ratings for their own zone only (superseded 2026-10-01: farm ratings are derived from completed INTERNAL audits only, there is no manual rating edit — see `conflicts`). NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
     },
     {
       "code": "MAIN_WH_ADMIN",
@@ -586,6 +586,36 @@
       "source": "BR-36 (own-data ownership), BR-41 (workforce pay computed never stored); new workforce tables (db/migrations/0025_workforce.sql) introduced for the Farm Workforce feature (worker roster, daily attendance, payroll)"
     },
     {
+      "code": "certification.view",
+      "module": "Farmers Management",
+      "description": "View any farmer's certification records (admin list and detail), ahead of a verify/unverify decision.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-01: rbac.json had no admin-read code for certifications; GET /v1/admin/certifications and GET /v1/admin/certifications/{id} reused certification.mark_verified before this fix, conflating a read with the verify/unverify action. Grants mirror the existing certification.mark_verified/verify_via_portal/block_listings codes (matrix §9 — SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here)."
+    },
+    {
+      "code": "certification.manage_any",
+      "module": "Farmers Management",
+      "description": "Edit or remove any farmer's certification record (correct a data-entry mistake). An edit sends the certificate back for verification and a removal is a soft delete, exactly as the farmer's own edit/delete (BR-49, BR-50, BR-51).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-06: no source document names an admin edit or removal of a farmer's certification record, and rbac.json had no code for it; added to back PATCH /v1/admin/certifications/{id} and DELETE /v1/admin/certifications/{id} (BR-51). Conservative default: grants mirror certification.view and certification.mark_verified (matrix §9 — SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here). See conflicts: \"Admin edit/delete of farmer certification records\" — needs client confirmation."
+    },
+    {
       "code": "certification.verify_via_portal",
       "module": "Farmers Management",
       "description": "Verify a certificate against the issuing body's official portal (manual).",
@@ -644,22 +674,6 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 6.1 + matrix §2 (see conflicts)"
-    },
-    {
-      "code": "farmer.rating.edit",
-      "module": "Farmers Management",
-      "description": "Edit farm rating category scores.",
-      "predicate": "OWN_ZONE_ONLY",
-      "grants": {
-        "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
-        "FARMER_ADMIN": "conditional",
-        "MAIN_WH_ADMIN": "none",
-        "SUB_WH_ADMIN": "none",
-        "FARMER": "none",
-        "CUSTOMER": "none"
-      },
-      "source": "reqs 6.1 — Farmer Admin: own zone only"
     },
     {
       "code": "farmer.rating.configure_tiers",
@@ -2225,6 +2239,22 @@
       "source": "reqs 6.3"
     },
     {
+      "code": "audit.view",
+      "module": "Audit Management",
+      "description": "View audits (schedule, category scores, findings, tier) and the compliance summary. Farmers see only their own audits, read-only (BR-36); a Farmer Admin sees only farmers in their own zone(s).",
+      "predicate": "OWN_ZONE_ONLY",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "conditional",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-01 (Audit module contract): rbac.json had no audit read code. FARMER own per BR-36 ('a farmer sees only their own ... audit history'); FARMER_ADMIN zone-scoped like the former farmer.rating.edit (reqs 6.1)."
+    },
+    {
       "code": "audit.schedule",
       "module": "Audit Management",
       "description": "Schedule an internal or external audit.",
@@ -2269,6 +2299,21 @@
         "CUSTOMER": "none"
       },
       "source": "matrix §9"
+    },
+    {
+      "code": "audit.red_flag.manage",
+      "module": "Audit Management",
+      "description": "Red-flag a completed audit, or clear its red flag. Always an explicit admin action; never derived (BR-05b).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-01 (Audit module contract): BR-05b requires an explicit admin red-flag action and no existing code covered it. Grants mirror audit.findings.log (matrix §9)."
     },
     {
       "code": "audit.score.categories",
@@ -2802,7 +2847,7 @@
     {
       "role": "FARMER_ADMIN",
       "dimension": "zone_id",
-      "rule": "Rating edits and other `own`/`conditional` grants MUST be filtered by the zones assigned to this Farmer Admin. Listing approval additionally applies the NOT_OWN_LISTING predicate, which auto-routes rather than returning empty.",
+      "rule": "`own`/`conditional` grants (e.g. audit.view) MUST be filtered by the zones assigned to this Farmer Admin. Listing approval additionally applies the NOT_OWN_LISTING predicate, which auto-routes rather than returning empty.",
       "source": "reqs 6.1 + FR-A03"
     },
     {
@@ -2902,6 +2947,20 @@
       "roleMatrix": "Principle 9: all orders fulfilled via warehouse pickup; no driver or delivery-fleet feature anywhere",
       "precedence": "unresolved — scope-level conflict",
       "decision": "`order.delivery_slot.select` is modelled for CUSTOMER but is not implemented in Track 1. The pickup + 4-digit OTP path is the default. Requires client confirmation."
+    },
+    {
+      "topic": "Edit farm rating category scores (farmer.rating.edit)",
+      "reqsCh6": "SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone only (reqs 6.1)",
+      "roleMatrix": "not separately stated",
+      "precedence": "product owner decision 2026-10-01 (explicit, supersedes reqs 6.1 for this row)",
+      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1."
+    },
+    {
+      "topic": "Admin edit/delete of farmer certification records (certification.manage_any)",
+      "reqsCh6": "not specified — Ch.6 has no row for an admin editing or removing a farmer's certification record; the certification rows it backs (certification.mark_verified, certification.verify_via_portal, certification.block_listings) are verification actions",
+      "roleMatrix": "not specified — §9 lists certification verification for SUPER_ADMIN/TOHFA_ADMIN only, with no edit/delete row",
+      "precedence": "neither document — specification gap, conservative default",
+      "decision": "`certification.manage_any` = all for SUPER_ADMIN and TOHFA_ADMIN, none for every other role (same grants as certification.view / certification.mark_verified). The edit resets verification to UNVERIFIED and the delete is soft, exactly as for the farmer (BR-49, BR-50, BR-51), so staff cannot use it to verify by editing. Open: whether FARMER_ADMIN should edit certificates of farmers in their own zone (would need the OWN_ZONE_ONLY predicate). Confirm with client."
     }
   ],
   "conflictPrecedence": "Requirements Document Ch.6 is authoritative. The Role & Feature Matrix supplies additional features Ch.6 omits, but never overrides a value Ch.6 states."

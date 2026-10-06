@@ -70,7 +70,7 @@ pnpm db:reset && SEED_DEMO=true pnpm db:seed
 ### Click-Path & Demo Action
 1. Navigate to **Farmer Applications** (`/farmers`).
 2. Show the pipeline: `Draft`, `Submitted`, `Docs Review`, `Farm Verification`, `Audit`, `Approved`.
-3. Open farmer **Suresh Gowda** (flagged as "Expiring in 15 days") and **Anand Murugan** (flagged as "Market Blocked — Expired PGS Certificate").
+3. Open farmer **Geetha Manoharan** (`+919870000012`, flagged as "Expiring in 20 days" after seeding; Suresh Gowda's verified PGS now runs 400 days, so he is no longer the expiring-soon demo) and **Anand Murugan** (flagged as "Market Blocked — Expired PGS Certificate").
 4. Navigate to **Produce Listings** (`/marketplace/listings`).
 5. Open listing `LIST-DEMO-0006` with an active counter-offer.
 6. Show the live **24-hour countdown timer** on the counter-offer (`BR-10`). Explain that if unresponded within 24 hours, it lapses automatically without locking farmer inventory.

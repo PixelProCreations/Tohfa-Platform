@@ -64,11 +64,38 @@ export interface CertBadge {
   expiresOn: string;
 }
 
+/** See listingsRepo.getListingCertEligibility. */
+export interface ListingCertEligibility {
+  /** True iff the farmer holds at least one VERIFIED, unexpired PGS/NPOP certificate. */
+  eligible: boolean;
+  /** Exactly those qualifying certificates; frozen onto the listing as badges. */
+  qualifyingBadges: CertBadge[];
+  /** Newest unexpired PGS/NPOP certificate still awaiting admin verification, if any. */
+  pendingCert: { certType: string; certNumber: string } | null;
+  /** The most recently expired PGS/NPOP certificate (any verification status), if any. */
+  expiredCert: { certType: string; certNumber: string; expiresOn: string } | null;
+}
+
 export interface FairPriceLookup {
   id: string;
   ceilingPrice: string;
   effectiveFrom: string;
   effectiveTo: string | null;
+}
+
+/**
+ * timestamptz -> ISO-8601 UTC ("2026-10-05T07:42:36.490Z"), the `format:
+ * date-time` docs/openapi.yaml promises. node-postgres parses timestamptz into
+ * a Date, so the columns are selected raw and serialized here, the same way
+ * _example/warehouses.repo.ts does it. Never `::text` a timestamptz for the
+ * wire: Postgres's own form ("2026-10-05 07:42:36.490266+00") is not RFC 3339
+ * and React Native's Hermes engine parses it as NaN.
+ *
+ * `date` columns (available_from) are the opposite case and stay `::text`:
+ * pg would turn them into a Date at LOCAL midnight, which can shift the day.
+ */
+function isoOrNull(value: Date | null): string | null {
+  return value === null ? null : value.toISOString();
 }
 
 export const listingsRepo = {
@@ -94,75 +121,86 @@ export const listingsRepo = {
     return res.rows[0] ?? null;
   },
 
-  async getFarmerCertificates(
+  /**
+   * BR-01 / BR-02: may this farmer list? One query, evaluated for the FARMER,
+   * not per certificate. A farmer is eligible iff at least one certificate is
+   * VERIFIED, not expired, and of a qualifying type (PGS or NPOP). Any number of
+   * other expired, UNVERIFIED or REJECTED certificates alongside it change nothing.
+   *
+   * `qualifyingTypes` is certifications.schema LISTING_QUALIFYING_CERT_TYPES,
+   * passed in by the service and bound as $3 so this SQL holds no second copy
+   * of the list. Every row of another type (OTHER) is filtered out up front, so
+   * it can neither qualify nor be named as the pending or expired certificate:
+   * verifying or renewing an OTHER certificate would not let the farmer list,
+   * so an OTHER-only farmer gets CERT_MISSING (BR-02h, BR-02i).
+   *
+   * "Expired" means `expires_on < today`, where `today` is the caller's
+   * Asia/Kolkata calendar date (getTodayKolkata). A certificate is therefore
+   * still valid ON its expiry date, which is the same convention as
+   * certifications.service getDaysToExpiry (< 0 is expired) and
+   * certifications.repo recomputeFarmerMarketBlock (expires_on >= IST today).
+   * It is passed in rather than read from CURRENT_DATE, which follows the
+   * session time zone, not India's.
+   *
+   * pendingCert / expiredCert only matter when the farmer is NOT eligible: the
+   * service uses them to pick CERT_UNVERIFIED vs CERT_EXPIRED (vs CERT_MISSING
+   * when both are null: no PGS/NPOP certificate, or only unexpired REJECTED ones) and
+   * to name the certificate in the problem detail. Dates are `::text` so a `date` never
+   * becomes a JS Date at local midnight (see the note on isoOrNull above).
+   */
+  async getListingCertEligibility(
     db: Executor,
     farmerId: string,
-  ): Promise<{
-    hasExpired: boolean;
-    expiredCert?: { certType: string; certNumber: string; expiresOn: string } | undefined;
-    hasUnverified: boolean;
-    unverifiedCert?: { certType: string; certNumber: string } | undefined;
-    verifiedBadges: CertBadge[];
-  }> {
+    today: string,
+    qualifyingTypes: readonly string[],
+  ): Promise<ListingCertEligibility> {
     const res = await db.query<{
-      cert_type: string;
-      cert_number: string;
-      issuing_body: string;
-      issued_on: string;
-      expires_on: string;
-      verification_status: string;
-      is_expired: boolean;
+      eligible: boolean;
+      qualifying_badges: CertBadge[];
+      pending_cert: ListingCertEligibility['pendingCert'];
+      expired_cert: ListingCertEligibility['expiredCert'];
     }>(
-      `SELECT cert_type, cert_number, issuing_body, issued_on, expires_on, verification_status,
-              (expires_on < CURRENT_DATE) AS is_expired
-       FROM certifications
-       WHERE farmer_id = $1 AND deleted_at IS NULL`,
-      [farmerId],
+      `SELECT
+         COALESCE(bool_or(c.qualifies), false) AS eligible,
+         COALESCE(
+           jsonb_agg(
+             jsonb_build_object(
+               'certType', c.cert_type, 'certNumber', c.cert_number,
+               'issuingBody', c.issuing_body,
+               'issuedOn', c.issued_on::text, 'expiresOn', c.expires_on::text)
+             ORDER BY c.expires_on DESC, c.cert_number
+           ) FILTER (WHERE c.qualifies),
+           '[]'::jsonb
+         ) AS qualifying_badges,
+         (jsonb_agg(
+            jsonb_build_object('certType', c.cert_type, 'certNumber', c.cert_number)
+            ORDER BY c.created_at DESC
+          ) FILTER (WHERE c.verification_status = 'UNVERIFIED' AND NOT c.expired)) -> 0 AS pending_cert,
+         (jsonb_agg(
+            jsonb_build_object('certType', c.cert_type, 'certNumber', c.cert_number,
+                               'expiresOn', c.expires_on::text)
+            ORDER BY c.expires_on DESC
+          ) FILTER (WHERE c.expired)) -> 0 AS expired_cert
+       FROM (
+         SELECT cert_type, cert_number, issuing_body, issued_on, expires_on,
+                verification_status, created_at,
+                expires_on < $2::date AS expired,
+                (verification_status = 'VERIFIED'
+                 AND expires_on >= $2::date) AS qualifies
+           FROM certifications
+          WHERE farmer_id = $1 AND deleted_at IS NULL
+            AND cert_type = ANY($3::certification_type[])
+       ) c`,
+      [farmerId, today, qualifyingTypes],
     );
 
-    let hasExpired = false;
-    let expiredCert: { certType: string; certNumber: string; expiresOn: string } | undefined;
-    let hasUnverified = false;
-    let unverifiedCert: { certType: string; certNumber: string } | undefined;
-    const verifiedBadges: CertBadge[] = [];
-
-    for (const row of res.rows) {
-      if (row.is_expired || row.verification_status === 'EXPIRED') {
-        hasExpired = true;
-        if (!expiredCert) {
-          expiredCert = {
-            certType: row.cert_type,
-            certNumber: row.cert_number,
-            expiresOn: String(row.expires_on).slice(0, 10),
-          };
-        }
-      }
-      if (row.verification_status === 'PENDING' || row.verification_status === 'UNVERIFIED') {
-        hasUnverified = true;
-        if (!unverifiedCert) {
-          unverifiedCert = {
-            certType: row.cert_type,
-            certNumber: row.cert_number,
-          };
-        }
-      }
-      if (row.verification_status === 'VERIFIED' && !row.is_expired) {
-        verifiedBadges.push({
-          certType: row.cert_type,
-          certNumber: row.cert_number,
-          issuingBody: row.issuing_body,
-          issuedOn: String(row.issued_on).slice(0, 10),
-          expiresOn: String(row.expires_on).slice(0, 10),
-        });
-      }
-    }
-
+    // An aggregate with no GROUP BY always returns exactly one row.
+    const row = res.rows[0];
     return {
-      hasExpired,
-      expiredCert,
-      hasUnverified,
-      unverifiedCert,
-      verifiedBadges,
+      eligible: row?.eligible === true,
+      qualifyingBadges: row?.qualifying_badges ?? [],
+      pendingCert: row?.pending_cert ?? null,
+      expiredCert: row?.expired_cert ?? null,
     };
   },
 
@@ -265,12 +303,12 @@ export const listingsRepo = {
       certification_badges: unknown[];
       version: number;
       approved_by: string | null;
-      approved_at: string | null;
+      approved_at: Date | null;
       rejected_by: string | null;
-      rejected_at: string | null;
+      rejected_at: Date | null;
       rejection_reason: string | null;
-      created_at: string;
-      updated_at: string | null;
+      created_at: Date;
+      updated_at: Date | null;
     }>(
       `WITH ins AS (
          INSERT INTO produce_listings (
@@ -290,9 +328,9 @@ export const listingsRepo = {
               ins.final_price_per_kg::text, ins.final_quantity_kg::text,
               ins.fair_price_id, ins.status, ins.available_from::text,
               ins.photo_keys, ins.certification_badges, ins.version,
-              ins.approved_by, ins.approved_at::text, ins.rejected_by,
-              ins.rejected_at::text, ins.rejection_reason,
-              ins.created_at::text, ins.updated_at::text
+              ins.approved_by, ins.approved_at, ins.rejected_by,
+              ins.rejected_at, ins.rejection_reason,
+              ins.created_at, ins.updated_at
        FROM ins
        JOIN crop_master cm ON cm.id = ins.crop_id
        JOIN fair_prices fp ON fp.id = ins.fair_price_id`,
@@ -333,12 +371,12 @@ export const listingsRepo = {
       certificationBadges: (row.certification_badges as unknown[]) ?? [],
       version: row.version,
       approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
+      approvedAt: isoOrNull(row.approved_at),
       rejectedBy: row.rejected_by,
-      rejectedAt: row.rejected_at,
+      rejectedAt: isoOrNull(row.rejected_at),
       rejectionReason: row.rejection_reason,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: isoOrNull(row.updated_at),
     };
   },
 
@@ -364,12 +402,12 @@ export const listingsRepo = {
       certification_badges: unknown[];
       version: number;
       approved_by: string | null;
-      approved_at: string | null;
+      approved_at: Date | null;
       rejected_by: string | null;
-      rejected_at: string | null;
+      rejected_at: Date | null;
       rejection_reason: string | null;
-      created_at: string;
-      updated_at: string | null;
+      created_at: Date;
+      updated_at: Date | null;
     }>(
       `SELECT pl.id, pl.listing_number, pl.farmer_id, pl.farm_id, pl.farm_crop_id,
               pl.crop_id, cm.name AS crop_name, pl.grade, pl.quantity_kg::text,
@@ -377,9 +415,9 @@ export const listingsRepo = {
               pl.final_price_per_kg::text, pl.final_quantity_kg::text,
               pl.fair_price_id, pl.status, pl.available_from::text,
               pl.photo_keys, pl.certification_badges, pl.version,
-              pl.approved_by, pl.approved_at::text, pl.rejected_by,
-              pl.rejected_at::text, pl.rejection_reason,
-              pl.created_at::text, pl.updated_at::text
+              pl.approved_by, pl.approved_at, pl.rejected_by,
+              pl.rejected_at, pl.rejection_reason,
+              pl.created_at, pl.updated_at
        FROM produce_listings pl
        JOIN crop_master cm ON cm.id = pl.crop_id
        JOIN fair_prices fp ON fp.id = pl.fair_price_id
@@ -410,12 +448,12 @@ export const listingsRepo = {
       certificationBadges: (row.certification_badges as unknown[]) ?? [],
       version: row.version,
       approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
+      approvedAt: isoOrNull(row.approved_at),
       rejectedBy: row.rejected_by,
-      rejectedAt: row.rejected_at,
+      rejectedAt: isoOrNull(row.rejected_at),
       rejectionReason: row.rejection_reason,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: isoOrNull(row.updated_at),
     };
   },
 
@@ -467,12 +505,13 @@ export const listingsRepo = {
       certification_badges: unknown[];
       version: number;
       approved_by: string | null;
-      approved_at: string | null;
+      approved_at: Date | null;
       rejected_by: string | null;
-      rejected_at: string | null;
+      rejected_at: Date | null;
       rejection_reason: string | null;
-      created_at: string;
-      updated_at: string | null;
+      created_at: Date;
+      updated_at: Date | null;
+      cursor_created_at: string;
       counter_rounds_used: number;
       active_offer_id: string | null;
       active_offer_round: number | null;
@@ -481,17 +520,23 @@ export const listingsRepo = {
       active_offer_qty: string | null;
       active_offer_msg: string | null;
       active_offer_status: string | null;
-      active_offer_expires_at: string | null;
+      active_offer_expires_at: Date | null;
     }>(
+      // cursor_created_at keeps the full MICROSECOND precision of created_at:
+      // a JS Date (and so toISOString) stops at milliseconds, and a truncated
+      // cursor would skip rows created later within the same millisecond as the
+      // last row of a page. ISO-8601 UTC with no '+', so it survives a query
+      // string unencoded. Opaque to clients per PageMeta.
       `SELECT pl.id, pl.listing_number, pl.farmer_id, pl.farm_id, pl.farm_crop_id,
               pl.crop_id, cm.name AS crop_name, pl.grade, pl.quantity_kg::text,
               pl.price_per_kg::text, fp.ceiling_price::text AS ceiling_price,
               pl.final_price_per_kg::text, pl.final_quantity_kg::text,
               pl.fair_price_id, pl.status, pl.available_from::text,
               pl.photo_keys, pl.certification_badges, pl.version,
-              pl.approved_by, pl.approved_at::text, pl.rejected_by,
-              pl.rejected_at::text, pl.rejection_reason,
-              pl.created_at::text, pl.updated_at::text,
+              pl.approved_by, pl.approved_at, pl.rejected_by,
+              pl.rejected_at, pl.rejection_reason,
+              pl.created_at, pl.updated_at,
+              to_char(pl.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at,
               (SELECT COUNT(*)::int FROM counter_offers WHERE listing_id = pl.id AND actor = 'FARMER') AS counter_rounds_used,
               co.id AS active_offer_id,
               co.round AS active_offer_round,
@@ -500,7 +545,7 @@ export const listingsRepo = {
               co.quantity_kg::text AS active_offer_qty,
               co.message AS active_offer_msg,
               co.status AS active_offer_status,
-              co.expires_at::text AS active_offer_expires_at
+              co.expires_at AS active_offer_expires_at
        FROM produce_listings pl
        JOIN crop_master cm ON cm.id = pl.crop_id
        JOIN fair_prices fp ON fp.id = pl.fair_price_id
@@ -513,7 +558,7 @@ export const listingsRepo = {
 
     const hasMore = res.rows.length > filters.limit;
     const rawItems = hasMore ? res.rows.slice(0, filters.limit) : res.rows;
-    const nextCursor = hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.created_at : null;
+    const nextCursor = hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.cursor_created_at : null;
 
     const items: ListingRow[] = rawItems.map((row) => ({
       id: row.id,
@@ -536,12 +581,12 @@ export const listingsRepo = {
       certificationBadges: (row.certification_badges as unknown[]) ?? [],
       version: row.version,
       approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
+      approvedAt: isoOrNull(row.approved_at),
       rejectedBy: row.rejected_by,
-      rejectedAt: row.rejected_at,
+      rejectedAt: isoOrNull(row.rejected_at),
       rejectionReason: row.rejection_reason,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: isoOrNull(row.updated_at),
       counterRoundsUsed: row.counter_rounds_used ?? 0,
       activeCounterOffer: row.active_offer_id
         ? {
@@ -553,7 +598,7 @@ export const listingsRepo = {
             quantityKg: row.active_offer_qty ?? '0.000',
             message: row.active_offer_msg,
             status: row.active_offer_status ?? 'PENDING',
-            expiresAt: row.active_offer_expires_at ?? '',
+            expiresAt: isoOrNull(row.active_offer_expires_at) ?? '',
           }
         : null,
     }));

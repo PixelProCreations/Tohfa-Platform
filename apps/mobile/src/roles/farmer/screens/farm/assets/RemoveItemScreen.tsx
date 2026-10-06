@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -129,7 +129,7 @@ export interface RemoveItemData {
 export interface RemoveItemScreenProps {
   item?: RemoveItemData | undefined;
   onNavigateBack: () => void;
-  onConfirmRemove: () => void;
+  onConfirmRemove: () => void | Promise<void>;
 }
 
 export function RemoveItemScreen({
@@ -137,11 +137,22 @@ export function RemoveItemScreen({
   onNavigateBack,
   onConfirmRemove,
 }: RemoveItemScreenProps): React.JSX.Element {
+  const [isRemoving, setIsRemoving] = useState(false);
   const category = item?.category || 'Machinery';
   const name = item?.name || 'Power Tiller';
   const dateInfo = item?.dateInfo || 'Machinery · Purchased 08 Feb 2023';
   const serviceEntriesCount = item?.serviceEntriesCount ?? 3;
   const recordedCost = item?.recordedCost ?? 450;
+
+  async function handleConfirm() {
+    if (isRemoving) return;
+    setIsRemoving(true);
+    try {
+      await onConfirmRemove();
+    } finally {
+      setIsRemoving(false);
+    }
+  }
 
   function renderCategoryBadgeIcon() {
     switch (category) {
@@ -231,14 +242,19 @@ export function RemoveItemScreen({
           <View style={styles.actionButtonsContainer}>
             {/* Red Remove Permanently Button */}
             <TouchableOpacity
-              style={styles.removePermanentlyButton}
-              onPress={onConfirmRemove}
+              style={[styles.removePermanentlyButton, isRemoving && { opacity: 0.7 }]}
+              onPress={() => {
+                void handleConfirm();
+              }}
+              disabled={isRemoving}
               activeOpacity={0.88}
               accessibilityRole="button"
               accessibilityLabel="Yes, Remove Permanently"
             >
               <SmallTrashIcon size={18} color={P.white} />
-              <Text style={styles.removePermanentlyText}>Yes, Remove Permanently</Text>
+              <Text style={styles.removePermanentlyText}>
+                {isRemoving ? 'Removing...' : 'Yes, Remove Permanently'}
+              </Text>
             </TouchableOpacity>
 
             {/* Cancel Button */}

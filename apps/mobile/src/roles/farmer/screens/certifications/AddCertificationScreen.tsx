@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -12,9 +12,30 @@ import {
 } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
+import { DatePicker } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors, typography } from '../../theme';
-import { createCertification, type Certification } from '../../api/farmer';
+import { authPalette as P, typography } from '../../theme';
+import {
+  createCertification,
+  FALLBACK_CERT_EXPIRY_MAX_FUTURE_DAYS,
+  FALLBACK_CERT_EXPIRY_MAX_PAST_DAYS,
+  getSystemConfig,
+  uploadCertificateDocument,
+  type Certification,
+} from '../../api/farmer';
+import {
+  CERT_TYPE_LABEL_KEY,
+  CERTIFICATION_TYPES,
+  certificationErrorKind,
+  pickerDateToIso,
+  renderFieldErrors,
+  resolveCertificateContentType,
+  serverCertificationFieldErrors,
+  todayInKolkata,
+  validateCertificationForm,
+  type CertificationFormField,
+  type CertificationFormInput,
+} from './certificationForm';
 
 // ─────────────────────────────────────────────
 // SVG icons (inline, matching reference design)
@@ -76,16 +97,6 @@ function LabelDoc({ size = 14, color = P.twGray500 }: { size?: number; color?: s
   );
 }
 
-function LabelNotes({ size = 14, color = P.twGray500 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="10" x2="20" y2="10" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="14" x2="20" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function PdfGlyph({ size = 22, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -121,19 +132,7 @@ function UploadIcon({ size = 20, color = P.twGreen700 }: { size?: number; color?
 // Screen
 // ─────────────────────────────────────────────
 
-interface CertTypeOption {
-  key: Certification['certType'];
-  label: string;
-}
-
-const TYPE_OPTIONS: CertTypeOption[] = [
-  { key: 'PGS', label: 'PGS Organic' },
-  { key: 'NPOP', label: 'NPOP Organic' },
-  { key: 'OTHER', label: 'Jaivik Bharat' },
-  { key: 'OTHER', label: 'USDA Organic' },
-  { key: 'OTHER', label: 'EU Organic' },
-  { key: 'OTHER', label: 'Other' },
-];
+type FieldErrorText = Partial<Record<CertificationFormField, string>>;
 
 interface AddCertificationScreenProps {
   onSuccess?: () => void;
@@ -144,30 +143,60 @@ export function AddCertificationScreen({
   onSuccess,
   onCancel,
 }: AddCertificationScreenProps): React.JSX.Element {
-  const [selectedTypeLabel, setSelectedTypeLabel] = useState<string>('PGS Organic');
   const [certType, setCertType] = useState<Certification['certType']>('PGS');
   const [showTypeMenu, setShowTypeMenu] = useState<boolean>(false);
   const [customTypeName, setCustomTypeName] = useState<string>('');
 
   const [certNumber, setCertNumber] = useState<string>('');
-  const [issuer, setIssuer] = useState<string>('PGS-India Green Council');
-  const [issuedOn, setIssuedOn] = useState<string>('15/03/24');
-  const [expiresOn, setExpiresOn] = useState<string>('14/03/27');
+  const [issuer, setIssuer] = useState<string>('');
+  const [issuedOn, setIssuedOn] = useState<string>('');
+  const [expiresOn, setExpiresOn] = useState<string>('');
+  const [showIssuedPicker, setShowIssuedPicker] = useState<boolean>(false);
+  const [showExpiresPicker, setShowExpiresPicker] = useState<boolean>(false);
+
+  const [fieldErrors, setFieldErrors] = useState<FieldErrorText>({});
+
+  // BR-48 window from system_config (GET /config/farmer). The fallback only
+  // covers the moment before it loads; the server enforces its own value.
+  const [maxPastDays, setMaxPastDays] = useState<number>(FALLBACK_CERT_EXPIRY_MAX_PAST_DAYS);
+  const [maxFutureDays, setMaxFutureDays] = useState<number>(FALLBACK_CERT_EXPIRY_MAX_FUTURE_DAYS);
+  useEffect(() => {
+    let cancelled = false;
+    void getSystemConfig().then((config) => {
+      if (cancelled) return;
+      setMaxPastDays(config.certExpiryMaxPastDays);
+      setMaxFutureDays(config.certExpiryMaxFutureDays);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const clearFieldError = (field: CertificationFormField) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const [attachedDoc, setAttachedDoc] = useState<{
     name: string;
     size: string;
     uri: string;
+    contentType: string;
   } | null>(null);
+  // The document is uploaded when Save is pressed (so a cancelled form leaves no
+  // orphan upload); a retry after a failed save reuses the upload it already made.
+  const uploadedRef = useRef<{ uri: string; fileUrl: string } | null>(null);
 
-  const [notes, setNotes] = useState<string>(
-    'Renewal application already submitted to regional council on 02 Feb.',
-  );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // Set synchronously: a second tap can land before the re-render disables Save.
+  const submittingRef = useRef<boolean>(false);
 
-  const handleSelectType = (opt: CertTypeOption) => {
-    setSelectedTypeLabel(opt.label);
-    setCertType(opt.key);
+  const handleSelectType = (type: Certification['certType']) => {
+    setCertType(type);
+    clearFieldError('certType');
     setShowTypeMenu(false);
   };
 
@@ -177,53 +206,125 @@ export function AddCertificationScreen({
         type: [DocumentPicker.types.pdf, DocumentPicker.types.images],
         copyTo: 'cachesDirectory',
       });
+      const name = picked.name ?? t('farmer.certifications.doc.defaultName');
+      const contentType = resolveCertificateContentType(name, picked.type);
+      if (contentType === null) {
+        Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.unsupported'));
+        return;
+      }
       const sizeMB = ((picked.size ?? 1024 * 1024) / (1024 * 1024)).toFixed(1);
-      const isPdf = (picked.name ?? '').toLowerCase().endsWith('.pdf');
+      const kind = t(
+        contentType === 'application/pdf' ? 'farmer.certifications.doc.kind.pdf' : 'farmer.certifications.doc.kind.image',
+      );
       setAttachedDoc({
-        name: picked.name ?? 'certificate.pdf',
-        size: `${sizeMB} MB · ${isPdf ? 'PDF' : 'IMAGE'}`,
+        name,
+        size: t('farmer.certifications.doc.meta', { size: sizeMB, kind }),
         uri: picked.fileCopyUri ?? picked.uri,
+        contentType,
       });
     } catch (err) {
+      // A cancel is the farmer's own choice. Anything else is a real failure: say
+      // so and attach nothing -- never a stand-in document.
       if (!DocumentPicker.isCancel(err)) {
-        // Fallback simulated document if picker unavailable
-        setAttachedDoc({
-          name: `pgs_certificate_${new Date().getFullYear()}.pdf`,
-          size: '1.4 MB · PDF',
-          uri: 'https://storage.tohfa.in/docs/pgs_certificate_2024.pdf',
-        });
+        Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.pickFailed'));
       }
     }
   };
 
+  /**
+   * A 422 with a field `errors` map, shown under the fields. The form is
+   * re-checked with freshly fetched config first (the window may have changed
+   * since this screen loaded), so a rule the app can reproduce is shown in the
+   * farmer's language; otherwise the server's own message is. False when the
+   * error is not one of these, for the generic handling.
+   */
+  const showServerFieldErrors = async (err: unknown, formInput: CertificationFormInput): Promise<boolean> => {
+    if (serverCertificationFieldErrors(err, {}) === null) return false;
+    const config = await getSystemConfig();
+    setMaxPastDays(config.certExpiryMaxPastDays);
+    setMaxFutureDays(config.certExpiryMaxFutureDays);
+    const recheck = validateCertificationForm(formInput, {
+      today: todayInKolkata(),
+      maxPastDays: config.certExpiryMaxPastDays,
+      maxFutureDays: config.certExpiryMaxFutureDays,
+    });
+    const mapped = serverCertificationFieldErrors(err, recheck.ok ? {} : recheck.errors);
+    if (mapped === null) return false;
+    setFieldErrors(renderFieldErrors(mapped.fields, t));
+    if (mapped.other.length > 0) {
+      Alert.alert(t('farmer.certifications.add.errorTitle'), mapped.other.join('\n'));
+    }
+    return true;
+  };
+
   const handleSave = async () => {
-    if (!issuer.trim()) {
-      Alert.alert('Required Field', 'Please provide the Certifying Body.');
+    if (submittingRef.current) return;
+
+    // BR-48 pre-check, the same rules the server applies; the server still decides.
+    const formInput: CertificationFormInput = {
+      certType,
+      customTypeName,
+      certNumber,
+      issuingBody: issuer,
+      issuedOn: pickerDateToIso(issuedOn),
+      expiresOn: pickerDateToIso(expiresOn),
+    };
+    const checked = validateCertificationForm(formInput, { today: todayInKolkata(), maxPastDays, maxFutureDays });
+    if (!checked.ok) {
+      setFieldErrors(renderFieldErrors(checked.errors, t));
       return;
     }
+    setFieldErrors({});
 
+    submittingRef.current = true;
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      await createCertification({
-        certType,
-        certNumber: certNumber.trim() || `PGS-${Date.now().toString().slice(-6)}`,
-        issuingBody: issuer.trim(),
-        issuedOn: issuedOn.trim() || new Date().toISOString().split('T')[0]!,
-        expiresOn: expiresOn.trim() || '2027-03-14',
-        documentUrl: attachedDoc?.uri,
-      });
+      let documentUrl: string | undefined;
+      if (attachedDoc !== null) {
+        try {
+          let uploaded = uploadedRef.current;
+          if (uploaded?.uri !== attachedDoc.uri) {
+            const { fileUrl } = await uploadCertificateDocument({
+              uri: attachedDoc.uri,
+              fileName: attachedDoc.name,
+              contentType: attachedDoc.contentType,
+            });
+            uploaded = { uri: attachedDoc.uri, fileUrl };
+            uploadedRef.current = uploaded;
+          }
+          documentUrl = uploaded.fileUrl;
+        } catch {
+          Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.uploadFailed'));
+          return;
+        }
+      }
+
+      await createCertification({ ...checked.value, ...(documentUrl === undefined ? {} : { documentUrl }) });
 
       Alert.alert(
-        'Certification Added',
-        'Your certification has been added and submitted for verification.',
-        [{ text: 'OK', onPress: () => onSuccess?.() }],
+        t('farmer.certifications.add.successTitle'),
+        t('farmer.certifications.add.successBody'),
+        [{ text: t('farmer.common.ok'), onPress: () => onSuccess?.() }],
       );
-    } catch {
-      Alert.alert('Error', 'Unable to save certification. Please try again.');
+    } catch (err) {
+      const shown = await showServerFieldErrors(err, formInput);
+      if (!shown) {
+        // Nothing was saved. If the server could not be reached, say that: the
+        // certificate does not exist yet, and the farmer should try again.
+        Alert.alert(
+          t('farmer.certifications.add.errorTitle'),
+          certificationErrorKind(err) === 'network'
+            ? t('farmer.listings.error.network')
+            : t('farmer.certifications.add.errorBody'),
+        );
+      }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
+
+  const typeLabel = t(CERT_TYPE_LABEL_KEY[certType]);
 
   return (
     <SafeAreaView style={E.screen}>
@@ -241,9 +342,9 @@ export function AddCertificationScreen({
           <CloseIcon />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={E.headerTitle}>Add Certification</Text>
+          <Text style={E.headerTitle}>{t('farmer.certifications.add.screenTitle')}</Text>
           <Text style={E.headerSub} numberOfLines={1}>
-            {selectedTypeLabel} · added today
+            {t('farmer.certifications.add.headerSub', { type: typeLabel })}
           </Text>
         </View>
       </View>
@@ -261,52 +362,55 @@ export function AddCertificationScreen({
         </View>
         <View style={{ position: 'relative' }}>
           <TouchableOpacity
-            style={E.input}
+            style={[E.input, fieldErrors.certType ? E.inputError : undefined]}
             activeOpacity={0.8}
             onPress={() => setShowTypeMenu((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel="Select Certification Type"
+            accessibilityLabel={t('farmer.certifications.edit.selectTypeA11y')}
           >
-            <Text style={E.inputText}>{selectedTypeLabel}</Text>
+            <Text style={E.inputText}>{typeLabel}</Text>
             <ChevronDown />
           </TouchableOpacity>
 
           {showTypeMenu ? (
             <View style={E.typeMenu}>
-              {TYPE_OPTIONS.map((opt, idx) => (
+              {CERTIFICATION_TYPES.map((type) => (
                 <TouchableOpacity
-                  key={`${opt.label}-${idx}`}
+                  key={type}
                   style={E.typeMenuItem}
                   activeOpacity={0.7}
-                  onPress={() => handleSelectType(opt)}
+                  onPress={() => handleSelectType(type)}
                 >
                   <Text
                     style={[
                       E.typeMenuText,
-                      selectedTypeLabel === opt.label && {
+                      certType === type && {
                         color: P.twGreen700,
                         fontWeight: '700',
                       },
                     ]}
                   >
-                    {opt.label}
+                    {t(CERT_TYPE_LABEL_KEY[type])}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           ) : null}
         </View>
-        <Text style={E.helper}>Choose "Other" to enter a custom certification name.</Text>
+        {fieldErrors.certType ? <Text style={E.errorText}>{fieldErrors.certType}</Text> : null}
+        <Text style={E.helper}>{t('farmer.certifications.add.otherHelper')}</Text>
 
-        {selectedTypeLabel === 'Other' && (
+        {certType === 'OTHER' && (
           <View style={{ marginTop: 10 }}>
             <TextInput
-              style={E.input}
+              style={[E.textInput, fieldErrors.customTypeName ? E.inputError : undefined]}
               value={customTypeName}
-              onChangeText={setCustomTypeName}
-              placeholder="Enter certification name"
+              onChangeText={(v) => { setCustomTypeName(v); clearFieldError('customTypeName'); }}
+              placeholder={t('farmer.certifications.add.otherNamePlaceholder')}
               placeholderTextColor={P.twGray400}
+              accessibilityLabel={t('farmer.certifications.add.otherNamePlaceholder')}
             />
+            {fieldErrors.customTypeName ? <Text style={E.errorText}>{fieldErrors.customTypeName}</Text> : null}
           </View>
         )}
 
@@ -316,59 +420,87 @@ export function AddCertificationScreen({
           <Text style={E.label}>{t('farmer.certifications.add.issuer')}</Text>
         </View>
         <TextInput
-          style={E.input}
+          style={[E.textInput, fieldErrors.issuingBody ? E.inputError : undefined]}
           value={issuer}
-          onChangeText={setIssuer}
-          placeholder="e.g. PGS-India Green Council"
+          onChangeText={(v) => { setIssuer(v); clearFieldError('issuingBody'); }}
+          placeholder={t('farmer.certifications.add.issuerPlaceholder')}
           placeholderTextColor={P.twGray400}
         />
-        <Text style={E.helper}>Helps TOHFA admin verify faster during audit prep.</Text>
+        {fieldErrors.issuingBody ? <Text style={E.errorText}>{fieldErrors.issuingBody}</Text> : null}
+        <Text style={E.helper}>{t('farmer.certifications.edit.issuerHelper')}</Text>
 
         {/* ── Issued On / Valid Until ── */}
         <View style={[E.datesRow, { marginTop: 14 }]}>
           <View style={{ flex: 1 }}>
-            <View style={E.labelRow}>
+            <TouchableOpacity
+              style={E.labelRow}
+              activeOpacity={0.7}
+              onPress={() => setShowIssuedPicker(true)}
+            >
               <LabelCalendar />
-              <Text style={E.label}>Certified On</Text>
+              <Text style={E.label}>{t('farmer.certifications.add.certifiedOn')}</Text>
               <Text style={E.required}>*</Text>
-            </View>
-            <View style={[E.input, E.dateInput]}>
-              <TextInput
-                style={E.dateTextInput}
-                value={issuedOn}
-                onChangeText={setIssuedOn}
-                placeholder="DD/MM/YY"
-                placeholderTextColor={P.twGray400}
-              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[E.dateWrapper, fieldErrors.issuedOn ? E.inputError : undefined]}
+              activeOpacity={0.7}
+              onPress={() => setShowIssuedPicker(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.certifications.add.certifiedOnA11y')}
+            >
+              <Text style={[E.dateDisplayText, !issuedOn ? E.datePlaceholder : undefined]}>
+                {issuedOn || t('farmer.certifications.add.datePlaceholder')}
+              </Text>
               <LabelCalendar size={16} color={P.twGreen600} />
-            </View>
+            </TouchableOpacity>
+            {fieldErrors.issuedOn ? <Text style={E.errorText}>{fieldErrors.issuedOn}</Text> : null}
           </View>
           <View style={{ flex: 1 }}>
-            <View style={E.labelRow}>
+            <TouchableOpacity
+              style={E.labelRow}
+              activeOpacity={0.7}
+              onPress={() => setShowExpiresPicker(true)}
+            >
               <LabelCalendar />
-              <Text style={E.label}>Valid Until</Text>
+              <Text style={E.label}>{t('farmer.certifications.add.validUntil')}</Text>
               <Text style={E.required}>*</Text>
-            </View>
-            <View style={[E.input, E.dateInput]}>
-              <TextInput
-                style={E.dateTextInput}
-                value={expiresOn}
-                onChangeText={setExpiresOn}
-                placeholder="DD/MM/YY"
-                placeholderTextColor={P.twGray400}
-              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[E.dateWrapper, fieldErrors.expiresOn ? E.inputError : undefined]}
+              activeOpacity={0.7}
+              onPress={() => setShowExpiresPicker(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.certifications.add.validUntilA11y')}
+            >
+              <Text style={[E.dateDisplayText, !expiresOn ? E.datePlaceholder : undefined]}>
+                {expiresOn || t('farmer.certifications.add.datePlaceholder')}
+              </Text>
               <LabelCalendar size={16} color={P.twGreen600} />
-            </View>
+            </TouchableOpacity>
+            {fieldErrors.expiresOn ? <Text style={E.errorText}>{fieldErrors.expiresOn}</Text> : null}
           </View>
         </View>
-        <Text style={E.helper}>
-          Auto-suggested as +3 years — edit if your body uses a different validity period.
-        </Text>
+        <Text style={E.helper}>{t('farmer.certifications.add.datesHelper')}</Text>
+
+        {/* ── Cert Number ── */}
+        <View style={[E.labelRow, { marginTop: 14 }]}>
+          <LabelDoc />
+          <Text style={E.label}>{t('farmer.certifications.add.number')}</Text>
+          <Text style={E.required}>*</Text>
+        </View>
+        <TextInput
+          style={[E.textInput, fieldErrors.certNumber ? E.inputError : undefined]}
+          value={certNumber}
+          onChangeText={(v) => { setCertNumber(v); clearFieldError('certNumber'); }}
+          placeholder={t('farmer.certifications.add.numberPlaceholder')}
+          placeholderTextColor={P.twGray400}
+        />
+        {fieldErrors.certNumber ? <Text style={E.errorText}>{fieldErrors.certNumber}</Text> : null}
 
         {/* ── Certificate Document ── */}
         <View style={[E.labelRow, { marginTop: 14 }]}>
           <LabelDoc />
-          <Text style={E.label}>Certificate Document</Text>
+          <Text style={E.label}>{t('farmer.certifications.add.document')}</Text>
         </View>
 
         {attachedDoc ? (
@@ -387,7 +519,7 @@ export function AddCertificationScreen({
               onPress={() => setAttachedDoc(null)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Remove document"
+              accessibilityLabel={t('farmer.certifications.edit.removeDocA11y')}
             >
               <CloseIcon size={14} color={P.twRed600} />
             </TouchableOpacity>
@@ -398,48 +530,59 @@ export function AddCertificationScreen({
             activeOpacity={0.75}
             onPress={handlePickDocument}
             accessibilityRole="button"
-            accessibilityLabel="Upload document"
+            accessibilityLabel={t('farmer.certifications.add.doc')}
           >
             <UploadIcon />
-            <Text style={E.uploadTxt}>Tap here to upload certificate (PDF, JPG or PNG)</Text>
+            <Text style={E.uploadTxt}>{t('farmer.certifications.add.uploadPrompt')}</Text>
           </TouchableOpacity>
         )}
-        <Text style={E.helper}>PDF, JPG or PNG · max 10 MB · one document per certification.</Text>
+        <Text style={E.helper}>{t('farmer.certifications.edit.uploadHelper')}</Text>
 
-        {/* ── Notes ── */}
-        <View style={[E.labelRow, { marginTop: 14 }]}>
-          <LabelNotes />
-          <Text style={E.label}>Notes</Text>
-          <Text style={E.labelMuted}>(internal — for TOHFA admin)</Text>
-        </View>
-        <TextInput
-          style={[E.input, E.notesInput]}
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Renewal application already submitted to regional council on 02 Feb."
-          placeholderTextColor={P.twGray400}
-          multiline
-          textAlignVertical="top"
-        />
-
-        <View style={{ height: 24 }} />
+<View style={{ height: 24 }} />
       </ScrollView>
 
       {/* ── Footer ── */}
       <View style={E.footer}>
         <TouchableOpacity style={E.cancelBtn} activeOpacity={0.8} onPress={onCancel}>
-          <Text style={E.cancelTxt}>Cancel</Text>
+          <Text style={E.cancelTxt}>{t('farmer.common.cancel')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[E.saveBtn, isSubmitting && { opacity: 0.7 }]}
           activeOpacity={0.85}
           onPress={handleSave}
           disabled={isSubmitting}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
         >
           <CheckIcon />
-          <Text style={E.saveTxt}>Save</Text>
+          <Text style={E.saveTxt}>{t('farmer.common.save')}</Text>
         </TouchableOpacity>
       </View>
+      {/* ── Date Pickers ── */}
+      <DatePicker
+        visible={showIssuedPicker}
+        onClose={() => setShowIssuedPicker(false)}
+        value={issuedOn}
+        title={t('farmer.certifications.add.issuedPickerTitle')}
+        format="DD/MM/YYYY"
+        maxDate={new Date()}
+        onSelect={(_date, formattedDate) => {
+          setIssuedOn(formattedDate);
+          clearFieldError('issuedOn');
+        }}
+      />
+
+      <DatePicker
+        visible={showExpiresPicker}
+        onClose={() => setShowExpiresPicker(false)}
+        value={expiresOn}
+        title={t('farmer.certifications.add.expiresPickerTitle')}
+        format="DD/MM/YYYY"
+        onSelect={(_date, formattedDate) => {
+          setExpiresOn(formattedDate);
+          clearFieldError('expiresOn');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -497,7 +640,21 @@ const E = StyleSheet.create({
     minHeight: 48,
   },
   inputText: { fontSize: typography.body, color: P.twGray900, flex: 1 },
+  // Standalone TextInput (no icon row) — same border/bg as input but no flexDirection
+  textInput: {
+    borderWidth: 1.5,
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+    fontSize: typography.body,
+    color: P.twGray900,
+  },
   helper: { fontSize: typography.caption, color: P.twGray400, marginTop: 6, lineHeight: 15 },
+  inputError: { borderColor: P.twRed500 },
+  errorText: { fontSize: typography.caption, color: P.twRed600, marginTop: 4 },
 
   typeMenu: {
     position: 'absolute',
@@ -527,7 +684,28 @@ const E = StyleSheet.create({
   datesRow: { flexDirection: 'row', gap: 12 },
 
   dateInput: { gap: 8 },
-  dateTextInput: { flex: 1, fontSize: typography.body, color: P.twGray900, paddingVertical: 0 },
+  dateWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: P.twGray200,
+    backgroundColor: P.white,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 48,
+    gap: 8,
+  },
+  dateDisplayText: {
+    flex: 1,
+    fontSize: typography.body,
+    color: P.twGray900,
+    fontWeight: '500',
+  },
+  datePlaceholder: {
+    color: P.twGray400,
+    fontWeight: '400',
+  },
 
   docCard: {
     flexDirection: 'row',
@@ -570,13 +748,6 @@ const E = StyleSheet.create({
     paddingVertical: 24,
   },
   uploadTxt: { fontSize: typography.body, fontWeight: '600', color: P.twGreen700 },
-
-  notesInput: {
-    height: 96,
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    paddingTop: 12,
-  },
 
   footer: {
     flexDirection: 'row',

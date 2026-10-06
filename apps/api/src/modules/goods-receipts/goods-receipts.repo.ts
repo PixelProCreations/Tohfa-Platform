@@ -12,6 +12,19 @@ import type {
   QualityCheckResponse,
 } from './goods-receipts.schema.js';
 
+/**
+ * timestamptz -> ISO-8601 UTC ("2026-10-05T07:42:36.490Z"), the `format: date-time`
+ * docs/openapi.yaml promises. node-postgres parses timestamptz into a Date, so the
+ * columns are selected raw and serialized here (as listings.repo.ts does). Never
+ * `::text` a timestamptz for the wire: Postgres's own form
+ * ("2026-10-05 07:42:36.490266+00") is not RFC 3339 and Hermes parses it as NaN.
+ *
+ * A JS Date stops at milliseconds, so the list cursor is built in SQL
+ * (`cursorReceivedAt`, to_char ... US) to keep microseconds: a truncated cursor
+ * would skip receipts created within the same millisecond as the last row of a page.
+ */
+const CURSOR_TS = `'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`;
+
 export interface GoodsReceiptRow {
   id: string;
   grn_number: string;
@@ -223,7 +236,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(gr.photo_keys, '{}') AS "photos",
         gr.status,
         gr.received_by AS "receivedBy",
-        gr.received_at::text AS "receivedAt",
+        gr.received_at AS "receivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
         po.grade
@@ -233,8 +246,12 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       WHERE gr.id = $1 AND ${scopeFilter.sql}
     `;
 
-    const result = await tx.query<GoodsReceiptResponse>(sql, [id, ...scopeFilter.params]);
-    return result.rows[0] ?? null;
+    const result = await tx.query<Omit<GoodsReceiptResponse, 'receivedAt'> & { receivedAt: Date }>(
+      sql,
+      [id, ...scopeFilter.params],
+    );
+    const row = result.rows[0];
+    return row ? { ...row, receivedAt: row.receivedAt.toISOString() } : null;
   },
 
   async insertQualityCheckWithItems(
@@ -274,7 +291,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         defect_notes AS "defectNotes",
         COALESCE(photo_keys, '{}') AS "photos",
         checked_by AS "checkedBy",
-        checked_at::text AS "checkedAt"
+        checked_at AS "checkedAt"
     `;
 
     const qcValues = [
@@ -291,8 +308,12 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       data.checkedBy,
     ];
 
-    const qcResult = await tx.query<QualityCheckResponse>(qcSql, qcValues);
-    const qcRow = qcResult.rows[0]!;
+    const qcResult = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
+      qcSql,
+      qcValues,
+    );
+    const qcRaw = qcResult.rows[0]!;
+    const qcRow = { ...qcRaw, checkedAt: qcRaw.checkedAt.toISOString() };
 
     const itemResponses: QualityCheckItemResponse[] = [];
     for (const item of data.items) {
@@ -356,13 +377,17 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         qc.defect_notes AS "defectNotes",
         COALESCE(qc.photo_keys, '{}') AS "photos",
         qc.checked_by AS "checkedBy",
-        qc.checked_at::text AS "checkedAt"
+        qc.checked_at AS "checkedAt"
       FROM quality_checks qc
       WHERE qc.goods_receipt_id = $1
     `;
-    const result = await tx.query<QualityCheckResponse>(sql, [goodsReceiptId]);
-    const qc = result.rows[0];
-    if (!qc) return null;
+    const result = await tx.query<Omit<QualityCheckResponse, 'checkedAt' | 'items'> & { checkedAt: Date }>(
+      sql,
+      [goodsReceiptId],
+    );
+    const qcRaw = result.rows[0];
+    if (!qcRaw) return null;
+    const qc = { ...qcRaw, checkedAt: qcRaw.checkedAt.toISOString() };
 
     const itemsSql = `
       SELECT
@@ -437,7 +462,7 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         quantity_kg::text AS "quantityKg",
         message,
         status,
-        expires_at::text AS "expiresAt"
+        expires_at AS "expiresAt"
     `;
 
     const values = [
@@ -449,8 +474,9 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       data.expiresAt,
     ];
 
-    const result = await tx.query(sql, values);
-    return result.rows[0];
+    const result = await tx.query<{ expiresAt: Date }>(sql, values);
+    const row = result.rows[0];
+    return row ? { ...row, expiresAt: row.expiresAt.toISOString() } : row;
   },
 
   async listGoodsReceipts(
@@ -515,7 +541,8 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
         COALESCE(gr.photo_keys, '{}') AS "photos",
         gr.status,
         gr.received_by AS "receivedBy",
-        gr.received_at::text AS "receivedAt",
+        gr.received_at AS "receivedAt",
+        to_char(gr.received_at AT TIME ZONE 'UTC', ${CURSOR_TS}) AS "cursorReceivedAt",
         po.po_number AS "poNumber",
         c.name AS "cropName",
         po.grade
@@ -527,10 +554,17 @@ export const goodsReceiptsRepo: GoodsReceiptsRepo = {
       ${limitClause}
     `;
 
-    const result = await tx.query<GoodsReceiptResponse>(sql, params);
+    const result = await tx.query<
+      Omit<GoodsReceiptResponse, 'receivedAt'> & { receivedAt: Date; cursorReceivedAt: string }
+    >(sql, params);
     const hasMore = result.rows.length > limit;
-    const items = hasMore ? result.rows.slice(0, limit) : result.rows;
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.receivedAt : null;
+    const rawItems = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const nextCursor =
+      hasMore && rawItems.length > 0 ? rawItems[rawItems.length - 1]!.cursorReceivedAt : null;
+    const items: GoodsReceiptResponse[] = rawItems.map(({ cursorReceivedAt: _cursor, ...row }) => ({
+      ...row,
+      receivedAt: row.receivedAt.toISOString(),
+    }));
 
     return { items, nextCursor, hasMore };
   },

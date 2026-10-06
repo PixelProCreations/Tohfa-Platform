@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,7 +10,22 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../theme';
+import {
+  AUDIT_STATUS_LABEL_KEY,
+  auditConductedBy,
+  auditDisplayDate,
+  auditScore,
+  deriveAuditsOverview,
+  istDateParts,
+  listAllMyAudits,
+  pad2,
+  QUARTERS_PER_FISCAL_YEAR,
+  shortMonthKey,
+  tierLabelKey,
+  type FarmerAuditSummary,
+} from '../../api/audits';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -84,26 +97,6 @@ function LocationPinIcon({ size = 16, color = colors.brandGreenLight }: { size?:
   );
 }
 
-function SlidersChecklistIcon({ size = 16, color = P.twGray900 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="4" y1="7" x2="20" y2="7" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="17" x2="20" y2="17" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="9" cy="7" r="2.5" fill={P.white} stroke={color} strokeWidth="2" />
-      <Circle cx="15" cy="17" r="2.5" fill={P.white} stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function BellIcon({ size = 16, color = P.white }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function StarIcon({ size = 11, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -127,148 +120,220 @@ function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; c
 }
 
 // ─────────────────────────────────────────────
-// Types & Data
+// Data
 //
-// Specification gap: there is no audits endpoint in `../../api/farmer` or
-// `docs/openapi.yaml` yet, so the past-audit lists and checklist below are
-// local mock state, as in the farm-rating source. Item copy carries i18n
-// *keys*, resolved with `t()` inside the component so the screen re-renders
-// correctly on a locale switch (see the same pattern in FarmRatingsScreen.tsx
-// and NotificationsScreen.tsx).
+// Real data from GET /farmers/me/audits (api/audits.ts). The whole history is
+// fetched once and split per tab client-side by `deriveAuditsOverview`, so the
+// stat cards ("done this year", latest tier) span both audit types.
+//
+// Removed from the approved design because the contract has no field or
+// endpoint for them (left out rather than faked): the prep checklist modal,
+// "Remind me" (no notification job), the outcome headline per past audit
+// (e.g. "Compliant with minor observation" -- the row now shows its
+// quarter / fiscal year), and the inline report modal fallback (the row always
+// navigates to AuditResultScreen).
 // ─────────────────────────────────────────────
 
 type AuditTab = 'external' | 'internal';
 
-interface PastAuditDef {
-  id: string;
-  day: string;
-  monthYear: string;
-  titleKey: TranslationKey;
-  auditorKey: TranslationKey;
-  majorCount: number;
-  minorCount: number;
-  ratingKey: TranslationKey;
-  ratingType: 'excellent' | 'good' | 'fair';
-}
-
-const EXTERNAL_PAST_AUDITS: PastAuditDef[] = [
-  {
-    id: 'ext-1',
-    day: '18',
-    monthYear: 'Jul 25',
-    titleKey: 'farmer.audits.outcome.minorObservation',
-    auditorKey: 'farmer.audits.auditor.pgsMeenakshi',
-    majorCount: 0,
-    minorCount: 1,
-    ratingKey: 'farmer.profile.rating.excellent',
-    ratingType: 'excellent',
-  },
-  {
-    id: 'ext-2',
-    day: '11',
-    monthYear: 'Aug 24',
-    titleKey: 'farmer.audits.outcome.cleanAudit',
-    auditorKey: 'farmer.audits.auditor.pgsMeenakshi',
-    majorCount: 0,
-    minorCount: 0,
-    ratingKey: 'farmer.audits.rating.good',
-    ratingType: 'good',
-  },
-];
-
-const INTERNAL_PAST_AUDITS: PastAuditDef[] = [
-  {
-    id: 'int-1',
-    day: '28',
-    monthYear: 'Apr 25',
-    titleKey: 'farmer.audits.outcome.cleanReview',
-    auditorKey: 'farmer.audits.auditor.tohfaDevaraj',
-    majorCount: 0,
-    minorCount: 0,
-    ratingKey: 'farmer.profile.rating.excellent',
-    ratingType: 'excellent',
-  },
-  {
-    id: 'int-2',
-    day: '14',
-    monthYear: 'Jan 25',
-    titleKey: 'farmer.audits.outcome.minorObservation',
-    auditorKey: 'farmer.audits.auditor.tohfaLakshmi',
-    majorCount: 0,
-    minorCount: 2,
-    ratingKey: 'farmer.audits.rating.good',
-    ratingType: 'good',
-  },
-];
-
-const CHECKLIST_DEFS: Array<{ id: string; key: TranslationKey; done: boolean }> = [
-  { id: '1', key: 'farmer.audits.checklist.boundaryMarkings', done: true },
-  { id: '2', key: 'farmer.audits.checklist.invoicesCompiled', done: true },
-  { id: '3', key: 'farmer.audits.checklist.logbookUpdated', done: false },
-  { id: '4', key: 'farmer.audits.checklist.labReports', done: false },
-  { id: '5', key: 'farmer.audits.checklist.seedCertificates', done: true },
-];
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'error'; error: unknown }
+  | { kind: 'ready'; items: FarmerAuditSummary[] };
 
 interface AuditsScreenProps {
   onBack?: () => void;
   onNavigateToResult?: (auditId: string) => void;
 }
 
+function k(key: string): TranslationKey {
+  return key as TranslationKey;
+}
+
+function formatUpcomingDateTime(iso: string): string {
+  const p = istDateParts(iso);
+  if (p === null) return '';
+  return t('farmer.audits.upcoming.dateTime', {
+    day: pad2(p.day),
+    month: t(k(shortMonthKey(p.monthIndex))),
+    year: p.year,
+    time: `${pad2(p.hour)}:${pad2(p.minute)}`,
+  });
+}
+
+function AuditRow({ item, onPress }: { item: FarmerAuditSummary; onPress: () => void }): React.JSX.Element {
+  const p = istDateParts(auditDisplayDate(item));
+  const conductedBy = auditConductedBy(item);
+  const score = auditScore(item);
+  const tierKey = tierLabelKey(item.tier);
+  return (
+    <TouchableOpacity style={styles.pastAuditCard} activeOpacity={0.7} onPress={onPress} accessibilityRole="button">
+      {/* Date Box */}
+      <View style={styles.dateBox}>
+        <Text style={styles.dateBoxDay}>{p === null ? '' : pad2(p.day)}</Text>
+        <Text style={styles.dateBoxMonth}>
+          {p === null ? '' : t('farmer.audits.dateBoxMonth', { month: t(k(shortMonthKey(p.monthIndex))), year: String(p.year).slice(-2) })}
+        </Text>
+      </View>
+
+      {/* Info Column */}
+      <View style={styles.pastAuditInfoCol}>
+        <Text style={styles.pastAuditTitle}>
+          {t('farmer.audits.quarterLabel', { quarter: item.quarter, fiscalYear: item.fiscalYear })}
+        </Text>
+        {conductedBy !== null ? <Text style={styles.pastAuditAuditor}>{conductedBy}</Text> : null}
+
+        {/* Pills Row: counts and tier only for a COMPLETED audit; otherwise its status. */}
+        <View style={styles.pillsRow}>
+          {score !== null ? (
+            <>
+              <View style={styles.pillGray}>
+                <Text style={styles.pillGrayText}>{t('farmer.audits.pill.major', { count: item.findingCounts.major })}</Text>
+              </View>
+
+              <View style={item.findingCounts.minor > 0 ? styles.pillOrange : styles.pillGray}>
+                <Text style={item.findingCounts.minor > 0 ? styles.pillOrangeText : styles.pillGrayText}>
+                  {t('farmer.audits.pill.minor', { count: item.findingCounts.minor })}
+                </Text>
+              </View>
+
+              {tierKey !== null ? (
+                <View style={item.tier === 'EXCELLENT' ? styles.pillGreen : styles.pillBlue}>
+                  <Text style={styles.pillWhiteText}>
+                    {t('farmer.audits.pill.tierScore', { tier: t(k(tierKey)), score: score.score, max: score.max })}
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <View style={styles.pillGray}>
+              <Text style={styles.pillGrayText}>{t(k(AUDIT_STATUS_LABEL_KEY[item.status]))}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Chevron Arrow */}
+      <View style={styles.chevronWrapper}>
+        <ChevronRightIcon size={18} color={P.twGray400} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<AuditTab>('external');
-  const [isReminderSet, setIsReminderSet] = useState(false);
-  const [isChecklistVisible, setIsChecklistVisible] = useState(false);
-  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
 
-  // Checkable checklist items for Prep Checklist modal
-  const [checklistDone, setChecklistDone] = useState<Record<string, boolean>>(
-    Object.fromEntries(CHECKLIST_DEFS.map((c) => [c.id, c.done])),
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setState({ kind: 'loading' });
+    try {
+      const items = await listAllMyAudits(signal);
+      if (signal?.aborted) return;
+      setState({ kind: 'ready', items });
+    } catch (error) {
+      if (signal?.aborted) return;
+      setState({ kind: 'error', error });
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  const overview = useMemo(
+    () => (state.kind === 'ready' ? deriveAuditsOverview(state.items) : null),
+    [state],
   );
 
-  const toggleChecklistItem = (id: string) => {
-    setChecklistDone((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  const group = overview === null ? null : activeTab === 'external' ? overview.EXTERNAL : overview.INTERNAL;
+  const next = group?.next ?? null;
+  const latestTierKey = overview === null ? null : tierLabelKey(overview.latestTier);
+  const openResult = (id: string) => onNavigateToResult?.(id);
 
-  const handleRemindMe = () => {
-    setIsReminderSet(!isReminderSet);
-    Alert.alert(
-      !isReminderSet ? t('farmer.audits.reminder.setTitle') : t('farmer.audits.reminder.cancelledTitle'),
-      !isReminderSet
-        ? t('farmer.audits.reminder.setBody', { date: activeTab === 'external' ? '05 Aug 2026' : '19 Jul 2026' })
-        : t('farmer.audits.reminder.cancelledBody'),
+  const header = (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={onBack}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('farmer.common.back')}
+      >
+        <ArrowBackIcon size={20} color={P.twGray800} />
+      </TouchableOpacity>
+      <View style={styles.headerTextCol}>
+        <Text style={styles.headerTitle}>{t('farmer.profile.audits.title')}</Text>
+        <Text style={styles.headerSubtitle}>{t('farmer.audits.headerSubtitle')}</Text>
+      </View>
+    </View>
+  );
+
+  if (state.kind === 'loading') {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        {header}
+        <View style={styles.scrollContent}>
+          <Skeleton width="100%" height={52} borderRadius={14} />
+          <View style={styles.skeletonGap} />
+          <Skeleton width="100%" height={80} borderRadius={16} />
+          <View style={styles.skeletonGap} />
+          <Skeleton width="100%" height={180} borderRadius={20} />
+        </View>
+      </SafeAreaView>
     );
-  };
+  }
 
-  const pastAuditDefs = activeTab === 'external' ? EXTERNAL_PAST_AUDITS : INTERNAL_PAST_AUDITS;
-  const pastAudits = pastAuditDefs.map((def) => ({
-    ...def,
-    title: t(def.titleKey),
-    auditor: t(def.auditorKey),
-    ratingLabel: t(def.ratingKey),
-  }));
-  const selectedAudit = pastAudits.find((a) => a.id === selectedAuditId) ?? null;
-  const checklist = CHECKLIST_DEFS.map((def) => ({ ...def, title: t(def.key), done: checklistDone[def.id] }));
+  if (state.kind === 'error') {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        {header}
+        <View style={styles.centerFill}>
+          <ErrorState
+            error={state.error}
+            message={t('farmer.audits.loadError')}
+            retryTitle={t('farmer.common.retry')}
+            offlineMessage={t('farmer.common.offline')}
+            onRetry={() => void load()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (overview === null || overview.isEmpty) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        {header}
+        <View style={styles.centerFill}>
+          <Text style={styles.emptyTitle}>{t('farmer.audits.empty.title')}</Text>
+          <Text style={styles.emptyBody}>{t('farmer.audits.empty.body')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const nextConductedBy = next === null ? null : auditConductedBy(next);
+  const nextTagKey: TranslationKey =
+    next?.status === 'IN_PROGRESS'
+      ? activeTab === 'external'
+        ? 'farmer.audits.upcoming.tagInProgressExternal'
+        : 'farmer.audits.upcoming.tagInProgressInternal'
+      : activeTab === 'external'
+        ? 'farmer.audits.upcoming.tagExternal'
+        : 'farmer.audits.upcoming.tagInternal';
 
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={t('farmer.common.back')}
-        >
-          <ArrowBackIcon size={20} color={P.twGray800} />
-        </TouchableOpacity>
-        <View style={styles.headerTextCol}>
-          <Text style={styles.headerTitle}>{t('farmer.profile.audits.title')}</Text>
-          <Text style={styles.headerSubtitle}>{t('farmer.audits.headerSubtitle')}</Text>
-        </View>
-      </View>
+      {header}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── Segmented Control (External / Internal) ── */}
@@ -303,74 +368,77 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
         {/* ── 3 Summary Metric Cards ── */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statMainValue}>4/yr</Text>
+            <Text style={styles.statMainValue}>{t('farmer.audits.stat.perYear', { count: QUARTERS_PER_FISCAL_YEAR })}</Text>
             <Text style={styles.statSubLabel}>{t('farmer.audits.stat.perQuarter')}</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statMainValue}>{t('farmer.audits.stat.doneRatio', { done: 2, total: 4 })}</Text>
+            <Text style={styles.statMainValue}>
+              {t('farmer.audits.stat.doneRatio', { done: overview.doneThisYear, total: QUARTERS_PER_FISCAL_YEAR })}
+            </Text>
             <Text style={styles.statSubLabel}>{t('farmer.audits.stat.doneThisYear')}</Text>
           </View>
 
           <View style={styles.statCard}>
             <View style={styles.ratingBadgePill}>
               <StarIcon size={11} color={P.white} />
-              <Text style={styles.ratingBadgeText}>{t('farmer.profile.rating.excellent')}</Text>
+              <Text style={styles.ratingBadgeText}>
+                {latestTierKey !== null ? t(k(latestTierKey)) : t('farmer.profile.rating.notRatedShort')}
+              </Text>
             </View>
             <Text style={styles.statSubLabel}>{t('farmer.audits.stat.latestRating')}</Text>
           </View>
         </View>
 
-        {/* ── Upcoming Audit Hero Card (Green) ── */}
-        <View style={styles.upcomingCard}>
-          {/* Header Tag */}
-          <View style={styles.upcomingTagRow}>
-            <CalendarIcon size={14} color={P.green100} />
-            <Text style={styles.upcomingTagText}>
-              {activeTab === 'external' ? t('farmer.audits.upcoming.tagExternal') : t('farmer.audits.upcoming.tagInternal')}
+        {/* ── Upcoming Audit Hero Card (Green): date and type only, never scores ── */}
+        {next !== null ? (
+          <View style={styles.upcomingCard}>
+            {/* Header Tag */}
+            <View style={styles.upcomingTagRow}>
+              <CalendarIcon size={14} color={P.green100} />
+              <Text style={styles.upcomingTagText}>{t(nextTagKey)}</Text>
+            </View>
+
+            {/* Title */}
+            <Text style={styles.upcomingTitle}>
+              {activeTab === 'external' ? t('farmer.audits.upcoming.titleExternal') : t('farmer.audits.upcoming.titleInternal')}
             </Text>
-          </View>
 
-          {/* Title */}
-          <Text style={styles.upcomingTitle}>
-            {activeTab === 'external' ? t('farmer.audits.upcoming.titleExternal') : t('farmer.audits.upcoming.titleInternal')}
-          </Text>
+            {/* Details list */}
+            <View style={styles.upcomingDetailsList}>
+              <View style={styles.upcomingDetailRow}>
+                <CalendarIcon size={16} color={P.white} />
+                <Text style={styles.upcomingDetailTextBold}>{formatUpcomingDateTime(next.scheduledFor)}</Text>
+              </View>
 
-          {/* Details list */}
-          <View style={styles.upcomingDetailsList}>
-            <View style={styles.upcomingDetailRow}>
-              <CalendarIcon size={16} color={P.white} />
-              <Text style={styles.upcomingDetailTextBold}>{activeTab === 'external' ? '05 Aug 2026 · 10:00 AM' : '19 Jul 2026 · 02:30 PM'}</Text>
+              {nextConductedBy !== null ? (
+                <View style={styles.upcomingDetailRow}>
+                  <BuildingIcon size={16} color={colors.brandGreenLight} />
+                  <Text style={styles.upcomingDetailText}>{nextConductedBy}</Text>
+                </View>
+              ) : null}
+
+              {next.farmName !== null ? (
+                <View style={styles.upcomingDetailRow}>
+                  <LocationPinIcon size={16} color={colors.brandGreenLight} />
+                  <Text style={styles.upcomingDetailText}>{next.farmName}</Text>
+                </View>
+              ) : null}
             </View>
-
-            <View style={styles.upcomingDetailRow}>
-              <BuildingIcon size={16} color={colors.brandGreenLight} />
-              <Text style={styles.upcomingDetailText}>{activeTab === 'external' ? t('farmer.audits.auditor.pgsMeenakshi') : t('farmer.audits.auditor.tohfaDevaraj')}</Text>
-            </View>
-
-            <View style={styles.upcomingDetailRow}>
-              <LocationPinIcon size={16} color={colors.brandGreenLight} />
-              <Text style={styles.upcomingDetailText}>{t('farmer.audits.farmLocation')}</Text>
-            </View>
           </View>
+        ) : null}
 
-          {/* Action buttons */}
-          <View style={styles.upcomingActionsRow}>
-            <TouchableOpacity style={styles.prepChecklistBtn} activeOpacity={0.85} onPress={() => setIsChecklistVisible(true)}>
-              <SlidersChecklistIcon size={16} color={P.twGray900} />
-              <Text style={styles.prepChecklistBtnText}>{t('farmer.audits.prepChecklist')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.remindMeBtn, isReminderSet && { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]}
-              activeOpacity={0.85}
-              onPress={handleRemindMe}
-            >
-              <BellIcon size={16} color={P.white} />
-              <Text style={styles.remindMeBtnText}>{isReminderSet ? t('farmer.audits.reminding') : t('farmer.audits.remindMe')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* ── Further upcoming audits (rare: more than one quarter already scheduled) ── */}
+        {group !== null && group.laterUpcoming.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>{t('farmer.audits.section.upcoming')}</Text>
+            <View style={styles.pastAuditsContainer}>
+              {group.laterUpcoming.map((item) => (
+                <AuditRow key={item.id} item={item} onPress={() => openResult(item.id)} />
+              ))}
+            </View>
+          </>
+        ) : null}
 
         {/* ── Section Title ── */}
         <Text style={styles.sectionTitle}>
@@ -379,144 +447,15 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
 
         {/* ── Past Audits List ── */}
         <View style={styles.pastAuditsContainer}>
-          {pastAudits.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.pastAuditCard}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (onNavigateToResult) {
-                  onNavigateToResult(item.id);
-                } else {
-                  setSelectedAuditId(item.id);
-                }
-              }}
-            >
-              {/* Date Box */}
-              <View style={styles.dateBox}>
-                <Text style={styles.dateBoxDay}>{item.day}</Text>
-                <Text style={styles.dateBoxMonth}>{item.monthYear}</Text>
-              </View>
-
-              {/* Info Column */}
-              <View style={styles.pastAuditInfoCol}>
-                <Text style={styles.pastAuditTitle}>{item.title}</Text>
-                <Text style={styles.pastAuditAuditor}>{item.auditor}</Text>
-
-                {/* Pills Row */}
-                <View style={styles.pillsRow}>
-                  <View style={styles.pillGray}>
-                    <Text style={styles.pillGrayText}>{t('farmer.audits.pill.major', { count: item.majorCount })}</Text>
-                  </View>
-
-                  <View style={item.minorCount > 0 ? styles.pillOrange : styles.pillGray}>
-                    <Text style={item.minorCount > 0 ? styles.pillOrangeText : styles.pillGrayText}>
-                      {t('farmer.audits.pill.minor', { count: item.minorCount })}
-                    </Text>
-                  </View>
-
-                  <View style={item.ratingType === 'excellent' ? styles.pillGreen : styles.pillBlue}>
-                    <Text style={styles.pillWhiteText}>{item.ratingLabel}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Chevron Arrow */}
-              <View style={styles.chevronWrapper}>
-                <ChevronRightIcon size={18} color={P.twGray400} />
-              </View>
-            </TouchableOpacity>
-          ))}
+          {group === null || group.past.length === 0 ? (
+            <Text style={styles.emptyInline}>
+              {activeTab === 'external' ? t('farmer.audits.emptyPastExternal') : t('farmer.audits.emptyPastInternal')}
+            </Text>
+          ) : (
+            group.past.map((item) => <AuditRow key={item.id} item={item} onPress={() => openResult(item.id)} />)
+          )}
         </View>
       </ScrollView>
-
-      {/* ── Modal: Prep Checklist ── */}
-      <Modal visible={isChecklistVisible} transparent={true} animationType="slide" onRequestClose={() => setIsChecklistVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('farmer.audits.checklistModal.title')}</Text>
-                <Text style={styles.modalSub}>
-                  {activeTab === 'external' ? t('farmer.audits.checklistModal.subExternal') : t('farmer.audits.checklistModal.subInternal')}
-                </Text>
-              </View>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setIsChecklistVisible(false)}>
-                <Text style={styles.modalCloseBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.checklistBody}>
-              {checklist.map((item) => (
-                <TouchableOpacity key={item.id} style={styles.checklistItem} activeOpacity={0.7} onPress={() => toggleChecklistItem(item.id)}>
-                  <View style={[styles.checkboxBox, item.done && styles.checkboxBoxActive]}>
-                    {item.done && <Text style={styles.checkmarkIcon}>✓</Text>}
-                  </View>
-                  <Text style={[styles.checklistItemText, item.done && styles.checklistItemTextDone]}>{item.title}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.doneBtn} onPress={() => setIsChecklistVisible(false)}>
-                <Text style={styles.doneBtnText}>{t('farmer.audits.closeChecklist')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Modal: Past Audit Inspection Details ── */}
-      <Modal visible={!!selectedAudit} transparent={true} animationType="fade" onRequestClose={() => setSelectedAuditId(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('farmer.audits.reportModal.title')}</Text>
-                <Text style={styles.modalSub}>
-                  {selectedAudit?.day} {selectedAudit?.monthYear}
-                </Text>
-              </View>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedAuditId(null)}>
-                <Text style={styles.modalCloseBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            {selectedAudit && (
-              <View style={styles.auditDetailModalBody}>
-                <View style={styles.reportDetailRow}>
-                  <Text style={styles.reportDetailLabel}>{t('farmer.audits.reportModal.status')}</Text>
-                  <Text style={styles.reportDetailValue}>{selectedAudit.title}</Text>
-                </View>
-                <View style={styles.reportDetailRow}>
-                  <Text style={styles.reportDetailLabel}>{t('farmer.audits.reportModal.auditorBody')}</Text>
-                  <Text style={styles.reportDetailValue}>{selectedAudit.auditor}</Text>
-                </View>
-                <View style={styles.reportDetailRow}>
-                  <Text style={styles.reportDetailLabel}>{t('farmer.audits.reportModal.majorNc')}</Text>
-                  <Text style={styles.reportDetailValue}>{selectedAudit.majorCount}</Text>
-                </View>
-                <View style={styles.reportDetailRow}>
-                  <Text style={styles.reportDetailLabel}>{t('farmer.audits.reportModal.minorNc')}</Text>
-                  <Text style={styles.reportDetailValue}>{selectedAudit.minorCount}</Text>
-                </View>
-                <View style={[styles.reportDetailRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.reportDetailLabel}>{t('farmer.audits.reportModal.finalRating')}</Text>
-                  <Text style={[styles.reportDetailValue, { color: selectedAudit.ratingType === 'excellent' ? P.primary : P.blue700 }]}>
-                    {selectedAudit.ratingLabel}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.doneBtn} onPress={() => setSelectedAuditId(null)}>
-                <Text style={styles.doneBtnText}>{t('farmer.common.close')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -687,7 +626,6 @@ const styles = StyleSheet.create({
   },
   upcomingDetailsList: {
     gap: 8,
-    marginBottom: 16,
   },
   upcomingDetailRow: {
     flexDirection: 'row',
@@ -703,43 +641,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '500',
     color: colors.brandGreenLight,
-  },
-  upcomingActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 2,
-  },
-  prepChecklistBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: P.white,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  prepChecklistBtnText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray900,
-  },
-  remindMeBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  remindMeBtnText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.white,
   },
 
   /* Section Title */
@@ -853,125 +754,30 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
 
-  /* Modals */
-  modalOverlay: {
+  /* Loading / error / empty states */
+  skeletonGap: {
+    height: 12,
+  },
+  centerFill: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: P.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 28,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: P.surfaceMuted,
+    padding: 24,
   },
-  modalTitle: {
+  emptyTitle: {
     fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
+    textAlign: 'center',
   },
-  modalSub: {
-    fontSize: typography.bodySmall,
-    color: P.twGray500,
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: P.twGray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseBtnText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray500,
-  },
-  checklistBody: {
-    marginBottom: 16,
-  },
-  checklistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: P.surfaceMuted,
-  },
-  checkboxBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: P.twGray300,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxBoxActive: {
-    borderColor: P.primary,
-    backgroundColor: P.primary,
-  },
-  checkmarkIcon: {
-    color: P.white,
-    fontSize: typography.bodySmall,
-    fontWeight: '800',
-  },
-  checklistItemText: {
-    flex: 1,
-    fontSize: typography.body,
-    color: P.twGray800,
-  },
-  checklistItemTextDone: {
-    color: P.twGray400,
-    textDecorationLine: 'line-through',
-  },
-  auditDetailModalBody: {
-    marginBottom: 16,
-    backgroundColor: P.twGray50,
-    borderRadius: 12,
-    padding: 14,
-  },
-  reportDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: P.twGray200,
-  },
-  reportDetailLabel: {
+  emptyBody: {
     fontSize: typography.body,
     color: P.twGray500,
-  },
-  reportDetailValue: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.twGray900,
-  },
-  modalFooter: {
+    textAlign: 'center',
     marginTop: 8,
   },
-  doneBtn: {
-    backgroundColor: P.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  doneBtnText: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.white,
+  emptyInline: {
+    fontSize: typography.body,
+    color: P.twGray500,
   },
 });

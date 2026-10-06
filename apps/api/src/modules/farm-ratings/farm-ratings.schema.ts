@@ -1,11 +1,13 @@
 /**
- * Farm rating (BR-06, LOCKED). Exactly 10 named categories, each scored 0-10
- * by an admin, summed DIRECTLY to a 0-100 total — no multiplier (10 x 10 =
- * 100 already). See db/migrations/0003_farmers_and_farms.sql for the schema
- * and db/seed/001_reference.sql for the 10 seeded categories.
+ * Farm rating (BR-06, LOCKED). Exactly 10 named categories, each scored 0-10,
+ * summed DIRECTLY to a 0-100 total — no multiplier (10 x 10 = 100 already).
+ * See db/migrations/0003_farmers_and_farms.sql for the schema and
+ * db/seed/001_reference.sql for the 10 seeded categories.
  *
- * A rating missing any category score is DRAFT/incomplete, not zero — see
- * farm-ratings.service.ts for the DRAFT -> COMPLETE lifecycle.
+ * READ-ONLY over HTTP (product decision 2026-10-01): a rating is created only
+ * by completing an INTERNAL audit (farm-ratings.service.ts recordAuditRating,
+ * called from audits.service.ts complete). There is no request schema here
+ * because there is no write endpoint; the removed PUT's body went with it.
  */
 import { z } from 'zod';
 
@@ -15,49 +17,16 @@ export type RatingTier = (typeof ratingTiers)[number];
 export const ratingStatuses = ['DRAFT', 'COMPLETE'] as const;
 export type RatingStatus = (typeof ratingStatuses)[number];
 
+/** AUDIT = derived from a completed INTERNAL audit; MANUAL = legacy row from the removed PUT. */
+export const ratingSources = ['AUDIT', 'MANUAL'] as const;
+export type RatingSource = (typeof ratingSources)[number];
+
 export const farmerIdParams = z
   .object({
     id: z.string().uuid('Farmer ID must be a valid UUID'),
   })
   .strict();
 export type FarmerIdParams = z.infer<typeof farmerIdParams>;
-
-/**
- * `categoryCode` is a plain string, NOT a compile-time zod enum of the 10
- * active codes. `rating_categories.is_active` is data specifically so that
- * the active set can change without a code deploy; the live set is validated
- * in farm-ratings.service.ts against that table, not against this schema.
- *
- * `score` is checked only for integer-ness here, NOT range. Zod validation
- * failures always surface as the generic `VALIDATION_FAILED` (see
- * errorHandler.ts's `zodToAppError` — it has no path to a domain code), but
- * BR-06a's test contract requires `code: SCORE_OUT_OF_RANGE` for a score
- * outside 0-10. The service throws that domain error explicitly instead.
- */
-export const farmRatingModuleInput = z
-  .object({
-    categoryCode: z.string().min(1, 'categoryCode is required'),
-    score: z.number().int('score must be an integer'),
-  })
-  .strict();
-export type FarmRatingModuleInput = z.infer<typeof farmRatingModuleInput>;
-
-export const setFarmRatingBody = z
-  .object({
-    // 1-10 entries: the PUT supports incremental scoring across multiple
-    // calls to build up the same in-progress (DRAFT) rating cycle. The
-    // "exactly the 10 active codes, no more, no fewer, no duplicates" rule
-    // (BR-06b) applies to the CUMULATIVE set of scores recorded for the
-    // cycle, not to any single request body, so it is enforced in the
-    // service against live data, not here.
-    modules: z
-      .array(farmRatingModuleInput)
-      .min(1, 'At least one module score is required')
-      .max(10, 'A farm rating has at most 10 categories'),
-    notes: z.string().max(500).optional(),
-  })
-  .strict();
-export type SetFarmRatingBody = z.infer<typeof setFarmRatingBody>;
 
 /**
  * No `name`/display-name field: root CLAUDE.md §2.7 forbids user-facing
@@ -80,5 +49,8 @@ export const farmRatingResponse = z.object({
   overallRating: z.number().nullable(),
   ratingTier: z.enum(ratingTiers).nullable(),
   ratedAt: z.string().nullable(),
+  // Additive (2026-10-01). null only for a farmer who has never been rated.
+  source: z.enum(ratingSources).nullable(),
+  sourceAuditId: z.string().uuid().nullable(),
 });
 export type FarmRatingResponse = z.infer<typeof farmRatingResponse>;

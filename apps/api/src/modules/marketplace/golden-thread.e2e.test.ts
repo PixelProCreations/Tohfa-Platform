@@ -36,6 +36,7 @@ const IDS = {
   farmer2Id: '30000000-0000-4000-8000-000000000002',
   zoneOoty: '20000000-0000-4000-8000-000000000001',
   cropCarrot: '11111111-1111-4000-8000-000000000001',
+  certFarmer: '40000000-0000-4000-8000-000000000001',
 };
 
 // Sensitive provenance keys that must NEVER leak to customers (BR-16)
@@ -196,6 +197,29 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
       VALUES ('${IDS.farmerId}', '${IDS.userFarmer}', 'TF-0001', '${IDS.zoneOoty}', 'APPROVED', 'VERIFIED', false)
       ON CONFLICT (id) DO UPDATE SET application_status = 'APPROVED', kyc_status = 'VERIFIED', is_market_blocked = false;
     `);
+
+    // BR-02: the listing gate refuses a farmer with no verified, unexpired
+    // PGS/NPOP certificate (CERT_MISSING), whatever is_market_blocked says.
+    // This thread's farmer lists produce, so it holds one. Deterministic id +
+    // ON CONFLICT keeps re-runs idempotent; expiry is judged in Asia/Kolkata.
+    await pool.query(
+      `INSERT INTO certifications
+         (id, farmer_id, cert_type, cert_number, issuing_body, issued_on, expires_on,
+          verification_status, verified_by, verified_at)
+       VALUES ($1, $2, 'PGS', 'PGS-GT-S30-0001', 'PGS India Council',
+               (now() AT TIME ZONE 'Asia/Kolkata')::date - 30,
+               (now() AT TIME ZONE 'Asia/Kolkata')::date + 365,
+               'VERIFIED', $3, now())
+       ON CONFLICT (id) DO UPDATE SET
+         farmer_id = EXCLUDED.farmer_id,
+         issued_on = EXCLUDED.issued_on,
+         expires_on = EXCLUDED.expires_on,
+         verification_status = 'VERIFIED',
+         verified_by = EXCLUDED.verified_by,
+         verified_at = EXCLUDED.verified_at,
+         deleted_at = NULL`,
+      [IDS.certFarmer, IDS.farmerId, IDS.userSuperAdmin],
+    );
 
     const catRes = await pool.query<{ id: string }>(
       `SELECT id FROM categories WHERE slug = 'vegetables' LIMIT 1`,

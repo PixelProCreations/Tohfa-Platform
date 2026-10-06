@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -14,11 +14,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { FarmBoundaryMap, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, FarmBoundaryMap, Icon, Skeleton } from '@tohfa/mobile-ui';
 import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,
   evalCertificateWarning,
+  getCachedCertifications,
   getMyCertifications,
   getMyFarmerProfile,
   getMyFarmRating,
@@ -29,6 +30,7 @@ import {
   type Certification,
   type FarmRating,
 } from '../../api/farmer';
+import { certificationDisplayName } from '../certifications/certificationForm';
 import { getFarms, getPlots, updateFarm, type Farm } from '../../api/farms';
 import { listSoilTests, type SoilTestRecord } from '../../api/soil';
 import { LOCALES, setLocale, t, type Locale, type TranslationKey } from '../../../../i18n/farmer';
@@ -127,12 +129,6 @@ const CERT_TONE: Record<
   },
 };
 
-function certTypeKey(certType: Certification['certType']): TranslationKey {
-  if (certType === 'PGS') return 'farmer.profile.cert.pgs';
-  if (certType === 'NPOP') return 'farmer.profile.cert.npop';
-  return 'farmer.certifications.add.type.OTHER';
-}
-
 export function ProfileScreen({
   onNavigateToHome,
   onNavigateToCertifications,
@@ -176,10 +172,13 @@ export function ProfileScreen({
   // Real certifications: GET /v1/farmers/me/certifications + the expiry-warning
   // threshold from system config. Loaded independently of the profile fetch so a
   // failure on one does not blank the other (same shape as WalletScreen).
-  const [certs, setCerts] = useState<Certification[]>([]);
+  // Starts from the last REAL server answer (empty on first open / after sign-out);
+  // the request below always runs and replaces it. A failure is its own state and
+  // never touches the rest of the screen.
+  const [certs, setCerts] = useState<Certification[]>(() => getCachedCertifications());
   const [certWarningDays, setCertWarningDays] = useState<number>(30);
-  const [certsLoading, setCertsLoading] = useState<boolean>(true);
-  const [certsError, setCertsError] = useState<string | null>(null);
+  const [certsLoading, setCertsLoading] = useState<boolean>(() => getCachedCertifications().length === 0);
+  const [certsError, setCertsError] = useState<{ error: unknown } | null>(null);
 
   // Real farm rating: GET /v1/farmers/me/rating (BR-06), loaded independently
   // of the profile/certs fetches (same shape as those) so a failure here
@@ -347,21 +346,39 @@ export function ProfileScreen({
     void fetchSoilTest();
   }, [loadFarms]);
 
-  const loadCerts = useCallback(async () => {
+  const loadCerts = useCallback(async (signal?: AbortSignal) => {
+    setCertsError(null);
     try {
-      setCertsError(null);
-      const [certsRes, configRes] = await Promise.all([getMyCertifications(), getSystemConfig()]);
+      const [certsRes, configRes] = await Promise.all([
+        getMyCertifications(undefined, 100, signal),
+        getSystemConfig(),
+      ]);
+      if (signal?.aborted) return;
       setCerts(certsRes.items);
       setCertWarningDays(configRes.certExpiryWarningDays);
-    } catch {
-      setCertsError(t('error.generic'));
+    } catch (error) {
+      if (signal?.aborted) return;
+      setCertsError({ error });
     } finally {
-      setCertsLoading(false);
+      if (!signal?.aborted) setCertsLoading(false);
     }
   }, []);
 
+  // Retry outlives the mount effect's controller; unmounting aborts whichever is in flight.
+  const certsController = useRef<AbortController | null>(null);
   useEffect(() => {
-    void loadCerts();
+    const controller = new AbortController();
+    certsController.current = controller;
+    void loadCerts(controller.signal);
+    return () => controller.abort();
+  }, [loadCerts]);
+
+  const retryCerts = useCallback(() => {
+    certsController.current?.abort();
+    const controller = new AbortController();
+    certsController.current = controller;
+    setCertsLoading(true);
+    void loadCerts(controller.signal);
   }, [loadCerts]);
 
   const loadRating = useCallback(async () => {
@@ -392,7 +409,9 @@ export function ProfileScreen({
     certSummary.find((c) => c.status === 'expiring') ??
     null;
   const certStatTone = worstCert ? CERT_TONE[worstCert.status] : CERT_TONE.active;
-  const certStatLabel = certsLoading
+  // While loading, or when the list could not be loaded, say nothing rather than
+  // claim "no certificate" for a list we never saw.
+  const certStatLabel = certsLoading || (certsError !== null && certs.length === 0)
     ? '—'
     : certSummary.length === 0
       ? t('farmer.dashboard.header.certNone')
@@ -844,16 +863,13 @@ export function ProfileScreen({
               <Skeleton height={112} width="48%" style={styles.certSkeleton} />
             </View>
           ) : certsError ? (
-            <TouchableOpacity
-              onPress={() => {
-                setCertsLoading(true);
-                void loadCerts();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.certNoticeText}>{certsError}</Text>
-              <Text style={styles.cardActionLink}>{t('farmer.common.retry')}</Text>
-            </TouchableOpacity>
+            <ErrorState
+              error={certsError.error}
+              message={t('farmer.certifications.loadError')}
+              retryTitle={t('farmer.common.retry')}
+              offlineMessage={t('farmer.common.offline')}
+              onRetry={retryCerts}
+            />
           ) : certSummary.length === 0 ? (
             <Text style={styles.certNoticeText}>{t('farmer.certifications.empty')}</Text>
           ) : (
@@ -886,7 +902,7 @@ export function ProfileScreen({
                         </View>
                       )}
                     </View>
-                    <Text style={styles.certTitle}>{t(certTypeKey(cert.certType))}</Text>
+                    <Text style={styles.certTitle}>{certificationDisplayName(cert, t)}</Text>
                     <Text style={[styles.certStatusText, { color: tone.fg }]}>
                       {t(tone.labelKey)}
                     </Text>
@@ -909,8 +925,8 @@ export function ProfileScreen({
               <Icon name="warning" size={16} color={P.amberDeep} />
               <Text style={styles.warningNoticeText}>
                 {worstCert.status === 'expired'
-                  ? t('farmer.profile.cert.expiredNotice', { type: worstCert.cert.certType })
-                  : t('farmer.profile.cert.expiringNotice', { type: worstCert.cert.certType })}
+                  ? t('farmer.profile.cert.expiredNotice', { type: certificationDisplayName(worstCert.cert, t) })
+                  : t('farmer.profile.cert.expiringNotice', { type: certificationDisplayName(worstCert.cert, t) })}
               </Text>
             </View>
           ) : null}

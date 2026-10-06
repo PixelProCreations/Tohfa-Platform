@@ -29,6 +29,7 @@ import {
   verifyOtp as apiVerifyOtp,
 } from '../../../shell/auth/api';
 import { saveTokens, clearTokens } from '../storage/tokenStorage';
+import { clearCertificationsCache } from './farmer';
 
 export interface UserRole {
   code: RoleCodeWithColor;
@@ -401,6 +402,8 @@ export async function logout(): Promise<void> {
     // for the same pattern).
   } finally {
     setAccessToken(null);
+    // The next account on this device must not see this farmer's certificates.
+    clearCertificationsCache();
     await clearTokens();
   }
 }

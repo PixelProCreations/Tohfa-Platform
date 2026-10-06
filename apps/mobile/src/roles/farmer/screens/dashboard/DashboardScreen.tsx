@@ -15,26 +15,125 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   deriveFarmRatingView,
-  evalCertificateWarning,
   evalMarketBlock,
-  getMyCertifications,
   getMyFarmerProfile,
   getMyFarmRating,
   getSystemConfig,
-  DEFAULT_CERTIFICATIONS,
+  listAllMyCertifications,
   type Certification,
   type FarmerProfile,
   type FarmRating,
 } from '../../api/farmer';
 import { getFarmWeather, type FarmWeather } from '../../api/weather';
-import { getMyListings, type CounterOffer, type Listing } from '../../api/listings';
+import { getMyListings, type Listing } from '../../api/listings';
 import { listNotifications } from '../../api/notifications';
+import { listMyAudits, shortMonthKey, type FarmerAuditSummary } from '../../api/audits';
+import { listAllActiveFarmCrops, type ActiveFarmCropsResult } from '../../api/crops';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 
 import { authPalette as P, colors, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 import { getGreetingKey } from '../../utils/greeting';
+import { cropPhotoFor } from '../listings/cropImages';
+import type { CropItem } from '../farm/crops/ProduceCalendarScreen';
+import { toActiveCropData } from './ActiveCropsScreen';
+import {
+  auditCountdown,
+  cropCardView,
+  DASHBOARD_CROP_PREVIEW_LIMIT,
+  selectCropPreview,
+  selectNextAudit,
+  soonestPendingCounterOffers,
+  summarizeCertifications,
+  UPCOMING_AUDIT_STATUSES,
+  type AuditCountdown,
+  type CertSummary,
+  type CropCardView,
+  type WidgetState,
+} from './dashboardWidgets';
+
+/** Audits fetched for the mini-card: one page, soonest first (BR-03a allows one per quarter). */
+const UPCOMING_AUDITS_PAGE_SIZE = 100; // LimitParam maximum in docs/openapi.yaml
+
+function auditMiniValue(countdown: AuditCountdown): string {
+  switch (countdown.kind) {
+    case 'none':
+      return t('farmer.dashboard.header.auditNone');
+    case 'inProgress':
+      return t('farmer.audits.status.inProgress');
+    case 'today':
+      return t('farmer.dashboard.header.auditToday');
+    case 'tomorrow':
+      return t('farmer.dashboard.header.auditTomorrow');
+    case 'inDays':
+      return t('farmer.dashboard.header.auditDue', { days: countdown.days });
+    case 'past':
+      return t('farmer.dashboard.header.auditDate', {
+        day: countdown.day,
+        month: t(shortMonthKey(countdown.monthIndex) as TranslationKey),
+      });
+    case 'unknown':
+      return '—';
+  }
+}
+
+function certMiniValue(summary: CertSummary): string {
+  switch (summary.kind) {
+    case 'none':
+      return t('farmer.dashboard.header.certNone');
+    case 'valid':
+      return t('farmer.dashboard.header.certValid');
+    case 'expiring':
+      return t('farmer.dashboard.header.certExpiring');
+    case 'pending':
+      return t('farmer.dashboard.header.certPending');
+    case 'expired':
+      return t('farmer.dashboard.header.certExpired');
+    case 'rejected':
+      return t('farmer.certifications.status.REJECTED');
+  }
+}
+
+function certGridSubtitle(summary: CertSummary): string {
+  switch (summary.kind) {
+    case 'none':
+      return t('farmer.dashboard.menu.profileSubtitleNone');
+    case 'valid':
+    case 'expiring':
+      if (summary.days === 0) return t('farmer.dashboard.menu.certificationsRenewalToday');
+      if (summary.days === 1) return t('farmer.dashboard.menu.certificationsRenewalTomorrow');
+      return t('farmer.dashboard.menu.profileSubtitle', { days: summary.days });
+    case 'pending':
+      return t('farmer.certifications.status.UNVERIFIED');
+    case 'expired':
+      return t('farmer.dashboard.menu.certificationsExpired');
+    case 'rejected':
+      return t('farmer.certifications.status.REJECTED');
+  }
+}
+
+function cropCountSubtitle(total: number, totalIsExact: boolean): string {
+  if (total === 0) return t('farmer.dashboard.menu.cropCountNone');
+  if (!totalIsExact) return t('farmer.dashboard.menu.cropCountPartial', { count: total });
+  if (total === 1) return t('farmer.dashboard.menu.cropCountOne');
+  return t('farmer.dashboard.menu.cropCount', { count: total });
+}
+
+/** Same wording ActiveCropsScreen uses for a crop's harvest status. */
+function cropHarvestText(view: CropCardView): string {
+  if (view.daysToHarvest === null) {
+    return t(
+      view.status === 'PLANNED'
+        ? 'farmer.crops.activeCrops.statusPlanned'
+        : 'farmer.crops.activeCrops.statusGrowingNoDate',
+    );
+  }
+  if (view.daysToHarvest < 0) {
+    return t('farmer.crops.activeCrops.statusOverdue', { days: Math.abs(view.daysToHarvest) });
+  }
+  return t('farmer.crops.activeCrops.statusHarvestIn', { days: view.daysToHarvest });
+}
 
 // Splits a trailing "(...)" suffix off a display name, e.g. seed/demo accounts
 // labeled "Suresh Gowda (Expiring Soon)" for QA identification -- a real
@@ -92,9 +191,11 @@ interface DashboardScreenProps {
   onNavigateToTohfaCalendar?: () => void;
   onNavigateToLearningHub?: () => void;
   onNavigateToProduceCalendar?: () => void;
-  onNavigateToCropDetail?: (cropName: string) => void;
+  /** Same payload ActiveCropsScreen hands CropDetailScreen, which re-fetches the crop by its real id. */
+  onNavigateToCropDetail?: (crop: CropItem) => void;
   onNavigateToCounterOffer?: (listing?: Listing) => void;
   onNavigateToInventory?: () => void;
+  onNavigateToAudits?: () => void;
 }
 
 export function DashboardScreen({
@@ -117,9 +218,9 @@ export function DashboardScreen({
   onNavigateToProduceCalendar,
   onNavigateToCropDetail,
   onNavigateToInventory,
+  onNavigateToAudits,
 }: DashboardScreenProps): React.JSX.Element {
   const [profile, setProfile] = useState<FarmerProfile | null>(null);
-  const [certs, setCerts] = useState<Certification[]>([]);
   const [farmRating, setFarmRating] = useState<FarmRating | null>(null);
   // Listings the server has already marked COUNTER_OFFERED. The list response
   // carries the listing's `activeCounterOffer` inline, so the dashboard alert
@@ -303,7 +404,7 @@ export function DashboardScreen({
       keywords: ['wallet', 'payouts', 'money', 'earnings', 'bank', 'balance', 'rupees', 'settlement'],
       action: () => {
         setShowSearch(false);
-        _onNavigateToWallet ? _onNavigateToWallet() : onNavigateToProfile?.();
+        (_onNavigateToWallet ?? onNavigateToProfile)?.();
       },
     },
     {
@@ -407,12 +508,59 @@ export function DashboardScreen({
     }
   }, []);
 
+  // The audit card, certification card and Active Crops each load on their
+  // own (same reason as weather above): a failing or slow call degrades only
+  // its widget, never the dashboard. Pull-to-refresh bumps `widgetReloadKey`
+  // to re-run them; the AbortController drops a superseded or unmounted load.
+  const [widgetReloadKey, setWidgetReloadKey] = useState<number>(0);
+  const [auditState, setAuditState] = useState<WidgetState<FarmerAuditSummary | null>>({ kind: 'loading' });
+  const [certState, setCertState] = useState<WidgetState<Certification[]>>({ kind: 'loading' });
+  const [cropsState, setCropsState] = useState<WidgetState<ActiveFarmCropsResult>>({ kind: 'loading' });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listMyAudits(
+      { status: [...UPCOMING_AUDIT_STATUSES], sort: 'scheduledFor', limit: UPCOMING_AUDITS_PAGE_SIZE },
+      controller.signal,
+    )
+      .then((res) => {
+        if (!controller.signal.aborted) setAuditState({ kind: 'ready', data: selectNextAudit(res.items) });
+      })
+      .catch((err: unknown) => {
+        if (!controller.signal.aborted) setAuditState({ kind: 'error', error: err });
+      });
+    return () => controller.abort();
+  }, [widgetReloadKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listAllMyCertifications(controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) setCertState({ kind: 'ready', data: items });
+      })
+      .catch((err: unknown) => {
+        if (!controller.signal.aborted) setCertState({ kind: 'error', error: err });
+      });
+    return () => controller.abort();
+  }, [widgetReloadKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listAllActiveFarmCrops(controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setCropsState({ kind: 'ready', data: result });
+      })
+      .catch((err: unknown) => {
+        if (!controller.signal.aborted) setCropsState({ kind: 'error', error: err });
+      });
+    return () => controller.abort();
+  }, [widgetReloadKey]);
+
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [profileRes, certsRes, configRes, counterOfferRes, ratingRes, notifRes] = await Promise.allSettled([
+      const [profileRes, configRes, counterOfferRes, ratingRes, notifRes] = await Promise.allSettled([
         getMyFarmerProfile(),
-        getMyCertifications(),
         getSystemConfig(),
         getMyListings('COUNTER_OFFERED'),
         getMyFarmRating(),
@@ -432,12 +580,6 @@ export function DashboardScreen({
           subscriptionTier: 'PAID',
           isMarketBlocked: false,
         });
-      }
-
-      if (certsRes.status === 'fulfilled' && certsRes.value?.items && certsRes.value.items.length > 0) {
-        setCerts(certsRes.value.items);
-      } else {
-        setCerts(DEFAULT_CERTIFICATIONS);
       }
 
       if (configRes.status === 'fulfilled' && configRes.value) {
@@ -468,7 +610,6 @@ export function DashboardScreen({
         subscriptionTier: 'PAID',
         isMarketBlocked: false,
       });
-      setCerts((prev) => (prev.length > 0 ? prev : DEFAULT_CERTIFICATIONS));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -487,6 +628,7 @@ export function DashboardScreen({
     setRefreshing(true);
     void loadData();
     void loadWeather();
+    setWidgetReloadKey((key) => key + 1);
   }, [loadData, loadWeather]);
 
   if (loading) {
@@ -517,26 +659,27 @@ export function DashboardScreen({
   }
 
   const ratingView = deriveFarmRatingView(farmRating);
-  const activeCert = certs[0];
-  const marketBlockState = evalMarketBlock(profile ?? {}, certs);
-  const certWarning = activeCert
-    ? evalCertificateWarning(activeCert.daysToExpiry, warningThreshold)
-    : null;
+  const now = new Date();
 
-  // BR-10/BR-11: only an offer the server still reports as PENDING is actionable.
-  // The soonest-expiring one is the one worth surfacing on the dashboard.
-  const pendingCounterOffers = counterOfferListings.filter(
-    (l): l is Listing & { activeCounterOffer: CounterOffer } =>
-      l.activeCounterOffer != null && l.activeCounterOffer.status === 'PENDING',
-  );
-  const urgentCounterOffer =
-    pendingCounterOffers
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(a.activeCounterOffer.expiresAt).getTime() -
-          new Date(b.activeCounterOffer.expiresAt).getTime(),
-      )[0] ?? null;
+  // Certification: real list or nothing -- never demo certificates. The card
+  // and the market-access banner both derive from summarizeCertifications (the
+  // banner via evalMarketBlock). While the list loads or after it fails
+  // (`certs` undefined), the block check falls back to the server's own
+  // `profile.isMarketBlocked`.
+  const certs = certState.kind === 'ready' ? certState.data : undefined;
+  const certSummary = certs !== undefined ? summarizeCertifications(certs, warningThreshold) : null;
+  const marketBlockState = evalMarketBlock(profile ?? {}, certs);
+
+  const auditValue = auditState.kind === 'ready' ? auditMiniValue(auditCountdown(auditState.data, now)) : '—';
+
+  const cropPreview =
+    cropsState.kind === 'ready' ? selectCropPreview(cropsState.data, DASHBOARD_CROP_PREVIEW_LIMIT) : null;
+
+  // BR-10/BR-11: only an offer the server still reports as PENDING is
+  // actionable; the soonest-expiring one is surfaced. Expiries go through
+  // parseServerTime (Postgres text timestamps are NaN to `new Date` on Hermes).
+  const pendingCounterOffers = soonestPendingCounterOffers(counterOfferListings);
+  const urgentCounterOffer = pendingCounterOffers[0] ?? null;
 
   // Neutral placeholders while the independent weather load is in flight or
   // failed -- this card must never block or error out the rest of the
@@ -631,20 +774,27 @@ export function DashboardScreen({
               accessibilityRole="button"
               accessibilityLabel={t('farmer.dashboard.header.certLabel')}
             >
+              {/* Real data: GET /v1/farmers/me/certifications, summarized by summarizeCertifications(). */}
               <View style={styles.miniCardTitleRow}>
                 <Icon name="shield" size={12} color={P.green200} />
-                <Text style={styles.miniCardTitle}> Cert</Text>
+                <Text style={styles.miniCardTitle}> {t('farmer.dashboard.header.certLabel')}</Text>
               </View>
-              <Text style={styles.miniCardValue}>Valid</Text>
+              <Text style={styles.miniCardValue}>{certSummary ? certMiniValue(certSummary) : '—'}</Text>
             </TouchableOpacity>
-            {/* MOCK: no audits resource exists in apps/api or docs/openapi.yaml. */}
-            <View style={styles.headerMiniCard}>
+            {/* Real data: GET /v1/farmers/me/audits?status=SCHEDULED,IN_PROGRESS -- the next audit's IST countdown. */}
+            <TouchableOpacity
+              style={styles.headerMiniCard}
+              onPress={onNavigateToAudits}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.dashboard.header.auditLabel')}
+            >
               <View style={styles.miniCardTitleRow}>
                 <Icon name="calendar_today" size={12} color={P.green200} />
-                <Text style={styles.miniCardTitle}> Audit</Text>
+                <Text style={styles.miniCardTitle}> {t('farmer.dashboard.header.auditLabel')}</Text>
               </View>
-              <Text style={styles.miniCardValue}>In 12 days</Text>
-            </View>
+              <Text style={styles.miniCardValue}>{auditValue}</Text>
+            </TouchableOpacity>
             {/* Real data: GET /v1/farmers/me/rating (BR-06) via getMyFarmRating(). */}
             <View style={styles.headerMiniCard}>
               <View style={styles.miniCardTitleRow}>
@@ -701,39 +851,43 @@ export function DashboardScreen({
             </View>
           </TouchableOpacity>
 
-          {/* BR-01/BR-02: market-blocked banner. Computed above via
-              evalMarketBlock but was never rendered in the redesign --
-              hiding a real access-block from the farmer is worse than the
-              banner looking unpolished, so it's restored here rather than
-              left as dead state. */}
-          {marketBlockState.isBlocked && marketBlockState.messageKey ? (
+          {/* BR-01/BR-02: certificate banner. The blocked state comes from
+              evalMarketBlock, which shares summarizeCertifications with the
+              Cert mini-card: a farmer with any verified, unexpired certificate
+              is never shown as blocked by other expired/pending ones. */}
+          {marketBlockState.isBlocked && marketBlockState.titleKey && marketBlockState.messageKey ? (
             <View style={[styles.alertCard, { backgroundColor: P.palePinkBg }]}>
               <Icon name="block" size={24} color={colors.danger} />
               <View style={styles.alertContent}>
                 <Text style={[styles.alertTitle, { color: colors.danger }]}>
-                  {t('farmer.dashboard.banner.marketBlockedTitle')}
+                  {t(marketBlockState.titleKey as TranslationKey)}
                 </Text>
                 <Text style={styles.alertMessage}>
                   {t(marketBlockState.messageKey as TranslationKey)}
                 </Text>
+                {marketBlockState.reason === 'CERT_EXPIRED' ? (
+                  <TouchableOpacity onPress={onNavigateToCertifications}>
+                    <Text style={styles.alertAction}>{t('farmer.dashboard.banner.renewAction')} {'>'}</Text>
+                  </TouchableOpacity>
+                ) : marketBlockState.reason === 'CERT_MISSING' ? (
+                  // BR-02: no certificate, or only rejected ones -- the way
+                  // back is adding one (Certifications screen -> Add).
+                  <TouchableOpacity onPress={onNavigateToCertifications}>
+                    <Text style={styles.alertAction}>{t('farmer.dashboard.banner.addCertAction')} {'>'}</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
-          ) : certWarning?.isWarning ? (
+          ) : certSummary?.kind === 'expiring' ? (
             <View style={styles.alertCard}>
               <Icon name="warning" size={24} color={P.orange900} />
               <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>
-                  {certWarning.isExpired
-                    ? t('farmer.dashboard.banner.certExpired')
-                    : t('farmer.dashboard.banner.certExpiringTitle')}
-                </Text>
+                <Text style={styles.alertTitle}>{t('farmer.dashboard.banner.certExpiringTitle')}</Text>
                 <Text style={styles.alertMessage}>
-                  {certWarning.isExpired
-                    ? t('farmer.dashboard.banner.certExpired')
-                    : `${certWarning.daysRemaining} days remaining`}
+                  {t('farmer.certifications.daysLeft', { days: certSummary.days })}
                 </Text>
                 <TouchableOpacity onPress={onNavigateToCertifications}>
-                  <Text style={styles.alertAction}>Renew certificate {'>'}</Text>
+                  <Text style={styles.alertAction}>{t('farmer.dashboard.banner.renewAction')} {'>'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -766,21 +920,25 @@ export function DashboardScreen({
               onPress={onNavigateToCropManagement || onNavigateToFarmManagement}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Crop Management"
+              accessibilityLabel={t('farmer.dashboard.menu.cropManagement')}
             >
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleMintBg }]}>
                 <Icon name="eco" size={20} color={colors.brandGreen} />
               </View>
-              <Text style={styles.gridTitle}>Crop Management</Text>
-              <Text style={styles.gridSubtitle}>3 crops · diary due</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.cropManagement')}</Text>
+              {/* Real active-crop count (same load as Active Crops below). The design's
+                  "· diary due" suffix is dropped: no endpoint reports a due diary entry. */}
+              <Text style={styles.gridSubtitle}>
+                {cropPreview ? cropCountSubtitle(cropPreview.total, cropPreview.totalIsExact) : '—'}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.gridCard} onPress={onNavigateToCertifications}>
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleLavenderBg }]}>
                 <Icon name="verified" size={20} color={P.violetAccent} />
               </View>
-              <Text style={styles.gridTitle}>Certifications</Text>
-              <Text style={styles.gridSubtitle}>Cert renewal in 24 days</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.certifications')}</Text>
+              <Text style={styles.gridSubtitle}>{certSummary ? certGridSubtitle(certSummary) : '—'}</Text>
             </TouchableOpacity>
             {/* Badge and subtitle count come from the same real pending-counter-offer
                 list as the alert card above. */}
@@ -825,6 +983,7 @@ export function DashboardScreen({
               <Text style={styles.gridSubtitle}>Market day tomorrow</Text>
             </TouchableOpacity>
 
+            {/* Learning Hub: static design copy -- no learning-content endpoint exists, so the "4" badge and "4 new tutorials" are not real counts. */}
             <TouchableOpacity
               style={styles.gridCard}
               onPress={onNavigateToLearningHub}
@@ -843,12 +1002,11 @@ export function DashboardScreen({
             </TouchableOpacity>
           </View>
 
-          {/* MOCK: no crops/harvest resource exists for farmers in apps/api or docs/openapi.yaml. */}
-          {/* Active Crops */}
+          {/* Active Crops: real GROWING/PLANNED crops across every plot (listAllActiveFarmCrops); the first few here, the rest via "View all". */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Active Crops</Text>
+            <Text style={styles.sectionTitle}>{t('farmer.dashboard.crops.title')}</Text>
             <TouchableOpacity onPress={onNavigateToActiveCrops ?? onNavigateToProduceCalendar} activeOpacity={0.75}>
-              <Text style={styles.viewAllText}>View all {'>'}</Text>
+              <Text style={styles.viewAllText}>{t('farmer.dashboard.crops.viewAll')} {'>'}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -857,65 +1015,56 @@ export function DashboardScreen({
             style={styles.cropsScroll}
             contentContainerStyle={styles.cropsScrollContent}
           >
-            <TouchableOpacity
-              style={styles.cropCard}
-              activeOpacity={0.85}
-              onPress={() => (onNavigateToCropDetail ? onNavigateToCropDetail('Tomato') : (onNavigateToProduceCalendar ?? onNavigateToActiveCrops)?.())}
-            >
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=80' }}
-                style={styles.cropImagePlaceholder}
-                resizeMode="cover"
-              />
-              <View style={styles.cropInfo}>
-                <Text style={styles.cropName}>Tomato</Text>
-                <Text style={styles.cropDetail}>Zone 2 · 45 days</Text>
-                <Text style={[styles.cropHarvest, { color: colors.brandGreen }]}>Harvest in 30d</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '60%', backgroundColor: colors.brandGreen }]} />
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cropCard}
-              activeOpacity={0.85}
-              onPress={() => (onNavigateToCropDetail ? onNavigateToCropDetail('Carrot') : (onNavigateToProduceCalendar ?? onNavigateToActiveCrops)?.())}
-            >
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&q=80' }}
-                style={styles.cropImagePlaceholder}
-                resizeMode="cover"
-              />
-              <View style={styles.cropInfo}>
-                <Text style={styles.cropName}>Carrot</Text>
-                <Text style={styles.cropDetail}>Zone 1 · 88 days</Text>
-                <Text style={[styles.cropHarvest, { color: colors.brandGreen }]}>Ready in 3d</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '95%', backgroundColor: colors.brandGreen }]} />
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cropCard}
-              activeOpacity={0.85}
-              onPress={() => (onNavigateToCropDetail ? onNavigateToCropDetail('Wheat') : (onNavigateToProduceCalendar ?? onNavigateToActiveCrops)?.())}
-            >
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80' }}
-                style={styles.cropImagePlaceholder}
-                resizeMode="cover"
-              />
-              <View style={styles.cropInfo}>
-                <Text style={styles.cropName}>Wheat</Text>
-                <Text style={styles.cropDetail}>Zone C · 14 days</Text>
-                <Text style={[styles.cropHarvest, { color: P.blue700 }]}>Harvest in 90d</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '15%', backgroundColor: P.blue700 }]} />
-                </View>
-              </View>
-            </TouchableOpacity>
+            {cropsState.kind === 'loading' ? (
+              Array.from({ length: DASHBOARD_CROP_PREVIEW_LIMIT }, (_, i) => (
+                <Skeleton key={i} width={172} height={190} borderRadius={18} style={styles.cropSkeleton} />
+              ))
+            ) : cropsState.kind === 'error' ? (
+              <Text style={styles.cropsStatusText}>{t('farmer.dashboard.crops.loadError')}</Text>
+            ) : cropPreview !== null && cropPreview.shown.length > 0 ? (
+              cropPreview.shown.map((entry) => {
+                const view = cropCardView(entry, now);
+                const accent = view.status === 'GROWING' ? colors.brandGreen : P.blue700;
+                // Stock picture of the crop type; a crop without one keeps the tinted box empty.
+                const photo = cropPhotoFor(entry.crop.cropIconKey, entry.crop.cropName);
+                return (
+                  <TouchableOpacity
+                    key={view.id}
+                    style={styles.cropCard}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={view.name}
+                    onPress={() =>
+                      onNavigateToCropDetail
+                        ? onNavigateToCropDetail(toActiveCropData(entry.crop, entry.plot))
+                        : (onNavigateToActiveCrops ?? onNavigateToProduceCalendar)?.()
+                    }
+                  >
+                    {photo !== null ? (
+                      <Image source={photo} style={styles.cropImagePlaceholder} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.cropImagePlaceholder} />
+                    )}
+                    <View style={styles.cropInfo}>
+                      <Text style={styles.cropName}>{view.name}</Text>
+                      <Text style={styles.cropDetail}>
+                        {view.daysOld === null
+                          ? view.plotName
+                          : t('farmer.dashboard.crops.plotLine', { plot: view.plotName, days: view.daysOld })}
+                      </Text>
+                      <Text style={[styles.cropHarvest, { color: accent }]}>{cropHarvestText(view)}</Text>
+                      <View style={styles.progressBarBg}>
+                        <View
+                          style={[styles.progressBarFill, { width: `${view.progressPercent ?? 0}%`, backgroundColor: accent }]}
+                        />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <Text style={styles.cropsStatusText}>{t('farmer.crops.activeCrops.emptyTitle')}</Text>
+            )}
           </ScrollView>
 
           {/* Action Buttons */}
@@ -934,8 +1083,7 @@ export function DashboardScreen({
             </TouchableOpacity>
           </View>
 
-          {/* MOCK: no content/tips resource exists. */}
-          {/* Tip of the Day */}
+          {/* Tip of the Day: static design copy -- no tips/content endpoint exists in apps/api or docs/openapi.yaml. */}
           <View style={styles.tipCard}>
             <View style={styles.tipBadge}>
               <Text style={styles.tipBadgeText}>TIP OF THE DAY</Text>
@@ -1387,6 +1535,14 @@ const styles = StyleSheet.create({
     height: 104,
     width: '100%',
     backgroundColor: P.twGray100,
+  },
+  cropSkeleton: {
+    marginRight: 14,
+  },
+  cropsStatusText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    paddingVertical: 12,
   },
   cropInfo: {
     padding: 13,

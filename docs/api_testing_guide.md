@@ -37,7 +37,8 @@
 | **FARMER_ADMIN** | `+919800000003` | Farmer Desk Admin | Reviewer queue (`FARMER_ADMIN`) | Application verification, listing counter-offers (`BR-29`) |
 | **MULTI_ROLE** | `+919800000004` | Operations Manager | `TOHFA_ADMIN` + `FARMER_ADMIN` | Multi-role switching validation |
 | **FARMER (Active)** | `+919870000001` | Ramesh Patel (Organic Pro) | Verified PGS (`FARMER`) | Produce listings, certificates, wallet payouts |
-| **FARMER (Expiring)** | `+919870000003` | Suresh Gowda | 15 Days to Expiry (`FARMER`) | 30-day warning banner test |
+| **FARMER (Expiring)** | `+919870000012` | Geetha Manoharan | Verified PGS expiring 20 Days after seeding (`FARMER`) | 30-day warning banner test (the "expiring soon" demo; same `Password@123`) |
+| **FARMER (Long-dated)** | `+919870000003` | Suresh Gowda | Verified PGS `PGS-TN-DEMO-0003` 400 Days to Expiry (`FARMER`) | Not expiring: no warning banner. Dev data also holds an `UNVERIFIED` `PGS-IN-KL-002-143` expiring 2027-02-12 |
 | **FARMER (Blocked)** | `+919870000004` | Anand Murugan | Expired Certificate (`FARMER`) | `BR-01` listing rejection (422 `CERT_EXPIRED`) |
 | **CUSTOMER (Active)** | `+919880000001` | Ananya Sharma | Balance ₹8,500.00 (`CUSTOMER`) | Catalog browse, 24h cart lock, wallet checkout |
 | **CUSTOMER (Low)** | `+919880000007` | Shortfall Customer | Balance ₹15.00 (`CUSTOMER`) | 402 Payment shortfall test |

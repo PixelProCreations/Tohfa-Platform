@@ -16,6 +16,8 @@ export const UploadPurpose = {
   PEST_PHOTO: 'PEST_PHOTO',
   WORKER_PHOTO: 'WORKER_PHOTO',
   WORKER_ID_PROOF: 'WORKER_ID_PROOF',
+  /** Optional report file attached to an audit (typically an external agency's own report). */
+  AUDIT_REPORT: 'AUDIT_REPORT',
 } as const;
 
 export type UploadPurpose = (typeof UploadPurpose)[keyof typeof UploadPurpose];
@@ -36,6 +38,7 @@ export const signUploadBody = z.object({
     UploadPurpose.PEST_PHOTO,
     UploadPurpose.WORKER_PHOTO,
     UploadPurpose.WORKER_ID_PROOF,
+    UploadPurpose.AUDIT_REPORT,
   ]),
   contentType: z.enum(ALLOWED_MIME_TYPES, {
     errorMap: () => ({

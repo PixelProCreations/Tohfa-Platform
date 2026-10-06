@@ -157,6 +157,68 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Farmers cannot verify their own certificates under any circumstance (BR-02).',
   },
   {
+    permission: 'certification.view',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Super Admin and TOHFA Admin may list and view any certification ahead of a verify decision (matrix §9).',
+  },
+  {
+    permission: 'certification.view',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Farmer Admin has no certification admin role; only Super Admin/TOHFA Admin manage certifications.',
+  },
+  {
+    permission: 'certification.view',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'Farmers read their own certifications through certification.manage_own, not the admin-wide read.',
+  },
+  // --- BR-51: admin edit/remove of any farmer's certificate. A spec gap with a
+  // conservative default (rbac.json conflicts); every widening must fail here. ---
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: "Super Admin may correct or remove any farmer's certificate record (BR-51; same grants as certification.view).",
+  },
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: "TOHFA Admin may correct or remove any farmer's certificate record (BR-51; same grants as certification.view).",
+  },
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Farmer Admin has no certification admin role; own-zone editing is an open client question, not a grant.',
+  },
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no authority over farmer certification records.',
+  },
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no authority over farmer certification records.',
+  },
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: "Farmers edit only their own certificates (certification.manage_own, BR-49/BR-50), never another farmer's.",
+  },
+  {
+    permission: 'certification.manage_any',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers never see or touch certification records (BR-16).',
+  },
+  {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.ALL,
@@ -212,26 +274,10 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Farmer Admin has no fiscal tag authority.',
   },
 
-  // --- Farm rating (BR-06): edit is conditional/own-zone for Farmer Admin, ---
-  // --- everyone else gets all/view/own/none per rbac.json exactly.        ---
-  {
-    permission: 'farmer.rating.edit',
-    role: RoleCode.FARMER_ADMIN,
-    expected: ScopeLevel.CONDITIONAL,
-    because: 'Farmer Admin may edit a farm rating only within their own zone (OWN_ZONE_ONLY).',
-  },
-  {
-    permission: 'farmer.rating.edit',
-    role: RoleCode.MAIN_WH_ADMIN,
-    expected: ScopeLevel.NONE,
-    because: 'Warehouse admins may view farm ratings but never edit them.',
-  },
-  {
-    permission: 'farmer.rating.edit',
-    role: RoleCode.FARMER,
-    expected: ScopeLevel.NONE,
-    because: 'A farmer cannot score their own farm rating.',
-  },
+  // --- Farm rating (BR-06): read-only. farmer.rating.edit was REMOVED on ---
+  // --- 2026-10-01 (ratings come from completed INTERNAL audits only), so  ---
+  // --- its three rows went with it; farm-ratings.test.ts asserts that no  ---
+  // --- farm-rating write permission exists in docs/rbac.json.             ---
   {
     permission: 'farmer.rating.view',
     role: RoleCode.FARMER,
@@ -255,6 +301,81 @@ const GRANT_CASES: readonly GrantCase[] = [
     role: RoleCode.TOHFA_ADMIN,
     expected: ScopeLevel.NONE,
     because: 'TOHFA Admin cannot configure rating tier thresholds.',
+  },
+
+  // --- Audit Management (BR-03, BR-05, BR-36). audit.view and
+  //     audit.red_flag.manage were added by the audit-module contract. ---
+  {
+    permission: 'audit.view',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Super Admin sees every audit.',
+  },
+  {
+    permission: 'audit.view',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'TOHFA Admin runs the audit programme and sees every audit.',
+  },
+  {
+    permission: 'audit.view',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.CONDITIONAL,
+    because: 'A Farmer Admin sees audits only for farmers in their own zone (OWN_ZONE_ONLY).',
+  },
+  {
+    permission: 'audit.view',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'BR-36: a farmer sees only their own audit history.',
+  },
+  {
+    permission: 'audit.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no audit visibility.',
+  },
+  {
+    permission: 'audit.view',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-16: audits identify farms; customers never see them.',
+  },
+  {
+    permission: 'audit.schedule',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Reqs 6.1: only Super Admin / TOHFA Admin schedule audits.',
+  },
+  {
+    permission: 'audit.score.categories',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Matrix §9: a Farmer Admin may not score audit categories (SUPPORT_ONLY).',
+  },
+  {
+    permission: 'audit.red_flag.manage',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-05b: red flags are raised/cleared by an explicit admin action.',
+  },
+  {
+    permission: 'audit.red_flag.manage',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'A Farmer Admin cannot red-flag a farm.',
+  },
+  {
+    permission: 'audit.red_flag.manage',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'A farmer can never touch their own red flag.',
+  },
+  {
+    permission: 'audit.report.generate',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.VIEW,
+    because: 'A farmer may download (GET only) the report PDF of their own audit.',
   },
 ];
 
