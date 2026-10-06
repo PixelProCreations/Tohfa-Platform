@@ -25,6 +25,7 @@ import { MainWarehouseNotificationsScreen } from './MainWarehouseNotificationsSc
 import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAttendanceScreen } from './MainWarehouseAttendanceScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
+import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -639,7 +640,16 @@ export function MainWarehouseMoreScreen({
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
   const [showAdminScreen, setShowAdminScreen] = useState(false);
+  const [showCustomerOrdersScreen, setShowCustomerOrdersScreen] = useState(false);
 
+  if (showCustomerOrdersScreen) {
+    return (
+      <MainWarehouseCustomerOrdersScreen
+        onBack={() => setShowCustomerOrdersScreen(false)}
+        onTabChange={onTabChange}
+      />
+    );
+  }
   if (showAdminScreen) return <MainWarehouseAdminScreen onBack={() => setShowAdminScreen(false)} />;
   if (showSettingsScreen) return <SubWarehouseSettingsScreen onBack={() => setShowSettingsScreen(false)} />;
   if (showHelpSupportScreen) return <SubWarehouseHelpSupportScreen onBack={() => setShowHelpSupportScreen(false)} />;
@@ -671,8 +681,11 @@ export function MainWarehouseMoreScreen({
 
     switch (item.id) {
       case 'orders':
-        if (onNavigateToOrders) onNavigateToOrders();
-        else Alert.alert(item.title, 'Opening Customer Orders & Fulfillment...');
+        if (onNavigateToOrders) {
+          onNavigateToOrders();
+        } else {
+          setShowCustomerOrdersScreen(true);
+        }
         break;
       case 'sales':
         if (onNavigateToSales) onNavigateToSales();
