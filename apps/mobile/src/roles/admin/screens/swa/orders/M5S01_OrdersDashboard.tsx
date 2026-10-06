@@ -263,7 +263,12 @@ export const M5S01_OrdersDashboard: React.FC<M5S01Props> = ({ onNavigate, onBack
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Order Status Section */}
-          <Text style={styles.sectionHeader}>Order Status</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionHeader, { marginTop: 0, marginBottom: 0 }]}>Order Status</Text>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate('M5S02')}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.statusGrid}>
             {/* Card 1: New Orders */}
             <TouchableOpacity
@@ -597,6 +602,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
     marginBottom: 10,
     marginTop: 4,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E85226',
+    fontFamily: 'Poppins',
   },
   statusGrid: {
     flexDirection: 'row',
