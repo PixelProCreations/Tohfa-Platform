@@ -12,7 +12,7 @@ import { MainWarehouseDocumentsScreen } from './MainWarehouseDocumentsScreen';
 
 const PALETTE = {
   primary: '#F0562A',
-  headerOrange: '#D97706',
+  headerOrange: '#F0562A',
   pageBg: '#F4F0EB',
   cardBg: '#FFFFFF',
   textSecondary: '#6B7280',
@@ -27,7 +27,7 @@ function ArrowBackIcon({ size = 20, color = '#FFFFFF' }) {
   );
 }
 
-function DocumentIcon({ color = '#E08331' }) {
+function DocumentIcon({ color = '#F0562A' }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -44,7 +44,7 @@ export function MainWarehouseDetailScreen({ onBack }: { onBack: () => void }) {
   }
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#D97706" />
+      <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerOrange} />
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
@@ -138,7 +138,7 @@ export function MainWarehouseDetailScreen({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: PALETTE.pageBg },
   header: {
-    backgroundColor: '#D97706',
+    backgroundColor: PALETTE.headerOrange,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,

@@ -281,6 +281,9 @@ export function MainWarehouseExpenseDetailScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Expense Detail</Text>
+            {!isShortVersion && (
+              <Text style={styles.headerSubtitle}>{expenseId} · {status}</Text>
+            )}
           </View>
         </View>
       </View>
@@ -291,66 +294,111 @@ export function MainWarehouseExpenseDetailScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Section 1: Expense Detail ─── */}
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionHeading}>Expense Detail</Text>
-          <View style={styles.card}>
-            <View style={styles.gridRow}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Expense ID</Text>
-                <Text style={styles.gridValue}>{expenseId}</Text>
+        {isShortVersion ? (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionHeading}>Expense Detail</Text>
+            <View style={styles.card}>
+              <View style={styles.gridRow}>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Expense ID</Text>
+                  <Text style={styles.gridValue}>{expenseId}</Text>
+                </View>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Category</Text>
+                  <Text style={styles.gridValue}>{category}</Text>
+                </View>
               </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Category</Text>
-                <Text style={styles.gridValue}>{category}</Text>
-              </View>
-            </View>
 
-            <View style={[styles.gridRow, { marginTop: 14 }]}>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Amount</Text>
-                <Text style={styles.gridValue}>₹{typeof amount === 'number' ? amount.toLocaleString() : amount}</Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.gridLabel}>Status</Text>
-                <Text style={styles.gridValue}>{status}</Text>
+              <View style={[styles.gridRow, { marginTop: 14 }]}>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Amount</Text>
+                  <Text style={styles.gridValue}>₹{typeof amount === 'number' ? amount.toLocaleString() : amount}</Text>
+                </View>
+                <View style={styles.gridCol}>
+                  <Text style={styles.gridLabel}>Status</Text>
+                  <Text style={styles.gridValue}>{status}</Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-
-        {!isShortVersion && (
+        ) : (
           <>
-            {/* ─── Timeline ─── */}
+            {/* ─── Section 1: Expense Summary ─── */}
             <View style={styles.sectionWrap}>
-              <Text style={styles.sectionHeading}>Timeline</Text>
-              <View style={[styles.card, { paddingVertical: 12 }]}>
-                {/* 1. Expense Created */}
-                <View style={styles.timelineItemRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <TimelineCheckIcon />
-                    <Text style={styles.timelineItemText}>Expense Created</Text>
+              <Text style={styles.sectionHeading}>Expense Summary</Text>
+              <View style={styles.card}>
+                <View style={styles.gridRow}>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Expense ID</Text>
+                    <Text style={styles.gridValue}>{expenseId}</Text>
+                  </View>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Category</Text>
+                    <Text style={styles.gridValue}>{category}</Text>
+                  </View>
+                </View>
+                
+                <View style={[styles.gridRow, { marginTop: 14 }]}>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Amount</Text>
+                    <Text style={styles.gridValue}>₹{typeof amount === 'number' ? amount.toLocaleString() : amount}</Text>
+                  </View>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Date</Text>
+                    <Text style={styles.gridValue}>{date}</Text>
                   </View>
                 </View>
 
+                <View style={[styles.gridRow, { marginTop: 14 }]}>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Payment Method</Text>
+                    <Text style={styles.gridValue}>{paymentMethod}</Text>
+                  </View>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Vendor / Payee</Text>
+                    <Text style={styles.gridValue}>{vendorPayee}</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.gridRow, { marginTop: 14 }]}>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Voucher</Text>
+                    <Text style={styles.gridValue}>VCH-000821</Text>
+                  </View>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Status</Text>
+                    <Text style={styles.gridValue}>{status}</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.gridRow, { marginTop: 14 }]}>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.gridLabel}>Created By</Text>
+                    <Text style={styles.gridValue}>MWA</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* ─── Timeline ─── */}
+            <View style={styles.sectionWrap}>
+              <Text style={styles.sectionHeading}>Timeline</Text>
+              <View style={[styles.card, { paddingVertical: 4, paddingHorizontal: 16 }]}>
+                {/* 1. Expense Created */}
+                <View style={styles.timelineItemRow}>
+                  <Text style={styles.timelineItemText}>Expense Created</Text>
+                </View>
                 <View style={styles.dashedDivider} />
 
                 {/* 2. Recorded */}
                 <View style={styles.timelineItemRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <TimelineCheckIcon />
-                    <Text style={styles.timelineItemText}>Recorded</Text>
-                  </View>
+                  <Text style={styles.timelineItemText}>Recorded</Text>
                 </View>
-
                 <View style={styles.dashedDivider} />
 
                 {/* 3. Voucher Generated */}
                 <View style={styles.timelineItemRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <TimelineCheckIcon />
-                    <Text style={styles.timelineItemText}>Voucher Generated</Text>
-                  </View>
+                  <Text style={styles.timelineItemText}>Voucher Generated</Text>
                 </View>
               </View>
             </View>
@@ -362,7 +410,7 @@ export function MainWarehouseExpenseDetailScreen({
             </View>
 
             {/* ─── Actions ─── */}
-            <View style={{ marginTop: 24, gap: 12 }}>
+            <View style={{ marginTop: 12, marginBottom: 8 }}>
               <TouchableOpacity
                 style={styles.viewVoucherBtn}
                 onPress={() => onViewVouchers ? onViewVouchers() : Alert.alert('View Voucher', 'Opening voucher details...')}

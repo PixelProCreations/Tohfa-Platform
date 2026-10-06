@@ -11,8 +11,8 @@ import {
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 
 const PALETTE = {
-  primary: '#E08331',
-  headerOrange: '#E08331',
+  primary: '#F0562A',
+  headerOrange: '#F0562A',
   pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
   textSecondary: '#6B7280',
@@ -22,7 +22,7 @@ const PALETTE = {
   btnSecondaryBorder: '#E5E7EB',
   greenText: '#15803D',
   pillBg: '#FAF7F2',
-  pillActiveBg: '#E08331',
+  pillActiveBg: '#F0562A',
   dangerBg: '#FDF2F2',
   dangerText: '#DC2626',
 };

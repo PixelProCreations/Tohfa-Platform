@@ -10,8 +10,8 @@ import {
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 
 const PALETTE = {
-  primary: '#E08331',
-  headerOrange: '#E08331',
+  primary: '#F0562A',
+  headerOrange: '#F0562A',
   pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
   textSecondary: '#6B7280',
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAF7F2',
     borderWidth: 1,
-    borderColor: '#E08331',
+    borderColor: '#F0562A',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
