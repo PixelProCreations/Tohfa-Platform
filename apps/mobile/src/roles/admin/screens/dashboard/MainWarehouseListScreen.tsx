@@ -13,7 +13,7 @@ import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
 
 const PALETTE = {
   primary: '#F0562A',
-  headerOrange: '#D97706', // The design has a different header color, looks like #D97706 or similar brownish-orange
+  headerOrange: '#F0562A',
   pageBg: '#F4F0EB',
   cardBg: '#FFFFFF',
   textSecondary: '#6B7280',
@@ -48,7 +48,7 @@ export function MainWarehouseListScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#D97706" />
+      <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerOrange} />
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
@@ -127,7 +127,7 @@ export function MainWarehouseListScreen({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: PALETTE.pageBg },
   header: {
-    backgroundColor: '#D97706',
+    backgroundColor: PALETTE.headerOrange,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,

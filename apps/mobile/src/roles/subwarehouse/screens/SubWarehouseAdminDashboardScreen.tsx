@@ -89,6 +89,7 @@ import { SubWarehouseRmaResolutionSuccessScreen } from './SubWarehouseRmaResolut
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
 import { SubWarehouseMaterialHandlingScreen } from './SubWarehouseMaterialHandlingScreen';
+import { SubWarehouseAddMaterialScreen } from './SubWarehouseAddMaterialScreen';
 import { SubWarehouseMaterialDetailScreen } from './SubWarehouseMaterialDetailScreen';
 import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
 import { SubWarehouseStorageInfoScreen } from './SubWarehouseStorageInfoScreen';
@@ -1124,6 +1125,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showWarehouseActivity, setShowWarehouseActivity] = useState(false);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   const [showMaterialHandling, setShowMaterialHandling] = useState(false);
+  const [showAddMaterial, setShowAddMaterial] = useState(false);
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
   const [showWarehouseCapacity, setShowWarehouseCapacity] = useState(false);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
@@ -1659,11 +1661,24 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showAddMaterial) {
+    return (
+      <SubWarehouseAddMaterialScreen
+        onBack={() => setShowAddMaterial(false)}
+        onSave={() => {
+          setShowAddMaterial(false);
+          // Handle save logic if needed
+        }}
+      />
+    );
+  }
+
   if (showMaterialHandling) {
     return (
       <SubWarehouseMaterialHandlingScreen
         onBack={() => setShowMaterialHandling(false)}
         onSelectMaterial={(id) => setSelectedMaterialId(id)}
+        onAddMaterial={() => setShowAddMaterial(true)}
       />
     );
   }

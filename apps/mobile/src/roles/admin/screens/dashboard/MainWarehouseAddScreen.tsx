@@ -11,8 +11,8 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 
 const PALETTE = {
-  primary: '#E08331',
-  headerOrange: '#E08331',
+  primary: '#F0562A',
+  headerOrange: '#F0562A',
   pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
   textSecondary: '#6B7280',
@@ -21,7 +21,7 @@ const PALETTE = {
   btnSecondaryBg: '#FFFFFF',
   btnSecondaryBorder: '#E5E7EB',
   pillBg: '#FAF7F2',
-  pillActiveBg: '#E08331',
+  pillActiveBg: '#F0562A',
   warningBg: '#FDF0E5',
   warningText: '#8A5A30',
 };
@@ -107,6 +107,19 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
       case 3:
         return (
           <>
+            <Text style={styles.sectionTitle}>Operating Information</Text>
+            
+            <Text style={styles.inputLabel}>Operating Hours</Text>
+            <TextInput 
+              style={styles.input} 
+              placeholder="e.g. 8:00 AM - 6:00 PM" 
+              placeholderTextColor="#9CA3AF"
+            />
+          </>
+        );
+      case 4:
+        return (
+          <>
             <Text style={styles.sectionTitle}>Capacity</Text>
             
             <Text style={styles.inputLabel}>Total Warehouse Capacity</Text>
@@ -122,7 +135,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
             </View>
           </>
         );
-      case 4:
+      case 5:
         return (
           <>
             <Text style={styles.sectionTitle}>Documents</Text>
@@ -136,7 +149,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
             </View>
           </>
         );
-      case 5:
+      case 6:
         return (
           <>
             <Text style={styles.sectionTitle}>Review</Text>
@@ -155,7 +168,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
             </View>
           </>
         );
-      case 6:
+      case 7:
         return (
           <View style={styles.successContainer}>
             <View style={styles.successIconWrap}>
@@ -195,7 +208,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
         return (
           <View style={styles.footer}>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(4)}>
-              <Text style={styles.primaryBtnText}>Next: Documents</Text>
+              <Text style={styles.primaryBtnText}>Next: Capacity</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryBtn} onPress={() => setStep(2)}>
               <Text style={styles.secondaryBtnText}>Back</Text>
@@ -206,7 +219,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
         return (
           <View style={styles.footer}>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(5)}>
-              <Text style={styles.primaryBtnText}>Next: Review</Text>
+              <Text style={styles.primaryBtnText}>Next: Documents</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryBtn} onPress={() => setStep(3)}>
               <Text style={styles.secondaryBtnText}>Back</Text>
@@ -217,7 +230,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
         return (
           <View style={styles.footer}>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(6)}>
-              <Text style={styles.primaryBtnText}>Create Warehouse</Text>
+              <Text style={styles.primaryBtnText}>Next: Review</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryBtn} onPress={() => setStep(4)}>
               <Text style={styles.secondaryBtnText}>Back</Text>
@@ -225,6 +238,17 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
           </View>
         );
       case 6:
+        return (
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => setStep(7)}>
+              <Text style={styles.primaryBtnText}>Create Warehouse</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => setStep(5)}>
+              <Text style={styles.secondaryBtnText}>Back</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      case 7:
         return (
           <View style={styles.footer}>
             <TouchableOpacity style={styles.primaryBtn} onPress={onBack}>
@@ -245,7 +269,7 @@ export function MainWarehouseAddScreen({ onBack }: { onBack: () => void }) {
         <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{top:10,bottom:10,left:10,right:10}}>
           <ArrowBackIcon />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{step === 6 ? 'Warehouse Created' : 'Add Warehouse'}</Text>
+        <Text style={styles.headerTitle}>{step === 7 ? 'Warehouse Created' : 'Add Warehouse'}</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -322,7 +346,7 @@ const styles = StyleSheet.create({
   docTitle: { fontFamily: 'Poppins', fontSize: 14, fontWeight: '800', color: '#000', marginBottom: 12 },
   docBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   docSub: { fontFamily: 'Poppins', fontSize: 12, color: '#6B7280' },
-  docRequired: { fontFamily: 'Poppins', fontSize: 12, fontWeight: '800', color: '#E08331' },
+  docRequired: { fontFamily: 'Poppins', fontSize: 12, fontWeight: '800', color: PALETTE.primary },
 
   reviewCard: {
     backgroundColor: '#FFFFFF',

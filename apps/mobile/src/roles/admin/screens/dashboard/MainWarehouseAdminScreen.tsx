@@ -36,6 +36,20 @@ function BellIcon({ size = 20, color = '#FFFFFF' }) {
   );
 }
 
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function WarehouseIcon({ color = '#FFF', size = 16 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -172,7 +186,9 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <WarehouseIcon size={20} />
+            <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{top:12,bottom:12,left:12,right:12}}>
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>Warehouse Management</Text>
           </View>
           <TouchableOpacity style={styles.bellBtn} activeOpacity={0.8}>
