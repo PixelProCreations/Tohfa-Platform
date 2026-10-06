@@ -95,7 +95,7 @@ const MOCK_MATERIALS = [
 export interface SubWarehouseMaterialHandlingScreenProps {
   onBack: () => void;
   onSelectMaterial: (id: string) => void;
-  onAddMaterial: () => void;
+  onAddMaterial?: () => void;
 }
 
 export function SubWarehouseMaterialHandlingScreen({

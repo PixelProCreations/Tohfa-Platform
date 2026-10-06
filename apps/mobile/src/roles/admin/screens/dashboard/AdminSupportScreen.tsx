@@ -687,9 +687,11 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.borderCard,
   },
   kpiValue: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: PALETTE.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1D2420',
+    lineHeight: 22,
+    letterSpacing: -0.2,
     marginBottom: 2,
   },
   kpiLabel: {

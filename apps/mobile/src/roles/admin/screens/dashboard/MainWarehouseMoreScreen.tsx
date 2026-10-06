@@ -14,7 +14,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SubWarehouseSettingsScreen } from '../../../subwarehouse/screens/SubWarehouseSettingsScreen';
 import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
 import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
-import { SubWarehouseVouchersScreen } from '../../../subwarehouse/screens/SubWarehouseVouchersScreen';
+import { MainWarehouseVouchersScreen } from './MainWarehouseVouchersScreen';
 import { SubWarehouseHelpSupportScreen } from '../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
 import { SubWarehouseWarehouseOperationsScreen } from '../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
 import { MainWarehouseWalletOperationsScreen } from './MainWarehouseWalletOperationsScreen';
@@ -642,28 +642,6 @@ export function MainWarehouseMoreScreen({
   const [showAdminScreen, setShowAdminScreen] = useState(false);
   const [showCustomerOrdersScreen, setShowCustomerOrdersScreen] = useState(false);
 
-  if (showCustomerOrdersScreen) {
-    return (
-      <MainWarehouseCustomerOrdersScreen
-        onBack={() => setShowCustomerOrdersScreen(false)}
-        onTabChange={onTabChange}
-      />
-    );
-  }
-  if (showAdminScreen) return <MainWarehouseAdminScreen onBack={() => setShowAdminScreen(false)} />;
-  if (showSettingsScreen) return <SubWarehouseSettingsScreen onBack={() => setShowSettingsScreen(false)} />;
-  if (showHelpSupportScreen) return <SubWarehouseHelpSupportScreen onBack={() => setShowHelpSupportScreen(false)} />;
-  if (showWarehouseOperationsScreen) return <SubWarehouseWarehouseOperationsScreen onBack={() => setShowWarehouseOperationsScreen(false)} />;
-  if (showReportsScreen) return <MainWarehouseReportsScreen onBack={() => setShowReportsScreen(false)} />;
-  if (showFinanceScreen) return <MainWarehouseFinanceScreen onBack={() => setShowFinanceScreen(false)} />;
-  if (showVouchersScreen) return <SubWarehouseVouchersScreen onBack={() => setShowVouchersScreen(false)} />;
-  if (showWalletOperationsScreen) return <MainWarehouseWalletOperationsScreen onBack={() => setShowWalletOperationsScreen(false)} />;
-  if (showReturnsScreen) return <MainWarehouseReturnsIssuesScreen onBack={() => setShowReturnsScreen(false)} />;
-  if (showReturnHistoryScreen) return <MainWarehouseReturnHistoryScreen onBack={() => setShowReturnHistoryScreen(false)} />;
-  if (showProfileScreen) return <MainWarehouseProfileScreen onBack={() => setShowProfileScreen(false)} />;
-  if (showNotificationsScreen) return <MainWarehouseNotificationsScreen onBack={() => setShowNotificationsScreen(false)} />;
-  if (showStaffScreen) return <MainWarehouseStaffScreen onBack={() => setShowStaffScreen(false)} />;
-  if (showAttendanceScreen) return <MainWarehouseAttendanceScreen initialView="main" onBack={() => setShowAttendanceScreen(false)} />;
 
   const handleTabPress = (tab: MainWHTab) => {
     if (tab === 'More') return;
@@ -847,6 +825,19 @@ export function MainWarehouseMoreScreen({
     }
   };
 
+  if (showCustomerOrdersScreen) {
+    return (
+      <MainWarehouseCustomerOrdersScreen
+        onBack={() => setShowCustomerOrdersScreen(false)}
+        onTabChange={onTabChange}
+      />
+    );
+  }
+
+  if (showAdminScreen) {
+    return <MainWarehouseAdminScreen onBack={() => setShowAdminScreen(false)} />;
+  }
+
   if (showSettingsScreen) {
     return (
       <SubWarehouseSettingsScreen
@@ -878,10 +869,9 @@ export function MainWarehouseMoreScreen({
 
   if (showVouchersScreen) {
     return (
-      <SubWarehouseVouchersScreen
-        warehouseName="Coonoor Warehouse"
+      <MainWarehouseVouchersScreen
         onBack={() => setShowVouchersScreen(false)}
-        onTabChange={onTabChange}
+        onVoucherPress={(_id) => {}}
       />
     );
   }
@@ -922,6 +912,18 @@ export function MainWarehouseMoreScreen({
         onTabChange={onTabChange as any}
       />
     );
+  }
+
+  if (showNotificationsScreen) {
+    return <MainWarehouseNotificationsScreen onBack={() => setShowNotificationsScreen(false)} />;
+  }
+
+  if (showStaffScreen) {
+    return <MainWarehouseStaffScreen onBack={() => setShowStaffScreen(false)} />;
+  }
+
+  if (showAttendanceScreen) {
+    return <MainWarehouseAttendanceScreen initialView="main" onBack={() => setShowAttendanceScreen(false)} />;
   }
 
   return (

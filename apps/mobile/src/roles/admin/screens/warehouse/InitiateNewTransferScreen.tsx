@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,13 +15,13 @@ import Svg, { Path } from 'react-native-svg';
 import { WAREHOUSE_THEME } from './WarehouseOverviewScreen';
 import type { InterWarehouseTransferItem } from './InterWarehouseTransferScreen';
 
-function BackChevronIcon() {
+function BackArrowWhiteIcon() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 18l-6-6 6-6"
-        stroke={WAREHOUSE_THEME.ink}
-        strokeWidth="2.2"
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke="#FFFFFF"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -61,7 +62,7 @@ function WarningTriangleIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"
-        stroke="#B45309"
+        stroke={WAREHOUSE_THEME.orange}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -134,30 +135,31 @@ export function InitiateNewTransferScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={WAREHOUSE_THEME.bg} />
+      <StatusBar barStyle="light-content" backgroundColor={WAREHOUSE_THEME.orange} />
+
+      {/* ─── Orange Header ─── */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          {onBack && (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.title}>Initiate New Transfer</Text>
+        </View>
+        <Text style={styles.subtitle}>Dispatch stock between facilities</Text>
+      </View>
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Back Button */}
-        {onBack && (
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
-          >
-            <BackChevronIcon />
-          </TouchableOpacity>
-        )}
-
-        {/* Title Header */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.title}>Initiate New Transfer</Text>
-          <Text style={styles.subtitle}>Dispatch stock between facilities</Text>
-        </View>
 
         {/* Route Card: Origin & Destination */}
         <View style={styles.card}>
@@ -326,30 +328,36 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 30,
   },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: WAREHOUSE_THEME.border,
-    backgroundColor: WAREHOUSE_THEME.cardBg,
+  header: {
+    backgroundColor: WAREHOUSE_THEME.orange,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 10,
+    paddingBottom: 14,
+  },
+  headerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    gap: 8,
+  },
+  backBtn: {
+    padding: 2,
+    marginRight: 4,
   },
   headerBlock: {
     marginBottom: 20,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: WAREHOUSE_THEME.titleRust,
-    letterSpacing: -0.3,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 14,
-    color: WAREHOUSE_THEME.muted,
-    marginTop: 6,
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginTop: 4,
+    marginLeft: 32,
   },
   card: {
     backgroundColor: WAREHOUSE_THEME.cardBg,

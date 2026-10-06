@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -8,47 +9,53 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
-export const WAREHOUSE_THEME = {
-  bg: '#FAF8F5',
+const PALETTE = {
+  primary: '#F0562A',
+  headerBg: '#F0562A',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  titleRust: '#7E2E11',
-  ink: '#1A1412',
-  muted: '#7D7571',
-  border: '#EDE8E0',
-  orange: '#E85226',
-  red: '#C93B27',
-  redBorder: '#F87171',
-  amberPill: '#7A4B1A',
-  amberBorder: '#D4A373',
-  trackBg: '#F0ECE6',
-  alertBg: '#FEF6E9',
-  alertBorder: '#FADCB3',
-  alertText: '#92400E',
+  border: '#EEDCD3',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  orangeDeep: '#7A2E14',
+  primarySoft: '#FDF3F0',
+  orangeBar: '#F0562A',
+  orangeBg: '#FDF3F0',
+  orangeBorder: '#FAD8CF',
+  orangeText: '#F0562A',
+  green: '#0D684D',
+  greenBg: '#EAF3DE',
+  greenBorder: '#C4E2C7',
+  trackBg: '#EBE5DC',
 };
 
-function BackChevronIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M15 18l-6-6 6-6"
-        stroke={WAREHOUSE_THEME.ink}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+export const WAREHOUSE_THEME = {
+  bg: '#F3EFE9',
+  cardBg: '#FFFFFF',
+  titleRust: '#7A2E14',
+  ink: '#1A1A1A',
+  muted: '#5F5E5A',
+  border: '#EEDCD3',
+  orange: '#F0562A',
+  red: '#E24B4A',
+  redBorder: '#FCA5A5',
+  amberPill: '#F0562A',
+  amberBorder: '#FAD8CF',
+  trackBg: '#EBE5DC',
+  alertBg: '#FDF3F0',
+  alertBorder: '#FAD8CF',
+  alertText: '#7A2E14',
+};
 
-function WarningTriangleIcon({ color = WAREHOUSE_THEME.red }: { color?: string }) {
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"
+        d="M19 12H5M12 19l-7-7 7-7"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -56,16 +63,53 @@ function WarningTriangleIcon({ color = WAREHOUSE_THEME.red }: { color?: string }
   );
 }
 
-function PencilEditIcon({ color = WAREHOUSE_THEME.ink }: { color?: string }) {
+function BalanceScaleIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+  // Lucide Scale (exact match to reference design balance scale)
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 21h10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 3v18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function TrendingUpIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+  // Lucide TrendingUp (exact match to performance chart line)
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m22 7-8.5 8.5-5-5L2 17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 7h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CircularArrowsIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+  // Lucide RefreshCw (exact match to capacity summary circular arrows)
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 3v5h-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 16H3v5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GearSettingsIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+  // Lucide Settings (exact match to manage warehouses gear)
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
+        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
@@ -75,237 +119,358 @@ export interface WarehouseOverviewScreenProps {
   onSelectWarehouse?: (warehouseName: string) => void;
   onViewLowStock?: () => void;
   onOpenSettings?: () => void;
+  onNavigateComparison?: () => void;
+  onNavigatePerformance?: () => void;
+  onNavigateCapacitySummary?: () => void;
+  onNavigateManageWarehouses?: () => void;
 }
+
+interface WarehouseData {
+  id: string;
+  name: string;
+  capacityPct: number;
+  capacityLabel: string;
+  barColor: string;
+  badgeBg: string;
+  badgeBorder: string;
+  badgeText: string;
+  stock: string;
+  receipts: string;
+  issues: string;
+}
+
+const WAREHOUSE_LIST: WarehouseData[] = [
+  {
+    id: 'ooty',
+    name: 'Ooty',
+    capacityPct: 82,
+    capacityLabel: '82% capacity',
+    barColor: PALETTE.orangeBar,
+    badgeBg: PALETTE.orangeBg,
+    badgeBorder: PALETTE.orangeBorder,
+    badgeText: PALETTE.orangeText,
+    stock: '3,420 KG',
+    receipts: '420 KG',
+    issues: '2',
+  },
+  {
+    id: 'coonoor',
+    name: 'Coonoor',
+    capacityPct: 68,
+    capacityLabel: '68% capacity',
+    barColor: PALETTE.green,
+    badgeBg: PALETTE.greenBg,
+    badgeBorder: PALETTE.greenBorder,
+    badgeText: PALETTE.green,
+    stock: '3,180 KG',
+    receipts: '380 KG',
+    issues: '3',
+  },
+  {
+    id: 'kotagiri',
+    name: 'Kotagiri',
+    capacityPct: 74,
+    capacityLabel: '74% capacity',
+    barColor: PALETTE.orangeBar,
+    badgeBg: PALETTE.orangeBg,
+    badgeBorder: PALETTE.orangeBorder,
+    badgeText: PALETTE.orangeText,
+    stock: '2,940 KG',
+    receipts: '310 KG',
+    issues: '1',
+  },
+  {
+    id: 'gudalur',
+    name: 'Gudalur Market',
+    capacityPct: 61,
+    capacityLabel: '61% capacity',
+    barColor: PALETTE.green,
+    badgeBg: PALETTE.greenBg,
+    badgeBorder: PALETTE.greenBorder,
+    badgeText: PALETTE.green,
+    stock: '3,300 KG',
+    receipts: '360 KG',
+    issues: '1',
+  },
+];
 
 export function WarehouseOverviewScreen({
   onBack,
   onSelectWarehouse,
   onViewLowStock,
   onOpenSettings,
+  onNavigateComparison,
+  onNavigatePerformance,
+  onNavigateCapacitySummary,
+  onNavigateManageWarehouses,
 }: WarehouseOverviewScreenProps) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={WAREHOUSE_THEME.bg} />
+    <SafeAreaView style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
+
+      {/* Top Header Banner */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerTitleRow}>
+          {onBack && (
+            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={styles.backBtn}>
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerTitle}>Warehouse Overview</Text>
+        </View>
+        <Text style={styles.headerSubtitle}>All 4 warehouses at a glance</Text>
+      </View>
 
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentPad}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Back Button */}
-        {onBack && (
+        {/* 4 Warehouse Cards */}
+        {WAREHOUSE_LIST.map((wh) => (
           <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            key={wh.id}
+            style={styles.warehouseCard}
+            onPress={() => onSelectWarehouse && onSelectWarehouse(`${wh.name} Warehouse`)}
+            activeOpacity={0.8}
           >
-            <BackChevronIcon />
-          </TouchableOpacity>
-        )}
+            {/* Top Row: Name and Capacity Badge */}
+            <View style={styles.cardTopRow}>
+              <Text style={styles.whName}>{wh.name}</Text>
+              <View
+                style={[
+                  styles.capacityBadge,
+                  { backgroundColor: wh.badgeBg, borderColor: wh.badgeBorder },
+                ]}
+              >
+                <Text style={[styles.capacityBadgeText, { color: wh.badgeText }]}>
+                  {wh.capacityLabel}
+                </Text>
+              </View>
+            </View>
 
-        {/* Title Header */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.title}>Warehouse Overview</Text>
-          <Text style={styles.subtitle}>Stock utilization across all 4 locations</Text>
+            {/* Capacity Progress Bar */}
+            <View style={styles.progressBarTrack}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${wh.capacityPct}%`, backgroundColor: wh.barColor },
+                ]}
+              />
+            </View>
+
+            {/* 3-Column Stats Row */}
+            <View style={styles.statsRow}>
+              <View style={styles.statCol}>
+                <Text style={styles.statLabel}>Stock</Text>
+                <Text style={styles.statValue}>{wh.stock}</Text>
+              </View>
+              <View style={styles.statCol}>
+                <Text style={styles.statLabel}>Receipts</Text>
+                <Text style={styles.statValue}>{wh.receipts}</Text>
+              </View>
+              <View style={styles.statCol}>
+                <Text style={styles.statLabel}>Issues</Text>
+                <Text style={styles.statValue}>{wh.issues}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {/* More Views Section */}
+        <Text style={styles.moreViewsHeading}>More Views</Text>
+        <View style={styles.moreViewsGrid}>
+          {/* Comparison */}
+          <TouchableOpacity
+            style={styles.viewTile}
+            onPress={onNavigateComparison ?? (() => onSelectWarehouse && onSelectWarehouse('Ooty Warehouse'))}
+            activeOpacity={0.8}
+          >
+            <BalanceScaleIcon size={22} color={PALETTE.primary} />
+            <Text style={styles.viewTileLabel}>Comparison</Text>
+          </TouchableOpacity>
+
+          {/* Performance */}
+          <TouchableOpacity
+            style={styles.viewTile}
+            onPress={onNavigatePerformance ?? (() => onSelectWarehouse && onSelectWarehouse('Ooty Warehouse'))}
+            activeOpacity={0.8}
+          >
+            <TrendingUpIcon size={22} color={PALETTE.primary} />
+            <Text style={styles.viewTileLabel}>Performance</Text>
+          </TouchableOpacity>
+
+          {/* Capacity Summary */}
+          <TouchableOpacity
+            style={styles.viewTile}
+            onPress={onNavigateCapacitySummary ?? onViewLowStock}
+            activeOpacity={0.8}
+          >
+            <CircularArrowsIcon size={22} color={PALETTE.primary} />
+            <Text style={styles.viewTileLabel}>Capacity Summary</Text>
+          </TouchableOpacity>
+
+          {/* Manage Warehouses */}
+          <TouchableOpacity
+            style={styles.viewTile}
+            onPress={onNavigateManageWarehouses ?? onOpenSettings}
+            activeOpacity={0.8}
+          >
+            <GearSettingsIcon size={22} color={PALETTE.primary} />
+            <Text style={styles.viewTileLabel}>Manage Warehouses</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Warehouse 1: Ooty Warehouse */}
-        <TouchableOpacity
-          style={styles.whCard}
-          onPress={() => onSelectWarehouse?.('Ooty Warehouse')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.whName}>Ooty Warehouse</Text>
-            <Text style={styles.whPercentage}>82%</Text>
-          </View>
-          <Text style={styles.whMeta}>4 staff on duty · 8,200 / 10,000 kg</Text>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: '82%', backgroundColor: WAREHOUSE_THEME.orange }]} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Warehouse 2: Coonoor Warehouse */}
-        <TouchableOpacity
-          style={styles.whCard}
-          onPress={() => onSelectWarehouse?.('Coonoor Warehouse')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.whName}>Coonoor Warehouse</Text>
-            <Text style={styles.whPercentage}>64%</Text>
-          </View>
-          <Text style={styles.whMeta}>3 staff on duty · 5,100 / 8,000 kg</Text>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: '64%', backgroundColor: WAREHOUSE_THEME.orange }]} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Warehouse 3: Kotagiri Warehouse (Alert State - click anywhere to navigate to Low Stock Alerts) */}
-        <TouchableOpacity
-          style={[styles.whCard, styles.whCardWarning]}
-          onPress={onViewLowStock}
-          activeOpacity={0.8}
-        >
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.whName}>Kotagiri Warehouse</Text>
-            <Text style={[styles.whPercentage, { color: WAREHOUSE_THEME.red }]}>18%</Text>
-          </View>
-          <Text style={styles.whMeta}>2 staff on duty · 1,050 / 6,000 kg</Text>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: '18%', backgroundColor: WAREHOUSE_THEME.red }]} />
-          </View>
-
-          {/* Low Stock Warning Row */}
-          <View style={styles.warningActionRow}>
-            <WarningTriangleIcon color={WAREHOUSE_THEME.red} />
-            <Text style={styles.warningActionText}>Low stock — view alerts</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Warehouse 4: Gudalur Market */}
-        <TouchableOpacity
-          style={styles.whCard}
-          onPress={() => onSelectWarehouse?.('Gudalur Market')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.whName}>Gudalur Market</Text>
-            <Text style={styles.whPercentage}>68%</Text>
-          </View>
-          <Text style={styles.whMeta}>2 staff on duty · 3,400 / 5,000 kg</Text>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: '68%', backgroundColor: WAREHOUSE_THEME.orange }]} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Bottom Button: Warehouse Settings */}
-        <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={onOpenSettings}
-          activeOpacity={0.8}
-        >
-          <PencilEditIcon color={WAREHOUSE_THEME.ink} />
-          <Text style={styles.outlineActionBtnText}>Warehouse Settings</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 36 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: WAREHOUSE_THEME.bg,
+    backgroundColor: PALETTE.headerBg,
   },
-  container: {
-    flex: 1,
-    backgroundColor: WAREHOUSE_THEME.bg,
+  headerBanner: {
+    backgroundColor: PALETTE.headerBg,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 8 : 10,
+    paddingBottom: 14,
   },
-  contentPad: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 30,
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: WAREHOUSE_THEME.border,
-    backgroundColor: WAREHOUSE_THEME.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    padding: 2,
   },
-  headerBlock: {
-    marginBottom: 22,
+  headerTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: WAREHOUSE_THEME.titleRust,
-    letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: WAREHOUSE_THEME.muted,
-    marginTop: 6,
-  },
-  whCard: {
-    backgroundColor: WAREHOUSE_THEME.cardBg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: WAREHOUSE_THEME.border,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    marginBottom: 16,
-  },
-  whCardWarning: {
-    borderColor: WAREHOUSE_THEME.redBorder,
-    borderWidth: 1.5,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  whName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: WAREHOUSE_THEME.ink,
-  },
-  whPercentage: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: WAREHOUSE_THEME.titleRust,
-  },
-  whMeta: {
-    fontSize: 13,
-    color: WAREHOUSE_THEME.muted,
+  headerSubtitle: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.88)',
     marginTop: 4,
+    marginLeft: 32,
   },
-  progressBarTrack: {
-    height: 8,
-    backgroundColor: WAREHOUSE_THEME.trackBg,
-    borderRadius: 4,
-    marginTop: 14,
-    overflow: 'hidden',
+  scroll: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
   },
-  progressBarFill: {
-    height: 8,
-    borderRadius: 4,
+  scrollPad: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
-  warningActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 4,
-  },
-  warningActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: WAREHOUSE_THEME.red,
-    marginLeft: 6,
-  },
-  outlineActionBtn: {
-    backgroundColor: WAREHOUSE_THEME.cardBg,
+
+  // ─── Warehouse Cards ───
+  warehouseCard: {
+    backgroundColor: PALETTE.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: WAREHOUSE_THEME.border,
-    paddingVertical: 15,
+    borderColor: PALETTE.border,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
+    justifyContent: 'space-between',
   },
-  outlineActionBtnText: {
-    fontSize: 15,
+  whName: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  capacityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  capacityBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: WAREHOUSE_THEME.ink,
-    marginLeft: 8,
+  },
+  progressBarTrack: {
+    height: 6.5,
+    backgroundColor: PALETTE.trackBg,
+    borderRadius: 3.25,
+    overflow: 'hidden',
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3.25,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statCol: {
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: PALETTE.textSecondary,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+
+  // ─── More Views ───
+  moreViewsHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.orangeDeep,
+    letterSpacing: -0.2,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  moreViewsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+  },
+  viewTile: {
+    width: '48.5%',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  viewTileLabel: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    textAlign: 'center',
   },
 });
