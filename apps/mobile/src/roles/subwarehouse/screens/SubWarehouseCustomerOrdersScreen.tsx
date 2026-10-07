@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,524 +9,313 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  pageBg:        '#F7F5EE',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1D2420',
+  primary: '#F0562A',
+  pageBg: '#F7F5F0',
+  cardBg: '#FFFFFF',
+  textInk: '#1E1612',
   textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  textBody:      '#4B5563',
-  border:        '#F0ECE3',
-  divider:       '#F0ECE3',
-  pillBtnBg:     '#FFF0EB',
-  pillBtnText:   '#F0562A',
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
-  greenBadge:    '#DCFCE7',
-  greenText:     '#15803D',
-  blueBadge:     '#E0F2FE',
-  blueText:      '#0369A1',
+  border: '#EBE5DC',
+  // badges
+  badgeGreenBg: '#E8F5E9',
+  badgeGreenText: '#064E3B',
+  badgeOrangeBg: '#FEF3C7',
+  badgeOrangeText: '#B45309',
+  badgeRedBg: '#FEE2E2',
+  badgeRedText: '#991B1B',
+  badgeGrayBg: '#F3EFE9',
+  badgeGrayText: '#7A726C',
 };
 
-// ─── Pure SVG Icons (No Rect or Circle to avoid Hermes runtime errors) ───────
-
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 24, color = '#FFFFFF' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function FilterSlidersIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = '#FFFFFF' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = '#7A726C' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M21 21l-4.35-4.35"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function StorePickupIcon({ size = 15, color = '#7A726C' }: { size?: number; color?: string }) {
+function StoreIcon({ size = 14, color = '#7A726C' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9 22V12h6v10"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export interface CustomerOrderRecord {
-  id: string;
-  orderNo: string;
-  dateText: string;
-  itemsCountText: string;
-  status: 'Ready for Pickup' | 'Completed' | 'Cancelled';
-  deliveryType: string;
-  paymentStatus: string;
-  amount: string;
-  actionText: string;
+function DeliveryIcon({ size = 14, color = '#7A726C' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M2 12h3M19 12h3M12 2v3M12 19v3M5 5l2 2M19 19l-2-2M5 19l2-2M19 5l-2 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="5" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
 }
 
-const ORDERS_DATA: CustomerOrderRecord[] = [
+const ORDERS_DATA = [
   {
     id: 'o1',
-    orderNo: 'ORD-00251',
-    dateText: '24 Sep 2026',
-    itemsCountText: '3 Items',
-    status: 'Ready for Pickup',
-    deliveryType: 'Pickup',
-    paymentStatus: 'Paid',
-    amount: '₹850',
-    actionText: 'View Pickup Status',
+    orderNo: 'ORD-1024',
+    customer: 'Arun Kumar',
+    status: 'Confirmed',
+    items: '3 Items',
+    price: '₹850',
+    type: 'Pickup',
+    date: 'Today · 10:32 AM',
   },
   {
     id: 'o2',
-    orderNo: 'ORD-00238',
-    dateText: '20 Sep 2026',
-    itemsCountText: '2 Items',
+    orderNo: 'ORD-1023',
+    customer: 'Priya',
+    status: 'Ready for Pickup',
+    items: '5 Items',
+    price: '₹1,240',
+    type: 'Pickup',
+    date: 'Today · 09:45 AM',
+  },
+  {
+    id: 'o3',
+    orderNo: 'ORD-1022',
+    customer: 'Ganesh K.',
+    status: 'Packing',
+    items: '2 Items',
+    price: '₹420',
+    type: 'Pickup',
+    date: 'Today · 09:10 AM',
+  },
+  {
+    id: 'o4',
+    orderNo: 'ORD-1021',
+    customer: 'Divya R.',
+    status: 'Confirmed',
+    items: '4 Items',
+    price: '₹960',
+    type: 'Delivery',
+    date: 'Today · 08:55 AM',
+  },
+  {
+    id: 'o5',
+    orderNo: 'ORD-1018',
+    customer: 'Meena S.',
+    status: 'Quantity Issue',
+    items: '2 Items',
+    price: '₹310',
+    type: 'Pickup',
+    date: 'Yesterday · 4:20 PM',
+  },
+  {
+    id: 'o6',
+    orderNo: 'ORD-1010',
+    customer: 'Rahul Kumar',
     status: 'Completed',
-    deliveryType: 'Pickup',
-    paymentStatus: 'Paid',
-    amount: '₹420',
-    actionText: 'View Invoice',
+    items: '3 Items',
+    price: '₹850',
+    type: 'Pickup',
+    date: 'Yesterday · 2:10 PM',
   },
 ];
 
-const FILTER_TABS = ['All', 'Active', 'Completed', 'Cancelled'];
-
-import { OrderFilterState } from './SubWarehouseOrderFiltersScreen';
-
 export interface SubWarehouseCustomerOrdersScreenProps {
-  customerName?: string | undefined;
   onBack: () => void;
-  onOpenFilters?: (() => void) | undefined;
-  appliedFilters?: OrderFilterState | undefined;
-  onClearFilters?: (() => void) | undefined;
+  onOpenFilters?: () => void;
+  customerName?: string;
+  appliedFilters?: any;
+  onClearFilters?: () => void;
 }
 
 export function SubWarehouseCustomerOrdersScreen({
-  customerName = 'Rajesh Kumar',
   onBack,
   onOpenFilters,
+  customerName,
   appliedFilters,
   onClearFilters,
 }: SubWarehouseCustomerOrdersScreenProps) {
-  const [selectedFilter, setSelectedFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const hasActiveFilters = Boolean(
-    appliedFilters && (
-      (appliedFilters.orderStatus && appliedFilters.orderStatus !== 'All') ||
-      (appliedFilters.orderType && appliedFilters.orderType !== 'All') ||
-      (appliedFilters.paymentStatus && appliedFilters.paymentStatus !== 'All') ||
-      (appliedFilters.datePreset && appliedFilters.datePreset !== 'All Time') ||
-      appliedFilters.customer ||
-      appliedFilters.searchQuery
-    )
-  );
-
-  const query = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();
-
-  const effectiveStatus = appliedFilters?.orderStatus !== undefined && appliedFilters.orderStatus !== 'All'
-    ? appliedFilters.orderStatus
-    : selectedFilter;
-
-  const filteredOrders = ORDERS_DATA.filter((item) => {
-    if (effectiveStatus === 'Active' && item.status !== 'Ready for Pickup') return false;
-    if (effectiveStatus === 'Completed' && item.status !== 'Completed') return false;
-    if (effectiveStatus === 'Cancelled' && item.status !== 'Cancelled') return false;
-    if (appliedFilters?.orderType && appliedFilters.orderType !== 'All' && item.deliveryType.toLowerCase() !== appliedFilters.orderType.toLowerCase()) {
-      return false;
+  const getBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'Ready for Pickup':
+      case 'Completed':
+        return { bg: PALETTE.badgeGreenBg, text: PALETTE.badgeGreenText };
+      case 'Confirmed':
+      case 'Packing':
+        return { bg: PALETTE.badgeOrangeBg, text: PALETTE.badgeOrangeText };
+      case 'Quantity Issue':
+        return { bg: PALETTE.badgeRedBg, text: PALETTE.badgeRedText };
+      default:
+        return { bg: PALETTE.badgeGrayBg, text: PALETTE.badgeGrayText };
     }
-    if (appliedFilters?.paymentStatus && appliedFilters.paymentStatus !== 'All' && item.paymentStatus.toLowerCase() !== appliedFilters.paymentStatus.toLowerCase()) {
-      return false;
-    }
-    if (query && !item.orderNo.toLowerCase().includes(query)) return false;
-    return true;
-  });
+  };
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-
-      {/* ─── Header Banner ─── */}
-      <View style={styles.headerBanner}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.8}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Customer Orders</Text>
-            <Text style={styles.headerSubtitle}>{appliedFilters?.customer || customerName}</Text>
+      
+      {/* ─── Header ─── */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View style={styles.headerTitleRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
+              <ArrowBackIcon size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Orders</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={onOpenFilters || (() => Alert.alert('Filter', 'Filter options...'))}
-            activeOpacity={0.8}
-            accessibilityLabel="Filter Orders"
-          >
-            <FilterSlidersIcon size={18} color="#FFFFFF" />
-            {hasActiveFilters && <View style={styles.activeFilterDot} />}
+          <TouchableOpacity style={styles.filterBtn} onPress={onOpenFilters} activeOpacity={0.7}>
+            <FilterSlidersIcon size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ─── Filter Pills ─── */}
-        <View style={styles.filterRow}>
-          {FILTER_TABS.map((tab) => {
-            const isSelected = selectedFilter === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[
-                  styles.filterPill,
-                  isSelected ? styles.filterPillSelected : styles.filterPillUnselected,
-                ]}
-                onPress={() => setSelectedFilter(tab)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    isSelected ? styles.filterPillTextSelected : styles.filterPillTextUnselected,
-                  ]}
-                >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        
+        <Text style={styles.ordersCountText}>24 Orders</Text>
 
-        {/* ─── Search Bar ─── */}
-        <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#7A726C" />
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <SearchIcon />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by Order ID or product"
-            placeholderTextColor={PALETTE.textMuted}
+            placeholder="Search order / customer / phone"
+            placeholderTextColor={PALETTE.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
           />
         </View>
 
-        {/* ─── Order Cards List ─── */}
-        {filteredOrders.map((order) => {
-          const isReady = order.status === 'Ready for Pickup';
-          return (
-            <View key={order.id} style={styles.orderCard}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.orderNo}>{order.orderNo}</Text>
-                <View
-                  style={[
-                    styles.statusPill,
-                    { backgroundColor: isReady ? PALETTE.blueBadge : PALETTE.greenBadge },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusPillText,
-                      { color: isReady ? PALETTE.blueText : PALETTE.greenText },
-                    ]}
-                  >
-                    {order.status}
-                  </Text>
+        {/* List */}
+        <View style={styles.listContainer}>
+          {ORDERS_DATA.map((order) => {
+            const badge = getBadgeStyle(order.status);
+            return (
+              <View key={order.id} style={styles.card}>
+                
+                {/* Top Row: Order No + Badge */}
+                <View style={styles.rowBetween}>
+                  <Text style={styles.orderNo}>{order.orderNo}</Text>
+                  <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                    <Text style={[styles.badgeText, { color: badge.text }]}>{order.status}</Text>
+                  </View>
                 </View>
+                
+                {/* Customer */}
+                <Text style={styles.customerName}>{order.customer}</Text>
+
+                {/* Items & Price */}
+                <View style={[styles.rowBetween, { marginTop: 12, marginBottom: 12 }]}>
+                  <Text style={styles.itemsText}>{order.items}</Text>
+                  <Text style={styles.priceText}>{order.price}</Text>
+                </View>
+
+                {/* Type & Date */}
+                <View style={styles.rowBetween}>
+                  <View style={styles.typeWrap}>
+                    {order.type === 'Pickup' ? <StoreIcon /> : <DeliveryIcon />}
+                    <Text style={styles.typeText}>{order.type}</Text>
+                  </View>
+                  <Text style={styles.dateText}>{order.date}</Text>
+                </View>
+
               </View>
-
-              <Text style={styles.orderSub}>
-                {order.dateText} · {order.itemsCountText}
-              </Text>
-
-              <View style={styles.orderMidRow}>
-                <View style={styles.pickupWrap}>
-                  <StorePickupIcon size={16} color="#7A726C" />
-                  <Text style={styles.pickupLabel}>{order.deliveryType}</Text>
-                </View>
-
-                <View style={styles.priceWrap}>
-                  <Text style={styles.paidLabel}>{order.paymentStatus}</Text>
-                  <Text style={styles.amountText}>{order.amount}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.actionButton}
-                activeOpacity={0.8}
-                onPress={() => Alert.alert(order.orderNo, `${order.actionText} details`)}
-              >
-                <Text style={styles.actionBtnText}>{order.actionText}</Text>
-              </TouchableOpacity>
-            </View>
-          );
-        })}
-
-        <View style={{ height: 24 }} />
+            );
+          })}
+        </View>
       </ScrollView>
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: PALETTE.pageBg,
-  },
-  headerBanner: {
+  root: { flex: 1, backgroundColor: PALETTE.pageBg },
+  header: {
     backgroundColor: PALETTE.primary,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
   },
-  headerRow: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backButton: {
-    paddingRight: 10,
-    paddingVertical: 4,
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  headerTitleCol: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontFamily: 'Poppins',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  headerSubtitle: {
-    fontFamily: 'Poppins',
-    fontSize: 11,
-    fontWeight: '400',
-    color: '#FFFFFF',
-    opacity: 0.95,
-    marginTop: 1,
-  },
-  filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeFilterDot: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#FFFFFF',
-  },
-  scroll: {
-    flex: 1,
-    backgroundColor: PALETTE.pageBg,
-  },
-  scrollContent: {
-    paddingTop: 12,
-    paddingBottom: 24,
-    backgroundColor: PALETTE.pageBg,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  filterPill: {
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 1,
-  },
-  filterPillSelected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: PALETTE.primary,
-  },
-  filterPillUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: PALETTE.border,
-  },
-  filterPillText: {
-    fontFamily: 'Poppins',
+
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+
+  ordersCountText: {
     fontSize: 12,
-  },
-  filterPillTextSelected: {
-    fontWeight: '700',
-    color: PALETTE.primary,
-  },
-  filterPillTextUnselected: {
-    fontWeight: '400',
     color: PALETTE.textSecondary,
+    marginBottom: 10,
   },
-  searchBar: {
+
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: PALETTE.cardBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    marginBottom: 20,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Poppins',
-    fontSize: 12.5,
-    fontWeight: '400',
-    color: PALETTE.textInk,
-    marginLeft: 8,
-    paddingVertical: 0,
-  },
-  orderCard: {
+  searchInput: { flex: 1, fontSize: 14, color: PALETTE.textSecondary, padding: 0 },
+
+  listContainer: { gap: 16 },
+  card: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 14,
-    marginHorizontal: 16,
-    marginBottom: 10,
+    padding: 16,
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  orderNo: {
-    fontFamily: 'Poppins',
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  statusPillText: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
-    fontWeight: '700',
-  },
-  orderSub: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
-    fontWeight: '400',
-    color: PALETTE.textSecondary,
-    marginTop: 2,
-    marginBottom: 8,
-  },
-  orderMidRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  pickupWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pickupLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 11,
-    fontWeight: '400',
-    color: PALETTE.textBody,
-  },
-  priceWrap: {
-    alignItems: 'flex-end',
-  },
-  paidLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 10,
-    fontWeight: '400',
-    color: PALETTE.textSecondary,
-  },
-  amountText: {
-    fontFamily: 'Poppins',
-    fontSize: 15,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginTop: 1,
-  },
-  actionButton: {
-    backgroundColor: PALETTE.pillBtnBg,
-    borderRadius: 10,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionBtnText: {
-    fontFamily: 'Poppins',
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: PALETTE.pillBtnText,
-  },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  orderNo: { fontSize: 16, fontWeight: '800', color: '#B45309' },
+  customerName: { fontSize: 14, color: PALETTE.textSecondary, marginTop: 4 },
+  
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeText: { fontSize: 11, fontWeight: '800' },
+
+  itemsText: { fontSize: 13, color: PALETTE.textSecondary },
+  priceText: { fontSize: 16, fontWeight: '800', color: PALETTE.textInk },
+
+  typeWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  typeText: { fontSize: 13, color: PALETTE.textSecondary },
+  dateText: { fontSize: 11, color: PALETTE.textSecondary },
 });

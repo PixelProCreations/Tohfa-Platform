@@ -143,24 +143,27 @@ export const M5S09_ReadyForPickup: React.FC<M5S09Props> = ({ onNavigate, onBack 
                 </View>
               </View>
 
-              {/* Verify Pickup Full-Width Button matching Image 1 */}
-              <TouchableOpacity
-                style={styles.verifyPickupButton}
-                activeOpacity={0.8}
-                onPress={() => onNavigate('M5S10', { orderId: order.id })}
-              >
-                <Text style={styles.verifyPickupButtonText}>Verify Pickup</Text>
-              </TouchableOpacity>
+
             </View>
           ))}
 
           <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Bottom Navigation Bar matching Image 1 */}
-        <SWABottomNav activeTab="Home" onTabChange={(tab) => {
-          if (tab === 'Home') onBack();
-        }} />
+        {/* Fixed Bottom Button replacing Nav Bar */}
+        <View style={styles.fixedBottomContainer}>
+          <TouchableOpacity
+            style={styles.primaryActionButton}
+            activeOpacity={0.8}
+            onPress={() => onNavigate('M5S10')}
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+              <Path d="M21 8H3V4h18v4zM21 8v12H3V8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M10 12h4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+            <Text style={styles.primaryActionText}>New Packing</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -314,18 +317,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1E8E5A',
   },
-  verifyPickupButton: {
-    backgroundColor: '#FDF1E7',
-    borderRadius: 10,
-    height: 44,
+  fixedBottomContainer: {
+    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EBE5DC',
+  },
+  primaryActionButton: {
+    backgroundColor: '#F0562A',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    height: 52,
+    borderRadius: 12,
   },
-  verifyPickupButtonText: {
+  primaryActionText: {
     fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 13.5,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#C2410C',
+    color: '#FFFFFF',
   },
 });

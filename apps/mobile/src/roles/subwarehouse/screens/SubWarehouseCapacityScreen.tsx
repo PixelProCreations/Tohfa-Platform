@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -7,7 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Pressable,
+  TextInput,
 } from 'react-native';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
@@ -39,54 +39,24 @@ function LockIcon({ size = 14, color = '#FFFFFF' }) {
   );
 }
 
-function HomeTabIcon({ active = false }: { active?: boolean }) {
-  const color = active ? PALETTE.primary : '#9E9690';
+function SearchIcon({ size = 18, color = '#7A726C' }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function ReceivingTabIcon({ active = false }: { active?: boolean }) {
-  const color = active ? PALETTE.primary : '#9E9690';
+function WarehouseBoxIcon({ color = '#B45309' }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 3v12M7 10l5 5 5-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 21V9l9-6 9 6v12H3z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="11" y="17" width="2" height="2" fill={color} />
     </Svg>
   );
 }
-
-function InventoryTabIcon({ active = false }: { active?: boolean }) {
-  const color = active ? PALETTE.primary : '#9E9690';
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M8 12h8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M3 9h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active = true }: { active?: boolean }) {
-  const color = active ? PALETTE.primary : '#9E9690';
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
-
 
 export interface SubWarehouseCapacityScreenProps {
   onBack: () => void;
@@ -97,6 +67,11 @@ export function SubWarehouseCapacityScreen({
   onBack,
   onTabChange,
 }: SubWarehouseCapacityScreenProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+  
+  const FILTERS = ['All', 'Available', 'Occupied', 'Unavailable'];
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -117,84 +92,84 @@ export function SubWarehouseCapacityScreen({
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         
-        {/* Main Capacity Card */}
-        <View style={styles.card}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>Warehouse Capacity</Text>
-            <Text style={styles.percentTextPrimary}>68%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '68%', backgroundColor: '#B45309' }]} />
-          </View>
-          <View style={styles.rowTwoCol}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Occupied</Text>
-              <Text style={styles.value}>68%</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Available</Text>
-              <Text style={styles.value}>32%</Text>
-            </View>
-          </View>
-          <View style={{ marginTop: 16 }}>
-            <Text style={styles.label}>Status</Text>
-            <Text style={styles.value}>Operational</Text>
-          </View>
-        </View>
-
-        {/* Capacity Breakdown */}
-        <Text style={styles.sectionTitle}>Capacity Breakdown</Text>
+        <Text style={styles.sectionTitle}>Storage Locations</Text>
         
-        <View style={styles.cardSmall}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitleSmall}>Cold Storage</Text>
-            <Text style={styles.percentTextPrimary}>68%</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>STORAGE TOTAL</Text>
+            <Text style={styles.statValBlack}>4,300 kg</Text>
           </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '68%', backgroundColor: '#B45309' }]} />
-          </View>
-        </View>
-
-        <View style={styles.cardSmall}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitleSmall}>Dry Storage</Text>
-            <Text style={styles.percentTextPrimary}>52%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '52%', backgroundColor: '#D97706' }]} />
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>AVAILABLE CAPACITY</Text>
+            <Text style={styles.statValGreen}>1,350 kg</Text>
           </View>
         </View>
 
-        <View style={styles.cardSmall}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitleSmall}>Material Storage</Text>
-            <Text style={styles.percentTextPrimary}>41%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '41%', backgroundColor: '#D97706' }]} />
-          </View>
+        <View style={styles.searchBox}>
+          <SearchIcon />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search storage locations..."
+            placeholderTextColor={PALETTE.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
 
-        {/* Location Capacity */}
-        <Text style={styles.sectionTitle}>Location Capacity — Cold Storage</Text>
-        
-        <View style={styles.cardSmall}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitleSmall}>Section A</Text>
-            <Text style={styles.percentTextPrimary}>72%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '72%', backgroundColor: '#B45309' }]} />
-          </View>
+        <View style={styles.filtersRow}>
+          {FILTERS.map((filter) => {
+            const isActive = activeFilter === filter;
+            return (
+              <TouchableOpacity
+                key={filter}
+                style={[styles.filterPill, isActive && styles.filterPillActive]}
+                onPress={() => setActiveFilter(filter)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>{filter}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <View style={styles.cardSmall}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitleSmall}>Section B</Text>
-            <Text style={styles.percentTextPrimary}>58%</Text>
+        <View style={styles.listContainer}>
+          <View style={styles.listItem}>
+            <View style={styles.itemIconWrap}>
+              <WarehouseBoxIcon color="#B45309" />
+            </View>
+            <View style={styles.itemTextWrap}>
+              <Text style={styles.itemTitle}>Cold Storage A</Text>
+              <Text style={styles.itemSub}>Code: CS-A01</Text>
+            </View>
+            <View style={[styles.badge, { backgroundColor: '#E8F5E9' }]}>
+              <Text style={[styles.badgeText, { color: '#0F766E' }]}>Available</Text>
+            </View>
           </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '58%', backgroundColor: '#D97706' }]} />
+
+          <View style={styles.listItem}>
+            <View style={styles.itemIconWrap}>
+              <WarehouseBoxIcon color="#B45309" />
+            </View>
+            <View style={styles.itemTextWrap}>
+              <Text style={styles.itemTitle}>Dry Storage B</Text>
+              <Text style={styles.itemSub}>Code: DS-B02</Text>
+            </View>
+            <View style={[styles.badge, { backgroundColor: '#FEF3C7' }]}>
+              <Text style={[styles.badgeText, { color: '#B45309' }]}>Occupied</Text>
+            </View>
+          </View>
+
+          <View style={styles.listItem}>
+            <View style={styles.itemIconWrap}>
+              <WarehouseBoxIcon color="#B45309" />
+            </View>
+            <View style={styles.itemTextWrap}>
+              <Text style={styles.itemTitle}>Material Storage</Text>
+              <Text style={styles.itemSub}>Code: MS-01</Text>
+            </View>
+            <View style={[styles.badge, { backgroundColor: '#FEE2E2' }]}>
+              <Text style={[styles.badgeText, { color: '#DC2626' }]}>Unavailable</Text>
+            </View>
           </View>
         </View>
 
@@ -202,58 +177,10 @@ export function SubWarehouseCapacityScreen({
         <View style={styles.infoNotice}>
           <LockIcon size={16} color={PALETTE.infoText} />
           <Text style={styles.infoNoticeText}>
-            View only. There is no Edit Capacity or Change Capacity Limit action anywhere on this screen — SWA cannot modify global warehouse capacity configuration.
+            View only. Locations are scoped to your assigned warehouse — no capacity editing, storage configuration, or quantity allocation here.
           </Text>
         </View>
       </ScrollView>
-
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomTabBar}>
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Home');
-            else onBack();
-          }}
-          accessibilityRole="tab"
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.tabLabel}>Home</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Receiving');
-          }}
-          accessibilityRole="tab"
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.tabLabel}>Receiving</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Inventory');
-          }}
-          accessibilityRole="tab"
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.tabLabel}>Inventory</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('More');
-          }}
-          accessibilityRole="tab"
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
-        </Pressable>
-      </View>
     </SafeAreaView>
   );
 }
@@ -292,78 +219,89 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: PALETTE.pageBg },
   scrollContent: { padding: 16, paddingBottom: 40 },
 
-  card: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    padding: 20,
-    marginBottom: 20,
-  },
-  cardSmall: {
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.textInk, marginBottom: 12 },
+
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statCard: {
+    flex: 1,
     backgroundColor: PALETTE.cardBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 16,
-    marginBottom: 12,
   },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { fontSize: 18, fontWeight: '800', color: PALETTE.textInk },
-  cardTitleSmall: { fontSize: 16, fontWeight: '800', color: PALETTE.textInk },
-  percentTextPrimary: { fontSize: 18, fontWeight: '800', color: '#B45309' },
-  
-  progressBarBg: {
-    height: 10,
-    backgroundColor: '#F3EFE9',
-    borderRadius: 5,
-    overflow: 'hidden',
+  statLabel: { fontSize: 10, fontWeight: '800', color: PALETTE.textSecondary, marginBottom: 6 },
+  statValBlack: { fontSize: 22, fontWeight: '800', color: PALETTE.textInk },
+  statValGreen: { fontSize: 22, fontWeight: '800', color: '#0F766E' },
+
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
     marginBottom: 16,
   },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 5,
-  },
-  rowTwoCol: { flexDirection: 'row' },
-  col: { flex: 1 },
-  label: { fontSize: 13, color: PALETTE.textSecondary, marginBottom: 4 },
-  value: { fontSize: 15, fontWeight: '800', color: PALETTE.textInk },
+  searchInput: { flex: 1, fontSize: 14, color: PALETTE.textInk, padding: 0 },
 
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: PALETTE.textInk, marginTop: 8, marginBottom: 12 },
+  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  filterPill: {
+    backgroundColor: PALETTE.cardBg,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  filterPillActive: { borderColor: '#B45309' },
+  filterPillText: { fontSize: 13, fontWeight: '600', color: PALETTE.textSecondary },
+  filterPillTextActive: { color: '#B45309', fontWeight: '800' },
+
+  listContainer: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    padding: 8,
+    marginBottom: 20,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EFE9',
+  },
+  itemIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#F3EFE9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  itemTextWrap: { flex: 1 },
+  itemTitle: { fontSize: 15, fontWeight: '800', color: PALETTE.textInk, marginBottom: 2 },
+  itemSub: { fontSize: 12, color: PALETTE.textSecondary },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: { fontSize: 11, fontWeight: '800' },
 
   infoNotice: {
     flexDirection: 'row',
     backgroundColor: PALETTE.infoBg,
     padding: 16,
     borderRadius: 12,
-    marginTop: 8,
     gap: 12,
     alignItems: 'flex-start',
   },
-  infoNoticeText: { flex: 1, color: PALETTE.infoText, fontSize: 13, lineHeight: 20, fontWeight: '500' },
-
-  bottomTabBar: {
-    flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.border,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'space-around',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  tabLabel: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#9E9690',
-    marginTop: 2.5,
-  },
-  tabLabelActive: {
-    color: PALETTE.primary,
-    fontWeight: '800',
-  },
+  infoNoticeText: { flex: 1, color: PALETTE.infoText, fontSize: 13, lineHeight: 20, fontWeight: '600' },
 });

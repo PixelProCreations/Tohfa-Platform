@@ -1644,6 +1644,10 @@ export function SubWarehouseAdminDashboardScreen({
           setShowWarehouseOperations(false);
           setShowOperationalIssues(true);
         }}
+        onNavigateToWarehouseActivity={() => {
+          setShowWarehouseOperations(false);
+          setShowWarehouseActivity(true);
+        }}
         onTabChange={(tab) => {
           setShowWarehouseOperations(false);
           setActiveTab(tab);
@@ -1657,6 +1661,10 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseMaterialDetailScreen
         materialId={selectedMaterialId}
         onBack={() => setSelectedMaterialId(null)}
+        onAddStock={() => {
+          setSelectedMaterialId(null);
+          setShowAddMaterial(true);
+        }}
       />
     );
   }

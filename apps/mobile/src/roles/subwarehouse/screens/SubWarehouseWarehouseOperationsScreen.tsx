@@ -314,15 +314,7 @@ export function SubWarehouseWarehouseOperationsScreen({
             <Text style={styles.cardVal}>42</Text>
             <Text style={styles.cardLabel}>Material Items</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.overviewCard}
-            onPress={onNavigateToOperationalIssues}
-            activeOpacity={0.75}
-          >
-            <View style={styles.cardIconWrap}><WarningCircleIcon /></View>
-            <Text style={[styles.cardVal, { color: PALETTE.redText }]}>3</Text>
-            <Text style={styles.cardLabel}>Pending Issues</Text>
-          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.overviewCard}
             onPress={onNavigateToStaffAttendance}
@@ -332,15 +324,7 @@ export function SubWarehouseWarehouseOperationsScreen({
             <Text style={styles.cardVal}>8 / 10</Text>
             <Text style={styles.cardLabel}>Staff Present</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.overviewCard}
-            onPress={onNavigateToWarehouseActivity}
-            activeOpacity={0.75}
-          >
-            <View style={styles.cardIconWrap}><CalendarIcon /></View>
-            <Text style={styles.cardVal}>24</Text>
-            <Text style={styles.cardLabel}>Today's Activities</Text>
-          </TouchableOpacity>
+
         </View>
 
         {/* Quick Actions */}
@@ -363,20 +347,14 @@ export function SubWarehouseWarehouseOperationsScreen({
             <View style={styles.qaIcon}><ErrorIcon color={PALETTE.primary} /></View>
             <Text style={styles.qaLabel}>Report Issue</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.qaCard} onPress={onNavigateToStaffAttendance}>
-            <View style={styles.qaIcon}><StaffBadgeIcon color={PALETTE.primary} /></View>
-            <Text style={styles.qaLabel}>Staff Attendance</Text>
-          </TouchableOpacity>
+
           <TouchableOpacity style={styles.qaCard} onPress={onNavigateToReceiveGoods}>
             <View style={styles.qaIcon}><DownloadBoxIcon color="#0D9488" /></View>
             <Text style={styles.qaLabel}>Receive Goods</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.largeBtn}>
-          <ChecklistIcon color="#0D9488" />
-          <Text style={styles.largeBtnText}>Stock Verification (Module 3)</Text>
-        </TouchableOpacity>
+
 
         {/* Today's Operational Status */}
         <View style={styles.flexRowBetween}>
@@ -450,7 +428,9 @@ export function SubWarehouseWarehouseOperationsScreen({
         {/* Recent Activity */}
         <View style={styles.flexRowBetween}>
           <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Recent Activity</Text>
-          <Text style={styles.viewAllText}>View All</Text>
+          <TouchableOpacity onPress={onNavigateToWarehouseActivity}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.activityList}>
