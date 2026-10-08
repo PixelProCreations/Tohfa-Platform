@@ -124,11 +124,13 @@ export const defaultMobileTheme: MobileTheme = {
 /**
  * Role-flavoured theme.
  *
- * This function is now effectively an identity on colour: the approved design
- * system dropped per-role and per-app colour coding, so `roleColor` maps every
- * role to the one universal primary and `roleHex(role)` returns the same value
- * for all of them. It is kept rather than inlined because it is the single place
- * a future per-role accent would go back in, and because RootShell and
+ * `primary` comes from `roleColor` in the design tokens: FARMER and CUSTOMER
+ * resolve to the universal green primary, and the five admin roles resolve to
+ * the admin orange (`adminOrange`, from the client's Admin App design system).
+ * Only `primary` is role-specific — every other colour here is still the
+ * platform palette, so admin SCREENS should take their colours from
+ * src/roles/admin/theme (apps/mobile), not from this context. It is kept as
+ * the single place a per-role accent goes in, and because RootShell and
  * CustomerMainApp already build their theme through it.
  */
 export function buildThemeForRole(role: RoleCode): MobileTheme {

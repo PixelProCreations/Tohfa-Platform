@@ -48,6 +48,11 @@ export function toCssVariables(): Record<string, string> {
     out[`--tohfa-radius-${kebab(name)}`] = `${px}px`;
   }
   out['--tohfa-min-touch-target'] = `${tokens.size.minTouchTarget}px`;
+  out['--tohfa-admin-button-height'] = `${tokens.size.adminButtonHeight}px`;
+
+  for (const [name, s] of Object.entries(tokens.shadow)) {
+    out[`--tohfa-shadow-${kebab(name)}`] = s.css;
+  }
 
   for (const [name, stack] of Object.entries(tokens.fontStack)) {
     out[`--tohfa-font-${kebab(name)}`] = stack;

@@ -8,6 +8,13 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../theme';
 
 export type ToastType = 'approve' | 'reject' | 'info_request';
 
@@ -24,26 +31,36 @@ interface Props {
   duration?: number;
 }
 
+/**
+ * Each toast type maps onto one semantic pair of the admin theme instead of
+ * carrying its own hex values:
+ *   accent      -> tone.border  (left stripe + icon; the PDF's alert-card stripe)
+ *   iconBg      -> tone.bg      (soft tint behind the icon and the tag badge)
+ *   titleColor  -> tone.text    (also the tag badge label, like the PDF's status badges)
+ *   borderColor -> adminColors.border (the neutral card outline every PDF card uses)
+ * `info_request` was brand orange before and stays brand: it maps to `brandSoft`
+ * (Orange Deep on Orange Tint, Orange stripe), not to the blue `info` pair.
+ */
 const TOAST_THEMES = {
   approve: {
-    accent: '#2E7D32',
-    iconBg: '#E8F5E9',
-    titleColor: '#1B5E20',
-    borderColor: '#C8E6C9',
+    accent: adminColors.success.border,
+    iconBg: adminColors.success.bg,
+    titleColor: adminColors.success.text,
+    borderColor: adminColors.border,
     badgeText: 'Approved',
   },
   reject: {
-    accent: '#D32F2F',
-    iconBg: '#FFEBEE',
-    titleColor: '#B71C1C',
-    borderColor: '#FFCDD2',
+    accent: adminColors.danger.border,
+    iconBg: adminColors.danger.bg,
+    titleColor: adminColors.danger.text,
+    borderColor: adminColors.border,
     badgeText: 'Rejected',
   },
   info_request: {
-    accent: '#F0562A',
-    iconBg: '#FFECE8',
-    titleColor: '#C03912',
-    borderColor: '#FFCCBC',
+    accent: adminColors.brandSoft.border,
+    iconBg: adminColors.brandSoft.bg,
+    titleColor: adminColors.brandSoft.text,
+    borderColor: adminColors.border,
     badgeText: 'Requested',
   },
 };
@@ -191,7 +208,7 @@ export const TohfaToast: React.FC<Props> = ({
               {toast.title}
             </Text>
             <View style={[styles.tagBadge, { backgroundColor: theme.iconBg }]}>
-              <Text style={[styles.tagBadgeText, { color: theme.accent }]}>
+              <Text style={[styles.tagBadgeText, { color: theme.titleColor }]}>
                 {theme.badgeText}
               </Text>
             </View>
@@ -213,7 +230,7 @@ export const TohfaToast: React.FC<Props> = ({
           <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
             <Path
               d="M18 6L6 18M6 6l12 12"
-              stroke="#A39A94"
+              stroke={adminColors.muted}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -228,8 +245,9 @@ export const TohfaToast: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
+    // Status-bar offset, not a spacing step; should become a safe-area inset.
     top: Platform.OS === 'ios' ? 52 : 24,
-    right: 16,
+    right: adminSpacing.lg,
     zIndex: 999999,
     maxWidth: 330,
     minWidth: 270,
@@ -237,61 +255,53 @@ const styles = StyleSheet.create({
   toastCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderLeftWidth: 5,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    elevation: 8,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    // PDF "Shadow MD — toasts, floating actions".
+    ...adminShadow.md,
   },
   iconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: adminSpacing.sm,
   },
   textContainer: {
     flex: 1,
-    marginRight: 8,
+    marginRight: adminSpacing.sm,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
+    gap: adminSpacing.xs,
+    marginBottom: 2, // optical nudge below the 4px spacing grid
   },
   titleText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+    ...adminType.rowTitle,
   },
   tagBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 2, // optical nudge below the 4px spacing grid
+    borderRadius: adminRadius.full,
   },
   tagBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   messageText: {
-    fontSize: 11.5,
-    color: '#6B6560',
-    lineHeight: 15.5,
-    fontWeight: '500',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   closeBtn: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F8F5F2',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 2,
