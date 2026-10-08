@@ -160,9 +160,6 @@ export function ShipmentDetailScreen({
         {/* ─── 2. Product Summary ─── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Product Summary</Text>
-          <TouchableOpacity onPress={onViewProductDetail} activeOpacity={0.7}>
-            <Text style={styles.linkText}>Detail →</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.productCard}>
