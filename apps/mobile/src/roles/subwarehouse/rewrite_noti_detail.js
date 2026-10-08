@@ -1,4 +1,6 @@
-import React from 'react';
+const fs = require('fs');
+
+const code = `import React from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -77,7 +79,7 @@ export function SubWarehouseNotificationDetailScreen({
 }: SubWarehouseNotificationDetailScreenProps) {
   const type = notificationData?.type || 'goods';
   const title = notificationData?.title || (type === 'wallet' ? 'Wallet Credited' : 'Goods Received');
-  const message = notificationData?.message || (type === 'wallet' ? 'A customer wallet transaction has been completed.\nAmount: ₹500 · 25 Sep 2026 · 09:45 AM' : 'New goods receiving activity is available for Coonoor Warehouse. Received: 420 kg · 25 Sep 2026 · 10:20 AM');
+  const message = notificationData?.message || (type === 'wallet' ? 'A customer wallet transaction has been completed.\\nAmount: ₹500 · 25 Sep 2026 · 09:45 AM' : 'New goods receiving activity is available for Coonoor Warehouse. Received: 420 kg · 25 Sep 2026 · 10:20 AM');
   const reference = notificationData?.reference || (type === 'wallet' ? 'TOP-002845' : 'GR-00245');
 
   const buttonLabel = type === 'wallet' ? 'View Wallet Report' : 'View Receiving';
@@ -239,3 +241,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
+`;
+
+fs.writeFileSync('c:/Users/JENI/Desktop/Tohfa/Tohfa-Platform/apps/mobile/src/roles/subwarehouse/screens/SubWarehouseNotificationDetailScreen.tsx', code);

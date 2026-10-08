@@ -298,9 +298,6 @@ export function SubWarehouseExpenseCategoriesScreen({
           </Text>
         </View>
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S06 · Expense Categories</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 

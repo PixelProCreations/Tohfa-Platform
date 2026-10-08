@@ -103,6 +103,7 @@ const SAMPLE_REVENUE_RECORDS: RevenueRecord[] = [
 export interface SubWarehouseRevenueScreenProps {
   onBack?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  onNavigateToDetail?: ((revenueId: string) => void) | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -218,6 +219,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
 export function SubWarehouseRevenueScreen({
   onBack,
   onTabChange,
+  onNavigateToDetail,
 }: SubWarehouseRevenueScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<'All' | 'Orders' | 'Direct Sales' | 'Other'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -308,13 +310,6 @@ export function SubWarehouseRevenueScreen({
           </View>
         </View>
 
-        {/* ─── Callout: Backend Channel Categories ─── */}
-        <View style={styles.blueCallout}>
-          <Text style={styles.blueCalloutText}>
-            Only channel categories that actually exist in the backend are shown here.
-          </Text>
-        </View>
-
         {/* ─── Filter Category Pills ─── */}
         <View style={styles.filterPillsRow}>
           {(['All', 'Orders', 'Direct Sales', 'Other'] as const).map((filter) => {
@@ -367,7 +362,13 @@ export function SubWarehouseRevenueScreen({
             <TouchableOpacity
               key={item.id}
               style={styles.recordCard}
-              onPress={() => Alert.alert(item.id, `${item.orderRef}\nAmount: ₹${item.amount.toLocaleString()}\nMethod: ${item.paymentMethod}\nStatus: ${item.status}`)}
+              onPress={() => {
+                if (onNavigateToDetail) {
+                  onNavigateToDetail(item.id);
+                } else {
+                  Alert.alert(item.id, `${item.orderRef}\nAmount: ₹${item.amount.toLocaleString()}\nMethod: ${item.paymentMethod}\nStatus: ${item.status}`);
+                }
+              }}
               activeOpacity={0.75}
             >
               {/* Header: ID + Completed Badge */}

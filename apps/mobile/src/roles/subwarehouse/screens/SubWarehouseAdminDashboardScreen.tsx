@@ -21,6 +21,7 @@ import { SubWarehouseProfileScreen } from './SubWarehouseProfileScreen';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseNotificationsScreen } from './SubWarehouseNotificationsScreen';
+import { SubWarehouseNotificationDetailScreen } from './SubWarehouseNotificationDetailScreen';
 import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
@@ -40,9 +41,11 @@ import { SubWarehouseBillingHubScreen } from './SubWarehouseBillingHubScreen';
 import { SubWarehouseInvoiceListScreen } from './SubWarehouseInvoiceListScreen';
 import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
 import { SubWarehouseGenerateInvoiceScreen } from './SubWarehouseGenerateInvoiceScreen';
+import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
 import { SubWarehouseGSTInvoiceScreen } from './SubWarehouseGSTInvoiceScreen';
 import { SubWarehouseInvoicePreviewScreen } from './SubWarehouseInvoicePreviewScreen';
 import { SubWarehouseInvoiceHistoryScreen } from './SubWarehouseInvoiceHistoryScreen';
+import { SubWarehouseInvoiceHistoryDetailScreen } from './SubWarehouseInvoiceHistoryDetailScreen';
 import { SubWarehouseInvoiceFiltersScreen, InvoiceFilterState } from './SubWarehouseInvoiceFiltersScreen';
 import { SubWarehouseInvoiceHistoryFiltersScreen, InvoiceHistoryFilterState } from './SubWarehouseInvoiceHistoryFiltersScreen';
 import { SubWarehouseOrderFiltersScreen, OrderFilterState } from './SubWarehouseOrderFiltersScreen';
@@ -80,6 +83,7 @@ import {
   type StaffMember,
 } from './SubWarehouseStaffScreen';
 import { SubWarehouseStaffDetailScreen } from './SubWarehouseStaffDetailScreen';
+import { SubWarehouseEditStaffProfileScreen } from './SubWarehouseEditStaffProfileScreen';
 import { SubWarehouseAttendanceScreen } from './SubWarehouseAttendanceScreen';
 import { SubWarehouseTodayAttendanceScreen } from './SubWarehouseTodayAttendanceScreen';
 import { SubWarehouseAttendanceHistoryScreen } from './SubWarehouseAttendanceHistoryScreen';
@@ -152,29 +156,29 @@ import {
 // ─── Design Tokens (Brand Color: #F0562A Unified Subwarehouse Palette) ───────
 const PALETTE = {
   primary: '#F0562A',
-  primaryDark: '#D4451B',
-  primarySoft: '#FEF1EC',
-  primaryBorder: '#FCD9CE',
-  pageBg: '#FAF7F2',
+  primaryDark: '#7A2E14',
+  primarySoft: '#FDF3F0',
+  primaryBorder: '#EEDCD3',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EBE5DC',
-  divider: '#F4EFE9',
-  greenBadge: '#DCFCE7',
-  greenText: '#15803D',
-  greenDot: '#10B981',
-  amberBadge: '#FEF3C7',
-  amberText: '#B45309',
-  amberIconBg: '#FEF3C7',
-  redBadge: '#FEE2E2',
-  redText: '#DC2626',
-  redIconBg: '#FEE2E2',
-  tealBadge: '#E0F2FE',
-  tealText: '#0284C7',
-  tabInactive: '#827A74',
-  tabBorder: '#EAE4DB',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  divider: '#EEDCD3',
+  greenBadge: '#EAF3DE',
+  greenText: '#173404',
+  greenDot: '#173404',
+  amberBadge: '#FEF3E2',
+  amberText: '#854F0B',
+  amberIconBg: '#FEF3E2',
+  redBadge: '#FCEBEB',
+  redText: '#E24B4A',
+  redIconBg: '#FCEBEB',
+  tealBadge: '#E6F1FB',
+  tealText: '#0C447C',
+  tabInactive: '#5F5E5A',
+  tabBorder: '#EEDCD3',
   linkText: '#F0562A',
 };
 
@@ -237,10 +241,10 @@ function LockBadgeIcon() {
 function ClipboardClockIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="14" r="4" stroke={color} strokeWidth="1.8" />
-      <Path d="M12 12.5v1.5l1 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.8" />
+      <Circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.8" fill="#FFF" />
+      <Path d="M16 14v2l1.5 1.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -269,8 +273,9 @@ function DeliveryTruckIcon({ color = PALETTE.primary }: { color?: string }) {
 function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="2" />
+      <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -278,9 +283,10 @@ function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
 function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
+      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill="#FFF" />
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
       <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -288,8 +294,9 @@ function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
 function WalletIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 14h.01M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -307,9 +314,9 @@ function PackageBagIcon({ color = PALETTE.primary }: { color?: string }) {
 function ReceiveGoodsActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="3" width="16" height="18" rx="2.5" stroke={color} strokeWidth="1.8" />
-      <Path d="M12 7v7M8.5 10.5L12 14l3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 17h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="1.8" />
+      <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M12 12v5m-3-3l3 3 3-3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -317,9 +324,9 @@ function ReceiveGoodsActionIcon({ color = PALETTE.primary }: { color?: string })
 function CashRegisterActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 4h14a1 1 0 0 1 1 1v3H4V5a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 12h2M11 12h2M15 12h2M7 16h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="6" y="14" width="12" height="8" rx="1" stroke={color} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -327,8 +334,10 @@ function CashRegisterActionIcon({ color = PALETTE.primary }: { color?: string })
 function ViewOrdersActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 3v18l3-1.5 3 1.5 3-1.5 3 1.5 4-2V3H4z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 7h8M8 11h8M8 15h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 8H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M16 12H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M13 16H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -890,10 +899,20 @@ interface SubWarehouseAdminDashboardScreenProps {
 }
 
 // ─── Inventory Module Navigation Component ───────────────────────────────────
-function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void }) {
-  const [currentScreen, setCurrentScreen] = useState<string>('M3S01');
-  const [screenParams, setScreenParams] = useState<any>(null);
-  const [navigationStack, setNavigationStack] = useState<string[]>(['M3S01']);
+function InventoryModule({ 
+  onBack, 
+  onTabChange,
+  initialScreen = 'M3S01',
+  initialParams = null
+}: { 
+  onBack: () => void; 
+  onTabChange?: (tab: SubWHTab) => void;
+  initialScreen?: string;
+  initialParams?: any;
+}) {
+  const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
+  const [screenParams, setScreenParams] = useState<any>(initialParams);
+  const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
 
   const handleNavigate = (screen: string, params?: any) => {
     setNavigationStack(prev => [...prev, screen]);
@@ -922,7 +941,7 @@ function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabCha
     case 'M3S01':
       return <M3S01_InventoryDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
     case 'M3S02':
-      return <M3S02_StockList onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+      return <M3S02_StockList onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} initialTab={screenParams?.initialTab} />;
     case 'M3S03':
       return <M3S03_ProductStockDetail onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
     case 'M3S04':
@@ -961,10 +980,10 @@ function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabCha
 }
 
 // ─── Orders Module Navigation Component ──────────────────────────────────────
-function OrdersModule({ onBack, onTabChange }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void }) {
-  const [currentScreen, setCurrentScreen] = useState<string>('M5S01');
-  const [screenParams, setScreenParams] = useState<any>(null);
-  const [navigationStack, setNavigationStack] = useState<string[]>(['M5S01']);
+function OrdersModule({ onBack, onTabChange, initialScreen = 'M5S01', initialParams = null }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void; initialScreen?: string; initialParams?: any }) {
+  const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
+  const [screenParams, setScreenParams] = useState<any>(initialParams);
+  const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
 
   const handleNavigate = (screen: string, params?: any) => {
     setNavigationStack(prev => [...prev, screen]);
@@ -1008,7 +1027,7 @@ function OrdersModule({ onBack, onTabChange }: { onBack: () => void; onTabChange
       );
     case 'M5S02':
     case 'M5S02_OrdersList':
-      return <M5S02_OrdersList onNavigate={handleNavigate} onBack={handleBack} />;
+      return <M5S02_OrdersList onNavigate={handleNavigate} onBack={handleBack} routeParams={screenParams} />;
     case 'M5S03':
     case 'M5S03_SearchFilters':
       return <M5S03_SearchFilters onNavigate={handleNavigate} onBack={handleBack} />;
@@ -1116,6 +1135,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedReceivingCard, setSelectedReceivingCard] = useState<string | null>(null);
   const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
@@ -1135,6 +1155,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const [showPurchaseHistory, setShowPurchaseHistory] = useState(false);
   const [showCustomerOrders, setShowCustomerOrders] = useState(false);
+  const [customerOrdersFilter, setCustomerOrdersFilter] = useState<string | undefined>(undefined);
   const [showCustomerWallet, setShowCustomerWallet] = useState(false);
   const [showCashTopUp, setShowCashTopUp] = useState(false);
   const [showCustomerIssues, setShowCustomerIssues] = useState(false);
@@ -1143,9 +1164,11 @@ export function SubWarehouseAdminDashboardScreen({
   const [showInvoiceList, setShowInvoiceList] = useState(false);
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
+  const [selectedTransactionForWizard, setSelectedTransactionForWizard] = useState<any>(null);
   const [showGSTInvoice, setShowGSTInvoice] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
+  const [showInvoiceHistoryDetail, setShowInvoiceHistoryDetail] = useState(false);
   const [showTasks, setShowTasks] = useState(false);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
@@ -1192,6 +1215,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedReturnHistoryRecord, setSelectedReturnHistoryRecord] = useState<ReturnHistoryRecord | null>(null);
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [selectedStaffMember, setSelectedStaffMember] = useState<StaffMember | null>(null);
+  const [showEditStaffProfileScreen, setShowEditStaffProfileScreen] = useState(false);
   const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
   const [showStaffAndAttendance, setShowStaffAndAttendance] = useState(false);
   const [selectedAttendanceStaffId, setSelectedAttendanceStaffId] = useState<string | null>(null);
@@ -1323,6 +1347,10 @@ export function SubWarehouseAdminDashboardScreen({
   };
 
   const [showOrdersModule, setShowOrdersModule] = useState(false);
+  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
+  const [ordersInitialParams, setOrdersInitialParams] = useState<any>(null);
+  const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string>('M3S01');
+  const [inventoryInitialParams, setInventoryInitialParams] = useState<any>(null);
 
   useEffect(() => {
     const onHardwareBack = () => {
@@ -1356,6 +1384,26 @@ export function SubWarehouseAdminDashboardScreen({
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
   }, [history, receivingWizardStep, activeTab, receivingSubView, showNotifications, showOrdersModule]);
+
+  if (selectedNotification) {
+    return (
+      <SubWarehouseNotificationDetailScreen
+        onBack={() => setSelectedNotification(null)}
+        notificationData={selectedNotification}
+        onActionPress={() => {
+          setSelectedNotification(null);
+          setShowNotifications(false);
+          if (!selectedNotification) return;
+          const t = selectedNotification.type;
+          if (t === 'wallet') setShowWalletOperations(true);
+          else if (t === 'inventory') { setInventoryInitialScreen('M3S01'); setActiveTab('Inventory'); }
+          else if (t === 'order' || t === 'returns') setShowOrdersModule(true);
+          else if (t === 'quality') setShowReviewReceiving(true);
+          else navigateTo('Receiving', 'overview');
+        }}
+      />
+    );
+  }
 
   useEffect(() => {
     fetchMe()
@@ -1508,15 +1556,16 @@ export function SubWarehouseAdminDashboardScreen({
           if (onNavigate) onNavigate('SubWarehouseSystemMessages');
           else setShowSystemMessages(true);
         }}
+        onSelectNotification={(item) => setSelectedNotification(item)}
         onNavigateToAction={(actionLabel) => {
           setShowNotifications(false);
           if (actionLabel.includes('Review')) {
-            if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
-            else setShowReviewReceiving(true);
+            setShowReviewReceiving(true);
           } else if (actionLabel.includes('Stock')) {
+            setInventoryInitialScreen('M3S01');
             setActiveTab('Inventory');
-          } else if (actionLabel.includes('Order')) {
-            setActiveTab('Home');
+          } else if (actionLabel.includes('Order') || actionLabel.includes('Return')) {
+            setShowOrdersModule(true);
           }
         }}
       />
@@ -1529,12 +1578,23 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowTodayOverview(false)}
         onTabChange={(tab) => {
           setShowTodayOverview(false);
-          setActiveTab(tab);
+          if (tab === 'Receiving') {
+            navigateTo('Receiving', 'overview');
+          } else if (tab === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else {
+            setActiveTab(tab);
+          }
         }}
         onNavigateToSection={(section) => {
           setShowTodayOverview(false);
-          if (section === 'Receiving') setActiveTab('Receiving');
+          if (section === 'Receiving') navigateTo('Receiving', 'overview');
           else if (section === 'Inventory') setActiveTab('Inventory');
+          else if (section === 'Orders') setShowOrdersModule(true);
+          else if (section === 'Sales') setShowSalesScreen(true);
+          else if (section === 'Cash Top-Up') setShowWalletOperations(true);
         }}
       />
     );
@@ -1552,11 +1612,13 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToInventory={() => {
           setShowWarehouseOverview(false);
+          setInventoryInitialScreen('M3S01');
+          setInventoryInitialParams(null);
           setActiveTab('Inventory');
         }}
         onNavigateToReceiving={() => {
           setShowWarehouseOverview(false);
-          setActiveTab('Receiving');
+          navigateTo('Receiving', 'overview');
         }}
         onNavigateToOrders={() => {
           setShowWarehouseOverview(false);
@@ -1564,7 +1626,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToOperations={() => {
           setShowWarehouseOverview(false);
-          setActiveTab('More');
+          setShowWarehouseOperations(true);
         }}
       />
     );
@@ -1758,6 +1820,14 @@ export function SubWarehouseAdminDashboardScreen({
           setShowRecentActivity(false);
           setActiveTab(tab);
         }}
+        onNavigateToCategory={(category) => {
+          setShowRecentActivity(false);
+          if (category === 'Inventory') setActiveTab('Inventory');
+          else if (category === 'Receiving') navigateTo('Receiving', 'overview');
+          else if (category === 'Orders') setShowOrdersModule(true);
+          else if (category === 'Cash') setShowWalletOperations(true);
+          else if (category === 'QC') setShowReviewReceiving(true);
+        }}
       />
     );
   }
@@ -1768,7 +1838,7 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowReviewReceiving(false)}
         onSuccess={() => {
           setShowReviewReceiving(false);
-          setActiveTab('Receiving');
+          navigateTo('Receiving', 'overview');
         }}
         shipmentData={{
           reference: 'GR-1024',
@@ -1791,22 +1861,6 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToInventory={() => {
           setShowProfile(false);
           setActiveTab('Inventory');
-        }}
-        onNavigateToStorageInfo={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
-        }}
-        onNavigateToOperatingInfo={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseOperatingInfo');
-        }}
-        onNavigateToContact={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseContact');
-        }}
-        onNavigateToDocuments={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseDocuments');
         }}
       />
     );
@@ -1910,13 +1964,18 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseCustomerOrdersScreen
         customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowCustomerOrders(false)}
+        onBack={() => {
+          setShowCustomerOrders(false);
+          setCustomerOrdersFilter(undefined);
+        }}
         onOpenFilters={() => {
           if (onNavigate) onNavigate('SubWarehouseOrderFilters');
           else setShowOrderFilters(true);
         }}
         appliedFilters={orderFilters}
+        defaultFilter={customerOrdersFilter || 'All'}
         onClearFilters={() => setOrderFilters(undefined)}
+        onOrderPress={(orderId) => setShowOrderDetail(true)}
       />
     );
   }
@@ -2042,14 +2101,30 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (selectedTransactionForWizard) {
+    return (
+      <SubWarehouseInvoiceWizardScreen
+        transaction={selectedTransactionForWizard}
+        onBack={() => {
+          setSelectedTransactionForWizard(null);
+          setShowGenerateInvoice(true);
+        }}
+        onSuccess={() => {
+          setSelectedTransactionForWizard(null);
+          // show invoice detail or list after generation
+          setShowInvoiceDetail(true);
+        }}
+      />
+    );
+  }
+
   if (showGenerateInvoice) {
     return (
       <SubWarehouseGenerateInvoiceScreen
         onBack={() => setShowGenerateInvoice(false)}
         onSelectTransaction={(tx) => {
-          setSelectedInvoiceId('INV-2026-001245');
+          setSelectedTransactionForWizard(tx);
           setShowGenerateInvoice(false);
-          setShowInvoicePreview(true);
         }}
         onNavigateToGSTInvoice={() => {
           setShowGenerateInvoice(false);
@@ -2072,6 +2147,23 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showInvoiceHistoryDetail) {
+    return (
+      <SubWarehouseInvoiceHistoryDetailScreen
+        invoiceId={selectedInvoiceId}
+        onBack={() => {
+          setShowInvoiceHistoryDetail(false);
+          setShowInvoiceHistory(true);
+        }}
+        onDownload={() => {
+          // Assuming clicking download from history detail still goes to preview
+          setShowInvoiceHistoryDetail(false);
+          setShowInvoicePreview(true);
+        }}
+      />
+    );
+  }
+
   if (showInvoiceHistory) {
     return (
       <SubWarehouseInvoiceHistoryScreen
@@ -2079,7 +2171,7 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToInvoiceDetail={(id) => {
           setSelectedInvoiceId(id);
           setShowInvoiceHistory(false);
-          setShowInvoiceDetail(true);
+          setShowInvoiceHistoryDetail(true);
         }}
         onOpenFilters={() => {
           if (onNavigate) onNavigate('SubWarehouseInvoiceHistoryFilters');
@@ -2096,6 +2188,7 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseInvoiceDetailScreen
         invoiceId={selectedInvoiceId}
         onBack={() => setShowInvoiceDetail(false)}
+        onDownload={() => setShowInvoicePreview(true)}
       />
     );
   }
@@ -2194,47 +2287,6 @@ export function SubWarehouseAdminDashboardScreen({
           } else {
             setShowProfile(true);
           }
-        }}
-      />
-    );
-  }
-
-  if (showAttendanceScreen) {
-    return (
-      <SubWarehouseAttendanceScreen
-        warehouseName="Coonoor Warehouse"
-        onBack={() => setShowAttendanceScreen(false)}
-        onTabChange={(tab) => {
-          setShowAttendanceScreen(false);
-          setShowStaffScreen(false);
-          setSelectedStaffMember(null);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (selectedStaffMember) {
-    return (
-      <SubWarehouseStaffDetailScreen
-        staff={selectedStaffMember}
-        onBack={() => setSelectedStaffMember(null)}
-        onViewAttendance={() => {
-          setShowAttendanceScreen(true);
-        }}
-      />
-    );
-  }
-
-  if (showStaffScreen) {
-    return (
-      <SubWarehouseStaffScreen
-        warehouseName="Coonoor Warehouse"
-        onBack={() => setShowStaffScreen(false)}
-        onSelectStaff={(staff) => setSelectedStaffMember(staff)}
-        onTabChange={(tab) => {
-          setShowStaffScreen(false);
-          setActiveTab(tab);
         }}
       />
     );
@@ -2485,7 +2537,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseTodayAttendanceScreen
         onBack={() => setShowTodayAttendanceScreen(false)}
-        onNavigateToHistory={() => setShowAttendanceHistoryScreen(true)}
         onTabChange={(tab) => {
           setShowTodayAttendanceScreen(false);
           setShowStaffScreen(false);
@@ -2510,12 +2561,29 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showEditStaffProfileScreen && selectedStaffMember) {
+    return (
+      <SubWarehouseEditStaffProfileScreen
+        staff={selectedStaffMember}
+        onBack={() => setShowEditStaffProfileScreen(false)}
+        onSave={(staff) => setShowEditStaffProfileScreen(false)}
+      />
+    );
+  }
+
   if (selectedStaffMember) {
     return (
       <SubWarehouseStaffDetailScreen
         staff={selectedStaffMember}
         onBack={() => setSelectedStaffMember(null)}
         onViewAttendance={() => setShowAttendanceScreen(true)}
+        onEditProfile={(staff) => setShowEditStaffProfileScreen(true)}
+        onAssignDelivery={(staff) => {
+          setSelectedStaffMember(null);
+          setOrdersInitialScreen('M5S02');
+          setOrdersInitialParams({ defaultFilter: 'Ready for Delivery' });
+          setShowOrdersModule(true);
+        }}
       />
     );
   }
@@ -2525,7 +2593,6 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseStaffScreen
         onBack={() => setShowStaffScreen(false)}
         onSelectStaff={(staff) => setSelectedStaffMember(staff)}
-        onNavigateToAttendance={() => setShowAttendanceScreen(true)}
         onNavigateToTodayAttendance={() => setShowTodayAttendanceScreen(true)}
         onTabChange={(tab) => {
           setShowStaffScreen(false);
@@ -2728,10 +2795,9 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
               <View style={styles.overviewGrid}>
                 {/* 1. Pending Orders */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setShowOrdersModule(true)}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <ClipboardClockIcon />
@@ -2739,13 +2805,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>12</Text>
                   <Text style={styles.overviewTitle}>Pending Orders</Text>
                   <Text style={styles.overviewSub}>8 need action</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 2. Ready for Pickup */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setShowOrdersModule(true)}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <PersonCheckIcon />
@@ -2753,13 +2818,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>08</Text>
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
                   <Text style={styles.overviewSub}>3 customers expected</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 3. Today's Receiving */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => navigateTo('Receiving', 'overview')}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
@@ -2767,13 +2831,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>03</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
                   <Text style={styles.overviewSub}>1 awaiting QC</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 4. Low Stock Items */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setActiveTab('Inventory')}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
@@ -2781,11 +2844,11 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 5. Today's Sales */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
@@ -2793,7 +2856,6 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowSalesScreen(true);
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <BanknotesIcon />
@@ -2801,11 +2863,11 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>₹24,850</Text>
                   <Text style={styles.overviewTitle}>Today's Sales</Text>
                   <Text style={styles.overviewSub}>42 transactions</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 6. Cash Top-Ups */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseWalletOperations');
@@ -2813,7 +2875,6 @@ export function SubWarehouseAdminDashboardScreen({
                       setActiveTab('More');
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <WalletIcon />
@@ -2821,23 +2882,22 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>₹18,500</Text>
                   <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
                   <Text style={styles.overviewSub}>12 transactions</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               {/* 3. Quick Actions */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
               <View style={styles.quickActionsGrid}>
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setReceivingWizardStep('start_receiving')}
-                  activeOpacity={0.75}
                 >
                   <ReceiveGoodsActionIcon />
                   <Text style={styles.quickActionLabel}>Receive Goods</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
@@ -2845,23 +2905,21 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowSalesScreen(true);
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <CashRegisterActionIcon />
                   <Text style={styles.quickActionLabel}>New Sale</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setShowOrdersModule(true)}
-                  activeOpacity={0.75}
                 >
                   <ViewOrdersActionIcon />
                   <Text style={styles.quickActionLabel}>View Orders</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseWalletOperations');
@@ -2869,23 +2927,21 @@ export function SubWarehouseAdminDashboardScreen({
                       setActiveTab('More');
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <CashTopUpActionIcon />
                   <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setActiveTab('Inventory')}
-                  activeOpacity={0.75}
                 >
                   <StockVerifyActionIcon />
                   <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseRecentActivity');
@@ -2893,11 +2949,10 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowRecentActivity(true);
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               {/* 4. Needs Attention */}
@@ -3071,7 +3126,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.linkButton}
-                  onPress={() => Alert.alert('All Orders', 'Displaying 12 customer and B2B orders.')}
+                  onPress={() => setShowOrdersModule(true)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View All Orders →</Text>
@@ -3148,7 +3203,11 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => Alert.alert('Stock Allocation Detail', 'Online: 420 KG\nLive Market: 120 KG\nReserve: 80 KG\nBuffer: 60 KG')}
+                  onPress={() => {
+                    setInventoryInitialScreen('M3S02');
+                    setInventoryInitialParams({ initialTab: 'Allocation' });
+                    setActiveTab('Inventory');
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
@@ -3206,7 +3265,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => Alert.alert('Cash History', '12 Cash Top-up transactions logged today.')}
+                  onPress={() => setShowWalletOperations(true)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View History →</Text>
@@ -3231,19 +3290,13 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.activityCardContainer}
-                onPress={() => {
-                  if (onNavigate) {
-                    onNavigate('SubWarehouseRecentActivity');
-                  } else {
-                    setShowRecentActivity(true);
-                  }
-                }}
-                activeOpacity={0.85}
-              >
+              <View style={styles.activityCardContainer}>
                 {/* Activity 1 */}
-                <View style={styles.activityItemRow}>
+                <TouchableOpacity 
+                  style={styles.activityItemRow} 
+                  activeOpacity={0.7}
+                  onPress={() => navigateTo('Receiving', 'overview')}
+                >
                   <View style={styles.activityIconBox}>
                     <ReceiveGoodsActionIcon />
                   </View>
@@ -3252,12 +3305,16 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
                     <Text style={styles.activityTimeText}>10:42 AM</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.cardDivider} />
 
                 {/* Activity 2 */}
-                <View style={styles.activityItemRow}>
+                <TouchableOpacity 
+                  style={styles.activityItemRow} 
+                  activeOpacity={0.7}
+                  onPress={() => setShowOrdersModule(true)}
+                >
                   <View style={styles.activityIconBox}>
                     <PackageBagIcon />
                   </View>
@@ -3266,12 +3323,16 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>ORD-10242</Text>
                     <Text style={styles.activityTimeText}>10:20 AM</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.cardDivider} />
 
                 {/* Activity 3 */}
-                <View style={styles.activityItemRow}>
+                <TouchableOpacity 
+                  style={styles.activityItemRow} 
+                  activeOpacity={0.7}
+                  onPress={() => setShowWalletOperations(true)}
+                >
                   <View style={styles.activityIconBox}>
                     <CashTopUpActionIcon />
                   </View>
@@ -3280,8 +3341,8 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
                     <Text style={styles.activityTimeText}>09:55 AM</Text>
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
 
               {/* 13. Warehouse Alerts */}
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
@@ -4076,17 +4137,35 @@ export function SubWarehouseAdminDashboardScreen({
         {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && !showOrdersModule && (
           <InventoryModule
-            onBack={() => setActiveTab('Home')}
-            onTabChange={(tab) => setActiveTab(tab)}
+            initialScreen={inventoryInitialScreen}
+            initialParams={inventoryInitialParams}
+            onBack={() => {
+              setActiveTab('Home');
+              setInventoryInitialScreen('M3S01');
+              setInventoryInitialParams(null);
+            }}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setInventoryInitialScreen('M3S01');
+              setInventoryInitialParams(null);
+            }}
           />
         )}
 
         {/* ─── Orders Module ─── */}
         {showOrdersModule && (
           <OrdersModule
-            onBack={() => setShowOrdersModule(false)}
+            initialScreen={ordersInitialScreen}
+            initialParams={ordersInitialParams}
+            onBack={() => {
+              setShowOrdersModule(false);
+              setOrdersInitialScreen('M5S01');
+              setOrdersInitialParams(null);
+            }}
             onTabChange={(tab) => {
               setShowOrdersModule(false);
+              setOrdersInitialScreen('M5S01');
+              setOrdersInitialParams(null);
               setActiveTab(tab);
             }}
           />
@@ -4245,7 +4324,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   tabSubHeading: {
-    fontSize: 12.5,
+    fontSize: 13,
+    fontWeight: '400',
     color: PALETTE.textSecondary,
     marginTop: 3,
   },
@@ -4256,8 +4336,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 18,
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
   },
   backBtn: {
     padding: 6,
@@ -4285,7 +4363,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   warehouseNameText: {
-    fontSize: 21,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.4,
@@ -4350,7 +4428,7 @@ const styles = StyleSheet.create({
   // ─── Status Card ───────────────────────────────────────────────────────────
   statusCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -4360,7 +4438,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
@@ -4368,7 +4446,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusWarehouseTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginBottom: 4,
@@ -4393,26 +4471,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   receivingLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: PALETTE.textSecondary,
   },
   receivingValue: {
-    fontSize: 13,
+    fontSize: 19,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginTop: 1,
   },
   syncText: {
-    fontSize: 10,
+    fontSize: 9.5,
+    fontWeight: '700',
     color: PALETTE.textMuted,
     marginTop: 2,
   },
 
   // ─── Section Headings ──────────────────────────────────────────────────────
   sectionHeading: {
-    fontSize: 15.5,
+    fontSize: 13,
     fontWeight: '800',
-    color: PALETTE.textInk,
+    color: PALETTE.primaryDark,
     marginTop: 6,
     marginBottom: 10,
     letterSpacing: -0.2,
@@ -4459,7 +4538,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
+    shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
@@ -4470,19 +4549,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overviewNumber: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: PALETTE.textInk,
     letterSpacing: -0.4,
   },
   overviewTitle: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
     color: PALETTE.textInk,
     marginTop: 3,
   },
   overviewSub: {
     fontSize: 10.5,
+    fontWeight: '400',
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
@@ -4498,7 +4578,7 @@ const styles = StyleSheet.create({
   quickActionBtn: {
     width: '31.6%',
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: 12,
     paddingVertical: 13,
     paddingHorizontal: 4,
     alignItems: 'center',
@@ -4507,8 +4587,8 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
     elevation: 1,
     gap: 6,
   },
@@ -4517,8 +4597,8 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.primarySoft,
   },
   quickActionLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
     color: PALETTE.textInk,
     textAlign: 'center',
   },
@@ -4551,11 +4631,12 @@ const styles = StyleSheet.create({
   },
   alertCardTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: PALETTE.textInk,
   },
   alertCardSub: {
-    fontSize: 11,
+    fontSize: 10.5,
+    fontWeight: '400',
     color: PALETTE.textSecondary,
     marginTop: 2,
     lineHeight: 14.5,

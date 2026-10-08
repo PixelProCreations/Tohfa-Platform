@@ -87,10 +87,10 @@ const ORDERS_DATA = [
     id: 'o2',
     orderNo: 'ORD-1023',
     customer: 'Priya',
-    status: 'Ready for Pickup',
+    status: 'Ready for Delivery',
     items: '5 Items',
     price: '₹1,240',
-    type: 'Pickup',
+    type: 'Delivery',
     date: 'Today · 09:45 AM',
   },
   {
@@ -140,7 +140,9 @@ export interface SubWarehouseCustomerOrdersScreenProps {
   onOpenFilters?: () => void;
   customerName?: string;
   appliedFilters?: any;
+  defaultFilter?: string;
   onClearFilters?: () => void;
+  onOrderPress?: (orderId: string) => void;
 }
 
 export function SubWarehouseCustomerOrdersScreen({
@@ -148,13 +150,32 @@ export function SubWarehouseCustomerOrdersScreen({
   onOpenFilters,
   customerName,
   appliedFilters,
+  defaultFilter,
   onClearFilters,
+  onOrderPress,
 }: SubWarehouseCustomerOrdersScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Optionally filter by defaultFilter (e.g. 'Ready for Delivery')
+  const filteredOrders = ORDERS_DATA.filter(order => {
+    if (defaultFilter) {
+      // If defaultFilter is exactly 'Ready for Delivery', filter by status
+      if (defaultFilter === 'Ready for Delivery' && order.status !== 'Ready for Delivery') return false;
+      // Otherwise fallback to filtering by type if needed
+      else if (defaultFilter !== 'Ready for Delivery' && order.type !== defaultFilter) return false;
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return order.orderNo.toLowerCase().includes(q) || 
+             order.customer.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const getBadgeStyle = (status: string) => {
     switch (status) {
       case 'Ready for Pickup':
+      case 'Ready for Delivery':
       case 'Completed':
         return { bg: PALETTE.badgeGreenBg, text: PALETTE.badgeGreenText };
       case 'Confirmed':
@@ -188,7 +209,7 @@ export function SubWarehouseCustomerOrdersScreen({
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         
-        <Text style={styles.ordersCountText}>24 Orders</Text>
+        <Text style={styles.ordersCountText}>{filteredOrders.length} Orders</Text>
 
         {/* Search */}
         <View style={styles.searchBox}>
@@ -204,10 +225,15 @@ export function SubWarehouseCustomerOrdersScreen({
 
         {/* List */}
         <View style={styles.listContainer}>
-          {ORDERS_DATA.map((order) => {
+          {filteredOrders.map((order) => {
             const badge = getBadgeStyle(order.status);
             return (
-              <View key={order.id} style={styles.card}>
+              <TouchableOpacity 
+                key={order.id} 
+                style={styles.card}
+                onPress={() => onOrderPress && onOrderPress(order.id)}
+                activeOpacity={0.7}
+              >
                 
                 {/* Top Row: Order No + Badge */}
                 <View style={styles.rowBetween}>
@@ -235,7 +261,7 @@ export function SubWarehouseCustomerOrdersScreen({
                   <Text style={styles.dateText}>{order.date}</Text>
                 </View>
 
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>

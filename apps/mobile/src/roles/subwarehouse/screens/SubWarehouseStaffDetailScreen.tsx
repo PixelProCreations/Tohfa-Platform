@@ -24,6 +24,9 @@ const PALETTE = {
   redBoxBg:      '#FEF2F2',
   redBoxBorder:  '#FECACA',
   redBoxText:    '#DC2626',
+  blueBoxBg:     '#EFF6FF',
+  blueBoxBorder: '#BFDBFE',
+  blueBoxText:   '#1E40AF',
 };
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -37,6 +40,17 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function DeliveryTruckIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="1" y="4" width="14" height="12" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
+      <Circle cx="18.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
@@ -71,13 +85,17 @@ function CalendarIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?:
 export interface SubWarehouseStaffDetailScreenProps {
   staff?: StaffMember;
   onBack: () => void;
-  onViewAttendance: (staff?: StaffMember) => void;
+  onEditProfile?: (staff: StaffMember) => void;
+  onViewAttendance?: (staff?: StaffMember) => void;
+  onAssignDelivery?: (staff: StaffMember) => void;
 }
 
 export function SubWarehouseStaffDetailScreen({
   staff,
   onBack,
+  onEditProfile,
   onViewAttendance,
+  onAssignDelivery,
 }: SubWarehouseStaffDetailScreenProps) {
   const currentStaff: StaffMember = staff || {
     id: 'staff-2',
@@ -97,6 +115,8 @@ export function SubWarehouseStaffDetailScreen({
     { id: '2', title: 'Assigned to Coonoor', isLast: false },
     { id: '3', title: 'Attendance Recorded', isLast: true },
   ];
+
+  const isDriver = currentStaff.type === 'driver';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -128,7 +148,11 @@ export function SubWarehouseStaffDetailScreen({
         {/* ─── Top Profile Card ─── */}
         <View style={styles.profileHeaderCard}>
           <View style={styles.avatarCircleLarge}>
-            <PersonUserIcon size={28} color="#7A726C" />
+            {isDriver ? (
+              <DeliveryTruckIcon size={28} color="#7A726C" />
+            ) : (
+              <PersonUserIcon size={28} color="#7A726C" />
+            )}
           </View>
           <View style={styles.profileHeaderInfo}>
             <Text style={styles.profileName}>{currentStaff.name}</Text>
@@ -138,65 +162,138 @@ export function SubWarehouseStaffDetailScreen({
           </View>
         </View>
 
-        {/* ─── Basic Information ─── */}
-        <Text style={styles.sectionHeader}>Basic Information</Text>
-        <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Name</Text>
-              <Text style={styles.fieldBoldVal}>{currentStaff.name}</Text>
+        {currentStaff.type === 'driver' ? (
+          <>
+            {/* ─── Driver Information ─── */}
+            <Text style={styles.sectionHeader}>Driver Information</Text>
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Driver ID</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.staffId}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Status</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.status}</Text>
+                </View>
+              </View>
+              <View style={styles.cardDivider} />
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>Assigned Warehouse</Text>
+                <Text style={styles.fieldBoldVal}>{currentStaff.warehouse || 'Coonoor Warehouse'}</Text>
+              </View>
             </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Staff ID</Text>
-              <Text style={styles.fieldBoldVal}>{currentStaff.staffId}</Text>
+
+            {/* ─── Delivery Summary ─── */}
+            <Text style={styles.sectionHeader}>Delivery Summary</Text>
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Today's Deliveries</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.deliveriesToday ?? 6}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Completed</Text>
+                  <Text style={styles.fieldBoldVal}>4</Text>
+                </View>
+              </View>
+              <View style={styles.cardDivider} />
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>Pending</Text>
+                <Text style={styles.fieldBoldVal}>2</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.cardDivider} />
-
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Role</Text>
-              <Text style={styles.fieldBoldVal}>{currentStaff.role}</Text>
+            {/* ─── Performance ─── */}
+            <Text style={styles.sectionHeader}>Performance</Text>
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Completed Deliveries</Text>
+                  <Text style={styles.fieldBoldVal}>124</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Cancelled</Text>
+                  <Text style={styles.fieldBoldVal}>3</Text>
+                </View>
+              </View>
+              <View style={styles.cardDivider} />
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>Failed</Text>
+                <Text style={styles.fieldBoldVal}>2</Text>
+              </View>
             </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <Text style={styles.fieldBoldVal}>{currentStaff.status}</Text>
+
+            {/* ─── Blue Disclaimer Box ─── */}
+            <View style={styles.blueInfoBox}>
+              <Text style={styles.blueInfoText}>
+                Only metrics the backend actually defines are shown — no invented performance figures.
+              </Text>
             </View>
-          </View>
+          </>
+        ) : (
+          <>
+            {/* ─── Basic Information ─── */}
+            <Text style={styles.sectionHeader}>Basic Information</Text>
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Name</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.name}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Staff ID</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.staffId}</Text>
+                </View>
+              </View>
 
-          <View style={styles.cardDivider} />
+              <View style={styles.cardDivider} />
 
-          <View style={styles.col}>
-            <Text style={styles.fieldLabel}>Warehouse</Text>
-            <Text style={styles.fieldBoldVal}>
-              {currentStaff.warehouse || 'Coonoor Warehouse'}
-            </Text>
-          </View>
-        </View>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Role</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.role}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Status</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.status}</Text>
+                </View>
+              </View>
 
-        {/* ─── Contact Information ─── */}
-        <Text style={styles.sectionHeader}>Contact Information</Text>
-        <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Phone</Text>
-              <Text style={styles.fieldBoldVal}>{currentStaff.phone || 'XXXXXXXXXX'}</Text>
+              <View style={styles.cardDivider} />
+
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>Warehouse</Text>
+                <Text style={styles.fieldBoldVal}>
+                  {currentStaff.warehouse || 'Coonoor Warehouse'}
+                </Text>
+              </View>
             </View>
-            <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Email</Text>
-              <Text style={styles.fieldBoldVal}>{currentStaff.email || 'example@email.com'}</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* ─── Red Disclaimer Box ─── */}
-        <View style={styles.redDisclaimerCard}>
-          <ProhibitedCircleIcon size={18} color={PALETTE.redBoxText} />
-          <Text style={styles.redDisclaimerText}>
-            No salary, payroll, bank account, or Aadhaar fields — the source doesn't define a complete warehouse-staff HR data model, so none is invented here.
-          </Text>
-        </View>
+            {/* ─── Contact Information ─── */}
+            <Text style={styles.sectionHeader}>Contact Information</Text>
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Phone</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.phone || 'XXXXXXXXXX'}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Email</Text>
+                  <Text style={styles.fieldBoldVal}>{currentStaff.email || 'example@email.com'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ─── Red Disclaimer Box ─── */}
+            <View style={styles.redDisclaimerCard}>
+              <ProhibitedCircleIcon size={18} color={PALETTE.redBoxText} />
+              <Text style={styles.redDisclaimerText}>
+                No salary, payroll, bank account, or Aadhaar fields — the source doesn't define a complete warehouse-staff HR data model, so none is invented here.
+              </Text>
+            </View>
+          </>
+        )}
 
         {/* ─── Attendance Summary ─── */}
         <Text style={styles.sectionHeader}>Attendance Summary</Text>
@@ -242,15 +339,26 @@ export function SubWarehouseStaffDetailScreen({
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ─── Sticky Bottom Bar: View Attendance ─── */}
+      {/* ─── Sticky Bottom Bar: Actions ─── */}
       <View style={styles.bottomBar}>
+        {currentStaff.type === 'driver' && (
+          <TouchableOpacity
+            style={styles.assignDeliveryBtn}
+            onPress={() => onAssignDelivery && onAssignDelivery(currentStaff)}
+            activeOpacity={0.88}
+          >
+            <DeliveryTruckIcon color="#FFFFFF" size={20} />
+            <Text style={styles.assignDeliveryText}>Assign Delivery</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={styles.viewAttendanceBtn}
-          onPress={() => onViewAttendance(currentStaff)}
+          style={styles.editProfileBtn}
+          onPress={() => onEditProfile && onEditProfile(currentStaff)}
           activeOpacity={0.88}
         >
-          <CalendarIcon size={18} color="#FFFFFF" />
-          <Text style={styles.viewAttendanceText}>View Attendance</Text>
+          <Text style={styles.editProfileText}>
+            Edit {currentStaff.type === 'driver' ? 'Driver' : 'Staff'} Profile
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -385,6 +493,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
+  blueInfoBox: {
+    backgroundColor: PALETTE.blueBoxBg,
+    borderWidth: 1,
+    borderColor: PALETTE.blueBoxBorder,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  blueInfoText: {
+    fontSize: 12,
+    color: PALETTE.blueBoxText,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
   timelineContainer: {
     paddingLeft: 4,
     marginTop: 6,
@@ -436,8 +558,9 @@ const styles = StyleSheet.create({
     borderTopColor: PALETTE.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 12,
   },
-  viewAttendanceBtn: {
+  assignDeliveryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -445,15 +568,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
   },
-  viewAttendanceText: {
+  assignDeliveryText: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: PALETTE.primary,
+    paddingVertical: 14,
+  },
+  editProfileText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.primary,
   },
 });

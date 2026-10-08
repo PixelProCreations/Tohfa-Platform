@@ -52,6 +52,8 @@ export interface SubWarehouseExpenseDetailScreenProps {
   onBack?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onEdit?: (() => void) | undefined;
+  isReceiptView?: boolean;
+  onViewReceipt?: () => void;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -217,6 +219,8 @@ export function SubWarehouseExpenseDetailScreen({
   onBack,
   onTabChange,
   onEdit,
+  isReceiptView = false,
+  onViewReceipt,
 }: SubWarehouseExpenseDetailScreenProps) {
   const handleTabPress = (tab: SubWHTab) => {
     if (onTabChange) {

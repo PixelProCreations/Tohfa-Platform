@@ -290,13 +290,6 @@ export function SubWarehouseTaskActionCenterScreen({
             </TouchableOpacity>
           );
         })}
-
-        {/* ─── Info Box: Configuration Notice ─── */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            Task cards shown here only become real tasks once the corresponding task-generation rules are configured — this UI doesn't invent assignment, priority, SLA, or recurrence logic on its own.
-          </Text>
-        </View>
       </ScrollView>
 
       {/* ─── Sticky Bottom Action Button ─── */}

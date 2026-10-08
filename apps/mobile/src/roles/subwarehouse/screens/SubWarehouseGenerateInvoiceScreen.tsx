@@ -193,16 +193,14 @@ export function SubWarehouseGenerateInvoiceScreen({
                 <Text style={styles.amountText}>{tx.amount}</Text>
               </View>
 
-              {/* Select Button for Completed */}
-              {isCompleted && (
-                <TouchableOpacity
-                  style={styles.selectBtn}
-                  onPress={() => handleSelect(tx)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.selectBtnText}>Select</Text>
-                </TouchableOpacity>
-              )}
+              {/* Select Button for All */}
+              <TouchableOpacity
+                style={styles.selectBtn}
+                onPress={() => handleSelect(tx)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.selectBtnText}>Select</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         })}

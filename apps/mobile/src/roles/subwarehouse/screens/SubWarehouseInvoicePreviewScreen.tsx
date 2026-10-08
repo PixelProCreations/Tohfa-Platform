@@ -103,16 +103,16 @@ export function SubWarehouseInvoicePreviewScreen({
   onShare,
   onSimulateExpired,
 }: SubWarehouseInvoicePreviewScreenProps): React.JSX.Element {
-  const handleSimulateExpired = () => {
-    if (onSimulateExpired) {
-      onSimulateExpired();
-      return;
+  const [showToast, setShowToast] = useState(false);
+
+  const handleDownload = () => {
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+    if (onDownload) {
+      onDownload();
     }
-    Alert.alert(
-      'HTTP 403 Forbidden',
-      'Download link expired after 5 minutes. The signature timestamp has elapsed. A fresh signed URL must be requested.',
-      [{ text: 'OK' }]
-    );
   };
 
   return (
@@ -161,42 +161,18 @@ export function SubWarehouseInvoicePreviewScreen({
           {/* Centered Large Total */}
           <Text style={styles.grandTotal}>₹740</Text>
         </View>
-
-        {/* ─── Info Box 1: Server-Side PDF Notice ─── */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoIconWrap}>
-            <ServerDocIcon size={18} />
-          </View>
-          <Text style={styles.infoText}>
-            The actual invoice document is generated server-side — this is a lightweight preview, not the final PDF.
-          </Text>
-        </View>
-
-        {/* ─── Info Box 2: Expiring Signed Links ─── */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoIconWrap}>
-            <ClockExpireIcon size={18} />
-          </View>
-          <Text style={styles.infoText}>
-            Signed download links expire after 5 minutes. There is no permanent public invoice URL — an expired or tampered link is rejected (403) rather than served.
-          </Text>
-        </View>
-
-        {/* ─── Demo Action Button ─── */}
-        <TouchableOpacity
-          style={styles.simulateBtn}
-          onPress={handleSimulateExpired}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.simulateBtnText}>Simulate expired link (demo)</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* ─── Sticky Bottom Action Bar ─── */}
       <View style={styles.bottomBar}>
+        {showToast && (
+          <View style={styles.toastContainer}>
+            <Text style={styles.toastText}>✓ Invoice downloaded</Text>
+          </View>
+        )}
         <TouchableOpacity
           style={styles.primaryDownloadBtn}
-          onPress={onDownload ? onDownload : () => Alert.alert('Download', 'Downloading PDF...')}
+          onPress={handleDownload}
           activeOpacity={0.8}
         >
           <View style={styles.btnRow}>
@@ -336,6 +312,22 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 16,
     gap: 10,
+  },
+  toastContainer: {
+    backgroundColor: '#1E293B', // Dark slate for toast
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    position: 'absolute',
+    top: -40,
+    zIndex: 10,
+    alignSelf: 'center',
+  },
+  toastText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   primaryDownloadBtn: {
     backgroundColor: PALETTE.buttonPrimary,

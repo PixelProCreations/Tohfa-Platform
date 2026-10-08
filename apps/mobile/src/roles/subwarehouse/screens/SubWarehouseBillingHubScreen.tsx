@@ -441,7 +441,6 @@ export function SubWarehouseBillingHubScreen({
 
           {/* Action pills row */}
           <View style={styles.invoiceActionRow}>
-            <View style={styles.actionCircleBtn} />
             <TouchableOpacity
               style={styles.viewBtn}
               onPress={() => (onNavigateToInvoiceDetail ? onNavigateToInvoiceDetail('INV-2026-001245') : Alert.alert('View', 'Opening Invoice Detail...'))}

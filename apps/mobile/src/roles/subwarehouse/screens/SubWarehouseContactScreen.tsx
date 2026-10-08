@@ -199,7 +199,6 @@ export function SubWarehouseContactScreen({
 
   const handleCopy = (label: string, text: string) => {
     setCopiedField(label);
-    Alert.alert('Copied to Clipboard', `${label}: ${text}`);
     setTimeout(() => {
       setCopiedField(null);
     }, 2000);
@@ -472,6 +471,12 @@ export function SubWarehouseContactScreen({
           <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
         </Pressable>
       </View>
+
+      {copiedField && (
+        <View style={styles.toastContainer}>
+          <Text style={styles.toastText}>{copiedField} copied to clipboard</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -736,6 +741,21 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: PALETTE.primary,
+    fontWeight: '700',
+  },
+  toastContainer: {
+    position: 'absolute',
+    bottom: 90,
+    alignSelf: 'center',
+    backgroundColor: '#1E2923',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 30,
+    zIndex: 999,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
 });

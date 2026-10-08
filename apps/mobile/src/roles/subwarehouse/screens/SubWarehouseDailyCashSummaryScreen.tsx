@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -64,6 +65,42 @@ function ArrowDownIcon({ size = 18, color = '#6B7280' }: { size?: number; color?
     </Svg>
   );
 }
+
+function ChevronLeftIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CloseIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const MONTH_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 function ExportIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
   return (
@@ -139,6 +176,29 @@ export function SubWarehouseDailyCashSummaryScreen({
   const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
   const variance = parsedPhysical - 18500;
 
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calYear, setCalYear] = useState(2026);
+  const [calMonth, setCalMonth] = useState(8);
+  const [tempSelectedDay, setTempSelectedDay] = useState(25);
+  const [dateText, setDateText] = useState('Today · 25 Sep 2026');
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfWeek = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const handlePrevMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else { setCalMonth(calMonth - 1); }
+  };
+
+  const handleNextMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else { setCalMonth(calMonth + 1); }
+  };
+
+  const handleApplyDate = () => {
+    setDateText(`${tempSelectedDay} ${MONTH_SHORT[calMonth]} ${calYear}`);
+    setShowCalendarModal(false);
+  };
+
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -164,10 +224,10 @@ export function SubWarehouseDailyCashSummaryScreen({
         {/* Date Selector Card */}
         <TouchableOpacity
           style={styles.dateSelectorCard}
-          onPress={() => Alert.alert('Select Date', 'Choose summary date to inspect.')}
+          onPress={() => setShowCalendarModal(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.dateSelectorText}>Today · 25 Sep 2026</Text>
+          <Text style={styles.dateSelectorText}>{dateText}</Text>
           <CalendarIcon size={18} color={PALETTE.textSecondary} />
         </TouchableOpacity>
 
@@ -366,6 +426,84 @@ export function SubWarehouseDailyCashSummaryScreen({
           <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
         </Pressable>
       </View>
+      
+      {/* Calendar Modal Overlay */}
+      {showCalendarModal && (
+        <Modal transparent animationType="fade" visible={showCalendarModal} onRequestClose={() => setShowCalendarModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.calendarCard}>
+              {/* Header */}
+              <View style={styles.calHeaderRow}>
+                <View>
+                  <Text style={styles.calHeaderTitle}>Select Date</Text>
+                  <Text style={styles.calHeaderSub}>
+                    {tempSelectedDay} {MONTH_NAMES[calMonth]} {calYear}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.calCloseBtn} onPress={() => setShowCalendarModal(false)}>
+                  <CloseIcon size={18} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Month Navigator */}
+              <View style={styles.monthNavRow}>
+                <TouchableOpacity style={styles.navArrowBtn} onPress={handlePrevMonth}>
+                  <ChevronLeftIcon size={20} color="#1E1612" />
+                </TouchableOpacity>
+                <Text style={styles.monthNavTitle}>
+                  {MONTH_NAMES[calMonth]} {calYear}
+                </Text>
+                <TouchableOpacity style={styles.navArrowBtn} onPress={handleNextMonth}>
+                  <ChevronRightIcon size={20} color="#1E1612" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Weekdays */}
+              <View style={styles.weekdaysRow}>
+                {WEEKDAYS.map((wd, i) => (
+                  <View key={i} style={styles.weekdayCol}>
+                    <Text style={styles.weekdayText}>{wd}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Days Grid */}
+              <View style={styles.daysGrid}>
+                {Array.from({ length: getFirstDayOfWeek(calYear, calMonth) }).map((_, i) => (
+                  <View key={`empty-${i}`} style={styles.dayCellEmpty} />
+                ))}
+                {Array.from({ length: getDaysInMonth(calYear, calMonth) }).map((_, i) => {
+                  const dayNum = i + 1;
+                  const isSelected = tempSelectedDay === dayNum;
+                  const isToday = dayNum === 25 && calMonth === 8 && calYear === 2026;
+
+                  return (
+                    <TouchableOpacity
+                      key={`day-${dayNum}`}
+                      style={[styles.dayCell, isSelected && styles.dayCellSelected, isToday && !isSelected && styles.dayCellToday]}
+                      onPress={() => setTempSelectedDay(dayNum)}
+                    >
+                      <Text style={[styles.dayCellText, isSelected && styles.dayCellTextSelected, isToday && !isSelected && styles.dayCellTextToday]}>
+                        {dayNum}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Actions */}
+              <View style={styles.calActionRow}>
+                <TouchableOpacity style={styles.calCancelBtn} onPress={() => setShowCalendarModal(false)}>
+                  <Text style={styles.calCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.calApplyBtn} onPress={handleApplyDate}>
+                  <Text style={styles.calApplyText}>Apply Date</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -651,4 +789,29 @@ const styles = StyleSheet.create({
     color: PALETTE.primary,
     fontWeight: '800',
   },
+  dayCellEmpty: { flex: 1, height: 40 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', padding: 20 },
+  calendarCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20 },
+  calHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  calHeaderTitle: { fontSize: 18, fontWeight: '700', color: '#1E1612' },
+  calHeaderSub: { fontSize: 13, color: '#7A726C', marginTop: 2 },
+  calCloseBtn: { padding: 4 },
+  monthNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  navArrowBtn: { padding: 8 },
+  monthNavTitle: { fontSize: 16, fontWeight: '600', color: '#1E1612' },
+  weekdaysRow: { flexDirection: 'row', marginBottom: 8 },
+  weekdayCol: { flex: 1, alignItems: 'center' },
+  weekdayText: { fontSize: 12, fontWeight: '600', color: '#9E9690' },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCell: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  dayCellSelected: { backgroundColor: '#F0562A' },
+  dayCellToday: { backgroundColor: '#FCE7E1' },
+  dayCellText: { fontFamily: 'Poppins', fontSize: 14, color: '#29201A' },
+  dayCellTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
+  dayCellTextToday: { color: '#F0562A', fontWeight: 'bold' },
+  calActionRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  calCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', backgroundColor: '#F0F0F0' },
+  calCancelText: { fontFamily: 'Poppins', fontSize: 14, color: '#7A726C', fontWeight: 'bold' },
+  calApplyBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', backgroundColor: '#F0562A' },
+  calApplyText: { fontFamily: 'Poppins', fontSize: 14, color: '#FFFFFF', fontWeight: 'bold' },
 });

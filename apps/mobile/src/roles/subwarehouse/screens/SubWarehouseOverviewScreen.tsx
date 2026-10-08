@@ -458,14 +458,6 @@ export function SubWarehouseOverviewScreen({
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* 8. Permission Notice Banner */}
-          <View style={styles.noticeCard}>
-            <LockNoticeIcon size={18} color={PALETTE.noticeIcon} />
-            <Text style={styles.noticeText}>
-              SWA can view this warehouse's information but cannot configure the warehouse, change settings, set capacity, or switch to another warehouse.
-            </Text>
-          </View>
         </View>
       </ScrollView>
 
