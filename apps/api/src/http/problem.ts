@@ -85,6 +85,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   DIARY_WAGE_RATE_INVALID: 422,
   CROP_PLOT_ALREADY_GROWING: 409,
   LIVESTOCK_ALREADY_EXITED: 409,
+  TRAINING_FULL: 409,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -141,6 +142,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   DIARY_WAGE_RATE_INVALID: 'Wage rate must be a positive whole number of paise',
   CROP_PLOT_ALREADY_GROWING: 'Plot already has a crop in progress',
   LIVESTOCK_ALREADY_EXITED: 'Animal has already left the herd',
+  TRAINING_FULL: 'Training workshop capacity reached',
 };
 
 /**

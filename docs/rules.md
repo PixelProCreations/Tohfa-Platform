@@ -1247,6 +1247,31 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-59 — Learning Hub delivers curated agricultural knowledge and lightweight community participation
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.1, FR-F06; Mobile LearningHubScreen, GroupsScreen, GroupDetailScreen; Table `learning_*` (`0038_learning_hub.sql`) |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/learning-hub/`; `learning_*` tables |
+| **Scope** | Track 1 (farmer-facing read + enroll/membership, admin content CRUD) |
+
+**Rule.** A farmer browses published articles, videos, training workshops, and community groups. Farmers can enroll/unenroll in trainings and join/leave community groups.
+1. **Public/Farmer Content Browsing:** Published articles, videos, and trainings are accessible to all authenticated farmers with optional language filter (`en` / `ta`) and pagination (`BR-59a`).
+2. **Training Capacity & Enrollment:** Farmers can enroll in published training sessions. If training has a capacity limit, enrollments cannot exceed capacity (409 `TRAINING_FULL`). Farmers can cancel their enrollment (`BR-59b`).
+3. **Community Group Membership:** Farmers can join and leave community groups. Duplicate membership requests are idempotent or rejected (`BR-59c`). No in-app chat or messaging in v1.
+4. **Admin Content Management:** Only authorized administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`) can create, update, or remove articles, videos, trainings, and community groups, with full audit logging (BR-35) (`BR-59d`).
+
+**Failure mode if unenforced.** Overbooking beyond field workshop capacity; unauthenticated or cross-tenant modification of educational materials.
+
+**Test contract.** (`apps/api/src/modules/learning-hub/learning-hub.test.ts`)
+- `BR-59a` Allows farmers to view published articles, videos, trainings, and groups with language filtering.
+- `BR-59b` Enforces training capacity limits and handles enrollment/unenrollment.
+- `BR-59c` Allows joining and leaving community groups.
+- `BR-59d` Enforces admin RBAC on content creation/updates and verifies audit logging.
+- `BR-59e` Non-admin users cannot mutate learning hub content (403 FORBIDDEN).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

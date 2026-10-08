@@ -473,6 +473,36 @@ const GRANT_CASES: readonly GrantCase[] = [
     expected: ScopeLevel.VIEW,
     because: 'A farmer may download (GET only) the report PDF of their own audit.',
   },
+  {
+    permission: 'farmer.learning.view',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.ALL,
+    because: 'BR-59: Farmers can view all published learning articles, videos, and trainings.',
+  },
+  {
+    permission: 'farmer.learning.view',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Customers do not access the farmer learning hub.',
+  },
+  {
+    permission: 'farmer.learning.participate_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'BR-59: Farmers manage own enrollments and group memberships.',
+  },
+  {
+    permission: 'learning.admin.manage',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-59: Super Admin manages learning hub content.',
+  },
+  {
+    permission: 'learning.admin.manage',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Farmers cannot manage learning hub content.',
+  },
 ];
 
 describe('docs/rbac.json grants', () => {

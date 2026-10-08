@@ -182,6 +182,10 @@ tags:
     description: |
       Consolidated operational calendar for farmers (audits, crop harvests, certificate expiries,
       and platform events) along with admin management of platform workshops and events (BR-58).
+  - name: Learning Hub
+    description: |
+      Educational knowledge base (articles, videos, training workshops) and community groups
+      with farmer enrollment and group memberships (BR-59).
   - name: Pricing
     description: Super-Admin fair price ceilings and admin retail prices.
   - name: Marketing
@@ -5810,6 +5814,549 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/learning/articles:
+    get:
+      tags: [Learning Hub]
+      operationId: listLearningArticles
+      summary: List published learning articles
+      description: Returns paginated published learning articles with optional language and tag filters (BR-59a).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: language
+          in: query
+          schema: { type: string, enum: [en, ta] }
+        - name: tag
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated articles list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningArticlesListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/articles/{id}:
+    get:
+      tags: [Learning Hub]
+      operationId: getLearningArticle
+      summary: Get learning article details
+      description: Returns full content of a published learning article (BR-59a).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Article details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningArticle'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/videos:
+    get:
+      tags: [Learning Hub]
+      operationId: listLearningVideos
+      summary: List published educational videos
+      description: Returns paginated educational videos (BR-59a).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: language
+          in: query
+          schema: { type: string, enum: [en, ta] }
+      responses:
+        '200':
+          description: Paginated videos list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningVideosListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/trainings:
+    get:
+      tags: [Learning Hub]
+      operationId: listLearningTrainings
+      summary: List training workshops
+      description: Returns paginated training workshops including caller enrollment status (BR-59a, BR-59b).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: language
+          in: query
+          schema: { type: string, enum: [en, ta] }
+      responses:
+        '200':
+          description: Paginated trainings list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTrainingsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/trainings/{id}/enroll:
+    post:
+      tags: [Learning Hub]
+      operationId: enrollLearningTraining
+      summary: Enroll in a training workshop
+      description: Enrolls the caller farmer in a training workshop if capacity permits (BR-59b).
+      x-permission: farmer.learning.participate_own
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Enrollment successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Learning Hub]
+      operationId: unenrollLearningTraining
+      summary: Cancel enrollment in a training workshop
+      description: Unenrolls the caller farmer from a training workshop (BR-59b).
+      x-permission: farmer.learning.participate_own
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Unenrollment successful.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/groups:
+    get:
+      tags: [Learning Hub]
+      operationId: listLearningGroups
+      summary: List community groups
+      description: Returns community groups with member counts and caller membership status (BR-59a, BR-59c).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated community groups.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroupsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/groups/{id}/join:
+    post:
+      tags: [Learning Hub]
+      operationId: joinLearningGroup
+      summary: Join a community group
+      description: Adds caller farmer to a community group (BR-59c).
+      x-permission: farmer.learning.participate_own
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Joined group successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMembershipResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/groups/{id}/leave:
+    delete:
+      tags: [Learning Hub]
+      operationId: leaveLearningGroup
+      summary: Leave a community group
+      description: Removes caller farmer from a community group (BR-59c).
+      x-permission: farmer.learning.participate_own
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Left group successfully.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/articles:
+    post:
+      tags: [Learning Hub]
+      operationId: createLearningArticle
+      summary: Create a learning article
+      description: Publishes an educational blog article (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLearningArticleRequest'
+      responses:
+        '201':
+          description: Article created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningArticle'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/articles/{id}:
+    patch:
+      tags: [Learning Hub]
+      operationId: updateLearningArticle
+      summary: Update a learning article
+      description: Updates article title, content, or publication status (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLearningArticleRequest'
+      responses:
+        '200':
+          description: Article updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningArticle'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Learning Hub]
+      operationId: deleteLearningArticle
+      summary: Delete a learning article
+      description: Deletes an educational article (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Article deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/videos:
+    post:
+      tags: [Learning Hub]
+      operationId: createLearningVideo
+      summary: Create an educational video entry
+      description: Adds a video link with title, duration, and metadata (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLearningVideoRequest'
+      responses:
+        '201':
+          description: Video entry created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningVideo'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/videos/{id}:
+    patch:
+      tags: [Learning Hub]
+      operationId: updateLearningVideo
+      summary: Update an educational video entry
+      description: Updates video entry details (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLearningVideoRequest'
+      responses:
+        '200':
+          description: Video entry updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningVideo'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Learning Hub]
+      operationId: deleteLearningVideo
+      summary: Delete an educational video entry
+      description: Deletes a video entry (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Video entry deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/trainings:
+    post:
+      tags: [Learning Hub]
+      operationId: createLearningTraining
+      summary: Create a training workshop
+      description: Creates a new training session or field workshop (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLearningTrainingRequest'
+      responses:
+        '201':
+          description: Training workshop created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTraining'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/trainings/{id}:
+    patch:
+      tags: [Learning Hub]
+      operationId: updateLearningTraining
+      summary: Update a training workshop
+      description: Updates training workshop schedule, capacity or location (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLearningTrainingRequest'
+      responses:
+        '200':
+          description: Training workshop updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTraining'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Learning Hub]
+      operationId: deleteLearningTraining
+      summary: Delete a training workshop
+      description: Deletes a training workshop (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Training workshop deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/groups:
+    post:
+      tags: [Learning Hub]
+      operationId: createLearningGroup
+      summary: Create a community group
+      description: Creates a new farmer community topic group (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLearningGroupRequest'
+      responses:
+        '201':
+          description: Community group created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroup'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/groups/{id}:
+    patch:
+      tags: [Learning Hub]
+      operationId: updateLearningGroup
+      summary: Update a community group
+      description: Updates group details (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLearningGroupRequest'
+      responses:
+        '200':
+          description: Community group updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroup'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Learning Hub]
+      operationId: deleteLearningGroup
+      summary: Delete a community group
+      description: Deletes a community group (BR-59d).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Community group deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/crop-master:
     get:
       tags: [Crops]
@@ -9150,6 +9697,7 @@ components:
         * `DIARY_WAGE_RATE_INVALID` — a diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44).
         * `CROP_PLOT_ALREADY_GROWING` — the plot already has another live crop in status GROWING (BR-46).
         * `LIVESTOCK_ALREADY_EXITED` — the animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47).
+        * `TRAINING_FULL` — the training workshop has reached full capacity (BR-59).
       required: [type, title, status, code]
       properties:
         type:
@@ -13280,6 +13828,220 @@ components:
         correlationId: { type: string }
         ip: { type: [string, 'null'] }
         at: { type: string, format: date-time }
+
+    LearningArticle:
+      type: object
+      required: [id, title, content, readTime, author, tag, language, isPublished, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        snippet: { type: [string, 'null'] }
+        readTime: { type: string }
+        author: { type: string }
+        tag: { type: string }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LearningArticlesListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LearningArticle' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    CreateLearningArticleRequest:
+      type: object
+      required: [title, content, readTime, author, tag]
+      properties:
+        title: { type: string, minLength: 1 }
+        content: { type: string, minLength: 1 }
+        snippet: { type: string }
+        readTime: { type: string, minLength: 1 }
+        author: { type: string, minLength: 1 }
+        tag: { type: string, minLength: 1 }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+
+    UpdateLearningArticleRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        content: { type: string, minLength: 1 }
+        snippet: { type: [string, 'null'] }
+        readTime: { type: string, minLength: 1 }
+        author: { type: string, minLength: 1 }
+        tag: { type: string, minLength: 1 }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+
+    LearningVideo:
+      type: object
+      required: [id, title, videoUrl, duration, author, language, isFeatured, isPublished, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        videoUrl: { type: string }
+        duration: { type: string }
+        author: { type: string }
+        language: { type: string, enum: [en, ta] }
+        isFeatured: { type: boolean }
+        isPublished: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LearningVideosListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LearningVideo' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    CreateLearningVideoRequest:
+      type: object
+      required: [title, videoUrl, duration, author]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        videoUrl: { type: string, minLength: 1 }
+        duration: { type: string, minLength: 1 }
+        author: { type: string, minLength: 1 }
+        language: { type: string, enum: [en, ta] }
+        isFeatured: { type: boolean }
+        isPublished: { type: boolean }
+
+    UpdateLearningVideoRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: [string, 'null'] }
+        videoUrl: { type: string, minLength: 1 }
+        duration: { type: string, minLength: 1 }
+        author: { type: string, minLength: 1 }
+        language: { type: string, enum: [en, ta] }
+        isFeatured: { type: boolean }
+        isPublished: { type: boolean }
+
+    LearningTraining:
+      type: object
+      required: [id, title, trainingDate, startTime, mode, location, instructor, enrolledCount, language, isPublished, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        trainingDate: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: [string, 'null'] }
+        mode: { type: string, enum: [IN_FIELD, ONLINE_WEBINAR] }
+        location: { type: string }
+        instructor: { type: string }
+        capacity: { type: [integer, 'null'] }
+        enrolledCount: { type: integer }
+        isEnrolled: { type: boolean }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LearningTrainingsListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LearningTraining' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    CreateLearningTrainingRequest:
+      type: object
+      required: [title, trainingDate, startTime, mode, location, instructor]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        trainingDate: { type: string, format: date }
+        startTime: { type: string, minLength: 1 }
+        endTime: { type: string }
+        mode: { type: string, enum: [IN_FIELD, ONLINE_WEBINAR] }
+        location: { type: string, minLength: 1 }
+        instructor: { type: string, minLength: 1 }
+        capacity: { type: integer, minimum: 1 }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+
+    UpdateLearningTrainingRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: [string, 'null'] }
+        trainingDate: { type: string, format: date }
+        startTime: { type: string, minLength: 1 }
+        endTime: { type: [string, 'null'] }
+        mode: { type: string, enum: [IN_FIELD, ONLINE_WEBINAR] }
+        location: { type: string, minLength: 1 }
+        instructor: { type: string, minLength: 1 }
+        capacity: { type: [integer, 'null'], minimum: 1 }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+
+    EnrollmentResponse:
+      type: object
+      required: [trainingId, farmerId, enrolledAt]
+      properties:
+        trainingId: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid }
+        enrolledAt: { type: string, format: date-time }
+
+    LearningGroup:
+      type: object
+      required: [id, name, category, memberCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        category: { type: string }
+        memberCount: { type: integer }
+        isJoined: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LearningGroupsListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LearningGroup' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    CreateLearningGroupRequest:
+      type: object
+      required: [name, category]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+        category: { type: string, minLength: 1 }
+
+    UpdateLearningGroupRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: [string, 'null'] }
+        category: { type: string, minLength: 1 }
+
+    GroupMembershipResponse:
+      type: object
+      required: [groupId, farmerId, joinedAt]
+      properties:
+        groupId: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid }
+        joinedAt: { type: string, format: date-time }
 
     Readiness:
       type: object

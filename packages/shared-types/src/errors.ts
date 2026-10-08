@@ -99,6 +99,8 @@ export const ErrorCode = {
   CROP_PLOT_ALREADY_GROWING: 'CROP_PLOT_ALREADY_GROWING',
   /** The animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47). */
   LIVESTOCK_ALREADY_EXITED: 'LIVESTOCK_ALREADY_EXITED',
+  /** The training workshop has reached full capacity (BR-59). */
+  TRAINING_FULL: 'TRAINING_FULL',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
