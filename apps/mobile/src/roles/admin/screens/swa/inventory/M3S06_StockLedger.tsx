@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader, SWABottomNav } from '../components';
 
@@ -105,11 +105,11 @@ function BranchArrowIcon() {
   );
 }
 
-function LockSmallIcon() {
+function LockSmallIcon({ color = '#8B4513' }: { color?: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke="#8B4513" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#8B4513" strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -118,22 +118,16 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Ledger');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Stock Ledger"
           onBack={onBack}
           showFilter={true}
           onFilterPress={() => onNavigate('M3S16')}
+          showWarehouse={true}
         />
-
-        {/* Warehouse Bar */}
-        <View style={styles.warehousePillRow}>
-          <View style={styles.warehousePill}>
-            <LockSmallIcon />
-            <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
-          </View>
-        </View>
 
         {/* 4 Tab Cards matching reference */}
         <View style={styles.tabCardsRow}>
@@ -288,40 +282,39 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
 
         <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A', // status bar blends with header
   },
   container: {
     flex: 1,
     backgroundColor: '#F4F1EA',
   },
   warehousePillRow: {
-    paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 4,
+    paddingBottom: 2,
   },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5ED',
-    borderWidth: 1,
-    borderColor: '#E8E2D8',
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     alignSelf: 'flex-start',
     gap: 6,
   },
   warehousePillText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
-    color: '#8B4513',
+    color: '#FFFFFF',
     fontFamily: 'Poppins',
   },
   tabCardsRow: {
@@ -343,8 +336,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   activeTabCard: {
-    backgroundColor: '#E85226',
-    borderColor: '#E85226',
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabCardText: {
     fontSize: 12,

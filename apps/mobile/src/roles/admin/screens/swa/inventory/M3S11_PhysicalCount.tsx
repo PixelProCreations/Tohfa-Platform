@@ -6,6 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  StatusBar,
+  Platform,
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
@@ -82,8 +84,10 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
       <View style={styles.container}>
         <SWAHeader
+          colors={['#F0562A', '#F0562A']}
           title="Physical Count"
           onBack={onBack}
         />
@@ -157,7 +161,7 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
                   onPress={() => toggleCheck(idx)}
                 >
                   {isChecked ? <CheckedSquareIcon /> : <UncheckedSquareIcon />}
-                  <Text style={[styles.checklistText, isChecked && styles.checklistTextChecked]}>
+                  <Text style={styles.checklistText}>
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -188,7 +192,7 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A', // status bar blends with header
   },
   container: {
     flex: 1,
@@ -263,7 +267,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: '#F0562A',
     height: 52,
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,13 +328,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F4F1EA',
   },
   checklistText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
     color: '#1D2420',
     fontFamily: 'Poppins',
-  },
-  checklistTextChecked: {
-    fontWeight: '700',
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -339,14 +340,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F1EA',
   },
   continueBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#E85226',
+    shadowColor: '#F0562A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

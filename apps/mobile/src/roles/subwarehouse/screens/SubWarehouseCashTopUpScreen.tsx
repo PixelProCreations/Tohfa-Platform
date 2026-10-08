@@ -217,13 +217,21 @@ export function SubWarehouseCashTopUpScreen({
         >
           {/* 1. Customer Card */}
           <View style={styles.customerCard}>
-            <Text style={styles.customerName}>{custName}</Text>
-            <Text style={styles.customerCode}>{custCode}</Text>
+            <View style={styles.customerRow}>
+              <Text style={styles.customerLine}>
+                {custName}{' '}
+                <Text style={styles.customerLineBold}>{custCode}</Text>
+              </Text>
+            </View>
 
-            <Text style={styles.walletBalanceLabel}>Current Wallet Balance</Text>
-            <Text style={styles.walletBalanceValue}>
-              ₹{baseBalance.toLocaleString('en-IN')}
-            </Text>
+            <View style={[styles.customerRow, { marginTop: 8 }]}>
+              <Text style={styles.customerLine}>
+                Current Wallet Balance{' '}
+                <Text style={styles.customerLineBold}>
+                  ₹{baseBalance.toLocaleString('en-IN')}
+                </Text>
+              </Text>
+            </View>
           </View>
 
           {/* 2. Cash Amount Section */}
@@ -247,7 +255,7 @@ export function SubWarehouseCashTopUpScreen({
                 activeOpacity={0.8}
               >
                 <Text style={styles.amountLargeText}>
-                  {amount ? amount.toLocaleString('en-IN') : '0'}
+                  {amount ? amount.toString() : '0'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -278,7 +286,7 @@ export function SubWarehouseCashTopUpScreen({
                       isSelected && styles.presetBtnTextActive,
                     ]}
                   >
-                    ₹{p}
+                    ₹{p.toLocaleString('en-IN')}
                   </Text>
                 </TouchableOpacity>
               );
@@ -324,16 +332,6 @@ export function SubWarehouseCashTopUpScreen({
                 ₹{newBalance.toLocaleString('en-IN')}
               </Text>
             </View>
-          </View>
-
-          {/* Info Callout Banner */}
-          <View style={styles.infoBanner}>
-            <View style={styles.infoIconWrap}>
-              <InfoCircleIcon size={18} color={PALETTE.blueInfoText} />
-            </View>
-            <Text style={styles.infoBannerText}>
-              This is a preview only — the new balance is not changed until the server confirms the transaction.
-            </Text>
           </View>
 
           {/* 5. Transaction Information (Screenshot 3) */}
@@ -395,9 +393,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
   scroll: {
@@ -423,32 +422,25 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  customerName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  customerCode: {
-    fontSize: 16,
-    fontWeight: '800',
+  customerLine: {
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '400',
     color: PALETTE.textInk,
-    marginTop: 3,
   },
-  walletBalanceLabel: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
-    marginTop: 12,
-  },
-  walletBalanceValue: {
-    fontSize: 16,
-    fontWeight: '800',
+  customerLineBold: {
+    fontFamily: 'Poppins',
+    fontWeight: '700',
     color: PALETTE.textInk,
-    marginTop: 3,
   },
 
   // Section Headers
   sectionTitle: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.textInk,
@@ -463,6 +455,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   configDrivenText: {
+    fontFamily: 'Poppins',
     fontSize: 12,
     fontWeight: '500',
     color: PALETTE.textSecondary,
@@ -485,27 +478,30 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   currencySymbol: {
-    fontSize: 20,
+    fontFamily: 'Poppins',
+    fontSize: 18,
     fontWeight: '700',
     color: PALETTE.textSecondary,
     marginBottom: 2,
   },
   amountLargeText: {
+    fontFamily: 'Poppins',
     fontSize: 38,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.textInk,
     letterSpacing: -0.5,
   },
   amountInput: {
+    fontFamily: 'Poppins',
     fontSize: 38,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.textInk,
     textAlign: 'center',
-    minWidth: 140,
+    minWidth: 160,
     paddingVertical: 0,
   },
 
-  // 3. Preset Amounts
+  // 3. Preset Amounts Row
   presetGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -514,7 +510,7 @@ const styles = StyleSheet.create({
   },
   presetBtn: {
     flex: 1,
-    backgroundColor: '#F5F2EC',
+    backgroundColor: PALETTE.cardBg,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -523,18 +519,19 @@ const styles = StyleSheet.create({
     borderColor: '#E8E2D8',
   },
   presetBtnActive: {
-    backgroundColor: '#FFF5EC',
+    backgroundColor: PALETTE.primary,
     borderColor: PALETTE.primary,
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   presetBtnText: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.textInk,
   },
   presetBtnTextActive: {
-    color: PALETTE.primary,
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 
   // Custom Button
@@ -554,6 +551,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5EC',
   },
   customBtnText: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
     color: PALETTE.textInk,
@@ -573,57 +571,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   previewLabel: {
-    fontSize: 13,
+    fontFamily: 'Poppins',
+    fontSize: 13.5,
     fontWeight: '500',
     color: PALETTE.textInk,
   },
   previewValue: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '600',
     color: PALETTE.textInk,
   },
   previewTopUpValue: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
     color: PALETTE.greenAmount,
   },
   previewNewBalanceLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.brownBalance,
+    fontFamily: 'Poppins',
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: PALETTE.textInk,
   },
   previewNewBalanceValue: {
+    fontFamily: 'Poppins',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.brownBalance,
   },
   divider: {
     height: 1,
     backgroundColor: PALETTE.divider,
     marginVertical: 10,
-  },
-
-  // Info Banner
-  infoBanner: {
-    backgroundColor: PALETTE.blueInfoBg,
-    borderWidth: 1,
-    borderColor: PALETTE.blueInfoBorder,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  infoIconWrap: {
-    marginTop: 1,
-  },
-  infoBannerText: {
-    flex: 1,
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: PALETTE.blueInfoText,
-    lineHeight: 16,
   },
 
   // 5. Transaction Information
@@ -643,12 +623,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   txFieldLabel: {
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
     color: PALETTE.textSecondary,
     marginBottom: 3,
   },
   txFieldValue: {
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
     color: PALETTE.textInk,
@@ -685,8 +667,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   continueBtnText: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
 });
+

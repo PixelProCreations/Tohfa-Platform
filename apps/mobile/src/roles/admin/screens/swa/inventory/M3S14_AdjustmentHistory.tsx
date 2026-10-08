@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -157,29 +158,27 @@ export const M3S14_AdjustmentHistory: React.FC<M3S14Props> = ({ onNavigate, onBa
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
     backgroundColor: '#F4F1EA',
   },
   header: {
-    backgroundColor: '#E85226',
-    paddingTop: 16,
-    paddingBottom: 18,
+    backgroundColor: '#F0562A',
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingBottom: 16,
     paddingHorizontal: 16,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    gap: 12,
   },
   backButton: {
-    width: 32,
-    height: 32,
+    padding: 2,
     justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginRight: 6,
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
@@ -189,13 +188,13 @@ const styles = StyleSheet.create({
   },
   warehousePill: {
     alignSelf: 'flex-start',
-    marginLeft: 38,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 5,
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -203,7 +202,7 @@ const styles = StyleSheet.create({
   warehousePillText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     fontFamily: 'Poppins',
   },
   content: {
@@ -226,8 +225,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   tabPillActive: {
-    backgroundColor: '#E85226',
-    borderColor: '#E85226',
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabText: {
     fontSize: 12.5,
