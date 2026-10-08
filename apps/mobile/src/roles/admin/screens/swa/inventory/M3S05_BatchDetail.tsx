@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../components';
+import { SWAHeader } from '../components';
 
 interface M3S05Props {
   onNavigate: (screen: string) => void;
@@ -9,7 +9,7 @@ interface M3S05Props {
   onTabChange?: ((tab: any) => void) | undefined;
 }
 
-function LedgerIcon({ color = '#E85226' }: { color?: string }) {
+function LedgerIcon({ color = '#8B4513' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -24,7 +24,7 @@ function LedgerIcon({ color = '#E85226' }: { color?: string }) {
   );
 }
 
-function VerifyIcon({ color = '#E85226' }: { color?: string }) {
+function VerifyIcon({ color = '#8B4513' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
@@ -34,264 +34,268 @@ function VerifyIcon({ color = '#E85226' }: { color?: string }) {
   );
 }
 
-export const M3S05_BatchDetail: React.FC<M3S05Props> = ({ onNavigate, onBack, onTabChange }) => {
+export const M3S05_BatchDetail: React.FC<M3S05Props> = ({ onNavigate, onBack }) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <SWAHeader 
-          title="BAT-2026-00124"
-          subtitle="Tomato · Grade 1"
-          onBack={onBack}
-          badge={
-            <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>Active</Text>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+
+      {/* Fixed Header */}
+      <SWAHeader
+        colors={['#F0562A', '#F0562A']}
+        title="BAT-2026-00124"
+        subtitle="Tomato · Grade 1"
+        onBack={onBack}
+        badge={
+          <View style={styles.activeBadge}>
+            <Text style={styles.activeBadgeText}>Active</Text>
+          </View>
+        }
+      />
+
+      {/* Static content — no ScrollView */}
+      <View style={styles.body}>
+
+        {/* ── Batch Information ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Batch Information</Text>
+          <View style={styles.card}>
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Batch Code</Text>
+                <Text style={styles.fieldValue}>BAT-2026-00124</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Product</Text>
+                <Text style={styles.fieldValue}>Tomato</Text>
+              </View>
             </View>
-          }
-        />
-        
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Batch Information - 2 Column Grid matching reference */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Batch Information</Text>
-            <View style={styles.card}>
-              {/* Row 1: Batch Code & Product */}
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Batch Code</Text>
-                  <Text style={styles.fieldValue}>BAT-2026-00124</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Product</Text>
-                  <Text style={styles.fieldValue}>Tomato</Text>
-                </View>
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Grade</Text>
+                <Text style={styles.fieldValue}>Grade 1</Text>
               </View>
-
-              {/* Row 2: Grade & Warehouse */}
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Grade</Text>
-                  <Text style={styles.fieldValue}>Grade 1</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Warehouse</Text>
-                  <Text style={styles.fieldValue}>Coonoor</Text>
-                </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Warehouse</Text>
+                <Text style={styles.fieldValue}>Coonoor</Text>
               </View>
-
-              {/* Row 3: Storage Location & Received Quantity */}
-              <View style={styles.gridRow}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Storage Location</Text>
-                  <Text style={styles.fieldValue}>Cold Storage · A03</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Received Quantity</Text>
-                  <Text style={styles.fieldValue}>100 KG</Text>
-                </View>
+            </View>
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Storage Location</Text>
+                <Text style={styles.fieldValue}>Cold Storage · A03</Text>
               </View>
-
-              {/* Row 4: Available Quantity & Received Date */}
-              <View style={[styles.gridRow, { marginBottom: 0 }]}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Available Quantity</Text>
-                  <Text style={styles.fieldValue}>95 KG</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Received Date</Text>
-                  <Text style={styles.fieldValue}>24 Sep 2026</Text>
-                </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Received Quantity</Text>
+                <Text style={styles.fieldValue}>100 KG</Text>
+              </View>
+            </View>
+            <View style={[styles.gridRow, { marginBottom: 0 }]}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Available Quantity</Text>
+                <Text style={styles.fieldValue}>95 KG</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Received Date</Text>
+                <Text style={styles.fieldValue}>24 Sep 2026</Text>
               </View>
             </View>
           </View>
+        </View>
 
-          {/* Traceability - 2 Column Grid with Internal only label */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Traceability</Text>
-              <Text style={styles.sectionSubtitleMuted}>Internal only</Text>
-            </View>
-            <View style={styles.card}>
-              <View style={[styles.gridRow, { marginBottom: 0 }]}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Goods Receipt</Text>
-                  <Text style={styles.fieldValue}>GR-1024</Text>
-                </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.fieldLabel}>Source Farmer</Text>
-                  <Text style={styles.fieldValue}>Internal reference</Text>
-                </View>
-              </View>
-            </View>
+        {/* ── Traceability ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Traceability</Text>
+            <Text style={styles.sectionMuted}>Internal only</Text>
           </View>
-
-          {/* Stock Movement Summary */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
-            <View style={styles.movementCardsRow}>
-              <View style={styles.movementCard}>
-                <Text style={styles.movementValue}>100 KG</Text>
-                <Text style={styles.movementLabel}>RECEIVED</Text>
+          <View style={styles.card}>
+            <View style={[styles.gridRow, { marginBottom: 0 }]}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Goods Receipt</Text>
+                <Text style={styles.fieldValue}>GR-1024</Text>
               </View>
-              <View style={styles.movementCard}>
-                <Text style={styles.movementValue}>20 KG</Text>
-                <Text style={styles.movementLabel}>DISPATCHED</Text>
-              </View>
-              <View style={styles.movementCard}>
-                <Text style={styles.movementValue}>10 KG</Text>
-                <Text style={styles.movementLabel}>RESERVED</Text>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Source Farmer</Text>
+                <Text style={styles.fieldValue}>Internal reference</Text>
               </View>
             </View>
           </View>
+        </View>
 
-          {/* Actions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Actions</Text>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => onNavigate('M3S06')}
-              activeOpacity={0.7}
-            >
-              <LedgerIcon color="#8B4513" />
-              <Text style={styles.actionButtonText}>View Stock Ledger</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => onNavigate('M3S10')}
-              activeOpacity={0.7}
-            >
-              <VerifyIcon color="#8B4513" />
-              <Text style={styles.actionButtonText}>Verify Stock</Text>
-            </TouchableOpacity>
+        {/* ── Stock Movement Summary ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
+          <View style={styles.movementRow}>
+            <View style={styles.movementCard}>
+              <Text style={styles.movementValue}>100 KG</Text>
+              <Text style={styles.movementLabel}>RECEIVED</Text>
+            </View>
+            <View style={styles.movementCard}>
+              <Text style={styles.movementValue}>20 KG</Text>
+              <Text style={styles.movementLabel}>DISPATCHED</Text>
+            </View>
+            <View style={styles.movementCard}>
+              <Text style={styles.movementValue}>10 KG</Text>
+              <Text style={styles.movementLabel}>RESERVED</Text>
+            </View>
           </View>
-        </ScrollView>
+        </View>
 
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
+        {/* ── Actions ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Actions</Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate('M3S06'))}
+            activeOpacity={0.7}
+          >
+            <LedgerIcon />
+            <Text style={styles.actionBtnText}>View Stock Ledger</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate('M3S10'))}
+            activeOpacity={0.7}
+          >
+            <VerifyIcon />
+            <Text style={styles.actionBtnText}>Verify Stock</Text>
+          </TouchableOpacity>
+        </View>
+
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
+    flex: 1,
+    backgroundColor: '#F0562A', // status bar area blends with header
+  },
+  // ── Header uses its own paddingTop:44 ──
+  // ── Body fills the rest ──
+  body: {
     flex: 1,
     backgroundColor: '#F4F1EA',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F1EA',
-  },
-  content: {
-    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
+    paddingBottom: 20,
+    justifyContent: 'space-between',
   },
-  section: {
-    marginBottom: 16,
-  },
+
+  // Sections
+  section: {},
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#1D2420',
     fontFamily: 'Poppins',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  sectionSubtitleMuted: {
-    fontSize: 12,
+  sectionMuted: {
+    fontSize: 11,
     fontWeight: '500',
     color: '#7A726C',
     fontFamily: 'Poppins',
-    marginBottom: 8,
   },
+
+  // Card
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#EAE6DF',
-    padding: 16,
+    padding: 12,
   },
   gridRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   gridCol: {
     flex: 1,
-    paddingRight: 8,
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7A726C',
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#7C6E65',
     fontFamily: 'Poppins',
-    marginBottom: 3,
+    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   fieldValue: {
-    fontSize: 14.5,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '800',
     color: '#1D2420',
     fontFamily: 'Poppins',
   },
-  movementCardsRow: {
+
+  // Movement cards
+  movementRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   movementCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#EAE6DF',
   },
   movementValue: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
     color: '#1D2420',
     fontFamily: 'Poppins',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   movementLabel: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#7A726C',
+    color: '#7C6E65',
     fontFamily: 'Poppins',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
-  actionButton: {
+
+  // Action buttons
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    height: 48,
+    height: 46,
     borderRadius: 12,
     marginBottom: 10,
-    borderWidth: 1.2,
-    borderColor: '#E85226',
+    borderWidth: 1.5,
+    borderColor: '#F0562A',
     gap: 8,
   },
-  actionButtonText: {
+  actionBtnText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#8B4513',
     fontFamily: 'Poppins',
   },
+
+  // Active badge — white pill with border matching reference
   activeBadge: {
-    backgroundColor: '#E6F5ED',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
   },
   activeBadgeText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
     color: '#1E8E5A',
     fontFamily: 'Poppins',

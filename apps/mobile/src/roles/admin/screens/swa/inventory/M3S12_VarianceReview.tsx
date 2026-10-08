@@ -61,7 +61,7 @@ export const M3S12_VarianceReview: React.FC<M3S12Props> = ({ onNavigate, onBack 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader
+        <SWAHeader colors={['#F0562A', '#F0562A']}
           title="Variance Review"
           onBack={onBack}
         />
@@ -151,7 +151,7 @@ export const M3S12_VarianceReview: React.FC<M3S12Props> = ({ onNavigate, onBack 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -276,14 +276,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F1EA',
   },
   continueBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#E85226',
+    shadowColor: '#F0562A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

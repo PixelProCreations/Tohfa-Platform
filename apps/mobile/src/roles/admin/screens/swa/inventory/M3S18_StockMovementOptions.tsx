@@ -38,7 +38,7 @@ function ShareIcon() {
 function QrVoucherIcon() {
   return (
     <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke="#E85226" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke="#F0562A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -51,7 +51,7 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader
+        <SWAHeader colors={['#F0562A', '#F0562A']}
           title="Movement Receipt"
           onBack={onBack}
         />
@@ -83,7 +83,7 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Movement Quantity</Text>
-                <Text style={[styles.detailValue, { color: '#E85226' }]}>+140 KG</Text>
+                <Text style={[styles.detailValue, { color: '#F0562A' }]}>+140 KG</Text>
               </View>
             </View>
 
@@ -133,7 +133,7 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
               </View>
               <View style={[styles.auditRow, { borderTopWidth: 1, borderTopColor: '#FED7AA', paddingTop: 6, marginTop: 4 }]}>
                 <Text style={[styles.auditKey, { fontWeight: '700' }]}>Closing Available Balance:</Text>
-                <Text style={[styles.auditVal, { fontWeight: '800', color: '#E85226' }]}>140 KG</Text>
+                <Text style={[styles.auditVal, { fontWeight: '800', color: '#F0562A' }]}>140 KG</Text>
               </View>
             </View>
           </View>
@@ -168,7 +168,7 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#FED7AA',
     padding: 18,
-    shadowColor: '#E85226',
+    shadowColor: '#F0562A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusPill: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryActionBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#E85226',
+    shadowColor: '#F0562A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -341,13 +341,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: '#F0562A',
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryActionBtnText: {
-    color: '#E85226',
+    color: '#F0562A',
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'Poppins',

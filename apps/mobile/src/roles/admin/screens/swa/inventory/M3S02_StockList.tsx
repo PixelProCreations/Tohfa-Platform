@@ -155,7 +155,7 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Stock List"
           onBack={onBack}
           showFilter={true}
@@ -285,7 +285,7 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -315,8 +315,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   activeTabCard: {
-    backgroundColor: '#E85226',
-    borderColor: '#E85226',
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabCardText: {
     fontSize: 12,
@@ -439,13 +439,13 @@ const styles = StyleSheet.create({
   viewLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#F0562A',
     fontFamily: 'Poppins',
   },
   viewChevron: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#F0562A',
     marginTop: -1,
   },
 });

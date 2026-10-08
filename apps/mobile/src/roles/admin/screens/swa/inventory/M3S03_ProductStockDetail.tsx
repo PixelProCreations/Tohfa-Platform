@@ -11,7 +11,7 @@ interface M3S03Props {
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 
-function ActionBatchesIcon({ color = '#E85226' }: { color?: string }) {
+function ActionBatchesIcon({ color = '#F0562A' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M6 4h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke={color} strokeWidth="1.8" />
@@ -21,7 +21,7 @@ function ActionBatchesIcon({ color = '#E85226' }: { color?: string }) {
   );
 }
 
-function ActionLedgerIcon({ color = '#E85226' }: { color?: string }) {
+function ActionLedgerIcon({ color = '#F0562A' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" stroke={color} strokeWidth="1.8" />
@@ -30,7 +30,7 @@ function ActionLedgerIcon({ color = '#E85226' }: { color?: string }) {
   );
 }
 
-function ActionPinIcon({ color = '#E85226' }: { color?: string }) {
+function ActionPinIcon({ color = '#F0562A' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke={color} strokeWidth="1.8" />
@@ -39,7 +39,7 @@ function ActionPinIcon({ color = '#E85226' }: { color?: string }) {
   );
 }
 
-function ActionVerifyIcon({ color = '#E85226' }: { color?: string }) {
+function ActionVerifyIcon({ color = '#F0562A' }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-12A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
@@ -53,7 +53,7 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Tomato"
           subtitle="Grade 1"
           onBack={onBack}
@@ -84,25 +84,29 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
             </View>
           </View>
 
-          {/* Allocation - 4 Separate Cards in 2x2 Grid (matching design mockup exactly) */}
+          {/* Allocation - Single Card Container (matching design mockup exactly) */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Allocation</Text>
-            <View style={styles.allocationGrid}>
-              <View style={styles.allocationCard}>
-                <Text style={styles.allocationLabel}>ONLINE</Text>
-                <Text style={styles.allocationValue}>120 KG</Text>
+            <View style={styles.allocationSingleCard}>
+              <View style={styles.allocationRow}>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>ONLINE</Text>
+                  <Text style={styles.allocationValue}>120 KG</Text>
+                </View>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>LIVE MARKET</Text>
+                  <Text style={styles.allocationValue}>40 KG</Text>
+                </View>
               </View>
-              <View style={styles.allocationCard}>
-                <Text style={styles.allocationLabel}>LIVE MARKET</Text>
-                <Text style={styles.allocationValue}>40 KG</Text>
-              </View>
-              <View style={styles.allocationCard}>
-                <Text style={styles.allocationLabel}>RESERVE</Text>
-                <Text style={styles.allocationValue}>50 KG</Text>
-              </View>
-              <View style={styles.allocationCard}>
-                <Text style={styles.allocationLabel}>BUFFER</Text>
-                <Text style={styles.allocationValue}>30 KG</Text>
+              <View style={styles.allocationRow}>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>RESERVE</Text>
+                  <Text style={styles.allocationValue}>50 KG</Text>
+                </View>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>BUFFER</Text>
+                  <Text style={styles.allocationValue}>30 KG</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -128,44 +132,44 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
             </View>
           </View>
 
-          {/* Actions - White Cards with Orange Icons and Dark Ink Text */}
+          {/* Actions - White Cards with Orange Border and Centered Brown Text */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Actions</Text>
             
             <TouchableOpacity 
-              style={styles.actionCard}
+              style={styles.actionButton}
               onPress={() => onNavigate('M3S04')}
               activeOpacity={0.7}
             >
-              <ActionBatchesIcon color="#E85226" />
-              <Text style={styles.actionText}>View Batches</Text>
+              <ActionBatchesIcon color="#8B4513" />
+              <Text style={styles.actionButtonText}>View Batches</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.actionCard}
+              style={styles.actionButton}
               onPress={() => onNavigate('M3S06')}
               activeOpacity={0.7}
             >
-              <ActionLedgerIcon color="#E85226" />
-              <Text style={styles.actionText}>View Ledger</Text>
+              <ActionLedgerIcon color="#8B4513" />
+              <Text style={styles.actionButtonText}>View Ledger</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.actionCard}
+              style={styles.actionButton}
               onPress={() => onNavigate('M3S08')}
               activeOpacity={0.7}
             >
-              <ActionPinIcon color="#E85226" />
-              <Text style={styles.actionText}>View Storage Locations</Text>
+              <ActionPinIcon color="#8B4513" />
+              <Text style={styles.actionButtonText}>View Storage Locations</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.actionCard}
+              style={styles.actionButton}
               onPress={() => onNavigate('M3S10')}
               activeOpacity={0.7}
             >
-              <ActionVerifyIcon color="#E85226" />
-              <Text style={styles.actionText}>Verify Stock</Text>
+              <ActionVerifyIcon color="#8B4513" />
+              <Text style={styles.actionButtonText}>Verify Stock</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -179,7 +183,7 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -241,21 +245,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
     letterSpacing: 0.8,
   },
-  // 4 Separate Allocation Cards in 2x2 Grid
-  allocationGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-  },
-  allocationCard: {
-    width: '48.5%',
+  // Single Allocation Card
+  allocationSingleCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E8E2D8',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    padding: 16,
+  },
+  allocationRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  allocationCol: {
+    flex: 1,
   },
   allocationLabel: {
     fontSize: 10.5,
@@ -308,23 +311,23 @@ const styles = StyleSheet.create({
     color: '#1D2420',
     fontFamily: 'Poppins',
   },
-  // Action Cards (White with orange icon and left-aligned dark text)
-  actionCard: {
+  // Action Buttons (Centered, Orange Border, Brown Text)
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    height: 50,
-    borderRadius: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E8E2D8',
-    paddingHorizontal: 16,
+    height: 48,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#F0562A',
   },
-  actionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1D2420',
+  actionButtonText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#8B4513',
     fontFamily: 'Poppins',
-    marginLeft: 12,
+    marginLeft: 10,
   },
 });

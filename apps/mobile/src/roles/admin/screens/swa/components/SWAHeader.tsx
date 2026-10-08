@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { SWAGradient } from './SWAGradient';
-import { SWA_COLORS, SWA_TYPOGRAPHY } from '../constants';
+import { SWA_COLORS } from '../constants';
 
 interface SWAHeaderProps {
   title: string;
@@ -19,9 +19,39 @@ interface SWAHeaderProps {
   showFilter?: boolean;
   onFilterPress?: () => void;
   badge?: React.ReactNode;
+  colors?: [string, string];
+  bottomContent?: React.ReactNode;
+  paddingTop?: number;
 }
 
-function FilterSlidersIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"
+        stroke={color}
+        strokeWidth="2"
+      />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function FilterSlidersIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -49,47 +79,47 @@ export function SWAHeader({
   showFilter = false,
   onFilterPress,
   badge,
+  colors,
+  bottomContent,
+  paddingTop,
 }: SWAHeaderProps) {
-  // If there's a subtitle or badge alongside onBack (like ProductStockDetail), align title to left
-  const isDetailHeader = Boolean(subtitle && (badge || onBack));
+  const isDetailSubtitle = Boolean(subtitle && !showWarehouse);
 
   return (
     <SWAGradient
-      colors={[SWA_COLORS.screenGradientStart, SWA_COLORS.screenGradientEnd]}
+      colors={colors || ['#F0562A', '#F0562A']}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, paddingTop !== undefined && { paddingTop }]}>
         <View style={styles.topRow}>
-          {onBack ? (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={onBack}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="arrow_back" size={24} color={SWA_COLORS.textWhite} />
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 36 }} />
-          )}
+          <View style={styles.headerLeft}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Back"
+              >
+                <BackArrowIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
 
-          {isDetailHeader ? (
-            <View style={styles.detailTitleContainer}>
-              <Text style={styles.title}>{title}</Text>
-              {subtitle && <Text style={styles.detailSubtitle}>{subtitle}</Text>}
-            </View>
-          ) : (
-            <View style={styles.titleContainer}>
-              {icon && (
-                <Icon
-                  name={icon}
-                  size={20}
-                  color={SWA_COLORS.textWhite}
-                  style={styles.titleIcon}
-                />
+            {icon && (
+              <Icon
+                name={icon}
+                size={20}
+                color={SWA_COLORS.textWhite}
+                style={styles.titleIcon}
+              />
+            )}
+
+            <View style={styles.titleWrapper}>
+              <Text style={styles.title} numberOfLines={1}>{title}</Text>
+              {isDetailSubtitle && (
+                <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
               )}
-              <Text style={styles.title}>{title}</Text>
             </View>
-          )}
+          </View>
 
           <View style={styles.rightActions}>
             {badge ? (
@@ -99,6 +129,7 @@ export function SWAHeader({
                 style={styles.filterButton}
                 onPress={onFilterPress}
                 activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <FilterSlidersIcon size={18} color="#FFFFFF" />
               </TouchableOpacity>
@@ -109,25 +140,22 @@ export function SWAHeader({
                 style={styles.iconButton}
                 onPress={onNotification}
                 activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Icon name="notifications" size={20} color={SWA_COLORS.textWhite} />
               </TouchableOpacity>
-            ) : (
-              <View style={{ width: 36 }} />
-            )}
+            ) : null}
           </View>
         </View>
 
-        {!isDetailHeader && subtitle && (
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        )}
-
         {(showWarehouse || warehouseLocked) && (
-          <View style={styles.warehouseRow}>
-            <Icon name="lock" size={13} color={SWA_COLORS.textWhite} />
-            <Text style={styles.warehouseText}>{warehouseName}</Text>
+          <View style={styles.warehousePill}>
+            <LockSmallIcon size={13} color="#FFFFFF" />
+            <Text style={styles.warehousePillText}>{warehouseName}</Text>
           </View>
         )}
+
+        {bottomContent}
       </View>
     </SWAGradient>
   );
@@ -135,62 +163,51 @@ export function SWAHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 44, // Status bar height
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingBottom: 16,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  titleContainer: {
-    flex: 1,
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginLeft: 8,
-  },
-  detailTitleContainer: {
     flex: 1,
+    gap: 12,
+  },
+  backButton: {
+    padding: 2,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
   titleIcon: {
-    marginRight: 8,
+    marginRight: 0,
+  },
+  titleWrapper: {
+    flex: 1,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: SWA_COLORS.textWhite,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-  },
-  detailSubtitle: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    marginTop: 1,
+    color: '#FFFFFF',
+    fontFamily: 'Poppins',
   },
   subtitle: {
-    fontSize: 12,
-    fontWeight: SWA_TYPOGRAPHY.fontWeight.medium,
-    color: SWA_COLORS.textWhite,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    textAlign: 'center',
-    marginTop: 4,
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontFamily: 'Poppins',
+    marginTop: 2,
   },
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    minWidth: 36,
+    marginLeft: 8,
   },
   filterButton: {
     width: 36,
@@ -212,17 +229,23 @@ const styles = StyleSheet.create({
   rightAction: {
     alignItems: 'flex-end',
   },
-  warehouseRow: {
+  warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
-    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 10,
+    gap: 6,
   },
-  warehouseText: {
-    marginLeft: 5,
-    fontSize: 11,
+  warehousePillText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: SWA_COLORS.textWhite,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    color: '#FFFFFF',
+    fontFamily: 'Poppins',
   },
 });

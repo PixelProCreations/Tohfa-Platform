@@ -70,6 +70,41 @@ function ReceiptIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: 
   );
 }
 
+function NotificationBellRingIcon({ size = 26, color = PALETTE.textInk }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M10.3 21a1.94 1.94 0 0 0 3.4 0"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M4 2C2.8 3.7 2 5.7 2 8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M22 8c0-2.3-.8-4.3-2-6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export interface TopUpSuccessData {
   walletBalance?: string;
   topUpAmount?: string;
@@ -168,6 +203,12 @@ export function SubWarehouseTopUpSuccessScreen({
             </View>
           </View>
         </View>
+
+        {/* Customer Notification Sent */}
+        <View style={styles.notificationNoticeWrap}>
+          <NotificationBellRingIcon size={26} color={PALETTE.textInk} />
+          <Text style={styles.notificationNoticeText}>Customer notification sent</Text>
+        </View>
       </ScrollView>
 
       {/* Sticky Bottom Buttons */}
@@ -223,9 +264,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
   scroll: {
@@ -251,14 +293,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   successHeading: {
+    fontFamily: 'Poppins',
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.textInk,
     marginBottom: 6,
   },
   successSub: {
+    fontFamily: 'Poppins',
     fontSize: 14.5,
-    fontWeight: '600',
+    fontWeight: '500',
     color: PALETTE.textSecondary,
   },
   card: {
@@ -282,15 +326,28 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   fieldLabel: {
+    fontFamily: 'Poppins',
     fontSize: 12,
     fontWeight: '500',
     color: PALETTE.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.textInk,
+  },
+  notificationNoticeWrap: {
+    marginTop: 24,
+    alignItems: 'flex-start',
+  },
+  notificationNoticeText: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '400',
+    color: PALETTE.textInk,
+    marginTop: 8,
   },
   bottomBar: {
     position: 'absolute',
@@ -315,6 +372,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   viewTxBtnText: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
@@ -329,6 +387,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneBtnText: {
+    fontFamily: 'Poppins',
     color: PALETTE.brownText,
     fontSize: 15,
     fontWeight: '700',

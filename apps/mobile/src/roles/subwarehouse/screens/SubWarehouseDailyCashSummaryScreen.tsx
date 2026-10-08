@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Modal,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -19,20 +17,20 @@ const PALETTE = {
   primary:       '#F0562A',
   pageBg:        '#FAF7F2',
   cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
+  textInk:       '#1D2420',
+  textSecondary: '#7A726C',
+  textMuted:     '#9E9690',
+  border:        '#EAE6DF',
+  divider:       '#F0ECE4',
 
   greenBadge:    '#DCFCE7',
   greenText:     '#15803D',
   amberBadge:    '#FEF3C7',
   amberText:     '#B45309',
-  brownBalance:  '#92400E',
+  brownAccent:   '#8B4513',
 
-  tabInactive:   '#827A74',
-  tabBorder:     '#EAE4DB',
+  tabInactive:   '#7A726C',
+  tabBorder:     '#EAE6DF',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
@@ -49,7 +47,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function CalendarIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -58,7 +56,7 @@ function CalendarIcon({ size = 18, color = '#6B7280' }: { size?: number; color?:
   );
 }
 
-function ArrowDownIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function ArrowDownIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M19 12l-7 7-7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -66,94 +64,80 @@ function ArrowDownIcon({ size = 18, color = '#6B7280' }: { size?: number; color?
   );
 }
 
-function ChevronLeftIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
+function ExportIcon({ size = 18, color = '#8B4513' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ChevronRightIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CloseIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-const MONTH_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-function ExportIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 6l-4-4-4 4M12 2v13" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 6l-4-4-4 4M12 2v13"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M12 7v7.5M8.5 11.5L12 15l3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 18h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5.5 4A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4h-13z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M3 9.5h18" stroke={color} strokeWidth="1.8" />
+      <Path d="M10 13.5h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+        fill={color}
+      />
     </Svg>
   );
 }
@@ -176,29 +160,6 @@ export function SubWarehouseDailyCashSummaryScreen({
   const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
   const variance = parsedPhysical - 18500;
 
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
-  const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(8);
-  const [tempSelectedDay, setTempSelectedDay] = useState(25);
-  const [dateText, setDateText] = useState('Today · 25 Sep 2026');
-
-  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfWeek = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-  const handlePrevMonth = () => {
-    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); } else { setCalMonth(calMonth - 1); }
-  };
-
-  const handleNextMonth = () => {
-    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); } else { setCalMonth(calMonth + 1); }
-  };
-
-  const handleApplyDate = () => {
-    setDateText(`${tempSelectedDay} ${MONTH_SHORT[calMonth]} ${calYear}`);
-    setShowCalendarModal(false);
-  };
-
-
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -210,6 +171,7 @@ export function SubWarehouseDailyCashSummaryScreen({
           onPress={onBack}
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Back"
         >
           <ArrowBackIcon size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -224,10 +186,10 @@ export function SubWarehouseDailyCashSummaryScreen({
         {/* Date Selector Card */}
         <TouchableOpacity
           style={styles.dateSelectorCard}
-          onPress={() => setShowCalendarModal(true)}
+          onPress={() => Alert.alert('Select Date', 'Choose summary date to inspect.')}
           activeOpacity={0.8}
         >
-          <Text style={styles.dateSelectorText}>{dateText}</Text>
+          <Text style={styles.dateSelectorText}>Today · 25 Sep 2026</Text>
           <CalendarIcon size={18} color={PALETTE.textSecondary} />
         </TouchableOpacity>
 
@@ -247,7 +209,7 @@ export function SubWarehouseDailyCashSummaryScreen({
           </View>
         </View>
 
-        {/* Total Cash Received Card */}
+        {/* Total Cash Received Card - Centered as requested */}
         <View style={styles.totalCashCard}>
           <Text style={styles.totalCashTitle}>Total Cash Received</Text>
           <Text style={styles.totalCashAmount}>₹18,500</Text>
@@ -291,8 +253,8 @@ export function SubWarehouseDailyCashSummaryScreen({
         </View>
 
         {/* System vs. Physical Cash */}
-        <Text style={styles.sectionTitle}>System vs. Physical Cash</Text>
-        <View style={[styles.card, { alignItems: 'center', paddingVertical: 18 }]}>
+        <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>System vs. Physical Cash</Text>
+        <View style={[styles.card, { alignItems: 'center', paddingVertical: 20 }]}>
           <Text style={styles.systemCashNumber}>₹18,500</Text>
           <Text style={styles.systemCashLabel}>SYSTEM RECORDED</Text>
 
@@ -311,7 +273,7 @@ export function SubWarehouseDailyCashSummaryScreen({
           <Text style={styles.systemCashLabel}>VARIANCE</Text>
         </View>
 
-        {/* Physical Cash Counted (Screenshot 4) */}
+        {/* Physical Cash Counted */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Physical Cash Counted</Text>
           <Text style={styles.sectionSubMuted}>If supported</Text>
@@ -328,8 +290,8 @@ export function SubWarehouseDailyCashSummaryScreen({
         </View>
 
         {/* Reconciliation Status */}
-        <Text style={styles.sectionTitle}>Reconciliation Status</Text>
-        <View style={{ alignItems: 'flex-start', marginTop: 2, marginBottom: 8 }}>
+        <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Reconciliation Status</Text>
+        <View style={{ alignItems: 'flex-start', marginBottom: 16 }}>
           <TouchableOpacity
             style={styles.reconciledBadge}
             onPress={() => {
@@ -337,12 +299,12 @@ export function SubWarehouseDailyCashSummaryScreen({
             }}
             activeOpacity={onNavigateToDailyCash ? 0.75 : 1}
           >
-            <Text style={styles.reconciledText}>Reconciled · View Details →</Text>
+            <Text style={styles.reconciledText}>Reconciled</Text>
           </TouchableOpacity>
         </View>
 
         {/* Transaction Breakdown */}
-        <Text style={styles.sectionTitle}>Transaction Breakdown</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Transaction Breakdown</Text>
         <View style={styles.kpiRow}>
           <View style={styles.kpiCard}>
             <Text style={styles.kpiNumber}>24</Text>
@@ -359,16 +321,18 @@ export function SubWarehouseDailyCashSummaryScreen({
         </View>
 
         {/* Top-Up List */}
-        <Text style={styles.sectionTitle}>Top-Up List</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Top-Up List</Text>
         <View style={styles.card}>
-          <Text style={styles.topUpItemHeader}>10:42 AM · Ravi Kumar</Text>
-          <Text style={styles.topUpFiscalCode}>FC-0012</Text>
-          <View style={styles.topUpBottomRow}>
-            <Text style={styles.topUpAmount}>₹2,000</Text>
+          <View style={styles.topUpTopRow}>
+            <View>
+              <Text style={styles.topUpItemHeader}>10:42 AM · Ravi Kumar</Text>
+              <Text style={styles.topUpFiscalCode}>FC-0012</Text>
+            </View>
             <View style={styles.completedBadge}>
               <Text style={styles.completedBadgeText}>Completed</Text>
             </View>
           </View>
+          <Text style={styles.topUpAmount}>₹2,000</Text>
         </View>
 
         {/* View Full Top-Up History Link */}
@@ -384,126 +348,52 @@ export function SubWarehouseDailyCashSummaryScreen({
         </TouchableOpacity>
 
         {/* Export */}
-        <Text style={styles.sectionTitle}>Export</Text>
+        <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Export</Text>
         <TouchableOpacity
           style={styles.exportBtn}
           onPress={() => Alert.alert('Export Summary', 'Exporting daily cash settlement report (PDF/CSV)...')}
           activeOpacity={0.75}
         >
-          <ExportIcon size={18} color={PALETTE.brownBalance} />
+          <ExportIcon size={18} color={PALETTE.brownAccent} />
           <Text style={styles.exportBtnText}>Export Summary</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom Tab Bar */}
       <View style={styles.bottomTabBar}>
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => onTabChange ? onTabChange('Home') : (onBack && onBack())}
+          activeOpacity={0.7}
         >
           <HomeTabIcon active={false} />
           <Text style={styles.tabLabel}>Home</Text>
-        </Pressable>
-        <Pressable
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => onTabChange && onTabChange('Receiving')}
+          activeOpacity={0.7}
         >
           <ReceivingTabIcon active={false} />
           <Text style={styles.tabLabel}>Receiving</Text>
-        </Pressable>
-        <Pressable
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => onTabChange && onTabChange('Inventory')}
+          activeOpacity={0.7}
         >
           <InventoryTabIcon active={false} />
           <Text style={styles.tabLabel}>Inventory</Text>
-        </Pressable>
-        <Pressable
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => onTabChange && onTabChange('More')}
+          activeOpacity={0.7}
         >
           <MoreTabIcon active={true} />
           <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
-      
-      {/* Calendar Modal Overlay */}
-      {showCalendarModal && (
-        <Modal transparent animationType="fade" visible={showCalendarModal} onRequestClose={() => setShowCalendarModal(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.calendarCard}>
-              {/* Header */}
-              <View style={styles.calHeaderRow}>
-                <View>
-                  <Text style={styles.calHeaderTitle}>Select Date</Text>
-                  <Text style={styles.calHeaderSub}>
-                    {tempSelectedDay} {MONTH_NAMES[calMonth]} {calYear}
-                  </Text>
-                </View>
-                <TouchableOpacity style={styles.calCloseBtn} onPress={() => setShowCalendarModal(false)}>
-                  <CloseIcon size={18} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Month Navigator */}
-              <View style={styles.monthNavRow}>
-                <TouchableOpacity style={styles.navArrowBtn} onPress={handlePrevMonth}>
-                  <ChevronLeftIcon size={20} color="#1E1612" />
-                </TouchableOpacity>
-                <Text style={styles.monthNavTitle}>
-                  {MONTH_NAMES[calMonth]} {calYear}
-                </Text>
-                <TouchableOpacity style={styles.navArrowBtn} onPress={handleNextMonth}>
-                  <ChevronRightIcon size={20} color="#1E1612" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Weekdays */}
-              <View style={styles.weekdaysRow}>
-                {WEEKDAYS.map((wd, i) => (
-                  <View key={i} style={styles.weekdayCol}>
-                    <Text style={styles.weekdayText}>{wd}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Days Grid */}
-              <View style={styles.daysGrid}>
-                {Array.from({ length: getFirstDayOfWeek(calYear, calMonth) }).map((_, i) => (
-                  <View key={`empty-${i}`} style={styles.dayCellEmpty} />
-                ))}
-                {Array.from({ length: getDaysInMonth(calYear, calMonth) }).map((_, i) => {
-                  const dayNum = i + 1;
-                  const isSelected = tempSelectedDay === dayNum;
-                  const isToday = dayNum === 25 && calMonth === 8 && calYear === 2026;
-
-                  return (
-                    <TouchableOpacity
-                      key={`day-${dayNum}`}
-                      style={[styles.dayCell, isSelected && styles.dayCellSelected, isToday && !isSelected && styles.dayCellToday]}
-                      onPress={() => setTempSelectedDay(dayNum)}
-                    >
-                      <Text style={[styles.dayCellText, isSelected && styles.dayCellTextSelected, isToday && !isSelected && styles.dayCellTextToday]}>
-                        {dayNum}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Actions */}
-              <View style={styles.calActionRow}>
-                <TouchableOpacity style={styles.calCancelBtn} onPress={() => setShowCalendarModal(false)}>
-                  <Text style={styles.calCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.calApplyBtn} onPress={handleApplyDate}>
-                  <Text style={styles.calApplyText}>Apply Date</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
     </SafeAreaView>
   );
 }
@@ -511,25 +401,26 @@ export function SubWarehouseDailyCashSummaryScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: PALETTE.primary,
   },
   header: {
     backgroundColor: PALETTE.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 12 : 6,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingBottom: 16,
     gap: 12,
   },
   backBtn: {
-    padding: 4,
+    padding: 2,
   },
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
+    fontFamily: 'Poppins',
   },
   scroll: {
     flex: 1,
@@ -542,7 +433,7 @@ const styles = StyleSheet.create({
   },
   dateSelectorCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -556,144 +447,162 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
+    gap: 10,
+    marginBottom: 16,
   },
   kpiCard: {
     flex: 1,
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.border,
   },
   kpiNumber: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '800',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
   kpiLabel: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '700',
     color: PALETTE.textSecondary,
     marginTop: 4,
     textAlign: 'center',
+    letterSpacing: 0.5,
+    fontFamily: 'Poppins',
   },
   totalCashCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.border,
     marginBottom: 16,
   },
   totalCashTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '600',
-    color: PALETTE.textInk,
+    color: PALETTE.textSecondary,
+    fontFamily: 'Poppins',
   },
   totalCashAmount: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginTop: 6,
+    fontFamily: 'Poppins',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: PALETTE.textInk,
-    marginTop: 10,
-    marginBottom: 8,
+    fontFamily: 'Poppins',
   },
   sectionSubMuted: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: PALETTE.textSecondary,
     fontWeight: '500',
+    fontFamily: 'Poppins',
   },
   card: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   denomLabel: {
-    fontSize: 13,
+    fontSize: 14,
     color: PALETTE.textInk,
     fontWeight: '500',
+    fontFamily: 'Poppins',
   },
   denomAmount: {
-    fontSize: 13.5,
+    fontSize: 14.5,
     fontWeight: '700',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
   divider: {
     height: 1,
     backgroundColor: PALETTE.divider,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   systemCashNumber: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '800',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
   systemCashLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: PALETTE.textSecondary,
-    marginTop: 3,
+    marginTop: 4,
+    letterSpacing: 0.5,
+    fontFamily: 'Poppins',
   },
   downArrowWrap: {
-    paddingVertical: 6,
+    paddingVertical: 10,
   },
   varianceNumber: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '800',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
   physicalCountBox: {
     backgroundColor: PALETTE.cardBg,
     borderWidth: 1.5,
     borderColor: PALETTE.primary,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   physicalInput: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: PALETTE.textInk,
     flex: 1,
     paddingVertical: 0,
+    fontFamily: 'Poppins',
   },
   rupeeSymbol: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: PALETTE.textSecondary,
+    fontFamily: 'Poppins',
   },
   reconciledBadge: {
     backgroundColor: PALETTE.greenBadge,
@@ -705,113 +614,97 @@ const styles = StyleSheet.create({
     color: PALETTE.greenText,
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: 'Poppins',
   },
-  topUpItemHeader: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  topUpFiscalCode: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
-    marginTop: 3,
-  },
-  topUpBottomRow: {
+  topUpTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
+    alignItems: 'flex-start',
+  },
+  topUpItemHeader: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: PALETTE.brownAccent,
+    fontFamily: 'Poppins',
+  },
+  topUpFiscalCode: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+    fontFamily: 'Poppins',
   },
   topUpAmount: {
     fontSize: 15,
     fontWeight: '800',
     color: PALETTE.textInk,
+    marginTop: 8,
+    fontFamily: 'Poppins',
   },
   completedBadge: {
     backgroundColor: PALETTE.greenBadge,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   completedBadgeText: {
     color: PALETTE.greenText,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
+    fontFamily: 'Poppins',
   },
   viewFullHistoryBtn: {
     alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 10,
+    paddingVertical: 14,
+    marginVertical: 10,
   },
   viewFullHistoryText: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
-    color: PALETTE.brownBalance,
+    color: PALETTE.brownAccent,
+    fontFamily: 'Poppins',
   },
   exportBtn: {
     backgroundColor: PALETTE.cardBg,
     borderWidth: 1.5,
     borderColor: PALETTE.primary,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   exportBtnText: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: PALETTE.brownBalance,
+    color: PALETTE.brownAccent,
+    fontFamily: 'Poppins',
   },
   bottomTabBar: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    justifyContent: 'space-around',
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingHorizontal: 4,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+    paddingVertical: 2,
   },
   tabLabel: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontWeight: '600',
     color: PALETTE.tabInactive,
-    marginTop: 2.5,
+    marginTop: 4,
+    fontFamily: 'Poppins',
   },
   tabLabelActive: {
     color: PALETTE.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
-  dayCellEmpty: { flex: 1, height: 40 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', padding: 20 },
-  calendarCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20 },
-  calHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  calHeaderTitle: { fontSize: 18, fontWeight: '700', color: '#1E1612' },
-  calHeaderSub: { fontSize: 13, color: '#7A726C', marginTop: 2 },
-  calCloseBtn: { padding: 4 },
-  monthNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  navArrowBtn: { padding: 8 },
-  monthNavTitle: { fontSize: 16, fontWeight: '600', color: '#1E1612' },
-  weekdaysRow: { flexDirection: 'row', marginBottom: 8 },
-  weekdayCol: { flex: 1, alignItems: 'center' },
-  weekdayText: { fontSize: 12, fontWeight: '600', color: '#9E9690' },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  dayCellSelected: { backgroundColor: '#F0562A' },
-  dayCellToday: { backgroundColor: '#FCE7E1' },
-  dayCellText: { fontFamily: 'Poppins', fontSize: 14, color: '#29201A' },
-  dayCellTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
-  dayCellTextToday: { color: '#F0562A', fontWeight: 'bold' },
-  calActionRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  calCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', backgroundColor: '#F0F0F0' },
-  calCancelText: { fontFamily: 'Poppins', fontSize: 14, color: '#7A726C', fontWeight: 'bold' },
-  calApplyBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', backgroundColor: '#F0562A' },
-  calApplyText: { fontFamily: 'Poppins', fontSize: 14, color: '#FFFFFF', fontWeight: 'bold' },
 });

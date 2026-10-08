@@ -20,8 +20,8 @@ interface M3S13Props {
 
 function DownArrowRedIcon() {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#E52E2E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -29,8 +29,8 @@ function DownArrowRedIcon() {
 function RadioSelectedIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#E85226" strokeWidth="2" fill="#FFFFFF" />
-      <Circle cx="12" cy="12" r="5" fill="#E85226" />
+      <Circle cx="12" cy="12" r="10" stroke="#C86A2B" strokeWidth="2.2" fill="#FFFFFF" />
+      <Circle cx="12" cy="12" r="4.5" fill="#C86A2B" />
     </Svg>
   );
 }
@@ -45,26 +45,42 @@ function RadioUnselectedIcon() {
 
 function CameraAddIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="#7A726C" strokeWidth="1.8" />
-      <Circle cx="12" cy="13" r="4" stroke="#7A726C" strokeWidth="1.8" />
-    </Svg>
-  );
-}
-
-function ProhibitedRedIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#E24B4A" strokeWidth="2" />
-      <Path d="M4.93 4.93l14.14 14.14" stroke="#E24B4A" strokeWidth="2" />
+    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l1.5-2.5h4"
+        stroke="#736B66"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="11" cy="14" r="3.5" stroke="#736B66" strokeWidth="1.8" />
+      <Path
+        d="M18 4v5M15.5 6.5h5"
+        stroke="#736B66"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
 
 function SendPlaneWhiteIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 4l19 8-19 8 5-8-5-8z"
+        stroke="#FFFFFF"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 12h14"
+        stroke="#FFFFFF"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -84,7 +100,7 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader
+        <SWAHeader colors={['#F0562A', '#F0562A']}
           title="Stock Adjustment Request"
           onBack={onBack}
         />
@@ -131,7 +147,7 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
                   onPress={() => setSelectedReason(reason)}
                 >
                   {isSelected ? <RadioSelectedIcon /> : <RadioUnselectedIcon />}
-                  <Text style={[styles.reasonText, isSelected && styles.reasonTextSelected]}>
+                  <Text style={styles.reasonText}>
                     {reason}
                   </Text>
                 </TouchableOpacity>
@@ -160,16 +176,8 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
             <Text style={styles.evidenceText}>Add Photo</Text>
           </TouchableOpacity>
 
-          {/* SWA Notice Box */}
-          <View style={styles.noticeBox}>
-            <ProhibitedRedIcon />
-            <Text style={styles.noticeText}>
-              SWA can create and submit this adjustment but cannot approve it — approval happens through a separate, authorized backend process.
-            </Text>
-          </View>
-
           {/* Bottom Spacing */}
-          <View style={{ height: 28 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
         {/* Fixed Submit Button at Bottom */}
@@ -177,7 +185,7 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
           <TouchableOpacity
             style={styles.submitBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M3S14')}
+            onPress={() => onNavigate('M3S17')}
           >
             <SendPlaneWhiteIcon />
             <Text style={styles.submitBtnText}>Submit Adjustment Request</Text>
@@ -191,7 +199,7 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -254,21 +262,22 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   adjustmentBadge: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    alignSelf: 'flex-start',
+    backgroundColor: '#FDE8E8',
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 14,
   },
   adjustmentBadgeText: {
-    fontSize: 12.5,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#DC2626',
+    color: '#E52E2E',
     fontFamily: 'Poppins',
+    letterSpacing: 0.3,
   },
   reasonHeaderRow: {
     flexDirection: 'row',
@@ -302,13 +311,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F4F1EA',
   },
   reasonText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
     color: '#1D2420',
     fontFamily: 'Poppins',
-  },
-  reasonTextSelected: {
-    fontWeight: '700',
   },
   notesBox: {
     backgroundColor: '#FFFFFF',
@@ -328,42 +334,23 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   evidenceBox: {
-    width: 68,
-    height: 68,
-    borderRadius: 12,
+    width: 76,
+    height: 76,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
+    borderColor: '#BAC7D5',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
-  },
-  evidenceText: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
-    marginTop: 3,
-  },
-  noticeBox: {
-    backgroundColor: '#FFF1F2',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     marginBottom: 16,
   },
-  noticeText: {
-    flex: 1,
-    fontSize: 11.5,
+  evidenceText: {
+    fontSize: 12,
     fontWeight: '500',
-    color: '#BE123C',
+    color: '#736B66',
     fontFamily: 'Poppins',
-    lineHeight: 16,
+    marginTop: 5,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -372,14 +359,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F1EA',
   },
   submitBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#E85226',
+    shadowColor: '#F0562A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

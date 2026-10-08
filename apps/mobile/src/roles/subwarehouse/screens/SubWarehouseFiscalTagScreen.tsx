@@ -204,16 +204,6 @@ export function SubWarehouseFiscalTagScreen({
           />
         </View>
 
-        {/* Blue Info Banner */}
-        <View style={styles.blueInfoCard}>
-          <View style={styles.infoIconWrap}>
-            <InfoCircleIcon size={18} color={PALETTE.blueInfoText} />
-          </View>
-          <Text style={styles.blueInfoText}>
-            Tag-generation rules are backend/configuration-defined — this app doesn't invent the format beyond the illustrative example shown.
-          </Text>
-        </View>
-
         {/* Duplicate Tag Error Demo Button */}
         <TouchableOpacity
           style={styles.demoBtn}
@@ -222,12 +212,6 @@ export function SubWarehouseFiscalTagScreen({
         >
           <Text style={styles.demoBtnText}>Simulate duplicate tag error (demo)</Text>
         </TouchableOpacity>
-
-        {/* Shield Gated Box */}
-        <View style={styles.shieldBox}>
-          <ShieldCheckIcon size={18} color={PALETTE.amberBoxText} />
-          <Text style={styles.shieldText}>Gated by permission: wallet.cash_topup.fiscal_tag</Text>
-        </View>
 
         <View style={{ height: 90 }} />
       </ScrollView>
@@ -265,9 +249,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
   scroll: {
@@ -280,6 +265,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   sectionTitle: {
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.textInk,
@@ -294,6 +280,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   requiredText: {
+    fontFamily: 'Poppins',
     fontSize: 12,
     color: PALETTE.textSecondary,
     fontWeight: '500',
@@ -318,14 +305,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
+    fontFamily: 'Poppins',
     fontSize: 12,
     fontWeight: '500',
     color: PALETTE.textSecondary,
     marginBottom: 3,
   },
   fieldValue: {
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.textInk,
   },
   inputCard: {
@@ -338,8 +327,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tagInput: {
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: PALETTE.textInk,
     paddingVertical: 0,
   },
@@ -359,6 +349,7 @@ const styles = StyleSheet.create({
   },
   blueInfoText: {
     flex: 1,
+    fontFamily: 'Poppins',
     fontSize: 12,
     fontWeight: '500',
     color: PALETTE.blueInfoText,
@@ -375,6 +366,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   demoBtnText: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '700',
     color: '#92400E',
@@ -391,6 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   shieldText: {
+    fontFamily: 'Poppins',
     fontSize: 12.5,
     fontWeight: '700',
     color: PALETTE.amberBoxText,
@@ -417,6 +410,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reviewBtnText: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',

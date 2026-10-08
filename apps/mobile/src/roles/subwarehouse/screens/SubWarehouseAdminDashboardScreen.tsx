@@ -502,10 +502,29 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
 function DeliveryTruckWhiteIcon() {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 3h15v13H1V3z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 8h4l3 3v5h-7V8z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Path
+        d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M15 18H9"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="17" cy="18" r="2" stroke="#FFFFFF" strokeWidth="2.2" />
+      <Circle cx="7" cy="18" r="2" stroke="#FFFFFF" strokeWidth="2.2" />
     </Svg>
   );
 }
@@ -597,17 +616,18 @@ function AlertCircleIcon({ color = '#1E1612' }: { color?: string }) {
 function StartReceivingBoxIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 14h4l2 3h4l2-3h4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 3v9M8 8l4 4 4-4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Path d="M12 7v5.5M9.5 10l2.5 2.5L14.5 10" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7.5 14.5v1.5h9v-1.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function WarningAmberTriangleIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 9v4M12 17h.01" stroke="#D97706" strokeWidth="2.2" strokeLinecap="round" />
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#1E1612" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 9v4M12 17h.01" stroke="#1E1612" strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -625,6 +645,14 @@ function ChevronRightGrayIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke="#9E9690" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightRedIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke="#E11D48" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -796,8 +824,8 @@ const INITIAL_SHIPMENTS: ShipmentItem[] = [
     reference: 'PO-2026-0026',
     status: 'Expected',
     badgeLabel: 'Expected',
-    statusColor: '#B45309',
-    statusBg: '#FEF3C7',
+    statusColor: '#C2410C',
+    statusBg: '#FFEDD5',
     from: 'Main Warehouse',
     to: 'Coonoor',
     produce: 'Beetroot',
@@ -851,6 +879,64 @@ const INITIAL_SHIPMENTS: ShipmentItem[] = [
   },
 ];
 
+interface ReceivingHistoryItem {
+  id: string;
+  code: string;
+  status: 'Accepted' | 'Partial' | 'Rejected';
+  badgeLabel: string;
+  badgeBg: string;
+  badgeColor: string;
+  produce: string;
+  grade: string;
+  receivedQty: number;
+  acceptedQty?: number;
+  rejectedQty?: number;
+  date: string;
+}
+
+const RECEIVING_HISTORY_ITEMS: ReceivingHistoryItem[] = [
+  {
+    id: 'h1',
+    code: 'GR-1024',
+    status: 'Partial',
+    badgeLabel: 'Partially Accepted',
+    badgeBg: '#FDF4E7',
+    badgeColor: '#92400E',
+    produce: 'Tomato',
+    grade: 'Grade 1',
+    receivedQty: 145,
+    acceptedQty: 140,
+    rejectedQty: 5,
+    date: '24 Sep 2026',
+  },
+  {
+    id: 'h2',
+    code: 'GR-1023',
+    status: 'Accepted',
+    badgeLabel: 'Accepted',
+    badgeBg: '#DCFCE7',
+    badgeColor: '#15803D',
+    produce: 'Carrot',
+    grade: 'Grade 1',
+    receivedQty: 80,
+    acceptedQty: 80,
+    date: '24 Sep 2026',
+  },
+  {
+    id: 'h3',
+    code: 'GR-1018',
+    status: 'Rejected',
+    badgeLabel: 'Rejected',
+    badgeBg: '#FEE2E2',
+    badgeColor: '#DC2626',
+    produce: 'Spinach',
+    grade: 'Grade 2',
+    receivedQty: 30,
+    rejectedQty: 30,
+    date: '22 Sep 2026',
+  },
+];
+
 export const INITIAL_NOTIFICATIONS: WarehouseNotification[] = [
   {
     id: 'n1',
@@ -899,20 +985,26 @@ interface SubWarehouseAdminDashboardScreenProps {
 }
 
 // ─── Inventory Module Navigation Component ───────────────────────────────────
-function InventoryModule({ 
-  onBack, 
+function InventoryModule({
+  onBack,
   onTabChange,
   initialScreen = 'M3S01',
-  initialParams = null
-}: { 
-  onBack: () => void; 
-  onTabChange?: (tab: SubWHTab) => void;
-  initialScreen?: string;
-  initialParams?: any;
+  initialParams = null,
+}: {
+  onBack: () => void;
+  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  initialScreen?: string | undefined;
+  initialParams?: any | undefined;
 }) {
   const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
   const [screenParams, setScreenParams] = useState<any>(initialParams);
   const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
+
+  useEffect(() => {
+    setCurrentScreen(initialScreen);
+    setScreenParams(initialParams);
+    setNavigationStack([initialScreen]);
+  }, [initialScreen, initialParams]);
 
   const handleNavigate = (screen: string, params?: any) => {
     setNavigationStack(prev => [...prev, screen]);
@@ -1121,7 +1213,13 @@ export function SubWarehouseAdminDashboardScreen({
   onBack,
 }: SubWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
-  const [receivingSubView, setReceivingSubView] = useState<'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail'>('overview');
+  const [receivingSubView, setReceivingSubView] = useState<
+    'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history'
+  >('overview');
+  const [receivingHistoryFilterTab, setReceivingHistoryFilterTab] = useState<
+    'All' | 'Accepted' | 'Partial' | 'Rejected'
+  >('All');
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [selectedShipment, setSelectedShipment] = useState<ShipmentItem>(INITIAL_SHIPMENTS[0]!);
   const [shipmentsFilterTab, setShipmentsFilterTab] = useState<
     'All' | 'Expected' | 'Arrived' | 'Receiving' | 'QC Pending' | 'Completed' | 'Rejected'
@@ -1288,7 +1386,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   interface NavHistoryItem {
     tab: SubWHTab;
-    receivingSubView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
+    receivingSubView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history';
     selectedShipment?: ShipmentItem;
   }
 
@@ -1298,7 +1396,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   const navigateTo = (
     tab: SubWHTab,
-    subView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' = 'overview',
+    subView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history' = 'overview',
     shipment?: ShipmentItem
   ) => {
     if (shipment) {
@@ -1531,6 +1629,12 @@ export function SubWarehouseAdminDashboardScreen({
         onBackToShipments={() => {
           setReceivingWizardStep(null);
           navigateTo('Receiving', 'incoming_shipments');
+        }}
+        onViewBatch={(batchId) => {
+          setReceivingWizardStep(null);
+          setInventoryInitialScreen('M3S05');
+          setInventoryInitialParams({ batchId }); // pass parameter if M3S05 uses it
+          setActiveTab('Inventory');
         }}
       />
     );
@@ -3292,8 +3396,8 @@ export function SubWarehouseAdminDashboardScreen({
 
               <View style={styles.activityCardContainer}>
                 {/* Activity 1 */}
-                <TouchableOpacity 
-                  style={styles.activityItemRow} 
+                <TouchableOpacity
+                  style={styles.activityItemRow}
                   activeOpacity={0.7}
                   onPress={() => navigateTo('Receiving', 'overview')}
                 >
@@ -3310,8 +3414,8 @@ export function SubWarehouseAdminDashboardScreen({
                 <View style={styles.cardDivider} />
 
                 {/* Activity 2 */}
-                <TouchableOpacity 
-                  style={styles.activityItemRow} 
+                <TouchableOpacity
+                  style={styles.activityItemRow}
                   activeOpacity={0.7}
                   onPress={() => setShowOrdersModule(true)}
                 >
@@ -3328,8 +3432,8 @@ export function SubWarehouseAdminDashboardScreen({
                 <View style={styles.cardDivider} />
 
                 {/* Activity 3 */}
-                <TouchableOpacity 
-                  style={styles.activityItemRow} 
+                <TouchableOpacity
+                  style={styles.activityItemRow}
                   activeOpacity={0.7}
                   onPress={() => setShowWalletOperations(true)}
                 >
@@ -3470,7 +3574,7 @@ export function SubWarehouseAdminDashboardScreen({
                         <Text style={styles.shipmentRouteText}>{item.from} → {item.to}</Text>
                       </View>
 
-                      <Text style={styles.produceTitle}>{item.produce} · {item.grade}</Text>
+                      <Text style={styles.shipmentProduceTitle}>{item.produce} · {item.grade}</Text>
 
                       <View style={styles.shipmentStatsRow}>
                         {item.status === 'Completed' ? (
@@ -3843,23 +3947,136 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
             )}
 
-            {/* 4. VIEW: Overview (Today's Receiving Overview) */}
+            {/* 4. VIEW: Receiving History (Reference Image) */}
+            {receivingSubView === 'receiving_history' && (
+              <View style={{ flex: 1, backgroundColor: PALETTE.pageBg }}>
+                {/* Header */}
+                <View style={styles.historyHeaderBanner}>
+                  <TouchableOpacity
+                    style={styles.shipmentsBackBtn}
+                    onPress={goBack}
+                    activeOpacity={0.7}
+                  >
+                    <BackArrowWhiteIcon />
+                  </TouchableOpacity>
+                  <Text style={styles.historyHeaderTitle}>Receiving History</Text>
+                </View>
+
+                {/* Search Bar */}
+                <View style={styles.historySearchContainer}>
+                  <SearchGlassGrayIcon />
+                  <TextInput
+                    style={styles.historySearchInput}
+                    placeholder="Search GR number / product"
+                    placeholderTextColor="#6B7280"
+                    value={historySearchQuery}
+                    onChangeText={setHistorySearchQuery}
+                  />
+                </View>
+
+                {/* Filter Pills */}
+                <View style={styles.historyFilterPillsContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.historyFilterPillsScroll}
+                  >
+                    {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map(tab => {
+                      const isActive = receivingHistoryFilterTab === tab;
+                      return (
+                        <TouchableOpacity
+                          key={tab}
+                          style={[styles.historyFilterPill, isActive && styles.historyFilterPillActive]}
+                          onPress={() => setReceivingHistoryFilterTab(tab)}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.historyFilterPillText, isActive && styles.historyFilterPillTextActive]}>
+                            {tab}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                {/* Receiving History Cards */}
+                <ScrollView
+                  style={styles.scroll}
+                  contentContainerStyle={styles.historyListScrollContent}
+                  showsVerticalScrollIndicator={true}
+                  decelerationRate={0.985}
+                  scrollEventThrottle={16}
+                >
+                  {RECEIVING_HISTORY_ITEMS.filter(item => {
+                    if (receivingHistoryFilterTab === 'Accepted' && item.status !== 'Accepted') return false;
+                    if (receivingHistoryFilterTab === 'Partial' && item.status !== 'Partial') return false;
+                    if (receivingHistoryFilterTab === 'Rejected' && item.status !== 'Rejected') return false;
+                    if (historySearchQuery) {
+                      const q = historySearchQuery.toLowerCase();
+                      if (!item.code.toLowerCase().includes(q) && !item.produce.toLowerCase().includes(q)) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  }).map(item => {
+                    const matchedShipment = INITIAL_SHIPMENTS.find(s => s.code === item.code);
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.shipmentCard}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (matchedShipment) {
+                            navigateTo('Receiving', 'shipment_detail', matchedShipment);
+                          }
+                        }}
+                      >
+                        <View style={styles.shipmentCardTopRow}>
+                          <Text style={styles.shipmentCardCode}>{item.code}</Text>
+                          <View style={[styles.shipmentCardStatusBadge, { backgroundColor: item.badgeBg }]}>
+                            <Text style={[styles.shipmentCardStatusText, { color: item.badgeColor }]}>
+                              {item.badgeLabel}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.shipmentProduceTitle}>{item.produce} · {item.grade}</Text>
+
+                        <View style={styles.shipmentStatsRow}>
+                          <View style={styles.shipmentStatCol}>
+                            <Text style={styles.shipmentStatLabel}>Received</Text>
+                            <Text style={styles.shipmentStatVal}>{item.receivedQty} KG</Text>
+                          </View>
+                          {item.acceptedQty !== undefined && (
+                            <View style={styles.shipmentStatCol}>
+                              <Text style={styles.shipmentStatLabel}>Accepted</Text>
+                              <Text style={styles.shipmentStatVal}>{item.acceptedQty} KG</Text>
+                            </View>
+                          )}
+                          {item.rejectedQty !== undefined && (
+                            <View style={styles.shipmentStatCol}>
+                              <Text style={styles.shipmentStatLabel}>Rejected</Text>
+                              <Text style={styles.shipmentStatVal}>{item.rejectedQty} KG</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <Text style={styles.historyCardDate}>{item.date}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <View style={{ height: 28 }} />
+                </ScrollView>
+              </View>
+            )}
+
+            {/* 5. VIEW: Overview (Today's Receiving Overview) */}
             {receivingSubView === 'overview' && (
               <>
                 <View style={styles.receivingHeaderBanner}>
                   <View style={styles.receivingHeaderTopRow}>
                     <View style={styles.receivingHeaderTitleRow}>
-                      {history.length > 1 && history[history.length - 2]?.tab === 'Home' ? (
-                        <TouchableOpacity
-                          style={[styles.shipmentsBackBtn, { marginRight: 6 }]}
-                          onPress={goBack}
-                          activeOpacity={0.7}
-                        >
-                          <BackArrowWhiteIcon />
-                        </TouchableOpacity>
-                      ) : (
-                        <DeliveryTruckWhiteIcon />
-                      )}
+                      <DeliveryTruckWhiteIcon />
                       <Text style={styles.receivingHeaderTitle}>Goods Receiving</Text>
                     </View>
 
@@ -3894,12 +4111,7 @@ export function SubWarehouseAdminDashboardScreen({
                   scrollEventThrottle={16}
                 >
                   {/* 1. Today's Receiving Overview (6 Boxes) */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={[styles.receivingSectionTitle, { marginBottom: 0 }]}>Today's Receiving Overview</Text>
-                    <TouchableOpacity onPress={() => navigateTo('Receiving', 'incoming_shipments')}>
-                      <Text style={{ color: '#E07A2A', fontWeight: 'bold' }}>View Details</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.receivingSectionTitle}>Today's Receiving Overview</Text>
                   <View style={styles.receivingGrid}>
                     {/* Expected Today */}
                     <TouchableOpacity
@@ -3908,7 +4120,8 @@ export function SubWarehouseAdminDashboardScreen({
                         selectedReceivingCard === 'expected' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Receiving');
+                        setSelectedReceivingCard('expected');
+                        setShipmentsFilterTab('Expected');
                         setFilterStatus('Expected');
                         navigateTo('Receiving', 'incoming_shipments');
                       }}
@@ -3926,6 +4139,7 @@ export function SubWarehouseAdminDashboardScreen({
                         selectedReceivingCard === 'awaiting' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
+                        setSelectedReceivingCard('awaiting');
                         setShipmentsFilterTab('Receiving');
                         setFilterStatus('Receiving');
                         navigateTo('Receiving', 'incoming_shipments');
@@ -3944,8 +4158,9 @@ export function SubWarehouseAdminDashboardScreen({
                         selectedReceivingCard === 'qc' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
+                        setSelectedReceivingCard('qc');
                         setSelectedShipment(INITIAL_SHIPMENTS[0]!); // The shipment that is Awaiting QC
-                        setReceivingWizardStep('receiving_in_progress');
+                        setReceivingWizardStep('quality_check');
                       }}
                       activeOpacity={0.8}
                     >
@@ -3961,9 +4176,9 @@ export function SubWarehouseAdminDashboardScreen({
                         selectedReceivingCard === 'partially' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Receiving');
-                        setFilterStatus('Partially Accepted');
-                        navigateTo('Receiving', 'incoming_shipments');
+                        setSelectedReceivingCard('partially');
+                        setReceivingHistoryFilterTab('Partial');
+                        navigateTo('Receiving', 'receiving_history');
                       }}
                       activeOpacity={0.8}
                     >
@@ -3979,9 +4194,9 @@ export function SubWarehouseAdminDashboardScreen({
                         selectedReceivingCard === 'completed' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Completed');
-                        setFilterStatus('Completed');
-                        navigateTo('Receiving', 'incoming_shipments');
+                        setSelectedReceivingCard('completed');
+                        setReceivingHistoryFilterTab('Accepted');
+                        navigateTo('Receiving', 'receiving_history');
                       }}
                       activeOpacity={0.8}
                     >
@@ -4009,6 +4224,18 @@ export function SubWarehouseAdminDashboardScreen({
                     </TouchableOpacity>
                   </View>
 
+                  {/* 2. Start Receiving CTA Button */}
+                  <TouchableOpacity
+                    style={styles.startReceivingBtn}
+                    onPress={() => {
+                      setSelectedShipment(INITIAL_SHIPMENTS[0]!);
+                      setReceivingWizardStep('start_receiving');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <StartReceivingBoxIcon />
+                    <Text style={styles.startReceivingBtnText}>Start Receiving</Text>
+                  </TouchableOpacity>
 
                   {/* 3. Needs Attention Section */}
                   <View style={styles.needsAttentionHeader}>
@@ -4022,12 +4249,13 @@ export function SubWarehouseAdminDashboardScreen({
                       style={styles.attentionCard}
                       onPress={() => {
                         setSelectedShipment(INITIAL_SHIPMENTS[0]!);
-                        setReceivingWizardStep('receiving_in_progress');
+                        setReceivingWizardStep('quality_check');
                       }}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.attentionIconBox, { backgroundColor: '#FEF3C7' }]}>
-                        <FlaskOutlineIcon color="#B45309" />
+                      <View style={[styles.attentionLeftBar, { backgroundColor: '#B47D16' }]} />
+                      <View style={styles.attentionIconBox}>
+                        <FlaskOutlineIcon color="#B47D16" />
                       </View>
                       <View style={styles.attentionTextBox}>
                         <Text style={styles.attentionCardTitle}>QC Pending</Text>
@@ -4045,14 +4273,15 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.attentionIconBox, { backgroundColor: '#FEE2E2' }]}>
-                        <AlertCircleIcon color="#DC2626" />
+                      <View style={[styles.attentionLeftBar, { backgroundColor: '#E11D48' }]} />
+                      <View style={styles.attentionIconBox}>
+                        <AlertCircleIcon color="#E11D48" />
                       </View>
                       <View style={styles.attentionTextBox}>
                         <Text style={styles.attentionCardTitle}>Quantity Mismatch</Text>
                         <Text style={styles.attentionCardSub}>Carrot — GR-1021</Text>
                       </View>
-                      <ChevronRightGrayIcon />
+                      <ChevronRightRedIcon />
                     </TouchableOpacity>
 
                     {/* Item 3: Damage Report */}
@@ -4064,14 +4293,15 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.attentionIconBox, { backgroundColor: '#FFE4E6' }]}>
+                      <View style={[styles.attentionLeftBar, { backgroundColor: '#E11D48' }]} />
+                      <View style={styles.attentionIconBox}>
                         <DamageBrokenImageIcon />
                       </View>
                       <View style={styles.attentionTextBox}>
                         <Text style={styles.attentionCardTitle}>Damage Report</Text>
-                        <Text style={styles.attentionCardSub}>Spinach — GR-1018</Text>
+                        <Text style={styles.attentionCardSub}>Beans — GR-1020</Text>
                       </View>
-                      <ChevronRightGrayIcon />
+                      <ChevronRightRedIcon />
                     </TouchableOpacity>
                   </View>
 
@@ -4140,14 +4370,12 @@ export function SubWarehouseAdminDashboardScreen({
             initialScreen={inventoryInitialScreen}
             initialParams={inventoryInitialParams}
             onBack={() => {
+              setInventoryInitialScreen(undefined);
               setActiveTab('Home');
-              setInventoryInitialScreen('M3S01');
-              setInventoryInitialParams(null);
             }}
             onTabChange={(tab) => {
+              setInventoryInitialScreen(undefined);
               setActiveTab(tab);
-              setInventoryInitialScreen('M3S01');
-              setInventoryInitialParams(null);
             }}
           />
         )}
@@ -5040,43 +5268,55 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   needsAttentionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1E1612',
   },
   needsAttentionStack: {
-    gap: 10,
+    gap: 12,
     marginBottom: 20,
   },
   attentionCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingLeft: 20,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: '#EFECE8',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  attentionLeftBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
   attentionIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   attentionTextBox: {
     flex: 1,
   },
   attentionCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E1612',
   },
   attentionCardSub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
+    fontSize: 14,
+    color: '#1E1612',
+    fontWeight: '600',
     marginTop: 2,
   },
   recentReceivingHeaderRow: {
@@ -5213,6 +5453,81 @@ const styles = StyleSheet.create({
   shipmentFilterPillTextActive: {
     color: '#9A3412',
     fontWeight: '800',
+  },
+  historyHeaderBanner: {
+    backgroundColor: PALETTE.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+  },
+  historyHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  historySearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  historySearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#1F2937',
+    padding: 0,
+  },
+  historyFilterPillsContainer: {
+    backgroundColor: PALETTE.pageBg,
+    paddingVertical: 12,
+  },
+  historyFilterPillsScroll: {
+    paddingHorizontal: 16,
+    gap: 10,
+    flexDirection: 'row',
+  },
+  historyFilterPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  historyFilterPillActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: PALETTE.primary,
+    borderWidth: 1.5,
+  },
+  historyFilterPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  historyFilterPillTextActive: {
+    color: '#9A3412',
+    fontWeight: '800',
+  },
+  historyListScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+  },
+  historyCardDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'right',
   },
   shipmentsListScrollContent: {
     paddingHorizontal: 16,

@@ -279,11 +279,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       const route = resolveRouteAfterAuth(me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
-      console.error('[LoginScreen] Catch block hit:', err);
+      console.warn('[LoginScreen] Login error:', err);
       if (err instanceof ApiError) {
-        setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
+        const key = `error.${err.problem.code}` as unknown as Parameters<typeof t>[0];
+        const translated = t(key);
+        const resolvedMsg =
+          translated && translated !== key
+            ? translated
+            : err.problem.detail || err.problem.title || t('error.generic');
+        setErrorMsg(resolvedMsg);
       } else {
-        console.error('[LoginScreen] Unknown error:', err);
         setErrorMsg(t('error.generic'));
       }
     } finally {

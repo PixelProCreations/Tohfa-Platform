@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  BackHandler,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -41,11 +43,15 @@ const PALETTE = {
 
   pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
+  textInk: '#1D2420',
   textSecondary: '#7A726C',
   textMuted: '#9E9690',
-  border: '#EBE5DC',
+  border: '#EAE6DF',
   divider: '#F4EFE9',
+
+  // Reference brown accents
+  iconBrown: '#8B4513',
+  customerBrown: '#8B4513',
 
   // Status & Badges
   greenBadge: '#DCFCE7',
@@ -60,8 +66,8 @@ const PALETTE = {
   redText: '#DC2626',
   redAccent: '#EF4444',
 
-  tabInactive: '#827A74',
-  tabBorder: '#EAE4DB',
+  tabInactive: '#7A726C',
+  tabBorder: '#EAE6DF',
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -89,7 +95,7 @@ function WalletHeaderIcon({ size = 24, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-function BellIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BellIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -103,16 +109,16 @@ function BellIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: str
   );
 }
 
-function LockBadgeIcon({ size = 12, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function LockBadgeIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="4" y="10" width="16" height="11" rx="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M8 10V6.5a4 4 0 0 1 8 0V10" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function CalendarIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -121,7 +127,7 @@ function CalendarIcon({ size = 20, color = '#F0562A' }: { size?: number; color?:
   );
 }
 
-function CashIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function CashIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
@@ -131,22 +137,22 @@ function CashIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: str
   );
 }
 
-function EllipsisPendingIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function EllipsisPendingIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Circle cx="8" cy="12" r="1" fill={color} />
-      <Circle cx="12" cy="12" r="1" fill={color} />
-      <Circle cx="16" cy="12" r="1" fill={color} />
+      <Circle cx="8" cy="12" r="1.2" fill={color} />
+      <Circle cx="12" cy="12" r="1.2" fill={color} />
+      <Circle cx="16" cy="12" r="1.2" fill={color} />
     </Svg>
   );
 }
 
-function ExclamationFailedIcon({ size = 20, color = '#EF4444' }: { size?: number; color?: string }) {
+function ExclamationFailedIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8v4M12 16h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 7.5v5M12 16h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -179,73 +185,111 @@ function HistoryClockIcon({ size = 20, color = '#F0562A' }: { size?: number; col
   );
 }
 
-function ScalesIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function ScalesIcon({ size = 22, color = '#F0562A' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 3v18M6 7l6-3 6 3M6 7l-3 7h6l-3-7zM18 7l-3 7h6l-3-7zM4 21h16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 3v18M6 7l6-3 6 3M6 7l-3 7h6l-3-7zM18 7l-3 7h6l-3-7zM4 21h16" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function TagIcon({ size = 18, color = '#F0562A' }: { size?: number; color?: string }) {
+function TagIcon({ size = 20, color = '#C98200' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="7" cy="7" r="1.5" fill={color} />
     </Svg>
   );
 }
 
-function ChevronRight({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
+function ChevronRight({ size = 18, color = '#4B5563' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M9 18l6-6-6-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function AlertTriangleIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 9v4M12 17h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M12 7v7.5M8.5 11.5L12 15l3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 18h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5.5 4A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4h-13z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M3 9.5h18" stroke={color} strokeWidth="1.8" />
+      <Path d="M10 13.5h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? PALETTE.primary : '#7A726C';
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+        fill={color}
+      />
     </Svg>
   );
 }
@@ -292,6 +336,21 @@ export function SubWarehouseWalletOperationsScreen({
     phone: '+91 98765 43210',
     currentBalance: '₹4,500',
   });
+
+  // Handle Android hardware back press
+  useEffect(() => {
+    if (!onBack) return;
+    const backAction = () => {
+      if (activeSubScreen !== 'operations') {
+        setActiveSubScreen('operations');
+        return true;
+      }
+      onBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [onBack, activeSubScreen]);
 
   // ─── Sub-Screen Redirection: Customer Wallet (Screenshots 1 & 2) ───
   if (activeSubScreen === 'customer_wallet') {
@@ -460,19 +519,7 @@ export function SubWarehouseWalletOperationsScreen({
         {/* ─── Top Brand Header Banner (#F0562A) ─── */}
         <View style={styles.headerBanner}>
           <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => {
-                if (onBack) onBack();
-                else if (onTabChange) onTabChange('Home');
-              }}
-              activeOpacity={0.8}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <ArrowBackIcon size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <View style={styles.headerTitleRow}>
+            <View style={styles.headerTitleGroup}>
               <WalletHeaderIcon size={24} color="#FFFFFF" />
               <Text style={styles.headerTitleText}>Wallet Operations</Text>
             </View>
@@ -481,14 +528,13 @@ export function SubWarehouseWalletOperationsScreen({
               style={styles.headerIconBtn}
               onPress={() => {
                 if (onNavigateToNotifications) onNavigateToNotifications();
-                else Alert.alert('Notifications', '3 unread wallet and inventory notifications.');
+                else Alert.alert('Notifications', 'Wallet and inventory notifications.');
               }}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Notifications"
             >
-              <BellIcon />
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>3</Text>
-              </View>
+              <BellIcon size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
@@ -513,7 +559,7 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <CalendarIcon size={19} color={PALETTE.primary} />
+                <CalendarIcon size={20} color={PALETTE.iconBrown} />
               </View>
               <Text style={styles.kpiValue}>{todayTopUpsCount}</Text>
               <Text style={styles.kpiLabel}>Today's Top-Ups</Text>
@@ -529,7 +575,7 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <CashIcon size={19} color={PALETTE.primary} />
+                <CashIcon size={20} color={PALETTE.iconBrown} />
               </View>
               <Text style={styles.kpiValue}>₹{cashCollectedTotal.toLocaleString('en-IN')}</Text>
               <Text style={styles.kpiLabel}>Cash Collected</Text>
@@ -545,7 +591,7 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <EllipsisPendingIcon size={19} color={PALETTE.amberAccent} />
+                <EllipsisPendingIcon size={20} color={PALETTE.iconBrown} />
               </View>
               <Text style={styles.kpiValue}>2</Text>
               <Text style={styles.kpiLabel}>Pending</Text>
@@ -561,9 +607,9 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <ExclamationFailedIcon size={19} color={PALETTE.redAccent} />
+                <ExclamationFailedIcon size={20} color={PALETTE.iconBrown} />
               </View>
-              <Text style={[styles.kpiValue, { color: PALETTE.redText }]}>1</Text>
+              <Text style={[styles.kpiValue, { color: PALETTE.redAccent }]}>1</Text>
               <Text style={styles.kpiLabel}>Failed</Text>
             </TouchableOpacity>
           </View>
@@ -584,7 +630,7 @@ export function SubWarehouseWalletOperationsScreen({
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
-                <PlusIcon size={22} color={PALETTE.primary} />
+                <PlusIcon size={20} color={PALETTE.primary} />
               </View>
               <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
             </TouchableOpacity>
@@ -599,7 +645,7 @@ export function SubWarehouseWalletOperationsScreen({
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
-                <UserSearchIcon size={22} color={PALETTE.primary} />
+                <UserSearchIcon size={20} color={PALETTE.primary} />
               </View>
               <Text style={styles.quickActionLabel}>Find Customer</Text>
             </TouchableOpacity>
@@ -614,7 +660,7 @@ export function SubWarehouseWalletOperationsScreen({
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
-                <HistoryClockIcon size={22} color={PALETTE.primary} />
+                <HistoryClockIcon size={20} color={PALETTE.primary} />
               </View>
               <Text style={styles.quickActionLabel}>Top-Up History</Text>
             </TouchableOpacity>
@@ -670,7 +716,7 @@ export function SubWarehouseWalletOperationsScreen({
             </View>
           </TouchableOpacity>
 
-          {/* 4. Needs Attention Section (⚠️ Needs Attention) */}
+          {/* 4. Needs Attention Section */}
           <TouchableOpacity
             style={styles.needsAttentionHeadingRow}
             onPress={() => {
@@ -679,84 +725,89 @@ export function SubWarehouseWalletOperationsScreen({
             }}
             activeOpacity={0.7}
           >
-            <Text style={styles.needsAttentionHeading}>⚠️ Needs Attention</Text>
+            <AlertTriangleIcon size={16} color={PALETTE.textInk} />
+            <Text style={styles.needsAttentionHeading}>Needs Attention</Text>
           </TouchableOpacity>
 
           <View style={styles.needsAttentionList}>
             {/* 1. Pending top-up */}
             <TouchableOpacity
-              style={[styles.attentionRowCard, { borderLeftColor: PALETTE.amberAccent }]}
+              style={styles.attentionRowCard}
               onPress={() => {
                 setAttentionCategory('pending');
                 setActiveSubScreen('needs_attention');
               }}
               activeOpacity={0.75}
             >
+              <View style={[styles.attentionLeftStripe, { backgroundColor: '#C98200' }]} />
               <View style={styles.attentionLeftWrap}>
-                <EllipsisPendingIcon size={20} color={PALETTE.amberAccent} />
+                <EllipsisPendingIcon size={20} color="#C98200" />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Pending top-up</Text>
                   <Text style={styles.attentionSub}>1 transaction awaiting verification</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color={PALETTE.textMuted} />
+              <ChevronRight size={18} color="#4B5563" />
             </TouchableOpacity>
 
             {/* 2. Failed transaction */}
             <TouchableOpacity
-              style={[styles.attentionRowCard, { borderLeftColor: PALETTE.redAccent }]}
+              style={styles.attentionRowCard}
               onPress={() => {
                 setAttentionCategory('failed');
                 setActiveSubScreen('needs_attention');
               }}
               activeOpacity={0.75}
             >
+              <View style={[styles.attentionLeftStripe, { backgroundColor: '#E04353' }]} />
               <View style={styles.attentionLeftWrap}>
-                <ExclamationFailedIcon size={20} color={PALETTE.redAccent} />
+                <ExclamationFailedIcon size={20} color="#E04353" />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Failed transaction</Text>
                   <Text style={styles.attentionSub}>1 top-up did not complete</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color={PALETTE.textMuted} />
+              <ChevronRight size={18} color="#E04353" />
             </TouchableOpacity>
 
             {/* 3. Missing fiscal tag */}
             <TouchableOpacity
-              style={[styles.attentionRowCard, { borderLeftColor: PALETTE.amberAccent }]}
+              style={styles.attentionRowCard}
               onPress={() => {
                 setAttentionCategory('fiscal');
                 setActiveSubScreen('needs_attention');
               }}
               activeOpacity={0.75}
             >
+              <View style={[styles.attentionLeftStripe, { backgroundColor: '#C98200' }]} />
               <View style={styles.attentionLeftWrap}>
-                <TagIcon size={18} color={PALETTE.amberAccent} />
+                <TagIcon size={20} color="#C98200" />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Missing fiscal tag</Text>
                   <Text style={styles.attentionSub}>1 transaction needs review</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color={PALETTE.textMuted} />
+              <ChevronRight size={18} color="#4B5563" />
             </TouchableOpacity>
 
             {/* 4. Reconciliation discrepancy */}
             <TouchableOpacity
-              style={[styles.attentionRowCard, { borderLeftColor: PALETTE.amberAccent }]}
+              style={styles.attentionRowCard}
               onPress={() => {
                 setAttentionCategory('reconciliation');
                 setActiveSubScreen('needs_attention');
               }}
               activeOpacity={0.75}
             >
+              <View style={[styles.attentionLeftStripe, { backgroundColor: '#C98200' }]} />
               <View style={styles.attentionLeftWrap}>
-                <ScalesIcon size={18} color={PALETTE.amberAccent} />
+                <ScalesIcon size={20} color="#C98200" />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Reconciliation discrepancy</Text>
                   <Text style={styles.attentionSub}>Yesterday's cash count</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color={PALETTE.textMuted} />
+              <ChevronRight size={18} color="#4B5563" />
             </TouchableOpacity>
           </View>
         </View>
@@ -764,50 +815,54 @@ export function SubWarehouseWalletOperationsScreen({
 
       {/* ─── Bottom Navigation Bar ─── */}
       <View style={styles.bottomTabBar}>
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             if (onTabChange) onTabChange('Home');
             else if (onBack) onBack();
           }}
+          activeOpacity={0.7}
           accessibilityRole="tab"
         >
           <HomeTabIcon active={false} />
           <Text style={styles.tabLabel}>Home</Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             if (onTabChange) onTabChange('Receiving');
           }}
+          activeOpacity={0.7}
           accessibilityRole="tab"
         >
           <ReceivingTabIcon active={false} />
           <Text style={styles.tabLabel}>Receiving</Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             if (onTabChange) onTabChange('Inventory');
           }}
+          activeOpacity={0.7}
           accessibilityRole="tab"
         >
           <InventoryTabIcon active={false} />
           <Text style={styles.tabLabel}>Inventory</Text>
-        </Pressable>
+        </TouchableOpacity>
 
-        <Pressable
+        <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             if (onTabChange) onTabChange('More');
           }}
+          activeOpacity={0.7}
           accessibilityRole="tab"
         >
           <MoreTabIcon active={true} />
           <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -834,82 +889,53 @@ const styles = StyleSheet.create({
   // ─── Top Brand Header Banner (#F0562A) ──────────────────────────────────────
   headerBanner: {
     backgroundColor: PALETTE.primary,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingBottom: 20,
   },
   headerTopRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
   },
-  backBtn: {
-    padding: 6,
-    marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleRow: {
-    flex: 1,
+  headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   headerTitleText: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    fontFamily: 'Poppins',
+    letterSpacing: -0.2,
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    backgroundColor: '#DC2626',
-    borderRadius: 8,
-    minWidth: 15,
-    height: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: PALETTE.primary,
-  },
-  notifBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
   assignedWarehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.20)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: 11,
-    paddingVertical: 4.5,
+    borderColor: 'rgba(255, 255, 255, 0.40)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5.5,
+    marginTop: 12,
+    gap: 6,
   },
   assignedWarehouseText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12.5,
+    fontWeight: '500',
     color: '#FFFFFF',
+    fontFamily: 'Poppins',
   },
 
   // ─── KPI 2x2 Grid ──────────────────────────────────────────────────────────
@@ -918,44 +944,42 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   kpiCard: {
-    width: '48.5%',
+    width: '48.2%',
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
   },
   kpiIconWrap: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   kpiValue: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '800',
     color: PALETTE.textInk,
-    letterSpacing: -0.3,
-    marginBottom: 2,
+    letterSpacing: -0.4,
+    marginBottom: 4,
+    fontFamily: 'Poppins',
   },
   kpiLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: PALETTE.textSecondary,
+    fontFamily: 'Poppins',
   },
 
   // ─── Section Headings ──────────────────────────────────────────────────────
   sectionHeading: {
-    fontSize: 15.5,
+    fontSize: 16,
     fontWeight: '800',
     color: PALETTE.textInk,
-    marginBottom: 10,
+    marginBottom: 12,
     letterSpacing: -0.2,
+    fontFamily: 'Poppins',
   },
 
   // ─── Quick Actions ─────────────────────────────────────────────────────────
@@ -968,172 +992,190 @@ const styles = StyleSheet.create({
   quickActionCard: {
     flex: 1,
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
   },
   quickActionIconWrap: {
-    marginBottom: 6,
+    marginBottom: 8,
   },
   quickActionLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: PALETTE.textInk,
     textAlign: 'center',
+    fontFamily: 'Poppins',
   },
   dailySummaryCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    marginBottom: 20,
   },
-  dailySummaryIconWrap: {},
+  dailySummaryIconWrap: {
+    marginBottom: 6,
+  },
   dailySummaryLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
 
   // ─── Recent Top-Ups ────────────────────────────────────────────────────────
   recentTopUpCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    marginBottom: 20,
   },
   recentTopUpTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
   },
   recentCustomerName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: PALETTE.textInk,
+    color: PALETTE.customerBrown,
+    fontFamily: 'Poppins',
   },
   completedBadge: {
     backgroundColor: PALETTE.greenBadge,
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   completedBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: PALETTE.greenText,
+    fontFamily: 'Poppins',
   },
   recentCustCode: {
     fontSize: 12,
+    fontWeight: '500',
     color: PALETTE.textSecondary,
-    marginBottom: 4,
+    marginTop: 2,
+    marginBottom: 12,
+    fontFamily: 'Poppins',
   },
   recentTagAndAmountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   recentFiscalTag: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#4A5568',
+    fontFamily: 'Poppins',
   },
   recentAmount: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 19,
+    fontWeight: '900',
     color: PALETTE.textInk,
+    fontFamily: 'Poppins',
   },
   recentBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
   },
   recentTypeAndDate: {
-    fontSize: 11.5,
+    fontSize: 12,
+    fontWeight: '500',
     color: PALETTE.textSecondary,
+    fontFamily: 'Poppins',
   },
   recentDateText: {
     fontSize: 11,
+    fontWeight: '500',
     color: PALETTE.textSecondary,
+    fontFamily: 'Poppins',
   },
 
   // ─── Needs Attention ───────────────────────────────────────────────────────
   needsAttentionHeadingRow: {
-    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
   },
   needsAttentionHeading: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: PALETTE.textInk,
+    color: '#1D2420',
     letterSpacing: -0.2,
+    fontFamily: 'Poppins',
   },
   needsAttentionList: {
-    gap: 10,
+    gap: 12,
     marginBottom: 20,
   },
   attentionRowCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 12,
-    paddingLeft: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingLeft: 18,
+    paddingRight: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderLeftWidth: 4.5,
+    borderColor: '#EAE6DF',
+    overflow: 'hidden',
+    position: 'relative',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
     elevation: 1,
   },
+  attentionLeftStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
   attentionLeftWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 14,
     flex: 1,
   },
   attentionTextWrap: {
     flex: 1,
   },
   attentionTitle: {
-    fontSize: 13.5,
+    fontSize: 15,
     fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 2,
+    color: '#1D2420',
+    fontFamily: 'Poppins',
+    lineHeight: 20,
   },
   attentionSub: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#1D2420',
+    marginTop: 2,
+    fontFamily: 'Poppins',
+    lineHeight: 18,
   },
 
   // ─── Bottom Navigation Bar ──────────────────────────────────────────────────
@@ -1142,13 +1184,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 8,
-    paddingBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 4,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingHorizontal: 4,
   },
   tabItem: {
     flex: 1,
@@ -1160,11 +1198,12 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '600',
     color: PALETTE.tabInactive,
-    marginTop: 3,
+    marginTop: 4,
+    fontFamily: 'Poppins',
   },
   tabLabelActive: {
     color: PALETTE.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
   // ─── Modal Styles ──────────────────────────────────────────────────────────
