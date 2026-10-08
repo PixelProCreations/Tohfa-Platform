@@ -18,7 +18,7 @@ const PALETTE = {
   cardBg: '#FFFFFF',
   textInk: '#1E1612',
   border: '#EBE5DC',
-  buttonBg: '#DF8435', // matching the button color in the screenshot
+  buttonBg: '#F0562A',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.pageBg,
   },
   headerBanner: {
-    backgroundColor: '#DF8435', // the header in the screenshot looks like this color
+    backgroundColor: PALETTE.primary,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 16,

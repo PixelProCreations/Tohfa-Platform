@@ -178,6 +178,8 @@ import {
   SubWarehouseInvoiceListScreen,
   SubWarehouseInvoiceDetailScreen,
   SubWarehouseGenerateInvoiceScreen,
+  SubWarehouseInvoiceWizardScreen,
+  SubWarehouseInvoiceGeneratedScreen,
   SubWarehouseReviewInvoiceScreen,
   SubWarehouseGSTInvoiceScreen,
   SubWarehouseInvoicePreviewScreen,
@@ -423,6 +425,8 @@ export type ScreenName =
   | 'SubWarehouseInvoiceFilters'
   | 'SubWarehouseInvoiceDetail'
   | 'SubWarehouseGenerateInvoice'
+  | 'SubWarehouseInvoiceWizard'
+  | 'SubWarehouseInvoiceGenerated'
   | 'SubWarehouseReviewInvoice'
   | 'SubWarehouseGSTInvoice'
   | 'SubWarehouseInvoicePreview'
@@ -646,6 +650,9 @@ export type ScreenName =
   | 'SubWarehouseVouchers'
   | 'SubWarehouseVoucherDetail'
   | 'SubWarehouseInvoiceDetail'
+  | 'SubWarehouseGenerateInvoice'
+  | 'SubWarehouseInvoiceWizard'
+  | 'SubWarehouseInvoiceGenerated'
   | 'SubWarehouseDailyCash'
   | 'SubWarehouseExpenseCategories'
   | 'SubWarehouseFinanceHistory'
@@ -1014,6 +1021,9 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SubWarehouseAdminDashboard' ? (
           <SubWarehouseAdminDashboardScreen
             initialTab={params?.initialTab as any}
+            initialReceivingSubView={params?.initialReceivingSubView as any}
+            initialInventoryScreen={params?.initialInventoryScreen as any}
+            initialShowOrders={!!params?.showOrders}
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
             initialReceivingSubView={params['initialReceivingSubView'] as any}
@@ -1898,9 +1908,35 @@ export default function App(): React.JSX.Element {
           <SubWarehouseGenerateInvoiceScreen
             onBack={goBack}
             onSelectTransaction={(tx) =>
-              navigate('SubWarehouseInvoicePreview', { invoiceId: 'INV-2026-001245' })
+              navigate('SubWarehouseInvoiceWizard', { transaction: tx })
             }
             onNavigateToGSTInvoice={() => navigate('SubWarehouseGSTInvoice')}
+          />
+        ) : screen === 'SubWarehouseInvoiceWizard' ? (
+          <SubWarehouseInvoiceWizardScreen
+            transaction={
+              (params['transaction'] as any) || {
+                id: 'ORD-002154',
+                orderNumber: 'ORD-002154',
+                customerName: 'Ravi Kumar',
+                amount: '₹2,450',
+                saleType: 'Direct Sale',
+                status: 'Completed',
+                date: '24 Sep 2026',
+              }
+            }
+            onBack={goBack}
+            onSuccess={() =>
+              navigate('SubWarehouseInvoiceGenerated', { invoiceId: 'INV-2026-001245' })
+            }
+          />
+        ) : screen === 'SubWarehouseInvoiceGenerated' ? (
+          <SubWarehouseInvoiceGeneratedScreen
+            invoiceId={(params['invoiceId'] as string) || 'INV-2026-001245'}
+            onBack={goBack}
+            onViewInvoice={(id) =>
+              navigate('SubWarehouseInvoicePreview', { invoiceId: id || 'INV-2026-001245' })
+            }
           />
         ) : screen === 'SubWarehouseReviewInvoice' ? (
           <SubWarehouseReviewInvoiceScreen
@@ -2334,6 +2370,7 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onViewAttendance={() => navigate('SubWarehouseAttendance', { staff: params['staff'] as any })}
             onEditProfile={(staff) => navigate('SubWarehouseEditStaffProfile', { staff: staff as any })}
+            onAssignDelivery={(staff) => navigate('SubWarehouseAdminDashboard', { showOrders: true })}
           />
         ) : screen === 'SubWarehouseEditStaffProfile' ? (
           <SubWarehouseEditStaffProfileScreen

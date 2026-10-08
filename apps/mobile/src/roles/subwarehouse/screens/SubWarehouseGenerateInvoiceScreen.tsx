@@ -86,7 +86,7 @@ function SearchIcon({ size = 18, color = '#8A928D' }: { size?: number; color?: s
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-import { SubWarehouseReviewInvoiceScreen } from './SubWarehouseReviewInvoiceScreen';
+import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
 
 export interface SubWarehouseGenerateInvoiceScreenProps {
   onBack?: () => void;
@@ -117,27 +117,21 @@ export function SubWarehouseGenerateInvoiceScreen({
       return;
     }
 
-    setSelectedTx(tx);
+    if (onSelectTransaction) {
+      onSelectTransaction(tx);
+    } else {
+      setSelectedTx(tx);
+    }
   };
 
   if (selectedTx) {
     return (
-      <SubWarehouseReviewInvoiceScreen
+      <SubWarehouseInvoiceWizardScreen
+        transaction={selectedTx as any}
         onBack={() => setSelectedTx(null)}
-        onGenerateSuccess={() => {
-          if (onSelectTransaction) {
-            onSelectTransaction(selectedTx);
-          } else {
-            Alert.alert('Invoice Generated', `Invoice generated successfully for ${selectedTx.customerName}.`);
-          }
-        }}
-        invoiceData={{
-          invoiceType: selectedTx.saleType,
-          customerName: selectedTx.customerName,
-          itemsCount: 2,
-          subtotal: '₹740',
-          gst: '₹0',
-          total: '₹740',
+        onSuccess={() => {
+          Alert.alert('Invoice Generated', `Invoice generated successfully for ${selectedTx.customerName}.`);
+          setSelectedTx(null);
         }}
       />
     );

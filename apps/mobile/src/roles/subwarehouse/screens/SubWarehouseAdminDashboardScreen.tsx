@@ -57,6 +57,7 @@ import { SubWarehouseInvoiceListScreen } from './SubWarehouseInvoiceListScreen';
 import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
 import { SubWarehouseGenerateInvoiceScreen } from './SubWarehouseGenerateInvoiceScreen';
 import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
+import { SubWarehouseInvoiceGeneratedScreen } from './SubWarehouseInvoiceGeneratedScreen';
 import { SubWarehouseGSTInvoiceScreen } from './SubWarehouseGSTInvoiceScreen';
 import { SubWarehouseInvoicePreviewScreen } from './SubWarehouseInvoicePreviewScreen';
 import { SubWarehouseInvoiceHistoryScreen } from './SubWarehouseInvoiceHistoryScreen';
@@ -1000,6 +1001,8 @@ interface SubWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
+  initialShowOrders?: boolean;
+  initialTab?: SubWHTab;
   initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
   initialInventoryScreen?: string;
 }
@@ -1300,6 +1303,7 @@ export function SubWarehouseAdminDashboardScreen({
   onSignOut,
   onNavigate,
   onBack,
+  initialShowOrders = false,
   initialTab,
   initialReceivingSubView,
   initialInventoryScreen,
@@ -1364,6 +1368,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
   const [selectedTransactionForWizard, setSelectedTransactionForWizard] = useState<any>(null);
+  const [showInvoiceGenerated, setShowInvoiceGenerated] = useState(false);
   const [showGSTInvoice, setShowGSTInvoice] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
@@ -1577,9 +1582,17 @@ export function SubWarehouseAdminDashboardScreen({
     }
   };
 
-  const [showOrdersModule, setShowOrdersModule] = useState(false);
+  const [showOrdersModule, setShowOrdersModule] = useState(initialShowOrders);
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [ordersInitialParams, setOrdersInitialParams] = useState<any>(null);
+
+  useEffect(() => {
+    if (initialShowOrders) {
+      setShowOrdersModule(true);
+      setOrdersInitialScreen('M5S01');
+      setOrdersInitialParams(null);
+    }
+  }, [initialShowOrders]);
 
   useEffect(() => {
     const onHardwareBack = () => {
@@ -2772,8 +2785,20 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onSuccess={() => {
           setSelectedTransactionForWizard(null);
-          // show invoice detail or list after generation
-          setShowInvoiceDetail(true);
+          setShowInvoiceGenerated(true);
+        }}
+      />
+    );
+  }
+
+  if (showInvoiceGenerated) {
+    return (
+      <SubWarehouseInvoiceGeneratedScreen
+        invoiceId="INV-2026-001245"
+        onBack={() => setShowInvoiceGenerated(false)}
+        onViewInvoice={(id) => {
+          setShowInvoiceGenerated(false);
+          setShowInvoicePreview(true);
         }}
       />
     );
@@ -3242,8 +3267,9 @@ export function SubWarehouseAdminDashboardScreen({
         onEditProfile={(staff) => setShowEditStaffProfileScreen(true)}
         onAssignDelivery={(staff) => {
           setSelectedStaffMember(null);
-          setOrdersInitialScreen('M5S02');
-          setOrdersInitialParams({ defaultFilter: 'Ready for Delivery' });
+          setShowStaffScreen(false);
+          setOrdersInitialScreen('M5S01');
+          setOrdersInitialParams(null);
           setShowOrdersModule(true);
         }}
       />
