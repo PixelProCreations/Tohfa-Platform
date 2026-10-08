@@ -186,6 +186,9 @@ tags:
     description: |
       Educational knowledge base (articles, videos, training workshops) and community groups
       with farmer enrollment and group memberships (BR-59).
+  - name: Support Tickets
+    description: |
+      Farmer support inquiries, append-only message threads, and administrator ticket lifecycle management (BR-60).
   - name: Pricing
     description: Super-Admin fair price ceilings and admin retail prices.
   - name: Marketing
@@ -6355,6 +6358,323 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/support-tickets/categories:
+    get:
+      tags: [Support Tickets]
+      operationId: listSupportTicketCategories
+      summary: List support ticket categories
+      description: Returns active ticket categories for creating support requests (BR-60).
+      x-permission: farmer.support_ticket.manage_own
+      x-business-rules: [BR-60]
+      responses:
+        '200':
+          description: List of categories.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketCategoriesResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/support-tickets:
+    get:
+      tags: [Support Tickets]
+      operationId: listMySupportTickets
+      summary: List own support tickets
+      description: Returns paginated support tickets raised by caller farmer (BR-60, BR-36).
+      x-permission: farmer.support_ticket.manage_own
+      x-business-rules: [BR-60, BR-36]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+      responses:
+        '200':
+          description: Paginated support tickets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Support Tickets]
+      operationId: createSupportTicket
+      summary: Create a support ticket
+      description: Creates a new support ticket under caller farmer profile (BR-60, BR-36).
+      x-permission: farmer.support_ticket.manage_own
+      x-business-rules: [BR-60, BR-36]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSupportTicketRequest'
+      responses:
+        '201':
+          description: Ticket created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketDetailResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/support-tickets/{id}:
+    get:
+      tags: [Support Tickets]
+      operationId: getMySupportTicket
+      summary: Get support ticket details and thread
+      description: Returns full support ticket and message thread (BR-60, BR-36).
+      x-permission: farmer.support_ticket.manage_own
+      x-business-rules: [BR-60, BR-36]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Ticket details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketDetailResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/support-tickets/{id}/messages:
+    post:
+      tags: [Support Tickets]
+      operationId: addMySupportTicketMessage
+      summary: Reply to a support ticket
+      description: Appends a message to the support ticket thread while not CLOSED (BR-60, BR-36).
+      x-permission: farmer.support_ticket.manage_own
+      x-business-rules: [BR-60, BR-36]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTicketMessageRequest'
+      responses:
+        '201':
+          description: Message added.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketMessage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/support-tickets/{id}/close:
+    patch:
+      tags: [Support Tickets]
+      operationId: closeMySupportTicket
+      summary: Close own support ticket
+      description: Farmers may close their own support ticket from any active state (BR-60, BR-36).
+      x-permission: farmer.support_ticket.manage_own
+      x-business-rules: [BR-60, BR-36]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Ticket closed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketDetailResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/support-tickets:
+    get:
+      tags: [Support Tickets]
+      operationId: listAllSupportTickets
+      summary: List and filter all support tickets
+      description: Returns support tickets across all farmers with triage filters (BR-60).
+      x-permission: support.ticket.manage_any
+      x-business-rules: [BR-60]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        - name: categoryCode
+          in: query
+          schema: { type: string }
+        - name: priority
+          in: query
+          schema: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        - name: assignedToUserId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Support tickets list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/support-tickets/{id}:
+    get:
+      tags: [Support Tickets]
+      operationId: getAdminSupportTicket
+      summary: Get full support ticket details for admin
+      description: Returns support ticket, message thread, and status transition history (BR-60).
+      x-permission: support.ticket.manage_any
+      x-business-rules: [BR-60]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Admin ticket detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupportTicketDetailResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/support-tickets/{id}/messages:
+    post:
+      tags: [Support Tickets]
+      operationId: addAdminSupportTicketMessage
+      summary: Admin reply to support ticket
+      description: Appends an admin response message to the support ticket thread (BR-60, BR-35).
+      x-permission: support.ticket.manage_any
+      x-business-rules: [BR-60, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTicketMessageRequest'
+      responses:
+        '201':
+          description: Admin message sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketMessage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/support-tickets/{id}/status:
+    patch:
+      tags: [Support Tickets]
+      operationId: transitionSupportTicketStatus
+      summary: Update support ticket status
+      description: Transitions support ticket state and records history log (BR-60, BR-35).
+      x-permission: support.ticket.manage_any
+      x-business-rules: [BR-60, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionTicketStatusRequest'
+      responses:
+        '200':
+          description: Ticket status updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupportTicketDetailResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/support-tickets/{id}/assign:
+    patch:
+      tags: [Support Tickets]
+      operationId: assignSupportTicket
+      summary: Assign support ticket to an admin user
+      description: Updates assigned staff member on ticket (BR-60, BR-35).
+      x-permission: support.ticket.manage_any
+      x-business-rules: [BR-60, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTicketRequest'
+      responses:
+        '200':
+          description: Ticket assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSupportTicketDetailResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/crop-master:
@@ -14042,6 +14362,119 @@ components:
         groupId: { type: string, format: uuid }
         farmerId: { type: string, format: uuid }
         joinedAt: { type: string, format: date-time }
+
+    SupportTicketCategory:
+      type: object
+      required: [id, code, name, isActive]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        isActive: { type: boolean }
+
+    SupportTicketCategoriesResponse:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SupportTicketCategory' } }
+
+    SupportTicketSummary:
+      type: object
+      required: [id, ticketNumber, farmerId, categoryCode, subject, status, priority, messageCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketNumber: { type: string }
+        farmerId: { type: string, format: uuid }
+        categoryCode: { type: string }
+        subject: { type: string }
+        description: { type: string }
+        attachmentUrl: { type: [string, 'null'] }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        assignedToUserId: { type: [string, 'null'], format: uuid }
+        messageCount: { type: integer }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SupportTicketsListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SupportTicketSummary' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    CreateSupportTicketRequest:
+      type: object
+      required: [categoryCode, subject, description]
+      properties:
+        categoryCode: { type: string, minLength: 1 }
+        subject: { type: string, minLength: 1, maxLength: 250 }
+        description: { type: string, minLength: 1 }
+        attachmentUrl: { type: string }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+
+    SupportTicketMessage:
+      type: object
+      required: [id, ticketId, senderUserId, senderRole, message, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: string, format: uuid }
+        senderUserId: { type: string, format: uuid }
+        senderRole: { type: string }
+        message: { type: string }
+        attachmentUrl: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    SendTicketMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1 }
+        attachmentUrl: { type: string }
+
+    SupportTicketStatusHistory:
+      type: object
+      required: [id, ticketId, fromStatus, toStatus, changedByUserId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: string, format: uuid }
+        fromStatus: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        toStatus: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        changedByUserId: { type: string, format: uuid }
+        reason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    SupportTicketDetailResponse:
+      type: object
+      required: [ticket, messages]
+      properties:
+        ticket: { $ref: '#/components/schemas/SupportTicketSummary' }
+        messages: { type: array, items: { $ref: '#/components/schemas/SupportTicketMessage' } }
+
+    AdminSupportTicketDetailResponse:
+      type: object
+      required: [ticket, messages, statusHistory]
+      properties:
+        ticket: { $ref: '#/components/schemas/SupportTicketSummary' }
+        messages: { type: array, items: { $ref: '#/components/schemas/SupportTicketMessage' } }
+        statusHistory: { type: array, items: { $ref: '#/components/schemas/SupportTicketStatusHistory' } }
+
+    TransitionTicketStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        reason: { type: string }
+
+    AssignTicketRequest:
+      type: object
+      properties:
+        assignedToUserId: { type: [string, 'null'], format: uuid }
 
     Readiness:
       type: object

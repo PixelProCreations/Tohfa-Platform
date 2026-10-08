@@ -1272,6 +1272,32 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-60 — Support tickets enforce strictly scoped lifecycles, immutable message threads, and state transition integrity
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.1, FR-C05, Role Matrix §6; Mobile AboutSupportScreen; Table `support_tickets` (`0039_support_tickets.sql`) |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/support-tickets/`; `support_tickets`, `support_ticket_messages` |
+| **Scope** | Track 1 (farmer-facing tickets + admin triage & lifecycle) |
+
+**Rule.** Farmers raise support inquiries categorized under generic account, payment, listing, or app topics.
+1. **Creation & Scoping:** A farmer creates support tickets scoped exclusively to their own farmer profile (BR-36). Cross-farmer access returns 404 `NOT_FOUND` (`BR-60a`).
+2. **Lifecycle & State Machine:** Ticket status transitions follow `OPEN` -> `IN_PROGRESS` -> `RESOLVED` -> `CLOSED`. Illegal state transitions reject with 409 `INVALID_STATE_TRANSITION` (`BR-60b`).
+3. **Closing Tickets:** A farmer may close their own ticket from any non-closed state. Once `CLOSED`, a ticket is in a terminal state and cannot transition further (`BR-60c`).
+4. **Append-Only Messages:** Messages posted to tickets are append-only (`app_make_append_only`). No messages may be posted to a `CLOSED` ticket (409 `INVALID_STATE_TRANSITION`) (`BR-60d`).
+5. **Admin Management & Audit:** Administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`) list, assign, reply to, and change status on any ticket with full audit logging (BR-35) (`BR-60e`).
+
+**Failure mode if unenforced.** Leaked support tickets expose farmer financial/compliance disputes; illegal status mutations allow ghost replies on closed cases; message modifications falsify support dispute audit trails.
+
+**Test contract.** (`apps/api/src/modules/support-tickets/support-tickets.test.ts`)
+- `BR-60a` Scopes farmer tickets to own profile; returns 404 for cross-farmer ticket access.
+- `BR-60b` Enforces ticket lifecycle state machine and rejects illegal transitions with 409 INVALID_STATE_TRANSITION.
+- `BR-60c` Permits farmers to close their own tickets; prevents mutations once closed.
+- `BR-60d` Enforces append-only message thread and blocks replies on closed tickets.
+- `BR-60e` Admin mutations record audit log entries and track status history.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

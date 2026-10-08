@@ -503,6 +503,30 @@ const GRANT_CASES: readonly GrantCase[] = [
     expected: ScopeLevel.NONE,
     because: 'BR-59: Farmers cannot manage learning hub content.',
   },
+  {
+    permission: 'farmer.support_ticket.manage_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'BR-60: Farmers manage own support tickets.',
+  },
+  {
+    permission: 'farmer.support_ticket.manage_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Super Admin manages support tickets via support.ticket.manage_any, not own-scoped.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-60: Super Admin manages all support tickets.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Farmers cannot triage tickets across the platform.',
+  },
 ];
 
 describe('docs/rbac.json grants', () => {

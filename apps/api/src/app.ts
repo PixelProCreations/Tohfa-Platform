@@ -96,6 +96,10 @@ import {
   adminLearningRouter,
   farmerLearningRouter,
 } from './modules/learning-hub/learning-hub.routes.js';
+import {
+  adminSupportTicketsRouter,
+  farmerSupportTicketsRouter,
+} from './modules/support-tickets/support-tickets.routes.js';
 
 
 export const CORRELATION_HEADER = 'x-correlation-id';
@@ -173,6 +177,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin', router: adminPlatformEventsRouter },
   { prefix: '/v1/farmers/me', router: farmerLearningRouter },
   { prefix: '/v1/admin', router: adminLearningRouter },
+  { prefix: '/v1/farmers/me', router: farmerSupportTicketsRouter },
+  { prefix: '/v1/admin', router: adminSupportTicketsRouter },
 ];
 
 /**
