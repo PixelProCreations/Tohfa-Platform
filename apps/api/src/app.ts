@@ -102,6 +102,10 @@ import {
 } from './modules/support-tickets/support-tickets.routes.js';
 import { cropPlanningInsightRouter } from './modules/crop-planning-insight/crop-planning-insight.routes.js';
 
+import {
+  adminReturnsRouter,
+  returnRequestsRouter,
+} from './modules/returnRequests/returnRequests.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -148,6 +152,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/cart', router: cartRouter },
   { prefix: '/v1/orders', router: ordersRouter },
   { prefix: '/v1/orders', router: orderTrackingRouter },
+  { prefix: '/v1/orders', router: returnRequestsRouter },
+  { prefix: '/v1/admin/returns', router: adminReturnsRouter },
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
   { prefix: '/v1/admin/payouts', router: payoutsRouter },
   { prefix: '/v1/invoices', router: invoicesRouter },

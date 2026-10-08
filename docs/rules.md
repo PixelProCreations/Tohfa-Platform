@@ -1307,6 +1307,27 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-61 — A return can only be approved after inspection, and refunded at most once
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.3 `Process returns (RMA)`; Role & Feature Matrix §6 (approve refund, wallet refund, bank refund split); Module 10 "Returns & Issues" prototype (Return Requests, RMA Detail, Inspect Returned Product, Approve/Reject, Refund Status, Return History) |
+| **Status** | DERIVED |
+| **Layer** | Server-side state machine on `return_requests.status`; `rma.refund.approve` / `rma.refund.wallet_process` / `rma.refund.bank_process` in `docs/rbac.json` gate the transitions; the refund endpoints additionally require an `Idempotency-Key` header (root CLAUDE.md §2.4) |
+| **Scope** | Track 1 |
+
+**Rule.** A return request moves through a fixed lifecycle: `PENDING` (filed against one or more `order_items`) → `INSPECTED` (condition, accepted and damaged quantity recorded per item) → `APPROVED` (which also marks the returned `order_items` as `RETURNED`) → exactly one of `REFUNDED` (instant wallet credit via `wallet.move`, `type: 'ORDER_REFUND'`) or `REFUND_PENDING_BANK` (a manual 2-4 day hand-off to SA/TA — `rma.refund.bank_process` grants `none` to MAIN_WH_ADMIN/SUB_WH_ADMIN, per the codebase default recorded for open contradiction #7 "Bank refunds for MW/SW" below; status there is still `requires client confirmation`, so this is the implemented default, not a closed question). A return may be `REJECTED` from `PENDING` or `INSPECTED` instead. `POST .../approve` requires the current status to be exactly `INSPECTED`; both refund endpoints require it to be exactly `APPROVED`. Once a return leaves `APPROVED` there is no path back into it, so "refunded at most once" holds by construction rather than by a flag. Replaying a refund call with the same `Idempotency-Key` (or a different one, after a client retry) must return the same result, never a second wallet credit.
+
+**Failure mode if unenforced.** A return approved without inspection pays out on a claim nobody verified; a refund endpoint callable twice (or callable on a `PENDING`/`REJECTED` return) double-credits the customer's wallet or creates two conflicting manual bank-refund records for one return.
+
+**Test contract.**
+- `BR-61a` `POST .../approve` on a return that is not `INSPECTED` → 409, `code: INVALID_STATE_TRANSITION`.
+- `BR-61b` `POST .../refund/wallet` on a return that is not `APPROVED` → 409, `code: INVALID_STATE_TRANSITION`; no `wallet_transactions` row is written.
+- `BR-61c` `POST .../refund/bank` on a return that is not `APPROVED` → 409, `code: INVALID_STATE_TRANSITION`.
+- `BR-61d` An `APPROVED` return refunded via wallet moves to `REFUNDED` and credits the wallet exactly once; replaying the call — with the same or a different `Idempotency-Key` — returns the same wallet transaction id and does not credit a second time.
+- `BR-61e` A return already `REFUNDED` (or routed to `REFUND_PENDING_BANK`) cannot also be refunded through the other channel.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -1343,7 +1364,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Pickup path only; delivery model is contested (contradiction 3) |
 | 8 | Live order tracking beyond packed/picked-up | FR-C04 | — | Dispatch and out-for-delivery states belong to the delivery model that is not in scope |
 | 9 | Rate & review, tags, one-tap reorder | FR-C05 | — | Customer app Phase 5 screens; no backend dependency in the golden thread |
-| 10 | RMA issue categories, ticket lifecycle, bank refunds | FR-C05, matrix §6 | — | Returns module is Phase 2-3; wallet refund path exists in the ledger, no RMA workflow |
+| 10 | RMA issue category taxonomy, customer support-ticket lifecycle | FR-C05, matrix §6 | — | The return/inspect/approve/refund workflow itself is now enforced (BR-61, `apps/api/src/modules/returnRequests/`); a free-text `reason` stands in for a structured issue-category list, and the bank refund is a status + manual hand-off, not a tracked ticket. Issue categories and a support-ticket lifecycle around that are still Phase 2-3 |
 | 11 | Each warehouse has its own Sub Warehouse Admin (5 incl. standby) | §2.4 | BR-25 | Modelled in `user_roles`; no staffing management UI |
 | 12 | Main Warehouse Admin oversees all 4 warehouses | §2.4 | — | RBAC grants exist; the consolidated MW dashboard is Phase 3 |
 | 13 | Inter-warehouse transfers restricted to MW + SA | §2.4 | BR-26 | The ledger has a transfer type; there is no transfer endpoint or UI in this scope |
@@ -1355,3 +1376,5 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 19 | Advisory automation (reminders, treatments, weather risk) | FR-F06/F07 | BR-38 | Blocked on contradiction 2 — do not build either way until the client answers |
 
 Farm rating, 10 categories x 10 points (BR-06), its Farmer-Admin-own-zone edit predicate, and the Farm Rating tier scale (BR-04) moved OUT of this table and into Track 1 on 2026-09-17 — see BR-04 and BR-06 above and `apps/api/src/modules/farm-ratings/`. The Farmer-Admin edit predicate went away on 2026-10-01 with the manual rating edit itself (ratings now come from completed INTERNAL audits only).
+
+The RMA return/inspect/approve/refund workflow (BR-61) moved OUT of this table and into Track 1 on 2026-10-07 — see BR-61 above and `apps/api/src/modules/returnRequests/`. Row 10 above is narrowed accordingly: issue-category taxonomy and the support-ticket lifecycle remain deferred, the refund workflow does not.

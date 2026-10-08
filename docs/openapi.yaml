@@ -74,6 +74,7 @@ info:
     | BR-38 | No automated processes (manual data entry only); no advisory/recommendation content |
     | BR-40 | Soil parameter classification bands are server-configured, not client-literal |
     | BR-48 | Certificate entry is strictly validated; a lapsed certificate may be recorded only within `cert_expiry_max_past_days` |
+    | BR-61 | A return is approved only after inspection, and refunded at most once |
 
     ## Conventions
 
@@ -203,6 +204,11 @@ tags:
     description: Cart lock, wallet-first checkout, order tracking.
   - name: Fulfilment
     description: Warehouse-side packing, dispatch and OTP verification.
+  - name: Returns
+    description: |
+      Returns & Issues (RMA): customer/admin return request, warehouse inspection,
+      admin approve/reject, and refund via instant wallet credit or a manual
+      bank hand-off restricted to SA/TA. See BR-61.
   - name: Wallet
     description: Customer wallet, Razorpay top-ups, cash top-ups at a warehouse.
   - name: Payouts & Invoices
@@ -8872,6 +8878,256 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /orders/{orderId}/returns:
+    post:
+      tags: [Returns]
+      operationId: createReturnRequest
+      summary: File a return against an order
+      description: |
+        Creates a return request (status `PENDING`) against one or more lines of an
+        already-placed order, plus its initial append-only status-history row. The order
+        must be visible to the caller — a customer may only return their own order; a
+        cross-scope order is 404, never 403 (BR-36).
+      x-permission: rma.request.process
+      x-business-rules: [BR-61]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReturnRequestCreate' }
+            example:
+              reason: Produce arrived spoiled
+              items: [{ orderItemId: 6b5a4c3d-2e1f-4a09-8b7c-6d5e4f3a2b1c, qty: '2.000' }]
+              note: Two of the four crates were moldy on opening.
+      responses:
+        '201':
+          description: Return request created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns:
+    get:
+      tags: [Returns]
+      operationId: listReturnRequests
+      summary: Return request queue
+      description: |
+        Paginated, filterable by status. `return_requests` carries no warehouse_id of its
+        own — scoping is derived from the linked order's warehouse, so a Sub Warehouse
+        Admin sees only returns against orders fulfilled from their own warehouse; a Main
+        Warehouse Admin sees all (BR-30).
+      x-permission: rma.request.process
+      x-business-rules: [BR-30, BR-61]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, INSPECTED, APPROVED, REJECTED, REFUND_PENDING_BANK, REFUNDED] } }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: Paged return requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ReturnRequestSummary' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}:
+    get:
+      tags: [Returns]
+      operationId: getReturnRequest
+      summary: Return request detail
+      description: Includes per-item requested/accepted/damaged quantity and condition. 404, not 403, outside the caller's warehouse scope (BR-30).
+      x-permission: rma.request.process
+      x-business-rules: [BR-30, BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Return request detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}/inspect:
+    post:
+      tags: [Returns]
+      operationId: inspectReturnRequest
+      summary: Record the warehouse inspection of a returned product
+      description: Per-item condition (GOOD/DAMAGED/SPOILED), accepted and damaged quantity. Moves `PENDING` -> `INSPECTED`; 409 otherwise.
+      x-permission: inventory.quality_check.perform
+      x-business-rules: [BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReturnInspectionCreate' }
+      responses:
+        '200':
+          description: Inspection recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}/approve:
+    post:
+      tags: [Returns]
+      operationId: approveReturnRequest
+      summary: Approve an inspected return
+      description: Requires status `INSPECTED` (409 `INVALID_STATE_TRANSITION` otherwise). Marks the returned order_items `RETURNED` in the same transaction (BR-61).
+      x-permission: rma.refund.approve
+      x-business-rules: [BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Return approved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}/reject:
+    post:
+      tags: [Returns]
+      operationId: rejectReturnRequest
+      summary: Reject a return request
+      description: Requires a non-empty `reason`. Valid from `PENDING` or `INSPECTED` only.
+      x-permission: rma.refund.approve
+      x-business-rules: [BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReturnRejectCreate' }
+      responses:
+        '200':
+          description: Return rejected.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}/refund/wallet:
+    post:
+      tags: [Returns]
+      operationId: refundReturnRequestToWallet
+      summary: Instant wallet refund
+      description: |
+        Requires status `APPROVED`. Credits the customer's wallet (`wallet.move`,
+        `type: ORDER_REFUND`) and moves the return to `REFUNDED`, in one transaction.
+        Replaying this call — with the same or a different `Idempotency-Key` — returns
+        the same result and never credits twice (BR-61).
+      x-permission: rma.refund.wallet_process
+      x-business-rules: [BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      responses:
+        '200':
+          description: Wallet refund processed (or replayed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRefundResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}/refund/bank:
+    post:
+      tags: [Returns]
+      operationId: refundReturnRequestToBank
+      summary: Initiate a manual bank refund (2-4 days)
+      description: |
+        Requires status `APPROVED`. SUPER_ADMIN/TOHFA_ADMIN only — MAIN_WH_ADMIN and
+        SUB_WH_ADMIN hold `none` on `rma.refund.bank_process` (the resolved default for
+        the "Bank refunds for MW/SW" open contradiction; see docs/rules.md). No ledger
+        write happens here: this records that a bank refund was initiated and moves the
+        return to `REFUND_PENDING_BANK` for SA/TA to action manually outside TOHFA.
+      x-permission: rma.refund.bank_process
+      x-business-rules: [BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      responses:
+        '200':
+          description: Bank refund initiated (or replayed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnRefundResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/returns/{id}/history:
+    get:
+      tags: [Returns]
+      operationId: getReturnRequestHistory
+      summary: Return status history
+      description: The append-only `return_request_status_history` trail for one return, oldest first.
+      x-permission: rma.request.process
+      x-business-rules: [BR-35, BR-61]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Status history, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ReturnStatusHistoryEntry' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/orders:
     get:
       tags: [Fulfilment]
@@ -14537,3 +14793,120 @@ components:
               status: { type: string, enum: [up, down] }
               latencyMs: { type: integer }
               error: { type: [string, 'null'] }
+
+    # -------------------------------------------------------------------------
+    # Returns & Issues (RMA) — BR-61
+    # -------------------------------------------------------------------------
+    ReturnStatus:
+      type: string
+      enum: [PENDING, INSPECTED, APPROVED, REJECTED, REFUND_PENDING_BANK, REFUNDED]
+      description: See BR-61 for the full state machine.
+
+    ReturnItemCondition:
+      type: string
+      enum: [GOOD, DAMAGED, SPOILED]
+
+    ReturnRequestItemCreate:
+      type: object
+      required: [orderItemId, qty]
+      properties:
+        orderItemId: { type: string, format: uuid }
+        qty: { $ref: '#/components/schemas/Quantity' }
+
+    ReturnRequestCreate:
+      type: object
+      required: [reason, items]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 300 }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/ReturnRequestItemCreate' }
+        note: { type: string, maxLength: 500 }
+
+    ReturnRequestItem:
+      type: object
+      required: [id, orderItemId, requestedQty, acceptedQty, damagedQty, condition]
+      properties:
+        id: { type: string, format: uuid }
+        orderItemId: { type: string, format: uuid }
+        requestedQty: { $ref: '#/components/schemas/Quantity' }
+        acceptedQty: { allOf: [{ $ref: '#/components/schemas/Quantity' }], nullable: true, description: Set by the inspection step; null until then. }
+        damagedQty: { allOf: [{ $ref: '#/components/schemas/Quantity' }], nullable: true }
+        condition:
+          allOf: [{ $ref: '#/components/schemas/ReturnItemCondition' }]
+          nullable: true
+
+    ReturnRequestSummary:
+      type: object
+      required: [id, orderId, customerId, warehouseId, status, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        warehouseId:
+          type: string
+          format: uuid
+          description: Derived from the linked order (BR-16 — never a farm-identifying field; this is the admin surface, not the customer catalog).
+        status: { $ref: '#/components/schemas/ReturnStatus' }
+        reason: { type: string }
+        note: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    ReturnRequest:
+      allOf:
+        - { $ref: '#/components/schemas/ReturnRequestSummary' }
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ReturnRequestItem' }
+
+    ReturnInspectionItem:
+      type: object
+      required: [orderItemId, condition, acceptedQty]
+      properties:
+        orderItemId: { type: string, format: uuid }
+        condition: { $ref: '#/components/schemas/ReturnItemCondition' }
+        acceptedQty: { $ref: '#/components/schemas/Quantity' }
+        damagedQty: { $ref: '#/components/schemas/Quantity', default: '0.000' }
+
+    ReturnInspectionCreate:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/ReturnInspectionItem' }
+
+    ReturnRejectCreate:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 300 }
+
+    ReturnRefundResult:
+      type: object
+      required: [returnRequest, walletTransactionId, amount]
+      properties:
+        returnRequest: { $ref: '#/components/schemas/ReturnRequest' }
+        walletTransactionId:
+          type: [string, 'null']
+          format: uuid
+          description: Set for a wallet refund; null for a bank refund (no ledger write happens there).
+        amount: { $ref: '#/components/schemas/Money' }
+
+    ReturnStatusHistoryEntry:
+      type: object
+      required: [id, returnRequestId, toStatus, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        returnRequestId: { type: string, format: uuid }
+        fromStatus: { allOf: [{ $ref: '#/components/schemas/ReturnStatus' }], nullable: true }
+        toStatus: { $ref: '#/components/schemas/ReturnStatus' }
+        changedBy: { type: [string, 'null'], format: uuid }
+        note: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
