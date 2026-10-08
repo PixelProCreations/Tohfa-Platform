@@ -1016,7 +1016,6 @@ export default function App(): React.JSX.Element {
             initialTab={params?.initialTab as any}
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
-            initialTab={params['initialTab'] as any}
             initialReceivingSubView={params['initialReceivingSubView'] as any}
             initialInventoryScreen={params['initialInventoryScreen'] as any}
           />
@@ -2623,9 +2622,6 @@ export default function App(): React.JSX.Element {
             onBack={() => navigate('SubWarehouseStorageInfo')}
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
-            onViewStock={() => {
-              navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory' });
-            }}
           />
         ) : screen === 'SubWarehouseMaterialHandling' ? (
           <SubWarehouseMaterialHandlingScreen

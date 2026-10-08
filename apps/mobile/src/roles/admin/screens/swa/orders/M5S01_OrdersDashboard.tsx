@@ -511,40 +511,6 @@ export const M5S01_OrdersDashboard: React.FC<M5S01Props> = ({ onNavigate, onBack
 
           <View style={{ height: 28 }} />
         </ScrollView>
-
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} activeOpacity={0.7} onPress={onBack}>
-            <HomeNavIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            activeOpacity={0.7}
-            onPress={() => onTabChange && onTabChange('Receiving')}
-          >
-            <ReceivingNavIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            activeOpacity={0.7}
-            onPress={() => onTabChange && onTabChange('Inventory')}
-          >
-            <InventoryNavIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            activeOpacity={0.7}
-          >
-            <MoreNavIcon active={true} />
-            <Text style={[styles.navLabel, { color: ORDERS_THEME.primary, fontWeight: '700' }]}>More</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </SafeAreaView>
   );

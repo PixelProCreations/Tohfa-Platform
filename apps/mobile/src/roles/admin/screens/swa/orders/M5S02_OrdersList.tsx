@@ -269,14 +269,6 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack, rou
 
           <View style={{ height: 16 }} />
         </ScrollView>
-
-        {/* Bottom Navigation */}
-        <SWABottomNav
-          activeTab="More"
-          onTabChange={(tab) => {
-            if (tab === 'Home') onBack();
-          }}
-        />
       </View>
     </SafeAreaView>
   );

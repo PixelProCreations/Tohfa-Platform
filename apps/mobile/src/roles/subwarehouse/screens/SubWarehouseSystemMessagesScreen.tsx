@@ -369,44 +369,7 @@ export function SubWarehouseSystemMessagesScreen({
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={activeTab === 'Home'} />
-          <Text style={[styles.navLabel, activeTab === 'Home' && styles.navLabelActive]}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={activeTab === 'Receiving'} />
-          <Text style={[styles.navLabel, activeTab === 'Receiving' && styles.navLabelActive]}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={activeTab === 'Inventory'} />
-          <Text style={[styles.navLabel, activeTab === 'Inventory' && styles.navLabelActive]}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

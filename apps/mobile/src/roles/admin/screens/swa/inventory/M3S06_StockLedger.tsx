@@ -279,8 +279,6 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
             <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
           </TouchableOpacity>
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </View>
   );

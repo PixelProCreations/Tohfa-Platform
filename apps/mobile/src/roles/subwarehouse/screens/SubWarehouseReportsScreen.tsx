@@ -932,25 +932,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -1111,25 +1093,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -1379,25 +1343,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -1598,25 +1544,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -1779,25 +1707,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -2005,25 +1915,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -2151,25 +2043,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -2394,25 +2268,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -2536,25 +2392,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -2775,25 +2613,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -2879,25 +2699,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -3117,25 +2919,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -3235,25 +3019,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -3479,25 +3245,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -3606,25 +3354,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -4270,25 +4000,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -4636,25 +4348,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -4807,25 +4501,7 @@ export function SubWarehouseReportsScreen({
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Home')} activeOpacity={0.75}>
-            <HomeTabIcon active={false} />
-            <Text style={styles.navLabel}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Receiving')} activeOpacity={0.75}>
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.navLabel}>Receiving</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('Inventory')} activeOpacity={0.75}>
-            <InventoryTabIcon active={false} />
-            <Text style={styles.navLabel}>Inventory</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => handleTabPress('More')} activeOpacity={0.75}>
-            <MoreTabIcon active={true} />
-            <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
+
       </SafeAreaView>
     );
   }
@@ -5033,44 +4709,7 @@ export function SubWarehouseReportsScreen({
         <View style={{ height: 16 }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
