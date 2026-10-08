@@ -464,6 +464,15 @@ function HorizontalTransferIcon({ size = 26, color = PALETTE.primary }: { size?:
   );
 }
 
+function ClockHistoryIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 6v6l4 2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function ShoppingCartIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -508,6 +517,52 @@ function DocCheckIcon({ size = 26, color = PALETTE.primary }: { size?: number; c
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="3" width="16" height="18" rx="2" stroke={color} strokeWidth="2" />
       <Path d="M9 8h6M9 12h6M9 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function LayersIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2L2 7l10 5 10-5-10-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 17l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 12l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function AllocationPieIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 2a10 10 0 0 1 10 10H12V2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function TrendingDownIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M23 18l-9.5-9.5-5 5L1 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M17 18h6v-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ArrowUpMovementIcon({ size = 18, color = '#7A2E14' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 19V5M5 12l7-7 7 7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PackageBoxIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="4" width="16" height="5" rx="1.5" stroke={color} strokeWidth="2" />
+      <Path d="M5 9v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M10 13h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -647,7 +702,27 @@ export function MainWarehouseAdminDashboardScreen({
       .catch(() => { });
   }, []);
 
-  const displayName = 'Suresh';
+  const quickActionsScrollRef = React.useRef<ScrollView>(null);
+  const [qaScrollProgress, setQaScrollProgress] = useState(0);
+
+  const handleQaScroll = (e: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    const maxScroll = contentSize.width - layoutMeasurement.width;
+    if (maxScroll > 0) {
+      const progress = Math.min(Math.max(contentOffset.x / maxScroll, 0), 1);
+      setQaScrollProgress(progress);
+    }
+  };
+
+  const scrollQaLeft = () => {
+    quickActionsScrollRef.current?.scrollTo({ x: 0, animated: true });
+  };
+
+  const scrollQaRight = () => {
+    quickActionsScrollRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const displayName = user?.fullName || 'Suresh';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -716,7 +791,6 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
                   <Text style={styles.kpiValue}>12,840</Text>
                   <Text style={styles.kpiSub}>KG</Text>
-                  <Text style={styles.kpiLink}>View details →</Text>
                 </TouchableOpacity>
 
                 {/* Incoming Goods */}
@@ -731,7 +805,6 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
                   <Text style={styles.kpiValue}>1,240</Text>
                   <Text style={styles.kpiSub}>KG today</Text>
-                  <Text style={styles.kpiLink}>View details →</Text>
                 </TouchableOpacity>
 
                 {/* Pending Transfers */}
@@ -743,7 +816,6 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
                   <Text style={styles.kpiValue}>5</Text>
                   <Text style={styles.kpiSub}>transfers</Text>
-                  <Text style={styles.kpiLink}>View details →</Text>
                 </TouchableOpacity>
 
                 {/* Today's Orders */}
@@ -755,7 +827,6 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
                   <Text style={styles.kpiValue}>312</Text>
                   <Text style={styles.kpiSub}>orders</Text>
-                  <Text style={styles.kpiLink}>View details →</Text>
                 </TouchableOpacity>
 
                 {/* Sales */}
@@ -767,7 +838,6 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.kpiLabel}>SALES</Text>
                   <Text style={styles.kpiValue}>₹1,45,100</Text>
                   <Text style={styles.kpiSub}>today</Text>
-                  <Text style={styles.kpiLink}>View details →</Text>
                 </TouchableOpacity>
 
                 {/* Open Issues */}
@@ -779,7 +849,6 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
                   <Text style={styles.kpiValue}>7</Text>
                   <Text style={styles.kpiSub}>issues</Text>
-                  <Text style={styles.kpiLink}>View details →</Text>
                 </TouchableOpacity>
               </View>
 
@@ -840,66 +909,71 @@ export function MainWarehouseAdminDashboardScreen({
                 </View>
               </TouchableOpacity>
 
-              {/* ─── 3. Today's Operations ─── */}
+              {/* ─── 3. Today's Operations (Exact Match to Design Mockup) ─── */}
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionHeading}>Today's Operations</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('dashboard_operations')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View All →</Text>
-                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.operationsCard}
-                onPress={() => navigateWh('dashboard_operations')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.operationsText}>Receiving · Orders · Quality · Dispatch</Text>
-              </TouchableOpacity>
-
-              {/* ─── 3B. Warehouse Operations Hub (Direct Entry Point) ─── */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Warehouse Operations Hub</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('warehouse_operations')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>Open Hub →</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.whHubPromoCard}
-                onPress={() => navigateWh('warehouse_operations')}
-                activeOpacity={0.85}
-              >
-                <View style={styles.whHubPromoHeader}>
-                  <View style={styles.whHubPromoIconCircle}>
-                    <BuildingWarehouseIcon size={22} color="#FFFFFF" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.whHubPromoTitle}>Warehouse Operations Hub</Text>
-                    <Text style={styles.whHubPromoSub}>
-                      Locations · Material Handling · Capacity · Attendance · Issues
+              <View style={styles.todayOpsCard}>
+                {/* 1. Incoming Goods */}
+                <View style={styles.todayOpsRow}>
+                  <Text style={styles.todayOpsRowTitle}>Incoming Goods</Text>
+                  <View style={styles.todayOpsMetricsRow}>
+                    <Text style={styles.todayOpsMetricText}>
+                      Expected <Text style={styles.todayOpsMetricBold}>24</Text>
+                    </Text>
+                    <Text style={styles.todayOpsMetricText}>
+                      Arrived <Text style={styles.todayOpsMetricBold}>19</Text>
+                    </Text>
+                    <Text style={styles.todayOpsMetricText}>
+                      Discrepancies <Text style={[styles.todayOpsMetricBold, { color: '#DC2626' }]}>2</Text>
                     </Text>
                   </View>
-                  <ChevronRightGrayIcon size={18} color={PALETTE.primary} />
                 </View>
-                <View style={styles.whHubPillsRow}>
-                  <View style={styles.whHubMiniPill}>
-                    <Text style={styles.whHubMiniPillText}>4 Warehouses</Text>
-                  </View>
-                  <View style={styles.whHubMiniPill}>
-                    <Text style={styles.whHubMiniPillText}>64% Capacity</Text>
-                  </View>
-                  <View style={styles.whHubMiniPill}>
-                    <Text style={styles.whHubMiniPillText}>42 Materials</Text>
-                  </View>
-                  <View style={[styles.whHubMiniPill, { backgroundColor: '#FCEBEB' }]}>
-                    <Text style={[styles.whHubMiniPillText, { color: '#E24B4A' }]}>9 Issues</Text>
+
+                <View style={styles.todayOpsDivider} />
+
+                {/* 2. Order Fulfilment */}
+                <View style={styles.todayOpsRow}>
+                  <Text style={styles.todayOpsRowTitle}>Order Fulfilment</Text>
+                  <View style={styles.todayOpsMetricsRow}>
+                    <Text style={styles.todayOpsMetricText}>
+                      Ready <Text style={styles.todayOpsMetricBold}>86</Text>
+                    </Text>
+                    <Text style={styles.todayOpsMetricText}>
+                      Dispatched <Text style={styles.todayOpsMetricBold}>154</Text>
+                    </Text>
+                    <Text style={styles.todayOpsMetricText}>
+                      Exceptions <Text style={[styles.todayOpsMetricBold, { color: '#DC2626' }]}>3</Text>
+                    </Text>
                   </View>
                 </View>
-              </TouchableOpacity>
+
+                <View style={styles.todayOpsDivider} />
+
+                {/* 3. Quality Issues */}
+                <View style={styles.todayOpsRow}>
+                  <Text style={styles.todayOpsRowTitle}>Quality Issues</Text>
+                  <View style={styles.todayOpsMetricsRow}>
+                    <Text style={styles.todayOpsMetricText}>
+                      Pending <Text style={styles.todayOpsMetricBold}>6</Text>
+                    </Text>
+                    <Text style={styles.todayOpsMetricText}>
+                      Damage <Text style={styles.todayOpsMetricBold}>3</Text>
+                    </Text>
+                    <Text style={styles.todayOpsMetricText}>
+                      Rejected <Text style={[styles.todayOpsMetricBold, { color: '#DC2626' }]}>1</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.todayOpsDivider} />
+
+                {/* 4. Warehouse-wise Activity Timeline */}
+                <View style={styles.todayOpsRow}>
+                  <Text style={styles.todayOpsRowTitle}>Warehouse-wise Activity Timeline</Text>
+                  <Text style={styles.todayOpsTimelineSub}>Goods Received — GR-04512 · Kotagiri · 09:45 AM</Text>
+                </View>
+              </View>
 
               {/* ─── 4. Alerts & Pending Actions ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -975,28 +1049,53 @@ export function MainWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* ─── 6. Quick Actions ─── */}
+              {/* ─── 6. Quick Actions (Horizontally Scrollable) ─── */}
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionHeading}>Quick Actions</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('quick_actions_overview')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View All →</Text>
-                </TouchableOpacity>
               </View>
-              <View style={styles.quickActionsGrid}>
-                {/* 1. Transfer Stock */}
+
+              <ScrollView
+                ref={quickActionsScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.quickActionsScrollTrack}
+                onScroll={handleQaScroll}
+                scrollEventThrottle={16}
+              >
+                {/* 1. Stock Transfer */}
                 <TouchableOpacity
                   style={styles.quickActionCard}
                   onPress={() => navigateWh('inter_warehouse_transfer')}
                   activeOpacity={0.8}
                 >
-                  <TransferArrowsIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Transfer Stock</Text>
+                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Stock Transfer</Text>
                 </TouchableOpacity>
 
-                {/* 2. Review Receiving */}
+                {/* 2. Stock Overview */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => {
+                    setActiveTab('Inventory');
+                    setWhSubView('overview');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <PackageBoxIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Stock Overview</Text>
+                </TouchableOpacity>
+
+                {/* 3. Stock Verification */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigateWh('verify_stock')}
+                  activeOpacity={0.8}
+                >
+                  <StockVerificationIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Stock{'\n'}Verification</Text>
+                </TouchableOpacity>
+
+                {/* 4. Review Receiving */}
                 <TouchableOpacity
                   style={styles.quickActionCard}
                   onPress={() => {
@@ -1009,37 +1108,91 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.quickActionLabel}>Review Receiving</Text>
                 </TouchableOpacity>
 
-                {/* 3. View Warehouses */}
+                {/* 5. Warehouse Overview */}
                 <TouchableOpacity
                   style={styles.quickActionCard}
-                  onPress={() => {
-                    navigateWh('warehouse_overview');
-                  }}
+                  onPress={() => navigateWh('warehouse_overview')}
                   activeOpacity={0.8}
                 >
                   <BuildingOfficeIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>View Warehouses</Text>
+                  <Text style={styles.quickActionLabel}>Warehouse{'\n'}Overview</Text>
                 </TouchableOpacity>
 
-                {/* 4. Manage SWAs */}
+                {/* 6. Warehouse Staff */}
                 <TouchableOpacity
                   style={styles.quickActionCard}
-                  onPress={() => {
-                    navigateWh('staff_attendance');
-                  }}
+                  onPress={() => navigateWh('staff_attendance')}
                   activeOpacity={0.8}
                 >
                   <ManageSwasBadgeIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Manage SWAs</Text>
+                  <Text style={styles.quickActionLabel}>Warehouse{'\n'}Staff</Text>
                 </TouchableOpacity>
-              </View>
 
-              {/* Disclaimer Notice */}
-              <View style={styles.disclaimerBox}>
-                <ProhibitedSlashIcon size={16} color={PALETTE.textSecondary} />
-                <Text style={styles.disclaimerText}>
-                  Conceptual layout with mock data only — no live operational figures are implied, and no control here does anything but navigate.
-                </Text>
+                {/* 7. Warehouse Capacity */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigateWh('warehouse_capacity')}
+                  activeOpacity={0.8}
+                >
+                  <BuildingWarehouseIcon size={24} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Warehouse{'\n'}Capacity</Text>
+                </TouchableOpacity>
+
+                {/* 8. Operational Issues */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigateWh('operational_issues')}
+                  activeOpacity={0.8}
+                >
+                  <WarningTriangleIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Operational{'\n'}Issues</Text>
+                </TouchableOpacity>
+
+                {/* 9. Operations History */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigateWh('operations_history')}
+                  activeOpacity={0.8}
+                >
+                  <ClockHistoryIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Operations{'\n'}History</Text>
+                </TouchableOpacity>
+              </ScrollView>
+
+              {/* Scroll Track & Indicator with Navigation Arrows */}
+              <View style={styles.qaScrollControlRow}>
+                <TouchableOpacity
+                  onPress={scrollQaLeft}
+                  activeOpacity={0.7}
+                  style={styles.qaArrowBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
+                    <Path d="M15 19l-7-7 7-7" stroke="#7A726C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
+
+                <View style={styles.qaScrollTrack}>
+                  <View
+                    style={[
+                      styles.qaScrollThumb,
+                      {
+                        left: `${qaScrollProgress * 55}%`,
+                      },
+                    ]}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  onPress={scrollQaRight}
+                  activeOpacity={0.7}
+                  style={styles.qaArrowBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
+                    <Path d="M9 5l7 7-7 7" stroke="#7A726C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
               </View>
 
               <View style={{ height: 16 }} />
@@ -1206,16 +1359,16 @@ export function MainWarehouseAdminDashboardScreen({
           ) : null
         )}
 
-        {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
+        {/* ─── Inventory Tab (Exact Match to Design Mockup) ─── */}
         {activeTab === 'Inventory' && whSubView === 'overview' && (
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollPad}
             showsVerticalScrollIndicator={false}
           >
-            {/* Header Banner */}
-            <View style={styles.headerBanner}>
-              {/* Header Title Row */}
+            {/* Header Banner (Orange #F0562A) */}
+            <View style={[styles.headerBanner, { paddingBottom: 14 }]}>
+              {/* Top Title Row (Inventory & Stock) */}
               <View style={styles.headerTopRow}>
                 <View style={styles.headerTitleWrap}>
                   <Grid4SquaresIcon size={20} color="#FFFFFF" />
@@ -1237,174 +1390,229 @@ export function MainWarehouseAdminDashboardScreen({
 
             {/* Content Container */}
             <View style={styles.contentBody}>
-              {/* 1. KPI 2x2 Grid */}
+              {/* 1. 8 KPI Cards (2 columns x 4 rows) */}
               <View style={styles.kpiGrid}>
                 {/* Total Stock */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
+                <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
                   <Text style={styles.kpiValue}>12,840 KG</Text>
                   <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
+                </View>
 
-                {/* Incoming Today */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>1,240 KG</Text>
+                {/* Available Stock */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>AVAILABLE STOCK</Text>
+                  <Text style={styles.kpiValue}>9,240 KG</Text>
                   <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
+                </View>
 
                 {/* Allocated */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
+                <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>ALLOCATED</Text>
-                  <Text style={styles.kpiValue}>240 KG</Text>
+                  <Text style={styles.kpiValue}>2,100 KG</Text>
                   <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
+                </View>
 
-                {/* Low Stock SKUs */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
-                  <Text style={styles.kpiSub}>SKUs</Text>
-                </TouchableOpacity>
+                {/* Reserved */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>RESERVED</Text>
+                  <Text style={styles.kpiValue}>1,500 KG</Text>
+                  <Text style={styles.kpiSub}>KG</Text>
+                </View>
+
+                {/* Low Stock */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>LOW STOCK</Text>
+                  <Text style={styles.kpiValue}>14</Text>
+                  <Text style={styles.kpiSub}>products</Text>
+                </View>
+
+                {/* Pending Verification */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>PENDING VERIFICATION</Text>
+                  <Text style={styles.kpiValue}>6</Text>
+                  <Text style={styles.kpiSub}>items</Text>
+                </View>
+
+                {/* Variance Detected */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>VARIANCE DETECTED</Text>
+                  <Text style={styles.kpiValue}>2</Text>
+                  <Text style={styles.kpiSub}>items</Text>
+                </View>
+
+                {/* Pending Adjustments */}
+                <View style={styles.kpiCard}>
+                  <Text style={styles.kpiLabel}>PENDING ADJUSTMENTS</Text>
+                  <Text style={styles.kpiValue}>3</Text>
+                  <Text style={styles.kpiSub}>requests</Text>
+                </View>
               </View>
 
-              {/* 2. Warehouse Summary */}
+              {/* Notice Banner */}
+              <View style={styles.inventoryInfoBanner}>
+                <InfoCircleIcon size={16} color="#7A2E14" />
+                <Text style={styles.inventoryInfoText}>
+                  Low-stock thresholds always come from backend configuration — never hard-coded percentages.
+                </Text>
+              </View>
+
+              {/* 2. Warehouse Overview */}
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
+                <Text style={styles.sectionHeading}>Warehouse Overview</Text>
               </View>
               <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Ooty</Text>
-                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
-                </TouchableOpacity>
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Ooty</Text>
+                  <Text style={styles.summaryItemValueBold}>3,420 KG</Text>
+                </View>
 
                 <View style={styles.summaryDivider} />
 
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Coonoor Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Coonoor</Text>
-                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
-                </TouchableOpacity>
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Coonoor</Text>
+                  <Text style={styles.summaryItemValueBold}>3,180 KG</Text>
+                </View>
+
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Kotagiri</Text>
+                  <Text style={styles.summaryItemValueBold}>2,940 KG</Text>
+                </View>
+
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Gudalur Market</Text>
+                  <Text style={styles.summaryItemValueBold}>3,300 KG</Text>
+                </View>
               </View>
 
-              {/* 3. Inventory Activity */}
+              {/* 3. Inventory Health */}
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Inventory Activity</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
+                <Text style={styles.sectionHeading}>Inventory Health</Text>
+              </View>
+              <View style={styles.healthCard}>
+                <View style={styles.healthRow}>
+                  <View style={styles.healthCol}>
+                    <Text style={styles.healthLabel}>Normal</Text>
+                    <Text style={[styles.healthValue, { color: '#00875A' }]}>62 products</Text>
+                  </View>
+                  <View style={styles.healthCol}>
+                    <Text style={styles.healthLabel}>Low</Text>
+                    <Text style={[styles.healthValue, { color: '#D97706' }]}>14 products</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.healthRow, { marginTop: 14 }]}>
+                  <View style={styles.healthCol}>
+                    <Text style={styles.healthLabel}>Critical</Text>
+                    <Text style={[styles.healthValue, { color: '#DC2626' }]}>3 products</Text>
+                  </View>
+                  <View style={styles.healthCol}>
+                    <Text style={styles.healthLabel}>Verification Pending</Text>
+                    <Text style={[styles.healthValue, { color: PALETTE.textInk }]}>6</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* 4. Recent Stock Movements */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Recent Stock Movements</Text>
+                <TouchableOpacity activeOpacity={0.7}>
                   <Text style={styles.viewAllLink}>View →</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.summaryListCard}
-                onPress={() => navigateWh('stock_ledger')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.inventoryActivityText}>
-                  Receipt → Batch Created → Allocation → Reservation → Sale / Transfer / Adjustment
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.recentMovementCard}>
+                <View style={styles.movementIconBox}>
+                  <ArrowUpMovementIcon size={18} color="#7A2E14" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.movementTitle}>MV-000928 · RECEIPT</Text>
+                  <Text style={styles.movementSub}>Ooty · Tomato · BT-000128</Text>
+                </View>
+                <Text style={styles.movementQty}>+100 KG</Text>
+              </View>
 
-              {/* 4. Pending Actions */}
+              {/* 5. Pending Actions */}
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionHeading}>Pending Actions</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity activeOpacity={0.7}>
                   <Text style={styles.viewAllLink}>View →</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
-                </TouchableOpacity>
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Verification</Text>
+                  <Text style={styles.summaryItemValueBold}>6</Text>
+                </View>
 
                 <View style={styles.summaryDivider} />
 
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('stock_adjustment_approval')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
-                  <Text style={styles.summaryItemValue}>2</Text>
-                </TouchableOpacity>
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Adjustment</Text>
+                  <Text style={styles.summaryItemValueBold}>3</Text>
+                </View>
+
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Transfer Receiving</Text>
+                  <Text style={styles.summaryItemValueBold}>2</Text>
+                </View>
+
+                <View style={styles.summaryDivider} />
+
+                <View style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemNameBold}>Stock Exception</Text>
+                  <Text style={styles.summaryItemValueBold}>1</Text>
+                </View>
               </View>
 
-              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
-              <View style={styles.quickActionsDualRow}>
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('verify_stock')}
-                  activeOpacity={0.8}
-                >
+              {/* 6. Quick Actions (2 cols x 3 rows) */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeading}>Quick Actions</Text>
+              </View>
+              <View style={styles.qaGrid}>
+                {/* 1. Consolidated Stock */}
+                <TouchableOpacity style={styles.qaGridCard} activeOpacity={0.8}>
+                  <LayersIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.qaGridLabel}>Consolidated Stock</Text>
+                </TouchableOpacity>
+
+                {/* 2. Warehouse Stock */}
+                <TouchableOpacity style={styles.qaGridCard} activeOpacity={0.8}>
+                  <BuildingWarehouseIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.qaGridLabel}>Warehouse Stock</Text>
+                </TouchableOpacity>
+
+                {/* 3. Stock Verification */}
+                <TouchableOpacity style={styles.qaGridCard} activeOpacity={0.8}>
                   <StockVerificationIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
+                  <Text style={styles.qaGridLabel}>Stock Verification</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.8}
-                >
-                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
+                {/* 4. Allocation */}
+                <TouchableOpacity style={styles.qaGridCard} activeOpacity={0.8}>
+                  <AllocationPieIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.qaGridLabel}>Allocation</Text>
+                </TouchableOpacity>
+
+                {/* 5. Low Stock */}
+                <TouchableOpacity style={styles.qaGridCard} activeOpacity={0.8}>
+                  <TrendingDownIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.qaGridLabel}>Low Stock</Text>
+                </TouchableOpacity>
+
+                {/* 6. Create Transfer */}
+                <TouchableOpacity style={styles.qaGridCard} activeOpacity={0.8}>
+                  <TransferArrowsIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.qaGridLabel}>Create Transfer</Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={{ height: 20 }} />
+              <View style={{ height: 28 }} />
             </View>
           </ScrollView>
         )}
@@ -1462,7 +1670,7 @@ export function MainWarehouseAdminDashboardScreen({
                   setReceivingSubView('dashboard');
                 }}
                 onNavigateStorage={() => navigateWh('storage_locations')}
-                onNavigateVerification={() => navigateWh('verify_stock')}
+                onNavigateVerification={() => navigateWh('stock_ledger')}
                 onNavigateMaterials={() => navigateWh('material_handling')}
                 onNavigateIssues={() => navigateWh('operational_issues')}
                 onNavigateStaff={() => navigateWh('staff_attendance')}
@@ -1618,7 +1826,7 @@ export function MainWarehouseAdminDashboardScreen({
                 onExport={() => {
                   Alert.alert('Export Successful', 'Operational history log has been exported to CSV.');
                 }}
-                onSelectVerification={() => navigateWh('verify_stock')}
+                onSelectVerification={() => navigateWh('stock_ledger')}
                 onSelectMaterial={() => {
                   setSelectedMaterialId('MAT-0021');
                   navigateWh('material_detail');
@@ -1658,43 +1866,10 @@ export function MainWarehouseAdminDashboardScreen({
                 onWarehouseTargets={() => navigateWh('warehouse_settings')}
                 onReviewEscalations={() => navigateWh('alerts_action_center')}
               />
-            ) : whSubView === 'stock_ledger' ? (
+            ) : (whSubView === 'stock_ledger' || whSubView === 'verify_stock' || whSubView === 'stock_adjustment_approval') ? (
               <StockLedgerScreen
                 warehouseName={selectedWHName}
                 onBack={goBackWh}
-                onVerifyBatch={(batch) => {
-                  if (batch) setSelectedBatch(batch);
-                  navigateWh('verify_stock');
-                }}
-              />
-            ) : whSubView === 'verify_stock' ? (
-              <VerifyStockScreen
-                produceName={selectedBatch?.name ?? 'Carrots'}
-                batchId={selectedBatch?.batchId ?? 'BT-4471'}
-                zone={selectedBatch?.zone ?? 'Zone A-2'}
-                systemCount={selectedBatch?.quantityKg ?? 240}
-                initialPhysicalCount={selectedBatch?.name === 'Carrots' ? 225 : (selectedBatch?.quantityKg ? selectedBatch.quantityKg - 5 : 225)}
-                onBack={goBackWh}
-                onSubmitApproval={(data) => {
-                  setAdjustmentRecord(data);
-                  navigateWh('stock_adjustment_approval');
-                }}
-              />
-            ) : whSubView === 'stock_adjustment_approval' ? (
-              <StockAdjustmentApprovalScreen
-                produceName={adjustmentRecord?.produceName ?? selectedBatch?.name ?? 'Carrots'}
-                batchId={adjustmentRecord?.batchId ?? selectedBatch?.batchId ?? 'BT-4471'}
-                zone={adjustmentRecord?.zone ?? selectedBatch?.zone ?? 'Zone A-2'}
-                systemCount={adjustmentRecord?.systemCount ?? selectedBatch?.quantityKg ?? 240}
-                physicalCount={adjustmentRecord?.physicalCount ?? 225}
-                varianceKg={adjustmentRecord?.varianceKg ?? -15}
-                variancePct={adjustmentRecord?.variancePct ?? -6.25}
-                reason={adjustmentRecord?.reason ?? 'Spoilage during storage.'}
-                onBack={goBackWh}
-                onReturnToLedger={() => {
-                  setWhSubView('stock_ledger');
-                  setWhHistory(['overview']);
-                }}
               />
             ) : whSubView === 'low_stock_alerts' ? (
               <LowStockAlertsScreen
@@ -2226,8 +2401,8 @@ export function MainWarehouseAdminDashboardScreen({
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <MoreTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>More</Text>
+              <MoreTabNavIcon active={activeTab === 'More'} />
+              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2501,78 +2676,54 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
 
-  // ─── Operations Card ───
-  operationsCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14, // LG 14px from Design System PDF
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  operationsText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textInk,
-  },
-
-  // ─── Warehouse Operations Hub Card ───
-  whHubPromoCard: {
+  // ─── Today's Operations Card (4-Row Breakdown matching Image 1) ───
+  todayOpsCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 14,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 16,
-    marginBottom: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  whHubPromoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+  todayOpsRow: {
+    paddingVertical: 2,
   },
-  whHubPromoIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: PALETTE.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  whHubPromoTitle: {
-    fontSize: 15,
+  todayOpsRowTitle: {
+    fontSize: 14,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
-  whHubPromoSub: {
+  todayOpsMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 6,
+  },
+  todayOpsMetricText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
+  },
+  todayOpsMetricBold: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  todayOpsTimelineSub: {
     fontSize: 11.5,
     fontWeight: '500',
     color: PALETTE.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: 4,
   },
-  whHubPillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F2ECE5',
-  },
-  whHubMiniPill: {
-    backgroundColor: PALETTE.primarySoft,
-    paddingHorizontal: 10,
-    paddingVertical: 4.5,
-    borderRadius: 100,
-  },
-  whHubMiniPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.orangeDeep,
+  todayOpsDivider: {
+    height: 1,
+    backgroundColor: '#F0EAE1',
+    marginVertical: 12,
   },
 
   // ─── Alert Card ───
@@ -2654,30 +2805,65 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.border,
   },
 
-  // ─── Quick Actions ───
-  quickActionsGrid: {
+  // ─── Quick Actions (Horizontally Scrollable) ───
+  quickActionsScrollTrack: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
+    paddingVertical: 4,
+    gap: 10,
   },
   quickActionCard: {
-    width: '48.5%',
+    width: 108,
+    height: 108,
     backgroundColor: PALETTE.cardBg,
     borderRadius: 14, // LG 14px from Design System PDF
     borderWidth: 1,
     borderColor: PALETTE.border,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   quickActionLabel: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '800',
     color: PALETTE.textInk,
     textAlign: 'center',
+    lineHeight: 15,
+  },
+  qaScrollControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  qaArrowBtn: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qaScrollTrack: {
+    width: 130,
+    height: 6,
+    backgroundColor: '#EBE5DC',
+    borderRadius: 3,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  qaScrollThumb: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 55,
+    backgroundColor: '#7A726C',
+    borderRadius: 3,
   },
 
   // ─── Disclaimer ───
@@ -2766,6 +2952,34 @@ const styles = StyleSheet.create({
     color: '#4B433E',
     lineHeight: 18,
   },
+  stockTransferActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    padding: 14,
+  },
+  stockTransferIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: PALETTE.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stockTransferActionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  stockTransferActionSub: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+  },
   quickActionsDualRow: {
     flexDirection: 'row',
     gap: 12,
@@ -2784,6 +2998,125 @@ const styles = StyleSheet.create({
   },
   quickActionDualLabel: {
     fontSize: 13,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  inventoryInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FAF4EE',
+    borderWidth: 1,
+    borderColor: '#EEDCD3',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 14,
+    marginBottom: 4,
+    gap: 10,
+  },
+  inventoryInfoText: {
+    flex: 1,
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#7A2E14',
+    lineHeight: 17,
+  },
+  summaryItemNameBold: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  summaryItemValueBold: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  healthCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    padding: 16,
+    marginTop: 4,
+  },
+  healthRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  healthCol: {
+    flex: 1,
+  },
+  healthLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.textSecondary,
+    marginBottom: 4,
+  },
+  healthValue: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  recentMovementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    padding: 14,
+    marginTop: 4,
+  },
+  movementIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FDF3F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  movementTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  movementSub: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
+    marginTop: 2,
+  },
+  movementQty: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#00875A',
+  },
+  qaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  qaGridCard: {
+    width: '48.5%',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  qaGridLabel: {
+    fontSize: 12.5,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginTop: 8,

@@ -133,7 +133,7 @@ export function transferStatusColors(status: InterWarehouseTransferItem['status'
   return { bg: PALETTE.warningBg, text: PALETTE.warningText };
 }
 
-type FilterKey = 'All' | 'In Transit' | 'Pending SA Approval' | 'Completed';
+type FilterKey = 'All' | 'In Transit' | 'Discrepancy' | 'Pending SA Approval' | 'Completed';
 
 export interface InterWarehouseTransferScreenProps {
   onBack?: () => void;
@@ -159,6 +159,7 @@ export function InterWarehouseTransferScreen({
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: 'All', label: 'All' },
     { key: 'In Transit', label: 'In Transit' },
+    { key: 'Discrepancy', label: 'Discrepancy' },
     { key: 'Pending SA Approval', label: 'Pending Approval' },
     { key: 'Completed', label: 'Completed' },
   ];
@@ -167,7 +168,7 @@ export function InterWarehouseTransferScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
 
-      {/* ─── Orange Header ─── */}
+      {/* ─── Orange Header (M3-13 Stock Transfer - No Plus Icon) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.headerTitleGroup}>
@@ -176,41 +177,14 @@ export function InterWarehouseTransferScreen({
                 <ArrowBackIcon />
               </TouchableOpacity>
             )}
-            <Text style={styles.headerTitle}>Inter-Warehouse Transfer</Text>
+            <Text style={styles.headerTitle}>Stock Transfer</Text>
           </View>
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={onNewTransfer}
-            activeOpacity={0.8}
-            accessibilityLabel="Initiate new transfer"
-          >
-            <PlusIcon size={18} />
-          </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>Rebalancing stock across locations</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-        {/* ─── KPI Row ─── */}
-        <View style={styles.kpiRow}>
-          <TouchableOpacity style={styles.kpiCard} onPress={() => setFilter('In Transit')} activeOpacity={0.8}>
-            <Text style={styles.kpiLabel}>IN TRANSIT</Text>
-            <Text style={styles.kpiValue}>{inTransit}</Text>
-            <Text style={styles.kpiSub}>transfers</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.kpiCard} onPress={() => setFilter('Pending SA Approval')} activeOpacity={0.8}>
-            <Text style={styles.kpiLabel}>PENDING</Text>
-            <Text style={styles.kpiValue}>{pending}</Text>
-            <Text style={styles.kpiSub}>SA approval</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.kpiCard} onPress={() => setFilter('Completed')} activeOpacity={0.8}>
-            <Text style={styles.kpiLabel}>COMPLETED</Text>
-            <Text style={styles.kpiValue}>{completed}</Text>
-            <Text style={styles.kpiSub}>this week</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ─── Filter Pills ─── */}
+        {/* ─── Filter Pills (Matching Image 5) ─── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {FILTERS.map((f) => {
             const active = filter === f.key;
@@ -227,9 +201,7 @@ export function InterWarehouseTransferScreen({
           })}
         </ScrollView>
 
-        {/* ─── Transfer List ─── */}
-        <Text style={styles.sectionTitle}>Transfers</Text>
-
+        {/* ─── Transfer List (Matching Image 5 Cards) ─── */}
         {filtered.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>No transfers in this status.</Text>
@@ -244,30 +216,15 @@ export function InterWarehouseTransferScreen({
                 onPress={() => onSelectTransfer?.(item)}
                 activeOpacity={0.8}
               >
-                <View style={styles.transferTopRow}>
-                  <View style={styles.iconBox}>
-                    <TruckIcon size={18} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={styles.routeRow}>
-                      <Text style={styles.whName}>{item.source}</Text>
-                      <View style={{ marginHorizontal: 8 }}>
-                        <ArrowRightIcon />
-                      </View>
-                      <Text style={styles.whName}>{item.destination}</Text>
-                    </View>
-                    <Text style={styles.produceText}>
-                      {transferCode(item)} · {item.produceDescription}
-                    </Text>
-                  </View>
-                  <ChevronRightIcon />
-                </View>
-                <View style={styles.transferBottomRow}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTransferCode}>{transferCode(item)}</Text>
                   <View style={[styles.statusPill, { backgroundColor: c.bg }]}>
                     <Text style={[styles.statusPillText, { color: c.text }]}>{item.status}</Text>
                   </View>
-                  {item.eta ? <Text style={styles.etaText}>{item.eta}</Text> : null}
                 </View>
+                <Text style={styles.cardRouteDetail}>
+                  {item.source} → {item.destination} · {item.produceDescription}
+                </Text>
               </TouchableOpacity>
             );
           })
@@ -281,14 +238,16 @@ export function InterWarehouseTransferScreen({
           </Text>
         </View>
 
-        {/* ─── Primary CTA ─── */}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* ─── Anchored Bottom CTA Button (Exact match to Image 5: "+ Create Transfer") ─── */}
+      <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.primaryBtn} onPress={onNewTransfer} activeOpacity={0.85}>
           <PlusIcon size={18} />
-          <Text style={styles.primaryBtnText}>Initiate New Transfer</Text>
+          <Text style={styles.primaryBtnText}>Create Transfer</Text>
         </TouchableOpacity>
-
-        <View style={{ height: 24 }} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -352,32 +311,28 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 14,
+    padding: 16,
     marginBottom: 12,
   },
-  transferTopRow: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    backgroundColor: PALETTE.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  routeRow: { flexDirection: 'row', alignItems: 'center' },
-  whName: { fontSize: 15, fontWeight: '800', color: PALETTE.textInk },
-  produceText: { fontSize: 12, fontWeight: '500', color: PALETTE.textSecondary, marginTop: 3 },
-  transferBottomRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.divider,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  cardTransferCode: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    letterSpacing: -0.2,
+  },
+  cardRouteDetail: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
   },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   statusPillText: { fontSize: 11.5, fontWeight: '700' },
-  etaText: { fontSize: 12, fontWeight: '600', color: PALETTE.textSecondary, marginLeft: 10 },
 
   emptyCard: {
     backgroundColor: PALETTE.cardBg,
@@ -403,6 +358,18 @@ const styles = StyleSheet.create({
   },
   noticeText: { flex: 1, fontSize: 12, fontWeight: '600', color: PALETTE.orangeDeep, lineHeight: 17.5, marginLeft: 10 },
 
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: PALETTE.pageBg,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    borderTopWidth: 1,
+    borderTopColor: PALETTE.border,
+  },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,7 +377,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: PALETTE.primary,
     borderRadius: 12,
-    height: 50,
+    height: 48,
   },
   primaryBtnText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
 });
