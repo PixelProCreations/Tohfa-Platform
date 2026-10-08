@@ -592,6 +592,14 @@ export interface SubWarehouseMoreScreenProps {
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
+  onNavigateToStorageLocations?: (() => void) | undefined;
+  onNavigateToCapacity?: (() => void) | undefined;
+  onNavigateToMaterialHandling?: (() => void) | undefined;
+  onNavigateToOperationalIssues?: (() => void) | undefined;
+  onNavigateToWarehouseActivity?: (() => void) | undefined;
+  onNavigateToTodayOperations?: (() => void) | undefined;
+  onNavigateToReceiveGoods?: (() => void) | undefined;
+  onNavigateToStockVerification?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
 }
 
@@ -615,6 +623,14 @@ export function SubWarehouseMoreScreen({
   onNavigateToSettings,
   onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
+  onNavigateToStorageLocations,
+  onNavigateToCapacity,
+  onNavigateToMaterialHandling,
+  onNavigateToOperationalIssues,
+  onNavigateToWarehouseActivity,
+  onNavigateToTodayOperations,
+  onNavigateToReceiveGoods,
+  onNavigateToStockVerification,
   onLogout,
 }: SubWarehouseMoreScreenProps) {
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
@@ -836,6 +852,44 @@ export function SubWarehouseMoreScreen({
       <SubWarehouseWarehouseOperationsScreen
         onBack={() => setShowWarehouseOperationsScreen(false)}
         onTabChange={onTabChange}
+        onNavigateToReceiveGoods={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToReceiveGoods) onNavigateToReceiveGoods();
+          else onTabChange?.('Receiving');
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToStockVerification) onNavigateToStockVerification();
+          else onTabChange?.('Inventory');
+        }}
+        onNavigateToStaffAttendance={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToAttendance) onNavigateToAttendance();
+        }}
+        onNavigateToStorageLocations={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToStorageLocations?.();
+        }}
+        onNavigateToCapacity={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToCapacity?.();
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToMaterialHandling?.();
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToOperationalIssues?.();
+        }}
+        onNavigateToWarehouseActivity={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToWarehouseActivity?.();
+        }}
+        onNavigateToTodayOperations={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToTodayOperations?.();
+        }}
       />
     );
   }

@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { ORDERS_THEME } from './theme';
 
 interface M5S03Props {
   onNavigate: (screen: string, params?: any) => void;
@@ -28,8 +29,8 @@ function BackArrowWhiteIcon() {
 function SearchIconGrey() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke="#7A726C" strokeWidth="2" />
-      <Path d="M16 16l4.5 4.5" stroke="#7A726C" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="11" cy="11" r="7" stroke={ORDERS_THEME.textSecondary} strokeWidth="2" />
+      <Path d="M16 16l4.5 4.5" stroke={ORDERS_THEME.textSecondary} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -37,7 +38,7 @@ function SearchIconGrey() {
 function FlagIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7" stroke="#1D2420" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7" stroke={ORDERS_THEME.textInk} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -45,9 +46,9 @@ function FlagIcon() {
 function TruckIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 3h14v13H1zM15 8h4l3 3v5h-7V8z" stroke="#1D2420" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#1D2420" strokeWidth="1.8" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#1D2420" strokeWidth="1.8" />
+      <Path d="M1 3h14v13H1zM15 8h4l3 3v5h-7V8z" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -55,7 +56,7 @@ function TruckIcon() {
 function StoreChannelIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l1-6h16l1 6M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4 12v9h16v-9" stroke="#1D2420" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 9l1-6h16l1 6M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4 12v9h16v-9" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -63,8 +64,8 @@ function StoreChannelIcon() {
 function CalendarDateIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="3" stroke="#1D2420" strokeWidth="1.8" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke="#1D2420" strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -72,9 +73,9 @@ function CalendarDateIcon() {
 function PaymentCashIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="2" stroke="#1D2420" strokeWidth="1.8" />
-      <Circle cx="12" cy="12" r="3" stroke="#1D2420" strokeWidth="1.8" />
-      <Path d="M6 12h.01M18 12h.01" stroke="#1D2420" strokeWidth="2" strokeLinecap="round" />
+      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
+      <Circle cx="12" cy="12" r="3" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
+      <Path d="M6 12h.01M18 12h.01" stroke={ORDERS_THEME.textInk} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -82,17 +83,8 @@ function PaymentCashIcon() {
 function LockNoticeIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke="#9A3412" strokeWidth="2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#9A3412" strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function InfoCircleBlueIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#1C5B96" strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#1C5B96" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={ORDERS_THEME.orangeDeep} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={ORDERS_THEME.orangeDeep} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -131,7 +123,7 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Left Reference */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity
@@ -144,7 +136,6 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Order Filters</Text>
           </View>
-
           <TouchableOpacity activeOpacity={0.7} onPress={handleClearAll}>
             <Text style={styles.clearAllText}>Clear All</Text>
           </TouchableOpacity>
@@ -156,17 +147,17 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             <SearchIconGrey />
             <TextInput
               style={styles.searchInput}
-              placeholder="Order ID, customer or phone"
-              placeholderTextColor="#7A726C"
+              placeholder="Search by order ID, customer name, phone"
+              placeholderTextColor={ORDERS_THEME.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
 
-          {/* Section 1: Status */}
+          {/* Section 1: Order Status */}
           <View style={styles.sectionHeaderRow}>
             <FlagIcon />
-            <Text style={styles.sectionTitle}>Status</Text>
+            <Text style={styles.sectionTitle}>Order Status</Text>
           </View>
           <View style={styles.pillsWrap}>
             {statusOptions.map((opt) => {
@@ -186,10 +177,10 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             })}
           </View>
 
-          {/* Section 2: Fulfillment */}
+          {/* Section 2: Fulfillment Type */}
           <View style={styles.sectionHeaderRow}>
             <TruckIcon />
-            <Text style={styles.sectionTitle}>Fulfillment</Text>
+            <Text style={styles.sectionTitle}>Fulfillment Type</Text>
           </View>
           <View style={styles.pillsWrap}>
             {fulfillmentOptions.map((opt) => {
@@ -209,10 +200,10 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             })}
           </View>
 
-          {/* Section 3: Channel */}
+          {/* Section 3: Sales Channel */}
           <View style={styles.sectionHeaderRow}>
             <StoreChannelIcon />
-            <Text style={styles.sectionTitle}>Channel</Text>
+            <Text style={styles.sectionTitle}>Sales Channel</Text>
           </View>
           <View style={styles.pillsWrap}>
             {channelOptions.map((opt) => {
@@ -232,10 +223,10 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             })}
           </View>
 
-          {/* Section 4: Date */}
+          {/* Section 4: Date Range */}
           <View style={styles.sectionHeaderRow}>
             <CalendarDateIcon />
-            <Text style={styles.sectionTitle}>Date</Text>
+            <Text style={styles.sectionTitle}>Date Range</Text>
           </View>
           <View style={styles.pillsWrap}>
             {dateOptions.map((opt) => {
@@ -255,10 +246,10 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             })}
           </View>
 
-          {/* Section 5: Payment */}
+          {/* Section 5: Payment Status */}
           <View style={styles.sectionHeaderRow}>
             <PaymentCashIcon />
-            <Text style={styles.sectionTitle}>Payment</Text>
+            <Text style={styles.sectionTitle}>Payment Status</Text>
           </View>
           <View style={styles.pillsWrap}>
             {paymentOptions.map((opt) => {
@@ -278,23 +269,15 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             })}
           </View>
 
-          {/* Notice Box 1: Warehouse Scoped */}
+          {/* Assigned Warehouse Notice */}
           <View style={styles.warehouseNoticeBox}>
             <LockNoticeIcon />
             <Text style={styles.warehouseNoticeText}>
-              No warehouse selector — results always scoped to Coonoor Warehouse.
+              Locked to Coonoor Warehouse. Orders from other warehouses are not visible.
             </Text>
           </View>
 
-          {/* Notice Box 2: Direct Customer Purchase */}
-          <View style={styles.directPurchaseNoticeBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.directPurchaseNoticeText}>
-              Direct Customer Purchase has its own workflow in Module 6 and isn't filtered here.
-            </Text>
-          </View>
-
-          <View style={{ height: 28 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
         {/* Fixed Apply Filters Button at Bottom */}
@@ -316,15 +299,15 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
-    paddingTop: 16,
+    backgroundColor: ORDERS_THEME.primary,
+    paddingTop: 14,
     paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -334,7 +317,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   backButton: {
     width: 32,
@@ -361,21 +344,26 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   searchBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#EAE6DF',
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
+    borderWidth: 1,
+    borderColor: ORDERS_THEME.border,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     gap: 10,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
     paddingVertical: 0,
   },
@@ -388,8 +376,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   pillsWrap: {
@@ -399,33 +387,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pillBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusFull,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 16,
     paddingVertical: 7,
   },
   pillBtnSelected: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#E85226',
+    backgroundColor: ORDERS_THEME.orangeTint,
+    borderColor: ORDERS_THEME.primary,
     borderWidth: 1.5,
   },
   pillText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   pillTextSelected: {
-    color: '#E85226',
+    color: ORDERS_THEME.primary,
     fontWeight: '700',
   },
   warehouseNoticeBox: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 14,
-    borderWidth: 1.2,
-    borderColor: '#FDBA74',
+    backgroundColor: ORDERS_THEME.orangeTint,
+    borderRadius: ORDERS_THEME.radiusLG,
+    borderWidth: 1,
+    borderColor: ORDERS_THEME.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -437,26 +425,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: '#9A3412',
-    fontFamily: 'Poppins',
-    lineHeight: 17,
-  },
-  directPurchaseNoticeBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    borderWidth: 1.2,
-    borderColor: '#BFDBFE',
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
-  },
-  directPurchaseNoticeText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1E40AF',
+    color: ORDERS_THEME.orangeDeep,
     fontFamily: 'Poppins',
     lineHeight: 17,
   },
@@ -464,17 +433,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   applyBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#E85226',
+    shadowColor: ORDERS_THEME.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

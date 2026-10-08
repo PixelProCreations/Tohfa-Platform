@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S14Props {
   orderId?: string;
@@ -16,6 +17,14 @@ interface M5S14Props {
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
 }
+
+const DELIVERY_PARTNERS = [
+  'Select delivery person',
+  'Ramesh Kumar (Van #04)',
+  'Suresh M. (Bike #12)',
+  'Anand P. (Runner #02)',
+  'Karthik S. (Van #08)',
+];
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -33,11 +42,16 @@ function BackArrowWhiteIcon() {
   );
 }
 
-function InfoCircleBlueIcon() {
+function ChevronDownIcon({ size = 18, color = '#1F2937' }: { size?: number; color?: string }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 9l6 6 6-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -45,12 +59,26 @@ function InfoCircleBlueIcon() {
 function QuestionCircleOrangeIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#C2410C" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.warning} strokeWidth="2" />
       <Path
         d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
-        stroke="#C2410C"
+        stroke={ORDERS_THEME.warning}
         strokeWidth="2"
         strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckmarkWhiteIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 6L9 17l-5-5"
+        stroke="#FFFFFF"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -70,24 +98,10 @@ function DeliveryTruckWhiteIcon() {
 function DeliveryTruckGreenIcon() {
   return (
     <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="14" height="13" rx="1" stroke="#10B981" strokeWidth="2" />
-      <Path d="M15 8h4l3 3v5h-7V8z" stroke="#10B981" strokeWidth="2" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#10B981" strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#10B981" strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function CheckmarkWhiteIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 6L9 17l-5-5"
-        stroke="#FFFFFF"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Rect x="1" y="3" width="14" height="13" rx="1" stroke={ORDERS_THEME.success} strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke={ORDERS_THEME.success} strokeWidth="2" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.success} strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.success} strokeWidth="2" />
     </Svg>
   );
 }
@@ -101,13 +115,6 @@ function HistoryClockWhiteIcon() {
   );
 }
 
-function ChevronDownIcon({ size = 16, color = '#1E1612' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 export const M5S14_Dispatch: React.FC<M5S14Props> = ({
   orderId = 'ORD-1021',
@@ -116,18 +123,20 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
   onBack,
 }) => {
   const [step, setStep] = useState<'details' | 'confirm' | 'dispatched'>(initialStep);
+  const [selectedPartner, setSelectedPartner] = useState<string>('Select delivery person');
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
-  // ─── STATE 3: Order Dispatched (Image 4) ──────────────────────────────────
+  // ─── STEP 3: Order Dispatched ─────────────────────────────────────────────
   if (step === 'dispatched') {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={ORDERS_THEME.primary} />
         <View style={styles.container}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
               activeOpacity={0.7}
-              onPress={() => setStep('confirm')}
+              onPress={() => setStep('details')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <BackArrowWhiteIcon />
@@ -136,7 +145,6 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
           </View>
 
           <View style={styles.contentPacked}>
-            {/* Centered Green Delivery Truck Hero matching Image 4 */}
             <View style={styles.heroContainer}>
               <View style={styles.successCircleBadge}>
                 <DeliveryTruckGreenIcon />
@@ -144,7 +152,6 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
               <Text style={styles.heroTitle}>Order Dispatched</Text>
             </View>
 
-            {/* Summary Card */}
             <View style={styles.card}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
@@ -159,7 +166,6 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
             </View>
           </View>
 
-          {/* Bottom Fixed Action Button matching Image 4 */}
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.primaryBtn}
@@ -175,12 +181,12 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
     );
   }
 
-  // ─── STATE 2: Confirm Dispatch (Image 3) ──────────────────────────────────
+  // ─── STEP 2: Confirm Dispatch ─────────────────────────────────────────────
   if (step === 'confirm') {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={ORDERS_THEME.primary} />
         <View style={styles.container}>
-          {/* Header matching Image 3 */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -198,13 +204,11 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Top Amber Alert Banner matching Image 3 */}
             <View style={styles.confirmPromptBox}>
               <QuestionCircleOrangeIcon />
               <Text style={styles.confirmPromptText}>Confirm Dispatch?</Text>
             </View>
 
-            {/* Summary Card */}
             <View style={styles.card}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
@@ -226,12 +230,17 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
             <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Bottom Fixed Action Button matching Image 3 */}
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.primaryBtn}
               activeOpacity={0.8}
-              onPress={() => setStep('dispatched')}
+              onPress={() => {
+                if (onNavigate) {
+                  onNavigate('M5S14C', { orderId });
+                } else {
+                  setStep('dispatched');
+                }
+              }}
             >
               <CheckmarkWhiteIcon />
               <Text style={styles.primaryBtnText}>Confirm Dispatch</Text>
@@ -242,11 +251,12 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
     );
   }
 
-  // ─── STATE 1: Dispatch Details (Image 2) ──────────────────────────────────
+  // ─── STEP 1: Dispatch Details (Matching Reference Design) ─────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={ORDERS_THEME.primary} />
       <View style={styles.container}>
-        {/* Header matching Image 2 */}
+        {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -259,16 +269,16 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
           <Text style={styles.headerTitle}>Dispatch</Text>
         </View>
 
-        {/* Subtitle directly below header */}
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{orderId} · Ready for Dispatch</Text>
-        </View>
-
         <ScrollView
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* Subtitle on Canvas: Centered underneath header */}
+          <View style={styles.topSubtitleContainer}>
+            <Text style={styles.topSubtitleText}>{orderId} · Ready for Dispatch</Text>
+          </View>
+
           {/* Section 1: Order Summary */}
           <Text style={styles.sectionTitle}>Order Summary</Text>
           <View style={styles.card}>
@@ -295,26 +305,77 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
           </View>
 
           {/* Section 2: Delivery Partner */}
-          <Text style={styles.sectionTitle}>Delivery Partner</Text>
-
-          {/* Assignment Card */}
-          <View style={[styles.card, { marginTop: 8 }]}>
-            <Text style={styles.fieldLabel}>Assignment</Text>
-            <TouchableOpacity style={styles.dropdownBtn} activeOpacity={0.8}>
-              <Text style={styles.dropdownValueText}>Select delivery person</Text>
-              <ChevronDownIcon size={16} color="#1E1612" />
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Delivery Partner</Text>
+          <View style={styles.card}>
+            <Text style={styles.assignmentLabel}>Assignment</Text>
+            <TouchableOpacity
+              style={styles.pickerBox}
+              activeOpacity={0.75}
+              onPress={() => setIsDropdownOpen(prev => !prev)}
+            >
+              <Text style={styles.pickerText}>{selectedPartner}</Text>
+              <ChevronDownIcon />
             </TouchableOpacity>
+
+            {isDropdownOpen && (
+              <View style={styles.dropdownMenu}>
+                {DELIVERY_PARTNERS.map((partner, index) => {
+                  const isSelected = selectedPartner === partner;
+                  return (
+                    <TouchableOpacity
+                      key={partner}
+                      style={[
+                        styles.dropdownItem,
+                        index === DELIVERY_PARTNERS.length - 1 && { borderBottomWidth: 0 },
+                        isSelected && styles.dropdownItemSelected,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setSelectedPartner(partner);
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownItemText,
+                          isSelected && styles.dropdownItemTextSelected,
+                        ]}
+                      >
+                        {partner}
+                      </Text>
+                      {isSelected && (
+                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                          <Path
+                            d="M20 6L9 17l-5-5"
+                            stroke={ORDERS_THEME.primary}
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
-          <View style={{ height: 24 }} />
+          <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Fixed Action Button matching Image 2 */}
+        {/* Bottom Fixed Action Button: Navigate to Confirm Dispatch */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.primaryBtn}
             activeOpacity={0.8}
-            onPress={() => setStep('confirm')}
+            onPress={() => {
+              if (onNavigate) {
+                onNavigate('M5S14B', { orderId });
+              } else {
+                setStep('confirm');
+              }
+            }}
           >
             <DeliveryTruckWhiteIcon />
             <Text style={styles.primaryBtnText}>Confirm Dispatch</Text>
@@ -328,41 +389,44 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 14,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
-  subtitleRow: {
-    paddingHorizontal: 20,
+  topSubtitleContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
+    paddingBottom: 4,
   },
-  subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 12.5,
+  topSubtitleText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
     fontWeight: '600',
-    color: '#8C7A6B',
+    color: '#8C7355',
   },
   content: {
     flex: 1,
@@ -373,19 +437,25 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   sectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
-    marginTop: 16,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
+    marginTop: 12,
     marginBottom: 8,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EFECE6',
-    padding: 16,
+    borderColor: ORDERS_THEME.border,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -396,36 +466,71 @@ const styles = StyleSheet.create({
   },
   singleRow: {},
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 3,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
-  infoBox: {
-    backgroundColor: '#EBF5FF',
+  assignmentLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: ORDERS_THEME.textInk,
+    marginBottom: 8,
+  },
+  pickerBox: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#D1D5DB',
     borderRadius: 10,
-    paddingVertical: 12,
     paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
   },
-  infoText: {
-    flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
+  pickerText: {
+    fontFamily: 'Poppins',
+    fontSize: 13.5,
     fontWeight: '600',
-    color: '#1E40AF',
-    lineHeight: 16,
+    color: ORDERS_THEME.textInk,
+  },
+  dropdownMenu: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemSelected: {
+    backgroundColor: ORDERS_THEME.orangeTint,
+  },
+  dropdownItemText: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '500',
+    color: ORDERS_THEME.textSecondary,
+  },
+  dropdownItemTextSelected: {
+    fontWeight: '700',
+    color: ORDERS_THEME.primary,
   },
   dropdownBtn: {
     flexDirection: 'row',
@@ -439,16 +544,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   dropdownValueText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
     color: '#1D2420',
   },
   confirmPromptBox: {
-    backgroundColor: '#FEF9EE',
+    backgroundColor: ORDERS_THEME.warningBg,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -458,35 +563,38 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   confirmPromptText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.warning,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   primaryBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     borderRadius: 12,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
-  // Dispatched screen
   contentPacked: {
     flex: 1,
     paddingTop: 36,
@@ -500,15 +608,15 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E8F8F0',
+    backgroundColor: ORDERS_THEME.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
 });

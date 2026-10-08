@@ -11,18 +11,19 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
+// ─── Design Tokens (TOHFA Admin App — Design System PDF) ─────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  pageBg:        '#F7F5EE',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1D2420',
-  textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
+  primary:       '#F0562A', // Orange: primary actions
+  orangeDeep:    '#7A2E14', // Orange Deep: titles
+  pageBg:        '#F3EFE9', // App canvas
+  cardBg:        '#FFFFFF', // Surface
+  textInk:       '#1A1A1A', // Ink: primary text
+  textSecondary: '#5F5E5A', // Secondary text
+  textMuted:     '#5F5E5A',
   textBody:      '#374151',
-  border:        '#F0ECE3',
-  greenBadge:    '#E6F5ED',
-  greenText:     '#1E8E5A',
+  border:        '#EEDCD3', // Border: neutral divider
+  greenBadge:    '#EAF3DE', // Success bg
+  greenText:     '#173404', // Success text
 };
 
 // ─── Pure SVG Icons (No Rect or Circle to avoid Hermes runtime errors) ───────
@@ -82,13 +83,15 @@ const SAMPLE_TICKETS: SupportTicketRecord[] = [
 ];
 
 export interface SubWarehouseSupportHistoryScreenProps {
-  customerName?: string;
+  customerName?: string | undefined;
   onBack: () => void;
+  onSelectTicket?: ((ticket: SupportTicketRecord) => void) | undefined;
 }
 
 export function SubWarehouseSupportHistoryScreen({
   customerName = 'Rajesh Kumar',
   onBack,
+  onSelectTicket,
 }: SubWarehouseSupportHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -164,7 +167,12 @@ export function SubWarehouseSupportHistoryScreen({
         {/* ─── Support Ticket Cards List ─── */}
         {filteredTickets.map((ticket) => {
           return (
-            <View key={ticket.id} style={styles.ticketCard}>
+            <TouchableOpacity
+              key={ticket.id}
+              style={styles.ticketCard}
+              activeOpacity={0.85}
+              onPress={() => onSelectTicket?.(ticket)}
+            >
               <Text style={styles.ticketNo}>{ticket.ticketNo}</Text>
               <Text style={styles.subjectText}>
                 {ticket.subject} · Order {ticket.orderRef}
@@ -176,7 +184,7 @@ export function SubWarehouseSupportHistoryScreen({
                   <Text style={styles.resolvedText}>{ticket.status}</Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
 

@@ -98,16 +98,20 @@ function PlusIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: str
 import { SubWarehouseSelectProductsScreen } from './SubWarehouseSelectProductsScreen';
 
 export interface SubWarehouseNewSaleScreenProps {
+  initialCustomerName?: string | undefined;
   onBack?: (() => void) | undefined;
   onSelectProducts?: (() => void) | undefined;
 }
 
 export function SubWarehouseNewSaleScreen({
+  initialCustomerName,
   onBack,
   onSelectProducts,
 }: SubWarehouseNewSaleScreenProps) {
   const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket'>('Direct');
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('Select Customer / Walk-in');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>(
+    initialCustomerName || 'Select Customer / Walk-in'
+  );
   const [showSelectProducts, setShowSelectProducts] = useState(false);
 
   const handleSelectCustomer = () => {

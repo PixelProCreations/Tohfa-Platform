@@ -11,25 +11,44 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
+// ─── Design Tokens (TOHFA Admin App — Design System PDF) ─────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  tabActiveBg:   '#E85226',
-  pageBg:        '#F7F5EE',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1D2420',
-  textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  textBody:      '#374151',
-  border:        '#F0ECE3',
-  divider:       '#F0ECE3',
-  greenBadge:    '#E6F5ED',
-  greenText:     '#1E8E5A',
+  // Brand Palette
+  primary:       '#F0562A', // Orange: Primary actions, active states, icons
+  orangeDeep:    '#7A2E14', // Orange Deep: Section headings, emphasis text
+  orangeTint:    '#FDF3F0', // Orange Tint: Icon chips, role badges, active pills
+  pageBg:        '#F3EFE9', // Background: App canvas
+
+  // Neutrals
+  textInk:       '#1A1A1A', // Ink: Primary text
+  textSecondary: '#5F5E5A', // Muted: Secondary text
+  textMuted:     '#5F5E5A', // Muted
+  textBody:      '#1A1A1A', // Ink: Body text
+  border:        '#EEDCD3', // Border: Card and input borders
+  divider:       '#EEDCD3', // Border
+  cardBg:        '#FFFFFF', // Card: Card surfaces
+
+  // Semantic Colors
+  success:       '#173404',
+  successBg:     '#EAF3DE',
+  warning:       '#854F0B',
+  warningBg:     '#FEF3E2',
+  danger:        '#E24B4A',
+  dangerBg:      '#FCEBEB',
+  info:          '#0C447C',
+  infoBg:        '#E6F1FB',
+  purple:        '#3C3489',
+  purpleBg:      '#EEEDFE',
+
+  // Role & component mappings
+  tabActiveBg:   '#F0562A',
   actionIconCol: '#F0562A',
-  avatarBg:      '#FFF0EB',
-  avatarText:    '#F0562A',
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
+  avatarBg:      '#FDF3F0',
+  avatarText:    '#7A2E14',
+  greenBadge:    '#EAF3DE',
+  greenText:     '#173404',
+  tabInactive:   '#5F5E5A',
+  tabBorder:     '#EEDCD3',
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -185,30 +204,30 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 export interface SubWarehouseCustomerDetailsScreenProps {
   customer?: {
-    id?: string;
-    name?: string;
-    code?: string;
-    phone?: string;
-    email?: string;
-    status?: string;
-    ordersCount?: number;
-    totalPurchases?: string;
-    walletBalance?: string;
-    openIssues?: number;
-    completedOrders?: number;
-    cancelledOrders?: number;
-    lastPurchase?: string;
-    regDate?: string;
-  };
+    id?: string | undefined;
+    name?: string | undefined;
+    code?: string | undefined;
+    phone?: string | undefined;
+    email?: string | undefined;
+    status?: string | undefined;
+    ordersCount?: number | undefined;
+    totalPurchases?: string | undefined;
+    walletBalance?: string | undefined;
+    openIssues?: number | undefined;
+    completedOrders?: number | undefined;
+    cancelledOrders?: number | undefined;
+    lastPurchase?: string | undefined;
+    regDate?: string | undefined;
+  } | undefined;
   onBack: () => void;
-  onTabChange?: (tab: SubWHTab) => void;
-  onNavigateToOrders?: () => void;
-  onNavigateToPurchases?: () => void;
-  onNavigateToWallet?: () => void;
-  onNavigateToIssues?: () => void;
-  onNavigateToSupport?: () => void;
-  onNavigateToNewSale?: () => void;
-  onNavigateToCashTopUp?: () => void;
+  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  onNavigateToOrders?: (() => void) | undefined;
+  onNavigateToPurchases?: (() => void) | undefined;
+  onNavigateToWallet?: (() => void) | undefined;
+  onNavigateToIssues?: (() => void) | undefined;
+  onNavigateToSupport?: (() => void) | undefined;
+  onNavigateToNewSale?: (() => void) | undefined;
+  onNavigateToCashTopUp?: (() => void) | undefined;
   onOpenCustomerActions?: (() => void) | undefined;
 }
 
@@ -253,17 +272,6 @@ export function SubWarehouseCustomerDetailsScreen({
 
   const handleTabPress = (tabName: string) => {
     setActiveTab(tabName);
-    if (tabName === 'Orders' && onNavigateToOrders) {
-      onNavigateToOrders();
-    } else if (tabName === 'Purchases' && onNavigateToPurchases) {
-      onNavigateToPurchases();
-    } else if (tabName === 'Wallet' && onNavigateToWallet) {
-      onNavigateToWallet();
-    } else if (tabName === 'Issues' && onNavigateToIssues) {
-      onNavigateToIssues();
-    } else if (tabName === 'Support' && onNavigateToSupport) {
-      onNavigateToSupport();
-    }
   };
 
   const handleBottomTabPress = (tab: SubWHTab) => {
@@ -282,7 +290,7 @@ export function SubWarehouseCustomerDetailsScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
-      {/* ─── Header Banner (Orange Theme with Back Arrow & 3-dot options) ─── */}
+      {/* ─── Header Banner (Orange Theme with Back Arrow) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -294,19 +302,6 @@ export function SubWarehouseCustomerDetailsScreen({
             <ArrowBackIcon size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Customer Details</Text>
-
-          <TouchableOpacity
-            style={styles.moreButton}
-            onPress={onOpenCustomerActions || (() => Alert.alert('Customer Actions', `Options for ${customerName}`))}
-            activeOpacity={0.8}
-            accessibilityLabel="Customer Actions"
-          >
-            <View style={styles.dotsWrap}>
-              <View style={styles.dot} />
-              <View style={styles.dot} />
-              <View style={styles.dot} />
-            </View>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -336,7 +331,7 @@ export function SubWarehouseCustomerDetailsScreen({
           <View style={styles.statsRow}>
             <TouchableOpacity
               style={styles.statTile}
-              onPress={onNavigateToOrders}
+              onPress={() => (onNavigateToOrders ? onNavigateToOrders() : setActiveTab('Orders'))}
               activeOpacity={0.8}
             >
               <Text style={styles.statTileNum}>{ordersCount}</Text>
@@ -345,7 +340,7 @@ export function SubWarehouseCustomerDetailsScreen({
 
             <TouchableOpacity
               style={styles.statTile}
-              onPress={onNavigateToPurchases}
+              onPress={() => (onNavigateToPurchases ? onNavigateToPurchases() : setActiveTab('Purchases'))}
               activeOpacity={0.8}
             >
               <Text style={styles.statTileNum}>{purchasesVal}</Text>
@@ -356,7 +351,7 @@ export function SubWarehouseCustomerDetailsScreen({
           <View style={styles.statsRow}>
             <TouchableOpacity
               style={styles.statTile}
-              onPress={onNavigateToWallet}
+              onPress={() => (onNavigateToWallet ? onNavigateToWallet() : setActiveTab('Wallet'))}
               activeOpacity={0.8}
             >
               <Text style={styles.statTileNum}>{walletVal}</Text>
@@ -365,7 +360,7 @@ export function SubWarehouseCustomerDetailsScreen({
 
             <TouchableOpacity
               style={styles.statTile}
-              onPress={onNavigateToIssues}
+              onPress={() => (onNavigateToIssues ? onNavigateToIssues() : setActiveTab('Issues'))}
               activeOpacity={0.8}
             >
               <Text style={styles.statTileNum}>{issuesVal}</Text>
@@ -405,110 +400,254 @@ export function SubWarehouseCustomerDetailsScreen({
           })}
         </ScrollView>
 
-        {/* ─── 4. Basic Information Card ─── */}
-        <Text style={styles.sectionHeading}>Basic Information</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Customer Name</Text>
-              <Text style={styles.infoValBold}>{customerName}</Text>
+        {/* ─── Tab Content (Conditional on activeTab) ─── */}
+        {activeTab === 'Overview' && (
+          <>
+            {/* ─── 4. Basic Information Card ─── */}
+            <Text style={styles.sectionHeading}>Basic Information</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Customer Name</Text>
+                  <Text style={styles.infoValBold}>{customerName}</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Customer ID</Text>
+                  <Text style={styles.infoValBold}>{customerCode}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.infoRow, { marginTop: 14 }]}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Mobile</Text>
+                  <Text style={styles.infoValBold}>{customerPhone}</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Email</Text>
+                  <Text style={styles.infoValBold}>{customerEmail}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.infoRow, { marginTop: 14 }]}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Account Status</Text>
+                  <Text style={styles.infoValBold}>{customerStatus}</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Registration Date</Text>
+                  <Text style={styles.infoValBold}>{regDate}</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Customer ID</Text>
-              <Text style={styles.infoValBold}>{customerCode}</Text>
+
+            {/* ─── 5. Activity Summary Card ─── */}
+            <Text style={styles.sectionHeading}>Activity Summary</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Total Orders</Text>
+                  <Text style={styles.infoValBold}>{ordersCount}</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Completed</Text>
+                  <Text style={styles.infoValBold}>{completedVal}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.infoRow, { marginTop: 14 }]}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Cancelled</Text>
+                  <Text style={styles.infoValBold}>{cancelledVal}</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Total Purchase Value</Text>
+                  <Text style={styles.infoValBold}>{purchasesVal}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.infoRow, { marginTop: 14 }]}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Last Purchase</Text>
+                  <Text style={styles.infoValBold}>{lastPurchaseDate}</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Open Issues</Text>
+                  <Text style={styles.infoValBold}>{issuesVal}</Text>
+                </View>
+              </View>
             </View>
+
+            {/* ─── 6. Quick Actions ─── */}
+            <Text style={styles.sectionHeading}>Quick Actions</Text>
+            <View style={styles.quickActionsRow}>
+              <TouchableOpacity
+                style={styles.actionCard}
+                onPress={() => (onNavigateToNewSale ? onNavigateToNewSale() : Alert.alert('New Sale', `Opening sale checkout for ${customerName}`))}
+                activeOpacity={0.75}
+              >
+                <CartPlusIcon size={22} color={PALETTE.primary} />
+                <Text style={styles.actionLabel}>New Sale</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionCard}
+                onPress={() => (onNavigateToCashTopUp ? onNavigateToCashTopUp() : onNavigateToWallet ? onNavigateToWallet() : Alert.alert('Cash Top-Up', `Deposit cash to ${customerName}'s wallet`))}
+                activeOpacity={0.75}
+              >
+                <CashBanknoteIcon size={22} color={PALETTE.primary} />
+                <Text style={styles.actionLabel}>Cash Top-Up</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionCard}
+                onPress={() => (onNavigateToIssues ? onNavigateToIssues() : Alert.alert('Issues', `Viewing open tickets for ${customerName}`))}
+                activeOpacity={0.75}
+              >
+                <AlertExclamationIcon size={22} color={PALETTE.primary} />
+                <Text style={styles.actionLabel}>View Issues</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {/* ─── Orders Tab View ─── */}
+        {activeTab === 'Orders' && (
+          <View style={styles.tabSectionContainer}>
+            <Text style={styles.sectionHeading}>Recent Orders</Text>
+            <TouchableOpacity
+              style={styles.tabCard}
+              onPress={() => (onNavigateToOrders ? onNavigateToOrders() : null)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.tabCardHeaderRow}>
+                <Text style={styles.tabCardCode}>ORD-00251</Text>
+                <View style={styles.pickupBadge}>
+                  <Text style={styles.pickupBadgeText}>Ready for Pickup</Text>
+                </View>
+              </View>
+              <Text style={styles.tabCardItemSub}>3 Items</Text>
+              <Text style={styles.tabCardPrice}>₹850</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewLinkButton}
+              onPress={onNavigateToOrders}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.viewLinkText}>View All Orders →</Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          <View style={[styles.infoRow, { marginTop: 14 }]}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Mobile</Text>
-              <Text style={styles.infoValBold}>{customerPhone}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValBold}>{customerEmail}</Text>
-            </View>
+        {/* ─── Purchases Tab View ─── */}
+        {activeTab === 'Purchases' && (
+          <View style={styles.tabSectionContainer}>
+            <Text style={styles.sectionHeading}>Recent Purchases</Text>
+            <TouchableOpacity
+              style={styles.tabCard}
+              onPress={() => (onNavigateToPurchases ? onNavigateToPurchases() : null)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.tabCardHeaderRow}>
+                <Text style={styles.tabCardCode}>INV-00251</Text>
+                <View style={styles.paidBadge}>
+                  <Text style={styles.paidBadgeText}>Paid</Text>
+                </View>
+              </View>
+              <Text style={styles.tabCardItemSub}>Tomato Grade 1 · 2 KG</Text>
+              <Text style={styles.tabCardPrice}>₹200</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewLinkButton}
+              onPress={onNavigateToPurchases}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.viewLinkText}>View Purchase History →</Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          <View style={[styles.infoRow, { marginTop: 14 }]}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Account Status</Text>
-              <Text style={styles.infoValBold}>{customerStatus}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Registration Date</Text>
-              <Text style={styles.infoValBold}>{regDate}</Text>
-            </View>
+        {/* ─── Wallet Tab View ─── */}
+        {activeTab === 'Wallet' && (
+          <View style={styles.tabSectionContainer}>
+            <Text style={styles.sectionHeading}>Wallet</Text>
+            <TouchableOpacity
+              style={styles.tabCard}
+              onPress={() => (onNavigateToWallet ? onNavigateToWallet() : null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.walletLabel}>Available Balance</Text>
+              <Text style={styles.walletAmountLarge}>{walletVal}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewLinkButton}
+              onPress={onNavigateToWallet}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.viewLinkText}>View Wallet Summary →</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        )}
 
-        {/* ─── 5. Activity Summary Card ─── */}
-        <Text style={styles.sectionHeading}>Activity Summary</Text>
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Total Orders</Text>
-              <Text style={styles.infoValBold}>{ordersCount}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Completed</Text>
-              <Text style={styles.infoValBold}>{completedVal}</Text>
-            </View>
+        {/* ─── Issues Tab View ─── */}
+        {activeTab === 'Issues' && (
+          <View style={styles.tabSectionContainer}>
+            <Text style={styles.sectionHeading}>Recent Issues</Text>
+            <TouchableOpacity
+              style={[styles.tabCard, styles.tabCardIssue]}
+              onPress={() => (onNavigateToIssues ? onNavigateToIssues() : null)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.tabCardHeaderRow}>
+                <Text style={styles.tabCardCode}>ISSUE-00231</Text>
+                <View style={styles.inReviewBadge}>
+                  <Text style={styles.inReviewBadgeText}>In Review</Text>
+                </View>
+              </View>
+              <Text style={styles.issueTitle}>Quality · Tomato Grade 1</Text>
+              <Text style={styles.issueDate}>24 Sep 2026</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewLinkButton}
+              onPress={onNavigateToIssues}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.viewLinkText}>View All Issues →</Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          <View style={[styles.infoRow, { marginTop: 14 }]}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Cancelled</Text>
-              <Text style={styles.infoValBold}>{cancelledVal}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Total Purchase Value</Text>
-              <Text style={styles.infoValBold}>{purchasesVal}</Text>
-            </View>
+        {/* ─── Support Tab View ─── */}
+        {activeTab === 'Support' && (
+          <View style={styles.tabSectionContainer}>
+            <Text style={styles.sectionHeading}>Recent Support</Text>
+            <TouchableOpacity
+              style={[styles.tabCard, styles.tabCardSupport]}
+              onPress={() => (onNavigateToSupport ? onNavigateToSupport() : null)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.tabCardHeaderRow}>
+                <Text style={styles.tabCardCode}>TKT-00104</Text>
+                <View style={styles.openBadge}>
+                  <Text style={styles.openBadgeText}>Open</Text>
+                </View>
+              </View>
+              <Text style={styles.issueTitle}>Order Assistance & Support</Text>
+              <Text style={styles.issueDate}>24 Sep 2026</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewLinkButton}
+              onPress={onNavigateToSupport}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.viewLinkText}>View All Support Tickets →</Text>
+            </TouchableOpacity>
           </View>
-
-          <View style={[styles.infoRow, { marginTop: 14 }]}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Last Purchase</Text>
-              <Text style={styles.infoValBold}>{lastPurchaseDate}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Open Issues</Text>
-              <Text style={styles.infoValBold}>{issuesVal}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── 6. Quick Actions ─── */}
-        <Text style={styles.sectionHeading}>Quick Actions</Text>
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => (onNavigateToNewSale ? onNavigateToNewSale() : Alert.alert('New Sale', `Opening sale checkout for ${customerName}`))}
-            activeOpacity={0.75}
-          >
-            <CartPlusIcon size={22} color={PALETTE.actionIconCol} />
-            <Text style={styles.actionLabel}>New Sale</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => (onNavigateToWallet ? onNavigateToWallet() : onNavigateToCashTopUp ? onNavigateToCashTopUp() : Alert.alert('Cash Top-Up', `Deposit cash to ${customerName}'s wallet`))}
-            activeOpacity={0.75}
-          >
-            <CashBanknoteIcon size={22} color={PALETTE.actionIconCol} />
-            <Text style={styles.actionLabel}>Cash Top-Up</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => (onNavigateToIssues ? onNavigateToIssues() : Alert.alert('Issues', `Viewing open tickets for ${customerName}`))}
-            activeOpacity={0.75}
-          >
-            <AlertExclamationIcon size={22} color={PALETTE.actionIconCol} />
-            <Text style={styles.actionLabel}>View Issues</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         <View style={{ height: 16 }} />
       </ScrollView>
@@ -577,9 +716,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontFamily: 'Poppins',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 19,
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
@@ -614,7 +752,7 @@ const styles = StyleSheet.create({
   },
   profileHeroCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
     paddingVertical: 18,
@@ -632,28 +770,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatarText: {
-    fontFamily: 'Poppins',
-    fontWeight: '700',
-    fontSize: 16,
+    fontWeight: '800',
+    fontSize: 18,
     color: PALETTE.avatarText,
   },
   profileName: {
-    fontFamily: 'Poppins',
-    fontWeight: '700',
-    fontSize: 16,
+    fontWeight: '800',
+    fontSize: 19,
     color: PALETTE.textInk,
     marginBottom: 3,
   },
   profileSub: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
+    fontSize: 12,
     fontWeight: '400',
     color: PALETTE.textSecondary,
     marginBottom: 3,
   },
   profileEmail: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
+    fontSize: 12,
     fontWeight: '400',
     color: PALETTE.textSecondary,
     marginBottom: 10,
@@ -661,12 +795,11 @@ const styles = StyleSheet.create({
   activePill: {
     backgroundColor: PALETTE.greenBadge,
     paddingHorizontal: 10,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: 100,
   },
   activePillText: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
     color: PALETTE.greenText,
   },
@@ -682,22 +815,20 @@ const styles = StyleSheet.create({
   statTile: {
     flex: 1,
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 12,
+    padding: 14,
     alignItems: 'flex-start',
   },
   statTileNum: {
-    fontFamily: 'Poppins',
-    fontWeight: '700',
-    fontSize: 16,
+    fontWeight: '800',
+    fontSize: 19,
     color: PALETTE.textInk,
   },
   statTileLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 10,
-    fontWeight: '400',
+    fontSize: 12,
+    fontWeight: '500',
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
@@ -707,9 +838,9 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   tabChip: {
-    borderRadius: 20,
+    borderRadius: 100,
     paddingHorizontal: 16,
-    paddingVertical: 6.5,
+    paddingVertical: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -722,8 +853,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
   },
   tabChipText: {
-    fontFamily: 'Poppins',
-    fontSize: 12,
+    fontSize: 12.5,
   },
   tabChipTextActive: {
     fontWeight: '700',
@@ -731,16 +861,16 @@ const styles = StyleSheet.create({
   },
   tabChipTextInactive: {
     fontWeight: '600',
-    color: PALETTE.textBody,
+    color: PALETTE.textSecondary,
   },
   sectionHeading: {
-    fontFamily: 'Poppins',
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    fontSize: 13,
+    fontWeight: '800',
+    color: PALETTE.orangeDeep,
     marginHorizontal: 16,
-    marginTop: 14,
+    marginTop: 16,
     marginBottom: 8,
+    letterSpacing: -0.1,
   },
   infoCard: {
     backgroundColor: PALETTE.cardBg,
@@ -757,38 +887,150 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
+    fontSize: 11,
     color: PALETTE.textSecondary,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   infoValBold: {
-    fontFamily: 'Poppins',
     fontWeight: '700',
     fontSize: 13,
     color: PALETTE.textInk,
     marginTop: 2,
   },
+  tabSectionContainer: {
+    paddingBottom: 8,
+  },
+  tabCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginHorizontal: 16,
+    padding: 14,
+    marginBottom: 10,
+  },
+  tabCardIssue: {
+    borderLeftWidth: 4,
+    borderLeftColor: PALETTE.warning,
+  },
+  tabCardSupport: {
+    borderLeftWidth: 4,
+    borderLeftColor: PALETTE.info,
+  },
+  tabCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  tabCardCode: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  pickupBadge: {
+    backgroundColor: PALETTE.successBg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  pickupBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PALETTE.success,
+  },
+  paidBadge: {
+    backgroundColor: PALETTE.successBg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  paidBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PALETTE.success,
+  },
+  tabCardItemSub: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginBottom: 4,
+  },
+  tabCardPrice: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  walletLabel: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    marginBottom: 4,
+  },
+  walletAmountLarge: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: PALETTE.primary,
+  },
+  inReviewBadge: {
+    backgroundColor: PALETTE.warningBg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  inReviewBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PALETTE.warning,
+  },
+  openBadge: {
+    backgroundColor: PALETTE.infoBg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  openBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PALETTE.info,
+  },
+  issueTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+    marginBottom: 4,
+  },
+  issueDate: {
+    fontSize: 11,
+    color: PALETTE.textSecondary,
+  },
+  viewLinkButton: {
+    marginHorizontal: 16,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  viewLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.primary,
+  },
   quickActionsRow: {
     flexDirection: 'row',
     gap: 8,
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 14,
   },
   actionCard: {
     flex: 1,
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionLabel: {
-    fontFamily: 'Poppins',
-    fontWeight: '700',
     fontSize: 11.5,
+    fontWeight: '700',
     color: PALETTE.textInk,
     marginTop: 6,
   },
@@ -810,9 +1052,8 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   navLabel: {
-    fontFamily: 'Poppins',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
     color: PALETTE.tabInactive,
     marginTop: 3,
   },

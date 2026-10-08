@@ -249,6 +249,7 @@ export interface SubWarehouseStaffScreenProps {
   onBack: () => void;
   onSelectStaff: (staff: StaffMember) => void;
   onNavigateToHistory?: () => void;
+  onNavigateToAttendance?: () => void;
   onNavigateToTodayAttendance?: () => void;
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
   warehouseName?: string;

@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_COLORS, SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S07Props {
   orderId?: string;
@@ -59,7 +59,7 @@ function ChevronDownIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M6 9l6 6 6-6"
-        stroke="#64748B"
+        stroke={ORDERS_THEME.textSecondary}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -71,8 +71,8 @@ function ChevronDownIcon() {
 function InfoCircleBlueIcon() {
   return (
     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.info} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.info} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -82,12 +82,12 @@ function CameraPhotoIcon() {
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-        stroke="#64748B"
+        stroke={ORDERS_THEME.textSecondary}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="12" cy="13" r="4" stroke="#64748B" strokeWidth="1.8" />
+      <Circle cx="12" cy="13" r="4" stroke={ORDERS_THEME.textSecondary} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -111,7 +111,6 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
   onNavigate,
   onBack,
 }) => {
-  // Checklist items matching Image 1
   const [checklist, setChecklist] = useState([
     { id: '1', name: 'Tomato · 2 KG', checked: true },
     { id: '2', name: 'Carrot · 3 KG', checked: true },
@@ -145,7 +144,7 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Top Header - Orange Theme matching Image 1 */}
+        {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -228,7 +227,7 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
             <Text style={styles.unitText}>KG</Text>
           </View>
 
-          {/* Info Alert Box in Blue */}
+          {/* Info Alert Box */}
           <View style={styles.infoBox}>
             <InfoCircleBlueIcon />
             <Text style={styles.infoText}>
@@ -252,18 +251,19 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
             <ChevronDownIcon />
           </TouchableOpacity>
 
-          {/* Package Count */}
-          <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Package Count</Text>
+          {/* Package Count Field */}
           <View style={styles.textInputBox}>
             <TextInput
               style={styles.singleLineInput}
               value={packageCount}
               onChangeText={setPackageCount}
+              placeholder="Number of packages"
+              placeholderTextColor={ORDERS_THEME.textSecondary}
               keyboardType="numeric"
             />
           </View>
 
-          {/* Packing Notes */}
+          {/* Section 5: Packing Notes */}
           <View style={styles.labelWithOptionalRow}>
             <Text style={styles.fieldLabel}>Packing Notes</Text>
             <Text style={styles.optionalText}>Optional</Text>
@@ -273,17 +273,16 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
               style={styles.notesTextInput}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Notes..."
-              placeholderTextColor="#94A3B8"
+              placeholder="Add packing observations or special handling..."
+              placeholderTextColor={ORDERS_THEME.textSecondary}
               multiline
-              numberOfLines={3}
             />
           </View>
 
-          {/* Photo */}
+          {/* Section 6: Package Photo */}
           <View style={styles.labelWithOptionalRow}>
-            <Text style={styles.fieldLabel}>Photo</Text>
-            <Text style={styles.optionalText}>If supported</Text>
+            <Text style={styles.fieldLabel}>Package Photo</Text>
+            <Text style={styles.optionalText}>Optional</Text>
           </View>
           <TouchableOpacity
             style={styles.photoBox}
@@ -291,13 +290,13 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
             onPress={() => setHasPhoto(!hasPhoto)}
           >
             <CameraPhotoIcon />
-            <Text style={styles.photoText}>{hasPhoto ? 'Photo Added' : 'Add Photo'}</Text>
+            <Text style={styles.photoText}>{hasPhoto ? '1 Photo' : 'Add Photo'}</Text>
           </TouchableOpacity>
 
-          <View style={{ height: 24 }} />
+          <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Bottom Fixed Action Button */}
+        {/* Bottom Bar */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.confirmBtn}
@@ -309,7 +308,7 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Packaging Type Modal */}
+        {/* Package Picker Modal */}
         <Modal
           visible={showPackagePicker}
           transparent
@@ -323,7 +322,7 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
           >
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Select Packaging Type</Text>
-              {packageOptions.map((opt) => (
+              {packageOptions.map(opt => (
                 <TouchableOpacity
                   key={opt}
                   style={[
@@ -356,64 +355,71 @@ export const M5S07_Packing: React.FC<M5S07Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
+    paddingTop: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
+    fontFamily: 'Poppins',
   },
   subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 4,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
   subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 12.5,
+    fontFamily: 'Poppins',
     fontWeight: '600',
-    color: '#8C7A6B',
   },
   content: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   contentContainer: {
-    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 20,
   },
   sectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     marginTop: 16,
     marginBottom: 8,
   },
   checklistCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   checklistItem: {
     flexDirection: 'row',
@@ -423,13 +429,13 @@ const styles = StyleSheet.create({
   },
   checklistItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F1ECE4',
+    borderBottomColor: ORDERS_THEME.border,
   },
   greenCheckbox: {
     width: 22,
     height: 22,
     borderRadius: 5,
-    backgroundColor: '#15803D',
+    backgroundColor: ORDERS_THEME.success,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -439,22 +445,27 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: ORDERS_THEME.border,
+    backgroundColor: ORDERS_THEME.cardBg,
     marginRight: 12,
   },
   checklistText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   itemDetailCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -464,23 +475,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 3,
   },
   detailValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   packedQtyInputContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: ORDERS_THEME.primary,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
@@ -488,23 +499,23 @@ const styles = StyleSheet.create({
   },
   packedQtyTextInput: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '600',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     height: '100%',
   },
   unitText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
+    color: ORDERS_THEME.textSecondary,
   },
   infoBox: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: ORDERS_THEME.infoBg,
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    borderRadius: 10,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 10,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -514,17 +525,17 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: ORDERS_THEME.info,
     lineHeight: 16,
   },
   dropdownBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -535,24 +546,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   dropdownValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#334155',
+    color: ORDERS_THEME.textInk,
   },
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   labelWithOptionalRow: {
     flexDirection: 'row',
@@ -562,80 +573,85 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   optionalText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#94A3B8',
+    color: ORDERS_THEME.textSecondary,
   },
   textInputBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
     height: 48,
     paddingHorizontal: 16,
     justifyContent: 'center',
     marginTop: 8,
   },
   singleLineInput: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '600',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     height: '100%',
   },
   notesInputBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     height: 76,
   },
   notesTextInput: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13,
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     textAlignVertical: 'top',
     height: '100%',
   },
   photoBox: {
     width: 68,
     height: 68,
-    borderRadius: 10,
+    borderRadius: ORDERS_THEME.radiusSM,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: ORDERS_THEME.border,
     borderStyle: 'dashed',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: ORDERS_THEME.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   photoText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 9.5,
     fontWeight: '600',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
     marginTop: 4,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   confirmBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
@@ -647,32 +663,32 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     padding: 18,
   },
   modalTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     marginBottom: 12,
   },
   modalOption: {
     paddingVertical: 12,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: ORDERS_THEME.radiusXS,
   },
   modalOptionSelected: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: ORDERS_THEME.orangeTint,
   },
   modalOptionText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
-    color: '#334155',
+    color: ORDERS_THEME.textInk,
   },
   modalOptionTextSelected: {
     fontWeight: '700',
-    color: '#E85226',
+    color: ORDERS_THEME.primary,
   },
 });

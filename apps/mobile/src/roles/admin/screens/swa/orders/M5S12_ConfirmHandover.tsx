@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S12Props {
   orderId?: string;
@@ -50,10 +50,10 @@ function CheckmarkWhiteIcon() {
 function BigGreenCheckSuccessIcon() {
   return (
     <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#10B981" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.success} strokeWidth="2" />
       <Path
         d="M8 12l2.5 2.5L16 9.5"
-        stroke="#10B981"
+        stroke={ORDERS_THEME.success}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -91,7 +91,7 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
 }) => {
   const [completed, setCompleted] = useState(initialCompleted);
 
-  // ─── STATE 2: Pickup Completed Screen (Image 5) ───────────────────────────
+  // ─── STATE 2: Pickup Completed Screen ─────────────────────────────────────
   if (completed) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -114,7 +114,7 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Centered Hero Checkmark matching Image 5 */}
+            {/* Centered Hero Checkmark */}
             <View style={styles.heroContainer}>
               <View style={styles.successCircleBadge}>
                 <BigGreenCheckSuccessIcon />
@@ -165,7 +165,7 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
             <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Bottom Stacked Action Buttons matching Image 5 */}
+          {/* Bottom Stacked Action Buttons */}
           <View style={styles.bottomBarStacked}>
             <TouchableOpacity
               style={styles.viewOrderBtn}
@@ -189,11 +189,11 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
     );
   }
 
-  // ─── STATE 1: Confirm Handover Screen (Image 4) ───────────────────────────
+  // ─── STATE 1: Confirm Handover Screen ─────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 4 */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -206,13 +206,10 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
           <Text style={styles.headerTitle}>Confirm Handover</Text>
         </View>
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Summary Card matching Image 4 */}
-          <View style={[styles.card, { marginTop: 16 }]}>
+        {/* Content with single clean card matching left design */}
+        <View style={styles.contentContainer}>
+          <View style={styles.card}>
+            {/* Row 1: Order | Customer */}
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Order</Text>
@@ -224,7 +221,8 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
               </View>
             </View>
 
-            <View style={[styles.twoColRow, { marginTop: 14 }]}>
+            {/* Row 2: Items | OTP */}
+            <View style={[styles.twoColRow, { marginTop: 18 }]}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Items</Text>
                 <Text style={styles.fieldValue}>4</Text>
@@ -235,11 +233,12 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
               </View>
             </View>
           </View>
+        </View>
 
-          <View style={{ height: 24 }} />
-        </ScrollView>
+        {/* Spacer to push button to bottom */}
+        <View style={{ flex: 1 }} />
 
-        {/* Bottom Fixed Action Button matching Image 4 */}
+        {/* Bottom Fixed Action Button */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.completeBtn}
@@ -258,45 +257,64 @@ export const M5S12_ConfirmHandover: React.FC<M5S12Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
+  },
+  subtitleRow: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: ORDERS_THEME.primary,
+  },
+  subtitleText: {
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EFECE6',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderColor: ORDERS_THEME.border,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -306,50 +324,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
+    fontFamily: 'Poppins',
+    fontSize: 12,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   sectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
-    marginTop: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
+    marginTop: 18,
     marginBottom: 10,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: 'transparent',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    paddingBottom: 20,
+    paddingTop: 8,
   },
   completeBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     borderRadius: 12,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   completeBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
 
-  // ─── Pickup Completed Styles (Image 5) ────────────────────────────────────
+  // Pickup Completed Styles
   heroContainer: {
     alignItems: 'center',
     marginTop: 16,
@@ -359,54 +381,59 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E8F8F0',
+    backgroundColor: ORDERS_THEME.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   bottomBarStacked: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   viewOrderBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginBottom: 10,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   viewOrderBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   viewInvoiceBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.orangeTint,
     borderWidth: 1.5,
-    borderColor: '#E85226',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewInvoiceBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.primary,
   },
 });

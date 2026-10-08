@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S18Props {
   orderId?: string;
@@ -50,8 +50,8 @@ function DownloadWhiteIcon() {
 function InfoCircleBlueIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.info} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.info} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -71,7 +71,7 @@ export const M5S18_OrderInvoice: React.FC<M5S18Props> = ({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header - SWA Orange */}
+        {/* Header - Warm Terracotta */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -182,7 +182,9 @@ export const M5S18_OrderInvoice: React.FC<M5S18Props> = ({
           {/* Section: Payment Status Card */}
           <View style={styles.paymentStatusCard}>
             <Text style={styles.paymentStatusLabel}>Payment Status</Text>
-            <Text style={styles.paymentStatusValue}>Paid</Text>
+            <View style={styles.paymentStatusBadge}>
+              <Text style={styles.paymentStatusValue}>Paid</Text>
+            </View>
           </View>
 
           {/* Blue GST Info Box */}
@@ -223,57 +225,65 @@ export const M5S18_OrderInvoice: React.FC<M5S18Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: ORDERS_THEME.primary,
   },
   subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#8C7A6B',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 14,
     paddingBottom: 24,
   },
   brandCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   brandHeader: {
     alignItems: 'center',
@@ -283,30 +293,29 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
     fontSize: 22,
     fontWeight: '800',
-    color: '#8B4513',
+    color: ORDERS_THEME.orangeDeep,
     letterSpacing: 0.8,
     marginBottom: 4,
     textAlign: 'center',
   },
   brandSub: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 6,
     textAlign: 'center',
   },
   invoiceCode: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   divider: {
-    height: 1.5,
-    backgroundColor: '#E87D4D',
+    height: 1,
+    backgroundColor: ORDERS_THEME.border,
     marginVertical: 14,
-    opacity: 0.5,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -316,33 +325,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   sectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     marginBottom: 8,
   },
   itemsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   itemRow: {
     flexDirection: 'row',
@@ -352,43 +366,48 @@ const styles = StyleSheet.create({
   },
   itemInfo: {},
   itemName: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   itemGrade: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginTop: 2,
   },
   itemPricing: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginTop: 2,
   },
   itemTotal: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   itemDivider: {
     height: 1,
-    backgroundColor: '#F1ECE4',
+    backgroundColor: ORDERS_THEME.border,
     marginVertical: 10,
   },
   totalsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   totalsRow: {
     flexDirection: 'row',
@@ -396,20 +415,20 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   totalsLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '500',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
   },
   totalsValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   totalsDivider: {
     height: 1.5,
-    backgroundColor: '#1D2420',
+    backgroundColor: ORDERS_THEME.border,
     marginVertical: 12,
   },
   totalFinalRow: {
@@ -418,44 +437,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalFinalLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 18,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   totalFinalValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 18,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   paymentStatusCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   paymentStatusLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 12,
     fontWeight: '600',
-    color: '#78716C',
-    marginBottom: 4,
+    color: ORDERS_THEME.textSecondary,
+  },
+  paymentStatusBadge: {
+    backgroundColor: ORDERS_THEME.successBg,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: ORDERS_THEME.radiusFull,
   },
   paymentStatusValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 16,
+    fontFamily: 'Poppins',
+    fontSize: 13.5,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.success,
   },
   gstInfoBox: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: ORDERS_THEME.infoBg,
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    borderRadius: 12,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 14,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -465,44 +497,49 @@ const styles = StyleSheet.create({
   },
   gstInfoText: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: ORDERS_THEME.info,
     lineHeight: 17,
   },
   actionsContainer: {
     marginBottom: 30,
   },
   downloadBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginBottom: 12,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   downloadBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   shareBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.cardBg,
     borderWidth: 1.5,
-    borderColor: '#E85226',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   shareBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.textInk,
   },
 });

@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 import { SWABottomNav } from '../components/SWABottomNav';
 
 interface M5S15Props {
@@ -33,19 +33,10 @@ function BackArrowWhiteIcon() {
   );
 }
 
-function InfoCircleBlueIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function TimelineGreenNode() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#16A34A" strokeWidth="2.5" />
+      <Circle cx="12" cy="12" r="9.5" stroke="#16A34A" strokeWidth="2" fill="#FFFFFF" />
       <Circle cx="12" cy="12" r="4.5" fill="#16A34A" />
     </Svg>
   );
@@ -70,7 +61,7 @@ export const M5S15_OrderStatusHistory: React.FC<M5S15Props> = ({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Top Header - Orange Theme matching Image 5 */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -83,23 +74,21 @@ export const M5S15_OrderStatusHistory: React.FC<M5S15Props> = ({
           <Text style={styles.headerTitle}>Order Status History</Text>
         </View>
 
-        {/* Subtitle directly below header */}
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{orderId}</Text>
-        </View>
-
         <ScrollView
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Vertical Timeline matching Image 5 */}
+          {/* Order Ref Label on Canvas */}
+          <Text style={styles.orderRefLabel}>{orderId}</Text>
+
+          {/* Vertical Timeline */}
           <View style={styles.timelineContainer}>
             {steps.map((step, index) => {
               const isLast = index === steps.length - 1;
               return (
                 <View key={step.id} style={styles.stepRow}>
-                  {/* Indicator Column with Circle and Vertical Line */}
+                  {/* Indicator Column */}
                   <View style={styles.indicatorCol}>
                     <TimelineGreenNode />
                     {!isLast && <View style={styles.verticalGreenLine} />}
@@ -128,18 +117,10 @@ export const M5S15_OrderStatusHistory: React.FC<M5S15Props> = ({
             })}
           </View>
 
-          {/* Blue Info Alert Box matching Image 5 */}
-          <View style={styles.infoBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.infoText}>
-              For delivery orders, this same timeline shows Dispatched → Out for Delivery → Delivered instead — delivery status is configurable, per the source.
-            </Text>
-          </View>
-
           <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Bottom Navigation matching Image 5 */}
+        {/* Bottom Navigation */}
         <SWABottomNav
           activeTab="More"
           onTabChange={(tab) => {
@@ -154,49 +135,48 @@ export const M5S15_OrderStatusHistory: React.FC<M5S15Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
-  },
-  subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
-  },
-  subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#8C7A6B',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 24,
+  },
+  orderRefLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: ORDERS_THEME.textSecondary,
+    marginBottom: 16,
+    paddingLeft: 4,
   },
   timelineContainer: {
     marginBottom: 20,
@@ -210,9 +190,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   verticalGreenLine: {
-    width: 2,
+    width: 1.5,
     flex: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#D6D3D1',
     marginVertical: 4,
   },
   textCol: {
@@ -221,36 +201,16 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   stepTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     marginBottom: 2,
   },
   stepTime: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
-  },
-  infoBox: {
-    backgroundColor: '#EBF5FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
-  },
-  infoText: {
-    flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#1E40AF',
-    lineHeight: 16,
+    color: ORDERS_THEME.textSecondary,
   },
 });
