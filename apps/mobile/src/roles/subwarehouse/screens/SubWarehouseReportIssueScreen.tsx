@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,253 +11,783 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
-  primary: '#F0562A',
-  pageBg: '#F7F5F0',
-  cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EBE5DC',
-  infoBg: '#EFF6FF',
-  infoBorder: '#3B82F6',
-  infoText: '#1D4ED8',
+  primary:       '#F0562A',
+  primaryDark:   '#D4451B',
+  primaryLight:  '#FFF0EB',
+  primarySoft:   '#FEF1EC',
+  primaryBorder: '#FCD9CE',
+
+  pageBg:        '#FAF7F2',
+  cardBg:        '#FFFFFF',
+  textInk:       '#1E1612',
+  textSecondary: '#6B7280',
+  textMuted:     '#9CA3AF',
+  border:        '#EBE5DC',
+  divider:       '#F3EFEA',
+
+  tabInactive:   '#786F66',
+  tabBorder:     '#EAE4DB',
 };
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function CameraIcon({ color = '#475569' }) {
+function ChevronDownIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
   return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="12" cy="13" r="4" stroke={color} strokeWidth="2" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 9l6 6 6-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function ChevronDownIcon({ color = '#475569' }) {
+function PaperclipIcon({ size = 20, color = '#6B7280' }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function InfoCircleIcon({ color = '#3B82F6' }) {
+function SendIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function SendIcon({ color = '#FFFFFF' }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
 export interface SubWarehouseReportIssueScreenProps {
-  onBack: () => void;
-  onSubmit: () => void;
+  initialIssueType?: string | undefined;
+  onBack?: (() => void | ((fallbackScreen?: any) => void)) | undefined;
+  onSubmit?: (() => void) | undefined;
+  onSubmitSuccess?: ((ticketId: string) => void) | undefined;
+}
+
+export const CATEGORIES = [
+  'Getting Started',
+  'Warehouse Operations',
+  'Orders',
+  'Inventory',
+  'Billing',
+  'Wallet',
+  'Reports',
+  'Account & Security',
+  'Other',
+];
+
+export const CATEGORY_SPECIFIC_ISSUES: Record<string, string[]> = {
+  'Getting Started': [
+    'App Navigation & Walkthrough Help',
+    'Sub Warehouse Role & Permissions Setup',
+    'Warehouse Facility Assignment Error',
+    'Initial Barcode Scanner Pairing',
+    'Other Getting Started Issue',
+  ],
+  'Warehouse Operations': [
+    'Staff Shift & Attendance Logging Issue',
+    'Expense Entry / Receipt Upload Failure',
+    'Weighing Scale / Scanner Malfunction',
+    'Crate & Staging Bay Capacity Full',
+    'Cold Storage Temperature Alert',
+    'Facility Maintenance Request',
+    'Other Operations Issue',
+  ],
+  'Orders': [
+    'Order Dispatch Delay',
+    'Barcode Mismatch on Order Crates',
+    'Customer Cancelled Order Handover',
+    'Damaged Goods in Order Packing',
+    'Wrong Product Items in Dispatch Batch',
+    'Customer Pickup Verification Issue',
+    'Other Order Issue',
+  ],
+  'Inventory': [
+    'Physical Stock Count Discrepancy',
+    'Damaged / Spoilt Produce Inbound Batch',
+    'Produce Weight / Moisture Grade Discrepancy',
+    'Bin Tag Barcode Printing Failure',
+    'Storage Zone Capacity Exceeded',
+    'Stock Reconciliation Error',
+    'Other Inventory Issue',
+  ],
+  'Billing': [
+    'Unable to Generate GST Invoice',
+    'Incorrect Tax / HSN Rate Calculation',
+    'Credit Note Issuance Failure',
+    'Thermal Receipt Printer Connection Error',
+    'Customer Invoice PDF Download Issue',
+    'Other Billing Issue',
+  ],
+  'Wallet': [
+    'Customer Cash Top-Up Confirmation Pending',
+    'Wallet Balance Deduction Discrepancy',
+    'Customer Refund Request Failed',
+    'Daily Cash Summary Ledger Mismatch',
+    'Customer Wallet PIN Reset Assistance',
+    'Other Wallet Issue',
+  ],
+  'Reports': [
+    'Sales Report Excel Export Failure',
+    'Produce Shrinkage / Wastage Data Inaccurate',
+    'Financial Expense Ledger Missing Entries',
+    'Daily Shift Audit Summary Discrepancy',
+    'Other Reports Issue',
+  ],
+  'Account & Security': [
+    'Password Reset / Change Failure',
+    'Suspicious Login Session Detected',
+    'Device Authorization / Auto-Logout Error',
+    'Biometric / PIN Verification Failure',
+    'Other Security Concern',
+  ],
+  'Other': [
+    'App Performance / Lag Issue',
+    'Network Offline Sync Delay',
+    'Feature Suggestion',
+    'General Inquiry',
+  ],
+};
+
+function CheckIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 export function SubWarehouseReportIssueScreen({
+  initialIssueType,
   onBack,
   onSubmit,
+  onSubmitSuccess,
 }: SubWarehouseReportIssueScreenProps) {
+  const initialCat = (initialIssueType && CATEGORIES.includes(initialIssueType))
+    ? initialIssueType
+    : 'Orders';
+
+  const [category, setCategory] = useState<string>(initialCat);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  const currentSpecificIssues: string[] = CATEGORY_SPECIFIC_ISSUES[category] ?? CATEGORY_SPECIFIC_ISSUES['Other'] ?? ['General Issue'];
+  const [specificIssue, setSpecificIssue] = useState<string>(currentSpecificIssues[0] ?? 'General Issue');
+  const [showSpecificDropdown, setShowSpecificDropdown] = useState(false);
+
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+  const [referenceId, setReferenceId] = useState('');
+  const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+
+  const handleCategorySelect = (selectedCat: string) => {
+    setCategory(selectedCat);
+    setShowCategoryDropdown(false);
+    const newSpecifics: string[] = CATEGORY_SPECIFIC_ISSUES[selectedCat] ?? CATEGORY_SPECIFIC_ISSUES['Other'] ?? ['General Issue'];
+    const firstIssue = newSpecifics[0] ?? 'General Issue';
+    setSpecificIssue(firstIssue);
+    if (!subject.trim() || subject === specificIssue) {
+      setSubject(firstIssue);
+    }
+  };
+
+  const handleSpecificIssueSelect = (issue: string) => {
+    setSpecificIssue(issue);
+    setShowSpecificDropdown(false);
+    if (!subject.trim() || subject === specificIssue) {
+      setSubject(issue);
+    }
+  };
+
+  const handleSelectAttachment = () => {
+    Alert.alert('Attach File', 'Choose attachment source:', [
+      {
+        text: 'Document / Image',
+        onPress: () => setAttachedFileName('receipt_inv_0048.png'),
+      },
+      {
+        text: 'Camera Photo',
+        onPress: () => setAttachedFileName('photo_damage_crate.jpg'),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const handleSubmit = () => {
+    const finalSubject = subject.trim() || specificIssue;
+    if (!finalSubject || !description.trim()) {
+      Alert.alert('Validation Error', 'Please enter a description for your issue.');
+      return;
+    }
+
+    if (onSubmitSuccess) {
+      onSubmitSuccess('SUP-00246');
+    } else if (onSubmit) {
+      onSubmit();
+    } else {
+      Alert.alert('Issue Submitted', 'Your support request SUP-00246 has been received.');
+      if (onBack) onBack();
+    }
+  };
+
+  // Dynamic placeholder for Reference ID based on Category
+  const getRefPlaceholder = () => {
+    switch (category) {
+      case 'Orders': return 'e.g. ORD-2026-00452';
+      case 'Inventory': return 'e.g. BATCH-2026-0891';
+      case 'Billing': return 'e.g. INV-GST-2026-0012';
+      case 'Wallet': return 'e.g. WAL-TOP-9921';
+      case 'Warehouse Operations': return 'e.g. EXP-2026-0041';
+      default: return 'e.g. REF-2026-001';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <ArrowBackIcon size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Report Issue</Text>
+
+      {/* Header Banner */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (onBack) onBack();
+            }}
+            activeOpacity={0.75}
+            accessibilityLabel="Back"
+          >
+            <ArrowBackIcon size={22} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitleText}>Report an Issue</Text>
+        </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        
-        {/* Issue Type */}
-        <View style={styles.fieldGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Issue Type</Text>
-            <Text style={styles.required}>Required</Text>
-          </View>
-          <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-            <Text style={styles.selectText}>Select</Text>
-            <ChevronDownIcon />
-          </TouchableOpacity>
-        </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.screenHeading}>Report an Issue</Text>
 
-        {/* Location */}
-        <View style={styles.fieldGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Location</Text>
-            <Text style={styles.required}>Required</Text>
+        {/* Field 1: Category Dropdown */}
+        <Text style={styles.inputLabel}>Category</Text>
+        <TouchableOpacity
+          style={styles.dropdownBox}
+          onPress={() => setShowCategoryDropdown(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.dropdownValueWrap}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>Category</Text>
+            </View>
+            <Text style={styles.dropdownText}>{category}</Text>
           </View>
-          <TouchableOpacity style={styles.selectBox} activeOpacity={0.8}>
-            <Text style={styles.selectText}>Select</Text>
-            <ChevronDownIcon />
-          </TouchableOpacity>
-        </View>
+          <ChevronDownIcon />
+        </TouchableOpacity>
 
-        {/* Description */}
-        <View style={styles.fieldGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Description</Text>
-            <Text style={styles.required}>Required</Text>
+        {/* Field 2: Specific Issue Dropdown (Relates directly to Category) */}
+        <Text style={styles.inputLabel}>Specific Issue ({category})</Text>
+        <TouchableOpacity
+          style={[styles.dropdownBox, styles.specificDropdownBox]}
+          onPress={() => setShowSpecificDropdown(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.dropdownValueWrap}>
+            <Text style={styles.dropdownTextPrimary}>{specificIssue}</Text>
           </View>
+          <ChevronDownIcon color={PALETTE.primary} />
+        </TouchableOpacity>
+
+        {/* Field 3: Subject */}
+        <Text style={styles.inputLabel}>Subject</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={specificIssue || 'Brief summary of the issue'}
+          placeholderTextColor={PALETTE.textMuted}
+          value={subject}
+          onChangeText={setSubject}
+        />
+
+        {/* Field 4: Description */}
+        <Text style={styles.inputLabel}>Description</Text>
+        <View style={styles.textAreaWrap}>
           <TextInput
-            style={styles.textArea}
-            placeholder="Enter description"
+            style={styles.textAreaInput}
+            placeholder="Describe what happened, error message, or details..."
             placeholderTextColor={PALETTE.textMuted}
             multiline
             textAlignVertical="top"
+            value={description}
+            onChangeText={setDescription}
           />
+          <View style={styles.resizeHandle} />
         </View>
 
-        {/* Photo */}
-        <View style={styles.fieldGroup}>
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Photo</Text>
-            <Text style={styles.optional}>Optional</Text>
-          </View>
-          <TouchableOpacity style={styles.photoUploadBox} activeOpacity={0.8}>
-            <CameraIcon />
-            <Text style={styles.photoUploadText}>Add Photo</Text>
+        {/* Field 5: Reference ID (optional) */}
+        <Text style={styles.inputLabel}>Reference ID (optional)</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={getRefPlaceholder()}
+          placeholderTextColor={PALETTE.textMuted}
+          value={referenceId}
+          onChangeText={setReferenceId}
+        />
+
+        {/* Field 6: Attachment */}
+        <Text style={styles.inputLabel}>Attachment</Text>
+        <View style={styles.attachmentRow}>
+          <TouchableOpacity
+            style={styles.attachmentBox}
+            onPress={handleSelectAttachment}
+            activeOpacity={0.75}
+          >
+            <PaperclipIcon size={22} color="#1E1612" />
           </TouchableOpacity>
+          {attachedFileName && (
+            <View style={styles.attachedFileBadge}>
+              <Text style={styles.attachedFileText} numberOfLines={1}>
+                {attachedFileName}
+              </Text>
+              <TouchableOpacity onPress={() => setAttachedFileName(null)}>
+                <Text style={styles.removeFileText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        {/* Priority */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Priority</Text>
-          <View style={styles.infoNotice}>
-            <InfoCircleIcon />
-            <Text style={styles.infoNoticeText}>
-              Priority levels are backend-defined — this app doesn't invent a High/Medium/Low scale unless the API provides one.
-            </Text>
-          </View>
-        </View>
-
+        <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Bottom Bar */}
+      {/* Fixed Bottom Submit Button */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={onSubmit} activeOpacity={0.8}>
-          <SendIcon />
-          <Text style={styles.primaryBtnText}>Submit Issue</Text>
+        <TouchableOpacity
+          style={styles.submitBtn}
+          onPress={handleSubmit}
+          activeOpacity={0.85}
+        >
+          <SendIcon size={18} color="#FFFFFF" />
+          <Text style={styles.submitBtnText}>Submit Issue Request</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ─── Modal 1: Select Category ─── */}
+      <Modal
+        visible={showCategoryDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCategoryDropdown(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCategoryDropdown(false)}
+        >
+          <View style={styles.dropdownModalContent}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalHeading}>Select Category</Text>
+              <TouchableOpacity
+                style={styles.modalCloseCircle}
+                onPress={() => setShowCategoryDropdown(false)}
+              >
+                <Text style={styles.modalCloseCircleText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalListScroll}>
+              {CATEGORIES.map((cat) => {
+                const isSelected = category === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.dropdownOption,
+                      isSelected && styles.dropdownOptionActive,
+                    ]}
+                    onPress={() => handleCategorySelect(cat)}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownOptionText,
+                        isSelected && styles.dropdownOptionTextActive,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                    {isSelected && <CheckIcon />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ─── Modal 2: Select Specific Issue for Category ─── */}
+      <Modal
+        visible={showSpecificDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSpecificDropdown(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSpecificDropdown(false)}
+        >
+          <View style={styles.dropdownModalContent}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalHeading}>Select Specific Issue</Text>
+                <Text style={styles.modalSubheading}>{category}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseCircle}
+                onPress={() => setShowSpecificDropdown(false)}
+              >
+                <Text style={styles.modalCloseCircleText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalListScroll}>
+              {currentSpecificIssues.map((issue) => {
+                const isSelected = specificIssue === issue;
+                return (
+                  <TouchableOpacity
+                    key={issue}
+                    style={[
+                      styles.dropdownOption,
+                      isSelected && styles.dropdownOptionActive,
+                    ]}
+                    onPress={() => handleSpecificIssueSelect(issue)}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownOptionText,
+                        isSelected && styles.dropdownOptionTextActive,
+                      ]}
+                    >
+                      {issue}
+                    </Text>
+                    {isSelected && <CheckIcon />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PALETTE.primary },
-  header: {
+  root: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
+  },
+  headerBanner: {
     backgroundColor: PALETTE.primary,
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
     gap: 12,
   },
-  backBtn: { width: 32, height: 32, justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
 
-  scroll: { flex: 1, backgroundColor: PALETTE.pageBg },
-  scrollContent: { padding: 16, paddingBottom: 100 },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 100,
+  },
 
-  fieldGroup: { marginBottom: 20 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  label: { fontSize: 14, fontWeight: '700', color: PALETTE.textInk, marginBottom: 8 },
-  required: { fontSize: 12, color: PALETTE.textSecondary, marginBottom: 8 },
-  optional: { fontSize: 12, color: PALETTE.textSecondary, marginBottom: 8 },
+  screenHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginBottom: 14,
+  },
 
-  selectBox: {
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+
+  dropdownBox: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
   },
-  selectText: { fontSize: 14, color: PALETTE.textInk },
+  specificDropdownBox: {
+    borderColor: PALETTE.primaryBorder,
+    backgroundColor: PALETTE.primarySoft,
+  },
+  dropdownValueWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
+  },
+  categoryBadge: {
+    backgroundColor: PALETTE.pageBg,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#8B5E3C',
+  },
+  dropdownText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+  },
+  dropdownTextPrimary: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.primary,
+  },
 
-  textArea: {
+  textInput: {
     backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    height: 120,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 14,
     color: PALETTE.textInk,
   },
 
-  photoUploadBox: {
-    backgroundColor: PALETTE.pageBg,
+  textAreaWrap: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    borderStyle: 'dashed',
+    padding: 12,
+    height: 110,
+    position: 'relative',
+  },
+  textAreaInput: {
+    flex: 1,
+    fontSize: 14,
+    color: PALETTE.textInk,
+    padding: 0,
+  },
+  resizeHandle: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: '#9CA3AF',
+  },
+
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  attachmentBox: {
+    width: 54,
+    height: 54,
     borderRadius: 12,
-    width: 80,
-    height: 80,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    backgroundColor: '#F9FAFB',
   },
-  photoUploadText: { fontSize: 10, color: '#475569', fontWeight: '600' },
-
-  infoNotice: {
+  attachedFileBadge: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.infoBg,
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginLeft: 12,
+    backgroundColor: PALETTE.cardBg,
     borderWidth: 1,
-    borderColor: PALETTE.infoBorder,
+    borderColor: PALETTE.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    maxWidth: 200,
   },
-  infoNoticeText: { flex: 1, color: PALETTE.infoText, fontSize: 13, lineHeight: 20, fontWeight: '500' },
+  attachedFileText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.textInk,
+    marginRight: 6,
+  },
+  removeFileText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '700',
+  },
 
   bottomBar: {
-    backgroundColor: PALETTE.cardBg,
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderColor: PALETTE.border,
     position: 'absolute',
     bottom: 0,
-    width: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: PALETTE.pageBg,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    paddingTop: 8,
   },
-  primaryBtn: {
+  submitBtn: {
     backgroundColor: PALETTE.primary,
-    borderRadius: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 10,
+    gap: 8,
+    shadowColor: PALETTE.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // Dropdown Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  dropdownModalContent: {
+    width: '100%',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 18,
+    padding: 18,
+    maxHeight: '75%',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  modalHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  modalSubheading: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.primary,
+    marginTop: 2,
+  },
+  modalCloseCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: PALETTE.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseCircleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.textSecondary,
+  },
+  modalListScroll: {
+    maxHeight: 320,
+  },
+  dropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  dropdownOptionActive: {
+    backgroundColor: PALETTE.primaryLight,
+  },
+  dropdownOptionText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: PALETTE.textInk,
+    flex: 1,
+    paddingRight: 8,
+  },
+  dropdownOptionTextActive: {
+    color: PALETTE.primary,
+    fontWeight: '800',
+  },
 });

@@ -46,7 +46,7 @@ export interface SubWarehouseNotificationsScreenProps {
   onNavigateToAlerts?: () => void;
   onNavigateToSystemMessages?: () => void;
   onSelectNotification?: (item: NotificationItem) => void;
-  onNavigateToAction?: (actionLabel: string) => void;
+  onNavigateToAction?: (actionLabel: string, item?: NotificationItem) => void;
 }
 
 // ─── Data ───────────────────────────────────────────────────────────────────
@@ -85,6 +85,7 @@ const INITIAL_ITEMS: NotificationItem[] = [
     subtitle: '₹2,000 credited to customer wallet.',
     timestamp: 'Today · 11:42 AM',
     isUnread: false,
+    actionLabel: 'View Wallet',
   },
   {
     id: '5',
@@ -93,6 +94,7 @@ const INITIAL_ITEMS: NotificationItem[] = [
     subtitle: 'Customer reported damaged item on ORD-20260921-006.',
     timestamp: 'Yesterday, 2:30 PM',
     isUnread: false,
+    actionLabel: 'View Return',
   },
   {
     id: '6',
@@ -122,6 +124,10 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
 // ─── Component ──────────────────────────────────────────────────────────────
 export function SubWarehouseNotificationsScreen({
   onBack,
+  onTabChange,
+  onNavigateToTasks,
+  onNavigateToAlerts,
+  onNavigateToSystemMessages,
   onSelectNotification,
   onNavigateToAction,
 }: SubWarehouseNotificationsScreenProps) {
@@ -139,12 +145,30 @@ export function SubWarehouseNotificationsScreen({
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, isUnread: false } : i))
     );
-    if (onSelectNotification) onSelectNotification(item);
+    if (onSelectNotification) {
+      onSelectNotification(item);
+    } else if (onNavigateToAction) {
+      if (item.actionLabel) {
+        onNavigateToAction(item.actionLabel, item);
+      } else if (item.type === 'quality') {
+        onNavigateToAction('Review', item);
+      } else if (item.type === 'order') {
+        onNavigateToAction('View Order', item);
+      } else if (item.type === 'inventory') {
+        onNavigateToAction('View Stock', item);
+      } else if (item.type === 'wallet') {
+        onNavigateToAction('Cash Top-Up', item);
+      } else if (item.type === 'returns') {
+        onNavigateToAction('Return Request', item);
+      } else if (item.type === 'system') {
+        onNavigateToAction('System Message', item);
+      }
+    }
   };
 
   const handleAction = (item: NotificationItem) => {
     if (onNavigateToAction && item.actionLabel) {
-      onNavigateToAction(item.actionLabel);
+      onNavigateToAction(item.actionLabel, item);
     }
   };
 

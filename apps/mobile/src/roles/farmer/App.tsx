@@ -1062,11 +1062,64 @@ export default function App(): React.JSX.Element {
             onNavigateToTasks={() => navigate('SubWarehouseTaskActionCenter')}
             onNavigateToAlerts={() => navigate('SubWarehouseApprovalAlerts')}
             onNavigateToSystemMessages={() => navigate('SubWarehouseSystemMessages')}
+            onSelectNotification={(item) =>
+              navigate('SubWarehouseNotificationDetail', { notification: item })
+            }
+            onNavigateToAction={(actionLabel, item) => {
+              if (actionLabel.includes('Review') || item?.type === 'quality') {
+                navigate('SubWarehouseReviewReceiving');
+              } else if (actionLabel.includes('Stock') || item?.type === 'inventory') {
+                navigate('SubWarehouseAdminDashboard');
+              } else if (actionLabel.includes('Order') || item?.type === 'order') {
+                navigate('SubWarehouseCustomerOrders');
+              } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
+                navigate('SubWarehouseWalletOperations');
+              } else if (actionLabel.includes('Return') || item?.type === 'returns') {
+                navigate('SubWarehouseReturnsIssues');
+              } else if (item?.type === 'system') {
+                navigate('SubWarehouseSystemMessages');
+              }
+            }}
           />
         ) : screen === 'SubWarehouseNotificationDetail' ? (
           <SubWarehouseNotificationDetailScreen
             onBack={goBack}
-            onReviewReceiving={() => navigate('SubWarehouseReviewReceiving')}
+            notificationData={
+              params['notification']
+                ? {
+                    type:
+                      (params['notification'] as any).type === 'wallet'
+                        ? 'wallet'
+                        : (params['notification'] as any).type === 'order'
+                        ? 'order'
+                        : 'goods',
+                    title: (params['notification'] as any).title,
+                    message: (params['notification'] as any).subtitle,
+                    reference:
+                      (params['notification'] as any).type === 'quality'
+                        ? 'GR-1024'
+                        : (params['notification'] as any).type === 'order'
+                        ? 'ORD-10245'
+                        : 'TOP-002845',
+                  }
+                : undefined
+            }
+            onActionPress={() => {
+              const notif = params['notification'] as any;
+              if (notif?.actionLabel?.includes('Review') || notif?.type === 'quality') {
+                navigate('SubWarehouseReviewReceiving');
+              } else if (notif?.actionLabel?.includes('Stock') || notif?.type === 'inventory') {
+                navigate('SubWarehouseAdminDashboard');
+              } else if (notif?.actionLabel?.includes('Order') || notif?.type === 'order') {
+                navigate('SubWarehouseCustomerOrders');
+              } else if (notif?.actionLabel?.includes('Wallet') || notif?.type === 'wallet') {
+                navigate('SubWarehouseWalletOperations');
+              } else if (notif?.actionLabel?.includes('Return') || notif?.type === 'returns') {
+                navigate('SubWarehouseReturnsIssues');
+              } else {
+                navigate('SubWarehouseReviewReceiving');
+              }
+            }}
           />
         ) : screen === 'SubWarehouseReviewReceiving' ? (
           <SubWarehouseReviewReceivingScreen
@@ -1089,8 +1142,11 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('SubWarehouseWalletOperations');
             }}
             onNavigateToSection={(section) => {
-              if (section === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (section === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              if (section === 'Receiving') navigate('SubWarehouseReviewReceiving');
+              else if (section === 'Inventory') navigate('SubWarehouseAdminDashboard');
+              else if (section === 'Orders') navigate('SubWarehouseCustomerOrders');
+              else if (section === 'Sales') navigate('SubWarehouseSales');
+              else if (section === 'Cash Top-Up') navigate('SubWarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseSales' ? (
