@@ -4,6 +4,7 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
+import { eventBus } from '../../events/bus.js';
 import { payoutsRepo, type PayoutRepo, type PayoutRow, type PayoutApprovalRow } from './payouts.repo.js';
 import type {
   PayoutDue,
@@ -176,6 +177,26 @@ export function createPayoutsService(opts: { repo?: PayoutRepo } = {}): PayoutsS
 
       // Fetch final state with farmer name
       const final = await repo.findPayoutById(db, result!.payout.id);
+
+      // BR-52/PAYROLL: notify the farmer once the payout is actually released
+      // (single-approval path only — a dual-approval payout isn't released
+      // yet, it's just PENDING_APPROVAL; that path is notified from
+      // approvePayout below, at the point it actually becomes APPROVED).
+      // Published after the transaction commits, same as every other domain
+      // event in this codebase (events/bus.ts: delivery is fault-isolated and
+      // must never roll back the publisher's own transaction).
+      if (!requiresDualApproval) {
+        const farmerUserId = await repo.getFarmerUserId(db, final!.payout.farmer_id);
+        if (farmerUserId) {
+          await eventBus.publish('payout.released', {
+            userId: farmerUserId,
+            payoutId: final!.payout.id,
+            amount: final!.payout.amount,
+            reference: final!.payout.payout_number,
+          });
+        }
+      }
+
       return toResponse(final!.payout, final!.approvals);
     },
 
@@ -255,6 +276,21 @@ export function createPayoutsService(opts: { repo?: PayoutRepo } = {}): PayoutsS
       });
 
       const final = await repo.findPayoutById(db, payoutId);
+
+      // BR-52/PAYROLL: this approval is the moment a dual-approval payout
+      // actually becomes APPROVED/released (see the matching comment in
+      // createPayout for the single-approval path and why publish happens
+      // after the transaction commits).
+      const farmerUserId = await repo.getFarmerUserId(db, final!.payout.farmer_id);
+      if (farmerUserId) {
+        await eventBus.publish('payout.released', {
+          userId: farmerUserId,
+          payoutId: final!.payout.id,
+          amount: final!.payout.amount,
+          reference: final!.payout.payout_number,
+        });
+      }
+
       return toResponse(final!.payout, final!.approvals);
     },
   };

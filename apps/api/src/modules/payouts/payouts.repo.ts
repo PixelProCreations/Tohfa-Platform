@@ -89,6 +89,14 @@ export interface PayoutRepo {
   ): Promise<void>;
 
   getFarmerName(db: Executor, farmerId: string): Promise<string | null>;
+
+  /**
+   * The farmer's `users.id`, for publishing `payout.released` (BR-52/PAYROLL)
+   * to the right notification recipient. `payouts.farmer_id` is a `farmers`
+   * row, not a `users` row, so the event dispatcher — which is keyed on
+   * `users.id` everywhere else — needs this translation.
+   */
+  getFarmerUserId(db: Executor, farmerId: string): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -332,6 +340,14 @@ export const payoutsRepo: PayoutRepo = {
       [farmerId],
     );
     return res.rows[0]?.full_name ?? null;
+  },
+
+  async getFarmerUserId(db, farmerId) {
+    const res = await db.query<{ user_id: string }>(
+      `SELECT user_id FROM farmers WHERE id = $1`,
+      [farmerId],
+    );
+    return res.rows[0]?.user_id ?? null;
   },
 
   // Internal helper (not part of interface)
