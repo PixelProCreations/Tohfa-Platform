@@ -5226,6 +5226,27 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/crop-planning-insight:
+    get:
+      tags: [Crops]
+      operationId: getCropPlanningInsight
+      summary: Read-only crop planning insight aggregator
+      description: |
+        Consolidates active plantings, expected yields, acreage, seasonal availability,
+        and plot rotation history for the caller farmer without automated advisory (BR-38, BR-36).
+      x-permission: farmer.crops.view_own
+      x-business-rules: [BR-38, BR-36]
+      responses:
+        '200':
+          description: Consolidated crop planning insights.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropPlanningInsightResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/me/plots/{plotId}/crops:
     get:
       tags: [Crops]
@@ -14475,6 +14496,31 @@ components:
       type: object
       properties:
         assignedToUserId: { type: [string, 'null'], format: uuid }
+
+    CropPlanningInsightItem:
+      type: object
+      required: [cropMasterId, cropName, category, youGrow, inSeason, activePlots, totalAcreageGrown, pastHarvestCount, hasConsecutivePlanting, consecutivePlotNames]
+      properties:
+        cropMasterId: { type: string, format: uuid }
+        cropName: { type: string }
+        category: { type: string }
+        youGrow: { type: boolean }
+        inSeason: { type: [boolean, 'null'] }
+        activePlots: { type: array, items: { type: string } }
+        totalAcreageGrown: { type: number }
+        expectedYieldKg: { type: [number, 'null'] }
+        pastHarvestCount: { type: integer }
+        lastHarvestedOn: { type: [string, 'null'], format: date }
+        hasConsecutivePlanting: { type: boolean }
+        consecutivePlotNames: { type: array, items: { type: string } }
+
+    CropPlanningInsightResponse:
+      type: object
+      required: [generatedAt, crops, specGaps]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        crops: { type: array, items: { $ref: '#/components/schemas/CropPlanningInsightItem' } }
+        specGaps: { type: array, items: { type: string } }
 
     Readiness:
       type: object
