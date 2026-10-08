@@ -1329,6 +1329,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedReceivingCard, setSelectedReceivingCard] = useState<string | null>(null);
   const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [returnToNotificationsOnBack, setReturnToNotificationsOnBack] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
@@ -1602,6 +1603,16 @@ export function SubWarehouseAdminDashboardScreen({
       }
       if (showOrdersModule) {
         setShowOrdersModule(false);
+        if (returnToNotificationsOnBack) {
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+        }
+        return true;
+      }
+      if (activeTab === 'Inventory' && returnToNotificationsOnBack) {
+        setInventoryInitialScreen(undefined);
+        setReturnToNotificationsOnBack(false);
+        setShowNotifications(true);
         return true;
       }
       if (showIncomingShipmentsScreen) {
@@ -1665,13 +1676,21 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setSelectedNotification(null)}
         notificationData={selectedNotification}
         onActionPress={() => {
+          const item = selectedNotification;
           setSelectedNotification(null);
           setShowNotifications(false);
-          if (!selectedNotification) return;
-          const t = selectedNotification.type;
+          setReturnToNotificationsOnBack(true);
+          if (!item) return;
+          const t = item.type;
           if (t === 'wallet') setShowWalletOperations(true);
-          else if (t === 'inventory') { setInventoryInitialScreen('M3S01'); setActiveTab('Inventory'); }
-          else if (t === 'order' || t === 'returns') setShowOrdersModule(true);
+          else if (t === 'inventory' || item?.actionLabel?.includes('Stock') || item?.title?.toLowerCase().includes('stock')) {
+            setInventoryInitialScreen('M3S02');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (t === 'order' || item?.actionLabel?.includes('Order') || item?.title?.toLowerCase().includes('order')) {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (t === 'returns') setShowOrdersModule(true);
           else if (t === 'quality') setShowReviewReceiving(true);
           else navigateTo('Receiving', 'overview');
         }}
@@ -1792,7 +1811,13 @@ export function SubWarehouseAdminDashboardScreen({
   if (showSystemMessages) {
     return (
       <SubWarehouseSystemMessagesScreen
-        onBack={() => setShowSystemMessages(false)}
+        onBack={() => {
+          setShowSystemMessages(false);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onTabChange={(tab) => {
           setShowSystemMessages(false);
           setActiveTab(tab);
@@ -1843,14 +1868,16 @@ export function SubWarehouseAdminDashboardScreen({
           const item = selectedNotification;
           setSelectedNotification(null);
           setShowNotifications(false);
+          setReturnToNotificationsOnBack(true);
           if (item?.actionLabel?.includes('Review') || item?.type === 'quality') {
             setShowReviewReceiving(true);
-          } else if (item?.actionLabel?.includes('Stock') || item?.type === 'inventory') {
-            setInventoryInitialScreen('M3S01');
+          } else if (item?.actionLabel?.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
+            setInventoryInitialScreen('M3S02');
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (item?.actionLabel?.includes('Order') || item?.type === 'order') {
-            setShowCustomerOrders(true);
+          } else if (item?.actionLabel?.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
           } else if (item?.actionLabel?.includes('Wallet') || item?.actionLabel?.includes('Top-Up') || item?.type === 'wallet') {
             setShowWalletOperations(true);
           } else if (item?.actionLabel?.includes('Return') || item?.type === 'returns') {
@@ -1892,17 +1919,34 @@ export function SubWarehouseAdminDashboardScreen({
           if (onNavigate) onNavigate('SubWarehouseSystemMessages');
           else setShowSystemMessages(true);
         }}
-        onSelectNotification={(item) => setSelectedNotification(item)}
-        onNavigateToAction={(actionLabel, item) => {
-          setShowNotifications(false);
-          if (actionLabel.includes('Review') || item?.type === 'quality') {
-            setShowReviewReceiving(true);
-          } else if (actionLabel.includes('Stock') || item?.type === 'inventory') {
-            setInventoryInitialScreen('M3S01');
+        onSelectNotification={(item) => {
+          if (item?.type === 'order' || item?.title?.toLowerCase().includes('order') || item?.actionLabel?.toLowerCase().includes('order')) {
+            setShowNotifications(false);
+            setReturnToNotificationsOnBack(true);
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock') || item?.actionLabel?.toLowerCase().includes('stock')) {
+            setShowNotifications(false);
+            setReturnToNotificationsOnBack(true);
+            setInventoryInitialScreen('M3S02');
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (actionLabel.includes('Order') || item?.type === 'order') {
-            setShowCustomerOrders(true);
+          } else {
+            setSelectedNotification(item);
+          }
+        }}
+        onNavigateToAction={(actionLabel, item) => {
+          setShowNotifications(false);
+          setReturnToNotificationsOnBack(true);
+          if (actionLabel.includes('Review') || item?.type === 'quality') {
+            setShowReviewReceiving(true);
+          } else if (actionLabel.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
+            setInventoryInitialScreen('M3S02');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (actionLabel.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
           } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
             setShowWalletOperations(true);
           } else if (actionLabel.includes('Return') || item?.type === 'returns') {
@@ -1974,11 +2018,13 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToOrders={() => {
           setShowWarehouseOverview(false);
+          setOrdersInitialScreen('M5S01');
+          setOrdersInitialParams(null);
           setShowOrdersModule(true);
         }}
         onNavigateToOperations={() => {
           setShowWarehouseOverview(false);
-          setShowWarehouseOperations(true);
+          setShowWalletOperations(true);
         }}
       />
     );
@@ -2318,11 +2364,30 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToCategory={(category) => {
           setShowRecentActivity(false);
-          if (category === 'Inventory') setActiveTab('Inventory');
-          else if (category === 'Receiving') navigateTo('Receiving', 'overview');
-          else if (category === 'Orders') setShowOrdersModule(true);
-          else if (category === 'Cash') setShowWalletOperations(true);
-          else if (category === 'QC') setShowReviewReceiving(true);
+          if (category === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (category === 'Receiving') {
+            setActiveTab('Receiving');
+            navigateTo('Receiving', 'overview');
+          } else if (category === 'Orders') {
+            setOrdersInitialScreen('M5S01');
+            setOrdersInitialParams(null);
+            setShowOrdersModule(true);
+          } else if (category === 'Cash') {
+            setShowCashTopUp(true);
+          } else if (category === 'QC') {
+            setSelectedNotification({
+              id: 'qc-1',
+              type: 'quality',
+              title: 'QC Required',
+              subtitle: 'Tomato batch GR-1024 is waiting for quality inspection.',
+              timestamp: '10 minutes ago',
+              isUnread: false,
+              actionLabel: 'View Receiving',
+            });
+          }
         }}
       />
     );
@@ -2331,7 +2396,13 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReviewReceiving) {
     return (
       <SubWarehouseReviewReceivingScreen
-        onBack={() => setShowReviewReceiving(false)}
+        onBack={() => {
+          setShowReviewReceiving(false);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onSuccess={() => {
           setShowReviewReceiving(false);
           navigateTo('Receiving', 'overview');
@@ -2531,6 +2602,10 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => {
           setShowCustomerOrders(false);
           setCustomerOrdersFilter(undefined);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
         }}
         onOpenFilters={() => {
           if (onNavigate) onNavigate('SubWarehouseOrderFilters');
@@ -2952,7 +3027,12 @@ export function SubWarehouseAdminDashboardScreen({
         warehouseName="Coonoor Warehouse"
         onBack={() => {
           setShowWalletOperations(false);
-          setActiveTab('More');
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          } else {
+            setActiveTab('More');
+          }
         }}
         onTabChange={(tab) => {
           setShowWalletOperations(false);
@@ -3181,7 +3261,13 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseReturnsIssuesScreen
         warehouseName="Coonoor Warehouse"
-        onBack={() => setShowReturnsIssues(false)}
+        onBack={() => {
+          setShowReturnsIssues(false);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onSelectRma={(rma) => setSelectedRma(rma)}
         onNavigateToHistory={() => setShowReturnHistory(true)}
         onTabChange={(tab) => {
@@ -3475,16 +3561,6 @@ export function SubWarehouseAdminDashboardScreen({
             {/* ─── Top Brand Header Banner (#F0562A) ─── */}
             <View style={styles.headerBanner}>
               <View style={styles.headerTopRow}>
-                {onBack && (
-                  <TouchableOpacity
-                    style={styles.backBtn}
-                    onPress={onBack}
-                    activeOpacity={0.8}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <ArrowBackIcon size={24} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.headerGreeting}>Good Morning, {userName}</Text>
                   <TouchableOpacity
@@ -5083,10 +5159,18 @@ export function SubWarehouseAdminDashboardScreen({
             initialParams={inventoryInitialParams}
             onBack={() => {
               setInventoryInitialScreen(undefined);
-              setActiveTab('Home');
+              if (returnToNotificationsOnBack) {
+                setReturnToNotificationsOnBack(false);
+                setShowNotifications(true);
+              } else if (initialInventoryScreen && onBack) {
+                onBack();
+              } else {
+                setActiveTab('Home');
+              }
             }}
             onTabChange={(tab) => {
               setInventoryInitialScreen(undefined);
+              setReturnToNotificationsOnBack(false);
               setActiveTab(tab);
             }}
           />
@@ -5101,11 +5185,18 @@ export function SubWarehouseAdminDashboardScreen({
               setShowOrdersModule(false);
               setOrdersInitialScreen('M5S01');
               setOrdersInitialParams(null);
+              if (returnToNotificationsOnBack) {
+                setReturnToNotificationsOnBack(false);
+                setShowNotifications(true);
+              } else if (onBack) {
+                onBack();
+              }
             }}
             onTabChange={(tab) => {
               setShowOrdersModule(false);
               setOrdersInitialScreen('M5S01');
               setOrdersInitialParams(null);
+              setReturnToNotificationsOnBack(false);
               setActiveTab(tab);
             }}
             onNavigateToOperationalIssues={() => {

@@ -520,6 +520,17 @@ export function SubWarehouseWalletOperationsScreen({
         <View style={styles.headerBanner}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleGroup}>
+              {onBack && (
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={onBack}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityLabel="Go back"
+                >
+                  <ArrowBackIcon size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
               <WalletHeaderIcon size={24} color="#FFFFFF" />
               <Text style={styles.headerTitleText}>Wallet Operations</Text>
             </View>
@@ -901,7 +912,14 @@ const styles = StyleSheet.create({
   headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  backBtn: {
+    marginRight: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitleText: {
     fontSize: 21,

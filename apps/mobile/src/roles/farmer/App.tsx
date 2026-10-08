@@ -988,9 +988,11 @@ export default function App(): React.JSX.Element {
             <SubWarehouseAdminDashboardScreen
               onSignOut={() => navigate('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
+              onBack={goBack}
               initialTab={params['initialTab'] as any}
               initialReceivingSubView={params['initialReceivingSubView'] as any}
               initialInventoryScreen={params['initialInventoryScreen'] as any}
+              initialShowOrders={!!params['showOrders']}
             />
           ) : (
             <SuperAdminDashboardScreen
@@ -1026,8 +1028,7 @@ export default function App(): React.JSX.Element {
             initialShowOrders={!!params?.showOrders}
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
-            initialReceivingSubView={params['initialReceivingSubView'] as any}
-            initialInventoryScreen={params['initialInventoryScreen'] as any}
+            onBack={goBack}
           />
         ) : screen === 'SubWarehouseProfile' ? (
           <SubWarehouseProfileScreen
@@ -1049,23 +1050,53 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
               else if (tab === 'More') navigate('SubWarehouseWalletOperations');
             }}
-            onNavigateToInventory={() => navigate('SubWarehouseAdminDashboard')}
-            onNavigateToReceiving={() => navigate('ReceivingQcScreen' as any)}
-            onNavigateToOrders={() => navigate('SubWarehouseSales')}
-            onNavigateToOperations={() => navigate('SubWarehouseWalletOperations')}
+            onNavigateToInventory={() =>
+              navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' })
+            }
+            onNavigateToReceiving={() =>
+              navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' })
+            }
+            onNavigateToOrders={() =>
+              navigate('SubWarehouseAdminDashboard', { showOrders: true })
+            }
+            onNavigateToOperations={() =>
+              navigate('SubWarehouseWalletOperations')
+            }
           />
         ) : screen === 'SubWarehouseRecentActivity' ? (
           <SubWarehouseRecentActivityScreen
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
               else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+            }}
+            onNavigateToCategory={(category) => {
+              if (category === 'Inventory') {
+                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+              } else if (category === 'Receiving') {
+                navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+              } else if (category === 'Orders') {
+                navigate('SubWarehouseAdminDashboard', { showOrders: true });
+              } else if (category === 'Cash') {
+                navigate('SubWarehouseCashTopUp');
+              } else if (category === 'QC') {
+                navigate('SubWarehouseNotificationDetail', {
+                  notification: {
+                    id: 'qc-1',
+                    type: 'quality',
+                    title: 'QC Required',
+                    subtitle: 'Tomato batch GR-1024 is waiting for quality inspection.',
+                    timestamp: '10 minutes ago',
+                    actionLabel: 'View Receiving',
+                  },
+                });
+              }
             }}
           />
         ) : screen === 'SubWarehouseStorageInfo' ? (
@@ -1122,16 +1153,22 @@ export default function App(): React.JSX.Element {
             onNavigateToTasks={() => navigate('SubWarehouseTaskActionCenter')}
             onNavigateToAlerts={() => navigate('SubWarehouseApprovalAlerts')}
             onNavigateToSystemMessages={() => navigate('SubWarehouseSystemMessages')}
-            onSelectNotification={(item) =>
-              navigate('SubWarehouseNotificationDetail', { notification: item })
-            }
+            onSelectNotification={(item) => {
+              if (item?.type === 'order' || item?.title?.toLowerCase().includes('order') || item?.actionLabel?.toLowerCase().includes('order')) {
+                navigate('SubWarehouseAdminDashboard', { showOrders: true });
+              } else if (item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock') || item?.actionLabel?.toLowerCase().includes('stock')) {
+                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
+              } else {
+                navigate('SubWarehouseNotificationDetail', { notification: item });
+              }
+            }}
             onNavigateToAction={(actionLabel, item) => {
               if (actionLabel.includes('Review') || item?.type === 'quality') {
                 navigate('SubWarehouseReviewReceiving');
-              } else if (actionLabel.includes('Stock') || item?.type === 'inventory') {
-                navigate('SubWarehouseAdminDashboard');
-              } else if (actionLabel.includes('Order') || item?.type === 'order') {
-                navigate('SubWarehouseCustomerOrders');
+              } else if (actionLabel.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
+                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
+              } else if (actionLabel.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
+                navigate('SubWarehouseAdminDashboard', { showOrders: true });
               } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
                 navigate('SubWarehouseWalletOperations');
               } else if (actionLabel.includes('Return') || item?.type === 'returns') {
@@ -1168,10 +1205,10 @@ export default function App(): React.JSX.Element {
               const notif = params['notification'] as any;
               if (notif?.actionLabel?.includes('Review') || notif?.type === 'quality') {
                 navigate('SubWarehouseReviewReceiving');
-              } else if (notif?.actionLabel?.includes('Stock') || notif?.type === 'inventory') {
-                navigate('SubWarehouseAdminDashboard');
-              } else if (notif?.actionLabel?.includes('Order') || notif?.type === 'order') {
-                navigate('SubWarehouseCustomerOrders');
+              } else if (notif?.actionLabel?.includes('Stock') || notif?.type === 'inventory' || notif?.title?.toLowerCase().includes('stock')) {
+                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
+              } else if (notif?.actionLabel?.includes('Order') || notif?.type === 'order' || notif?.title?.toLowerCase().includes('order')) {
+                navigate('SubWarehouseAdminDashboard', { showOrders: true });
               } else if (notif?.actionLabel?.includes('Wallet') || notif?.type === 'wallet') {
                 navigate('SubWarehouseWalletOperations');
               } else if (notif?.actionLabel?.includes('Return') || notif?.type === 'returns') {
