@@ -98,16 +98,6 @@ export function SubWarehouseInvoiceWizardScreen({
 }: SubWarehouseInvoiceWizardScreenProps) {
   const [step, setStep] = useState(0);
 
-  // Auto-advance through the screens continuously and fast
-  useEffect(() => {
-    if (step < 3) {
-      const timer = setTimeout(() => {
-        setStep(prev => prev + 1);
-      }, 800); // 800ms delay per screen
-      return () => clearTimeout(timer);
-    }
-  }, [step]);
-
   const STEP_TITLES = [
     'Transaction Summary',
     'Invoice Items',
