@@ -1196,6 +1196,32 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-57 — Crop growth milestones are template-driven, strictly sequenced, and progression-tracked
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.1, FR-F04; Table `farm_crop_milestones` (`0036_crop_milestones.sql`); Mobile CropMilestoneScreen |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/crop-milestones/`; `farm_crop_milestones` table |
+| **Scope** | Track 1 (farmer-facing CRUD) |
+
+**Rule.** A farmer tracks phenological growth stages and milestone progress on an active crop under `/farmers/me/crops/:farmCropId/milestones`.
+1. **Completion date validation:** `completedOn` cannot be a future date relative to today in Asia/Kolkata (`BR-57a`).
+2. **Template-driven auto-initialization:** If a crop has no initialized milestones, accessing the endpoint auto-populates standard stages from `crop_milestone_templates` based on crop type or universal templates, initializing progress to 0% (`BR-57b`).
+3. **Valid lifecycle transitions:** Milestone status transitions between `PENDING`, `COMPLETED`, and `SKIPPED`. Marking `COMPLETED` records completion timestamp and updates overall crop progress percentage (`BR-57c`).
+4. **Own data only:** Authenticated farmer can only view, initialize, or update milestones on crops they own. Attempting to access another farmer's crop returns 404 (BR-36, `BR-57d`).
+5. **Audit logging & Row locking:** Initializing or updating a milestone locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-57e`).
+
+**Failure mode if unenforced.** Future completion dates invalidate agronomic reporting; missing milestones leave crop progress unquantified; cross-farmer access leaks confidential crop monitoring data.
+
+**Test contract.** (`apps/api/src/modules/crop-milestones/crop-milestones.test.ts`)
+- `BR-57a` Rejects `completedOn` in the future relative to Asia/Kolkata with 422 `VALIDATION_FAILED`.
+- `BR-57b` Auto-initializes milestones from templates with 0% progress on first query.
+- `BR-57c` Marking milestone as `COMPLETED` updates progress percentage and completed timestamp.
+- `BR-57d` Cross-farmer access returns 404 `NOT_FOUND` (BR-36).
+- `BR-57e` Mutations lock farmer row and write audit log records (BR-35).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

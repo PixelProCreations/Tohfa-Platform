@@ -279,6 +279,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not log crop inputs (BR-16).',
   },
   {
+    permission: 'farmer.crop_milestone.manage_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'Farmers manage milestone progress on own crops (BR-57).',
+  },
+  {
+    permission: 'farmer.crop_milestone.manage_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers do not track crop milestones (BR-16).',
+  },
+  {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.ALL,

@@ -5543,6 +5543,121 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/crops/{farmCropId}/milestones:
+    get:
+      tags: [Crops]
+      operationId: listMyCropMilestones
+      summary: List growth milestones for a crop
+      description: |
+        Returns ordered growth milestones and completion progress for a crop. Auto-initializes from templates if uninitialized (BR-57).
+      x-permission: farmer.crop_milestone.manage_own
+      x-business-rules: [BR-57, BR-36]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of crop milestones with progress percentage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropMilestonesListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crops/{farmCropId}/milestones/initialize:
+    post:
+      tags: [Crops]
+      operationId: initializeMyCropMilestones
+      summary: Initialize or reset crop milestones from templates
+      description: |
+        Explicitly populates or resets growth milestones for a crop from reference templates (BR-57).
+      x-permission: farmer.crop_milestone.manage_own
+      x-business-rules: [BR-57, BR-36, BR-35]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Milestones initialized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropMilestonesListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crops/{farmCropId}/milestones/{id}:
+    patch:
+      tags: [Crops]
+      operationId: updateMyCropMilestone
+      summary: Update status or notes for a crop milestone
+      description: |
+        Marks a milestone as COMPLETED or SKIPPED, recording completion timestamp and notes (BR-57).
+      x-permission: farmer.crop_milestone.manage_own
+      x-business-rules: [BR-57, BR-36, BR-35]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCropMilestoneRequest'
+      responses:
+        '200':
+          description: Updated milestone.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropMilestone'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crop-milestone-templates:
+    get:
+      tags: [Crops]
+      operationId: listCropMilestoneTemplates
+      summary: List reference milestone templates
+      description: |
+        Returns available growth milestone templates, optionally filtered by crop type (BR-57).
+      x-permission: farmer.crop_milestone.manage_own
+      x-business-rules: [BR-57]
+      parameters:
+        - name: cropMasterId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: List of milestone templates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CropMilestoneTemplate'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/crop-master:
     get:
       tags: [Crops]
@@ -9788,6 +9903,76 @@ components:
         totalPhosphorusKg: { type: number, minimum: 0 }
         totalPotassiumKg: { type: number, minimum: 0 }
         totalCostInr: { type: number, minimum: 0 }
+
+    CropMilestone:
+      type: object
+      required:
+        - id
+        - farmerId
+        - farmCropId
+        - stageCode
+        - stageName
+        - sequenceOrder
+        - status
+        - createdAt
+      properties:
+        id: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid }
+        farmCropId: { type: string, format: uuid }
+        templateId: { type: [string, 'null'], format: uuid }
+        stageCode: { type: string }
+        stageName: { type: string }
+        sequenceOrder: { type: integer }
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, SKIPPED]
+        targetDate: { type: [string, 'null'], format: date }
+        completedOn: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    UpdateCropMilestoneRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, SKIPPED]
+        completedOn: { type: [string, 'null'], format: date }
+        targetDate: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    CropMilestonesListResponse:
+      type: object
+      required:
+        - items
+        - totalCount
+        - completedCount
+        - progressPct
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropMilestone'
+        totalCount: { type: integer, minimum: 0 }
+        completedCount: { type: integer, minimum: 0 }
+        progressPct: { type: number, minimum: 0, maximum: 100 }
+
+    CropMilestoneTemplate:
+      type: object
+      required:
+        - id
+        - stageCode
+        - stageName
+        - sequenceOrder
+      properties:
+        id: { type: string, format: uuid }
+        cropMasterId: { type: [string, 'null'], format: uuid }
+        stageCode: { type: string }
+        stageName: { type: string }
+        description: { type: [string, 'null'] }
+        sequenceOrder: { type: integer }
+        expectedDaysAfterPlanting: { type: [integer, 'null'] }
 
 
     FarmWeather:
