@@ -1085,6 +1085,35 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-53 — Farmer bank accounts and UPI payout destinations are own-data, masked, and server-validated; verification cannot be self-asserted
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.3, FR-F02; Mobile payment screens `BankAccountScreen.tsx`, `UpiIdScreen.tsx`; Table `farmer_bank_accounts` (`0007_money.sql`); Owner defaults 2026-10-08 |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `GET/POST/PATCH/DELETE /farmers/me/bank-accounts`, `GET/PUT/DELETE /farmers/me/upi`; `farmer.bank_account.manage_own` (FARMER = own); `farmer_bank_accounts` table + partial index `uq_farmer_bank_accounts_default` |
+| **Scope** | Track 1 |
+
+**Rule.** A farmer manages payout destinations under `/farmers/me/bank-accounts` and `/farmers/me/upi`.
+1. **Masked responses:** The full account number is NEVER returned in any API response body (only `accountNumberLast4`, 4 digits, exactly as Aadhaar under BR-33b).
+2. **Server-side IFSC & Account format:** IFSC code must match `^[A-Z]{4}0[A-Z0-9]{6}$`. Account number must be 9–18 digits. UPI ID must be a valid VPA (`^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$`).
+3. **No self-asserted verification:** When created or edited by the farmer, `isVerified` is always false; verification status can be modified only by an admin action.
+4. **Single primary account:** Exactly one default account per farmer (`is_default = true`, enforced by partial unique index `uq_farmer_bank_accounts_default`). Setting an account as default clears default from any existing active account for that farmer.
+5. **Soft delete only:** Deleting a bank account or UPI destination sets `deleted_at = now()`. If an account is referenced by any payout in `payouts`, hard deletion is prevented; soft deletion preserves auditability.
+6. **Audit logging:** Creating, updating, setting default, or soft-deleting writes an `audit_log` row in the same transaction.
+
+**Failure mode if unenforced.** Account number exposure leaks sensitive financial data; farmers self-verifying invalid IFSC or accounts creates payout failures during bank transfers; multiple default accounts cause ambiguous automated payout dispatching.
+
+**Test contract.** (`apps/api/src/modules/farmer-bank-accounts/farmer-bank-accounts.test.ts`)
+- `BR-53a` API returns only `accountNumberLast4`, never the raw account number.
+- `BR-53b` Invalid IFSC format or account number length is rejected with 422 `VALIDATION_FAILED`.
+- `BR-53c` Farmer cannot self-assert `isVerified: true` on create or update; it is always false.
+- `BR-53d` Setting an account as default unsets default on the farmer's previous account.
+- `BR-53e` Bank account referenced by payouts cannot be hard-deleted; soft deletion sets `deleted_at`.
+- `BR-53f` Cross-farmer access returns 404 (BR-36).
+- `BR-53g` Mutations write `audit_log` rows with actor and before/after images (BR-35).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

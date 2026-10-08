@@ -1525,6 +1525,177 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /farmers/me/bank-accounts:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: listMyBankAccounts
+      summary: List own bank accounts
+      description: |
+        Returns the farmer's active bank accounts. Account numbers are always masked to the
+        last 4 digits (BR-53a).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      responses:
+        '200':
+          description: List of bank accounts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FarmerBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: createMyBankAccount
+      summary: Add bank account
+      description: |
+        Adds a new bank account destination for payouts. IFSC and account number format are validated
+        server-side (BR-53b). Verification status is initialized to UNVERIFIED (BR-53c).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFarmerBankAccountRequest' }
+      responses:
+        '201':
+          description: Bank account created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/bank-accounts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Farmer Profile & Certifications]
+      operationId: updateMyBankAccount
+      summary: Update bank account
+      description: |
+        Updates bank account fields. If account number or IFSC changes, verification status resets to UNVERIFIED (BR-53c).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateFarmerBankAccountRequest' }
+      responses:
+        '200':
+          description: Bank account updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    delete:
+      tags: [Farmer Profile & Certifications]
+      operationId: deleteMyBankAccount
+      summary: Delete bank account
+      description: |
+        Soft-deletes the bank account. Accounts referenced by payouts are soft-deleted to preserve payout audit history (BR-53e).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      responses:
+        '204':
+          description: Bank account deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/bank-accounts/{id}/default:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: setDefaultBankAccount
+      summary: Set primary bank account
+      description: |
+        Sets the specified bank account as the primary default payout destination (BR-53d).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      responses:
+        '200':
+          description: Bank account set as default.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/upi:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getMyUpiPreference
+      summary: Get UPI payout destination
+      description: |
+        Retrieves the farmer's registered UPI ID payout destination (BR-53).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      responses:
+        '200':
+          description: UPI details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerUpiPreference' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    put:
+      tags: [Farmer Profile & Certifications]
+      operationId: setMyUpiPreference
+      summary: Register or update UPI payout destination
+      description: |
+        Registers or updates the farmer's UPI ID. VPA format is validated (BR-53b).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateFarmerUpiRequest' }
+      responses:
+        '200':
+          description: UPI preference saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerUpiPreference' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    delete:
+      tags: [Farmer Profile & Certifications]
+      operationId: deleteMyUpiPreference
+      summary: Remove UPI payout destination
+      description: |
+        Soft-deletes the registered UPI destination (BR-53).
+      x-permission: farmer.bank_account.manage_own
+      x-business-rules: [BR-53]
+      responses:
+        '204':
+          description: UPI destination removed.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farms:
     get:
       tags: [Farms & Zones]
@@ -8994,6 +9165,73 @@ components:
         isMarketBlocked: { type: boolean, description: True while a certificate is expired or unverified (BR-01, BR-02). }
         marketBlockReason: { type: [string, 'null'] }
         preferredLocale: { $ref: '#/components/schemas/Locale' }
+
+    FarmerBankAccount:
+      type: object
+      description: |
+        A bank account payout destination. Account numbers are always masked to the last 4 digits (BR-53a).
+      required: [id, accountHolderName, bankName, isVerified, isDefault, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        accountHolderName: { type: string }
+        accountNumberLast4:
+          type: [string, 'null']
+          pattern: '^[0-9]{4}$'
+          description: Last 4 digits only. Never the full account number.
+        ifsc:
+          type: [string, 'null']
+          pattern: '^[A-Z]{4}0[A-Z0-9]{6}$'
+        bankName: { type: string }
+        branchName: { type: [string, 'null'] }
+        upiVpa: { type: [string, 'null'] }
+        isVerified: { type: boolean }
+        isDefault: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    CreateFarmerBankAccountRequest:
+      type: object
+      required: [accountHolderName, accountNumber, ifsc, bankName]
+      properties:
+        accountHolderName: { type: string, minLength: 2, maxLength: 120 }
+        accountNumber:
+          type: string
+          minLength: 9
+          maxLength: 18
+          description: Full account number submitted for storage. Masked immediately upon return.
+        ifsc:
+          type: string
+          pattern: '^[A-Z]{4}0[A-Z0-9]{6}$'
+        bankName: { type: string, minLength: 2, maxLength: 120 }
+        branchName: { type: string, maxLength: 120 }
+        isDefault: { type: boolean, default: false }
+
+    UpdateFarmerBankAccountRequest:
+      type: object
+      properties:
+        accountHolderName: { type: string, minLength: 2, maxLength: 120 }
+        accountNumber: { type: string, minLength: 9, maxLength: 18 }
+        ifsc: { type: string, pattern: '^[A-Z]{4}0[A-Z0-9]{6}$' }
+        bankName: { type: string, minLength: 2, maxLength: 120 }
+        branchName: { type: [string, 'null'], maxLength: 120 }
+        isDefault: { type: boolean }
+
+    FarmerUpiPreference:
+      type: object
+      required: [upiVpa, isVerified, isDefault]
+      properties:
+        id: { type: string, format: uuid }
+        upiVpa: { type: string }
+        isVerified: { type: boolean }
+        isDefault: { type: boolean }
+
+    UpdateFarmerUpiRequest:
+      type: object
+      required: [upiVpa]
+      properties:
+        upiVpa:
+          type: string
+          pattern: '^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$'
+        isDefault: { type: boolean, default: false }
 
     FarmWeather:
       type: object

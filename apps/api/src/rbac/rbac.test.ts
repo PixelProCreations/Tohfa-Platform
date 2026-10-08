@@ -219,6 +219,30 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers never see or touch certification records (BR-16).',
   },
   {
+    permission: 'farmer.bank_account.manage_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'Farmers manage their own payout bank accounts and UPI destinations (BR-53).',
+  },
+  {
+    permission: 'farmer.bank_account.manage_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers do not hold farmer bank accounts.',
+  },
+  {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Super Admin can view farmer bank accounts for verification and payout review.',
+  },
+  {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'Farmers access bank accounts through farmer.bank_account.manage_own, not admin-wide view.',
+  },
+  {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.ALL,

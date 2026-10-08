@@ -80,6 +80,10 @@ import { adminFarmAssetsRouter } from './modules/farm-assets/farm-assets.admin.r
 import { soilRouter } from './modules/soil/soil.routes.js';
 import { pestLibraryRouter, pestRouter, weatherRiskNotesRouter } from './modules/pest/pest.routes.js';
 import { workforceRouter } from './modules/workforce/workforce.routes.js';
+import {
+  farmerBankAccountsRouter,
+  farmerUpiRouter,
+} from './modules/farmer-bank-accounts/farmer-bank-accounts.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -99,6 +103,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/uploads', router: uploadsRouter },
   { prefix: '/v1/farmers', router: farmerApplicationsRouter },
   { prefix: '/v1/farmers/me/certifications', router: certificationsFarmerRouter },
+  { prefix: '/v1/farmers/me/bank-accounts', router: farmerBankAccountsRouter },
+  { prefix: '/v1/farmers/me/upi', router: farmerUpiRouter },
   { prefix: '/v1/config', router: configFarmerRouter },
   { prefix: '/v1/admin/farmer-applications', router: adminFarmerApplicationsRouter },
   { prefix: '/v1/admin/certifications', router: certificationsAdminRouter },

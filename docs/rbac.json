@@ -421,6 +421,36 @@
       "source": "matrix §2 — SA only"
     },
     {
+      "code": "farmer.bank_account.manage_own",
+      "module": "Farmers Management",
+      "description": "List, create, update, soft-delete, and set default bank accounts and UPI IDs for own farmer profile.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "matrix §2 + reqs FR-F02 (BR-53)"
+    },
+    {
+      "code": "farmer.bank_account.view",
+      "module": "Farmers Management",
+      "description": "View any farmer's bank account and payout details.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "matrix §2"
+    },
+    {
       "code": "farmer.account.disable",
       "module": "Farmers Management",
       "description": "Disable a farmer account.",
