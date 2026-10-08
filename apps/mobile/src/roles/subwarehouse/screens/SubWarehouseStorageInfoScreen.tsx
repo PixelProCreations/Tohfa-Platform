@@ -10,28 +10,36 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
 
+// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
+  primaryDark:   '#7A2E14',
   pageBg:        '#FAF7F2',
   cardBg:        '#FFFFFF',
   textInk:       '#1E1612',
   textSecondary: '#7A726C',
   textMuted:     '#9E9690',
-  border:        '#EDE8E0',
-  borderTrack:   '#D7D0C8',
+  border:        '#EBE5DC',
+  trackBg:       '#EFEAE2',
 
-  greenBadgeBg:  '#E6F4EA',
-  greenBadgeText:'#065F46',
-  pinkBadgeBg:   '#FDE8E8',
-  pinkBadgeText: '#991B1B',
+  greenBadgeBg:  '#DCFCE7',
+  greenBadgeText:'#15803D',
+  grayBadgeBg:   '#F3F4F6',
+  grayBadgeText: '#6B7280',
 
-  tabInactive:   '#827A74',
+  blueBoxBg:     '#EFF6FF',
+  blueBoxBorder: '#BFDBFE',
+  blueBoxText:   '#1E40AF',
+
+  tabInactive:   '#7A726C',
   tabActive:     '#F0562A',
-  tabBorder:     '#EDE8E0',
+  tabBorder:     '#EBE5DC',
 };
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -45,7 +53,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
   );
 }
 
-function LockIcon({ size = 13, color = '#FFFFFF' }) {
+function LockIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2.2" />
@@ -54,7 +62,7 @@ function LockIcon({ size = 13, color = '#FFFFFF' }) {
   );
 }
 
-function SearchIcon({ size = 18, color = PALETTE.textSecondary }) {
+function SearchIcon({ size = 18, color = PALETTE.textSecondary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -63,24 +71,7 @@ function SearchIcon({ size = 18, color = PALETTE.textSecondary }) {
   );
 }
 
-function SnowflakeIcon({ size = 18, color = PALETTE.textInk }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BoxIcon({ size = 18, color = PALETTE.textInk }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-// ─── Tab Nav Icons ───
+// ─── Bottom Tab Nav Icons ───
 function HomeTabNavIcon({ active }: { active: boolean }) {
   const color = active ? PALETTE.tabActive : PALETTE.tabInactive;
   return (
@@ -153,80 +144,112 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
   );
 }
 
-export interface SubWarehouseStorageInfoScreenProps {
-  onBack: () => void;
-  onTabChange?: ((tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void) | undefined;
-  onSelectLocation?: (id: string) => void;
+// ─── Data Definitions ────────────────────────────────────────────────────────
+export interface StorageLocationItem {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  status: 'Active' | 'Inactive';
+  capacity: string;
+  current: string;
 }
 
-const COLD_STORAGE_DATA = [
-  { id: 'cs1', title: 'Rack 02 · Shelf 03', section: 'Section A', stockItems: 12, status: 'Occupied', statusType: 'pink' },
-  { id: 'cs2', title: 'Rack 01 · Shelf 01', section: 'Section A', stockItems: 6, status: 'Occupied', statusType: 'green' },
-  { id: 'cs3', title: 'Rack 03 · Shelf 02', section: 'Section B', stockItems: 0, status: 'Empty', statusType: 'pink' },
+const STORAGE_LOCATIONS: StorageLocationItem[] = [
+  {
+    id: 'cs-a01',
+    name: 'Cold Storage A',
+    code: 'CS-A01',
+    type: 'Cold Storage',
+    status: 'Active',
+    capacity: '2,000 kg',
+    current: '1,650 kg',
+  },
+  {
+    id: 'ds-b01',
+    name: 'Dry Storage B',
+    code: 'DS-B01',
+    type: 'Dry Storage',
+    status: 'Active',
+    capacity: '3,000 kg',
+    current: '2,200 kg',
+  },
+  {
+    id: 'cs-c01',
+    name: 'Cold Storage C',
+    code: 'CS-C01',
+    type: 'Cold Storage',
+    status: 'Active',
+    capacity: '1,500 kg',
+    current: '1,120 kg',
+  },
+  {
+    id: 'bs-d01',
+    name: 'Bulk Storage D',
+    code: 'BS-D01',
+    type: 'Bulk Storage',
+    status: 'Active',
+    capacity: '2,500 kg',
+    current: '1,850 kg',
+  },
+  {
+    id: 'sa-e01',
+    name: 'Staging Area E',
+    code: 'SA-E01',
+    type: 'Staging Area',
+    status: 'Inactive',
+    capacity: '1,000 kg',
+    current: '600 kg',
+  },
 ];
 
-const DRY_STORAGE_DATA = [
-  { id: 'ds1', title: 'Rack 01 · Shelf 01', section: 'Section C', stockItems: 0, status: 'Occupied', statusType: 'green' },
-];
+export interface SubWarehouseStorageInfoScreenProps {
+  warehouseName?: string | undefined;
+  onBack: () => void;
+  onTabChange?: ((tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void) | undefined;
+  onSelectLocation?: ((id: string) => void) | undefined;
+  onViewStock?: (() => void) | undefined;
+}
 
 export function SubWarehouseStorageInfoScreen({
+  warehouseName = 'Coonoor Warehouse',
   onBack,
   onTabChange,
   onSelectLocation,
-}: SubWarehouseStorageInfoScreenProps) {
+  onViewStock,
+}: SubWarehouseStorageInfoScreenProps): React.JSX.Element {
+  const [internalSelectedLocationId, setInternalSelectedLocationId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filterItems = (list: typeof COLD_STORAGE_DATA) => {
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.toLowerCase();
-    return list.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.section.toLowerCase().includes(q) ||
-        item.status.toLowerCase().includes(q)
-    );
-  };
+  const filteredLocations = STORAGE_LOCATIONS.filter((loc) => {
+    const matchesFilter = filter === 'All' || loc.status === filter;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      loc.name.toLowerCase().includes(q) ||
+      loc.code.toLowerCase().includes(q) ||
+      loc.type.toLowerCase().includes(q);
+    return matchesFilter && matchesSearch;
+  });
 
-  const filteredCold = filterItems(COLD_STORAGE_DATA);
-  const filteredDry = filterItems(DRY_STORAGE_DATA);
-
-  const renderCard = (item: typeof COLD_STORAGE_DATA[0]) => {
-    const isGreen = item.statusType === 'green';
+  if (internalSelectedLocationId) {
     return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.card}
-        activeOpacity={0.75}
-        onPress={() => onSelectLocation?.(item.id)}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: isGreen ? PALETTE.greenBadgeBg : PALETTE.pinkBadgeBg },
-            ]}
-          >
-            <Text
-              style={[
-                styles.badgeText,
-                { color: isGreen ? PALETTE.greenBadgeText : PALETTE.pinkBadgeText },
-              ]}
-            >
-              {item.status}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.cardSectionText}>{item.section}</Text>
-        {item.stockItems > 0 && (
-          <View style={styles.stockInfoRow}>
-            <Text style={styles.stockLabel}>Stock Items</Text>
-            <Text style={styles.stockValue}>{item.stockItems}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+      <SubWarehouseStorageLocationDetailScreen
+        locationId={internalSelectedLocationId}
+        warehouseName={warehouseName}
+        onBack={() => setInternalSelectedLocationId(null)}
+        onViewStock={() => {
+          setInternalSelectedLocationId(null);
+          if (onViewStock) {
+            onViewStock();
+          } else if (onTabChange) {
+            onTabChange('Inventory');
+          }
+        }}
+      />
     );
-  };
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -238,52 +261,175 @@ export function SubWarehouseStorageInfoScreen({
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
+            accessibilityLabel="Back"
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ArrowBackIcon size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Storage Locations</Text>
+          <Text style={styles.headerTitle}>Storage Information</Text>
         </View>
+
+        {/* Warehouse Pill Chip */}
         <View style={styles.warehousePill}>
           <LockIcon size={13} color="#FFFFFF" />
-          <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
+          <Text style={styles.warehousePillText}>{warehouseName}</Text>
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Search */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ─── 1. Summary KPI Grid (2x2) ─── */}
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>STORAGE LOCATIONS</Text>
+            <Text style={styles.kpiValue}>8</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>ACTIVE LOCATIONS</Text>
+            <Text style={styles.kpiValue}>7</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>OCCUPIED</Text>
+            <Text style={styles.kpiValue}>6</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>AVAILABLE</Text>
+            <Text style={styles.kpiValue}>2</Text>
+          </View>
+        </View>
+
+        {/* ─── 2. Storage Capacity Section ─── */}
+        <Text style={styles.sectionTitle}>Storage Capacity</Text>
+        <View style={styles.capacityCard}>
+          <View style={styles.capacityHeaderRow}>
+            <Text style={styles.capacityHeadingText}>Capacity Used</Text>
+            <Text style={styles.capacityPercentText}>74.2%</Text>
+          </View>
+
+          {/* Progress Bar */}
+          <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarFill, { width: '74.2%' }]} />
+          </View>
+
+          {/* Details Grid */}
+          <View style={styles.capacityGrid}>
+            <View style={styles.capacityGridCol}>
+              <Text style={styles.capacitySubLabel}>Total Capacity</Text>
+              <Text style={styles.capacityMainVal}>10,000 kg</Text>
+            </View>
+            <View style={styles.capacityGridCol}>
+              <Text style={styles.capacitySubLabel}>Current Occupancy</Text>
+              <Text style={styles.capacityMainVal}>7,420 kg</Text>
+            </View>
+          </View>
+
+          <View style={[styles.capacityGrid, { marginTop: 14 }]}>
+            <View style={styles.capacityGridCol}>
+              <Text style={styles.capacitySubLabel}>Available Capacity</Text>
+              <Text style={styles.capacityMainVal}>2,580 kg</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Blue Info Notice Box */}
+        <View style={styles.blueNoticeBox}>
+          <Text style={styles.blueNoticeText}>
+            Capacity is displayed, never editable by SWA.
+          </Text>
+        </View>
+
+        {/* ─── 3. Filter Pills Row ─── */}
+        <View style={styles.filterRow}>
+          {(['All', 'Active', 'Inactive'] as const).map((item) => {
+            const isActive = filter === item;
+            return (
+              <TouchableOpacity
+                key={item}
+                style={[styles.filterPill, isActive && styles.filterPillActive]}
+                onPress={() => setFilter(item)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* ─── 4. Search Bar ─── */}
         <View style={styles.searchBox}>
           <SearchIcon size={18} color={PALETTE.textSecondary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search location, rack, shelf"
+            placeholder="Location name, code, storage type"
             placeholderTextColor={PALETTE.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        {/* Cold Storage */}
-        <View style={styles.sectionHeader}>
-          <SnowflakeIcon size={18} color={PALETTE.textInk} />
-          <Text style={styles.sectionTitle}>Cold Storage</Text>
-        </View>
-        <View style={styles.sectionList}>
-          {filteredCold.map(renderCard)}
+        {/* ─── 5. Storage Location List ─── */}
+        <View style={styles.locationList}>
+          {filteredLocations.map((loc) => {
+            const isActive = loc.status === 'Active';
+            return (
+              <TouchableOpacity
+                key={loc.id}
+                style={styles.locationCard}
+                onPress={() => {
+                  if (onSelectLocation) {
+                    onSelectLocation(loc.id);
+                  } else {
+                    setInternalSelectedLocationId(loc.id);
+                  }
+                }}
+                activeOpacity={0.75}
+              >
+                <View style={styles.locCardTop}>
+                  <Text style={styles.locName}>{loc.name}</Text>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: isActive ? PALETTE.greenBadgeBg : PALETTE.grayBadgeBg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        { color: isActive ? PALETTE.greenBadgeText : PALETTE.grayBadgeText },
+                      ]}
+                    >
+                      {loc.status}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.locCode}>{loc.code}</Text>
+
+                <View style={styles.locStatsRow}>
+                  <View style={styles.locStatCol}>
+                    <Text style={styles.locStatLabel}>Capacity</Text>
+                    <Text style={styles.locStatVal}>{loc.capacity}</Text>
+                  </View>
+                  <View style={styles.locStatCol}>
+                    <Text style={styles.locStatLabel}>Current</Text>
+                    <Text style={styles.locStatVal}>{loc.current}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Dry Storage */}
-        <View style={styles.sectionHeader}>
-          <BoxIcon size={18} color={PALETTE.textInk} />
-          <Text style={styles.sectionTitle}>Dry Storage</Text>
-        </View>
-        <View style={styles.sectionList}>
-          {filteredDry.map(renderCard)}
-        </View>
+        <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Bottom Tab Bar */}
+      {/* ─── Bottom Tab Bar ─── */}
       <View style={styles.bottomTabBar}>
         <TouchableOpacity
           style={styles.tabItem}
@@ -330,12 +476,15 @@ export function SubWarehouseStorageInfoScreen({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PALETTE.primary },
+  root: {
+    flex: 1,
+    backgroundColor: PALETTE.primary,
+  },
   header: {
     backgroundColor: PALETTE.primary,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   headerTop: {
     flexDirection: 'row',
@@ -357,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.22)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 20,
     alignSelf: 'flex-start',
     marginLeft: 44,
@@ -379,6 +528,145 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
+  /* 2x2 KPI Grid */
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  kpiCard: {
+    flex: 1,
+    minWidth: '46%',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: PALETTE.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+
+  /* Section Title */
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginBottom: 10,
+  },
+
+  /* Capacity Card */
+  capacityCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    marginBottom: 12,
+  },
+  capacityHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  capacityHeadingText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+  },
+  capacityPercentText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  progressBarTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: PALETTE.trackBg,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: PALETTE.primary,
+    borderRadius: 4,
+  },
+  capacityGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  capacityGridCol: {
+    flex: 1,
+  },
+  capacitySubLabel: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  capacityMainVal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+
+  /* Blue Notice Box */
+  blueNoticeBox: {
+    backgroundColor: PALETTE.blueBoxBg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: PALETTE.blueBoxBorder,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+  },
+  blueNoticeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.blueBoxText,
+    lineHeight: 16,
+  },
+
+  /* Filter Pills */
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  filterPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: PALETTE.cardBg,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+  },
+  filterPillActive: {
+    borderColor: PALETTE.primary,
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: PALETTE.textSecondary,
+  },
+  filterPillTextActive: {
+    color: PALETTE.primary,
+    fontWeight: '700',
+  },
+
+  /* Search Box */
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -387,107 +675,95 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     color: PALETTE.textInk,
     padding: 0,
   },
 
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  sectionList: {
+  /* Location Cards List */
+  locationList: {
     gap: 12,
-    paddingLeft: 14,
-    borderLeftWidth: 1.5,
-    borderColor: PALETTE.borderTrack,
-    marginLeft: 8,
-    marginBottom: 18,
   },
-  card: {
+  locationCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 16,
   },
-  cardHeader: {
+  locCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  cardTitle: {
+  locName: {
     fontSize: 15.5,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
-  badge: {
+  statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 12,
   },
-  badgeText: {
-    fontSize: 11.5,
+  statusBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
   },
-  cardSectionText: {
-    fontSize: 12.5,
+  locCode: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
     fontWeight: '500',
-    color: PALETTE.textSecondary,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  stockInfoRow: {
+  locStatsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: '#F3EFE9',
   },
-  stockLabel: {
-    fontSize: 12.5,
+  locStatCol: {
+    flex: 1,
+  },
+  locStatLabel: {
+    fontSize: 12,
     color: PALETTE.textSecondary,
+    fontWeight: '500',
+    marginBottom: 4,
   },
-  stockValue: {
-    fontSize: 14,
-    fontWeight: '900',
+  locStatVal: {
+    fontSize: 14.5,
+    fontWeight: '800',
     color: PALETTE.textInk,
   },
 
-  // ─── Bottom Tab Bar ───
+  /* Bottom Tab Bar */
   bottomTabBar: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: PALETTE.tabBorder,
     paddingTop: 8,
-    paddingBottom: 10,
-    paddingHorizontal: 24,
+    paddingBottom: 16,
+    paddingHorizontal: 12,
     justifyContent: 'space-around',
-    alignItems: 'center',
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
-    minWidth: 64,
+    flex: 1,
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
     color: PALETTE.tabInactive,
     marginTop: 3,
   },

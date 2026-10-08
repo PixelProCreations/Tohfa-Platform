@@ -51,7 +51,13 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
 function SlidersIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      {/* Top Slider: horizontal line with vertical tick on the right */}
+      <Path d="M4 8h16" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M15 5v6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+
+      {/* Bottom Slider: horizontal line with vertical tick on the left */}
+      <Path d="M4 16h16" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M9 13v6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }

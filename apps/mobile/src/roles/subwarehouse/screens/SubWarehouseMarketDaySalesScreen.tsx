@@ -392,14 +392,6 @@ export function SubWarehouseMarketDaySalesScreen({
             <Text style={styles.summaryStrongValue}>₹4,650</Text>
           </View>
         </View>
-
-        {/* ─── Notice Banner ─── */}
-        <View style={styles.infoBanner}>
-          <InfoCircleIcon size={16} color={PALETTE.infoBoxText} />
-          <Text style={styles.infoBannerText}>
-            Opening/closing time fields show — only if the API returns them; not invented here.
-          </Text>
-        </View>
       </ScrollView>
 
       {/* ─── Bottom Navigation Bar ─── */}

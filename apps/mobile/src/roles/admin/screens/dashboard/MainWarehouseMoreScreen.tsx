@@ -26,6 +26,7 @@ import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAttendanceScreen } from './MainWarehouseAttendanceScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
+import { SubWarehouseCustomersScreen } from '../../../subwarehouse/screens/SubWarehouseCustomersScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -205,7 +206,19 @@ const OPTION_GROUPS: OptionGroup[] = [
   },
 ];
 
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
+function BackArrowWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -581,6 +594,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 export interface MainWarehouseMoreScreenProps {
   onBack?: (() => void) | undefined;
+  onNavigateToDashboard?: (() => void) | undefined;
   onTabChange?: ((tab: MainWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToProfile?: (() => void) | undefined;
@@ -606,6 +620,7 @@ export interface MainWarehouseMoreScreenProps {
 
 export function MainWarehouseMoreScreen({
   onBack,
+  onNavigateToDashboard,
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
@@ -636,11 +651,22 @@ export function MainWarehouseMoreScreen({
   const [showReturnsScreen, setShowReturnsScreen] = useState(false);
   const [showReturnHistoryScreen, setShowReturnHistoryScreen] = useState(false);
   const [showProfileScreen, setShowProfileScreen] = useState(false);
+
+  const handleBackToDashboard = () => {
+    if (onNavigateToDashboard) {
+      onNavigateToDashboard();
+    } else if (onTabChange) {
+      onTabChange('Home');
+    } else if (onBack) {
+      onBack();
+    }
+  };
   const [showNotificationsScreen, setShowNotificationsScreen] = useState(false);
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
   const [showAdminScreen, setShowAdminScreen] = useState(false);
   const [showCustomerOrdersScreen, setShowCustomerOrdersScreen] = useState(false);
+  const [showCustomersScreen, setShowCustomersScreen] = useState(false);
 
 
   const handleTabPress = (tab: MainWHTab) => {
@@ -670,8 +696,11 @@ export function MainWarehouseMoreScreen({
         else Alert.alert(item.title, 'Opening Direct / Market Sales...');
         break;
       case 'customers':
-        if (onNavigateToCustomers) onNavigateToCustomers();
-        else Alert.alert(item.title, 'Opening Customers Directory...');
+        if (onNavigateToCustomers) {
+          onNavigateToCustomers();
+        } else {
+          setShowCustomersScreen(true);
+        }
         break;
       case 'wallet':
         if (onNavigateToWallet) {
@@ -926,6 +955,14 @@ export function MainWarehouseMoreScreen({
     return <MainWarehouseAttendanceScreen initialView="main" onBack={() => setShowAttendanceScreen(false)} />;
   }
 
+  if (showCustomersScreen) {
+    return (
+      <SubWarehouseCustomersScreen
+        onBack={() => setShowCustomersScreen(false)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -933,21 +970,19 @@ export function MainWarehouseMoreScreen({
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackToDashboard}
+            activeOpacity={0.75}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>More</Text>
             <Text style={styles.headerSubtitle}>Coonoor Warehouse</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => {
-              if (onBack) onBack();
-            }}
-            activeOpacity={0.75}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <CloseIcon size={18} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1097,7 +1132,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   headerTextCol: {
     flex: 1,
@@ -1114,13 +1148,14 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.92)',
     marginTop: 2,
   },
-  closeButton: {
+  backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   scroll: {
     flex: 1,

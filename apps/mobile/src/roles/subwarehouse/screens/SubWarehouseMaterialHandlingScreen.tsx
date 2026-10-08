@@ -13,17 +13,18 @@ import Svg, { Path, Circle, Rect, Polyline } from 'react-native-svg';
 
 const PALETTE = {
   primary: '#F0562A',
-  pageBg: '#F7F5F0',
+  primaryDark: '#7A2E14',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EBE5DC',
-  greenBadgeBg: '#E8F5E9',
-  greenBadgeText: '#064E3B',
-  redBadgeBg: '#FEE2E2',
-  redBadgeText: '#991B1B',
-  activePillBg: '#E88B5A',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  greenBadgeBg: '#EAF3DE',
+  greenBadgeText: '#173404',
+  redBadgeBg: '#FCEBEB',
+  redBadgeText: '#E24B4A',
+  activePillBg: '#F0562A',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {

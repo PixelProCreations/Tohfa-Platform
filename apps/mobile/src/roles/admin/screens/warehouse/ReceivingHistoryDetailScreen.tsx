@@ -98,6 +98,7 @@ function TruckIcon({ size = 22, color = PALETTE.primary }: { size?: number; colo
 
 export interface ReceivingHistoryDetailScreenProps {
   receiptId?: string;
+  grnId?: string;
   shipmentId?: string;
   warehouseName?: string;
   result?: string;

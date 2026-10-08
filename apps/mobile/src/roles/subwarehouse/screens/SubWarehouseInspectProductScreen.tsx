@@ -216,23 +216,6 @@ export function SubWarehouseInspectProductScreen({
 
           <Text style={styles.savedTitle}>Inspection Saved</Text>
           <Text style={styles.savedSubtitle}>RMA is ready for review.</Text>
-
-          {/* Blue Server Info Box */}
-          <View style={styles.blueServerBox}>
-            <ServerIcon size={16} color="#2563EB" />
-            <Text style={styles.blueServerText}>
-              Inspection completion is server-confirmed — the RMA is never locally marked as inspected if the server rejects the mutation.
-            </Text>
-          </View>
-
-          {/* Simulate error button */}
-          <TouchableOpacity
-            style={styles.simulateErrorBtn}
-            onPress={handleSimulateError}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.simulateErrorText}>Simulate save error (demo)</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Sticky Bottom: Continue Review */}
@@ -486,43 +469,8 @@ export function SubWarehouseInspectProductScreen({
               Please check your connection and try again.
             </Text>
 
-            {/* Blue Server Info Box */}
-            <View style={styles.blueServerBox}>
-              <ServerIcon size={16} color="#2563EB" />
-              <Text style={styles.blueServerText}>
-                Inspection completion is server-confirmed — the RMA is never locally marked as inspected if the server rejects the mutation.
-              </Text>
-            </View>
-
-            {/* Simulate error button (demo) */}
-            <TouchableOpacity
-              style={styles.simulateErrorBtnOutlined}
-              onPress={handleSimulateError}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.simulateErrorTextOutlined}>Simulate save error (demo)</Text>
-            </TouchableOpacity>
           </View>
-        ) : (
-          <>
-            {/* Blue Server Info Box */}
-            <View style={styles.blueServerBox}>
-              <ServerIcon size={16} color="#2563EB" />
-              <Text style={styles.blueServerText}>
-                Inspection completion is server-confirmed — the RMA is never locally marked as inspected if the server rejects the mutation.
-              </Text>
-            </View>
-
-            {/* Simulate error button */}
-            <TouchableOpacity
-              style={styles.simulateErrorBtn}
-              onPress={handleSimulateError}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.simulateErrorText}>Simulate save error (demo)</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        ) : null}
 
         <View style={{ height: 28 }} />
       </ScrollView>

@@ -8,23 +8,28 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 
+// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
   primary: '#F0562A',
-  pageBg: '#F7F5F0',
+  pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
   textInk: '#1E1612',
   textSecondary: '#7A726C',
   textMuted: '#9E9690',
   border: '#EBE5DC',
-  redBadgeBg: '#FEE2E2',
-  redBadgeText: '#991B1B',
-  infoBg: '#FEF3C7',
-  infoText: '#B45309',
+
+  alertBg: '#FEF2F2',
+  alertBorder: '#FCA5A5',
+  alertText: '#DC2626',
+
+  pillBg: '#1F2937',
+  pillText: '#FFFFFF',
 };
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -38,166 +43,187 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
   );
 }
 
-function LockIcon({ size = 16, color = PALETTE.infoText }) {
+function LockIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2.2" />
+      <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function BoxOutlineIcon({ color = PALETTE.primary }) {
+function WarningTriangleIcon({ size = 18, color = PALETTE.alertText }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2L1 21h22L12 2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 9v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 17h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function BoxIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
       <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function ClockOutlineIcon({ color = PALETTE.primary }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M12 6v6l4 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 export interface SubWarehouseStorageLocationDetailScreenProps {
-  locationId: string;
+  locationId?: string;
+  warehouseName?: string;
   onBack: () => void;
   onViewStock?: () => void;
   onViewActivity?: () => void;
 }
 
 export function SubWarehouseStorageLocationDetailScreen({
-  locationId,
+  locationId = 'CS-A01',
+  warehouseName = 'Coonoor Warehouse',
   onBack,
   onViewStock,
   onViewActivity,
-}: SubWarehouseStorageLocationDetailScreenProps) {
+}: SubWarehouseStorageLocationDetailScreenProps): React.JSX.Element {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-      
+
       {/* ─── Header ─── */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <ArrowBackIcon size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rack 02 · Shelf 03</Text>
-        <View style={styles.headerBadge}>
-          <Text style={styles.headerBadgeText}>Occupied</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.75}
+            accessibilityLabel="Back"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Storage Location</Text>
+        </View>
+
+        {/* Warehouse Pill Chip */}
+        <View style={styles.warehousePill}>
+          <LockIcon size={13} color="#FFFFFF" />
+          <Text style={styles.warehousePillText}>{warehouseName}</Text>
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        
-        {/* ─── Location Information ─── */}
-        <Text style={styles.sectionTitle}>Location Information</Text>
-        <View style={styles.card}>
-          <View style={styles.rowTwoCol}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Location ID</Text>
-              <Text style={styles.value}>LOC-COO-A02-S03</Text>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ─── Location Header Title ─── */}
+        <Text style={styles.locationTitle}>Cold Storage A — CS-A01</Text>
+
+        {/* ─── 1. Metrics Card ─── */}
+        <View style={styles.metricsCard}>
+          <View style={styles.metricsRow}>
+            <View style={styles.metricCol}>
+              <Text style={styles.metricLabel}>Status</Text>
+              <Text style={styles.metricValue}>Active</Text>
             </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Storage Type</Text>
-              <Text style={styles.value}>Cold Storage</Text>
-            </View>
-          </View>
-          <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Section</Text>
-              <Text style={styles.value}>A</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Rack</Text>
-              <Text style={styles.value}>02</Text>
+            <View style={styles.metricCol}>
+              <Text style={styles.metricLabel}>Capacity</Text>
+              <Text style={styles.metricValue}>2,000 kg</Text>
             </View>
           </View>
-          <View style={[styles.rowTwoCol, { marginTop: 16 }]}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Shelf</Text>
-              <Text style={styles.value}>03</Text>
+
+          <View style={[styles.metricsRow, { marginTop: 16 }]}>
+            <View style={styles.metricCol}>
+              <Text style={styles.metricLabel}>Current Occupancy</Text>
+              <Text style={styles.metricValue}>1,850 kg</Text>
+            </View>
+            <View style={styles.metricCol}>
+              <Text style={styles.metricLabel}>Available</Text>
+              <Text style={styles.metricValue}>150 kg</Text>
             </View>
           </View>
         </View>
 
-        {/* ─── Occupancy ─── */}
-        <Text style={styles.sectionTitle}>Occupancy</Text>
-        <View style={styles.card}>
-          <View style={styles.occupancyHeader}>
-            <Text style={styles.value}>Current</Text>
-            <Text style={[styles.value, { color: PALETTE.primary }]}>68%</Text>
+        {/* ─── 2. Storage Capacity Alert Box ─── */}
+        <View style={styles.alertBox}>
+          <View style={styles.alertIconCol}>
+            <WarningTriangleIcon size={18} color={PALETTE.alertText} />
           </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '68%' }]} />
-          </View>
-          <View style={styles.rowTwoCol}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Capacity</Text>
-              <Text style={styles.value}>500 KG</Text>
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Available</Text>
-              <Text style={styles.value}>160 KG</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Stored Stock ─── */}
-        <Text style={styles.sectionTitle}>Stored Stock</Text>
-        <View style={styles.stockCard}>
-          <View>
-            <Text style={styles.value}>Tomato</Text>
-            <Text style={styles.label}>Grade 1</Text>
-          </View>
-          <Text style={styles.value}>140 KG</Text>
-        </View>
-        <View style={styles.stockCard}>
-          <View>
-            <Text style={styles.value}>Carrot</Text>
-            <Text style={styles.label}>Grade 1</Text>
-          </View>
-          <Text style={styles.value}>80 KG</Text>
-        </View>
-
-        {/* ─── Actions ─── */}
-        <Text style={styles.sectionTitle}>Actions</Text>
-        <TouchableOpacity style={styles.actionBtn} onPress={onViewStock} activeOpacity={0.75}>
-          <BoxOutlineIcon color={PALETTE.primary} />
-          <Text style={styles.actionBtnText}>View Stock</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={onViewActivity} activeOpacity={0.75}>
-          <ClockOutlineIcon color={PALETTE.primary} />
-          <Text style={styles.actionBtnText}>View Activity</Text>
-        </TouchableOpacity>
-
-        {/* ─── Info Notice ─── */}
-        <View style={styles.infoNotice}>
-          <LockIcon />
-          <Text style={styles.infoNoticeText}>
-            SWA views this location's stock and activity here — this is a deep-link into inventory data, not a second stock-editing system.
+          <Text style={styles.alertText}>
+            Storage Capacity Alert — Cold Storage A is nearing its configured capacity. Current 1,850 kg of 2,000 kg. This is informational only.
           </Text>
         </View>
 
+        {/* ─── 3. Location Usage Section ─── */}
+        <Text style={styles.sectionTitle}>Location Usage</Text>
+        <View style={styles.usageCard}>
+          <View style={styles.usageRow}>
+            <Text style={styles.cropName}>Carrot</Text>
+            <Text style={styles.cropQty}>420 kg</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.usageRow}>
+            <Text style={styles.cropName}>Cabbage</Text>
+            <Text style={styles.cropQty}>320 kg</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.usageRow}>
+            <Text style={styles.cropName}>Beans</Text>
+            <Text style={styles.cropQty}>210 kg</Text>
+          </View>
+        </View>
+
+        {/* ─── 4. View Stock Action Button ─── */}
+        <TouchableOpacity
+          style={styles.viewStockBtn}
+          onPress={onViewStock}
+          activeOpacity={0.8}
+        >
+          <BoxIcon size={20} color="#FFFFFF" />
+          <Text style={styles.viewStockBtnText}>View Stock</Text>
+        </TouchableOpacity>
+
+        {/* ─── 5. Deep-links Annotation Tag ─── */}
+        <View style={styles.annotationWrap}>
+          <View style={styles.annotationPill}>
+            <Text style={styles.annotationText}>
+              Deep-links into Inventory & Stock — Module 3
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PALETTE.primary },
+  root: {
+    flex: 1,
+    backgroundColor: PALETTE.primary,
+  },
   header: {
     backgroundColor: PALETTE.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 20,
+    paddingBottom: 16,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   backBtn: {
@@ -206,21 +232,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     color: '#FFFFFF',
-    flex: 1,
   },
-  headerBadge: {
-    backgroundColor: PALETTE.redBadgeBg,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+  warehousePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginLeft: 44,
+    marginTop: 6,
+    gap: 6,
   },
-  headerBadgeText: {
-    color: PALETTE.redBadgeText,
-    fontWeight: '700',
+  warehousePillText: {
+    color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '700',
   },
 
   scroll: {
@@ -229,102 +260,140 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
 
-  sectionTitle: {
-    fontSize: 16,
+  locationTitle: {
+    fontSize: 15.5,
     fontWeight: '800',
     color: PALETTE.textInk,
-    marginTop: 8,
     marginBottom: 12,
+    marginTop: 4,
   },
-  card: {
+
+  /* Metrics Card */
+  metricsCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 16,
     marginBottom: 16,
   },
-  rowTwoCol: {
+  metricsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  col: {
+  metricCol: {
     flex: 1,
   },
-  label: {
-    fontSize: 13,
+  metricLabel: {
+    fontSize: 12.5,
+    fontWeight: '500',
     color: PALETTE.textSecondary,
     marginBottom: 4,
   },
-  value: {
+  metricValue: {
     fontSize: 15,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
-  
-  occupancyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  progressBarBg: {
-    height: 12,
-    backgroundColor: '#F3EFE9',
-    borderRadius: 6,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: PALETTE.primary,
-    borderRadius: 6,
-  },
 
-  stockCard: {
-    backgroundColor: PALETTE.cardBg,
+  /* Alert Box */
+  alertBox: {
+    backgroundColor: PALETTE.alertBg,
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: PALETTE.alertBorder,
+    padding: 14,
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  alertIconCol: {
+    marginTop: 2,
+  },
+  alertText: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: PALETTE.alertText,
+    fontWeight: '500',
+  },
+
+  /* Location Usage Section */
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginBottom: 10,
+  },
+  usageCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 16,
-    marginBottom: 12,
+    marginBottom: 20,
+  },
+  usageRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 14,
+  },
+  cropName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: PALETTE.textInk,
+  },
+  cropQty: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3EFE9',
   },
 
-  actionBtn: {
+  /* View Stock Button */
+  viewStockBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.primary,
+    backgroundColor: PALETTE.primary,
     borderRadius: 12,
     paddingVertical: 14,
-    marginBottom: 12,
-    gap: 8,
+    gap: 10,
+    marginBottom: 32,
+    shadowColor: PALETTE.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  actionBtnText: {
-    color: PALETTE.primary,
-    fontSize: 16,
-    fontWeight: '700',
+  viewStockBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 
-  infoNotice: {
-    flexDirection: 'row',
-    backgroundColor: PALETTE.infoBg,
-    padding: 16,
-    borderRadius: 12,
+  /* Deep-links Annotation Pill */
+  annotationWrap: {
+    alignItems: 'center',
     marginTop: 8,
-    gap: 12,
-    alignItems: 'flex-start',
   },
-  infoNoticeText: {
-    flex: 1,
-    color: PALETTE.infoText,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
+  annotationPill: {
+    backgroundColor: PALETTE.pillBg,
+    borderRadius: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+  },
+  annotationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PALETTE.pillText,
   },
 });

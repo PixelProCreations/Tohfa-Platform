@@ -11,29 +11,29 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary: '#F0562A',
+  primaryDark: '#7A2E14',
+  primaryLight: '#FDF3F0',
+  primarySoft: '#FDF3F0',
+  primaryBorder: '#EEDCD3',
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg: '#F3EFE9',
+  cardBg: '#FFFFFF',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  divider: '#EEDCD3',
 
-  infoBg:        '#EBF5FF',
-  infoBorder:    '#BAE6FD',
-  infoText:      '#0369A1',
+  infoBg: '#E6F1FB',
+  infoBorder: '#EEDCD3',
+  infoText: '#0C447C',
 
-  stepperBg:     '#F7EFE9',
-  stepperBtnBg:  '#F0E3D8',
-  redText:       '#DC2626',
+  stepperBg: '#FDF3F0',
+  stepperBtnBg: '#EEDCD3',
+  redText: '#E24B4A',
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -142,13 +142,6 @@ export function SubWarehouseSaleSummaryScreen({
   const gst = 0;
   const total = subtotal - discount + gst;
 
-  const handleSimulateStockChange = () => {
-    Alert.alert(
-      'Stock Verified',
-      'Simulated backend check: Tomato batch GR-1024 has 48 KG available. Price verified at ₹100/KG.'
-    );
-  };
-
   const handleContinue = () => {
     if (onContinueToCustomer) {
       onContinueToCustomer();
@@ -193,7 +186,27 @@ export function SubWarehouseSaleSummaryScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Sale Items ─── */}
+        {/* ─── 1. Sale Market ─── */}
+        <Text style={styles.sectionHeading}>Sale Market</Text>
+        <View style={styles.card}>
+          <View style={styles.marketRow}>
+            <View style={{ flex: 1.3, paddingRight: 8 }}>
+              <Text style={styles.marketLabel}>Company Name</Text>
+              <Text style={styles.marketValue}>Nilgiri Fresh Traders Pvt Ltd</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.marketLabel}>PO Number</Text>
+              <Text style={styles.marketValue}>PO-2026-0842</Text>
+            </View>
+          </View>
+
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.marketLabel}>Credit Terms</Text>
+            <Text style={styles.marketValue}>Net 15 days</Text>
+          </View>
+        </View>
+
+        {/* ─── 2. Sale Items ─── */}
         <Text style={styles.sectionHeading}>Sale Items</Text>
         <View style={styles.card}>
           {cartItems.map((item, idx) => {
@@ -255,7 +268,7 @@ export function SubWarehouseSaleSummaryScreen({
           )}
         </View>
 
-        {/* ─── 2. Price Breakdown ─── */}
+        {/* ─── 3. Price Breakdown ─── */}
         <Text style={styles.sectionHeading}>Price Breakdown</Text>
         <View style={styles.card}>
           <View style={styles.breakdownRow}>
@@ -278,36 +291,6 @@ export function SubWarehouseSaleSummaryScreen({
             <Text style={styles.totalValue}>₹{total}</Text>
           </View>
         </View>
-
-        {/* ─── 3. Customer ─── */}
-        <Text style={styles.sectionHeading}>Customer</Text>
-        <View style={styles.card}>
-          <Text style={styles.customerName}>Rajesh Kumar</Text>
-          <Text style={styles.customerCode}>CUS-00291</Text>
-        </View>
-
-        {/* ─── 4. Sale Channel ─── */}
-        <Text style={styles.sectionHeading}>Sale Channel</Text>
-        <View style={styles.card}>
-          <Text style={styles.channelText}>Direct Customer</Text>
-        </View>
-
-        {/* ─── Informational Banner ─── */}
-        <View style={styles.infoBanner}>
-          <ShieldCheckIcon size={18} color={PALETTE.infoText} />
-          <Text style={styles.infoBannerText}>
-            Before continuing, the backend re-confirms product existence, active status, available quantity, current price, and warehouse scope.
-          </Text>
-        </View>
-
-        {/* ─── Simulate Stock Demo Button ─── */}
-        <TouchableOpacity
-          style={styles.simulateBtn}
-          onPress={handleSimulateStockChange}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.simulateBtnText}>Simulate stock change (demo)</Text>
-        </TouchableOpacity>
 
         <View style={{ height: 16 }} />
       </ScrollView>
@@ -475,21 +458,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.textInk,
   },
-  customerName: {
-    fontSize: 13,
+  marketRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  marketLabel: {
+    fontSize: 12,
     fontWeight: '500',
     color: PALETTE.textSecondary,
-    marginBottom: 3,
+    marginBottom: 4,
   },
-  customerCode: {
-    fontSize: 16,
+  marketValue: {
+    fontSize: 14,
     fontWeight: '800',
     color: PALETTE.textInk,
-  },
-  channelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: PALETTE.textInk,
+    lineHeight: 19,
   },
   infoBanner: {
     flexDirection: 'row',
@@ -510,22 +493,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: PALETTE.infoText,
     lineHeight: 17,
-  },
-  simulateBtn: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: PALETTE.primary,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  simulateBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8B420F',
   },
   bottomBar: {
     paddingHorizontal: 16,

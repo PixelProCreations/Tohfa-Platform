@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { ORDERS_THEME } from './theme';
-import { SWABottomNav } from '../components/SWABottomNav';
+import { SWA_TYPOGRAPHY } from '../constants';
 
 interface M5S15Props {
   orderId?: string;
@@ -32,6 +32,8 @@ function BackArrowWhiteIcon() {
     </Svg>
   );
 }
+
+
 
 function TimelineGreenNode() {
   return (
@@ -59,80 +61,92 @@ export const M5S15_OrderStatusHistory: React.FC<M5S15Props> = ({
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            activeOpacity={0.7}
-            onPress={onBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <BackArrowWhiteIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Order Status History</Text>
-        </View>
-
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Order Ref Label on Canvas */}
-          <Text style={styles.orderRefLabel}>{orderId}</Text>
-
-          {/* Vertical Timeline */}
-          <View style={styles.timelineContainer}>
-            {steps.map((step, index) => {
-              const isLast = index === steps.length - 1;
-              return (
-                <View key={step.id} style={styles.stepRow}>
-                  {/* Indicator Column */}
-                  <View style={styles.indicatorCol}>
-                    <TimelineGreenNode />
-                    {!isLast && <View style={styles.verticalGreenLine} />}
-                  </View>
-
-                  {/* Text Column - Clicking opens Event Detail */}
-                  <TouchableOpacity
-                    style={styles.textCol}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      onNavigate &&
-                      onNavigate('M5S15B', {
-                        orderId,
-                        eventName: step.title.replace(' ✓', ''),
-                        eventTime: step.time,
-                        eventDate: '24 Sep 2026',
-                        performedBy: 'Warehouse Admin',
-                      })
-                    }
-                  >
-                    <Text style={styles.stepTitle}>{step.title}</Text>
-                    <Text style={styles.stepTime}>{step.time}</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <SafeAreaView style={styles.topSafeArea} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Top Header - Orange Theme matching Image 5 */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              activeOpacity={0.7}
+              onPress={onBack}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Order Status History</Text>
           </View>
 
-          <View style={{ height: 20 }} />
-        </ScrollView>
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Order Ref Label on Canvas */}
+            <Text style={styles.orderRefLabel}>{orderId}</Text>
 
-        {/* Bottom Navigation */}
-        <SWABottomNav
-          activeTab="More"
-          onTabChange={(tab) => {
-            if (tab === 'Home') onBack();
-          }}
-        />
-      </View>
-    </SafeAreaView>
+            {/* Vertical Timeline */}
+            <View style={styles.timelineContainer}>
+              {steps.map((step, index) => {
+                const isLast = index === steps.length - 1;
+                return (
+                  <View key={step.id} style={styles.stepRow}>
+                    {/* Indicator Column */}
+                    <View style={styles.indicatorCol}>
+                      <TimelineGreenNode />
+                      {!isLast && <View style={styles.verticalGreenLine} />}
+                    </View>
+
+                    {/* Text Column - Clicking opens Event Detail */}
+                    <TouchableOpacity
+                      style={styles.textCol}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        onNavigate &&
+                        onNavigate('M5S15B', {
+                          orderId,
+                          eventName: step.title.replace(' ✓', ''),
+                          eventTime: step.time,
+                          eventDate: '24 Sep 2026',
+                          performedBy: 'Warehouse Admin',
+                        })
+                      }
+                    >
+                      <Text style={styles.stepTitle}>{step.title}</Text>
+                      <Text style={styles.stepTime}>{step.time}</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={{ height: 20 }} />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
+  topSafeArea: {
+    flex: 0,
+    backgroundColor: '#F0562A',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
+  topSafeArea: {
+    flex: 0,
+    backgroundColor: '#F0562A',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: ORDERS_THEME.primary,
@@ -142,7 +156,7 @@ const styles = StyleSheet.create({
     backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: ORDERS_THEME.primary,
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

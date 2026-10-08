@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
+import { SubWarehouseHorecaDetailScreen } from './SubWarehouseHorecaDetailScreen';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -290,21 +290,9 @@ export function SubWarehouseHorecaSalesScreen({
 
   if (selectedOrderDetail) {
     return (
-      <SubWarehouseSaleDetailScreen
-        sale={{
-          id: selectedOrderDetail.id,
-          customerName: selectedOrderDetail.businessName,
-          customerCode: selectedOrderDetail.customerCode,
-          channel: 'HORECA Sales',
-          dateText: selectedOrderDetail.dateText,
-          amount: selectedOrderDetail.amount,
-          status: selectedOrderDetail.status,
-          invoiceNo: `INV-${selectedOrderDetail.id.replace('HORECA-', '')}`,
-          paymentMethod: 'Bank Transfer / B2B',
-          items: selectedOrderDetail.items,
-        }}
+      <SubWarehouseHorecaDetailScreen
+        order={selectedOrderDetail}
         onBack={() => setSelectedOrderDetail(null)}
-        onTabChange={handleTabPress}
       />
     );
   }
