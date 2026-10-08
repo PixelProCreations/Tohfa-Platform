@@ -73,7 +73,7 @@ export interface UserMe {
 export type ResolvedAppRole = 'FARMER' | 'CUSTOMER' | 'UNSUPPORTED';
 
 export function resolveAppRole(roles: UserRole[]): ResolvedAppRole {
-  if (roles.some((r) => r.code === 'FARMER' || r.code === 'FARMER_ADMIN')) {
+  if (roles.some((r) => r.code === 'FARMER')) {
     return 'FARMER';
   }
   if (roles.some((r) => r.code === 'CUSTOMER')) {

@@ -368,7 +368,7 @@ export function CreateListingStep2Screen({
           ) : null}
         </View>
 
-        {/* Pricing Info Row */}
+        {/* Fair price ceiling (BR-07) */}
         <View style={styles.pricingRow}>
           <View style={[styles.pricingBox, { backgroundColor: P.lightGreen50, borderColor: P.lightGreen100, borderWidth: 1 }]}>
             <View style={styles.pricingBoxHeaderRow}>
@@ -584,6 +584,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.grey500,
     fontWeight: '500',
+    flexShrink: 1,
   },
   alertBox: {
     flexDirection: 'row',
@@ -626,10 +627,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: P.weatherCloudWhite,
     borderWidth: 1,
-    borderColor: P.green500, // Based on screenshot the quantity input has green border as well
+    borderColor: P.green500,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
+  },
+  inputWrapperError: {
+    borderColor: P.red600,
   },
   input: {
     flex: 1,
@@ -754,9 +758,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.5,
-  },
-  inputWrapperError: {
-    borderColor: P.red700,
   },
   validationErrorText: {
     fontSize: typography.bodySmall,

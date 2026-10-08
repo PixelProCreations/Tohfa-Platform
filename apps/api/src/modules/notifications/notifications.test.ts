@@ -1,4 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Replace only the queue's enqueue so the BR-48 tests can assert which
+// dispatch jobs were (not) queued. Every other test is indifferent to it —
+// handleDomainEvent already treats a failed enqueue as non-fatal.
+vi.mock('../../jobs/queue.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof QueueModule>()),
+  enqueue: vi.fn(async () => undefined),
+}));
+import type * as QueueModule from '../../jobs/queue.js';
+import { enqueue } from '../../jobs/queue.js';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { eventBus } from '../../events/bus.js';
@@ -487,6 +497,142 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
 
       // Customer attempts to mark farmer's notification as read
       await expect(service.markAsRead(customerActor, foreignId)).rejects.toThrow();
+    });
+  });
+
+  describe('BR-48: notification-preference categories gate delivery', () => {
+    /** In-memory stand-in for notification-preferences.repo's isCategoryEnabled. */
+    function preferences(disabled: Array<{ userId: string; category: string }>) {
+      return {
+        isCategoryEnabled: async (_db: Executor, userId: string, category: string) =>
+          !disabled.some((d) => d.userId === userId && d.category === category),
+      };
+    }
+
+    function repoWithCategoryTemplates() {
+      const repo = mockNotificationsRepo();
+      repo.templates.push(
+        {
+          id: '44444444-4444-4444-4444-444444444444',
+          code: 'COUNTER_OFFER_RECEIVED',
+          channel: 'IN_APP',
+          locale: 'en',
+          subject: 'Counter-offer received',
+          body_template: 'TOHFA offered ₹{{offerPrice}} for listing {{listingId}}.',
+          is_active: true,
+        },
+        {
+          id: '55555555-5555-5555-5555-555555555555',
+          code: 'PAYOUT_RELEASED',
+          channel: 'IN_APP',
+          locale: 'en',
+          subject: 'Payout released',
+          body_template: '₹{{amount}} released, ref {{reference}}.',
+          is_active: true,
+        },
+        {
+          id: '66666666-6666-6666-6666-666666666666',
+          code: 'COUNTER_OFFER_RECEIVED',
+          channel: 'SMS',
+          locale: 'en',
+          subject: null,
+          body_template: 'TOHFA counter-offer: ₹{{offerPrice}} for {{listingId}}.',
+          is_active: true,
+        },
+        {
+          id: '77777777-7777-7777-7777-777777777777',
+          code: 'PAYOUT_RELEASED',
+          channel: 'SMS',
+          locale: 'en',
+          subject: null,
+          body_template: 'TOHFA payout ₹{{amount}} released, ref {{reference}}.',
+          is_active: true,
+        },
+      );
+      return repo;
+    }
+
+    const channels = (repo: { notifications: NotificationRow[] }) =>
+      repo.notifications.map((n) => n.channel).sort();
+    const enqueuedChannels = () =>
+      vi
+        .mocked(enqueue)
+        .mock.calls.map(([, payload]) => (payload as { channel: string }).channel)
+        .sort();
+
+    beforeEach(() => {
+      vi.mocked(enqueue).mockClear();
+    });
+
+    const counterOffer = {
+      userId: IDS.userFarmer,
+      listingId: 'LIST-1',
+      offerPrice: '40.00',
+      originalPrice: '45.00',
+    };
+    const payout = { userId: IDS.userFarmer, payoutId: 'PAY-1', amount: '900.00', reference: 'UTR-1' };
+
+    it('BR-48: a disabled MARKETING category skips only the PUSH row and dispatch for counter_offer.received; IN_APP and SMS are still created', async () => {
+      const repo = repoWithCategoryTemplates();
+      const service = createNotificationsService(
+        repo,
+        preferences([{ userId: IDS.userFarmer, category: 'MARKETING' }]),
+      );
+
+      const res = await service.handleDomainEvent('counter_offer.received', counterOffer);
+
+      expect(res?.channel).toBe('IN_APP');
+      expect(channels(repo)).toEqual(['IN_APP', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['SMS']);
+    });
+
+    it('BR-48: a disabled PAYROLL category skips only the PUSH row and dispatch for payout.released; IN_APP and SMS are still created', async () => {
+      const repo = repoWithCategoryTemplates();
+      const service = createNotificationsService(
+        repo,
+        preferences([{ userId: IDS.userFarmer, category: 'PAYROLL' }]),
+      );
+
+      const res = await service.handleDomainEvent('payout.released', payout);
+
+      expect(res?.channel).toBe('IN_APP');
+      expect(channels(repo)).toEqual(['IN_APP', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['SMS']);
+    });
+
+    it('BR-48: an enabled category still delivers, and a disabled one only affects its own user and events', async () => {
+      const repo = repoWithCategoryTemplates();
+      const service = createNotificationsService(
+        repo,
+        // MARKETING off for a DIFFERENT user; PAYROLL off for this user.
+        preferences([
+          { userId: IDS.customer, category: 'MARKETING' },
+          { userId: IDS.userFarmer, category: 'PAYROLL' },
+        ]),
+      );
+
+      const res = await service.handleDomainEvent('counter_offer.received', counterOffer);
+
+      expect(res).not.toBeNull();
+      expect(channels(repo)).toEqual(['IN_APP', 'PUSH', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['PUSH', 'SMS']);
+    });
+
+    it('BR-48: events with no category mapping stay always-on even when every category is disabled', async () => {
+      const repo = repoWithCategoryTemplates();
+      const allOff = ['WEATHER', 'FARM', 'MARKETING', 'PAYROLL', 'COMMUNITY'].map((category) => ({
+        userId: IDS.userFarmer,
+        category,
+      }));
+      const service = createNotificationsService(repo, preferences(allOff));
+
+      const res = await service.handleDomainEvent('farmer.application.approved', {
+        userId: IDS.userFarmer,
+        applicationId: 'APP-1001',
+        tohfaFarmerId: 'TOHFA-F-2026-0001',
+      });
+
+      expect(res).not.toBeNull();
     });
   });
 

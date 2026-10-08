@@ -256,6 +256,7 @@ export function CounterOfferScreen({
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
 
+
         {/* Header */}
         {header}
 
@@ -578,44 +579,6 @@ const styles = StyleSheet.create({
     color: P.greyDeep1,
     lineHeight: 20,
   },
-  boldText: {
-    fontWeight: '700',
-    color: P.grey800,
-  },
-  photoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.weatherCloudWhite,
-    borderWidth: 1,
-    borderColor: P.borderLight,
-    borderRadius: 12,
-    padding: 12,
-  },
-  photoIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: P.grey100,
-    borderWidth: 1.5,
-    borderColor: P.grey300,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  photoTextContainer: {
-    flex: 1,
-  },
-  photoTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.grey900,
-    marginBottom: 2,
-  },
-  photoSubtitle: {
-    fontSize: typography.bodySmall,
-    color: P.grey500,
-  },
   bottomBar: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -693,4 +656,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

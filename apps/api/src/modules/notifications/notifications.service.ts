@@ -9,6 +9,14 @@ import {
   type NotificationsRepo,
 } from './notifications.repo.js';
 import type { ListNotificationsQuery } from './notifications.schema.js';
+// Read-only, pool-level lookup from a sibling module's repo (not its routes or
+// service), so there is no import cycle and no layering inversion: the
+// dispatcher only needs "is this category on for this user".
+import {
+  notificationPreferencesRepo,
+  type NotificationPreferencesRepo,
+} from '../notification-preferences/notification-preferences.repo.js';
+import type { NotificationCategory } from '../notification-preferences/notification-preferences.schema.js';
 
 export const EVENT_TEMPLATE_MAP: Record<DomainEventName, string> = {
   'farmer.application.approved': 'FARMER_APP_APPROVED',
@@ -23,6 +31,22 @@ export const EVENT_TEMPLATE_MAP: Record<DomainEventName, string> = {
   'order.delivered': 'ORDER_DELIVERED',
   'wallet.credited': 'WALLET_CREDITED',
 };
+
+/**
+ * BR-48: which Settings notification category (farmer app screen 73) gates
+ * each event. Only events that genuinely belong to a category are listed;
+ * every other event (application status, goods received, customer orders) is
+ * always-on and never consults preferences. WEATHER, FARM and COMMUNITY have
+ * no producing events yet, so they have no entries here.
+ */
+export const EVENT_CATEGORY_MAP: Partial<Record<DomainEventName, NotificationCategory>> = {
+  'counter_offer.received': 'MARKETING',
+  'counter_offer.expiring': 'MARKETING',
+  'payout.released': 'PAYROLL',
+  'wallet.credited': 'PAYROLL',
+};
+
+export type CategoryPreferenceLookup = Pick<NotificationPreferencesRepo, 'isCategoryEnabled'>;
 
 export function interpolateTemplate(template: string, data: Record<string, unknown>): string {
   return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
@@ -61,6 +85,7 @@ export interface NotificationsService {
 
 export function createNotificationsService(
   repo: NotificationsRepo = notificationsRepo,
+  preferences: CategoryPreferenceLookup = notificationPreferencesRepo,
 ): NotificationsService {
   return {
     async listMyNotifications(actor, query) {
@@ -121,6 +146,14 @@ export function createNotificationsService(
       const userId = (payload as { userId?: string }).userId;
       if (!userId) return null;
 
+      // BR-48: a category the user switched off suppresses the PUSH alert only
+      // (screen-73 spec: "stops push alerts for that category only"). The
+      // IN_APP row that feeds the Notifications Center and the SMS row are
+      // still created, so badges and history elsewhere stay untouched.
+      const category = EVENT_CATEGORY_MAP[eventName];
+      const pushSuppressed =
+        category !== undefined && !(await preferences.isCategoryEnabled(pool, userId, category));
+
       const locale = await repo.getUserPreferredLocale(pool, userId);
       const template = await repo.findTemplate(pool, templateCode, 'IN_APP', locale);
 
@@ -160,38 +193,46 @@ export function createNotificationsService(
         dedupeKey: `in_app:${dedupeKey}`,
       });
 
-      // 2. Queue Push Notification (if device tokens or push template exist)
-      try {
-        const pushTemplate = (await repo.findTemplate(pool, templateCode, 'PUSH', locale)) ?? template;
-        const pushTitle = pushTemplate.subject ? interpolateTemplate(pushTemplate.subject, rawData) : title;
-        const pushBody = interpolateTemplate(pushTemplate.body_template, rawData);
+      // 2. Queue Push Notification (if device tokens or push template exist),
+      //    unless the user disabled this event's category (BR-48).
+      if (pushSuppressed) {
+        logger.debug(
+          { eventName, category, userId },
+          'notification category disabled by user preference; skipping push',
+        );
+      } else {
+        try {
+          const pushTemplate = (await repo.findTemplate(pool, templateCode, 'PUSH', locale)) ?? template;
+          const pushTitle = pushTemplate.subject ? interpolateTemplate(pushTemplate.subject, rawData) : title;
+          const pushBody = interpolateTemplate(pushTemplate.body_template, rawData);
 
-        const pushRow = await repo.createNotification(pool, {
-          userId,
-          templateId: pushTemplate.id,
-          channel: 'PUSH',
-          title: pushTitle,
-          body: pushBody,
-          locale: pushTemplate.locale,
-          data: rawData,
-          dedupeKey: `push:${dedupeKey}`,
-        });
-
-        if (pushRow) {
-          await enqueue('notification-dispatch', {
-            notificationId: pushRow.id,
-            channel: 'PUSH',
+          const pushRow = await repo.createNotification(pool, {
             userId,
-            templateCode,
+            templateId: pushTemplate.id,
+            channel: 'PUSH',
             title: pushTitle,
             body: pushBody,
             locale: pushTemplate.locale,
             data: rawData,
             dedupeKey: `push:${dedupeKey}`,
           });
+
+          if (pushRow) {
+            await enqueue('notification-dispatch', {
+              notificationId: pushRow.id,
+              channel: 'PUSH',
+              userId,
+              templateCode,
+              title: pushTitle,
+              body: pushBody,
+              locale: pushTemplate.locale,
+              data: rawData,
+              dedupeKey: `push:${dedupeKey}`,
+            });
+          }
+        } catch (err) {
+          logger.warn({ err, userId, eventName }, 'failed to queue push notification dispatch job');
         }
-      } catch (err) {
-        logger.warn({ err, userId, eventName }, 'failed to queue push notification dispatch job');
       }
 
       // 3. Queue SMS Notification (if SMS template exists or transaction alert)

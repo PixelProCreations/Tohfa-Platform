@@ -953,6 +953,25 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-48 — A disabled notification category suppresses push alerts for its mapped events
+| | |
+|---|---|
+| **Source** | Farmer app design spec, Settings Landing (screen 73, `TOHFA_Screens_73-75_Settings_Spec.pdf`) — five independent notification category toggles; "Turning a notification category off stops push alerts for that category only — the underlying reminders, badges, and due-dates elsewhere in the app are untouched." Product decision 2026-10-05 for the event-to-category mapping |
+| **Status** | DERIVED |
+| **Layer** | Database, `db/migrations/0027_notification_preferences.sql` (sparse `notification_preferences`, no row = enabled); server-side gate on the PUSH branch of `handleDomainEvent` in `apps/api/src/modules/notifications/notifications.service.ts` (`EVENT_CATEGORY_MAP`); API `GET /notification-preferences`, `PATCH /notification-preferences/{category}` under `notification.own.view` |
+| **Scope** | Track 1 |
+
+**Rule.** Each user holds one preference per category — `WEATHER`, `FARM`, `MARKETING`, `PAYROLL`, `COMMUNITY` — defaulting to enabled; a category with no stored row is enabled. When a domain event is mapped to a category and that category is disabled for the event's recipient, `handleDomainEvent` MUST NOT create the PUSH `notifications` row for that event and MUST NOT enqueue its PUSH `notification-dispatch` job. The IN_APP row (which feeds the Notifications Center, its badges and unread count) and the SMS row are created exactly as they would be with the category enabled — the toggle stops push alerts only, as the spec's own copy promises. Mapped today: `counter_offer.received` and `counter_offer.expiring` → `MARKETING`; `payout.released` and `wallet.credited` → `PAYROLL`. Every event that is not mapped (farmer application status, `goods.received`, customer `order.*`) is always pushed and never consults preferences. `WEATHER`, `FARM` and `COMMUNITY` are stored and toggleable but have no producing events yet. A user reads and writes only their own preferences (the user id comes from the resolved scope, never the request). Turning a category off never alters the underlying listing, payout, reminder or due-date it would have announced.
+
+**Failure mode if unenforced.** A farmer who switched Marketing updates off keeps getting counter-offer push alerts, so the toggle is a lie. Over-enforcing is a failure too: suppressing the IN_APP row would silently empty the Notifications Center and its badges for that category, contradicting the sheet's own copy.
+
+**Test contract.**
+- `BR-48a` `notification-preferences.test.ts` — `BR-48: disabling a category is persisted for the caller and reported by the dispatcher lookup`: after `updateMine` the lookup reports the category off for that user only, and `listMine` returns all five with that one disabled.
+- `BR-48b` `notifications.test.ts` — `BR-48: a disabled MARKETING category skips only the PUSH row and dispatch for counter_offer.received; IN_APP and SMS are still created` and the `PAYROLL` / `payout.released` equivalent: the created rows are exactly IN_APP + SMS, and the only dispatch job enqueued is SMS.
+- `BR-48c` `notifications.test.ts` — with the category enabled the same event creates IN_APP + PUSH + SMS and enqueues PUSH + SMS; a disabled category affects only its own user; an unmapped event is delivered even with all five categories disabled.
+
+---
+
 ### BR-48 — Certificate entry is strictly validated; `expiresOn` must lie within `cert_expiry_max_past_days` before and `cert_expiry_max_future_days` after today
 | | |
 |---|---|

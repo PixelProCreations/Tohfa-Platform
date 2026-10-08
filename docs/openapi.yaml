@@ -7938,6 +7938,74 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /notification-preferences:
+    get:
+      tags: [Platform]
+      operationId: listNotificationPreferences
+      summary: Own notification-category preferences
+      description: |
+        Returns the caller's push-notification category toggles (farmer app Settings, screen 73).
+        Always all five categories, in a fixed order; a category the caller has never changed is
+        reported as `enabled: true` (no stored row means enabled). A disabled category suppresses
+        only the PUSH alert for the events mapped to it; the in-app (Notifications Center) and SMS
+        notifications are still created (BR-48). Events that map to no category are unaffected.
+      x-permission: notification.own.view
+      x-business-rules: [BR-48]
+      responses:
+        '200':
+          description: All five category preferences.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    minItems: 5
+                    maxItems: 5
+                    items: { $ref: '#/components/schemas/NotificationPreference' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /notification-preferences/{category}:
+    patch:
+      tags: [Platform]
+      operationId: updateNotificationPreference
+      summary: Turn one notification category on or off
+      description: |
+        Sets the caller's own preference for one category. Idempotent: repeating the same value is
+        a no-op, not an error. An unknown category is a validation failure (422), like any other
+        malformed path parameter.
+      x-permission: notification.own.view
+      x-business-rules: [BR-48]
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/NotificationCategory' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: The stored preference.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreference' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/audit-log:
     get:
       tags: [Platform]
@@ -11938,6 +12006,22 @@ components:
         data: { type: object, additionalProperties: true, description: Deep-link payload. }
         readAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
+
+    NotificationCategory:
+      type: string
+      enum: [WEATHER, FARM, MARKETING, PAYROLL, COMMUNITY]
+      description: |
+        Farmer-app Settings notification categories. WEATHER = frost/heavy rain/heat wave
+        warnings; FARM = fertigation, pest-check, vaccination and deworming reminders;
+        MARKETING = counter-offers and listing status changes; PAYROLL = attendance reminders
+        and payout confirmations; COMMUNITY = Learning Hub posts and new content.
+
+    NotificationPreference:
+      type: object
+      required: [category, enabled]
+      properties:
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        enabled: { type: boolean }
 
     AuditLogEntry:
       type: object

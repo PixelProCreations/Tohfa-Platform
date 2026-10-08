@@ -30,7 +30,7 @@ import { listNotifications } from '../../api/notifications';
 import { listMyAudits, shortMonthKey, type FarmerAuditSummary } from '../../api/audits';
 import { listAllActiveFarmCrops, type ActiveFarmCropsResult } from '../../api/crops';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
-import { t, type TranslationKey } from '../../../../i18n/farmer';
+import { getLocale, t, type TranslationKey } from '../../../../i18n/farmer';
 
 import { authPalette as P, colors, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
@@ -237,9 +237,9 @@ export function DashboardScreen({
   const searchItems = useMemo(() => [
     {
       id: 'produce-calendar',
-      title: 'Produce Calendar',
-      subtitle: '3 crops actively growing · Harvest schedules & due actions',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.produceCalendar.title'),
+      subtitle: t('farmer.dashboard.search.produceCalendar.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'calendar-today',
       iconBg: P.twEmerald100,
       iconColor: P.twGreen800,
@@ -255,9 +255,9 @@ export function DashboardScreen({
     },
     {
       id: 'crops',
-      title: 'Crop Management',
-      subtitle: 'Manage active crops, fields, and zones',
-      category: 'Feature',
+      title: t('farmer.dashboard.menu.cropManagement'),
+      subtitle: t('farmer.dashboard.search.cropManagement.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'eco',
       iconBg: P.paleMintBg,
       iconColor: colors.brandGreen,
@@ -269,9 +269,9 @@ export function DashboardScreen({
     },
     {
       id: 'crop-tomato',
-      title: 'Tomato (Zone A)',
-      subtitle: '62 days old · Harvest in 8 days',
-      category: 'Crop',
+      title: t('farmer.dashboard.search.cropTomato.title'),
+      subtitle: t('farmer.dashboard.search.cropTomato.subtitle'),
+      category: t('farmer.dashboard.search.category.crop'),
       icon: 'agriculture',
       iconBg: P.palePeachBg,
       iconColor: P.deepOrange600,
@@ -283,9 +283,9 @@ export function DashboardScreen({
     },
     {
       id: 'crop-carrot',
-      title: 'Carrot (Zone B)',
-      subtitle: '34 days old · Harvest in 41 days',
-      category: 'Crop',
+      title: t('farmer.dashboard.search.cropCarrot.title'),
+      subtitle: t('farmer.dashboard.search.cropCarrot.subtitle'),
+      category: t('farmer.dashboard.search.category.crop'),
       icon: 'agriculture',
       iconBg: P.paleCreamBg,
       iconColor: P.orange700,
@@ -297,9 +297,9 @@ export function DashboardScreen({
     },
     {
       id: 'certifications',
-      title: 'Certifications',
-      subtitle: 'Organic certification, standards, and renewal status',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.certifications.title'),
+      subtitle: t('farmer.dashboard.search.certifications.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'shield',
       iconBg: P.paleLavenderBg,
       iconColor: P.green700,
@@ -311,9 +311,9 @@ export function DashboardScreen({
     },
     {
       id: 'weather',
-      title: 'Weather & Forecast',
-      subtitle: 'Ooty, Nilgiris · 7-day rain, humidity, temperature',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.weather.title'),
+      subtitle: t('farmer.dashboard.search.weather.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'wb_sunny',
       iconBg: P.amber50,
       iconColor: P.orange500,
@@ -325,9 +325,9 @@ export function DashboardScreen({
     },
     {
       id: 'listings',
-      title: 'Market & Produce Listings',
-      subtitle: 'Browse your listings, buyer bids, and pending counter-offers',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.listings.title'),
+      subtitle: t('farmer.dashboard.search.listings.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'shopping_cart',
       iconBg: P.palePeachBg,
       iconColor: P.deepOrange600,
@@ -339,9 +339,9 @@ export function DashboardScreen({
     },
     {
       id: 'create-listing',
-      title: 'List Produce for Sale',
-      subtitle: 'Post harvested tomatoes, carrots, or vegetables to buyers',
-      category: 'Action',
+      title: t('farmer.dashboard.search.createListing.title'),
+      subtitle: t('farmer.dashboard.search.createListing.subtitle'),
+      category: t('farmer.dashboard.search.category.action'),
       icon: 'assignment',
       iconBg: P.green100,
       iconColor: colors.brandGreen,
@@ -353,9 +353,9 @@ export function DashboardScreen({
     },
     {
       id: 'farm-diary',
-      title: 'Log Farm Diary',
-      subtitle: 'Record daily irrigation, fertilization, pesticide, or harvest activities',
-      category: 'Action',
+      title: t('farmer.dashboard.search.farmDiary.title'),
+      subtitle: t('farmer.dashboard.search.farmDiary.subtitle'),
+      category: t('farmer.dashboard.search.category.action'),
       icon: 'edit_note',
       iconBg: P.paleMintBg,
       iconColor: colors.brandGreen,
@@ -367,9 +367,9 @@ export function DashboardScreen({
     },
     {
       id: 'notifications',
-      title: 'Notifications & Alerts',
-      subtitle: 'Counter-offers, certificate alerts, and market updates',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.notifications.title'),
+      subtitle: t('farmer.dashboard.search.notifications.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'notifications',
       iconBg: P.palePinkBg,
       iconColor: P.red600,
@@ -381,9 +381,9 @@ export function DashboardScreen({
     },
     {
       id: 'profile',
-      title: 'Profile & Farm Details',
-      subtitle: 'Personal info, Aadhaar, bank details, and farm land',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.profile.title'),
+      subtitle: t('farmer.dashboard.search.profile.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'person',
       iconBg: P.paleLavenderBg,
       iconColor: P.violetAccent,
@@ -395,9 +395,9 @@ export function DashboardScreen({
     },
     {
       id: 'wallet',
-      title: 'Wallet & Payouts',
-      subtitle: 'Payment balance, past payouts, and bank settlement',
-      category: 'Feature',
+      title: t('farmer.dashboard.quickActions.wallet'),
+      subtitle: t('farmer.dashboard.search.wallet.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'account_balance_wallet',
       iconBg: P.paleSkyBg,
       iconColor: P.blue700,
@@ -409,9 +409,9 @@ export function DashboardScreen({
     },
     {
       id: 'audits',
-      title: 'Farm Audits & Inspections',
-      subtitle: 'Upcoming inspection in 12 days · Rating 82/100',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.audits.title'),
+      subtitle: t('farmer.dashboard.search.audits.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'calendar_today',
       iconBg: P.paleCreamBg,
       iconColor: P.amber600,
@@ -423,9 +423,9 @@ export function DashboardScreen({
     },
     {
       id: 'inventory',
-      title: 'Inventory & Equipment',
-      subtitle: 'Tractor service due · Seeds, tools, and supplies',
-      category: 'Feature',
+      title: t('farmer.dashboard.search.inventory.title'),
+      subtitle: t('farmer.dashboard.search.inventory.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'inventory_2',
       iconBg: P.paleSkyBg,
       iconColor: P.blue700,
@@ -437,9 +437,9 @@ export function DashboardScreen({
     },
     {
       id: 'calendar',
-      title: 'TOHFA Calendar',
-      subtitle: 'Market day tomorrow · Harvest schedules & reminders',
-      category: 'Feature',
+      title: t('farmer.dashboard.menu.calendar'),
+      subtitle: t('farmer.dashboard.search.tohfaCalendar.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'calendar_month',
       iconBg: P.paleCreamBg,
       iconColor: P.amber600,
@@ -451,9 +451,9 @@ export function DashboardScreen({
     },
     {
       id: 'learning',
-      title: 'Learning Hub',
-      subtitle: '4 new farming tutorials & organic farming guides',
-      category: 'Feature',
+      title: t('farmer.dashboard.menu.learning'),
+      subtitle: t('farmer.dashboard.search.learningHub.subtitle'),
+      category: t('farmer.dashboard.search.category.feature'),
       icon: 'menu_book',
       iconBg: P.palePinkBg,
       iconColor: P.red600,
@@ -465,9 +465,9 @@ export function DashboardScreen({
     },
     {
       id: 'counter-offer',
-      title: 'Counter-Offer: Tomatoes',
-      subtitle: 'Admin offered ₹42/kg · Respond within 24 hours',
-      category: 'Action',
+      title: t('farmer.dashboard.search.counterOffer.title'),
+      subtitle: t('farmer.dashboard.search.counterOffer.subtitle'),
+      category: t('farmer.dashboard.search.category.action'),
       icon: 'warning',
       iconBg: P.palePeachBg,
       iconColor: P.orange900,
@@ -477,7 +477,10 @@ export function DashboardScreen({
         onNavigateToListings?.();
       },
     },
-  ], [onNavigateToFarmManagement, onNavigateToCertifications, onNavigateToWeather, onNavigateToListings, onNavigateToCreateListing, onNavigateToNotifications, onNavigateToProfile, _onNavigateToWallet]);
+    // getLocale() is listed below as a dependency (even though it's a read, not a prop/state
+    // value) so a locale switch invalidates this memo and the t()-derived title/subtitle/
+    // category strings above are recomputed in the new language.
+  ], [onNavigateToFarmManagement, onNavigateToCertifications, onNavigateToWeather, onNavigateToListings, onNavigateToCreateListing, onNavigateToNotifications, onNavigateToProfile, _onNavigateToWallet, getLocale()]);
 
   const filteredSearchItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -491,7 +494,14 @@ export function DashboardScreen({
     );
   }, [searchItems, searchQuery]);
 
-  const popularSearches = ['Tomato', 'Certifications', 'Weather', 'Listings', 'Log Diary', 'Audits'];
+  const popularSearches = [
+    t('farmer.dashboard.crops.tomato'),
+    t('farmer.dashboard.search.certifications.title'),
+    t('farmer.weather.title'),
+    t('farmer.dashboard.search.popular.listings'),
+    t('farmer.dashboard.search.popular.logDiary'),
+    t('farmer.dashboard.search.popular.audits'),
+  ];
 
   // Weather has its own, silent load path: a failed or slow weather call
   // must never block or error out the rest of the dashboard, so it is
@@ -699,10 +709,18 @@ export function DashboardScreen({
   const weatherHumidity = weather
     ? t('farmer.dashboard.weather.humidityValue', { value: Math.round(weather.current.humidityPct) })
     : '—';
-  const weatherWind = weather ? String(Math.round(weather.current.windKph)) : '—';
+  const weatherWind = weather
+    ? t('farmer.dashboard.weather.windValue', { value: Math.round(weather.current.windKph) })
+    : '—';
   const weatherRain = weather
     ? t('farmer.dashboard.weather.rainValue', { value: Math.round(weather.current.precipitationChancePct) })
     : '—';
+  // Honest signal that this isn't the farm's real live data: true whenever
+  // something loaded other than the authenticated per-farm backend call
+  // (provider === 'openweathermap' is the only genuine source -- see
+  // apps/mobile/src/roles/farmer/api/weather.ts). Suppressed while weather
+  // is still null so the '—' placeholders aren't doubly flagged.
+  const isWeatherEstimated = weather != null && weather.provider !== 'openweathermap';
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -827,9 +845,14 @@ export function DashboardScreen({
                   <Text style={styles.temperature}>{weatherTemperature}</Text>
                   <Text style={styles.condition}>{weatherCondition}</Text>
                 </View>
+                {isWeatherEstimated ? (
+                  <Text style={styles.weatherEstimatedLabel}>
+                    {t('farmer.dashboard.weather.estimatedLabel')}
+                  </Text>
+                ) : null}
               </View>
               <TouchableOpacity style={styles.forecastButton} onPress={onNavigateToWeather}>
-                <Text style={styles.forecastText}>7-day {'>'}</Text>
+                <Text style={styles.forecastText}>{t('farmer.dashboard.weather.forecast')} {'>'}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.weatherBottom}>
@@ -841,7 +864,7 @@ export function DashboardScreen({
               <View style={styles.weatherStat}>
                 <Icon name="air" size={14} color={P.blueGrey400} />
                 <Text style={styles.weatherStatValue}> {weatherWind} </Text>
-                <Text style={styles.weatherStatLabel}>km/h</Text>
+                <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.wind')}</Text>
               </View>
               <View style={styles.weatherStat}>
                 <Icon name="rainy" size={14} color={P.blue700} />
@@ -901,14 +924,17 @@ export function DashboardScreen({
           >
             <Icon name="warning" size={24} color={P.orange900} />
             <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Counter-offer received</Text>
+              <Text style={styles.alertTitle}>{t('farmer.dashboard.alerts.counterOfferTitle')}</Text>
               <Text style={styles.alertMessage}>
                 {urgentCounterOffer
-                  ? `Admin offered ₹${urgentCounterOffer.activeCounterOffer?.pricePerKg ?? '42'}/kg for your ${urgentCounterOffer.cropName}. Respond within 24 hours.`
-                  : 'Admin offered ₹42/kg for your produce. Respond within 24 hours.'}
+                  ? t('farmer.dashboard.alerts.counterOfferBody24h', {
+                      price: urgentCounterOffer.activeCounterOffer?.pricePerKg ?? '42',
+                      crop: urgentCounterOffer.cropName,
+                    })
+                  : t('farmer.dashboard.alerts.counterOfferBodyGeneric')}
               </Text>
               <View style={{ marginTop: 4 }}>
-                <Text style={styles.alertAction}>Review offer {'>'}</Text>
+                <Text style={styles.alertAction}>{t('farmer.dashboard.alerts.counterOfferAction')} {'>'}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -966,21 +992,21 @@ export function DashboardScreen({
               onPress={onNavigateToInventory}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Inventory"
+              accessibilityLabel={t('farmer.dashboard.menu.inventory')}
             >
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleSkyBg }]}>
                 <Icon name="inventory_2" size={20} color={P.blue700} />
               </View>
-              <Text style={styles.gridTitle}>Inventory</Text>
-              <Text style={styles.gridSubtitle}>Tractor service due</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.inventory')}</Text>
+              <Text style={styles.gridSubtitle}>{t('farmer.dashboard.menu.inventorySubtitle')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.gridCard} onPress={onNavigateToTohfaCalendar}>
               <View style={[styles.gridIconCircle, { backgroundColor: P.paleCreamBg }]}>
                 <Icon name="calendar_month" size={20} color={P.amber600} />
               </View>
-              <Text style={styles.gridTitle}>TOHFA Calendar</Text>
-              <Text style={styles.gridSubtitle}>Market day tomorrow</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.calendar')}</Text>
+              <Text style={styles.gridSubtitle}>{t('farmer.dashboard.menu.calendarSubtitle')}</Text>
             </TouchableOpacity>
 
             {/* Learning Hub: static design copy -- no learning-content endpoint exists, so the "4" badge and "4 new tutorials" are not real counts. */}
@@ -989,7 +1015,7 @@ export function DashboardScreen({
               onPress={onNavigateToLearningHub}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Learning Hub"
+              accessibilityLabel={t('farmer.dashboard.menu.learning')}
             >
               <View style={[styles.gridIconCircle, { backgroundColor: P.palePinkBg }]}>
                 <Icon name="menu_book" size={20} color={P.red600} />
@@ -997,8 +1023,8 @@ export function DashboardScreen({
               <View style={styles.badgeContainer}>
                 <Text style={styles.badgeText}>4</Text>
               </View>
-              <Text style={styles.gridTitle}>Learning Hub</Text>
-              <Text style={styles.gridSubtitle}>4 new tutorials</Text>
+              <Text style={styles.gridTitle}>{t('farmer.dashboard.menu.learning')}</Text>
+              <Text style={styles.gridSubtitle}>{t('farmer.dashboard.menu.learningSubtitle', { count: 4 })}</Text>
             </TouchableOpacity>
           </View>
 
@@ -1071,25 +1097,25 @@ export function DashboardScreen({
           <View style={styles.actionButtonsRow}>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigateToFarmDiary}>
               <Icon name="edit_note" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>Farm Diary</Text>
+              <Text style={styles.actionButtonText}>{t('farmer.dashboard.quickActions.logDiary')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigateToMyListings}>
               <Icon name="assignment" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>My Listings</Text>
+              <Text style={styles.actionButtonText}>{t('farmer.dashboard.actionButtons.myListings')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigateToAttendance}>
               <Icon name="groups" size={22} color={colors.brandGreen} style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>Attendance</Text>
+              <Text style={styles.actionButtonText}>{t('farmer.dashboard.quickActions.attendance')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Tip of the Day: static design copy -- no tips/content endpoint exists in apps/api or docs/openapi.yaml. */}
           <View style={styles.tipCard}>
             <View style={styles.tipBadge}>
-              <Text style={styles.tipBadgeText}>TIP OF THE DAY</Text>
+              <Text style={styles.tipBadgeText}>{t('farmer.dashboard.tip.badge')}</Text>
             </View>
-            <Text style={styles.tipTitle}>Mulch before the dry spell</Text>
-            <Text style={styles.tipText}>Apply a 5cm layer of straw mulch around tomato beds this week to retain soil moisture as temperatures rise.</Text>
+            <Text style={styles.tipTitle}>{t('farmer.dashboard.tip.title')}</Text>
+            <Text style={styles.tipText}>{t('farmer.dashboard.tip.body')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -1110,7 +1136,7 @@ export function DashboardScreen({
                 style={styles.searchInput}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder={t('farmer.dashboard.header.search') + ' crops, tasks, tools...'}
+                placeholder={`${t('farmer.dashboard.header.search')} ${t('farmer.dashboard.search.placeholderSuffix')}`}
                 placeholderTextColor={P.twGray400}
                 autoFocus={true}
                 returnKeyType="search"
@@ -1119,7 +1145,7 @@ export function DashboardScreen({
                 <TouchableOpacity
                   onPress={() => setSearchQuery('')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel="Clear search"
+                  accessibilityLabel={t('farmer.dashboard.search.clearA11y')}
                 >
                   <Icon name="close" size={18} color={P.twGray500} />
                 </TouchableOpacity>
@@ -1132,16 +1158,16 @@ export function DashboardScreen({
                 setSearchQuery('');
               }}
               accessibilityRole="button"
-              accessibilityLabel="Cancel search"
+              accessibilityLabel={t('farmer.dashboard.search.cancelA11y')}
             >
-              <Text style={styles.searchCancelText}>Cancel</Text>
+              <Text style={styles.searchCancelText}>{t('farmer.common.cancel')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Quick Suggestions when query is empty */}
           {searchQuery.trim().length === 0 && (
             <View style={styles.searchSuggestionsRow}>
-              <Text style={styles.searchSuggestionsLabel}>Popular:</Text>
+              <Text style={styles.searchSuggestionsLabel}>{t('farmer.dashboard.search.popularLabel')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchPillsContainer}>
                 {popularSearches.map((term) => (
                   <TouchableOpacity
@@ -1188,9 +1214,9 @@ export function DashboardScreen({
                 <View style={styles.searchEmptyIconCircle}>
                   <Icon name="search_off" size={36} color={P.twGray400} />
                 </View>
-                <Text style={styles.searchEmptyTitle}>No matching results</Text>
+                <Text style={styles.searchEmptyTitle}>{t('farmer.dashboard.search.emptyTitle')}</Text>
                 <Text style={styles.searchEmptySub}>
-                  We could not find anything matching "{searchQuery}". Try searching for crops, weather, or certifications.
+                  {t('farmer.dashboard.search.emptySubtitle', { query: searchQuery })}
                 </Text>
               </View>
             }
@@ -1377,6 +1403,12 @@ const styles = StyleSheet.create({
   condition: {
     fontSize: typography.bodyLarge,
     color: P.grey600,
+  },
+  weatherEstimatedLabel: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.orange500,
+    marginTop: 2,
   },
   forecastButton: {
     paddingHorizontal: 10,
@@ -1621,6 +1653,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: typography.caption,
     fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
   tipTitle: {
     fontSize: typography.bodyLarge,

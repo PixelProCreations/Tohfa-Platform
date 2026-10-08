@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Alert,
   BackHandler,
-  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -14,21 +12,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
-import { getFarms, getPlots, type Plot } from '../../../api/farms';
-import {
-  listSoilTests,
-  getSoilHealthSummary,
-  listSoilAmendments,
-  listSoilMoisture,
-  listErosionNotes,
-  getCropRotation,
-  type SoilTestRecord,
-  type SoilHealthSummary,
-  type SoilAmendment,
-  type SoilMoisture,
-  type ErosionNote,
-  type CropRotationPlan,
-} from '../../../api/soil';
+import { getFarms, getPlots } from '../../../api/farms';
+import { listSoilTests, type SoilTestRecord } from '../../../api/soil';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -251,21 +236,35 @@ export interface SoilManagementScreenProps {
    * one place in the nav graph that resolves a real farmId (via `getFarms()` on
    * mount) for the whole subtree below it -- see the docblock on the `farmId`
    * state below for why.
+   *
+   * They are required on purpose. This screen used to fall back to an in-place
+   * modal full of sample zones/amendments/readings when a callback was missing,
+   * which showed a farmer invented data as if it were theirs. Making omission a
+   * type error is what keeps that fallback from ever being needed again.
    */
-  onNavigateToSoilTest?: ((farmId: string) => void) | undefined;
-  onNavigateToSoilTestRecords?: ((farmId: string) => void) | undefined;
-  onNavigateToSoilHealthTracker?: ((farmId: string) => void) | undefined;
-  onNavigateToSoilTypeClassification?: ((farmId: string) => void) | undefined;
-  onNavigateToAmendments?: ((farmId: string) => void) | undefined;
-  onNavigateToCropRotation?: ((farmId: string) => void) | undefined;
-  onNavigateToMoistureTracking?: ((farmId: string) => void) | undefined;
-  onNavigateToErosionConservation?: ((farmId: string) => void) | undefined;
-  onNavigateToExportReports?: ((farmId: string) => void) | undefined;
-  onNavigateToNewSoilTest?: ((farmId: string) => void) | undefined;
+  onNavigateToSoilTestRecords: (farmId: string) => void;
+  onNavigateToSoilHealthTracker: (farmId: string) => void;
+  onNavigateToSoilTypeClassification: (farmId: string) => void;
+  onNavigateToAmendments: (farmId: string) => void;
+  onNavigateToCropRotation: (farmId: string) => void;
+  onNavigateToMoistureTracking: (farmId: string) => void;
+  onNavigateToErosionConservation: (farmId: string) => void;
+  onNavigateToExportReports: (farmId: string) => void;
+  onNavigateToNewSoilTest: (farmId: string) => void;
 }
 
+type SoilModuleId =
+  | 'records'
+  | 'health_tracker'
+  | 'classification'
+  | 'amendments'
+  | 'rotation'
+  | 'moisture'
+  | 'erosion'
+  | 'export';
+
 interface SoilModuleItem {
-  id: string;
+  id: SoilModuleId;
   title: string;
   subtitle: string;
   IconComponent: React.ComponentType<{ size?: number; color?: string }>;
@@ -322,9 +321,15 @@ const SOIL_MODULES: SoilModuleItem[] = [
   },
 ];
 
+/**
+ * Shown on a stat card when there is no real test to report. Same convention
+ * as SoilHealthTrackerScreen's EMPTY_READING -- never a plausible sample value.
+ */
+const EMPTY_VALUE = '—';
+
 function formatSinceLastTest(dateStr: string): string {
   const then = new Date(dateStr).getTime();
-  if (Number.isNaN(then)) return '3 wks';
+  if (Number.isNaN(then)) return EMPTY_VALUE;
   const days = Math.max(0, Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24)));
   if (days < 1) return 'today';
   if (days < 14) return `${days} d`;
@@ -340,7 +345,6 @@ function formatSinceLastTest(dateStr: string): string {
 
 export function SoilManagementScreen({
   onBack,
-  onNavigateToSoilTest,
   onNavigateToSoilTestRecords,
   onNavigateToSoilHealthTracker,
   onNavigateToSoilTypeClassification,
@@ -363,17 +367,8 @@ export function SoilManagementScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  // Modal states for interactive detail views
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-
   const [farmId, setFarmId] = useState('');
-  const [plots, setPlots] = useState<Plot[]>([]);
   const [latestTest, setLatestTest] = useState<SoilTestRecord | null>(null);
-  const [healthSummary, setHealthSummary] = useState<SoilHealthSummary | null>(null);
-  const [amendments, setAmendments] = useState<{ amendment: SoilAmendment; plotName: string }[]>([]);
-  const [moistureList, setMoistureList] = useState<{ moisture: SoilMoisture; plotName: string }[]>([]);
-  const [erosionList, setErosionList] = useState<{ note: ErosionNote; plotName: string }[]>([]);
-  const [rotationPlan, setRotationPlan] = useState<CropRotationPlan | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -392,7 +387,6 @@ export function SoilManagementScreen({
 
         const farmPlots = await getPlots(primaryFarmId);
         if (cancelled) return;
-        setPlots(farmPlots);
 
         if (farmPlots.length > 0) {
           // Fetch tests across all plots to find the most recent test
@@ -403,68 +397,9 @@ export function SoilManagementScreen({
           if (!cancelled && allTests.length > 0) {
             setLatestTest(allTests[0] ?? null);
           }
-
-          // Fetch summary and modal fallback data for first plot / all plots
-          const firstPlot = farmPlots[0];
-          if (firstPlot) {
-            void getSoilHealthSummary(primaryFarmId, firstPlot.id)
-              .then((sum) => {
-                if (!cancelled) setHealthSummary(sum);
-              })
-              .catch(() => {});
-
-            void getCropRotation(primaryFarmId, firstPlot.id)
-              .then((rot) => {
-                if (!cancelled) setRotationPlan(rot);
-              })
-              .catch(() => {});
-          }
-
-          // Amendments
-          void Promise.all(
-            farmPlots.map(async (plot) => {
-              const items = await listSoilAmendments(primaryFarmId, plot.id).catch(() => []);
-              return items.map((amendment) => ({ amendment, plotName: plot.name }));
-            }),
-          )
-            .then((res) => {
-              if (!cancelled) {
-                const flat = res.flat().sort((a, b) => (a.amendment.appliedDate < b.amendment.appliedDate ? 1 : -1));
-                setAmendments(flat);
-              }
-            })
-            .catch(() => {});
-
-          // Moisture
-          void Promise.all(
-            farmPlots.map(async (plot) => {
-              const items = await listSoilMoisture(primaryFarmId, plot.id).catch(() => []);
-              const latest = items.sort((a, b) => (a.observedAt < b.observedAt ? 1 : -1))[0];
-              return latest ? [{ moisture: latest, plotName: plot.name }] : [];
-            }),
-          )
-            .then((res) => {
-              if (!cancelled) setMoistureList(res.flat());
-            })
-            .catch(() => {});
-
-          // Erosion
-          void Promise.all(
-            farmPlots.map(async (plot) => {
-              const items = await listErosionNotes(primaryFarmId, plot.id).catch(() => []);
-              return items.map((note) => ({ note, plotName: plot.name }));
-            }),
-          )
-            .then((res) => {
-              if (!cancelled) {
-                const flat = res.flat().sort((a, b) => (a.note.loggedAt < b.note.loggedAt ? 1 : -1));
-                setErosionList(flat);
-              }
-            })
-            .catch(() => {});
         }
       } catch {
-        // Handled gracefully with fallbacks
+        // No real test could be loaded; the stat cards show EMPTY_VALUE.
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -474,72 +409,23 @@ export function SoilManagementScreen({
     };
   }, []);
 
-  const handleModulePress = (id: string) => {
-    if (id === 'records') {
-      if (onNavigateToSoilTestRecords) {
-        onNavigateToSoilTestRecords(farmId);
-      } else if (onNavigateToSoilTest) {
-        onNavigateToSoilTest(farmId);
-      } else {
-        setActiveModal('records');
-      }
-    } else if (id === 'health_tracker') {
-      if (onNavigateToSoilHealthTracker) {
-        onNavigateToSoilHealthTracker(farmId);
-      } else {
-        setActiveModal('health_tracker');
-      }
-    } else if (id === 'classification') {
-      if (onNavigateToSoilTypeClassification) {
-        onNavigateToSoilTypeClassification(farmId);
-      } else {
-        setActiveModal('classification');
-      }
-    } else if (id === 'amendments') {
-      if (onNavigateToAmendments) {
-        onNavigateToAmendments(farmId);
-      } else {
-        setActiveModal('amendments');
-      }
-    } else if (id === 'rotation') {
-      if (onNavigateToCropRotation) {
-        onNavigateToCropRotation(farmId);
-      } else {
-        setActiveModal('rotation');
-      }
-    } else if (id === 'moisture') {
-      if (onNavigateToMoistureTracking) {
-        onNavigateToMoistureTracking(farmId);
-      } else {
-        setActiveModal('moisture');
-      }
-    } else if (id === 'erosion') {
-      if (onNavigateToErosionConservation) {
-        onNavigateToErosionConservation(farmId);
-      } else {
-        setActiveModal('erosion');
-      }
-    } else if (id === 'export') {
-      if (onNavigateToExportReports) {
-        onNavigateToExportReports(farmId);
-      } else {
-        Alert.alert(
-          'Export Soil Report',
-          'Your comprehensive soil health report (PDF · 1.4 MB) has been generated and queued for download.',
-          [{ text: 'OK' }],
-        );
-      }
-    } else {
-      setActiveModal(id);
-    }
+  const moduleNavigation: Record<SoilModuleId, (farmId: string) => void> = {
+    records: onNavigateToSoilTestRecords,
+    health_tracker: onNavigateToSoilHealthTracker,
+    classification: onNavigateToSoilTypeClassification,
+    amendments: onNavigateToAmendments,
+    rotation: onNavigateToCropRotation,
+    moisture: onNavigateToMoistureTracking,
+    erosion: onNavigateToErosionConservation,
+    export: onNavigateToExportReports,
+  };
+
+  const handleModulePress = (id: SoilModuleId) => {
+    moduleNavigation[id](farmId);
   };
 
   const handleUploadNewTest = () => {
-    if (onNavigateToNewSoilTest) {
-      onNavigateToNewSoilTest(farmId);
-    } else {
-      Alert.alert('Upload Soil Test', 'Navigate to new soil test report upload form.');
-    }
+    onNavigateToNewSoilTest(farmId);
   };
 
   return (
@@ -581,7 +467,7 @@ export function SoilManagementScreen({
               <FlaskIcon size={20} color={P.twAmber800} />
             </View>
             <Text style={styles.statValue}>
-              {latestTest?.ph != null ? latestTest.ph.toFixed(1) : (loading ? '...' : '6.4')}
+              {latestTest?.ph != null ? latestTest.ph.toFixed(1) : (loading ? '...' : EMPTY_VALUE)}
             </Text>
             <Text style={styles.statLabel}>Latest Soil pH</Text>
           </View>
@@ -592,7 +478,7 @@ export function SoilManagementScreen({
               <ClockIcon size={20} color={P.twAmber800} />
             </View>
             <Text style={styles.statValue}>
-              {latestTest?.testDate ? formatSinceLastTest(latestTest.testDate) : (loading ? '...' : '3 wks')}
+              {latestTest?.testDate ? formatSinceLastTest(latestTest.testDate) : (loading ? '...' : EMPTY_VALUE)}
             </Text>
             <Text style={styles.statLabel}>Since Last Test</Text>
           </View>
@@ -640,197 +526,6 @@ export function SoilManagementScreen({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      {/* ── Interactive Detail Modal for sub-screens ── */}
-      <Modal visible={activeModal !== null} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {SOIL_MODULES.find((m) => m.id === activeModal)?.title ?? 'Soil Management'}
-              </Text>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setActiveModal(null)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            {activeModal === 'health_tracker' && (
-              <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>{plots[0]?.name ?? 'Zone 1'} — Parameter Trends</Text>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricName}>pH Level</Text>
-                  <Text style={styles.metricValGreen}>
-                    {latestTest?.ph != null ? `${latestTest.ph} · ${latestTest.phLabel || 'Optimal (6.0 – 7.0)'}` : '6.4 · Optimal (6.0 – 7.0)'}
-                  </Text>
-                </View>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricName}>Organic Carbon (OC)</Text>
-                  <Text style={styles.metricValGreen}>
-                    {latestTest?.organicCarbonPct != null ? `${latestTest.organicCarbonPct}% · ${latestTest.organicCarbonLabel || 'Moderate (0.5 – 0.75%)'}` : '0.68% · Moderate (0.5 – 0.75%)'}
-                  </Text>
-                </View>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricName}>Electrical Conductivity</Text>
-                  <Text style={styles.metricValGreen}>
-                    {latestTest?.ecDsPerM != null ? `${latestTest.ecDsPerM} dS/m · ${latestTest.ecLabel || 'Normal (<1.0)'}` : '0.72 dS/m · Normal (<1.0)'}
-                  </Text>
-                </View>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricName}>Total Dissolved Solids</Text>
-                  <Text style={styles.metricValGreen}>
-                    {latestTest?.tdsPpm != null ? `${latestTest.tdsPpm} ppm · ${latestTest.tdsLabel || 'Desirable'}` : '460 ppm · Desirable'}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {activeModal === 'classification' && (
-              <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>Active Zones & Classification</Text>
-                {plots.length > 0 ? (
-                  plots.map((p) => (
-                    <View key={p.id} style={styles.zoneItem}>
-                      <Text style={styles.zoneTitle}>{p.name} {p.areaAcres ? `(${p.areaAcres} Acre)` : ''}</Text>
-                      <Text style={styles.zoneType}>{p.soilType || 'Loamy · High moisture retention'}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <>
-                    <View style={styles.zoneItem}>
-                      <Text style={styles.zoneTitle}>Zone 1 (0.8 Acre)</Text>
-                      <Text style={styles.zoneType}>Red Sandy Loam · High drainage, neutral</Text>
-                    </View>
-                    <View style={styles.zoneItem}>
-                      <Text style={styles.zoneTitle}>Zone 2 (1.2 Acre)</Text>
-                      <Text style={styles.zoneType}>Clay Loam · High moisture retention</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-
-            {activeModal === 'amendments' && (
-              <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>Recent Organic Amendments</Text>
-                {amendments.length > 0 ? (
-                  amendments.slice(0, 3).map((item) => (
-                    <View key={item.amendment.id} style={styles.logItem}>
-                      <Text style={styles.logTitle}>{item.amendment.amendmentType}</Text>
-                      <Text style={styles.logMeta}>
-                        Applied {item.amendment.quantityKg} kg · {item.plotName} · {item.amendment.appliedDate}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <>
-                    <View style={styles.logItem}>
-                      <Text style={styles.logTitle}>Farmyard Manure (FYM)</Text>
-                      <Text style={styles.logMeta}>Applied 1.2 tonnes · Zone 1 · 12 Jul 2026</Text>
-                    </View>
-                    <View style={styles.logItem}>
-                      <Text style={styles.logTitle}>Vermicompost Compost</Text>
-                      <Text style={styles.logMeta}>Applied 400 kg · Zone 2 · 28 Jun 2026</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-
-            {activeModal === 'rotation' && (
-              <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>Crop Rotation & Cover Crop Cycle</Text>
-                {rotationPlan?.sequence && rotationPlan.sequence.length > 0 ? (
-                  <View style={styles.rotationCard}>
-                    <Text style={styles.rotationStep}>
-                      Current: {rotationPlan.sequence.find((s) => s.status === 'CURRENT')?.cropName ?? 'Carrot (Root Crop)'}
-                    </Text>
-                    <Text style={styles.rotationNext}>
-                      Next Planned: {rotationPlan.sequence.find((s) => s.status === 'NEXT')?.cropName ?? 'Cowpea / Green Gram (Legume)'}
-                    </Text>
-                    {rotationPlan.coverCropWindow && (
-                      <Text style={styles.rotationMeta}>
-                        Cover crop ({rotationPlan.coverCropWindow.coverCropType}) window: {rotationPlan.coverCropWindow.windowStart} to {rotationPlan.coverCropWindow.windowEnd}
-                      </Text>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.rotationCard}>
-                    <Text style={styles.rotationStep}>Current: Carrot (Root Crop)</Text>
-                    <Text style={styles.rotationNext}>Next Planned: Cowpea / Green Gram (Legume)</Text>
-                    <Text style={styles.rotationMeta}>Nitrogen fixation window: Aug 2026</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {activeModal === 'moisture' && (
-              <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>Field Moisture Observations</Text>
-                {moistureList.length > 0 ? (
-                  moistureList.map((item) => (
-                    <View key={item.moisture.id} style={styles.moistureRow}>
-                      <Text style={styles.moistureZone}>{item.plotName}:</Text>
-                      <Text style={styles.moistureStatusGood}>
-                        {item.moisture.level} ({item.moisture.observedAt ? new Date(item.moisture.observedAt).toLocaleDateString() : 'Observed'})
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <>
-                    <View style={styles.moistureRow}>
-                      <Text style={styles.moistureZone}>Zone 1 (Carrots):</Text>
-                      <Text style={styles.moistureStatusGood}>Optimal (Drip irrigated today)</Text>
-                    </View>
-                    <View style={styles.moistureRow}>
-                      <Text style={styles.moistureZone}>Zone 2 (Tomatoes):</Text>
-                      <Text style={styles.moistureStatusGood}>Adequate root zone moisture</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-
-            {activeModal === 'erosion' && (
-              <View style={styles.modalBody}>
-                <Text style={styles.modalSubHeader}>Erosion Risk & Soil Conservation</Text>
-                {erosionList.length > 0 ? (
-                  erosionList.slice(0, 3).map((item) => (
-                    <View key={item.note.id} style={styles.erosionItem}>
-                      <Text style={styles.erosionTitle}>{item.note.riskLevel} · {item.plotName}</Text>
-                      <Text style={styles.erosionDesc}>
-                        {item.note.practiceNotes || 'Conservation practices maintained.'}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <>
-                    <View style={styles.erosionItem}>
-                      <Text style={styles.erosionTitle}>Contour Bunding</Text>
-                      <Text style={styles.erosionDesc}>Maintained across south slope to prevent topsoil run-off during monsoons.</Text>
-                    </View>
-                    <View style={styles.erosionItem}>
-                      <Text style={styles.erosionTitle}>Organic Mulching</Text>
-                      <Text style={styles.erosionDesc}>Dry straw mulching applied around ridges for moisture & crust protection.</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.modalActionBtn}
-              onPress={() => setActiveModal(null)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalActionBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1006,178 +701,6 @@ const styles = StyleSheet.create({
   },
   uploadBtnText: {
     fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.white,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: P.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: Platform.OS === 'android' ? 24 : 32,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: P.twGray100,
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '800',
-    color: P.twGray900,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: P.twGray100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray700,
-  },
-  modalBody: {
-    paddingVertical: 6,
-  },
-  modalSubHeader: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray700,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: P.twGray100,
-  },
-  metricName: {
-    fontSize: typography.body,
-    fontWeight: '500',
-    color: P.twGray800,
-  },
-  metricValGreen: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGreen700,
-  },
-  zoneItem: {
-    backgroundColor: P.twGray50,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-  },
-  zoneTitle: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray900,
-  },
-  zoneType: {
-    fontSize: typography.bodySmall,
-    fontWeight: '500',
-    color: P.twGray600,
-    marginTop: 2,
-  },
-  logItem: {
-    backgroundColor: P.twGray50,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-  },
-  logTitle: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray900,
-  },
-  logMeta: {
-    fontSize: typography.bodySmall,
-    color: P.twGray500,
-    marginTop: 2,
-  },
-  rotationCard: {
-    backgroundColor: P.twGreen50,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: P.twGreen100,
-  },
-  rotationStep: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGreen900,
-  },
-  rotationNext: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.twGreen700,
-    marginTop: 4,
-  },
-  rotationMeta: {
-    fontSize: typography.bodySmall,
-    color: P.twGray600,
-    marginTop: 4,
-  },
-  moistureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: P.twGray100,
-  },
-  moistureZone: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.twGray800,
-  },
-  moistureStatusGood: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.twGreen700,
-  },
-  erosionItem: {
-    marginBottom: 12,
-  },
-  erosionTitle: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray900,
-  },
-  erosionDesc: {
-    fontSize: typography.bodySmall,
-    color: P.twGray600,
-    marginTop: 2,
-    lineHeight: 17,
-  },
-  modalActionBtn: {
-    backgroundColor: P.forestGreen,
-    height: 46,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
-  },
-  modalActionBtnText: {
-    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },

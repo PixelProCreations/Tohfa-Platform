@@ -365,7 +365,7 @@ export function FarmManagementScreen({
             activeOpacity={0.88}
             onPress={onNavigateToWeather}
             accessibilityRole="button"
-            accessibilityLabel="Weather"
+            accessibilityLabel={t('farmer.weather.title')}
           >
             <View style={styles.moduleCardTop}>
               <View style={[styles.iconBadge, { backgroundColor: P.sky100 }]}>
@@ -375,7 +375,7 @@ export function FarmManagementScreen({
 
             <View style={styles.moduleTextSection}>
               <Text style={styles.moduleTitle}>{t('farmer.weather.title')}</Text>
-              <Text style={styles.moduleDesc}>28°C · Rain expected today at 4 PM</Text>
+              <Text style={styles.moduleDesc}>{t('farmer.farmManagement.module.weather.mockDesc')}</Text>
             </View>
 
             <TouchableOpacity
@@ -425,7 +425,7 @@ export function FarmManagementScreen({
             activeOpacity={0.88}
             onPress={onNavigateToCropManagement || onNavigateToActiveCrops}
             accessibilityRole="button"
-            accessibilityLabel="Crop Management"
+            accessibilityLabel={t('farmer.farmManagement.module.cropManagement.title')}
           >
             <View style={styles.moduleCardTop}>
               <View style={[styles.iconBadge, { backgroundColor: P.twEmerald100 }]}>
@@ -434,13 +434,13 @@ export function FarmManagementScreen({
             </View>
 
             <View style={styles.moduleTextSection}>
-              <Text style={styles.moduleTitle}>Crop Management</Text>
-              <Text style={styles.moduleDesc}>3 active crops · Zones & harvest cycles</Text>
+              <Text style={styles.moduleTitle}>{t('farmer.farmManagement.module.cropManagement.title')}</Text>
+              <Text style={styles.moduleDesc}>{t('farmer.farmManagement.module.cropManagement.desc', { count: 3 })}</Text>
             </View>
 
             <View style={styles.statusRowGreen}>
               <CheckmarkCircleIcon size={16} color={P.twGreen700} />
-              <Text style={styles.statusRowGreenText}>3 Active</Text>
+              <Text style={styles.statusRowGreenText}>{t('farmer.farmManagement.module.cropManagement.activeCount', { count: 3 })}</Text>
             </View>
           </TouchableOpacity>
 
@@ -502,14 +502,16 @@ export function FarmManagementScreen({
           activeOpacity={0.85}
           onPress={onNavigateToDairyProduce}
           accessibilityRole="button"
-          accessibilityLabel="Dairy & Produce"
+          accessibilityLabel={t('farmer.farmManagement.module.dairyProduce.title')}
         >
           <View style={styles.dairyProduceIconBox}>
             <DropWaterIcon size={22} color={P.teal400} fill={P.teal400} />
           </View>
           <View style={styles.dairyProduceTextCol}>
-            <Text style={styles.dairyProduceTitle}>Dairy & Produce</Text>
-            <Text style={styles.dairyProduceSubtitle}>18.5 L milk · 24 eggs today</Text>
+            <Text style={styles.dairyProduceTitle}>{t('farmer.farmManagement.module.dairyProduce.title')}</Text>
+            <Text style={styles.dairyProduceSubtitle}>
+              {t('farmer.farmManagement.module.dairyProduce.desc', { liters: '18.5', eggs: 24 })}
+            </Text>
           </View>
           <ChevronRightIcon size={18} color={P.twGray400} />
         </TouchableOpacity>

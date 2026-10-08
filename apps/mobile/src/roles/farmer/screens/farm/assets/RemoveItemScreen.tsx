@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -45,18 +46,12 @@ function SmallTrashIcon({ size = 16, color = P.white }: { size?: number; color?:
   );
 }
 
-function WarningTriangleIcon({ size = 18, color = P.twOrange700 }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = P.greenDeep2 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="12" y1="9" x2="12" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="12" cy="17" r="1" fill={color} />
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Line x1="12" y1="11" x2="12" y2="16" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Circle cx="12" cy="7.5" r="1" fill={color} />
     </Svg>
   );
 }
@@ -122,9 +117,17 @@ export interface RemoveItemData {
   name: string;
   category: RemoveCategoryType;
   dateInfo: string;
-  serviceEntriesCount?: number | undefined;
-  recordedCost?: number | undefined;
 }
+
+/**
+ * Tree/planting removal has no backend entity to delete against (farm-assets
+ * only knows TOOL/EQUIPMENT/MACHINERY — see farmAssets.ts) — a known,
+ * separately-tracked spec gap, not something this screen can wire up. The
+ * screen disables its own destructive action for that category rather than
+ * pretending it works.
+ */
+const TREE_REMOVE_UNAVAILABLE_MESSAGE =
+  "Removing a tree or planting isn't available yet. Please contact support if you need this record removed.";
 
 export interface RemoveItemScreenProps {
   item?: RemoveItemData | undefined;
@@ -141,11 +144,14 @@ export function RemoveItemScreen({
   const category = item?.category || 'Machinery';
   const name = item?.name || 'Power Tiller';
   const dateInfo = item?.dateInfo || 'Machinery · Purchased 08 Feb 2023';
-  const serviceEntriesCount = item?.serviceEntriesCount ?? 3;
-  const recordedCost = item?.recordedCost ?? 450;
+  const isTreeRemoval = category === 'Trees';
 
   async function handleConfirm() {
     if (isRemoving) return;
+    if (isTreeRemoval) {
+      Alert.alert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE);
+      return;
+    }
     setIsRemoving(true);
     try {
       await onConfirmRemove();
@@ -228,28 +234,41 @@ export function RemoveItemScreen({
             </View>
           </View>
 
-          {/* ── Warning Alert Banner ── */}
-          <View style={styles.warningAlertBanner}>
-            <View style={styles.warningIconWrap}>
-              <WarningTriangleIcon size={18} color={P.twOrange700} />
+          {/* ── Trees: honest "not available yet" notice — there is no backend
+              entity for tree plantings, so there is nothing real to delete
+              (root CLAUDE.md §1/§7: a confirmed spec gap, not invented here). ── */}
+          {isTreeRemoval && (
+            <View style={styles.infoBanner}>
+              <View style={styles.infoBannerIcon}>
+                <InfoCircleIcon size={16} color={P.greenDeep2} />
+              </View>
+              <View style={styles.infoBannerTextWrap}>
+                <Text style={styles.infoBannerTitle}>Not available yet</Text>
+                <Text style={styles.infoBannerText}>{TREE_REMOVE_UNAVAILABLE_MESSAGE}</Text>
+              </View>
             </View>
-            <Text style={styles.warningAlertText}>
-              {serviceEntriesCount} service log entries (₹{recordedCost} total recorded cost) will be permanently deleted along with this item.
-            </Text>
-          </View>
+          )}
 
           {/* ── Action Buttons ── */}
           <View style={styles.actionButtonsContainer}>
-            {/* Red Remove Permanently Button */}
+            {/* Red Remove Permanently Button — stays visible but visually
+                muted and inert for Trees, since there's no real delete to
+                perform for that category yet. */}
             <TouchableOpacity
-              style={[styles.removePermanentlyButton, isRemoving && { opacity: 0.7 }]}
+              style={[
+                styles.removePermanentlyButton,
+                isTreeRemoval && styles.removePermanentlyButtonDisabled,
+                isRemoving && { opacity: 0.7 },
+              ]}
               onPress={() => {
                 void handleConfirm();
               }}
               disabled={isRemoving}
               activeOpacity={0.88}
               accessibilityRole="button"
-              accessibilityLabel="Yes, Remove Permanently"
+              accessibilityLabel={
+                isTreeRemoval ? 'Yes, Remove Permanently (not available yet)' : 'Yes, Remove Permanently'
+              }
             >
               <SmallTrashIcon size={18} color={P.white} />
               <Text style={styles.removePermanentlyText}>
@@ -393,29 +412,40 @@ const styles = StyleSheet.create({
     color: P.twGray500,
   },
 
-  // Warning Alert Banner
-  warningAlertBanner: {
+  // Trees-only "not available yet" info banner (not a danger/warning colour —
+  // this is informational, matching ChangeMobileScreen's convention).
+  infoBanner: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: P.warnCardBg,
+    backgroundColor: P.greenPaleBg,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: P.warnCardBorder,
     paddingHorizontal: 14,
     paddingVertical: 13,
-    marginBottom: 28,
+    marginBottom: 20,
     gap: 10,
   },
-  warningIconWrap: {
-    marginTop: 1,
+  infoBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  warningAlertText: {
+  infoBannerTextWrap: {
     flex: 1,
+    gap: 4,
+  },
+  infoBannerTitle: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.greenDeep5,
+  },
+  infoBannerText: {
     fontSize: typography.bodySmall,
-    fontWeight: '500',
-    color: P.twOrange700,
     lineHeight: 18,
+    color: P.greenDeep5,
   },
 
   // Action Buttons
@@ -437,6 +467,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 3,
+  },
+  // Muted, not brand red: Trees has no real delete to perform yet (no backend
+  // entity for tree plantings — root CLAUDE.md §1/§7), so this must not look
+  // like a confident, fully-wired destructive action for that category.
+  removePermanentlyButtonDisabled: {
+    backgroundColor: P.twGray400,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   removePermanentlyText: {
     fontSize: typography.bodyLarge,
