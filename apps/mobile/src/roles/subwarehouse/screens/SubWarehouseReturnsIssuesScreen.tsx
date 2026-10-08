@@ -35,6 +35,20 @@ const PALETTE = {
 };
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function ReturnBoxHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -374,15 +388,18 @@ export function SubWarehouseReturnsIssuesScreen({
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleGroup}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={onBack}
-              activeOpacity={0.8}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <ReturnBoxHeaderIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel="Go back"
+              >
+                <ArrowBackIcon size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <ReturnBoxHeaderIcon size={22} color="#FFFFFF" />
             <Text style={styles.headerTitle}>Returns & Issues</Text>
           </View>
 
@@ -646,11 +663,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  backButton: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
+  backBtn: {
+    marginRight: 2,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,

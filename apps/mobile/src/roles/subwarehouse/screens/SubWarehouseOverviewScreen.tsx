@@ -247,32 +247,32 @@ export function SubWarehouseOverviewScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
+      {/* ─── Static Top Brand Header ─── */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => {
+              if (onBack) onBack();
+            }}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Go back"
+          >
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitlesContainer}>
+            <Text style={styles.headerMainTitle}>Warehouse Overview</Text>
+            <Text style={styles.headerSubtitle}>{warehouseName} · ▪ Operational</Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Top Brand Header ─── */}
-        <View style={styles.headerBanner}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => {
-                if (onBack) onBack();
-              }}
-              activeOpacity={0.8}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Go back"
-            >
-              <ArrowBackIcon size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.headerTitlesContainer}>
-              <Text style={styles.headerMainTitle}>Warehouse Overview</Text>
-              <Text style={styles.headerSubtitle}>{warehouseName} · ▪ Operational</Text>
-            </View>
-          </View>
-        </View>
-
         {/* ─── Main Content ─── */}
         <View style={styles.mainContainer}>
           {/* 1. Warehouse Identity */}
@@ -307,25 +307,53 @@ export function SubWarehouseOverviewScreen({
           <Text style={styles.sectionHeading}>Current Snapshot</Text>
           <View style={styles.snapshotGrid}>
             <View style={styles.snapshotRow}>
-              <View style={styles.snapshotCard}>
+              <TouchableOpacity
+                style={styles.snapshotCard}
+                onPress={() => {
+                  if (onNavigateToInventory) onNavigateToInventory();
+                  else handleTabPress('Inventory');
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.snapshotValue}>1,240 KG</Text>
                 <Text style={styles.snapshotLabel}>TOTAL STOCK</Text>
-              </View>
-              <View style={styles.snapshotCard}>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.snapshotCard}
+                onPress={() => {
+                  if (onNavigateToReceiving) onNavigateToReceiving();
+                  else handleTabPress('Receiving');
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.snapshotValue}>8</Text>
                 <Text style={styles.snapshotLabel}>TODAY'S RECEIPTS</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.snapshotRow}>
-              <View style={styles.snapshotCard}>
+              <TouchableOpacity
+                style={styles.snapshotCard}
+                onPress={() => {
+                  if (onNavigateToOrders) onNavigateToOrders();
+                  else handleTabPress('Home');
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.snapshotValue}>24</Text>
                 <Text style={styles.snapshotLabel}>TODAY'S ORDERS</Text>
-              </View>
-              <View style={styles.snapshotCard}>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.snapshotCard}
+                onPress={() => {
+                  if (onNavigateToOrders) onNavigateToOrders();
+                  else handleTabPress('Home');
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.snapshotValue}>7</Text>
                 <Text style={styles.snapshotLabel}>PENDING FULFILLMENT</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
 
