@@ -70,6 +70,10 @@ export const farmerBankAccountsRepo = {
     return res.rows[0] ?? null;
   },
 
+  async lockFarmer(db: Executor, farmerId: string): Promise<void> {
+    await db.query(`SELECT id FROM farmers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [farmerId]);
+  },
+
   async listByFarmerId(db: Executor, farmerId: string): Promise<FarmerBankAccountResponse[]> {
     const res = await db.query(
       `SELECT id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at
@@ -81,7 +85,14 @@ export const farmerBankAccountsRepo = {
     return res.rows.map(mapRow);
   },
 
-  async findById(db: Executor, id: string): Promise<BankAccountRow | null> {
+  async findById(db: Executor, id: string, forUpdate = false, farmerId?: string): Promise<BankAccountRow | null> {
+    const whereClauses = ['id = $1', 'deleted_at IS NULL'];
+    const params: unknown[] = [id];
+    if (farmerId) {
+      params.push(farmerId);
+      whereClauses.push(`farmer_id = $${params.length}`);
+    }
+
     const res = await db.query<any>(
       `SELECT id, farmer_id AS "farmerId", account_holder_name AS "accountHolderName",
               account_number_last4 AS "accountNumberLast4", account_number_token AS "accountNumberToken",
@@ -90,9 +101,10 @@ export const farmerBankAccountsRepo = {
               is_default AS "isDefault", created_at AS "createdAt", updated_at AS "updatedAt",
               deleted_at AS "deletedAt"
        FROM farmer_bank_accounts
-       WHERE id = $1 AND deleted_at IS NULL
-       LIMIT 1`,
-      [id],
+       WHERE ${whereClauses.join(' AND ')}
+       LIMIT 1
+       ${forUpdate ? 'FOR UPDATE' : ''}`,
+      params,
     );
     return res.rows[0] ?? null;
   },
@@ -165,9 +177,9 @@ export const farmerBankAccountsRepo = {
       const res = await db.query<any>(
         `UPDATE farmer_bank_accounts
          SET upi_vpa = $1, is_verified = false, is_default = $2, updated_at = now()
-         WHERE id = $3
+         WHERE id = $3 AND farmer_id = $4 AND deleted_at IS NULL
          RETURNING id, upi_vpa AS "upiVpa", is_verified AS "isVerified", is_default AS "isDefault"`,
-        [params.upiVpa, params.isDefault, existing.id],
+        [params.upiVpa, params.isDefault, existing.id, params.farmerId],
       );
       return {
         id: res.rows[0].id,
@@ -192,10 +204,20 @@ export const farmerBankAccountsRepo = {
     };
   },
 
-  async update(db: Executor, id: string, params: UpdateBankAccountParams): Promise<FarmerBankAccountResponse> {
+  async update(
+    db: Executor,
+    id: string,
+    params: UpdateBankAccountParams,
+    farmerId?: string,
+  ): Promise<FarmerBankAccountResponse> {
     const updates: string[] = ['updated_at = now()'];
     const values: any[] = [id];
-    let idx = 2;
+    let where = 'WHERE id = $1 AND deleted_at IS NULL';
+    if (farmerId) {
+      values.push(farmerId);
+      where = 'WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL';
+    }
+    let idx = values.length + 1;
 
     if (params.accountHolderName !== undefined) {
       updates.push(`account_holder_name = $${idx++}`);
@@ -233,30 +255,42 @@ export const farmerBankAccountsRepo = {
     const res = await db.query(
       `UPDATE farmer_bank_accounts
        SET ${updates.join(', ')}
-       WHERE id = $1 AND deleted_at IS NULL
+       ${where}
        RETURNING id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at`,
       values,
     );
     return mapRow(res.rows[0]);
   },
 
-  async setDefault(db: Executor, id: string): Promise<FarmerBankAccountResponse> {
+  async setDefault(db: Executor, id: string, farmerId?: string): Promise<FarmerBankAccountResponse> {
+    const values: any[] = [id];
+    let where = 'WHERE id = $1 AND deleted_at IS NULL';
+    if (farmerId) {
+      values.push(farmerId);
+      where = 'WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL';
+    }
     const res = await db.query(
       `UPDATE farmer_bank_accounts
        SET is_default = true, updated_at = now()
-       WHERE id = $1 AND deleted_at IS NULL
+       ${where}
        RETURNING id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at`,
-      [id],
+      values,
     );
     return mapRow(res.rows[0]);
   },
 
-  async softDelete(db: Executor, id: string): Promise<void> {
+  async softDelete(db: Executor, id: string, farmerId?: string): Promise<void> {
+    const values: any[] = [id];
+    let where = 'WHERE id = $1';
+    if (farmerId) {
+      values.push(farmerId);
+      where = 'WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL';
+    }
     await db.query(
       `UPDATE farmer_bank_accounts
        SET deleted_at = now(), is_default = false, updated_at = now()
-       WHERE id = $1`,
-      [id],
+       ${where}`,
+      values,
     );
   },
 

@@ -25,6 +25,12 @@ export interface FarmerBankAccountsServiceDeps {
   runTx?: TransactionRunner;
 }
 
+function maskAuditImage(rec: any) {
+  if (!rec) return null;
+  const { accountNumberToken: _token, ...safe } = rec;
+  return safe;
+}
+
 export function createFarmerBankAccountsService(
   deps: FarmerBankAccountsServiceDeps = {},
 ) {
@@ -74,6 +80,63 @@ export function createFarmerBankAccountsService(
     return actor.roles[0]?.code ?? 'FARMER';
   }
 
+  const updateMyUpi = async (actor: Actor, body: UpdateFarmerUpiBody): Promise<FarmerUpiResponse> => {
+    const farmer = await requireFarmer(actor);
+    validateUpi(body.upiVpa);
+
+    return runTx(async (tx) => {
+      if (repo.lockFarmer) await repo.lockFarmer(tx, farmer.id);
+      const existing = await repo.findUpiByFarmerId(tx, farmer.id);
+
+      if (body.isDefault) {
+        await repo.clearDefaults(tx, farmer.id);
+      }
+
+      const updated = await repo.upsertUpi(tx, {
+        farmerId: farmer.id,
+        accountHolderName: 'Farmer UPI',
+        upiVpa: body.upiVpa,
+        isDefault: body.isDefault ?? false,
+      });
+
+      await writeAuditLog(tx, {
+        actorId: actor.userId,
+        actorRole: getActorRole(actor),
+        actionCode: 'farmer_bank_account.upsert_upi',
+        entityType: 'farmer_bank_account',
+        entityId: updated.id ?? null,
+        before: maskAuditImage(existing),
+        after: maskAuditImage(updated),
+      });
+
+      return updated;
+    });
+  };
+
+  const getMyUpi = async (actor: Actor): Promise<FarmerUpiResponse | null> => {
+    const farmer = await requireFarmer(actor);
+    return repo.findUpiByFarmerId(db, farmer.id);
+  };
+
+  const deleteMyUpi = async (actor: Actor): Promise<void> => {
+    const farmer = await requireFarmer(actor);
+    return runTx(async (tx) => {
+      if (repo.lockFarmer) await repo.lockFarmer(tx, farmer.id);
+      const existing = await repo.findUpiByFarmerId(tx, farmer.id);
+      if (existing && existing.id) {
+        await repo.softDelete(tx, existing.id, farmer.id);
+        await writeAuditLog(tx, {
+          actorId: actor.userId,
+          actorRole: getActorRole(actor),
+          actionCode: 'farmer_bank_account.delete_upi',
+          entityType: 'farmer_bank_account',
+          entityId: existing.id,
+          before: maskAuditImage(existing),
+        });
+      }
+    });
+  };
+
   return {
     async listMyBankAccounts(actor: Actor): Promise<FarmerBankAccountResponse[]> {
       const farmer = await requireFarmer(actor);
@@ -92,6 +155,7 @@ export function createFarmerBankAccountsService(
       const token = `tok_bank_${randomUUID().replace(/-/g, '')}`;
 
       return runTx(async (tx) => {
+        if (repo.lockFarmer) await repo.lockFarmer(tx, farmer.id);
         const activeCount = await repo.countActiveAccounts(tx, farmer.id);
         const shouldBeDefault = body.isDefault || activeCount === 0;
 
@@ -116,7 +180,7 @@ export function createFarmerBankAccountsService(
           actionCode: 'farmer_bank_account.create',
           entityType: 'farmer_bank_account',
           entityId: created.id,
-          after: created,
+          after: maskAuditImage(created),
         });
 
         return created;
@@ -129,11 +193,6 @@ export function createFarmerBankAccountsService(
       body: UpdateFarmerBankAccountBody,
     ): Promise<FarmerBankAccountResponse> {
       const farmer = await requireFarmer(actor);
-      const existing = await repo.findById(db, id);
-
-      if (!existing || existing.farmerId !== farmer.id) {
-        throw new AppError('NOT_FOUND', { detail: 'Bank account not found' });
-      }
 
       if (body.ifsc !== undefined) {
         validateIfsc(body.ifsc);
@@ -143,6 +202,13 @@ export function createFarmerBankAccountsService(
       }
 
       return runTx(async (tx) => {
+        if (repo.lockFarmer) await repo.lockFarmer(tx, farmer.id);
+        const existing = await repo.findById(tx, id, true, farmer.id);
+
+        if (!existing || existing.farmerId !== farmer.id) {
+          throw new AppError('NOT_FOUND', { detail: 'Bank account not found' });
+        }
+
         let last4: string | undefined;
         let token: string | undefined;
         let resetVerified = false;
@@ -161,16 +227,21 @@ export function createFarmerBankAccountsService(
           await repo.clearDefaults(tx, farmer.id);
         }
 
-        const updated = await repo.update(tx, id, {
-          accountHolderName: body.accountHolderName,
-          accountNumberLast4: last4,
-          accountNumberToken: token,
-          ifsc: body.ifsc ? body.ifsc.toUpperCase() : undefined,
-          bankName: body.bankName,
-          branchName: body.branchName,
-          isVerified: resetVerified ? false : undefined,
-          isDefault: body.isDefault,
-        });
+        const updated = await repo.update(
+          tx,
+          id,
+          {
+            accountHolderName: body.accountHolderName,
+            accountNumberLast4: last4,
+            accountNumberToken: token,
+            ifsc: body.ifsc ? body.ifsc.toUpperCase() : undefined,
+            bankName: body.bankName,
+            branchName: body.branchName,
+            isVerified: resetVerified ? false : undefined,
+            isDefault: body.isDefault,
+          },
+          farmer.id,
+        );
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -178,8 +249,8 @@ export function createFarmerBankAccountsService(
           actionCode: 'farmer_bank_account.update',
           entityType: 'farmer_bank_account',
           entityId: id,
-          before: existing,
-          after: updated,
+          before: maskAuditImage(existing),
+          after: maskAuditImage(updated),
         });
 
         return updated;
@@ -188,15 +259,17 @@ export function createFarmerBankAccountsService(
 
     async setDefaultBankAccount(actor: Actor, id: string): Promise<FarmerBankAccountResponse> {
       const farmer = await requireFarmer(actor);
-      const existing = await repo.findById(db, id);
-
-      if (!existing || existing.farmerId !== farmer.id) {
-        throw new AppError('NOT_FOUND', { detail: 'Bank account not found' });
-      }
 
       return runTx(async (tx) => {
+        if (repo.lockFarmer) await repo.lockFarmer(tx, farmer.id);
+        const existing = await repo.findById(tx, id, true, farmer.id);
+
+        if (!existing || existing.farmerId !== farmer.id) {
+          throw new AppError('NOT_FOUND', { detail: 'Bank account not found' });
+        }
+
         await repo.clearDefaults(tx, farmer.id);
-        const updated = await repo.setDefault(tx, id);
+        const updated = await repo.setDefault(tx, id, farmer.id);
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -204,8 +277,8 @@ export function createFarmerBankAccountsService(
           actionCode: 'farmer_bank_account.set_default',
           entityType: 'farmer_bank_account',
           entityId: id,
-          before: existing,
-          after: updated,
+          before: maskAuditImage(existing),
+          after: maskAuditImage(updated),
         });
 
         return updated;
@@ -214,14 +287,33 @@ export function createFarmerBankAccountsService(
 
     async deleteMyBankAccount(actor: Actor, id: string): Promise<void> {
       const farmer = await requireFarmer(actor);
-      const existing = await repo.findById(db, id);
 
-      if (!existing || existing.farmerId !== farmer.id) {
-        throw new AppError('NOT_FOUND', { detail: 'Bank account not found' });
-      }
+      return runTx(async (tx) => {
+        if (repo.lockFarmer) await repo.lockFarmer(tx, farmer.id);
+        const existing = await repo.findById(tx, id, true, farmer.id);
 
-      await runTx(async (tx) => {
-        await repo.softDelete(tx, id);
+        if (!existing || existing.farmerId !== farmer.id) {
+          throw new AppError('NOT_FOUND', { detail: 'Bank account not found' });
+        }
+
+        if (repo.hasPayoutReferences) {
+          const hasPayouts = await repo.hasPayoutReferences(tx, id);
+          if (hasPayouts) {
+            throw new AppError('CONFLICT', {
+              status: 409,
+              detail: 'Cannot delete bank account referenced in historical payouts',
+            });
+          }
+        }
+
+        await repo.softDelete(tx, id, farmer.id);
+
+        if (existing.isDefault && repo.listByFarmerId) {
+          const remaining = await repo.listByFarmerId(tx, farmer.id);
+          if (remaining.length > 0 && remaining[0]) {
+            await repo.setDefault(tx, remaining[0].id, farmer.id);
+          }
+        }
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
@@ -229,72 +321,16 @@ export function createFarmerBankAccountsService(
           actionCode: 'farmer_bank_account.delete',
           entityType: 'farmer_bank_account',
           entityId: id,
-          before: existing,
+          before: maskAuditImage(existing),
         });
       });
     },
 
-    async getMyUpiPreference(actor: Actor): Promise<FarmerUpiResponse> {
-      const farmer = await requireFarmer(actor);
-      const upi = await repo.findUpiByFarmerId(db, farmer.id);
-      if (!upi) {
-        throw new AppError('NOT_FOUND', { detail: 'No UPI preference configured' });
-      }
-      return upi;
-    },
-
-    async setMyUpiPreference(actor: Actor, body: UpdateFarmerUpiBody): Promise<FarmerUpiResponse> {
-      const farmer = await requireFarmer(actor);
-      validateUpi(body.upiVpa);
-
-      return runTx(async (tx) => {
-        const existing = await repo.findUpiByFarmerId(tx, farmer.id);
-        if (body.isDefault) {
-          await repo.clearDefaults(tx, farmer.id);
-        }
-
-        const res = await repo.upsertUpi(tx, {
-          farmerId: farmer.id,
-          accountHolderName: 'UPI Destination',
-          upiVpa: body.upiVpa,
-          isDefault: body.isDefault ?? false,
-        });
-
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          actorRole: getActorRole(actor),
-          actionCode: 'farmer_upi.update',
-          entityType: 'farmer_bank_account',
-          entityId: res.id ?? null,
-          before: existing,
-          after: res,
-        });
-
-        return res;
-      });
-    },
-
-    async deleteMyUpiPreference(actor: Actor): Promise<void> {
-      const farmer = await requireFarmer(actor);
-      const existing = await repo.findUpiByFarmerId(db, farmer.id);
-
-      if (!existing || !existing.id) {
-        throw new AppError('NOT_FOUND', { detail: 'No UPI preference found' });
-      }
-
-      await runTx(async (tx) => {
-        await repo.softDelete(tx, existing.id!);
-
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          actorRole: getActorRole(actor),
-          actionCode: 'farmer_upi.delete',
-          entityType: 'farmer_bank_account',
-          entityId: existing.id ?? null,
-          before: existing,
-        });
-      });
-    },
+    getMyUpi,
+    getMyUpiPreference: getMyUpi,
+    updateMyUpi,
+    setMyUpiPreference: updateMyUpi,
+    deleteMyUpiPreference: deleteMyUpi,
   };
 }
 

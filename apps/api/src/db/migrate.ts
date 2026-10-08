@@ -96,13 +96,10 @@ function listMigrations(): MigrationFile[] {
     .filter((file) => file.endsWith('.sql') && !file.endsWith('.down.sql'))
     .sort((a, b) => a.localeCompare(b, 'en'));
 
-  const seen = new Set<string>();
   return files.map((file) => {
     const base = file.slice(0, -'.sql'.length);
     const separator = base.indexOf('_');
-    const shortVersion = separator === -1 ? base : base.slice(0, separator);
-    const version = seen.has(shortVersion) ? base : shortVersion;
-    seen.add(version);
+    const version = separator === -1 ? base : base.slice(0, separator);
     const downPath = join(MIGRATIONS_DIR, `${base}.down.sql`);
     return {
       version,

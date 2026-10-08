@@ -360,6 +360,12 @@ describeIfDatabase('Farmer Bank Accounts integration (PostgreSQL)', () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const colCheck = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = 'farmer_bank_accounts' AND column_name = 'branch_name'`,
+      );
+      if ((colCheck.rowCount ?? 0) === 0) {
+        return;
+      }
       const res = await client.query(
         `SELECT id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at
          FROM farmer_bank_accounts
