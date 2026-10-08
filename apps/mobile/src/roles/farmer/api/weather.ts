@@ -54,7 +54,7 @@ export interface FarmWeatherAlert {
 }
 
 export interface FarmWeather {
-  provider: 'mock' | 'openweathermap';
+  provider: 'mock' | 'openweathermap' | 'open-meteo-public';
   /** ISO 8601 UTC instant. */
   observedAt: string;
   location: FarmWeatherLocation;
@@ -203,7 +203,14 @@ async function fetchPublicLiveWeather(lat = 11.4102, lon = 76.695): Promise<Farm
   }
 
   return {
-    provider: 'openweathermap',
+    // Honest labeling, not a behavior change: this function calls the public
+    // Open-Meteo API (api.open-meteo.com), a different, unauthenticated,
+    // third-party service unrelated to OpenWeatherMap. Tier 1's real backend
+    // call (apps/api/src/weather/openweathermap.weather.ts) is the only
+    // source that genuinely reports 'openweathermap' — reusing that literal
+    // here made it impossible for any UI to tell "real per-farm data" apart
+    // from "generic public regional fallback for a hardcoded coordinate".
+    provider: 'open-meteo-public',
     observedAt: now.toISOString(),
     location: {
       farmName: 'Kolapatti Organic Farm',

@@ -23,6 +23,7 @@ import {
   type WalletTransactionType,
 } from '../../api/wallet';
 import { formatErrorMessage } from '../../../../shell/api/client';
+import { t, type TranslationKey } from '../../../../i18n/farmer';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -114,17 +115,10 @@ function CreditCardMiniIcon({ size = 20, color = P.twBlue700 }: { size?: number;
 
 // ── Real Transaction Mapping ─────────────────────────────────────────────────
 
-/** Human label for each ledger txnType. Purely display copy, not a business rule. */
-const TXN_TYPE_LABELS: Record<WalletTransactionType, string> = {
-  TOPUP_CASH: 'Cash Top-up',
-  TOPUP_DIGITAL: 'Wallet Top-up',
-  ORDER_DEBIT: 'Order Payment',
-  ORDER_REFUND: 'Order Refund',
-  PAYOUT_DEBIT: 'Withdrawal',
-  SALE_CREDIT: 'Sale Settlement',
-  SUBSCRIPTION_DEBIT: 'Subscription',
-  ADJUSTMENT: 'Adjustment',
-};
+/** Human label for each ledger txnType, from the shared i18n catalogue (not a business rule). */
+function txnTypeLabel(txnType: WalletTransactionType): string {
+  return t(`farmer.wallet.type.${txnType}` as TranslationKey);
+}
 
 function formatTxnDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -144,7 +138,7 @@ function toTransactionItem(tx: WalletTransaction): WalletTransactionItem {
   const formattedAmount = formatMoneyAmount(tx.amount);
   const isCredit = !formattedAmount.startsWith('-');
   const amountDisplay = isCredit ? `+ ${formattedAmount}` : `- ${formattedAmount.slice(1)}`;
-  const label = TXN_TYPE_LABELS[tx.txnType] ?? 'Wallet Transaction';
+  const label = txnTypeLabel(tx.txnType);
 
   return {
     id: tx.id,
@@ -194,7 +188,7 @@ export function WalletScreen({
       setWallet(walletRes);
       setTransactions(transactionsRes.items);
     } catch (err) {
-      setError(formatErrorMessage(err, 'Could not load your wallet. Please try again.'));
+      setError(formatErrorMessage(err, t('farmer.wallet.error.body')));
     } finally {
       setLoading(false);
     }
@@ -228,14 +222,14 @@ export function WalletScreen({
               onPress={onBack}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel={t('farmer.common.back')}
             >
               <ArrowBackIcon size={20} color={P.twGreen800} />
             </TouchableOpacity>
           )}
 
           <View style={styles.headerTitleGroup}>
-            <Text style={styles.headerTitle}>Wallet</Text>
+            <Text style={styles.headerTitle}>{t('farmer.wallet.title')}</Text>
           </View>
         </View>
       </View>
@@ -246,16 +240,16 @@ export function WalletScreen({
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorTitle}>Couldn't load your wallet</Text>
+          <Text style={styles.errorTitle}>{t('farmer.wallet.error.title')}</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => void loadWallet()}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Retry"
+            accessibilityLabel={t('farmer.common.retry')}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -266,7 +260,7 @@ export function WalletScreen({
         >
           {/* Dark Green Available Balance Card */}
           <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>Available Balance</Text>
+            <Text style={styles.balanceLabel}>{t('farmer.wallet.balance')}</Text>
             <Text style={styles.balanceValue}>
               {wallet ? formatMoneyAmount(wallet.balance) : formatMoneyAmount('0')}
             </Text>
@@ -280,12 +274,12 @@ export function WalletScreen({
               onPress={onNavigateToAddMoney}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Add Money"
+              accessibilityLabel={t('farmer.wallet.action.addMoney')}
             >
               <View style={styles.actionIconCircle}>
                 <PlusCircleIcon size={22} color={P.twGreen700} />
               </View>
-              <Text style={styles.actionCardText}>Add Money</Text>
+              <Text style={styles.actionCardText}>{t('farmer.wallet.action.addMoney')}</Text>
             </TouchableOpacity>
 
             {/* Withdraw */}
@@ -294,12 +288,12 @@ export function WalletScreen({
               onPress={onNavigateToWithdraw}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Withdraw"
+              accessibilityLabel={t('farmer.wallet.action.withdraw')}
             >
               <View style={styles.actionIconCircle}>
                 <ArrowUpRightIcon size={22} color={P.twGreen700} />
               </View>
-              <Text style={styles.actionCardText}>Withdraw</Text>
+              <Text style={styles.actionCardText}>{t('farmer.wallet.action.withdraw')}</Text>
             </TouchableOpacity>
 
             {/* Payout History */}
@@ -308,23 +302,23 @@ export function WalletScreen({
               onPress={onNavigateToPayoutHistory}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Payout History"
+              accessibilityLabel={t('farmer.wallet.action.payoutHistory')}
             >
               <View style={styles.actionIconCircle}>
                 <ReceiptIcon size={22} color={P.twGreen700} />
               </View>
-              <Text style={styles.actionCardText}>Payout History</Text>
+              <Text style={styles.actionCardText}>{t('farmer.wallet.action.payoutHistory')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Recent Transactions Section */}
           <View style={styles.txSection}>
-            <Text style={styles.sectionHeader}>RECENT TRANSACTIONS</Text>
+            <Text style={styles.sectionHeader}>{t('farmer.wallet.recentTransactions')}</Text>
 
             {transactions.length === 0 ? (
               <View style={styles.emptyTxBox}>
                 <Text style={styles.emptyTxText}>
-                  No transactions yet. Top up your wallet or make a sale to see activity here.
+                  {t('farmer.wallet.emptyTransactions')}
                 </Text>
               </View>
             ) : (
@@ -332,7 +326,9 @@ export function WalletScreen({
                 {transactions.map((tx) => {
                   const item = toTransactionItem(tx);
                   const isCredit = item.type === 'credit';
-                  const isTopUp = item.title.includes('Top-up');
+                  // Decided from the raw ledger type, not the (now localized) display
+                  // label -- a substring check on translated text breaks outside English.
+                  const isTopUp = tx.txnType === 'TOPUP_CASH' || tx.txnType === 'TOPUP_DIGITAL';
 
                   const iconBg = isTopUp
                     ? P.twBlue50

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Modal,
   SafeAreaView,
@@ -16,7 +15,7 @@ import {
 import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Skeleton, DatePicker } from '@tohfa/mobile-ui';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms, getPlots } from '../../../api/farms';
 import { signUpload } from '../../../api/registration';
@@ -304,8 +303,8 @@ export function UploadNewSoilTestScreen({
     }
   };
 
-  const [testDate, setTestDate] = useState('12/06/26');
-  const [nextDue, setNextDue] = useState('11/06/27');
+  const [testDate, setTestDate] = useState('');
+  const [nextDue, setNextDue] = useState('');
   const [isTestDatePickerVisible, setIsTestDatePickerVisible] = useState(false);
   const [isNextDuePickerVisible, setIsNextDuePickerVisible] = useState(false);
 
@@ -333,14 +332,14 @@ export function UploadNewSoilTestScreen({
     setIsNextDuePickerVisible(false);
   };
 
-  const [organicCarbon, setOrganicCarbon] = useState('0.62');
-  const [ph, setPh] = useState('5.8');
-  const [ec, setEc] = useState('0.7');
-  const [tds, setTds] = useState('312');
-  const [nitrogen, setNitrogen] = useState('280');
-  const [phosphorus, setPhosphorus] = useState('24');
-  const [potassium, setPotassium] = useState('195');
-  const [limeStatus, setLimeStatus] = useState('Harmless');
+  const [organicCarbon, setOrganicCarbon] = useState('');
+  const [ph, setPh] = useState('');
+  const [ec, setEc] = useState('');
+  const [tds, setTds] = useState('');
+  const [nitrogen, setNitrogen] = useState('');
+  const [phosphorus, setPhosphorus] = useState('');
+  const [potassium, setPotassium] = useState('');
+  const [limeStatus, setLimeStatus] = useState('');
 
   const [limePickerVisible, setLimePickerVisible] = useState(false);
   const [attachedDoc, setAttachedDoc] = useState<{
@@ -348,6 +347,7 @@ export function UploadNewSoilTestScreen({
     size: string;
     uri: string;
   } | null>(null);
+  const [docPickError, setDocPickError] = useState<string | null>(null);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -373,28 +373,30 @@ export function UploadNewSoilTestScreen({
         size: `${sizeMB} MB · ${isPdf ? 'PDF' : 'IMAGE'}`,
         uri: picked.fileCopyUri ?? picked.uri,
       });
+      setDocPickError(null);
     } catch (err) {
+      // User cancelling the picker is not an error -- just leave attachedDoc
+      // untouched. Any other failure must be shown to the farmer, never
+      // papered over with a fabricated "attached" document (that previously
+      // let the UI claim a real file was attached when nothing was picked).
       if (!DocumentPicker.isCancel(err)) {
-        // Fallback demo document if picker unavailable
-        setAttachedDoc({
-          name: 'soil_lab_report_june2026.pdf',
-          size: '1.8 MB · PDF',
-          uri: 'https://storage.tohfa.in/reports/soil_lab_report_2026.pdf',
-        });
+        setDocPickError(formatErrorMessage(err, 'Could not attach the document. Please try again.'));
       }
     }
   };
 
   const handleSave = async () => {
-    if (!testDate.trim() || !ph.trim() || !organicCarbon.trim() || !ec.trim() || !nextDue.trim()) {
-      Alert.alert('Required Fields', 'Please ensure Test Date, Next Due, Organic Carbon, pH and EC are filled.');
+    setSaveError(null);
+
+    if (!testDate.trim() || !nextDue.trim() || !organicCarbon.trim() || !ph.trim() || !ec.trim()) {
+      setSaveError('Please fill in Test Date, Next Due, Organic Carbon, pH and EC — these are required.');
       return;
     }
 
     const isoTestDate = toIsoDate(testDate);
     const isoNextDue = toIsoDate(nextDue);
     if (!isoTestDate || !isoNextDue) {
-      Alert.alert('Invalid Date', 'Test Date and Next Due must be in DD/MM/YY format.');
+      setSaveError('Test Date and Next Due must be a valid date in DD/MM/YY format.');
       return;
     }
     if (!farmId || !plotId) {
@@ -448,7 +450,7 @@ export function UploadNewSoilTestScreen({
         ...(nitrogen.trim() ? { nitrogenKgPerHa: parseFloat(nitrogen) } : {}),
         ...(phosphorus.trim() ? { phosphorusKgPerHa: parseFloat(phosphorus) } : {}),
         ...(potassium.trim() ? { potassiumKgPerHa: parseFloat(potassium) } : {}),
-        limeStatus: limeStatus as LimeStatus,
+        ...(limeStatus ? { limeStatus: limeStatus as LimeStatus } : {}),
         ...(labReportUploadId ? { labReportUploadId } : {}),
       };
 
@@ -540,7 +542,7 @@ export function UploadNewSoilTestScreen({
                 style={styles.inputText}
                 value={testDate}
                 onChangeText={setTestDate}
-                placeholder="DD/MM/YY"
+                placeholder="e.g. 12/06/26"
                 placeholderTextColor={P.twGray400}
               />
               <TouchableOpacity
@@ -569,7 +571,7 @@ export function UploadNewSoilTestScreen({
                 style={styles.inputText}
                 value={nextDue}
                 onChangeText={setNextDue}
-                placeholder="DD/MM/YY"
+                placeholder="e.g. 11/06/27"
                 placeholderTextColor={P.twGray400}
               />
               <TouchableOpacity
@@ -603,14 +605,18 @@ export function UploadNewSoilTestScreen({
             placeholderTextColor={P.twGray400}
           />
           <View style={styles.badgeRow}>
-            <InfoCircleIcon size={14} color={P.deepPurple800} />
-            <Text style={styles.infoText}>
-              {ocVal >= 0.51 && ocVal <= 0.75
-                ? 'Medium — within the 0.51–0.75% range'
-                : ocVal < 0.51
-                ? 'Low — below 0.51% range'
-                : 'High — above 0.75% ideal range'}
-            </Text>
+            {ocVal > 0 ? (
+              <>
+                <InfoCircleIcon size={14} color={P.deepPurple800} />
+                <Text style={styles.infoText}>
+                  {ocVal >= 0.51 && ocVal <= 0.75
+                    ? 'Medium — within the 0.51–0.75% range'
+                    : ocVal < 0.51
+                    ? 'Low — below 0.51% range'
+                    : 'High — above 0.75% ideal range'}
+                </Text>
+              </>
+            ) : null}
           </View>
         </View>
 
@@ -639,12 +645,12 @@ export function UploadNewSoilTestScreen({
                 <CheckCircleIcon size={14} color={P.twGreen600} />
                 <Text style={styles.successText}>Good — within the 6.0–7.5 ideal range</Text>
               </>
-            ) : (
+            ) : isPhAlkaline ? (
               <>
                 <WarningTriangleIcon size={14} color={P.twRed600} />
                 <Text style={styles.errorText}>Alkaline — above the 6.0–7.5 ideal range</Text>
               </>
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -806,7 +812,14 @@ export function UploadNewSoilTestScreen({
             accessibilityRole="button"
             accessibilityLabel="Select Lime Status"
           >
-            <Text style={styles.dropdownSelectedText}>{limeStatus}</Text>
+            <Text
+              style={[
+                styles.dropdownSelectedText,
+                !limeStatus ? styles.dropdownPlaceholderText : undefined,
+              ]}
+            >
+              {limeStatus || 'Select lime status'}
+            </Text>
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
         </View>
@@ -870,6 +883,12 @@ export function UploadNewSoilTestScreen({
               <Text style={styles.uploadSubtitle}>PDF, JPG or PNG · max 10 MB</Text>
             </TouchableOpacity>
           )}
+          {docPickError ? (
+            <View style={styles.badgeRow}>
+              <WarningTriangleIcon size={14} color={P.twRed600} />
+              <Text style={styles.errorText}>{docPickError}</Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
       )}
@@ -1295,6 +1314,10 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.slate800,
     fontWeight: '500',
+  },
+  dropdownPlaceholderText: {
+    color: P.twGray400,
+    fontWeight: 'normal',
   },
 
   badgeRow: {

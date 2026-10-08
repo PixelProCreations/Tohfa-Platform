@@ -2,10 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
-import { logout } from './api/auth';
+import { deleteFarmAsset } from './api/farmAssets';
 import { tokenStorage } from './storage/tokenStorage';
 import { Icon } from '@tohfa/mobile-ui';
-import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
+import { t } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
 import { ForgotPasswordScreen } from './screens/auth/ForgotPasswordScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
@@ -79,8 +79,7 @@ import { EditPlantingScreen } from './screens/farm/crops/EditPlantingScreen';
 import { MachineryListScreen, type MachineryItem } from './screens/farm/assets/MachineryListScreen';
 import { AddMachineryScreen } from './screens/farm/assets/AddMachineryScreen';
 import { EditMachineryScreen } from './screens/farm/assets/EditMachineryScreen';
-import { RemoveItemScreen, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
-import { deleteFarmAsset } from './api/farmAssets';
+import { RemoveItemScreen, canDeleteAsset, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
 import { LearningHubScreen } from './screens/learning/LearningHubScreen';
 import { ContentDetailScreen, type ContentDetailItem } from './screens/learning/ContentDetailScreen';
 import { GroupsScreen, type GroupItem } from './screens/learning/GroupsScreen';
@@ -100,7 +99,6 @@ import { AuditResultScreen } from './screens/audits/AuditResultScreen';
 import { ProfileScreen } from './screens/profile/ProfileScreen';
 import { SettingsScreen } from './screens/profile/SettingsScreen';
 import { ChangePasswordScreen } from './screens/profile/ChangePasswordScreen';
-import { ChangeMobileScreen } from './screens/profile/ChangeMobileScreen';
 import { AboutSupportScreen } from './screens/profile/AboutSupportScreen';
 import { FMBSketchScreen } from './screens/profile/FMBSketchScreen';
 import { FieldContextScreen } from './screens/profile/FieldContextScreen';
@@ -117,7 +115,6 @@ import { WithdrawFundsScreen } from './screens/payment/WithdrawFundsScreen';
 import { WalletTransactionDetailScreen } from './screens/payment/WalletTransactionDetailScreen';
 import { AddMoneyScreen } from './screens/payment/AddMoneyScreen';
 import { CashTopUpScreen } from './screens/payment/CashTopUpScreen';
-import { NewSoilTestScreen } from './screens/profile/NewSoilTestScreen';
 import { RegistrationFlowScreen } from './screens/registration/RegistrationFlowScreen';
 import { WalletScreen } from './screens/wallet/WalletScreen';
 import { type Listing, type ListingCropChoice } from './api/listings';
@@ -203,7 +200,6 @@ export type ScreenName =
   | 'GroupDetail'
   | 'Settings'
   | 'ChangePassword'
-  | 'ChangeMobile'
   | 'AboutSupport'
   | 'InputManagement'
   | 'LogFertigation'
@@ -286,7 +282,6 @@ export default function App(): React.JSX.Element {
   const [selectedMachineryForEdit, setSelectedMachineryForEdit] = useState<MachineryItem | null>(null);
   const [selectedItemForRemove, setSelectedItemForRemove] = useState<RemoveItemData | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
-  const [locale, setLocaleState] = useState<Locale>('en');
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, string | number | undefined> = {}) => {
@@ -386,11 +381,6 @@ export default function App(): React.JSX.Element {
     };
   }, []);
 
-  const switchLocale = (next: Locale): void => {
-    setLocale(next);
-    setLocaleState(next);
-  };
-
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
 
@@ -477,10 +467,6 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'CreateListing' ? (
           <CreateListingScreen
-            onSuccess={() => {
-              setCurrentTab('Listings');
-              navigate('MainTabs');
-            }}
             onCancel={goBack}
             onNext={(crop) => {
               setListingDraftCrop(crop);
@@ -905,7 +891,6 @@ export default function App(): React.JSX.Element {
             onNavigateToMoistureTracking={(farmId) => navigate('SoilMoistureTracking', { farmId })}
             onNavigateToErosionConservation={(farmId) => navigate('ErosionConservation', { farmId })}
             onNavigateToExportReports={(farmId) => navigate('ExportSoilReports', { farmId })}
-            onNavigateToSoilTest={(farmId) => navigate('SoilTest', { farmId })}
             onNavigateToNewSoilTest={(farmId) => navigate('UploadNewSoilTest', { farmId })}
           />
         ) : screen === 'SoilTestRecords' ? (
@@ -1110,8 +1095,6 @@ export default function App(): React.JSX.Element {
                 name: selectedToolForEdit?.name || 'Knapsack Sprayer',
                 category: 'Tools',
                 dateInfo: `Tools · ${selectedToolForEdit?.purchaseDate || 'Purchased 04 Jan 2025'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -1148,8 +1131,6 @@ export default function App(): React.JSX.Element {
                 name: selectedEquipmentForEdit?.name || 'Drip Irrigation Kit',
                 category: 'Equipment',
                 dateInfo: `Equipment · ${selectedEquipmentForEdit?.purchaseDate || 'Purchased 22 Feb 2024'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -1187,8 +1168,6 @@ export default function App(): React.JSX.Element {
                 name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
                 category: 'Trees',
                 dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -1226,8 +1205,6 @@ export default function App(): React.JSX.Element {
                 name: selectedMachineryForEdit?.name || 'Power Tiller',
                 category: 'Machinery',
                 dateInfo: `Machinery · ${selectedMachineryForEdit?.purchaseDate || 'Purchased 08 Feb 2023'}`,
-                serviceEntriesCount: 3,
-                recordedCost: 450,
               });
               navigate('RemoveItem');
             }}
@@ -1237,7 +1214,14 @@ export default function App(): React.JSX.Element {
             item={selectedItemForRemove ?? undefined}
             onNavigateBack={goBack}
             onConfirmRemove={async () => {
-              if (selectedItemForRemove?.id && selectedItemForRemove.category !== 'Trees') {
+              // canDeleteAsset is the single source of truth for which categories have no
+              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
+              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
+              // not the gate itself.
+              if (
+                selectedItemForRemove?.id &&
+                canDeleteAsset(selectedItemForRemove.category)
+              ) {
                 try {
                   await deleteFarmAsset(selectedItemForRemove.id);
                 } catch {
@@ -1248,8 +1232,6 @@ export default function App(): React.JSX.Element {
                 navigate('ToolsList');
               } else if (selectedItemForRemove?.category === 'Equipment') {
                 navigate('EquipmentList');
-              } else if (selectedItemForRemove?.category === 'Trees') {
-                navigate('TreesList');
               } else {
                 navigate('MachineryList');
               }
@@ -1290,11 +1272,6 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'AboutSupport' ? (
           <AboutSupportScreen onBack={goBack} />
-        ) : screen === 'ChangeMobile' ? (
-          <ChangeMobileScreen
-            onBack={goBack}
-            onNavigateToPassword={() => navigate('ChangePassword')}
-          />
         ) : screen === 'ChangePassword' ? (
           <ChangePasswordScreen onBack={goBack} onSuccess={() => navigate('PasswordChangedSuccess')} />
         ) : screen === 'Settings' ? (
@@ -1302,7 +1279,6 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onNavigateToProfile={() => navigate('PersonalDetails')}
             onNavigateToChangePassword={() => navigate('ChangePassword')}
-            onNavigateToChangeMobile={() => navigate('ChangeMobile')}
             onNavigateToAboutSupport={() => navigate('AboutSupport')}
             onSignOut={() => navigate('Welcome')}
           />
@@ -1319,6 +1295,8 @@ export default function App(): React.JSX.Element {
                   onNavigateToProfile={() => setCurrentTab('Profile')}
                   onNavigateToNotifications={() => navigate('Notifications')}
                   onNavigateToCounterOffer={(item) => {
+                    // Only a real listing from DashboardScreen's GET /listings opens the
+                    // counter-offer screen; with none, there is nothing to respond to.
                     if (item && item.id) {
                       setSelectedListing(item);
                       navigate('CounterOffer');

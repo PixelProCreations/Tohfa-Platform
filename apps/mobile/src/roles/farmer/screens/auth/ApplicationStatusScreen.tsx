@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useTheme, authPalette as P, typography } from '../../theme';
-import { fetchApplicationStatus, logout, type ApplicationStatusResponse } from '../../api/auth';
+import { fetchApplicationStatus, type ApplicationStatusResponse } from '../../api/auth';
 import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
 
 interface ApplicationStatusScreenProps {
   applicationId: string;
@@ -25,7 +27,7 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
   const { colors } = theme;
   const [data, setData] = useState<ApplicationStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -34,13 +36,13 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
       const res = await fetchApplicationStatus(applicationId);
       setData(res);
     } catch (err: unknown) {
-      // Graceful fallback if testing with local mock ID
-      setData({
-        id: applicationId,
-        status: 'DOCS_REVIEW',
-        step: 2,
-        submittedAt: new Date().toISOString(),
-      });
+      // A failed GET /farmers/applications/:id/status must surface as a real
+      // error, not a fabricated "Documents Under Review" status -- a farmer
+      // acting on a status TOHFA never actually confirmed is worse than a
+      // farmer seeing a retry screen (root CLAUDE.md §2.5 neighbourhood: never
+      // show state the server didn't actually report). Formatted the same way
+      // LoginScreen/ForgotPasswordScreen/PersonalDetailsScreen already do.
+      setError(formatErrorMessage(err, t('error.generic')));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
   if (error) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bgLight, padding: 24, justifyContent: 'center' }]}>
-        <ErrorState error={error} onRetry={loadStatus} />
+        <ErrorState message={error} onRetry={loadStatus} />
       </SafeAreaView>
     );
   }

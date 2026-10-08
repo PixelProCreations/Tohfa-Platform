@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -18,6 +19,7 @@ import {
   getSoilHealthSummary,
   type SoilTestRecord,
   type SoilHealthSummary,
+  type SoilHealthMetric,
 } from '../../api/soil';
 
 export interface SoilTestScreenProps {
@@ -26,10 +28,69 @@ export interface SoilTestScreenProps {
   onNavigateToNewSoilTest?: () => void;
 }
 
+/**
+ * Shown wherever a reading is missing. Same convention as
+ * SoilHealthTrackerScreen's EMPTY_READING: an honest dash, never a plausible
+ * sample number -- a farmer acting on a made-up pH is worse off than one who
+ * sees that no test has been recorded.
+ */
+const EMPTY_VALUE = '—';
+const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+/** How many of the most recent tests feed the fallback trend line. */
+const TREND_TEST_COUNT = 5;
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', DATE_FORMAT);
+}
+
+function formatValue(value: number | null | undefined): string {
+  return value != null ? String(value) : EMPTY_VALUE;
+}
+
+/**
+ * A trend series built only from real data: the server's chart points when it
+ * has at least two, otherwise the farmer's own recorded tests (oldest first).
+ * Fewer than two real points means there is no trend to draw -- return [] and
+ * let the card show its empty state rather than padding with sample values.
+ */
+function buildTrendSeries(
+  metric: SoilHealthMetric | undefined,
+  testValuesNewestFirst: (number | null | undefined)[],
+): number[] {
+  if (metric && metric.chartPoints.length >= 2) {
+    return metric.chartPoints.map((p) => p.value);
+  }
+  const real = testValuesNewestFirst
+    .slice(0, TREND_TEST_COUNT)
+    .filter((v): v is number => v != null)
+    .reverse();
+  return real.length >= 2 ? real : [];
+}
+
+/** Trend wording only when the server actually reported a direction. */
+function trendLabel(direction: SoilHealthMetric['trendDirection'] | undefined): string {
+  if (direction === 'declining') return t('farmer.profile.soil.trendDeclining');
+  if (direction === 'improving') return t('farmer.profile.soil.trendImproving');
+  if (direction === 'flat') return t('farmer.profile.soil.trendFlat');
+  return '';
+}
+
+function nextDueText(nextDueDate: string): string | null {
+  const due = new Date(nextDueDate).getTime();
+  if (Number.isNaN(due)) return null;
+  const days = Math.ceil((due - Date.now()) / MS_PER_DAY);
+  const date = formatDate(nextDueDate);
+  return days >= 0
+    ? t('farmer.profile.soil.nextDueAway', { date, days })
+    : t('farmer.profile.soil.nextDueOverdue', { date, days: Math.abs(days) });
+}
+
 export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest }: SoilTestScreenProps): React.JSX.Element {
   const [tests, setTests] = useState<SoilTestRecord[]>([]);
   const [healthSummary, setHealthSummary] = useState<SoilHealthSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +123,8 @@ export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest
           }
         }
       } catch {
-        // Fallback gracefully
+        // Surface the failure instead of rendering it as "no tests recorded".
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,6 +144,17 @@ export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest
     subtitle: string,
     subtitleColor: string,
   ) => {
+    if (data.length < 2) {
+      return (
+        <View style={styles.trendCard}>
+          <View style={styles.trendHeader}>
+            <Text style={styles.trendTitle}>{title}</Text>
+          </View>
+          <Text style={styles.trendEmpty}>{t('farmer.profile.soil.trendNotEnoughData')}</Text>
+        </View>
+      );
+    }
+
     // Simple line chart using SVG
     const width = 120;
     const height = 40;
@@ -116,26 +189,30 @@ export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest
             <Circle key={i} cx={p.x} cy={p.y} r="3" fill={color} />
           ))}
         </Svg>
-        <Text style={[styles.trendSubtitle, { color: subtitleColor }]}>{subtitle}</Text>
+        {subtitle ? (
+          <Text style={[styles.trendSubtitle, { color: subtitleColor }]}>{subtitle}</Text>
+        ) : null}
       </View>
     );
   };
 
-  const phChartData =
-    healthSummary?.ph.chartPoints && healthSummary.ph.chartPoints.length >= 2
-      ? healthSummary.ph.chartPoints.map((p) => p.value)
-      : tests.length >= 2
-        ? tests.slice(0, 5).reverse().map((t) => t.ph)
-        : [6.4, 6.1, latestTest?.ph ?? 5.8];
+  const phChartData = buildTrendSeries(healthSummary?.ph, tests.map((test) => test.ph));
+  const ocChartData = buildTrendSeries(
+    healthSummary?.organicCarbon,
+    tests.map((test) => test.organicCarbonPct),
+  );
 
-  const ocChartData =
-    healthSummary?.organicCarbon.chartPoints && healthSummary.organicCarbon.chartPoints.length >= 2
-      ? healthSummary.organicCarbon.chartPoints.map((p) => p.value)
-      : tests.length >= 2
-        ? tests.slice(0, 5).reverse().map((t) => t.organicCarbonPct)
-        : [0.55, 0.59, latestTest?.organicCarbonPct ?? 0.62];
+  // Only a real recorded pH can raise the acidity alert.
+  const isPhAcidic = latestTest?.ph != null && latestTest.ph < 6.0;
+  const nextDue = latestTest?.nextDueDate ? nextDueText(latestTest.nextDueDate) : null;
 
-  const isPhAcidic = latestTest ? latestTest.ph < 6.0 : true;
+  /** A classification badge, rendered only when the server supplied a label. */
+  const renderBadge = (label: string | null | undefined, backgroundColor: string, color: string) =>
+    label ? (
+      <View style={[styles.badge, { backgroundColor }]}>
+        <Text style={[styles.badgeText, { color }]}>{label}</Text>
+      </View>
+    ) : null;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -156,308 +233,254 @@ export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Next Test Card */}
-        <View style={styles.dateCard}>
-          <Icon name="calendar_today" size={24} color={P.deepGreen} style={styles.dateIcon} />
-          <View style={styles.dateInfo}>
-            <Text style={styles.dateTitle}>
-              {t('farmer.profile.soil.testedOn', { date: latestTest?.testDate ? new Date(latestTest.testDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '12 Jun 2026' })}
-            </Text>
-            <Text style={styles.dateSubtitle}>
-              {t('farmer.profile.soil.nextDueAway', {
-                date: latestTest?.nextDueDate ? new Date(latestTest.nextDueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '11 Jun 2027',
-                days: 330,
-              })}
-            </Text>
-          </View>
-        </View>
-
-        {/* Alert Box */}
-        {isPhAcidic && (
-          <View style={styles.alertBox}>
-            <Text style={styles.alertIcon}>❗</Text>
-            <View style={styles.alertInfo}>
-              <Text style={styles.alertTitle}>
-                {t('farmer.profile.soil.alertTitle', { value: latestTest?.ph != null ? String(latestTest.ph) : '5.8' })}
-              </Text>
-              <Text style={styles.alertDesc}>{t('farmer.profile.soil.alertDesc')}</Text>
-            </View>
-          </View>
-        )}
-
-        <Text style={styles.sectionHeading}>{t('farmer.profile.soil.sectionLatestResults')}</Text>
-
-        {/* Results List */}
-        <View style={styles.resultsCard}>
-          {/* Result Item 1: Organic Carbon */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>{t('farmer.profile.soil.organicCarbon')}</Text>
-              <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealOrganicCarbon')}</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={styles.resultValue}>
-                {latestTest?.organicCarbonPct != null ? latestTest.organicCarbonPct : '0.62'}
-                <Text style={styles.resultUnit}>%</Text>
-              </Text>
-              <View style={[styles.badge, { backgroundColor: P.blue50 }]}>
-                <Text style={[styles.badgeText, { color: P.blue800 }]}>
-                  {latestTest?.organicCarbonLabel || t('farmer.profile.soil.badgeMedium')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item 2: pH */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>{t('farmer.profile.soil.phShort')}</Text>
-              <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealPh')}</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={[styles.resultValue, { color: isPhAcidic ? P.red800 : P.slate800 }]}>
-                {latestTest?.ph != null ? latestTest.ph : '5.8'}
-              </Text>
-              <View style={[styles.badge, { backgroundColor: isPhAcidic ? P.red50 : colors.brandGreenLight }]}>
-                <Text style={[styles.badgeText, { color: isPhAcidic ? P.red800 : P.primary }]}>
-                  {latestTest?.phLabel || t('farmer.profile.soil.acidic')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item 3: EC */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>{t('farmer.profile.soil.ecShort')}</Text>
-              <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealEc')}</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={styles.resultValue}>
-                {latestTest?.ecDsPerM != null ? latestTest.ecDsPerM : '0.7'}
-                <Text style={styles.resultUnit}>dS/m</Text>
-              </Text>
-              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.badgeText, { color: P.primary }]}>
-                  {latestTest?.ecLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item: Nitrogen (N) */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>Available Nitrogen (N)</Text>
-              <Text style={styles.resultIdeal}>Ideal 280–560 kg/ha</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={styles.resultValue}>
-                {latestTest?.nitrogenKgPerHa != null ? latestTest.nitrogenKgPerHa : '280'}
-                <Text style={styles.resultUnit}>kg/ha</Text>
-              </Text>
-              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.badgeText, { color: P.primary }]}>
-                  {latestTest?.nitrogenLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item: Phosphorus (P) */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>Available Phosphorus (P)</Text>
-              <Text style={styles.resultIdeal}>Ideal 10–25 kg/ha</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={styles.resultValue}>
-                {latestTest?.phosphorusKgPerHa != null ? latestTest.phosphorusKgPerHa : '24'}
-                <Text style={styles.resultUnit}>kg/ha</Text>
-              </Text>
-              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.badgeText, { color: P.primary }]}>
-                  {latestTest?.phosphorusLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item: Potassium (K) */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>Available Potassium (K)</Text>
-              <Text style={styles.resultIdeal}>Ideal 110–280 kg/ha</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={styles.resultValue}>
-                {latestTest?.potassiumKgPerHa != null ? latestTest.potassiumKgPerHa : '195'}
-                <Text style={styles.resultUnit}>kg/ha</Text>
-              </Text>
-              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.badgeText, { color: P.primary }]}>
-                  {latestTest?.potassiumLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item 4: TDS */}
-          <View style={styles.resultItem}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>{t('farmer.profile.soil.tdsShort')}</Text>
-              <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealTds')}</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <Text style={styles.resultValue}>
-                {latestTest?.tdsPpm != null ? latestTest.tdsPpm : '312'}
-                <Text style={styles.resultUnit}>ppm</Text>
-              </Text>
-              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.badgeText, { color: P.primary }]}>
-                  {latestTest?.tdsLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-
-          {/* Result Item 5: Lime Status */}
-          <View style={[styles.resultItem, { paddingBottom: 0 }]}>
-            <View style={styles.resultInfo}>
-              <Text style={styles.resultName}>{t('farmer.profile.soil.limeStatus')}</Text>
-              <Text style={styles.resultIdeal}>{t('farmer.profile.soil.calcareousness')}</Text>
-            </View>
-            <View style={styles.resultValueBox}>
-              <View style={[styles.badge, { backgroundColor: colors.brandGreenLight, marginLeft: 0 }]}>
-                <Text style={[styles.badgeText, { color: P.primary }]}>
-                  {latestTest?.limeStatus || t('farmer.profile.soil.badgeHarmless')}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.sectionHeading}>{t('farmer.profile.soil.sectionTrend')}</Text>
-
-        <View style={styles.trendRow}>
-          {renderTrendChart(
-            phChartData,
-            P.red800,
-            healthSummary?.ph.trendDirection === 'declining' || isPhAcidic,
-            t('farmer.profile.soil.phShort'),
-            healthSummary?.ph.trendDirection === 'declining'
-              ? t('farmer.profile.soil.trendDeclining')
-              : t('farmer.profile.soil.trendImproving'),
-            P.red800,
-          )}
-          {renderTrendChart(
-            ocChartData,
-            P.primary,
-            healthSummary?.organicCarbon.trendDirection === 'declining',
-            t('farmer.profile.soil.organicCarbon'),
-            healthSummary?.organicCarbon.trendDirection === 'improving'
-              ? t('farmer.profile.soil.trendImproving')
-              : t('farmer.profile.soil.trendDeclining'),
-            P.midGrey,
-          )}
-        </View>
-
-        <View style={styles.documentCard}>
-          <View style={styles.docIconBox}>
-            <Icon name="description" size={20} color={P.red800} />
-          </View>
-          <View style={styles.docInfo}>
-            <Text style={styles.docName}>
-              {latestTest?.labReportUploadId ? `soil_report_${latestTest.id.slice(0, 8)}.pdf` : 'soil_report_jun2026.pdf'}
-            </Text>
-            <Text style={styles.docMeta}>{t('farmer.profile.soil.documentMeta', { size: '820 KB' })}</Text>
-          </View>
-          <TouchableOpacity style={styles.docAction}>
-            <Icon name="visibility" size={16} color={P.slate600} />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.sectionHeading}>{t('farmer.profile.soil.sectionHistory')}</Text>
-
-        <View style={styles.historyList}>
-          {tests.length > 0 ? (
-            tests.map((test, index) => (
-              <View key={test.id} style={styles.historyCard}>
-                <View style={styles.historyInfo}>
-                  <View style={styles.historyHeaderRow}>
-                    <Text style={styles.historyDate}>
-                      {new Date(test.testDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+        {loading ? (
+          <ActivityIndicator style={styles.loader} color={P.primary} />
+        ) : loadError ? (
+          <Text style={styles.emptyText}>{t('farmer.profile.soil.loadError')}</Text>
+        ) : (
+          <>
+            {/* Next Test Card */}
+            <View style={styles.dateCard}>
+              <Icon name="calendar_today" size={24} color={P.deepGreen} style={styles.dateIcon} />
+              <View style={styles.dateInfo}>
+                {latestTest ? (
+                  <>
+                    <Text style={styles.dateTitle}>
+                      {t('farmer.profile.soil.testedOn', { date: formatDate(latestTest.testDate) })}
                     </Text>
-                    {index === 0 && (
-                      <View style={[styles.badge, { backgroundColor: colors.brandGreenLight, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                        <Text style={[styles.badgeText, { color: P.primary, fontSize: typography.caption }]}>
-                          {t('farmer.profile.soil.badgeLatest')}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.historySummary}>
-                    {t('farmer.profile.soil.historySummary', {
-                      ph: String(test.ph),
-                      oc: String(test.organicCarbonPct),
-                      ec: String(test.ecDsPerM),
-                    })}
-                  </Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
+                    {nextDue ? <Text style={styles.dateSubtitle}>{nextDue}</Text> : null}
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.dateTitle}>{t('farmer.profile.soil.noTestYet')}</Text>
+                    <Text style={styles.dateSubtitle}>{t('farmer.profile.soil.noTestYetHint')}</Text>
+                  </>
+                )}
               </View>
-            ))
-          ) : (
-            <>
-              {/* Fallback Sample History */}
-              <View style={styles.historyCard}>
-                <View style={styles.historyInfo}>
-                  <View style={styles.historyHeaderRow}>
-                    <Text style={styles.historyDate}>12 Jun 2026</Text>
-                    <View style={[styles.badge, { backgroundColor: colors.brandGreenLight, paddingVertical: 2, paddingHorizontal: 6 }]}>
-                      <Text style={[styles.badgeText, { color: P.primary, fontSize: typography.caption }]}>{t('farmer.profile.soil.badgeLatest')}</Text>
+            </View>
+
+            {/* Alert Box -- only when a real reading is acidic */}
+            {isPhAcidic && latestTest && (
+              <View style={styles.alertBox}>
+                <Text style={styles.alertIcon}>❗</Text>
+                <View style={styles.alertInfo}>
+                  <Text style={styles.alertTitle}>
+                    {t('farmer.profile.soil.alertTitle', { value: String(latestTest.ph) })}
+                  </Text>
+                  <Text style={styles.alertDesc}>{t('farmer.profile.soil.alertDesc')}</Text>
+                </View>
+              </View>
+            )}
+
+            <Text style={styles.sectionHeading}>{t('farmer.profile.soil.sectionLatestResults')}</Text>
+
+            {/* Results List */}
+            <View style={styles.resultsCard}>
+              {/* Result Item 1: Organic Carbon */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.organicCarbon')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealOrganicCarbon')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={styles.resultValue}>
+                    {formatValue(latestTest?.organicCarbonPct)}
+                    {latestTest?.organicCarbonPct != null ? <Text style={styles.resultUnit}>%</Text> : null}
+                  </Text>
+                  {renderBadge(latestTest?.organicCarbonLabel, P.blue50, P.blue800)}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item 2: pH */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.phShort')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealPh')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={[styles.resultValue, { color: isPhAcidic ? P.red800 : P.slate800 }]}>
+                    {formatValue(latestTest?.ph)}
+                  </Text>
+                  {renderBadge(
+                    latestTest?.phLabel,
+                    isPhAcidic ? P.red50 : colors.brandGreenLight,
+                    isPhAcidic ? P.red800 : P.primary,
+                  )}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item 3: EC */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.ecShort')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealEc')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={styles.resultValue}>
+                    {formatValue(latestTest?.ecDsPerM)}
+                    {latestTest?.ecDsPerM != null ? <Text style={styles.resultUnit}>dS/m</Text> : null}
+                  </Text>
+                  {renderBadge(latestTest?.ecLabel, colors.brandGreenLight, P.primary)}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item: Nitrogen (N) */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.nitrogen')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealNitrogen')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={styles.resultValue}>
+                    {formatValue(latestTest?.nitrogenKgPerHa)}
+                    {latestTest?.nitrogenKgPerHa != null ? <Text style={styles.resultUnit}>kg/ha</Text> : null}
+                  </Text>
+                  {renderBadge(latestTest?.nitrogenLabel, colors.brandGreenLight, P.primary)}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item: Phosphorus (P) */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.phosphorus')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealPhosphorus')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={styles.resultValue}>
+                    {formatValue(latestTest?.phosphorusKgPerHa)}
+                    {latestTest?.phosphorusKgPerHa != null ? <Text style={styles.resultUnit}>kg/ha</Text> : null}
+                  </Text>
+                  {renderBadge(latestTest?.phosphorusLabel, colors.brandGreenLight, P.primary)}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item: Potassium (K) */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.potassium')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealPotassium')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={styles.resultValue}>
+                    {formatValue(latestTest?.potassiumKgPerHa)}
+                    {latestTest?.potassiumKgPerHa != null ? <Text style={styles.resultUnit}>kg/ha</Text> : null}
+                  </Text>
+                  {renderBadge(latestTest?.potassiumLabel, colors.brandGreenLight, P.primary)}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item 4: TDS */}
+              <View style={styles.resultItem}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.tdsShort')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.idealTds')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  <Text style={styles.resultValue}>
+                    {formatValue(latestTest?.tdsPpm)}
+                    {latestTest?.tdsPpm != null ? <Text style={styles.resultUnit}>ppm</Text> : null}
+                  </Text>
+                  {renderBadge(latestTest?.tdsLabel, colors.brandGreenLight, P.primary)}
+                </View>
+              </View>
+              <View style={styles.divider} />
+
+              {/* Result Item 5: Lime Status */}
+              <View style={[styles.resultItem, { paddingBottom: 0 }]}>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{t('farmer.profile.soil.limeStatus')}</Text>
+                  <Text style={styles.resultIdeal}>{t('farmer.profile.soil.calcareousness')}</Text>
+                </View>
+                <View style={styles.resultValueBox}>
+                  {latestTest?.limeStatus ? (
+                    <View style={[styles.badge, { backgroundColor: colors.brandGreenLight, marginLeft: 0 }]}>
+                      <Text style={[styles.badgeText, { color: P.primary }]}>{latestTest.limeStatus}</Text>
                     </View>
-                  </View>
-                  <Text style={styles.historySummary}>
-                    {t('farmer.profile.soil.historySummary', { ph: '5.8', oc: '0.62', ec: '0.7' })}
-                  </Text>
+                  ) : (
+                    <Text style={styles.resultValue}>{EMPTY_VALUE}</Text>
+                  )}
                 </View>
-                <Text style={styles.chevron}>›</Text>
               </View>
+            </View>
 
-              <View style={styles.historyCard}>
-                <View style={styles.historyInfo}>
-                  <View style={styles.historyHeaderRow}>
-                    <Text style={styles.historyDate}>05 Jun 2025</Text>
-                  </View>
-                  <Text style={styles.historySummary}>
-                    {t('farmer.profile.soil.historySummary', { ph: '6.1', oc: '0.59', ec: '0.6' })}
-                  </Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </View>
+            <Text style={styles.sectionHeading}>{t('farmer.profile.soil.sectionTrend')}</Text>
 
-              <View style={styles.historyCard}>
-                <View style={styles.historyInfo}>
-                  <View style={styles.historyHeaderRow}>
-                    <Text style={styles.historyDate}>20 May 2024</Text>
-                  </View>
-                  <Text style={styles.historySummary}>
-                    {t('farmer.profile.soil.historySummary', { ph: '6.4', oc: '0.55', ec: '0.6' })}
-                  </Text>
+            <View style={styles.trendRow}>
+              {renderTrendChart(
+                phChartData,
+                P.red800,
+                healthSummary?.ph.trendDirection === 'declining' || isPhAcidic,
+                t('farmer.profile.soil.phShort'),
+                trendLabel(healthSummary?.ph.trendDirection),
+                P.red800,
+              )}
+              {renderTrendChart(
+                ocChartData,
+                P.primary,
+                healthSummary?.organicCarbon.trendDirection === 'declining',
+                t('farmer.profile.soil.organicCarbon'),
+                trendLabel(healthSummary?.organicCarbon.trendDirection),
+                P.midGrey,
+              )}
+            </View>
+
+            {/*
+              Only a real attached report is shown. There is no client call that turns
+              an upload id into a viewable URL yet (only /uploads/sign for writing), so
+              this is a status line with no open action and no invented file name/size.
+            */}
+            {latestTest?.labReportUploadId ? (
+              <View style={styles.documentCard}>
+                <View style={styles.docIconBox}>
+                  <Icon name="description" size={20} color={P.red800} />
                 </View>
-                <Text style={styles.chevron}>›</Text>
+                <View style={styles.docInfo}>
+                  <Text style={styles.docName}>{t('farmer.profile.soil.labReportAttached')}</Text>
+                  <Text style={styles.docMeta}>{formatDate(latestTest.testDate)}</Text>
+                </View>
               </View>
-            </>
-          )}
-        </View>
+            ) : null}
+
+            <Text style={styles.sectionHeading}>{t('farmer.profile.soil.sectionHistory')}</Text>
+
+            <View style={styles.historyList}>
+              {tests.length > 0 ? (
+                tests.map((test, index) => (
+                  <View key={test.id} style={styles.historyCard}>
+                    <View style={styles.historyInfo}>
+                      <View style={styles.historyHeaderRow}>
+                        <Text style={styles.historyDate}>{formatDate(test.testDate)}</Text>
+                        {index === 0 && (
+                          <View style={[styles.badge, { backgroundColor: colors.brandGreenLight, paddingVertical: 2, paddingHorizontal: 6 }]}>
+                            <Text style={[styles.badgeText, { color: P.primary, fontSize: typography.caption }]}>
+                              {t('farmer.profile.soil.badgeLatest')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.historySummary}>
+                        {t('farmer.profile.soil.historySummary', {
+                          ph: formatValue(test.ph),
+                          oc: formatValue(test.organicCarbonPct),
+                          ec: formatValue(test.ecDsPerM),
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={styles.chevron}>›</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>{t('farmer.profile.soil.noHistory')}</Text>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Sticky Bottom Button */}
@@ -594,6 +617,10 @@ const styles = StyleSheet.create({
   trendIconDeclining: { transform: [{ scaleY: -1 }] },
   trendChart: { marginVertical: 12 },
   trendSubtitle: { fontSize: typography.caption },
+  trendEmpty: { fontSize: typography.caption, color: P.slate500, marginTop: 12 },
+
+  loader: { marginTop: 32 },
+  emptyText: { fontSize: typography.body, color: P.slate500, textAlign: 'center', paddingVertical: 16 },
 
   documentCard: {
     flexDirection: 'row',
@@ -621,15 +648,6 @@ const styles = StyleSheet.create({
   docInfo: { flex: 1 },
   docName: { fontSize: typography.body, fontWeight: '600', color: P.slate800, marginBottom: 2 },
   docMeta: { fontSize: typography.bodySmall, color: P.slate500 },
-  docAction: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: P.slate100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  docActionIcon: { fontSize: typography.bodyLarge },
 
   historyList: { gap: 12 },
   historyCard: {

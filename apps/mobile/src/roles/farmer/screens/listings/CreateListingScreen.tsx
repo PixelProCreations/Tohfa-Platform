@@ -42,7 +42,6 @@ const EmptyCircle = () => (
 );
 
 interface CreateListingScreenProps {
-  onSuccess?: () => void;
   onCancel?: () => void;
   /** Step 2 needs the crop's id (for `POST /listings` and the ceiling lookup) and its display name. */
   onNext?: (crop: ListingCropChoice) => void;
@@ -357,17 +356,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
-  },
-  gradeBadge: {
-    backgroundColor: colors.brandGreenLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  gradeBadgeText: {
-    fontSize: typography.caption,
-    fontWeight: '800',
-    color: colors.brandGreen,
   },
   cropSub: {
     fontSize: typography.body,

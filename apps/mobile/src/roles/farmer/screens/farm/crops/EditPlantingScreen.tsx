@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
 import { authPalette as P, colors, typography } from '../../../theme';
@@ -20,6 +20,7 @@ import {
   toCalendarDateString,
   todayCalendarDateString,
 } from '../toolPurchaseDate';
+import { canDeleteAsset, TREE_REMOVE_UNAVAILABLE_MESSAGE } from '../assets/RemoveItemScreen';
 
 // ── Calendar theme ───────────────────────────────────────────────────────────
 
@@ -183,7 +184,18 @@ export function EditPlantingScreen({
     setShowCalendar(false);
   }
 
+  // This screen only ever edits a Trees/planting record (see the locked
+  // category banner below), and farm-assets has no backend entity for one
+  // (api/farmAssets.ts only models TOOL/EQUIPMENT/MACHINERY) -- canDeleteAsset
+  // is the single source of truth for that gap (RemoveItemScreen.tsx), so the
+  // button says so honestly instead of handing off to a screen that would.
+  const canRemove = canDeleteAsset('Trees');
+
   function handleRemove(): void {
+    if (!canRemove) {
+      Alert.alert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE);
+      return;
+    }
     onRemove?.();
   }
 
@@ -316,16 +328,19 @@ export function EditPlantingScreen({
           />
         </View>
 
-        {/* Remove Button */}
+        {/* Remove Button — muted and honestly labelled when unsupported, rather
+            than handing off to a screen that only says so after the fact. */}
         <TouchableOpacity
-          style={styles.removeButton}
+          style={[styles.removeButton, !canRemove && styles.removeButtonDisabled]}
           onPress={handleRemove}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Remove this planting"
+          accessibilityLabel={canRemove ? 'Remove this planting' : 'Remove this planting (not available yet)'}
         >
-          <TrashIcon size={16} color={P.twRed600} />
-          <Text style={styles.removeButtonText}>Remove this planting</Text>
+          <TrashIcon size={16} color={canRemove ? P.twRed600 : P.twGray500} />
+          <Text style={[styles.removeButtonText, !canRemove && styles.removeButtonTextDisabled]}>
+            Remove this planting
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -559,6 +574,16 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twRed600,
+  },
+  // Muted, not brand red: Trees has no real delete to perform yet (no backend
+  // entity for tree plantings — root CLAUDE.md §1/§7), so this must not look
+  // like a confident, fully-wired destructive action.
+  removeButtonDisabled: {
+    backgroundColor: P.twGray100,
+    borderColor: P.twGray200,
+  },
+  removeButtonTextDisabled: {
+    color: P.twGray500,
   },
 
   // Sticky Bottom

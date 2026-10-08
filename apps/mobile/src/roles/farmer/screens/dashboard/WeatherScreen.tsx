@@ -26,6 +26,15 @@ import { WeatherLottieHero } from './WeatherLottieHero';
 // (Strict zero raw emoji rule per foundation.test.ts)
 // ─────────────────────────────────────────────
 
+function InfoCircleIcon({ size = 16, color }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 11v5M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 type WeatherKind = 'sunny' | 'partlyCloudy' | 'cloudy' | 'rain' | 'lightRain' | 'night' | 'frost';
 
 function WeatherGlyph({ kind, size = 22 }: { kind: WeatherKind; size?: number }) {
@@ -261,6 +270,23 @@ export function WeatherScreen({ onNavigateBack }: WeatherScreenProps): React.JSX
           />
         ) : (
           <>
+            {/* Honest "not your farm's real data" notice -- shown whenever the
+                backend's per-farm call (provider === 'openweathermap') wasn't
+                what actually loaded, so a farmer never mistakes a public
+                regional estimate or synthetic fallback for their farm's live
+                conditions. Mirrors ChangeMobileScreen's infoBanner pattern. */}
+            {weather.provider !== 'openweathermap' ? (
+              <View style={styles.infoBanner}>
+                <View style={styles.infoBannerIcon}>
+                  <InfoCircleIcon size={16} color={P.greenDeep2} />
+                </View>
+                <View style={styles.infoBannerTextWrap}>
+                  <Text style={styles.infoBannerTitle}>{t('farmer.weather.estimatedBannerTitle')}</Text>
+                  <Text style={styles.infoBannerText}>{t('farmer.weather.estimatedBannerBody')}</Text>
+                </View>
+              </View>
+            ) : null}
+
             {/* Real-time Animated Weather Hero */}
             <WeatherLottieHero
               temperature={weather.current.temperatureC}
@@ -473,6 +499,38 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
+  },
+
+  infoBanner: {
+    flexDirection: 'row',
+    backgroundColor: P.lightGreen,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 10,
+  },
+  infoBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: P.greenPaleBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoBannerTextWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  infoBannerTitle: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.greenDeep5,
+  },
+  infoBannerText: {
+    fontSize: typography.bodySmall,
+    lineHeight: 18,
+    color: P.greenDeep5,
   },
 
   loadingContainer: {

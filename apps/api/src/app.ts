@@ -31,6 +31,7 @@ import {
   configFarmerRouter,
 } from './modules/certifications/certifications.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
+import { notificationPreferencesRouter } from './modules/notification-preferences/notification-preferences.routes.js';
 import { fairPricesRouter, retailPricesRouter } from './modules/pricing/pricing.routes.js';
 import {
   adminListingsRouter,
@@ -102,6 +103,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/farmer-applications', router: adminFarmerApplicationsRouter },
   { prefix: '/v1/admin/certifications', router: certificationsAdminRouter },
   { prefix: '/v1/notifications', router: notificationsRouter },
+  { prefix: '/v1/notification-preferences', router: notificationPreferencesRouter },
   { prefix: '/v1/fair-prices', router: fairPricesRouter },
   { prefix: '/v1/retail-prices', router: retailPricesRouter },
   { prefix: '/v1/listings', router: listingsRouter },
