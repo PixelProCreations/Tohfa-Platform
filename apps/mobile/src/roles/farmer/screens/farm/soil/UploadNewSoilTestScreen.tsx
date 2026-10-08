@@ -15,7 +15,7 @@ import {
 import DocumentPicker from 'react-native-document-picker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Skeleton, DatePicker } from '@tohfa/mobile-ui';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms, getPlots } from '../../../api/farms';
 import { signUpload } from '../../../api/registration';

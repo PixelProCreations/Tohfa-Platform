@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { configureTokenStorage, setOnAuthFailure, formatErrorMessage } from '../../shell/api/client';
+import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { deleteFarmAsset } from './api/farmAssets';
 import { tokenStorage } from './storage/tokenStorage';
 import { Icon } from '@tohfa/mobile-ui';
-import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
+import { t } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
 import { ForgotPasswordScreen } from './screens/auth/ForgotPasswordScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
@@ -79,7 +79,7 @@ import { EditPlantingScreen } from './screens/farm/crops/EditPlantingScreen';
 import { MachineryListScreen, type MachineryItem } from './screens/farm/assets/MachineryListScreen';
 import { AddMachineryScreen } from './screens/farm/assets/AddMachineryScreen';
 import { EditMachineryScreen } from './screens/farm/assets/EditMachineryScreen';
-import { RemoveItemScreen, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
+import { RemoveItemScreen, canDeleteAsset, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
 import { LearningHubScreen } from './screens/learning/LearningHubScreen';
 import { ContentDetailScreen, type ContentDetailItem } from './screens/learning/ContentDetailScreen';
 import { GroupsScreen, type GroupItem } from './screens/learning/GroupsScreen';
@@ -115,10 +115,9 @@ import { WithdrawFundsScreen } from './screens/payment/WithdrawFundsScreen';
 import { WalletTransactionDetailScreen } from './screens/payment/WalletTransactionDetailScreen';
 import { AddMoneyScreen } from './screens/payment/AddMoneyScreen';
 import { CashTopUpScreen } from './screens/payment/CashTopUpScreen';
-import { NewSoilTestScreen } from './screens/profile/NewSoilTestScreen';
 import { RegistrationFlowScreen } from './screens/registration/RegistrationFlowScreen';
 import { WalletScreen } from './screens/wallet/WalletScreen';
-import { getMyListings, type Listing, type ListingCropChoice } from './api/listings';
+import { type Listing, type ListingCropChoice } from './api/listings';
 import { type Certification } from './api/farmer';
 import { authPalette, colors, spacing, typography, weights } from './theme';
 import { CustomerMainApp } from '../customer/CustomerMainApp';
@@ -264,26 +263,6 @@ interface StackEntry {
   tab?: TabName;
 }
 
-/**
- * There is no GET /listings/{id}, so a listing referenced only by id (e.g. from
- * a notification payload) is resolved by paging GET /listings. Bounded so a
- * stale id cannot page forever; returns null when not found.
- */
-const LISTING_LOOKUP_PAGE_SIZE = 100;
-const LISTING_LOOKUP_MAX_PAGES = 5;
-
-async function findMyListingById(listingId: string): Promise<Listing | null> {
-  let cursor: string | undefined;
-  for (let page = 0; page < LISTING_LOOKUP_MAX_PAGES; page += 1) {
-    const res = await getMyListings(undefined, cursor, LISTING_LOOKUP_PAGE_SIZE);
-    const match = res.items.find((l) => l.id === listingId);
-    if (match) return match;
-    if (!res.page.hasMore || !res.page.nextCursor) return null;
-    cursor = res.page.nextCursor;
-  }
-  return null;
-}
-
 export default function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenName>('Splash');
   // Navigation history stack: keeps true chronological breadcrumbs so back buttons
@@ -303,7 +282,6 @@ export default function App(): React.JSX.Element {
   const [selectedMachineryForEdit, setSelectedMachineryForEdit] = useState<MachineryItem | null>(null);
   const [selectedItemForRemove, setSelectedItemForRemove] = useState<RemoveItemData | null>(null);
   const [params, setParams] = useState<Record<string, string | number | undefined>>({});
-  const [locale, setLocaleState] = useState<Locale>('en');
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, string | number | undefined> = {}) => {
@@ -402,11 +380,6 @@ export default function App(): React.JSX.Element {
       setOnAuthFailure(null);
     };
   }, []);
-
-  const switchLocale = (next: Locale): void => {
-    setLocale(next);
-    setLocaleState(next);
-  };
 
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
@@ -1241,7 +1214,14 @@ export default function App(): React.JSX.Element {
             item={selectedItemForRemove ?? undefined}
             onNavigateBack={goBack}
             onConfirmRemove={async () => {
-              if (selectedItemForRemove?.id && selectedItemForRemove.category !== 'Trees') {
+              // canDeleteAsset is the single source of truth for which categories have no
+              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
+              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
+              // not the gate itself.
+              if (
+                selectedItemForRemove?.id &&
+                canDeleteAsset(selectedItemForRemove.category)
+              ) {
                 try {
                   await deleteFarmAsset(selectedItemForRemove.id);
                 } catch {

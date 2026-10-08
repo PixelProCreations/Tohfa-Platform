@@ -133,14 +133,24 @@ describe('Farmer certifications API: failures propagate, nothing is fabricated',
           headers: { 'Content-Type': 'application/json' },
         });
       }) as unknown as typeof fetch;
-      await expect(getSystemConfig()).resolves.toEqual({ certExpiryWarningDays: 45 });
+      // Each value falls back on its own: only the warning window came from
+      // the server, so the two BR-48 windows take their documented defaults.
+      await expect(getSystemConfig()).resolves.toEqual({
+        certExpiryWarningDays: 45,
+        certExpiryMaxPastDays: 365,
+        certExpiryMaxFutureDays: 730,
+      });
       expect(url).toContain('/v1/config/farmer');
     });
 
-    it('falls back to the documented warning window and logs a warning when the lookup fails', async () => {
+    it('falls back to the documented windows (30 / 365 / 730) and logs a warning when the lookup fails', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       global.fetch = respond(500, problem500);
-      await expect(getSystemConfig()).resolves.toEqual({ certExpiryWarningDays: 30 });
+      await expect(getSystemConfig()).resolves.toEqual({
+        certExpiryWarningDays: 30,
+        certExpiryMaxPastDays: 365,
+        certExpiryMaxFutureDays: 730,
+      });
       expect(warn).toHaveBeenCalled();
     });
   });

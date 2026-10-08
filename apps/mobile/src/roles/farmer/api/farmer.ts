@@ -629,7 +629,8 @@ export async function getSystemConfig(): Promise<SystemConfig> {
   let res: Partial<Record<keyof SystemConfig, unknown>> | null = null;
   try {
     res = await api.get<Partial<Record<keyof SystemConfig, unknown>>>('/config/farmer');
-  } catch {
+  } catch (error) {
+    console.warn('getSystemConfig: /config/farmer lookup failed, using documented fallbacks', error);
     res = null;
   }
   return {

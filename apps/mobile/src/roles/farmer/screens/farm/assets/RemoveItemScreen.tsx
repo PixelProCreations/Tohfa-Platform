@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
@@ -120,13 +120,22 @@ export interface RemoveItemData {
 }
 
 /**
- * Tree/planting removal has no backend entity to delete against (farm-assets
- * only knows TOOL/EQUIPMENT/MACHINERY — see farmAssets.ts) — a known,
- * separately-tracked spec gap, not something this screen can wire up. The
- * screen disables its own destructive action for that category rather than
- * pretending it works.
+ * Categories with no backend entity to delete against (farm-assets only
+ * knows TOOL/EQUIPMENT/MACHINERY — see api/farmAssets.ts). Trees/plantings
+ * are a known, separately-tracked spec gap, not something a screen can wire
+ * up on its own. This is the single source of truth for that special case —
+ * RemoveItemScreen, EditPlantingScreen and App.tsx's confirm handler all read
+ * it here instead of each re-encoding "Trees" independently.
  */
-const TREE_REMOVE_UNAVAILABLE_MESSAGE =
+export const CATEGORIES_WITHOUT_DELETE_SUPPORT: ReadonlySet<RemoveCategoryType> = new Set<RemoveCategoryType>([
+  'Trees',
+]);
+
+export function canDeleteAsset(category: RemoveCategoryType): boolean {
+  return !CATEGORIES_WITHOUT_DELETE_SUPPORT.has(category);
+}
+
+export const TREE_REMOVE_UNAVAILABLE_MESSAGE =
   "Removing a tree or planting isn't available yet. Please contact support if you need this record removed.";
 
 export interface RemoveItemScreenProps {
@@ -144,11 +153,11 @@ export function RemoveItemScreen({
   const category = item?.category || 'Machinery';
   const name = item?.name || 'Power Tiller';
   const dateInfo = item?.dateInfo || 'Machinery · Purchased 08 Feb 2023';
-  const isTreeRemoval = category === 'Trees';
+  const isRemoveUnsupported = !canDeleteAsset(category);
 
   async function handleConfirm() {
     if (isRemoving) return;
-    if (isTreeRemoval) {
+    if (isRemoveUnsupported) {
       Alert.alert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE);
       return;
     }
@@ -237,7 +246,7 @@ export function RemoveItemScreen({
           {/* ── Trees: honest "not available yet" notice — there is no backend
               entity for tree plantings, so there is nothing real to delete
               (root CLAUDE.md §1/§7: a confirmed spec gap, not invented here). ── */}
-          {isTreeRemoval && (
+          {isRemoveUnsupported && (
             <View style={styles.infoBanner}>
               <View style={styles.infoBannerIcon}>
                 <InfoCircleIcon size={16} color={P.greenDeep2} />
@@ -257,7 +266,7 @@ export function RemoveItemScreen({
             <TouchableOpacity
               style={[
                 styles.removePermanentlyButton,
-                isTreeRemoval && styles.removePermanentlyButtonDisabled,
+                isRemoveUnsupported && styles.removePermanentlyButtonDisabled,
                 isRemoving && { opacity: 0.7 },
               ]}
               onPress={() => {
@@ -267,7 +276,7 @@ export function RemoveItemScreen({
               activeOpacity={0.88}
               accessibilityRole="button"
               accessibilityLabel={
-                isTreeRemoval ? 'Yes, Remove Permanently (not available yet)' : 'Yes, Remove Permanently'
+                isRemoveUnsupported ? 'Yes, Remove Permanently (not available yet)' : 'Yes, Remove Permanently'
               }
             >
               <SmallTrashIcon size={18} color={P.white} />
