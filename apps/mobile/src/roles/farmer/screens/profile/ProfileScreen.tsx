@@ -33,6 +33,24 @@ import {
 import { certificationDisplayName } from '../certifications/certificationForm';
 import { getFarms, getPlots, updateFarm, type Farm } from '../../api/farms';
 import { listSoilTests, type SoilTestRecord } from '../../api/soil';
+import {
+  auditConductedBy,
+  auditDisplayDate,
+  auditScore,
+  deriveAuditsOverview,
+  listAllMyAudits,
+  QUARTERS_PER_FISCAL_YEAR,
+  shortMonthKey,
+  type AuditTier,
+  type AuditType,
+  type FarmerAuditSummary,
+} from '../../api/audits';
+import {
+  auditCountdown,
+  selectNextAudit,
+  type AuditCountdown,
+  type WidgetState,
+} from '../dashboard/dashboardWidgets';
 import { LOCALES, setLocale, t, type Locale, type TranslationKey } from '../../../../i18n/farmer';
 import { colors, authPalette as P, spacing, typography } from '../../theme';
 import { calculatePolygonMetrics } from '../../utils/geo';
@@ -129,12 +147,6 @@ const CERT_TONE: Record<
   },
 };
 
-function certTypeKey(certType: Certification['certType']): TranslationKey {
-  if (certType === 'PGS') return 'farmer.profile.cert.pgs';
-  if (certType === 'NPOP') return 'farmer.profile.cert.npop';
-  return 'farmer.certifications.add.type.OTHER';
-}
-
 /** The 3 fixed farming-type codes this screen's chip picker offers. */
 const FARMING_TYPE_CODES = ['ORGANIC', 'NATURAL', 'BIODYNAMIC'] as const;
 type FarmingTypeCode = (typeof FARMING_TYPE_CODES)[number];
@@ -171,6 +183,166 @@ function farmTagLabel(code: string): string {
     default:
       return code.replace(/_/g, ' ');
   }
+}
+
+/** 'en-GB' short date (e.g. "20 Apr 2026") for a real server date -- never a
+ *  hardcoded sample date. Shared by the Audits and Soil Test cards below. */
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function auditTypeKey(auditType: AuditType): TranslationKey {
+  return auditType === 'EXTERNAL' ? 'farmer.profile.audits.external' : 'farmer.profile.audits.internal';
+}
+
+/** Dot/score colour from the audit's real tier (BR-04a) -- never a guessed pass/fail. */
+function auditToneColor(tier: AuditTier | null): string {
+  if (tier === 'POOR') return P.red800;
+  if (tier === 'MODERATE') return P.orange800;
+  if (tier === 'GOOD' || tier === 'EXCELLENT') return colors.brandGreen;
+  return P.slate400;
+}
+
+/**
+ * Same countdown wording DashboardScreen's mini audit card uses (its own
+ * `auditMiniValue`, not exported) -- reimplemented here against the same
+ * i18n keys so the two surfaces agree, rather than inventing new copy.
+ */
+function auditPillValue(countdown: AuditCountdown): string {
+  switch (countdown.kind) {
+    case 'none':
+      return t('farmer.dashboard.header.auditNone');
+    case 'inProgress':
+      return t('farmer.audits.status.inProgress');
+    case 'today':
+      return t('farmer.dashboard.header.auditToday');
+    case 'tomorrow':
+      return t('farmer.dashboard.header.auditTomorrow');
+    case 'inDays':
+      return t('farmer.profile.daysShort', { days: countdown.days });
+    case 'past':
+      return t('farmer.dashboard.header.auditDate', {
+        day: countdown.day,
+        month: t(shortMonthKey(countdown.monthIndex) as TranslationKey),
+      });
+    case 'unknown':
+      return '—';
+  }
+}
+
+/** One real past-audit row -- score, auditor/findings and date all come from
+ *  FarmerAuditSummary; shared by the inline Audits card and its modal so
+ *  neither can drift back to a hardcoded sample. */
+function AuditHistoryRow({ audit, isLast }: { audit: FarmerAuditSummary; isLast: boolean }): React.JSX.Element {
+  const score = auditScore(audit);
+  const conductedBy = auditConductedBy(audit);
+  const tone = auditToneColor(audit.tier);
+  const counts = t('farmer.profile.audits.majorMinorCount', {
+    major: audit.findingCounts.major,
+    minor: audit.findingCounts.minor,
+  });
+  return (
+    <View style={[styles.auditItemRow, isLast ? { borderBottomWidth: 0 } : null]}>
+      <View style={[styles.statusDot, { backgroundColor: tone }]} />
+      <View style={styles.auditItemInfo}>
+        <Text style={styles.auditItemDate}>
+          {formatShortDate(auditDisplayDate(audit))} · {t(auditTypeKey(audit.auditType))}
+        </Text>
+        <Text style={styles.auditItemSubtext}>
+          {conductedBy ? `${t('farmer.profile.audits.auditor', { name: conductedBy })} · ${counts}` : counts}
+        </Text>
+      </View>
+      {score ? (
+        <Text style={[styles.auditScore, { color: tone }]}>
+          {t('farmer.profile.audits.scoreOutOf', { score: score.score, max: score.max })}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** Real latest-soil-test summary -- shared by the Soil Test card and its modal.
+ *  `null` renders the same honest "no test yet" state SoilTestScreen uses;
+ *  every field left null by a real record shows a dash, never a sample value. */
+function SoilSummaryBody({ test }: { test: SoilTestRecord | null }): React.JSX.Element {
+  if (test === null) {
+    return (
+      <View>
+        <Text style={styles.soilDateValue}>{t('farmer.profile.soil.noTestYet')}</Text>
+        <Text style={[styles.soilDateLabel, { marginTop: 4 }]}>{t('farmer.profile.soil.noTestYetHint')}</Text>
+      </View>
+    );
+  }
+
+  const isAcidic = test.ph < 6.0;
+  const isAlkaline = test.ph > 7.5;
+
+  return (
+    <>
+      <View style={styles.soilDateStrip}>
+        <View>
+          <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.lastTested')}</Text>
+          <Text style={styles.soilDateValue}>{formatShortDate(test.testDate)}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.nextDue')}</Text>
+          <Text style={styles.soilDateValue}>{formatShortDate(test.nextDueDate)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.soilGridContainer}>
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.organicCarbon')}</Text>
+          <Text style={styles.soilTileValue}>{test.organicCarbonPct}%</Text>
+          <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
+            <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>{test.organicCarbonLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ph')}</Text>
+          <Text style={styles.soilTileValue}>{test.ph}</Text>
+          <View style={[styles.soilBadge, { backgroundColor: isAcidic ? P.red50 : colors.brandGreenLight }]}>
+            <Text style={[styles.soilBadgeText, { color: isAcidic ? P.red800 : colors.brandGreen }]}>
+              {test.phLabel}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ec')}</Text>
+          <Text style={styles.soilTileValue}>{test.ecDsPerM}</Text>
+          <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
+            <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>{test.ecLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.soilGridTile}>
+          <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.tds')}</Text>
+          <Text style={styles.soilTileValue}>{test.tdsPpm != null ? `${test.tdsPpm} ppm` : '—'}</Text>
+          {test.tdsLabel ? (
+            <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
+              <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>{test.tdsLabel}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.soilAdvisoryBox}>
+        <Icon name="warning" size={16} color={P.red800} />
+        <Text style={styles.soilAdvisoryText}>
+          {isAcidic
+            ? t('farmer.profile.soil.advisory')
+            : isAlkaline
+              ? t('farmer.profile.soil.advisoryAlkaline')
+              : t('farmer.profile.soil.advisoryOptimal')}
+        </Text>
+      </View>
+    </>
+  );
 }
 
 export function ProfileScreen({
@@ -230,6 +402,10 @@ export function ProfileScreen({
   const [farmRating, setFarmRating] = useState<FarmRating | null>(null);
   const [ratingLoading, setRatingLoading] = useState<boolean>(true);
   const [latestSoilTest, setLatestSoilTest] = useState<SoilTestRecord | null>(null);
+  const [soilLoading, setSoilLoading] = useState<boolean>(true);
+
+  // Audits load independently of the other cards so a failure here never blanks the screen.
+  const [auditsState, setAuditsState] = useState<WidgetState<FarmerAuditSummary[]>>({ kind: 'loading' });
 
   // --- Modal States ---
   const [isEditPersonalModalVisible, setIsEditPersonalModalVisible] = useState(false);
@@ -376,7 +552,10 @@ export function ProfileScreen({
           }
         }
       } catch {
-        // Fallback gracefully
+        // Fallback gracefully -- latestSoilTest stays null, which renders the
+        // same honest "no test yet" state as a farm with no real test on record.
+      } finally {
+        setSoilLoading(false);
       }
     }
 
@@ -420,6 +599,33 @@ export function ProfileScreen({
     void loadCerts(controller.signal);
   }, [loadCerts]);
 
+  const loadAudits = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const items = await listAllMyAudits(signal);
+      if (signal?.aborted) return;
+      setAuditsState({ kind: 'ready', data: items });
+    } catch (error) {
+      if (signal?.aborted) return;
+      setAuditsState({ kind: 'error', error });
+    }
+  }, []);
+
+  const auditsController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    auditsController.current = controller;
+    void loadAudits(controller.signal);
+    return () => controller.abort();
+  }, [loadAudits]);
+
+  const retryAudits = useCallback(() => {
+    auditsController.current?.abort();
+    const controller = new AbortController();
+    auditsController.current = controller;
+    setAuditsState({ kind: 'loading' });
+    void loadAudits(controller.signal);
+  }, [loadAudits]);
+
   const loadRating = useCallback(async () => {
     try {
       const res = await getMyFarmRating();
@@ -438,6 +644,17 @@ export function ProfileScreen({
   }, [loadRating]);
 
   const ratingView = deriveFarmRatingView(farmRating);
+
+  // Real derived audit values -- the fallback-to-empty-array keeps every
+  // expression below safe to evaluate during the loading/error states too.
+  const auditItems = auditsState.kind === 'ready' ? auditsState.data : [];
+  const nextAudit = auditsState.kind === 'ready' ? selectNextAudit(auditItems) : null;
+  const pastAudits = [...auditItems]
+    .filter((a) => a.status === 'COMPLETED')
+    .sort((a, b) => Date.parse(auditDisplayDate(b)) - Date.parse(auditDisplayDate(a)));
+  const auditsDoneThisYear = auditsState.kind === 'ready' ? deriveAuditsOverview(auditItems).doneThisYear : 0;
+  const auditQuickStatValue =
+    auditsState.kind === 'ready' ? auditPillValue(auditCountdown(nextAudit, new Date())) : '—';
 
   const certSummary = certs.map((cert) => ({
     cert,
@@ -488,6 +705,24 @@ export function ProfileScreen({
         // Backend unavailable — local update only
       });
 
+      // farmingType is kept in local state only -- it is never sent in the
+      // updateMyFarmerProfile() call above and never read back from
+      // getMyFarmerProfile() either. Investigated: `farmers` has no
+      // farming_type (or equivalent) column (db/migrations/0003_farmers_and
+      // _farms.sql), updateFarmerProfileBody has no such field
+      // (apps/api/src/modules/farmer-applications/farmer-applications.schema.ts),
+      // and GET /farmers/me never returns one. The closest real field,
+      // `typeOfFarming` collected at registration Step 2, is a free-text crop
+      // description ("Mixed vegetables", "Tea") stored only in the
+      // application's step2_farm_details JSONB and deliberately never copied
+      // onto the farmers row (farmer-applications.service.ts's
+      // approveApplication) -- a different concept from this screen's fixed
+      // ORGANIC/NATURAL/BIODYNAMIC method chips, not just an unwired version
+      // of the same data. Wiring this for real needs a product decision
+      // (a new column, plus reconciling the enum against that free text) that
+      // is out of scope here, so the value is kept client-side and the UI
+      // says so explicitly (farmingType.notSavedNote below) instead of
+      // implying the save succeeded.
       setPersonalDetails({
         ...personalDetails,
         fullName: tempFullName.trim(),
@@ -693,7 +928,7 @@ export function ProfileScreen({
               activeOpacity={0.8}
             >
               <Icon name="calendar_today" size={18} color={P.orange900} style={styles.statEmoji} />
-              <Text style={[styles.statValue, { color: P.orange900 }]}>{t('farmer.profile.daysShort', { days: 12 })}</Text>
+              <Text style={[styles.statValue, { color: P.orange900 }]}>{auditQuickStatValue}</Text>
               <Text style={styles.statLabel}>{t('farmer.profile.stats.audit')}</Text>
             </TouchableOpacity>
 
@@ -761,11 +996,20 @@ export function ProfileScreen({
 
           <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.detailLabel}>{t('farmer.profile.farmingType')}</Text>
-            <View style={styles.iconTextRow}>
-              <Icon name="eco" size={13} color={colors.brandGreen} />
-              <Text style={[styles.detailValue, { color: colors.brandGreen }]}>
-                {farmingTypeLabel(personalDetails.farmingType)}
-              </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <View style={styles.iconTextRow}>
+                <Icon name="eco" size={13} color={colors.brandGreen} />
+                <Text style={[styles.detailValue, { color: colors.brandGreen }]}>
+                  {farmingTypeLabel(personalDetails.farmingType)}
+                </Text>
+              </View>
+              {/* No backend field persists this yet (see handleSavePersonalDetails) --
+                  say so rather than letting it look saved like the rest of the card. */}
+              {personalDetails.farmingType ? (
+                <Text style={{ fontSize: typography.caption, color: P.slate400, marginTop: 2 }}>
+                  {t('farmer.profile.farmingType.notSavedNote')}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -973,8 +1217,10 @@ export function ProfileScreen({
           ) : null}
         </View>
 
-        {/* MOCK: no audits resource exists in apps/api or docs/openapi.yaml. */}
         {/* ================= CARD 4: AUDITS ================= */}
+        {/* Real data: GET /v1/farmers/me/audits via listAllMyAudits() -- see
+            auditsState above. Was previously 100% hardcoded (see git history);
+            DashboardScreen and AuditsScreen already call this same endpoint. */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeaderRow}>
             <View style={[styles.cardIconBox, { backgroundColor: P.lightBlue50 }]}>
@@ -989,56 +1235,59 @@ export function ProfileScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Next Audit Banner */}
-          <View style={styles.nextAuditBanner}>
-            <View style={styles.auditProgressSquare}>
-              <Text style={styles.auditProgressFraction}>{t('farmer.profile.audits.scoreOutOf', { score: 3, max: 4 })}</Text>
-              <Text style={styles.auditProgressDone}>{t('farmer.profile.audits.done')}</Text>
+          {auditsState.kind === 'loading' ? (
+            <View>
+              <Skeleton height={64} style={{ marginBottom: 12 }} />
+              <Skeleton height={44} style={{ marginBottom: 8 }} />
+              <Skeleton height={44} />
             </View>
-            <View style={styles.nextAuditDetails}>
-              <Text style={styles.nextAuditSubLabel}>{t('farmer.profile.audits.nextAudit')}</Text>
-              <Text style={styles.nextAuditDateText}>May 26, 2026 · {t('farmer.profile.audits.external')}</Text>
-            </View>
-            <View style={styles.auditDueRedPill}>
-              <Text style={styles.auditDueRedText}>{t('farmer.profile.daysShort', { days: 12 })}</Text>
-            </View>
-          </View>
-
-          {/* Past Audits List */}
-          <View style={styles.auditList}>
-            <View style={styles.auditItemRow}>
-              <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Apr 20, 2026 · {t('farmer.profile.audits.external')}</Text>
-                <Text style={styles.auditItemSubtext}>
-                  {t('farmer.profile.audits.findings', { major: 0, minor: 1, outcome: t('farmer.profile.audits.passed') })}
-                </Text>
+          ) : auditsState.kind === 'error' ? (
+            <ErrorState
+              error={auditsState.error}
+              message={t('farmer.audits.loadError')}
+              retryTitle={t('farmer.common.retry')}
+              offlineMessage={t('farmer.common.offline')}
+              onRetry={retryAudits}
+            />
+          ) : auditItems.length === 0 ? (
+            <Text style={styles.certNoticeText}>{t('farmer.audits.empty.title')}</Text>
+          ) : (
+            <>
+              {/* Next Audit Banner */}
+              <View style={styles.nextAuditBanner}>
+                <View style={styles.auditProgressSquare}>
+                  <Text style={styles.auditProgressFraction}>
+                    {t('farmer.profile.audits.scoreOutOf', { score: auditsDoneThisYear, max: QUARTERS_PER_FISCAL_YEAR })}
+                  </Text>
+                  <Text style={styles.auditProgressDone}>{t('farmer.profile.audits.done')}</Text>
+                </View>
+                <View style={styles.nextAuditDetails}>
+                  <Text style={styles.nextAuditSubLabel}>{t('farmer.profile.audits.nextAudit')}</Text>
+                  <Text style={styles.nextAuditDateText}>
+                    {nextAudit
+                      ? `${formatShortDate(nextAudit.scheduledFor)} · ${t(auditTypeKey(nextAudit.auditType))}`
+                      : t('farmer.dashboard.header.auditNone')}
+                  </Text>
+                </View>
+                <View style={styles.auditDueRedPill}>
+                  <Text style={styles.auditDueRedText}>{auditPillValue(auditCountdown(nextAudit, new Date()))}</Text>
+                </View>
               </View>
-              <Text style={[styles.auditScore, { color: colors.brandGreen }]}>{t('farmer.profile.audits.scoreOutOf', { score: 88, max: 100 })}</Text>
-            </View>
 
-            <View style={styles.auditItemRow}>
-              <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Jan 18, 2026 · {t('farmer.profile.audits.internal')}</Text>
-                <Text style={styles.auditItemSubtext}>
-                  {t('farmer.profile.audits.findings', { major: 0, minor: 3, outcome: t('farmer.profile.audits.passedWithIssues') })}
-                </Text>
+              {/* Past Audits List -- real COMPLETED audits only, most recent first. */}
+              <View style={styles.auditList}>
+                {pastAudits.length === 0 ? (
+                  <Text style={styles.certNoticeText}>{t('farmer.profile.audits.noPastYet')}</Text>
+                ) : (
+                  pastAudits
+                    .slice(0, 3)
+                    .map((audit, idx, arr) => (
+                      <AuditHistoryRow key={audit.id} audit={audit} isLast={idx === arr.length - 1} />
+                    ))
+                )}
               </View>
-              <Text style={[styles.auditScore, { color: P.orange800 }]}>{t('farmer.profile.audits.scoreOutOf', { score: 74, max: 100 })}</Text>
-            </View>
-
-            <View style={[styles.auditItemRow, { borderBottomWidth: 0 }]}>
-              <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-              <View style={styles.auditItemInfo}>
-                <Text style={styles.auditItemDate}>Oct 12, 2025 · {t('farmer.profile.audits.external')}</Text>
-                <Text style={styles.auditItemSubtext}>
-                  {t('farmer.profile.audits.findings', { major: 0, minor: 0, outcome: t('farmer.profile.audits.passed') })}
-                </Text>
-              </View>
-              <Text style={[styles.auditScore, { color: colors.brandGreen }]}>{t('farmer.profile.audits.scoreOutOf', { score: 91, max: 100 })}</Text>
-            </View>
-          </View>
+            </>
+          )}
         </View>
 
         {/* ================= CARD 5: FARM RATING ================= */}
@@ -1159,88 +1408,14 @@ export function ProfileScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Test Dates Strip */}
-          <View style={styles.soilDateStrip}>
-            <View>
-              <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.lastTested')}</Text>
-              <Text style={styles.soilDateValue}>
-                {latestSoilTest?.testDate
-                  ? new Date(latestSoilTest.testDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : '08 Jan 2026'}
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.nextDue')}</Text>
-              <Text style={styles.soilDateValue}>
-                {latestSoilTest?.nextDueDate
-                  ? new Date(latestSoilTest.nextDueDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
-                  : 'Jan 2027'}
-              </Text>
-            </View>
-          </View>
-
-          {/* 4 Soil Metric Tiles (2x2) */}
-          <View style={styles.soilGridContainer}>
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.organicCarbon')}</Text>
-              <Text style={styles.soilTileValue}>
-                {latestSoilTest?.organicCarbonPct != null ? `${latestSoilTest.organicCarbonPct}%` : '0.68%'}
-              </Text>
-              <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>
-                  {latestSoilTest?.organicCarbonLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ph')}</Text>
-              <Text style={styles.soilTileValue}>
-                {latestSoilTest?.ph != null ? String(latestSoilTest.ph) : '5.6'}
-              </Text>
-              <View style={[styles.soilBadge, { backgroundColor: (latestSoilTest?.ph ?? 5.6) < 6.0 ? P.red50 : colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: (latestSoilTest?.ph ?? 5.6) < 6.0 ? P.red800 : colors.brandGreen }]}>
-                  {latestSoilTest?.phLabel || t('farmer.profile.soil.acidic')}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ec')}</Text>
-              <Text style={styles.soilTileValue}>
-                {latestSoilTest?.ecDsPerM != null ? String(latestSoilTest.ecDsPerM) : '0.42'}
-              </Text>
-              <View style={[styles.soilBadge, { backgroundColor: colors.brandGreenLight }]}>
-                <Text style={[styles.soilBadgeText, { color: colors.brandGreen }]}>
-                  {latestSoilTest?.ecLabel || t('farmer.profile.soil.good')}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.soilGridTile}>
-              <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.tds')}</Text>
-              <Text style={styles.soilTileValue}>
-                {latestSoilTest?.tdsPpm != null ? String(latestSoilTest.tdsPpm) : '610'}
-              </Text>
-              <View style={[styles.soilBadge, { backgroundColor: P.orange50 }]}>
-                <Text style={[styles.soilBadgeText, { color: P.orange900 }]}>
-                  {latestSoilTest?.tdsLabel || t('farmer.profile.soil.high')}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Soil Advisory Recommendation */}
-          <View style={styles.soilAdvisoryBox}>
-            <Icon name="warning" size={16} color={P.red800} />
-            <Text style={styles.soilAdvisoryText}>
-              {(latestSoilTest?.ph ?? 5.6) < 6.0
-                ? t('farmer.profile.soil.advisory')
-                : (latestSoilTest?.ph ?? 5.6) > 7.5
-                  ? t('farmer.profile.soil.advisoryAlkaline')
-                  : t('farmer.profile.soil.advisoryOptimal')}
-            </Text>
-          </View>
+          {/* Real latest test, or the same honest "no test yet" state
+              SoilTestScreen/SoilManagementScreen use -- never a sample
+              reading (date, pH, EC, TDS all used to be hardcoded here). */}
+          {soilLoading ? (
+            <Skeleton height={140} />
+          ) : (
+            <SoilSummaryBody test={latestSoilTest} />
+          )}
         </View>
 
         {/* ================= CARD 7: MENU / ACTION LIST ================= */}
@@ -1389,6 +1564,9 @@ export function ProfileScreen({
                   </TouchableOpacity>
                 ))}
               </View>
+              <Text style={{ fontSize: typography.caption, color: P.slate400, marginTop: -8, marginBottom: 12 }}>
+                {t('farmer.profile.farmingType.notSavedNote')}
+              </Text>
 
               <Text style={styles.inputLabel}>{t('farmer.profile.farmName')}</Text>
               <TextInput
@@ -1738,38 +1916,23 @@ export function ProfileScreen({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <View style={styles.auditItemRow}>
-                <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-                <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Apr 20, 2026 · {t('farmer.profile.audits.externalCertification')}</Text>
-                  <Text style={styles.auditItemSubtext}>
-                    {t('farmer.profile.audits.auditor', { name: 'Dr. S. Ramanathan' })} · {t('farmer.profile.audits.majorMinorCount', { major: 0, minor: 1 })}
-                  </Text>
-                </View>
-                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>{t('farmer.profile.audits.scoreOutOf', { score: 88, max: 100 })}</Text>
-              </View>
-
-              <View style={styles.auditItemRow}>
-                <View style={[styles.statusDot, { backgroundColor: P.orange800 }]} />
-                <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Jan 18, 2026 · {t('farmer.profile.audits.internalPeer')}</Text>
-                  <Text style={styles.auditItemSubtext}>
-                    {t('farmer.profile.audits.auditor', { name: 'Nilgiris Organic Local Group' })}
-                  </Text>
-                </View>
-                <Text style={[styles.auditScore, { color: P.orange800 }]}>{t('farmer.profile.audits.scoreOutOf', { score: 74, max: 100 })}</Text>
-              </View>
-
-              <View style={styles.auditItemRow}>
-                <View style={[styles.statusDot, { backgroundColor: colors.brandGreen }]} />
-                <View style={styles.auditItemInfo}>
-                  <Text style={styles.auditItemDate}>Oct 12, 2025 · {t('farmer.profile.audits.annualNpop')}</Text>
-                  <Text style={styles.auditItemSubtext}>
-                    Indocert Inspection Agency · {t('farmer.profile.audits.findingsCount', { count: 0 })}
-                  </Text>
-                </View>
-                <Text style={[styles.auditScore, { color: colors.brandGreen }]}>{t('farmer.profile.audits.scoreOutOf', { score: 91, max: 100 })}</Text>
-              </View>
+              {auditsState.kind === 'loading' ? (
+                <Skeleton height={56} style={{ marginBottom: 8 }} />
+              ) : auditsState.kind === 'error' ? (
+                <ErrorState
+                  error={auditsState.error}
+                  message={t('farmer.audits.loadError')}
+                  retryTitle={t('farmer.common.retry')}
+                  offlineMessage={t('farmer.common.offline')}
+                  onRetry={retryAudits}
+                />
+              ) : pastAudits.length === 0 ? (
+                <Text style={styles.certNoticeText}>{t('farmer.profile.audits.noPastYet')}</Text>
+              ) : (
+                pastAudits.map((audit, idx, arr) => (
+                  <AuditHistoryRow key={audit.id} audit={audit} isLast={idx === arr.length - 1} />
+                ))
+              )}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -1874,50 +2037,11 @@ export function ProfileScreen({
               </TouchableOpacity>
             </View>
 
+            {/* Real latest test -- the fabricated Sample ID / Testing Lab row is
+                gone: SoilTestRecord has no such field anywhere in the API
+                (apps/api/src/modules/soil), so it was invented wholesale. */}
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              <View style={styles.soilDateStrip}>
-                <View>
-                  <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.sampleId')}</Text>
-                  <Text style={styles.soilDateValue}>SHC-2026-0814</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.soilDateLabel}>{t('farmer.profile.soil.lab')}</Text>
-                  <Text style={styles.soilDateValue}>TNAU Ooty Research Lab</Text>
-                </View>
-              </View>
-
-              <View style={styles.soilGridContainer}>
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.organicCarbon')}</Text>
-                  <Text style={styles.soilTileValue}>0.68%</Text>
-                  <Text style={{ fontSize: typography.caption, color: colors.brandGreen, marginTop: 4 }}>{t('farmer.profile.soil.note.organicCarbon')}</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ph')}</Text>
-                  <Text style={styles.soilTileValue}>5.6</Text>
-                  <Text style={{ fontSize: typography.caption, color: P.red800, marginTop: 4 }}>{t('farmer.profile.soil.note.ph')}</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.ec')}</Text>
-                  <Text style={styles.soilTileValue}>0.42</Text>
-                  <Text style={{ fontSize: typography.caption, color: colors.brandGreen, marginTop: 4 }}>{t('farmer.profile.soil.note.ec')}</Text>
-                </View>
-
-                <View style={styles.soilGridTile}>
-                  <Text style={styles.soilTileLabel}>{t('farmer.profile.soil.tds')}</Text>
-                  <Text style={styles.soilTileValue}>610 ppm</Text>
-                  <Text style={{ fontSize: typography.caption, color: P.orange900, marginTop: 4 }}>{t('farmer.profile.soil.note.tds')}</Text>
-                </View>
-              </View>
-
-              <View style={styles.soilAdvisoryBox}>
-                <Icon name="lightbulb" size={16} color={P.red800} />
-                <Text style={styles.soilAdvisoryText}>
-                  {t('farmer.profile.soil.recommendation')}
-                </Text>
-              </View>
+              {soilLoading ? <Skeleton height={140} /> : <SoilSummaryBody test={latestSoilTest} />}
             </ScrollView>
 
             <View style={styles.modalFooter}>
