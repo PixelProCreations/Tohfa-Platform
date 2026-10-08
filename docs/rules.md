@@ -1166,6 +1166,36 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-56 — Crop input applications are own-data, positive-quantity validated, and track nutrient contribution
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.1, FR-F04 / FR-F06; Table `crop_inputs` (`0035_crop_inputs.sql`); Mobile CropInputLogScreen |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/crop-inputs/`; `crop_inputs` table |
+| **Scope** | Track 1 (farmer-facing CRUD) |
+
+**Rule.** A farmer records and tracks agricultural inputs (fertilizer, manure, bio-inputs, pesticides) applied to specific crops under `/farmers/me/crops/:farmCropId/inputs`.
+1. **Positive quantity:** `quantity` must be greater than 0 (`BR-56a`).
+2. **Application date validation:** `appliedOn` cannot be a future date relative to today in Asia/Kolkata (`BR-56b`).
+3. **Nutrient range validation:** `nitrogenPct`, `phosphorusPct`, and `potassiumPct` (NPK), if provided, must each be between 0 and 100 inclusive (`BR-56c`).
+4. **Own data only:** Authenticated farmer can only list, view, create, update, or delete inputs for crops they own. Attempting to access inputs of another farmer's crop returns 404 (BR-36, `BR-56d`).
+5. **Soft delete:** Deleting a crop input sets `deleted_at = now()`. Soft-deleted inputs are excluded from lists, gets, and NPK calculations (`BR-56e`).
+6. **Nutrient contribution calculation:** `GET /farmers/me/crops/:farmCropId/npk-contribution` computes cumulative N, P, and K nutrient mass (in kg) applied to that crop across all active inputs (`BR-56f`).
+7. **Audit logging & Row locking:** Creating, updating, or deleting a crop input locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-56g`).
+
+**Failure mode if unenforced.** Negative or zero quantities corrupt farm input expense accounting; future application dates misrepresent cultivation timelines; invalid NPK percentages corrupt nutrient balance analytics; cross-farmer access leaks agronomic practices.
+
+**Test contract.** (`apps/api/src/modules/crop-inputs/crop-inputs.test.ts`)
+- `BR-56a` Rejects `quantity <= 0` with 422 `VALIDATION_FAILED`.
+- `BR-56b` Rejects `appliedOn` in the future relative to Asia/Kolkata with 422 `VALIDATION_FAILED`.
+- `BR-56c` Rejects NPK percentages out of 0-100 range with 422 `VALIDATION_FAILED`.
+- `BR-56d` Cross-farmer access returns 404 `NOT_FOUND` (BR-36).
+- `BR-56e` Soft-delete sets `deleted_at` and removes record from lists and GET endpoints.
+- `BR-56f` Accurately computes cumulative NPK nutrient contribution.
+- `BR-56g` Mutations lock farmer row and write audit logs (BR-35).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

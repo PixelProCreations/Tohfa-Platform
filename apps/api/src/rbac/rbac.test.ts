@@ -267,6 +267,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not plant trees (BR-16).',
   },
   {
+    permission: 'farmer.crop_input.manage_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'Farmers manage their own crop inputs (BR-56).',
+  },
+  {
+    permission: 'farmer.crop_input.manage_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers do not log crop inputs (BR-16).',
+  },
+  {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.ALL,

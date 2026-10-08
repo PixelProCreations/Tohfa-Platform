@@ -5369,6 +5369,180 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/crops/{farmCropId}/inputs:
+    get:
+      tags: [Crops]
+      operationId: listMyCropInputs
+      summary: List inputs applied to a crop
+      description: |
+        Returns paginated input applications (fertilizer, manure, bio-inputs, pesticides) for the specified crop (BR-56).
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated list of crop inputs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropInputsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Crops]
+      operationId: createMyCropInput
+      summary: Record an input application
+      description: |
+        Logs a fertilizer, manure, pesticide or bio-input application for an own crop (BR-56).
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36, BR-35]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCropInputRequest'
+      responses:
+        '201':
+          description: Created crop input record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropInput'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crops/{farmCropId}/npk-contribution:
+    get:
+      tags: [Crops]
+      operationId: getMyCropNpkContribution
+      summary: Cumulative NPK nutrient totals for a crop
+      description: |
+        Calculates cumulative nitrogen, phosphorus, and potassium nutrient mass (kg) across all active input applications for a crop (BR-56).
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Cumulative NPK contribution totals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropNpkContributionResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/crops/{farmCropId}/inputs/{id}:
+    get:
+      tags: [Crops]
+      operationId: getMyCropInput
+      summary: Get details of an input application
+      description: |
+        Retrieves a single crop input application record (BR-56).
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Crop input details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropInput'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Crops]
+      operationId: updateMyCropInput
+      summary: Update a crop input application
+      description: |
+        Updates details of an own crop input application (BR-56).
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36, BR-35]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCropInputRequest'
+      responses:
+        '200':
+          description: Updated crop input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropInput'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Crops]
+      operationId: deleteMyCropInput
+      summary: Soft-delete a crop input application
+      description: |
+        Soft-deletes an own crop input record (BR-56e).
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36, BR-35]
+      parameters:
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Crop input soft-deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/crop-master:
     get:
       tags: [Crops]
@@ -9502,6 +9676,119 @@ components:
           properties:
             nextCursor: { type: [string, 'null'] }
             hasMore: { type: boolean }
+
+    CropInput:
+      type: object
+      required:
+        - id
+        - farmerId
+        - farmCropId
+        - inputType
+        - inputName
+        - appliedOn
+        - quantity
+        - unit
+        - createdAt
+      properties:
+        id: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid }
+        farmCropId: { type: string, format: uuid }
+        inputType:
+          type: string
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+        inputName: { type: string, maxLength: 200 }
+        appliedOn: { type: string, format: date }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit:
+          type: string
+          enum: [KG, LITRE, GRAM, ML, BAG, TONNE, OTHER]
+        nitrogenPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        phosphorusPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        potassiumPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        applicationMethod: { type: [string, 'null'], maxLength: 100 }
+        costInr: { type: [number, 'null'], minimum: 0 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    CreateCropInputRequest:
+      type: object
+      required:
+        - inputType
+        - inputName
+        - appliedOn
+        - quantity
+        - unit
+      properties:
+        inputType:
+          type: string
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+        inputName: { type: string, minLength: 1, maxLength: 200 }
+        appliedOn: { type: string, format: date }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit:
+          type: string
+          enum: [KG, LITRE, GRAM, ML, BAG, TONNE, OTHER]
+        nitrogenPct: { type: number, minimum: 0, maximum: 100 }
+        phosphorusPct: { type: number, minimum: 0, maximum: 100 }
+        potassiumPct: { type: number, minimum: 0, maximum: 100 }
+        applicationMethod: { type: string, maxLength: 100 }
+        costInr: { type: number, minimum: 0 }
+        notes: { type: string, maxLength: 2000 }
+
+    UpdateCropInputRequest:
+      type: object
+      properties:
+        inputType:
+          type: string
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+        inputName: { type: string, minLength: 1, maxLength: 200 }
+        appliedOn: { type: string, format: date }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit:
+          type: string
+          enum: [KG, LITRE, GRAM, ML, BAG, TONNE, OTHER]
+        nitrogenPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        phosphorusPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        potassiumPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        applicationMethod: { type: [string, 'null'], maxLength: 100 }
+        costInr: { type: [number, 'null'], minimum: 0 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    CropInputsListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CropInput'
+        page:
+          type: object
+          required: [hasMore]
+          properties:
+            nextCursor: { type: [string, 'null'] }
+            hasMore: { type: boolean }
+
+    CropNpkContributionResponse:
+      type: object
+      required:
+        - farmCropId
+        - totalInputsCount
+        - totalQuantityKg
+        - totalNitrogenKg
+        - totalPhosphorusKg
+        - totalPotassiumKg
+        - totalCostInr
+      properties:
+        farmCropId: { type: string, format: uuid }
+        totalInputsCount: { type: integer, minimum: 0 }
+        totalQuantityKg: { type: number, minimum: 0 }
+        totalNitrogenKg: { type: number, minimum: 0 }
+        totalPhosphorusKg: { type: number, minimum: 0 }
+        totalPotassiumKg: { type: number, minimum: 0 }
+        totalCostInr: { type: number, minimum: 0 }
+
 
     FarmWeather:
       type: object
