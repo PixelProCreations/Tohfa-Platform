@@ -60,6 +60,7 @@ function WalletIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: s
 export interface SubWarehouseNotificationDetailScreenProps {
   onBack?: () => void;
   onActionPress?: () => void;
+  onReviewReceiving?: () => void;
   warehouseName?: string;
   notificationData?: {
     type?: 'goods' | 'wallet' | 'order';
@@ -72,6 +73,7 @@ export interface SubWarehouseNotificationDetailScreenProps {
 export function SubWarehouseNotificationDetailScreen({
   onBack,
   onActionPress,
+  onReviewReceiving,
   warehouseName = 'Coonoor Warehouse',
   notificationData,
 }: SubWarehouseNotificationDetailScreenProps) {
@@ -126,7 +128,7 @@ export function SubWarehouseNotificationDetailScreen({
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={onActionPress}
+            onPress={onActionPress || onReviewReceiving}
             activeOpacity={0.85}
           >
             {type === 'wallet' ? <WalletIcon size={18} color="#FFFFFF" /> : <ReviewTrayIcon size={18} color="#FFFFFF" />}

@@ -10,19 +10,21 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
+// ─── Design Tokens (TOHFA Admin App — Design System PDF) ─────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  pageBg:        '#F7F5EE',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1D2420',
-  textSecondary: '#7A726C',
+  primary:       '#F0562A', // Orange: primary actions
+  orangeDeep:    '#7A2E14', // Orange Deep: titles/accents
+  orangeTint:    '#FDF3F0', // Orange Tint: soft badges
+  pageBg:        '#F3EFE9', // App canvas
+  cardBg:        '#FFFFFF', // Surface
+  textInk:       '#1A1A1A', // Ink: primary text
+  textSecondary: '#5F5E5A', // Secondary text
   textBody:      '#374151',
-  border:        '#F0ECE3',
-  amberBadge:    '#FFF0EB',
-  amberText:     '#F0562A',
-  qualityBg:     '#FFF0EB',
-  qualityText:   '#F0562A',
+  border:        '#EEDCD3', // Border: neutral divider
+  amberBadge:    '#FEF3E2', // Amber bg
+  amberText:     '#854F0B', // Amber text
+  qualityBg:     '#FDF3F0',
+  qualityText:   '#7A2E14',
 };
 
 // ─── Pure SVG Icons (No Rect or Circle to avoid Hermes runtime errors) ───────
@@ -64,13 +66,15 @@ const SAMPLE_ISSUES: CustomerIssueRecord[] = [
 ];
 
 export interface SubWarehouseCustomerIssuesScreenProps {
-  customerName?: string;
+  customerName?: string | undefined;
   onBack: () => void;
+  onSelectIssue?: ((issue: CustomerIssueRecord) => void) | undefined;
 }
 
 export function SubWarehouseCustomerIssuesScreen({
   customerName = 'Rajesh Kumar',
   onBack,
+  onSelectIssue,
 }: SubWarehouseCustomerIssuesScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -155,7 +159,12 @@ export function SubWarehouseCustomerIssuesScreen({
         {/* ─── Issue Cards List ─── */}
         {filteredIssues.map((issue) => {
           return (
-            <View key={issue.id} style={styles.issueCard}>
+            <TouchableOpacity
+              key={issue.id}
+              style={styles.issueCard}
+              activeOpacity={0.85}
+              onPress={() => onSelectIssue?.(issue)}
+            >
               <View style={styles.cardTopRow}>
                 <Text style={styles.issueNo}>{issue.issueNo}</Text>
                 <View style={styles.reviewBadge}>
@@ -171,7 +180,7 @@ export function SubWarehouseCustomerIssuesScreen({
               </View>
 
               <Text style={styles.dateText}>{issue.dateText}</Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
 

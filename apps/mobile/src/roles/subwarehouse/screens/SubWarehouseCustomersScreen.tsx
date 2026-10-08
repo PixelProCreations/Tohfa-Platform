@@ -189,11 +189,28 @@ function FilterSlidersIcon({ size = 18, color = '#52525B' }: { size?: number; co
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+        d="M3 8h18"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="2.2"
         strokeLinecap="round"
-        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 5v6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M3 16h18"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M8 13v6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
       />
     </Svg>
   );

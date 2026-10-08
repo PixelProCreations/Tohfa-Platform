@@ -36,7 +36,11 @@ import { SubWarehouseCustomerOrdersScreen } from './SubWarehouseCustomerOrdersSc
 import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
 import { SubWarehouseCashTopUpScreen } from './SubWarehouseCashTopUpScreen';
 import { SubWarehouseCustomerIssuesScreen } from './SubWarehouseCustomerIssuesScreen';
+import { SubWarehouseCustomerIssueDetailScreen } from './SubWarehouseCustomerIssueDetailScreen';
 import { SubWarehouseSupportHistoryScreen } from './SubWarehouseSupportHistoryScreen';
+import { SubWarehouseCustomerSupportDetailScreen } from './SubWarehouseCustomerSupportDetailScreen';
+import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
+import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
 import { SubWarehouseBillingHubScreen } from './SubWarehouseBillingHubScreen';
 import { SubWarehouseInvoiceListScreen } from './SubWarehouseInvoiceListScreen';
 import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
@@ -102,6 +106,8 @@ import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
 import { SubWarehouseIssueSubmittedScreen } from './SubWarehouseIssueSubmittedScreen';
 import { SubWarehouseOperationalIssueDetailScreen } from './SubWarehouseOperationalIssueDetailScreen';
 import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActivityScreen';
+import { SubWarehouseTodayOperationsScreen } from './SubWarehouseTodayOperationsScreen';
+import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import {
@@ -980,8 +986,11 @@ export const INITIAL_NOTIFICATIONS: WarehouseNotification[] = [
 
 interface SubWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
-  onNavigate?: (screen: string) => void;
+  onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
+  initialTab?: SubWHTab;
+  initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
+  initialInventoryScreen?: string;
 }
 
 // ─── Inventory Module Navigation Component ───────────────────────────────────
@@ -1001,9 +1010,11 @@ function InventoryModule({
   const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
 
   useEffect(() => {
-    setCurrentScreen(initialScreen);
-    setScreenParams(initialParams);
-    setNavigationStack([initialScreen]);
+    if (initialScreen) {
+      setCurrentScreen(initialScreen);
+      setNavigationStack([initialScreen]);
+      setScreenParams(initialParams);
+    }
   }, [initialScreen, initialParams]);
 
   const handleNavigate = (screen: string, params?: any) => {
@@ -1072,7 +1083,19 @@ function InventoryModule({
 }
 
 // ─── Orders Module Navigation Component ──────────────────────────────────────
-function OrdersModule({ onBack, onTabChange, initialScreen = 'M5S01', initialParams = null }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void; initialScreen?: string; initialParams?: any }) {
+export function OrdersModule({
+  initialScreen = 'M5S01',
+  initialParams = null,
+  onBack,
+  onTabChange,
+  onNavigateToOperationalIssues,
+}: {
+  initialScreen?: string;
+  initialParams?: any;
+  onBack: () => void;
+  onTabChange?: (tab: SubWHTab) => void;
+  onNavigateToOperationalIssues?: () => void;
+}) {
   const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
   const [screenParams, setScreenParams] = useState<any>(initialParams);
   const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
@@ -1094,13 +1117,14 @@ function OrdersModule({ onBack, onTabChange, initialScreen = 'M5S01', initialPar
       }
       setScreenParams(null);
     } else {
-      // At root (M5S01), exit to main dashboard
+      // At root, exit to main dashboard
       onBack();
     }
   };
 
   // Render the appropriate screen based on currentScreen state
-  switch (currentScreen) {
+  const renderScreen = () => {
+    switch (currentScreen) {
     case 'M5S01':
     case 'M5S01_OrdersDashboard':
       return (
@@ -1125,7 +1149,14 @@ function OrdersModule({ onBack, onTabChange, initialScreen = 'M5S01', initialPar
       return <M5S03_SearchFilters onNavigate={handleNavigate} onBack={handleBack} />;
     case 'M5S04':
     case 'M5S04_OrderDetail':
-      return <M5S04_OrderDetail orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      return (
+        <M5S04_OrderDetail
+          orderId={screenParams?.orderId}
+          customerName={screenParams?.customerName}
+          onNavigate={handleNavigate}
+          onBack={handleBack}
+        />
+      );
     case 'M5S05':
     case 'M5S05_StockCheck':
       return <M5S05_StockCheck orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
@@ -1189,7 +1220,46 @@ function OrdersModule({ onBack, onTabChange, initialScreen = 'M5S01', initialPar
       return <M5S16_OrderIssue orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
     case 'M5S16B':
     case 'M5S16B_IssueSubmitted':
-      return <M5S16B_IssueSubmitted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      return (
+        <M5S16B_IssueSubmitted
+          orderId={screenParams?.orderId}
+          issueId={screenParams?.issueId}
+          onNavigate={(screen, params) => {
+            if (screen === 'M4S09' || screen === 'OperationalIssues') {
+              if (onNavigateToOperationalIssues) {
+                onNavigateToOperationalIssues();
+              } else {
+                handleNavigate('M4S09', params);
+              }
+            } else {
+              handleNavigate(screen, params);
+            }
+          }}
+          onViewIssue={() => {
+            if (onNavigateToOperationalIssues) {
+              onNavigateToOperationalIssues();
+            } else {
+              handleNavigate('M4S09', screenParams);
+            }
+          }}
+          onBack={handleBack}
+        />
+      );
+    case 'M4S09':
+    case 'OperationalIssues':
+      return (
+        <SubWarehouseOperationalIssuesScreen
+          onBack={handleBack}
+          onNavigateToReport={() => handleNavigate('M5S16')}
+          onViewIssueDetail={() => handleNavigate('OperationalIssueDetail')}
+        />
+      );
+    case 'OperationalIssueDetail':
+      return (
+        <SubWarehouseOperationalIssueDetailScreen
+          onBack={handleBack}
+        />
+      );
     case 'M5S17':
     case 'M5S17_CancelOrder':
       return <M5S17_CancelOrder orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
@@ -1204,18 +1274,29 @@ function OrdersModule({ onBack, onTabChange, initialScreen = 'M5S01', initialPar
       return <M5S18_OrderInvoice orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
     default:
       return <M5S01_OrdersDashboard onNavigate={handleNavigate} onBack={handleBack} />;
-  }
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F0562A' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      {renderScreen()}
+    </View>
+  );
 }
 
 export function SubWarehouseAdminDashboardScreen({
   onSignOut,
   onNavigate,
   onBack,
+  initialTab,
+  initialReceivingSubView,
+  initialInventoryScreen,
 }: SubWarehouseAdminDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
+  const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
   const [receivingSubView, setReceivingSubView] = useState<
     'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history'
-  >('overview');
+  >(initialReceivingSubView || 'overview');
   const [receivingHistoryFilterTab, setReceivingHistoryFilterTab] = useState<
     'All' | 'Accepted' | 'Partial' | 'Rejected'
   >('All');
@@ -1240,7 +1321,9 @@ export function SubWarehouseAdminDashboardScreen({
   const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showWarehouseOperations, setShowWarehouseOperations] = useState(false);
+  const [showTodayOperations, setShowTodayOperations] = useState(false);
   const [showWarehouseActivity, setShowWarehouseActivity] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   const [showMaterialHandling, setShowMaterialHandling] = useState(false);
   const [showAddMaterial, setShowAddMaterial] = useState(false);
@@ -1257,7 +1340,14 @@ export function SubWarehouseAdminDashboardScreen({
   const [showCustomerWallet, setShowCustomerWallet] = useState(false);
   const [showCashTopUp, setShowCashTopUp] = useState(false);
   const [showCustomerIssues, setShowCustomerIssues] = useState(false);
+  const [showCustomerIssueDetail, setShowCustomerIssueDetail] = useState(false);
+  const [selectedCustomerIssue, setSelectedCustomerIssue] = useState<any>(undefined);
   const [showSupportHistory, setShowSupportHistory] = useState(false);
+  const [showCustomerSupportDetail, setShowCustomerSupportDetail] = useState(false);
+  const [selectedSupportTicket, setSelectedSupportTicket] = useState<any>(undefined);
+  const [showNewSale, setShowNewSale] = useState(false);
+  const [showSaleDetail, setShowSaleDetail] = useState(false);
+  const [selectedSaleRecord, setSelectedSaleRecord] = useState<any>(undefined);
   const [showBillingHub, setShowBillingHub] = useState(false);
   const [showInvoiceList, setShowInvoiceList] = useState(false);
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
@@ -1270,6 +1360,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showTasks, setShowTasks] = useState(false);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(undefined);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showExpenseRecord, setShowExpenseRecord] = useState(false);
   const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
@@ -1326,6 +1417,20 @@ export function SubWarehouseAdminDashboardScreen({
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
+  const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string>(initialInventoryScreen || 'M3S01');
+  const [inventoryInitialParams, setInventoryInitialParams] = useState<any>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+    if (initialReceivingSubView) {
+      setReceivingSubView(initialReceivingSubView);
+    }
+    if (initialInventoryScreen) {
+      setInventoryInitialScreen(initialInventoryScreen);
+    }
+  }, [initialTab, initialReceivingSubView, initialInventoryScreen]);
   const [user, setUser] = useState<UserMe | null>(null);
   const [notifications, setNotifications] = useState<WarehouseNotification[]>(INITIAL_NOTIFICATIONS);
 
@@ -1447,8 +1552,6 @@ export function SubWarehouseAdminDashboardScreen({
   const [showOrdersModule, setShowOrdersModule] = useState(false);
   const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [ordersInitialParams, setOrdersInitialParams] = useState<any>(null);
-  const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string>('M3S01');
-  const [inventoryInitialParams, setInventoryInitialParams] = useState<any>(null);
 
   useEffect(() => {
     const onHardwareBack = () => {
@@ -1533,11 +1636,24 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showOrderDetail) {
     return (
-      <SubWarehouseOrderDetailScreen
+      <OrdersModule
+        initialScreen="M5S04"
+        initialParams={{
+          orderId: selectedOrder?.orderNo || 'ORD-00251',
+          customerName: selectedOrder?.customer || selectedCustomer?.name || 'Rajesh Kumar',
+        }}
         onBack={() => setShowOrderDetail(false)}
-        onViewStatus={() =>
-          Alert.alert('Pickup Status', 'Ready for customer pickup at Bay 2.')
-        }
+        onTabChange={(tab) => {
+          setShowOrderDetail(false);
+          setShowPurchaseHistory(false);
+          setShowCustomerDetails(false);
+          setShowCustomers(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowOrderDetail(false);
+          setShowOperationalIssues(true);
+        }}
       />
     );
   }
@@ -1795,13 +1911,69 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (selectedActivity) {
+    return (
+      <SubWarehouseActivityDetailScreen
+        activity={selectedActivity}
+        onBack={() => setSelectedActivity(null)}
+      />
+    );
+  }
+
+  if (showTodayOperations) {
+    return (
+      <SubWarehouseTodayOperationsScreen
+        onBack={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(true);
+        }}
+        onTabChange={(tab) => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setActiveTab(tab);
+        }}
+        onSelectActivity={(activity) => {
+          setSelectedActivity(activity);
+        }}
+        onNavigateToReceiving={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setReceivingSubView('incoming_shipments');
+          setActiveTab('Receiving');
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setShowMaterialHandling(true);
+        }}
+        onNavigateToStorage={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setShowStorageInfo(true);
+        }}
+        onNavigateToStockVerification={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setShowOperationalIssues(true);
+        }}
+      />
+    );
+  }
+
   if (showWarehouseActivity) {
     return (
       <SubWarehouseWarehouseActivityScreen
         onBack={() => {
-          // Back from Activity → return to the Storage Location Detail
           setShowWarehouseActivity(false);
-          // selectedStorageLocationId still has the id, so detail screen renders
+          if (!selectedStorageLocationId) {
+            setShowWarehouseOperations(true);
+          }
         }}
         onTabChange={(tab) => {
           setShowWarehouseActivity(false);
@@ -1809,6 +1981,46 @@ export function SubWarehouseAdminDashboardScreen({
           setShowStorageInfo(false);
           setShowWarehouseOperations(false);
           setActiveTab(tab);
+        }}
+        onSelectActivity={(activity) => {
+          setSelectedActivity(activity);
+        }}
+        onNavigateToReceiving={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setReceivingSubView('incoming_shipments');
+          setActiveTab('Receiving');
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowMaterialHandling(true);
+        }}
+        onNavigateToStorage={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
+          else setShowStorageInfo(true);
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowOperationalIssues(true);
         }}
       />
     );
@@ -1822,6 +2034,13 @@ export function SubWarehouseAdminDashboardScreen({
           // Back from detail → go back to Storage Info list
           setSelectedStorageLocationId(null);
           setShowStorageInfo(true);
+        }}
+        onViewStock={() => {
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowWarehouseOperations(false);
+          setInventoryInitialScreen('M3S02');
+          setActiveTab('Inventory');
         }}
         onViewActivity={() => setShowWarehouseActivity(true)}
       />
@@ -1854,8 +2073,7 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowWarehouseOperations(false)}
         onNavigateToStorageLocations={() => {
           setShowWarehouseOperations(false);
-          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
-          else setShowStorageInfo(true);
+          setShowStorageInfo(true);
         }}
         onNavigateToCapacity={() => {
           setShowWarehouseOperations(false);
@@ -1869,26 +2087,31 @@ export function SubWarehouseAdminDashboardScreen({
           setShowWarehouseOperations(false);
           setShowOperationalIssues(true);
         }}
+        onNavigateToStaffAttendance={() => {
+          setShowWarehouseOperations(false);
+          setShowTodayAttendanceScreen(true);
+        }}
+        onNavigateToReceiveGoods={() => {
+          setShowWarehouseOperations(false);
+          setReceivingSubView('incoming_shipments');
+          setActiveTab('Receiving');
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseOperations(false);
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
         onNavigateToWarehouseActivity={() => {
           setShowWarehouseOperations(false);
           setShowWarehouseActivity(true);
         }}
+        onNavigateToTodayOperations={() => {
+          setShowWarehouseOperations(false);
+          setShowTodayOperations(true);
+        }}
         onTabChange={(tab) => {
           setShowWarehouseOperations(false);
           setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (selectedMaterialId) {
-    return (
-      <SubWarehouseMaterialDetailScreen
-        materialId={selectedMaterialId}
-        onBack={() => setSelectedMaterialId(null)}
-        onAddStock={() => {
-          setSelectedMaterialId(null);
-          setShowAddMaterial(true);
         }}
       />
     );
@@ -1900,7 +2123,18 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowAddMaterial(false)}
         onSave={() => {
           setShowAddMaterial(false);
-          // Handle save logic if needed
+        }}
+      />
+    );
+  }
+
+  if (selectedMaterialId) {
+    return (
+      <SubWarehouseMaterialDetailScreen
+        materialId={selectedMaterialId}
+        onBack={() => setSelectedMaterialId(null)}
+        onAddStock={() => {
+          setShowAddMaterial(true);
         }}
       />
     );
@@ -1909,7 +2143,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showMaterialHandling) {
     return (
       <SubWarehouseMaterialHandlingScreen
-        onBack={() => setShowMaterialHandling(false)}
+        onBack={() => {
+          setShowMaterialHandling(false);
+          setShowWarehouseOperations(true);
+        }}
         onSelectMaterial={(id) => setSelectedMaterialId(id)}
         onAddMaterial={() => setShowAddMaterial(true)}
       />
@@ -1919,7 +2156,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showWarehouseCapacity) {
     return (
       <SubWarehouseCapacityScreen
-        onBack={() => setShowWarehouseCapacity(false)}
+        onBack={() => {
+          setShowWarehouseCapacity(false);
+          setShowWarehouseOperations(true);
+        }}
         onTabChange={(tab) => {
           setShowWarehouseCapacity(false);
           setActiveTab(tab as SubWHTab);
@@ -1931,7 +2171,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReportIssue) {
     return (
       <SubWarehouseReportIssueScreen
-        onBack={() => setShowReportIssue(false)}
+        onBack={() => {
+          setShowReportIssue(false);
+          setShowOperationalIssues(true);
+        }}
         onSubmit={() => {
           setShowReportIssue(false);
           setShowIssueSubmitted(true);
@@ -1945,7 +2188,7 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseIssueSubmittedScreen
         onViewIssue={() => {
           setShowIssueSubmitted(false);
-          setShowIssueDetail(true);
+          setShowOperationalIssues(true);
         }}
       />
     );
@@ -1954,7 +2197,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showIssueDetail) {
     return (
       <SubWarehouseOperationalIssueDetailScreen
-        onBack={() => setShowIssueDetail(false)}
+        onBack={() => {
+          setShowIssueDetail(false);
+          setShowOperationalIssues(true);
+        }}
       />
     );
   }
@@ -1962,7 +2208,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showOperationalIssues) {
     return (
       <SubWarehouseOperationalIssuesScreen
-        onBack={() => setShowOperationalIssues(false)}
+        onBack={() => {
+          setShowOperationalIssues(false);
+          setShowWarehouseOperations(true);
+        }}
         onNavigateToReport={() => {
           setShowOperationalIssues(false);
           setShowReportIssue(true);
@@ -2088,6 +2337,21 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showSaleDetail) {
+    return (
+      <SubWarehouseSaleDetailScreen
+        sale={selectedSaleRecord}
+        onBack={() => setShowSaleDetail(false)}
+        onTabChange={(tab) => {
+          setShowSaleDetail(false);
+          setShowPurchaseHistory(false);
+          setShowCustomerDetails(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
   if (showPurchaseHistory) {
     return (
       <SubWarehousePurchaseHistoryScreen
@@ -2105,6 +2369,52 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         appliedFilters={purchaseFilters}
         onClearFilters={() => setPurchaseFilters(undefined)}
+        onNavigateToSaleDetail={(invoiceNo) => {
+          setSelectedSaleRecord({
+            id: 'SALE-00251',
+            customerName: selectedCustomer?.name || 'Rajesh Kumar',
+            customerCode: selectedCustomer?.code || 'CUS-00291',
+            channel: 'Direct Sale',
+            dateText: '24 Sep 2026',
+            amount: 200,
+            status: 'Completed',
+            invoiceNo: invoiceNo || 'INV-00251',
+            paymentMethod: 'UPI',
+            items: [
+              {
+                name: 'Tomato',
+                grade: 'Grade 1',
+                batch: 'BTH-00231',
+                qtyText: '2 KG @ ₹100',
+                pricePerUnit: 100,
+                lineTotal: 200,
+              },
+            ],
+          });
+          setShowSaleDetail(true);
+        }}
+        onNavigateToOrderDetail={(orderNo) => {
+          const is238 = orderNo === 'ORD-00238' || orderNo === 'INV-00238';
+          setSelectedOrder({
+            orderNo: orderNo || (is238 ? 'ORD-00238' : 'ORD-00251'),
+            status: 'Completed',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: is238 ? '3 Items' : '1 Item',
+            price: is238 ? '₹650' : '₹200',
+            date: is238 ? '20 Sep 2026' : '24 Sep 2026',
+            type: 'Pickup',
+            products: is238
+              ? [
+                  { name: 'Tomato', grade: 'Grade 1', qty: '2 KG', price: '₹200' },
+                  { name: 'Carrot', grade: 'Grade 1', qty: '1 KG', price: '₹150' },
+                  { name: 'Beans', grade: 'Grade 1', qty: '2 KG', price: '₹300' },
+                ]
+              : [
+                  { name: 'Tomato', grade: 'Grade 1', qty: '2 KG', price: '₹200' },
+                ],
+          });
+          setShowOrderDetail(true);
+        }}
       />
     );
   }
@@ -2139,6 +2449,42 @@ export function SubWarehouseAdminDashboardScreen({
         defaultFilter={customerOrdersFilter || 'All'}
         onClearFilters={() => setOrderFilters(undefined)}
         onOrderPress={(orderId) => setShowOrderDetail(true)}
+        onNavigateToOrderDetail={(order) => {
+          setSelectedOrder(order || {
+            orderNo: 'ORD-00251',
+            status: 'Ready for Pickup',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: '3 Items',
+            price: '₹850',
+            date: '24 Sep 2026',
+            type: 'Pickup',
+          });
+          setShowOrderDetail(true);
+        }}
+        onViewPickupStatus={(order) => {
+          setSelectedOrder(order || {
+            orderNo: 'ORD-00251',
+            status: 'Ready for Pickup',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: '3 Items',
+            price: '₹850',
+            date: '24 Sep 2026',
+            type: 'Pickup',
+          });
+          setShowOrderDetail(true);
+        }}
+        onViewInvoice={(order) => {
+          setSelectedOrder(order || {
+            orderNo: 'ORD-00238',
+            status: 'Completed',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: '2 Items',
+            price: '₹420',
+            date: '20 Sep 2026',
+            type: 'Pickup',
+          });
+          setShowOrderDetail(true);
+        }}
       />
     );
   }
@@ -2165,11 +2511,70 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showCustomerIssueDetail) {
+    return (
+      <SubWarehouseCustomerIssueDetailScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        issue={selectedCustomerIssue}
+        onBack={() => setShowCustomerIssueDetail(false)}
+        onViewRma={() => {
+          setSelectedRma({
+            id: 'rma-00231',
+            rmaId: 'RMA-00231',
+            orderId: selectedCustomerIssue?.orderNo || 'ORD-00251',
+            customerName: selectedCustomer?.name || 'Rajesh Kumar',
+            customerId: selectedCustomer?.code || 'CUS-00291',
+            customerPhone: '+91 98765 43210',
+            orderDate: '24 Sep 2026',
+            salesChannel: 'Direct Sale',
+            paymentStatus: 'Paid',
+            productName: selectedCustomerIssue?.product || 'Tomato',
+            grade: 'Grade 1',
+            quantityPurchased: selectedCustomerIssue?.quantity || '2 KG',
+            unitPrice: '₹100 / KG',
+            lineTotal: '₹200',
+            issueCategory: (selectedCustomerIssue?.category as any) || 'Quality',
+            reportedDate: '24 Sep 2026',
+            timestampText: '24 Sep 2026 · 10:45 AM',
+            description: selectedCustomerIssue?.description || 'Customer reported quality issue.',
+            ticketId: selectedCustomerIssue?.issueNo || 'ISSUE-00231',
+            requestedQuantity: '2 KG',
+            requestedResolution: 'Replacement / Refund',
+            status: 'Under Review',
+          });
+          setShowCustomerIssueDetail(false);
+          setShowCustomerIssues(false);
+          setShowReturnsIssues(true);
+        }}
+      />
+    );
+  }
+
   if (showCustomerIssues) {
     return (
       <SubWarehouseCustomerIssuesScreen
         customerName={selectedCustomer?.name || 'Rajesh Kumar'}
         onBack={() => setShowCustomerIssues(false)}
+        onSelectIssue={(issue) => {
+          setSelectedCustomerIssue(issue);
+          setShowCustomerIssueDetail(true);
+        }}
+      />
+    );
+  }
+
+  if (showCustomerSupportDetail) {
+    return (
+      <SubWarehouseCustomerSupportDetailScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        ticket={selectedSupportTicket}
+        onBack={() => setShowCustomerSupportDetail(false)}
+        onTabChange={(tab) => {
+          setShowCustomerSupportDetail(false);
+          setShowSupportHistory(false);
+          setShowCustomerDetails(false);
+          setActiveTab(tab);
+        }}
       />
     );
   }
@@ -2179,6 +2584,19 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseSupportHistoryScreen
         customerName={selectedCustomer?.name || 'Rajesh Kumar'}
         onBack={() => setShowSupportHistory(false)}
+        onSelectTicket={(ticket) => {
+          setSelectedSupportTicket(ticket);
+          setShowCustomerSupportDetail(true);
+        }}
+      />
+    );
+  }
+
+  if (showNewSale) {
+    return (
+      <SubWarehouseNewSaleScreen
+        initialCustomerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowNewSale(false)}
       />
     );
   }
@@ -2198,6 +2616,8 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToWallet={() => setShowCustomerWallet(true)}
         onNavigateToIssues={() => setShowCustomerIssues(true)}
         onNavigateToSupport={() => setShowSupportHistory(true)}
+        onNavigateToNewSale={() => setShowNewSale(true)}
+        onNavigateToCashTopUp={() => setShowCashTopUp(true)}
       />
     );
   }
@@ -2700,6 +3120,7 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseTodayAttendanceScreen
         onBack={() => setShowTodayAttendanceScreen(false)}
+        onNavigateToHistory={() => setShowAttendanceHistoryScreen(true)}
         onTabChange={(tab) => {
           setShowTodayAttendanceScreen(false);
           setShowStaffScreen(false);
@@ -4455,6 +4876,10 @@ export function SubWarehouseAdminDashboardScreen({
               setOrdersInitialParams(null);
               setActiveTab(tab);
             }}
+            onNavigateToOperationalIssues={() => {
+              setShowOrdersModule(false);
+              setShowOperationalIssues(true);
+            }}
           />
         )}
 
@@ -4517,8 +4942,33 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowFinanceScreen(true);
             }}
             onNavigateToWarehouseOperations={() => {
-              if (onNavigate) onNavigate('SubWarehouseWarehouseOperations');
-              else setShowWarehouseOperations(true);
+              setShowWarehouseOperations(true);
+            }}
+            onNavigateToStorageLocations={() => {
+              setShowStorageInfo(true);
+            }}
+            onNavigateToCapacity={() => {
+              setShowWarehouseCapacity(true);
+            }}
+            onNavigateToMaterialHandling={() => {
+              setShowMaterialHandling(true);
+            }}
+            onNavigateToOperationalIssues={() => {
+              setShowOperationalIssues(true);
+            }}
+            onNavigateToWarehouseActivity={() => {
+              setShowWarehouseActivity(true);
+            }}
+            onNavigateToTodayOperations={() => {
+              setShowTodayOperations(true);
+            }}
+            onNavigateToReceiveGoods={() => {
+              setReceivingSubView('incoming_shipments');
+              setActiveTab('Receiving');
+            }}
+            onNavigateToStockVerification={() => {
+              setInventoryInitialScreen('M3S10');
+              setActiveTab('Inventory');
             }}
             onNavigateToSettings={() => {
               if (onNavigate) onNavigate('SubWarehouseSettings');

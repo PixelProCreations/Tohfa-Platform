@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S17BProps {
   orderId?: string;
@@ -35,12 +35,12 @@ function WarningTriangleOrangeIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke="#C2410C"
+        stroke={ORDERS_THEME.warning}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M12 9v4M12 17h.01" stroke="#C2410C" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 9v4M12 17h.01" stroke={ORDERS_THEME.warning} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -48,8 +48,8 @@ function WarningTriangleOrangeIcon() {
 function InfoCircleRedIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.danger} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.danger} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -117,7 +117,7 @@ export const M5S17B_ConfirmCancellation: React.FC<M5S17BProps> = ({
           <View style={{ height: 24 }} />
         </ScrollView>
 
-        {/* Bottom Stacked Buttons matching Image 4 Right */}
+        {/* Bottom Stacked Buttons */}
         <View style={styles.bottomBarStacked}>
           <TouchableOpacity
             style={styles.confirmCancelBtn}
@@ -144,28 +144,31 @@ export const M5S17B_ConfirmCancellation: React.FC<M5S17BProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   content: {
@@ -177,10 +180,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   confirmPromptBox: {
-    backgroundColor: '#FEF9EE',
+    backgroundColor: ORDERS_THEME.warningBg,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -189,36 +192,41 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   confirmPromptText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.warning,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValueBold: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   redAlertBox: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: ORDERS_THEME.dangerBg,
     borderWidth: 1,
     borderColor: '#FECACA',
-    borderRadius: 12,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 12,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -227,49 +235,54 @@ const styles = StyleSheet.create({
   },
   redAlertText: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#B91C1C',
+    color: ORDERS_THEME.danger,
     lineHeight: 16,
   },
   bottomBarStacked: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   confirmCancelBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginBottom: 10,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmCancelBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   keepOrderBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.cardBg,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   keepOrderBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#475569',
+    color: ORDERS_THEME.textInk,
   },
 });

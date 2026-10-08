@@ -9,8 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
-import { SWABottomNav } from '../components/SWABottomNav';
+import { ORDERS_THEME } from './theme';
 
 interface M5S09Props {
   onNavigate: (screen: string, params?: any) => void;
@@ -38,7 +37,7 @@ function SearchMutedIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M21 21l-4.35-4.35M19 11a8 8 0 11-16 0 8 8 0 0116 0z"
-        stroke="#64748B"
+        stroke={ORDERS_THEME.textSecondary}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -78,7 +77,7 @@ export const M5S09_ReadyForPickup: React.FC<M5S09Props> = ({ onNavigate, onBack 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Top Header - Orange Theme matching Image 1 */}
+        {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -101,7 +100,7 @@ export const M5S09_ReadyForPickup: React.FC<M5S09Props> = ({ onNavigate, onBack 
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Search Box matching Image 1 */}
+          {/* Search Box */}
           <View style={styles.searchBox}>
             <SearchMutedIcon />
             <TextInput
@@ -109,48 +108,49 @@ export const M5S09_ReadyForPickup: React.FC<M5S09Props> = ({ onNavigate, onBack 
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search order / customer"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={ORDERS_THEME.textSecondary}
             />
           </View>
 
-          {/* Order Cards matching Image 1 */}
+          {/* Order Cards */}
           {filteredOrders.map((order) => (
-            <View key={order.id} style={styles.orderCardWrapper}>
-              <View style={styles.orderCard}>
-                {/* Top Row: Order ID & Time Badge */}
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.orderIdText}>{order.id}</Text>
-                  <View style={styles.timeBadge}>
-                    <Text style={styles.timeBadgeText}>{order.time}</Text>
-                  </View>
-                </View>
-
-                {/* Customer Name */}
-                <Text style={styles.customerName}>{order.customer}</Text>
-
-                {/* Items & Price */}
-                <View style={styles.itemsPriceRow}>
-                  <Text style={styles.itemsText}>{order.items}</Text>
-                  <Text style={styles.amountText}>{order.amount}</Text>
-                </View>
-
-                {/* Packed Time & Ready Badge */}
-                <View style={styles.packedReadyRow}>
-                  <Text style={styles.packedTimeText}>{order.packed}</Text>
-                  <View style={styles.readyBadge}>
-                    <Text style={styles.readyBadgeText}>Ready</Text>
-                  </View>
+            <TouchableOpacity
+              key={order.id}
+              style={styles.orderCard}
+              activeOpacity={0.75}
+              onPress={() => onNavigate('M5S10', { orderId: order.id })}
+            >
+              {/* Top Row: Order ID & Time Badge */}
+              <View style={styles.cardTopRow}>
+                <Text style={styles.orderIdText}>{order.id}</Text>
+                <View style={styles.timeBadge}>
+                  <Text style={styles.timeBadgeText}>{order.time}</Text>
                 </View>
               </View>
 
+              {/* Customer Name */}
+              <Text style={styles.customerName}>{order.customer}</Text>
 
-            </View>
+              {/* Items & Price */}
+              <View style={styles.itemsPriceRow}>
+                <Text style={styles.itemsText}>{order.items}</Text>
+                <Text style={styles.amountText}>{order.amount}</Text>
+              </View>
+
+              {/* Packed Time & Ready Badge */}
+              <View style={styles.packedReadyRow}>
+                <Text style={styles.packedTimeText}>{order.packed}</Text>
+                <View style={styles.readyBadge}>
+                  <Text style={styles.readyBadgeText}>Ready</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
           ))}
 
           <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Fixed Bottom Button replacing Nav Bar */}
+        {/* Fixed Bottom Button */}
         <View style={styles.fixedBottomContainer}>
           <TouchableOpacity
             style={styles.primaryActionButton}
@@ -172,78 +172,89 @@ export const M5S09_ReadyForPickup: React.FC<M5S09Props> = ({ onNavigate, onBack 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: ORDERS_THEME.primary,
   },
   subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#8C7A6B',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 14,
     paddingBottom: 20,
   },
   searchBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     marginBottom: 16,
     gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     height: '100%',
   },
-  orderCardWrapper: {
-    marginBottom: 16,
-  },
   orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -252,28 +263,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   orderIdText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   timeBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: ORDERS_THEME.warningBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: ORDERS_THEME.radiusFull,
   },
   timeBadgeText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11,
     fontWeight: '700',
-    color: '#B45309',
+    color: ORDERS_THEME.warning,
   },
   customerName: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 10,
   },
   itemsPriceRow: {
@@ -283,16 +294,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   itemsText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '500',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
   },
   amountText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   packedReadyRow: {
     flexDirection: 'row',
@@ -300,40 +311,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   packedTimeText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 12,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
   },
   readyBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: ORDERS_THEME.successBg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: ORDERS_THEME.radiusFull,
   },
   readyBadgeText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#1E8E5A',
+    color: ORDERS_THEME.success,
   },
   fixedBottomContainer: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EBE5DC',
+    borderTopColor: ORDERS_THEME.border,
   },
   primaryActionButton: {
-    backgroundColor: '#F0562A',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: 12,
+    height: 50,
+    borderRadius: ORDERS_THEME.radiusLG,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryActionText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',

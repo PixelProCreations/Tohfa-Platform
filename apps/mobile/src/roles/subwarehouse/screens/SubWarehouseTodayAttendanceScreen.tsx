@@ -72,6 +72,15 @@ function RefreshIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: 
   );
 }
 
+function HistoryClockIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function WarehouseStoreIcon({ size = 12, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -201,6 +210,7 @@ export interface SubWarehouseTodayAttendanceScreenProps {
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
   warehouseName?: string;
   dateStr?: string;
+  onNavigateToHistory?: () => void;
 }
 
 export function SubWarehouseTodayAttendanceScreen({
@@ -208,6 +218,7 @@ export function SubWarehouseTodayAttendanceScreen({
   onTabChange,
   warehouseName = 'Coonoor Warehouse',
   dateStr = '25 Sep 2026',
+  onNavigateToHistory,
 }: SubWarehouseTodayAttendanceScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'All' | 'Present' | 'Absent' | 'On Leave'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -455,6 +466,16 @@ export function SubWarehouseTodayAttendanceScreen({
           <Text style={styles.headerTitle}>Today's Attendance</Text>
 
           <View style={styles.headerActions}>
+            {onNavigateToHistory && (
+              <TouchableOpacity
+                style={styles.refreshButton}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={onNavigateToHistory}
+              >
+                <HistoryClockIcon size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.refreshButton}
               activeOpacity={0.8}

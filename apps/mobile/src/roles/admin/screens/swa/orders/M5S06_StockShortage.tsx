@@ -8,6 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { ORDERS_THEME } from './theme';
 
 interface M5S06Props {
   orderId?: string;
@@ -28,8 +29,8 @@ function BackArrowWhiteIcon() {
 function InfoCircleBlueIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#1C5B96" strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#1C5B96" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.info} strokeWidth="1.8" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.info} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -47,26 +48,24 @@ export const M5S06_StockShortage: React.FC<M5S06Props> = ({ orderId = 'ORD-1024'
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 5 Left */}
+        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity
-              style={styles.backButton}
-              activeOpacity={0.7}
-              onPress={onBack}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <BackArrowWhiteIcon />
-            </TouchableOpacity>
-            <View>
-              <Text style={styles.headerTitle}>Stock Shortage</Text>
-              <Text style={styles.headerSubtitle}>{orderId}</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={styles.backButton}
+            activeOpacity={0.7}
+            onPress={onBack}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <BackArrowWhiteIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Stock Shortage</Text>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Top Shortage Hero Card */}
+          {/* Order Reference Label on Canvas */}
+          <Text style={styles.orderRefLabel}>{orderId}</Text>
+
+          {/* Top Shortage Hero Card - Crisp Red Border matching Left Design */}
           <View style={styles.shortageHeroCard}>
             <Text style={styles.shortageNumberText}>4 KG Short</Text>
             <Text style={styles.shortageCropText}>CARROT · GRADE 1</Text>
@@ -143,24 +142,20 @@ export const M5S06_StockShortage: React.FC<M5S06Props> = ({ orderId = 'ORD-1024'
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
-    paddingTop: 16,
-    paddingBottom: 16,
+    backgroundColor: ORDERS_THEME.primary,
+    paddingTop: 12,
+    paddingBottom: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   backButton: {
     width: 32,
@@ -174,29 +169,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Poppins',
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: 'Poppins',
-    fontWeight: '600',
-    marginTop: 1,
-  },
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 10,
+  },
+  orderRefLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: ORDERS_THEME.textSecondary,
+    marginBottom: 8,
+    paddingLeft: 2,
   },
   shortageHeroCard: {
-    backgroundColor: '#FFF1F2',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#FECDD3',
-    paddingVertical: 22,
+    backgroundColor: '#FDF2F2',
+    borderRadius: ORDERS_THEME.radiusLG,
+    borderWidth: 1.2,
+    borderColor: '#E24B4A',
+    paddingVertical: 20,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
+    shadowColor: '#E24B4A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   shortageNumberText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#E24B4A',
     fontFamily: 'Poppins',
@@ -206,7 +207,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#E24B4A',
     fontFamily: 'Poppins',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
     marginTop: 4,
   },
   summaryCardsRow: {
@@ -216,24 +217,29 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
-    paddingVertical: 14,
+    borderColor: ORDERS_THEME.border,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   summaryValText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   summaryLblText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
-    color: '#7A726C',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     letterSpacing: 0.5,
     marginTop: 2,
@@ -243,18 +249,24 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
     marginBottom: 8,
   },
   relatedStockCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
-    padding: 16,
+    borderColor: ORDERS_THEME.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -264,53 +276,56 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    fontSize: 11,
-    color: '#7A726C',
+    fontSize: 11.5,
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     fontWeight: '500',
+    marginBottom: 4,
   },
   colValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#1D2420',
+    fontSize: 14,
+    fontWeight: '700',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
-    marginTop: 2,
   },
   noticeBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    borderWidth: 1.2,
+    backgroundColor: ORDERS_THEME.infoBg,
+    borderWidth: 1,
     borderColor: '#BFDBFE',
-    padding: 14,
+    borderRadius: ORDERS_THEME.radiusMD,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
     marginBottom: 16,
   },
   noticeText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1E40AF',
+    fontSize: 11.5,
+    color: ORDERS_THEME.info,
     fontFamily: 'Poppins',
-    lineHeight: 17,
+    lineHeight: 16,
+    fontWeight: '500',
   },
   bottomBar: {
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
+    paddingTop: 10,
     paddingBottom: 16,
-    paddingTop: 8,
-    backgroundColor: '#F4F1EA',
-    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: ORDERS_THEME.border,
   },
   reviewOrderBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 14,
-    height: 50,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    shadowColor: '#E85226',
+    gap: 8,
+    marginBottom: 10,
+    shadowColor: ORDERS_THEME.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -323,16 +338,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
   },
   reportIssueBtn: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E85226',
-    height: 48,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
   reportIssueBtnText: {
-    color: '#8B4513',
+    color: '#E24B4A',
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'Poppins',

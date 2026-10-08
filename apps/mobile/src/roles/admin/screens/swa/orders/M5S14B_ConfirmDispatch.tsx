@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S14BProps {
   orderId?: string;
@@ -33,10 +33,10 @@ function BackArrowWhiteIcon() {
 function QuestionCircleOrangeIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#C2410C" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.warning} strokeWidth="2" />
       <Path
         d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
-        stroke="#C2410C"
+        stroke={ORDERS_THEME.warning}
         strokeWidth="2"
         strokeLinecap="round"
       />
@@ -66,7 +66,7 @@ export const M5S14B_ConfirmDispatch: React.FC<M5S14BProps> = ({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 3 */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -84,7 +84,7 @@ export const M5S14B_ConfirmDispatch: React.FC<M5S14BProps> = ({
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Amber Alert Banner matching Image 3 */}
+          {/* Top Alert Banner */}
           <View style={styles.confirmPromptBox}>
             <QuestionCircleOrangeIcon />
             <Text style={styles.confirmPromptText}>Confirm Dispatch?</Text>
@@ -112,7 +112,7 @@ export const M5S14B_ConfirmDispatch: React.FC<M5S14BProps> = ({
           <View style={{ height: 24 }} />
         </ScrollView>
 
-        {/* Bottom Fixed Action Button matching Image 3 */}
+        {/* Bottom Fixed Action Button */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.primaryBtn}
@@ -131,28 +131,31 @@ export const M5S14B_ConfirmDispatch: React.FC<M5S14BProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   content: {
@@ -164,11 +167,16 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -179,23 +187,23 @@ const styles = StyleSheet.create({
   },
   singleRow: {},
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 3,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   confirmPromptBox: {
-    backgroundColor: '#FEF9EE',
+    backgroundColor: ORDERS_THEME.warningBg,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -204,29 +212,34 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   confirmPromptText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.warning,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   primaryBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',

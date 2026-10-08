@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S08Props {
   orderId?: string;
@@ -36,10 +36,10 @@ function BackArrowWhiteIcon() {
 function QuestionCircleOrangeIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#C2410C" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.warning} strokeWidth="2" />
       <Path
         d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
-        stroke="#C2410C"
+        stroke={ORDERS_THEME.warning}
         strokeWidth="2"
         strokeLinecap="round"
       />
@@ -80,10 +80,10 @@ function CheckmarkWhiteIcon() {
 function BigGreenCheckSuccessIcon() {
   return (
     <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#10B981" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.success} strokeWidth="2" />
       <Path
         d="M8 12l2.5 2.5L16 9.5"
-        stroke="#10B981"
+        stroke={ORDERS_THEME.success}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -122,7 +122,7 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
 }) => {
   const [isPacked, setIsPacked] = useState(initialPacked);
 
-  // ─── STATE 2: Order Packed Screen (Image 3) ─────────────────────────────────
+  // ─── STATE 2: Order Packed Screen ──────────────────────────────────────────
   if (isPacked) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -141,7 +141,7 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
           </View>
 
           <View style={styles.contentPacked}>
-            {/* Centered Hero Checkmark matching Image 3 */}
+            {/* Centered Hero Checkmark */}
             <View style={styles.heroContainer}>
               <View style={styles.successCircleBadge}>
                 <BigGreenCheckSuccessIcon />
@@ -162,7 +162,7 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
             </View>
           </View>
 
-          {/* Bottom Stacked Buttons matching Image 3 */}
+          {/* Bottom Stacked Buttons */}
           <View style={styles.bottomBarPacked}>
             <TouchableOpacity
               style={styles.pickupBtn}
@@ -186,11 +186,11 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
     );
   }
 
-  // ─── STATE 1: Confirm Packing Screen (Image 2) ─────────────────────────────
+  // ─── STATE 1: Confirm Packing Screen ───────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 2 */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -208,7 +208,7 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Amber/Peach Alert Box matching Image 2 */}
+          {/* Top Amber/Peach Alert Box */}
           <View style={styles.confirmPromptBox}>
             <QuestionCircleOrangeIcon />
             <Text style={styles.confirmPromptText}>Confirm Packing?</Text>
@@ -259,7 +259,7 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
           <View style={{ height: 24 }} />
         </ScrollView>
 
-        {/* Bottom Fixed Action Button */}
+        {/* Bottom Bar */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.confirmBtn}
@@ -267,7 +267,7 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
             onPress={() => setIsPacked(true)}
           >
             <CheckmarkWhiteIcon />
-            <Text style={styles.confirmBtnText}>Confirm & Mark Packed</Text>
+            <Text style={styles.confirmBtnText}>Yes, Confirm Packing</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -278,63 +278,71 @@ export const M5S08_ConfirmPacking: React.FC<M5S08Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   content: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 14,
     paddingBottom: 20,
   },
   confirmPromptBox: {
-    backgroundColor: '#FEF9EE',
+    backgroundColor: ORDERS_THEME.warningBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     marginBottom: 16,
   },
   confirmPromptText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 14.5,
+    fontFamily: 'Poppins',
+    fontSize: 15,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.warning,
   },
   orderDetailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -344,76 +352,86 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 3,
   },
   detailValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   checklistSectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     marginTop: 6,
     marginBottom: 10,
   },
   checklistRowCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   greenCheckbox: {
     width: 22,
     height: 22,
     borderRadius: 5,
-    backgroundColor: '#15803D',
+    backgroundColor: ORDERS_THEME.success,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   checklistRowText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   confirmBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
 
-  // ─── Packed Screen Styles (Image 3) ─────────────────────────────────────────
+  // Packed Screen Styles
   contentPacked: {
     flex: 1,
     paddingTop: 36,
@@ -427,80 +445,90 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E8F8F0',
+    backgroundColor: ORDERS_THEME.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   packedSummaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 20,
     paddingVertical: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   packedSummaryCol: {
     flex: 1,
   },
   summaryLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   summaryValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   bottomBarPacked: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   pickupBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginBottom: 10,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   pickupBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   dispatchBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.orangeTint,
     borderWidth: 1.5,
-    borderColor: '#E85226',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dispatchBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#E85226',
+    color: ORDERS_THEME.primary,
   },
 });

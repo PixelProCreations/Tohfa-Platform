@@ -68,12 +68,14 @@ function ClockOutlineIcon({ color = PALETTE.primary }) {
 export interface SubWarehouseStorageLocationDetailScreenProps {
   locationId: string;
   onBack: () => void;
+  onViewStock?: () => void;
   onViewActivity?: () => void;
 }
 
 export function SubWarehouseStorageLocationDetailScreen({
   locationId,
   onBack,
+  onViewStock,
   onViewActivity,
 }: SubWarehouseStorageLocationDetailScreenProps) {
   return (
@@ -129,7 +131,7 @@ export function SubWarehouseStorageLocationDetailScreen({
         <View style={styles.card}>
           <View style={styles.occupancyHeader}>
             <Text style={styles.value}>Current</Text>
-            <Text style={[styles.value, { color: '#B45309' }]}>68%</Text>
+            <Text style={[styles.value, { color: PALETTE.primary }]}>68%</Text>
           </View>
           <View style={styles.progressBarBg}>
             <View style={[styles.progressBarFill, { width: '68%' }]} />
@@ -165,12 +167,12 @@ export function SubWarehouseStorageLocationDetailScreen({
 
         {/* ─── Actions ─── */}
         <Text style={styles.sectionTitle}>Actions</Text>
-        <TouchableOpacity style={styles.actionBtn}>
-          <BoxOutlineIcon />
+        <TouchableOpacity style={styles.actionBtn} onPress={onViewStock} activeOpacity={0.75}>
+          <BoxOutlineIcon color={PALETTE.primary} />
           <Text style={styles.actionBtnText}>View Stock</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={onViewActivity}>
-          <ClockOutlineIcon />
+        <TouchableOpacity style={styles.actionBtn} onPress={onViewActivity} activeOpacity={0.75}>
+          <ClockOutlineIcon color={PALETTE.primary} />
           <Text style={styles.actionBtnText}>View Activity</Text>
         </TouchableOpacity>
 
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#D97706',
+    backgroundColor: PALETTE.primary,
     borderRadius: 6,
   },
 

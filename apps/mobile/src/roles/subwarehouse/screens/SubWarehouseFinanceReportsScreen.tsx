@@ -91,6 +91,9 @@ export interface SubWarehouseFinanceReportsScreenProps {
   onBack?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onSelectReport?: ((reportId: string) => void) | undefined;
+  onNavigateToCustomerOrders?: (() => void) | undefined;
+  onNavigateToInvoiceList?: (() => void) | undefined;
+  onNavigateToHistory?: (() => void) | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────

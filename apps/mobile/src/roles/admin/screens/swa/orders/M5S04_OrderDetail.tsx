@@ -7,17 +7,19 @@ import {
   StyleSheet,
   SafeAreaView,
   Modal,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { ORDERS_THEME } from './theme';
 
 interface M5S04Props {
   orderId?: string;
+  customerName?: string;
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
-
 function BackArrowWhiteIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -28,20 +30,13 @@ function BackArrowWhiteIcon() {
 
 function MoreDotsWhiteIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="5" r="2" fill="#FFFFFF" />
-      <Circle cx="12" cy="12" r="2" fill="#FFFFFF" />
-      <Circle cx="12" cy="19" r="2" fill="#FFFFFF" />
-    </Svg>
-  );
-}
-
-function ChecklistWhiteIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 3h6v4H9z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 14l2 2 4-4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 13a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4zM19 13a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4zM5 13a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4z"
+        fill="#FFFFFF"
+        stroke="#FFFFFF"
+        strokeWidth="1.5"
+      />
     </Svg>
   );
 }
@@ -49,8 +44,8 @@ function ChecklistWhiteIcon() {
 function TimelineCheckDot() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#1E8E5A" strokeWidth="2.5" fill="#FFFFFF" />
-      <Circle cx="12" cy="12" r="5" fill="#1E8E5A" />
+      <Circle cx="12" cy="12" r="10" fill="#16A34A" />
+      <Path d="M8 12l3 3 5-5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -58,18 +53,60 @@ function TimelineCheckDot() {
 function TimelinePendingDot() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#CBD5E1" strokeWidth="2" fill="#FFFFFF" />
+      <Circle cx="12" cy="12" r="9" stroke="#9E9690" strokeWidth="2" fill="#FAF7F2" />
     </Svg>
   );
 }
 
-export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', onNavigate, onBack }) => {
+function ChecklistWhiteIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 11l3 3L22 4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export const M5S04_OrderDetail: React.FC<M5S04Props> = ({
+  orderId = 'ORD-1024',
+  customerName = 'Arun Kumar',
+  onNavigate,
+  onBack,
+}) => {
   const [showMenu, setShowMenu] = useState(false);
+
+  const isInv251 = orderId === 'INV-00251' || orderId === 'ORD-00251';
+  const isInv238 = orderId === 'INV-00238' || orderId === 'ORD-00238';
+
+  const displayOrderId = orderId;
+  const displayDate = isInv251 ? '24 Sep, 10:42 AM' : isInv238 ? '20 Sep, 11:15 AM' : '24 Sep, 10:32 AM';
+  const displayCustomer = customerName || (isInv251 || isInv238 ? 'Rajesh Kumar' : 'Arun Kumar');
+  const displayStatus = isInv251 || isInv238 ? 'Paid · Completed' : 'Confirmed';
+
+  const orderItemsList = isInv251
+    ? [
+        { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
+      ]
+    : isInv238
+    ? [
+        { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
+        { name: 'Carrot', grade: 'Grade 1', qtyDetail: '1 KG × ₹150', price: '₹150' },
+        { name: 'Beans', grade: 'Grade 1', qtyDetail: '2 KG × ₹150', price: '₹300' },
+      ]
+    : [
+        { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
+        { name: 'Carrot', grade: 'Grade 1', qtyDetail: '3 KG × ₹120', price: '₹360' },
+      ];
+
+  const subtotal = isInv251 ? '₹200' : isInv238 ? '₹650' : '₹560';
+  const gst = isInv251 || isInv238 ? '₹0' : '₹28';
+  const total = isInv251 ? '₹200' : isInv238 ? '₹650' : '₹588';
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={ORDERS_THEME.primary} />
       <View style={styles.container}>
-        {/* Header matching Left Reference exactly */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity
@@ -81,10 +118,10 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
               <BackArrowWhiteIcon />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>{orderId}</Text>
+              <Text style={styles.headerTitle}>{displayOrderId}</Text>
               <View style={styles.headerStatusRow}>
                 <View style={styles.statusDot} />
-                <Text style={styles.headerStatusText}>Confirmed</Text>
+                <Text style={styles.headerStatusText}>{displayStatus}</Text>
               </View>
             </View>
           </View>
@@ -105,18 +142,18 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order ID</Text>
-                <Text style={styles.colValue}>ORD-1024</Text>
+                <Text style={styles.colValue}>{displayOrderId}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order Date</Text>
-                <Text style={styles.colValue}>24 Sep, 10:32 AM</Text>
+                <Text style={styles.colValue}>{displayDate}</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, { marginTop: 14 }]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Status</Text>
-                <Text style={styles.colValue}>Confirmed</Text>
+                <Text style={styles.colValue}>{displayStatus}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Warehouse</Text>
@@ -131,11 +168,11 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Customer</Text>
-                <Text style={styles.colValue}>Arun Kumar</Text>
+                <Text style={styles.colValue}>{displayCustomer}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Phone</Text>
-                <Text style={styles.colValue}>+91 XXXXX XXXXX</Text>
+                <Text style={styles.colValue}>+91 98765 43210</Text>
               </View>
             </View>
           </View>
@@ -156,25 +193,19 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
           </View>
 
           {/* Section 4: Order Items */}
-          <Text style={styles.sectionHeader}>Order Items</Text>
+          <Text style={styles.sectionHeader}>Order Items ({orderItemsList.length})</Text>
           <View style={styles.card}>
-            {/* Item 1 */}
-            <View style={styles.orderItemHeaderRow}>
-              <Text style={styles.orderItemName}>Tomato</Text>
-              <Text style={styles.orderItemPrice}>₹200</Text>
-            </View>
-            <Text style={styles.orderItemSub}>Grade 1</Text>
-            <Text style={styles.orderItemSub}>2 KG × ₹100</Text>
-
-            <View style={styles.divider} />
-
-            {/* Item 2 */}
-            <View style={styles.orderItemHeaderRow}>
-              <Text style={styles.orderItemName}>Carrot</Text>
-              <Text style={styles.orderItemPrice}>₹360</Text>
-            </View>
-            <Text style={styles.orderItemSub}>Grade 1</Text>
-            <Text style={styles.orderItemSub}>3 KG × ₹120</Text>
+            {orderItemsList.map((item, idx) => (
+              <View key={idx}>
+                <View style={styles.orderItemHeaderRow}>
+                  <Text style={styles.orderItemName}>{item.name}</Text>
+                  <Text style={styles.orderItemPrice}>{item.price}</Text>
+                </View>
+                <Text style={styles.orderItemSub}>{item.grade}</Text>
+                <Text style={styles.orderItemSub}>{item.qtyDetail}</Text>
+                {idx < orderItemsList.length - 1 && <View style={styles.divider} />}
+              </View>
+            ))}
           </View>
 
           {/* Section 5: Amount */}
@@ -182,7 +213,7 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
           <View style={styles.card}>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Subtotal</Text>
-              <Text style={styles.amountValue}>₹560</Text>
+              <Text style={styles.amountValue}>{subtotal}</Text>
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Discount</Text>
@@ -190,7 +221,7 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>GST</Text>
-              <Text style={styles.amountValue}>₹28</Text>
+              <Text style={styles.amountValue}>{gst}</Text>
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Delivery Fee</Text>
@@ -201,7 +232,7 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>₹588</Text>
+              <Text style={styles.totalValue}>{total}</Text>
             </View>
           </View>
 
@@ -232,6 +263,11 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
                 <Text style={styles.colLabel}>Pickup OTP</Text>
                 <Text style={styles.colValue}>Verification required</Text>
               </View>
+            </View>
+
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.colLabel}>Order Pickup Type</Text>
+              <Text style={styles.colValue}>Direct Pickup</Text>
             </View>
           </View>
 
@@ -294,12 +330,12 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
           <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Bottom Full-Width Sticky Buttons matching Image 2 & 3 */}
+        {/* Bottom Full-Width Sticky Buttons */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.primaryCheckBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M5S05')}
+            onPress={() => onNavigate('M5S05', { orderId })}
           >
             <ChecklistWhiteIcon />
             <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
@@ -308,9 +344,17 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
           <TouchableOpacity
             style={styles.secondaryReportBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M5S16')}
+            onPress={() => onNavigate('M5S16', { orderId })}
           >
             <Text style={styles.secondaryReportBtnText}>Report Issue</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cancelOrderBtn}
+            activeOpacity={0.8}
+            onPress={() => onNavigate('M5S17', { orderId })}
+          >
+            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
           </TouchableOpacity>
         </View>
 
@@ -332,9 +376,9 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
           >
             <View
               style={{
-                backgroundColor: '#FFFFFF',
-                borderTopLeftRadius: 18,
-                borderTopRightRadius: 18,
+                backgroundColor: ORDERS_THEME.cardBg,
+                borderTopLeftRadius: ORDERS_THEME.radiusXL,
+                borderTopRightRadius: ORDERS_THEME.radiusXL,
                 padding: 20,
                 paddingBottom: 36,
               }}
@@ -344,7 +388,7 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
                   fontFamily: 'Poppins',
                   fontSize: 16,
                   fontWeight: '700',
-                  color: '#1D2420',
+                  color: ORDERS_THEME.textInk,
                   marginBottom: 16,
                 }}
               >
@@ -352,51 +396,33 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
               </Text>
 
               <TouchableOpacity
-                style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1ECE4' }}
+                style={styles.modalOption}
                 onPress={() => {
                   setShowMenu(false);
                   onNavigate('M5S18', { orderId });
                 }}
               >
-                <Text style={{ fontFamily: 'Poppins', fontSize: 14, fontWeight: '600', color: '#1D2420' }}>
-                  📄 View Invoice
-                </Text>
+                <Text style={styles.modalOptionText}>View Invoice</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1ECE4' }}
+                style={styles.modalOption}
                 onPress={() => {
                   setShowMenu(false);
-                  onNavigate('M5S07', { orderId });
+                  onNavigate('M5S15');
                 }}
               >
-                <Text style={{ fontFamily: 'Poppins', fontSize: 14, fontWeight: '600', color: '#1D2420' }}>
-                  📦 Pack Order
-                </Text>
+                <Text style={styles.modalOptionText}>Status History</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1ECE4' }}
+                style={[styles.modalOption, { borderBottomWidth: 0 }]}
                 onPress={() => {
                   setShowMenu(false);
-                  onNavigate('M5S13', { orderId });
+                  onNavigate('M5S17');
                 }}
               >
-                <Text style={{ fontFamily: 'Poppins', fontSize: 14, fontWeight: '600', color: '#1D2420' }}>
-                  🚚 Prepare Delivery / Dispatch
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ paddingVertical: 14 }}
-                onPress={() => {
-                  setShowMenu(false);
-                  onNavigate('M5S17', { orderId });
-                }}
-              >
-                <Text style={{ fontFamily: 'Poppins', fontSize: 14, fontWeight: '600', color: '#DC2626' }}>
-                  ❌ Cancel Order
-                </Text>
+                <Text style={[styles.modalOptionText, { color: ORDERS_THEME.danger }]}>Cancel Order</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -409,15 +435,15 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({ orderId = 'ORD-1024', 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
-    paddingTop: 16,
+    backgroundColor: ORDERS_THEME.primary,
+    paddingTop: 14,
     paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -427,7 +453,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   backButton: {
     width: 32,
@@ -436,7 +462,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: 'Poppins',
@@ -445,24 +471,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 1,
+    marginTop: 2,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#86EFAC',
   },
   headerStatusText: {
-    fontSize: 12,
     color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Poppins',
   },
   moreButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: ORDERS_THEME.radiusFull,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -474,25 +500,30 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
     marginBottom: 8,
     marginTop: 6,
   },
   sectionHeaderPlain: {
     fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -503,7 +534,7 @@ const styles = StyleSheet.create({
   },
   colLabel: {
     fontSize: 11,
-    color: '#7A726C',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     fontWeight: '500',
     marginBottom: 2,
@@ -511,7 +542,7 @@ const styles = StyleSheet.create({
   colValue: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   orderItemHeaderRow: {
@@ -522,24 +553,24 @@ const styles = StyleSheet.create({
   orderItemName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   orderItemPrice: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   orderItemSub: {
     fontSize: 11.5,
-    color: '#7A726C',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.border,
     marginVertical: 12,
   },
   amountRow: {
@@ -550,18 +581,18 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     fontSize: 13,
-    color: '#7A726C',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
   },
   amountValue: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   amountDivider: {
-    height: 1.5,
-    backgroundColor: '#1D2420',
+    height: 1,
+    backgroundColor: ORDERS_THEME.border,
     marginVertical: 10,
   },
   totalRow: {
@@ -572,18 +603,18 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   totalValue: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   notesText: {
     fontSize: 13,
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
     lineHeight: 18,
   },
@@ -597,16 +628,21 @@ const styles = StyleSheet.create({
   viewTimelineLink: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: '#8B4513',
+    color: ORDERS_THEME.primary,
     fontFamily: 'Poppins',
   },
   timelineCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   timelineRow: {
     flexDirection: 'row',
@@ -620,13 +656,13 @@ const styles = StyleSheet.create({
   timelineGreenLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#1E8E5A',
+    backgroundColor: '#16A34A',
     marginVertical: 3,
   },
   timelineGrayLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: ORDERS_THEME.border,
     marginVertical: 3,
   },
   timelineTextCol: {
@@ -636,24 +672,24 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   timelineTime: {
     fontSize: 11,
-    color: '#7A726C',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     marginTop: 2,
   },
   timelineTitlePending: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#7A726C',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
   },
   timelineTimePending: {
     fontSize: 11,
-    color: '#A19A94',
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     marginTop: 2,
   },
@@ -661,18 +697,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.pageBg,
     gap: 10,
   },
   primaryCheckBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#E85226',
+    shadowColor: ORDERS_THEME.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -685,18 +721,44 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
   },
   secondaryReportBtn: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.orangeTint,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: ORDERS_THEME.primary,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryReportBtnText: {
-    color: '#8B4513',
+    color: ORDERS_THEME.primary,
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'Poppins',
+  },
+  cancelOrderBtn: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: ORDERS_THEME.radiusLG,
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelOrderBtnText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Poppins',
+  },
+  modalOption: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: ORDERS_THEME.border,
+  },
+  modalOptionText: {
+    fontFamily: 'Poppins',
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: ORDERS_THEME.textInk,
   },
 });

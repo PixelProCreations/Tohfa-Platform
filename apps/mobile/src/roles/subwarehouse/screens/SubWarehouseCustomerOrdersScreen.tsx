@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -12,24 +12,36 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 
 const PALETTE = {
-  primary: '#F0562A',
-  pageBg: '#F7F5F0',
-  cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  border: '#EBE5DC',
-  // badges
-  badgeGreenBg: '#E8F5E9',
-  badgeGreenText: '#064E3B',
-  badgeOrangeBg: '#FEF3C7',
-  badgeOrangeText: '#B45309',
-  badgeRedBg: '#FEE2E2',
-  badgeRedText: '#991B1B',
-  badgeGrayBg: '#F3EFE9',
-  badgeGrayText: '#7A726C',
+  // Brand Palette
+  primary: '#F0562A', // Orange: primary actions, active states, icons
+  orangeDeep: '#7A2E14', // Orange Deep: section headings, emphasis text
+  orangeTint: '#FDF3F0', // Orange Tint: icon chips, role badges, active pills
+  pageBg: '#F3EFE9', // Background: app canvas
+  cardBg: '#FFFFFF', // Card surfaces
+  textInk: '#1A1A1A', // Ink: primary text
+  textSecondary: '#5F5E5A', // Muted: secondary text
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3', // Border: card and input borders
+  inputBorder: '#EEDCD3',
+  // Filter pills
+  activePillBorder: '#F0562A',
+  activePillText: '#7A2E14',
+  activePillBg: '#FDF3F0',
+  inactivePillBorder: '#EEDCD3',
+  inactivePillText: '#5F5E5A',
+  // Button
+  actionBtnBg: '#FDF3F0',
+  actionBtnText: '#7A2E14',
+  // Badges
+  badgeGreenBg: '#EAF3DE',
+  badgeGreenText: '#173404',
+  badgeAmberBg: '#FEF3E2',
+  badgeAmberText: '#854F0B',
+  badgeRedBg: '#FCEBEB',
+  badgeRedText: '#E24B4A',
 };
 
-function ArrowBackIcon({ size = 24, color = '#FFFFFF' }) {
+function ArrowBackIcon({ size = 24, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -37,15 +49,23 @@ function ArrowBackIcon({ size = 24, color = '#FFFFFF' }) {
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = '#FFFFFF' }) {
+function FilterSlidersIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Top line with right notch */}
+      <Path d="M4 6h10M18 6h2" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M14 4v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      {/* Middle line with left notch */}
+      <Path d="M4 12h3M11 12h9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M7 10v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      {/* Bottom line with right-middle notch */}
+      <Path d="M4 18h11M19 18h1" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M15 16v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function SearchIcon({ size = 18, color = '#7A726C' }) {
+function SearchIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -54,86 +74,105 @@ function SearchIcon({ size = 18, color = '#7A726C' }) {
   );
 }
 
-function StoreIcon({ size = 14, color = '#7A726C' }) {
+function StoreFrontIcon({ size = 15, color = '#4B5563' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M3 9l1-5h16l1 5M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M9 21V13h6v8"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function DeliveryIcon({ size = 14, color = '#7A726C' }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M2 12h3M19 12h3M12 2v3M12 19v3M5 5l2 2M19 19l-2-2M5 19l2-2M19 5l-2 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="12" cy="12" r="5" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
+export interface SubWarehouseCustomerOrderItem {
+  id: string;
+  orderNo: string;
+  date: string;
+  items: string;
+  products?: string;
+  type: string;
+  paymentStatus: string;
+  price: string;
+  status: string;
+  statusCategory: 'Active' | 'Completed' | 'Cancelled';
+  buttonText: string;
 }
 
-const ORDERS_DATA = [
+const INITIAL_ORDERS: SubWarehouseCustomerOrderItem[] = [
   {
-    id: 'o1',
-    orderNo: 'ORD-1024',
-    customer: 'Arun Kumar',
-    status: 'Confirmed',
+    id: 'ord-1',
+    orderNo: 'ORD-00251',
+    date: '24 Sep 2026',
     items: '3 Items',
-    price: '₹850',
+    products: 'Tomato Grade 1, Potato, Onion',
     type: 'Pickup',
-    date: 'Today · 10:32 AM',
+    paymentStatus: 'Paid',
+    price: '₹850',
+    status: 'Ready for Pickup',
+    statusCategory: 'Active',
+    buttonText: 'View Pickup Status',
   },
   {
-    id: 'o2',
-    orderNo: 'ORD-1023',
-    customer: 'Priya',
-    status: 'Ready for Delivery',
-    items: '5 Items',
-    price: '₹1,240',
-    type: 'Delivery',
-    date: 'Today · 09:45 AM',
-  },
-  {
-    id: 'o3',
-    orderNo: 'ORD-1022',
-    customer: 'Ganesh K.',
-    status: 'Packing',
+    id: 'ord-2',
+    orderNo: 'ORD-00238',
+    date: '20 Sep 2026',
     items: '2 Items',
+    products: 'Fresh Apple, Banana Robusta',
+    type: 'Pickup',
+    paymentStatus: 'Paid',
     price: '₹420',
-    type: 'Pickup',
-    date: 'Today · 09:10 AM',
-  },
-  {
-    id: 'o4',
-    orderNo: 'ORD-1021',
-    customer: 'Divya R.',
-    status: 'Confirmed',
-    items: '4 Items',
-    price: '₹960',
-    type: 'Delivery',
-    date: 'Today · 08:55 AM',
-  },
-  {
-    id: 'o5',
-    orderNo: 'ORD-1018',
-    customer: 'Meena S.',
-    status: 'Quantity Issue',
-    items: '2 Items',
-    price: '₹310',
-    type: 'Pickup',
-    date: 'Yesterday · 4:20 PM',
-  },
-  {
-    id: 'o6',
-    orderNo: 'ORD-1010',
-    customer: 'Rahul Kumar',
     status: 'Completed',
-    items: '3 Items',
-    price: '₹850',
+    statusCategory: 'Completed',
+    buttonText: 'View Invoice',
+  },
+  {
+    id: 'ord-3',
+    orderNo: 'ORD-00230',
+    date: '18 Sep 2026',
+    items: '4 Items',
+    products: 'Carrots, Beetroot, Cabbage, Green Peas',
     type: 'Pickup',
-    date: 'Yesterday · 2:10 PM',
+    paymentStatus: 'Paid',
+    price: '₹680',
+    status: 'Ready for Pickup',
+    statusCategory: 'Active',
+    buttonText: 'View Pickup Status',
+  },
+  {
+    id: 'ord-4',
+    orderNo: 'ORD-00215',
+    date: '14 Sep 2026',
+    items: '5 Items',
+    products: 'Basmati Rice 5kg, Cooking Oil 1L, Spices',
+    type: 'Pickup',
+    paymentStatus: 'Paid',
+    price: '₹1,350',
+    status: 'Completed',
+    statusCategory: 'Completed',
+    buttonText: 'View Invoice',
+  },
+  {
+    id: 'ord-5',
+    orderNo: 'ORD-00198',
+    date: '08 Sep 2026',
+    items: '1 Item',
+    products: 'Organic Honey 500g',
+    type: 'Pickup',
+    paymentStatus: 'Refunded',
+    price: '₹550',
+    status: 'Cancelled',
+    statusCategory: 'Cancelled',
+    buttonText: 'View Details',
   },
 ];
+
+type FilterTabOption = 'All' | 'Active' | 'Completed' | 'Cancelled';
+
+const FILTER_TABS: FilterTabOption[] = ['All', 'Active', 'Completed', 'Cancelled'];
 
 export interface SubWarehouseCustomerOrdersScreenProps {
   onBack: () => void;
@@ -143,34 +182,69 @@ export interface SubWarehouseCustomerOrdersScreenProps {
   defaultFilter?: string;
   onClearFilters?: () => void;
   onOrderPress?: (orderId: string) => void;
+  onNavigateToOrderDetail?: (order?: SubWarehouseCustomerOrderItem) => void;
+  onViewPickupStatus?: (order?: SubWarehouseCustomerOrderItem) => void;
+  onViewInvoice?: (order?: SubWarehouseCustomerOrderItem) => void;
 }
 
 export function SubWarehouseCustomerOrdersScreen({
   onBack,
   onOpenFilters,
-  customerName,
+  customerName = 'Rajesh Kumar',
   appliedFilters,
   defaultFilter,
   onClearFilters,
   onOrderPress,
+  onNavigateToOrderDetail,
+  onViewPickupStatus,
+  onViewInvoice,
 }: SubWarehouseCustomerOrdersScreenProps) {
+  const [selectedTab, setSelectedTab] = useState<FilterTabOption>('All');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Optionally filter by defaultFilter (e.g. 'Ready for Delivery')
-  const filteredOrders = ORDERS_DATA.filter(order => {
-    if (defaultFilter) {
-      // If defaultFilter is exactly 'Ready for Delivery', filter by status
-      if (defaultFilter === 'Ready for Delivery' && order.status !== 'Ready for Delivery') return false;
-      // Otherwise fallback to filtering by type if needed
-      else if (defaultFilter !== 'Ready for Delivery' && order.type !== defaultFilter) return false;
+  const filteredOrders = useMemo(() => {
+    return INITIAL_ORDERS.filter((order) => {
+      // Default filter (e.g. from staff detail "Assign Delivery")
+      if (defaultFilter) {
+        if (defaultFilter === 'Ready for Delivery' && order.status !== 'Ready for Delivery') return false;
+        else if (defaultFilter !== 'Ready for Delivery' && order.type !== defaultFilter) return false;
+      }
+      // Tab filter
+      if (selectedTab !== 'All' && order.statusCategory !== selectedTab) {
+        return false;
+      }
+      // Search filter
+      if (searchQuery.trim().length > 0) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesId = order.orderNo.toLowerCase().includes(q);
+        const matchesProduct = (order.products || '').toLowerCase().includes(q);
+        const matchesItems = order.items.toLowerCase().includes(q);
+        const matchesStatus = order.status.toLowerCase().includes(q);
+        return matchesId || matchesProduct || matchesItems || matchesStatus;
+      }
+      return true;
+    });
+  }, [selectedTab, searchQuery, defaultFilter]);
+
+  const handleActionPress = (order: SubWarehouseCustomerOrderItem) => {
+    if (order.buttonText === 'View Pickup Status') {
+      if (onViewPickupStatus) {
+        onViewPickupStatus(order);
+      } else if (onNavigateToOrderDetail) {
+        onNavigateToOrderDetail(order);
+      }
+    } else if (order.buttonText === 'View Invoice') {
+      if (onViewInvoice) {
+        onViewInvoice(order);
+      } else if (onNavigateToOrderDetail) {
+        onNavigateToOrderDetail(order);
+      }
+    } else {
+      if (onNavigateToOrderDetail) {
+        onNavigateToOrderDetail(order);
+      }
     }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return order.orderNo.toLowerCase().includes(q) || 
-             order.customer.toLowerCase().includes(q);
-    }
-    return true;
-  });
+  };
 
   const getBadgeStyle = (status: string) => {
     switch (status) {
@@ -180,168 +254,380 @@ export function SubWarehouseCustomerOrdersScreen({
         return { bg: PALETTE.badgeGreenBg, text: PALETTE.badgeGreenText };
       case 'Confirmed':
       case 'Packing':
-        return { bg: PALETTE.badgeOrangeBg, text: PALETTE.badgeOrangeText };
-      case 'Quantity Issue':
+      case 'Active':
+        return { bg: PALETTE.badgeAmberBg, text: PALETTE.badgeAmberText };
+      case 'Cancelled':
         return { bg: PALETTE.badgeRedBg, text: PALETTE.badgeRedText };
       default:
-        return { bg: PALETTE.badgeGrayBg, text: PALETTE.badgeGrayText };
+        return { bg: PALETTE.badgeGreenBg, text: PALETTE.badgeGreenText };
     }
   };
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-      
-      {/* ─── Header ─── */}
+
+      {/* ─── Orange Header ─── */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerTitleRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-              <ArrowBackIcon size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Orders</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Go back"
+          >
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Customer Orders</Text>
+            <Text style={styles.headerSubtitle}>{customerName}</Text>
           </View>
-          <TouchableOpacity style={styles.filterBtn} onPress={onOpenFilters} activeOpacity={0.7}>
+
+          <TouchableOpacity
+            style={styles.filterBtn}
+            onPress={onOpenFilters}
+            activeOpacity={0.75}
+            accessibilityLabel="Open Filters"
+          >
             <FilterSlidersIcon size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        
-        <Text style={styles.ordersCountText}>{filteredOrders.length} Orders</Text>
-
-        {/* Search */}
-        <View style={styles.searchBox}>
-          <SearchIcon />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search order / customer / phone"
-            placeholderTextColor={PALETTE.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {/* List */}
-        <View style={styles.listContainer}>
-          {filteredOrders.map((order) => {
-            const badge = getBadgeStyle(order.status);
+      {/* ─── Body Scroll ─── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ─── Filter Tabs (All, Active, Completed, Cancelled) ─── */}
+        <View style={styles.pillsRow}>
+          {FILTER_TABS.map((tab) => {
+            const isActive = selectedTab === tab;
             return (
-              <TouchableOpacity 
-                key={order.id} 
-                style={styles.card}
-                onPress={() => onOrderPress && onOrderPress(order.id)}
-                activeOpacity={0.7}
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.pill,
+                  isActive ? styles.pillActive : styles.pillInactive,
+                ]}
+                onPress={() => setSelectedTab(tab)}
+                activeOpacity={0.75}
               >
-                
-                {/* Top Row: Order No + Badge */}
-                <View style={styles.rowBetween}>
-                  <Text style={styles.orderNo}>{order.orderNo}</Text>
-                  <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                    <Text style={[styles.badgeText, { color: badge.text }]}>{order.status}</Text>
-                  </View>
-                </View>
-                
-                {/* Customer */}
-                <Text style={styles.customerName}>{order.customer}</Text>
-
-                {/* Items & Price */}
-                <View style={[styles.rowBetween, { marginTop: 12, marginBottom: 12 }]}>
-                  <Text style={styles.itemsText}>{order.items}</Text>
-                  <Text style={styles.priceText}>{order.price}</Text>
-                </View>
-
-                {/* Type & Date */}
-                <View style={styles.rowBetween}>
-                  <View style={styles.typeWrap}>
-                    {order.type === 'Pickup' ? <StoreIcon /> : <DeliveryIcon />}
-                    <Text style={styles.typeText}>{order.type}</Text>
-                  </View>
-                  <Text style={styles.dateText}>{order.date}</Text>
-                </View>
-
+                <Text
+                  style={[
+                    styles.pillText,
+                    isActive ? styles.pillTextActive : styles.pillTextInactive,
+                  ]}
+                >
+                  {tab}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </View>
-      </ScrollView>
 
+        {/* ─── Search Box ─── */}
+        <View style={styles.searchBox}>
+          <SearchIcon size={18} color={PALETTE.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by Order ID or product"
+            placeholderTextColor={PALETTE.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        {/* ─── Orders List Cards ─── */}
+        <View style={styles.cardsList}>
+          {filteredOrders.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>No orders found</Text>
+              <Text style={styles.emptySub}>
+                Try adjusting your search query or filter selection.
+              </Text>
+            </View>
+          ) : (
+            filteredOrders.map((order) => {
+              const badgeStyle = getBadgeStyle(order.status);
+              return (
+                <View key={order.id} style={styles.orderCard}>
+                  {/* Top Row: Order ID & Status Badge */}
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={styles.orderIdText}>{order.orderNo}</Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: badgeStyle.bg },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: badgeStyle.text },
+                        ]}
+                      >
+                        {order.status}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Subtitle: Date & Items */}
+                  <Text style={styles.dateItemsText}>
+                    {order.date} · {order.items}
+                  </Text>
+
+                  {/* Details Row: Store Icon + Pickup on left; Paid + Price on right */}
+                  <View style={styles.detailsRow}>
+                    <View style={styles.pickupWrap}>
+                      <StoreFrontIcon size={16} color="#4B5563" />
+                      <Text style={styles.pickupLabel}>{order.type}</Text>
+                    </View>
+
+                    <View style={styles.priceWrap}>
+                      <Text style={styles.paidStatusLabel}>
+                        {order.paymentStatus}
+                      </Text>
+                      <Text style={styles.priceAmountText}>{order.price}</Text>
+                    </View>
+                  </View>
+
+                  {/* Action Button: Peach/Warm Orange Tinted */}
+                  <TouchableOpacity
+                    style={styles.cardActionBtn}
+                    onPress={() => handleActionPress(order)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.cardActionBtnText}>
+                      {order.buttonText}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PALETTE.pageBg },
+  root: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
+  },
   header: {
     backgroundColor: PALETTE.primary,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 16,
+    paddingBottom: 18,
   },
-  headerTop: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitleRow: {
+  backBtn: {
+    padding: 6,
+    marginRight: 6,
+  },
+  headerTitleWrap: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 2,
+  },
+  filterBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 36,
+  },
+
+  /* Filter Pills */
+  pillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 16,
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
-  filterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 100,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pillActive: {
+    borderWidth: 1.5,
+    borderColor: PALETTE.activePillBorder,
+    backgroundColor: PALETTE.activePillBg,
+  },
+  pillInactive: {
+    borderWidth: 1,
+    borderColor: PALETTE.inactivePillBorder,
+    backgroundColor: '#FFFFFF',
+  },
+  pillText: {
+    fontSize: 13.5,
+  },
+  pillTextActive: {
+    fontWeight: '700',
+    color: PALETTE.activePillText,
+  },
+  pillTextInactive: {
+    fontWeight: '600',
+    color: PALETTE.inactivePillText,
   },
 
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-
-  ordersCountText: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    marginBottom: 10,
-  },
-
+  /* Search Input */
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: PALETTE.inputBorder,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    height: 48,
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  searchInput: { flex: 1, fontSize: 14, color: PALETTE.textSecondary, padding: 0 },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: PALETTE.textInk,
+    paddingVertical: 0,
+  },
 
-  listContainer: { gap: 16 },
-  card: {
+  /* Order Cards */
+  cardsList: {
+    gap: 16,
+  },
+  orderCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderNo: { fontSize: 16, fontWeight: '800', color: '#B45309' },
-  customerName: { fontSize: 14, color: PALETTE.textSecondary, marginTop: 4 },
-  
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  badgeText: { fontSize: 11, fontWeight: '800' },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderIdText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  dateItemsText: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    marginTop: 4,
+    fontWeight: '400',
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 12,
+    marginBottom: 14,
+  },
+  pickupWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pickupLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  priceWrap: {
+    alignItems: 'flex-end',
+  },
+  paidStatusLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: PALETTE.textSecondary,
+  },
+  priceAmountText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginTop: 1,
+  },
+  cardActionBtn: {
+    backgroundColor: PALETTE.actionBtnBg,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.actionBtnText,
+  },
 
-  itemsText: { fontSize: 13, color: PALETTE.textSecondary },
-  priceText: { fontSize: 16, fontWeight: '800', color: PALETTE.textInk },
-
-  typeWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  typeText: { fontSize: 13, color: PALETTE.textSecondary },
-  dateText: { fontSize: 11, color: PALETTE.textSecondary },
+  emptyContainer: {
+    paddingVertical: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+    marginBottom: 6,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
 });

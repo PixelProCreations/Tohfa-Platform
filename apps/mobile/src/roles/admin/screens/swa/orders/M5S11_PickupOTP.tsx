@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S11Props {
   orderId?: string;
@@ -35,10 +35,10 @@ function BackArrowWhiteIcon() {
 function CheckmarkCircleGreenIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#047857" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.success} strokeWidth="2" />
       <Path
         d="M8 12l2.5 2.5L16 9.5"
-        stroke="#047857"
+        stroke={ORDERS_THEME.success}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -50,8 +50,8 @@ function CheckmarkCircleGreenIcon() {
 function InfoCircleBlueIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.info} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.info} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -75,23 +75,13 @@ export const M5S11_PickupOTP: React.FC<M5S11Props> = ({
   onNavigate,
   onBack,
 }) => {
-  const [otp, setOtp] = useState(['4', '8', '2', '1']);
-  const [isVerified, setIsVerified] = useState(true);
-
-  const toggleSimulateIncorrect = () => {
-    if (isVerified) {
-      setOtp(['1', '9', '4', '0']);
-      setIsVerified(false);
-    } else {
-      setOtp(['4', '8', '2', '1']);
-      setIsVerified(true);
-    }
-  };
+  const [otp] = useState(['4', '8', '2', '1']);
+  const [isVerified] = useState(true);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Top Header - Orange Theme matching Image 3 */}
+        {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -114,7 +104,7 @@ export const M5S11_PickupOTP: React.FC<M5S11Props> = ({
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Centered Instruction matching Image 3 */}
+          {/* Centered Instruction */}
           <Text style={styles.promptTitle}>Enter 4-digit pickup OTP</Text>
 
           {/* 4 OTP Digit Boxes */}
@@ -126,7 +116,7 @@ export const M5S11_PickupOTP: React.FC<M5S11Props> = ({
             ))}
           </View>
 
-          {/* OTP Verified Box (or Error) matching Image 3 */}
+          {/* OTP Verified Box (or Error) */}
           {isVerified ? (
             <View style={styles.verifiedBox}>
               <CheckmarkCircleGreenIcon />
@@ -138,7 +128,7 @@ export const M5S11_PickupOTP: React.FC<M5S11Props> = ({
             </View>
           )}
 
-          {/* Blue Info Box matching Image 3 */}
+          {/* Blue Info Box */}
           <View style={styles.infoBox}>
             <InfoCircleBlueIcon />
             <Text style={styles.infoText}>
@@ -146,23 +136,10 @@ export const M5S11_PickupOTP: React.FC<M5S11Props> = ({
             </Text>
           </View>
 
-          {/* Simulate incorrect OTP button */}
-          <TouchableOpacity
-            style={styles.simulateBtn}
-            activeOpacity={0.8}
-            onPress={toggleSimulateIncorrect}
-          >
-            <Text style={styles.simulateBtnText}>
-              {isVerified
-                ? 'Simulate incorrect OTP (demo)'
-                : 'Simulate correct OTP (demo)'}
-            </Text>
-          </TouchableOpacity>
-
           <View style={{ height: 24 }} />
         </ScrollView>
 
-        {/* Bottom Fixed Action Button matching Image 3 */}
+        {/* Bottom Fixed Action Button */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={[styles.confirmBtn, !isVerified && styles.confirmBtnDisabled]}
@@ -182,41 +159,44 @@ export const M5S11_PickupOTP: React.FC<M5S11Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: ORDERS_THEME.primary,
   },
   subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#8C7A6B',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   content: {
     flex: 1,
@@ -227,10 +207,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   promptTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -243,22 +223,22 @@ const styles = StyleSheet.create({
   otpBox: {
     width: 58,
     height: 64,
-    borderRadius: 14,
-    backgroundColor: '#FFF7ED',
+    borderRadius: ORDERS_THEME.radiusLG,
+    backgroundColor: ORDERS_THEME.orangeTint,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: ORDERS_THEME.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   otpDigit: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 24,
-    fontWeight: '700',
-    color: '#7C2D12',
+    fontWeight: '800',
+    color: ORDERS_THEME.orangeDeep,
   },
   verifiedBox: {
-    backgroundColor: '#E8F8F0',
-    borderRadius: 10,
+    backgroundColor: ORDERS_THEME.successBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -267,30 +247,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   verifiedText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#047857',
+    color: ORDERS_THEME.success,
   },
   errorBox: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
+    backgroundColor: ORDERS_THEME.dangerBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 16,
   },
   errorText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '700',
-    color: '#DC2626',
+    color: ORDERS_THEME.danger,
   },
   infoBox: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: ORDERS_THEME.infoBg,
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    borderRadius: 10,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 12,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -300,48 +280,38 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: ORDERS_THEME.info,
     lineHeight: 16,
   },
-  simulateBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E85226',
-    borderRadius: 12,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  simulateBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#9A3412',
-  },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   confirmBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmBtnDisabled: {
     backgroundColor: '#FDBA74',
   },
   confirmBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',

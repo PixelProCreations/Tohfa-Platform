@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S17Props {
   orderId?: string;
@@ -39,7 +39,7 @@ function ChevronDownIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M6 9l6 6 6-6"
-        stroke="#64748B"
+        stroke={ORDERS_THEME.textSecondary}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -62,12 +62,12 @@ function WarningTriangleOrangeIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke="#C2410C"
+        stroke={ORDERS_THEME.warning}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M12 9v4M12 17h.01" stroke="#C2410C" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 9v4M12 17h.01" stroke={ORDERS_THEME.warning} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -75,8 +75,8 @@ function WarningTriangleOrangeIcon() {
 function InfoCircleRedIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.danger} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.danger} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -84,8 +84,8 @@ function InfoCircleRedIcon() {
 function BigRedCrossCircleIcon() {
   return (
     <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#EF4444" strokeWidth="2" />
-      <Path d="M15 9l-6 6M9 9l6 6" stroke="#EF4444" strokeWidth="2.4" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.danger} strokeWidth="2" />
+      <Path d="M15 9l-6 6M9 9l6 6" stroke={ORDERS_THEME.danger} strokeWidth="2.4" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -125,16 +125,6 @@ function CheckmarkWhiteIcon() {
   );
 }
 
-const REASONS = [
-  'Select Reason',
-  'Customer request',
-  'Stock not available',
-  'Duplicate order',
-  'Payment issue',
-  'Delivery address issue',
-  'Other',
-];
-
 export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
   orderId = 'ORD-1024',
   initialStep = 'form',
@@ -142,15 +132,24 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
   onBack,
 }) => {
   const [step, setStep] = useState<'form' | 'confirm' | 'cancelled'>(initialStep);
-  const [selectedReason, setSelectedReason] = useState('Select Reason');
+  const [reason, setReason] = useState('Select cancellation reason');
   const [showReasonPicker, setShowReasonPicker] = useState(false);
 
-  // ─── STATE 3: Order Cancelled (Image 5 Left) ──────────────────────────────
+  const reasons = [
+    'Customer Requested Cancellation',
+    'Item Out of Stock',
+    'Delivery Unserviceable',
+    'Duplicate Order',
+    'Payment Failed',
+    'Customer Unreachable',
+    'Other Operational Reason',
+  ];
+
+  // ─── STEP 3: Order Cancelled ─────────────────────────────────────────────
   if (step === 'cancelled') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -164,7 +163,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           </View>
 
           <View style={styles.contentPacked}>
-            {/* Centered Red Cross Badge */}
             <View style={styles.heroContainer}>
               <View style={styles.cancelCircleBadge}>
                 <BigRedCrossCircleIcon />
@@ -172,7 +170,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
               <Text style={styles.heroTitle}>Order Cancelled</Text>
             </View>
 
-            {/* Summary Card */}
             <View style={styles.card}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
@@ -187,7 +184,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
             </View>
           </View>
 
-          {/* Bottom Fixed Action Button */}
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.primaryBtn}
@@ -203,12 +199,11 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
     );
   }
 
-  // ─── STATE 2: Confirm Cancellation (Image 4 Right) ────────────────────────
+  // ─── STEP 2: Confirm Cancellation ─────────────────────────────────────────
   if (step === 'confirm') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -226,19 +221,16 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Top Amber Alert Banner */}
             <View style={styles.confirmPromptBox}>
               <WarningTriangleOrangeIcon />
               <Text style={styles.confirmPromptText}>Cancel this order?</Text>
             </View>
 
-            {/* Order Card */}
             <View style={styles.card}>
               <Text style={styles.fieldLabel}>Order</Text>
               <Text style={styles.fieldValueBold}>{orderId}</Text>
             </View>
 
-            {/* Red Notice Box */}
             <View style={[styles.redAlertBox, { marginTop: 14 }]}>
               <InfoCircleRedIcon />
               <Text style={styles.redAlertText}>
@@ -249,7 +241,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
             <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Bottom Stacked Buttons matching Image 4 Right */}
           <View style={styles.bottomBarStacked}>
             <TouchableOpacity
               style={styles.confirmCancelBtn}
@@ -273,11 +264,10 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
     );
   }
 
-  // ─── STATE 1: Cancel Order Form (Image 4 Middle) ──────────────────────────
+  // ─── STEP 1: Cancel Order Form ───────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -290,7 +280,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           <Text style={styles.headerTitle}>Cancel Order</Text>
         </View>
 
-        {/* Subtitle directly below header */}
         <View style={styles.subtitleRow}>
           <Text style={styles.subtitleText}>{orderId}</Text>
         </View>
@@ -300,7 +289,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Order Summary Section */}
           <Text style={styles.sectionTitle}>Order Summary</Text>
           <View style={styles.card}>
             <View style={styles.twoColRow}>
@@ -313,20 +301,9 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
                 <Text style={styles.fieldValue}>₹850</Text>
               </View>
             </View>
-
-            <View style={[styles.singleRow, { marginTop: 14 }]}>
-              <Text style={styles.fieldLabel}>Current Status</Text>
-              <Text style={styles.fieldValue}>Confirmed</Text>
-            </View>
           </View>
 
-          {/* Cancellation Reason Section */}
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Cancellation Reason</Text>
-            <Text style={styles.requiredText}>Required</Text>
-          </View>
-
-          {/* Dropdown Box */}
+          <Text style={styles.sectionTitle}>Cancellation Reason</Text>
           <TouchableOpacity
             style={styles.dropdownBox}
             activeOpacity={0.7}
@@ -334,7 +311,7 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           >
             <View style={styles.dropdownContent}>
               <Text style={styles.dropdownLabel}>REASON</Text>
-              <Text style={styles.dropdownValue}>{selectedReason}</Text>
+              <Text style={styles.dropdownValue}>{reason}</Text>
             </View>
             <ChevronDownIcon />
           </TouchableOpacity>
@@ -342,7 +319,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           <View style={{ height: 24 }} />
         </ScrollView>
 
-        {/* Bottom Fixed Action Button matching Image 4 Middle */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.primaryBtn}
@@ -354,7 +330,6 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Reason Picker Modal */}
         <Modal
           visible={showReasonPicker}
           transparent
@@ -368,25 +343,25 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
           >
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Select Cancellation Reason</Text>
-              {REASONS.map((reason) => (
+              {reasons.map(r => (
                 <TouchableOpacity
-                  key={reason}
+                  key={r}
                   style={[
                     styles.modalOption,
-                    selectedReason === reason && styles.modalOptionSelected,
+                    reason === r && styles.modalOptionSelected,
                   ]}
                   onPress={() => {
-                    setSelectedReason(reason);
+                    setReason(r);
                     setShowReasonPicker(false);
                   }}
                 >
                   <Text
                     style={[
                       styles.modalOptionText,
-                      selectedReason === reason && styles.modalOptionTextSelected,
+                      reason === r && styles.modalOptionTextSelected,
                     ]}
                   >
-                    {reason}
+                    {r}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -401,77 +376,72 @@ export const M5S17_CancelOrder: React.FC<M5S17Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: ORDERS_THEME.primary,
   },
   subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#8C7A6B',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 14,
     paddingBottom: 20,
   },
   sectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
     marginTop: 16,
     marginBottom: 8,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 8,
-  },
-  requiredText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#78716C',
-  },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -480,31 +450,30 @@ const styles = StyleSheet.create({
   col: {
     flex: 1,
   },
-  singleRow: {},
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   fieldValueBold: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   dropdownBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -516,24 +485,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   dropdownValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#334155',
+    color: ORDERS_THEME.textInk,
   },
   confirmPromptBox: {
-    backgroundColor: '#FEF9EE',
+    backgroundColor: ORDERS_THEME.warningBg,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -542,16 +511,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   confirmPromptText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#9A3412',
+    color: ORDERS_THEME.warning,
   },
   redAlertBox: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: ORDERS_THEME.dangerBg,
     borderWidth: 1,
     borderColor: '#FECACA',
-    borderRadius: 12,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 12,
     paddingHorizontal: 14,
     flexDirection: 'row',
@@ -560,75 +529,83 @@ const styles = StyleSheet.create({
   },
   redAlertText: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#B91C1C',
+    color: ORDERS_THEME.danger,
     lineHeight: 16,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   bottomBarStacked: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   primaryBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   confirmCancelBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginBottom: 10,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmCancelBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   keepOrderBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ORDERS_THEME.cardBg,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
+    borderColor: ORDERS_THEME.border,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   keepOrderBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#475569',
+    color: ORDERS_THEME.textInk,
   },
-
-  // ─── Cancelled Screen Styles (Image 5 Left) ───────────────────────────────
   contentPacked: {
     flex: 1,
     paddingTop: 36,
@@ -642,18 +619,17 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: ORDERS_THEME.dangerBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -661,32 +637,32 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     padding: 18,
   },
   modalTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     marginBottom: 12,
   },
   modalOption: {
     paddingVertical: 12,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: ORDERS_THEME.radiusXS,
   },
   modalOptionSelected: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: ORDERS_THEME.orangeTint,
   },
   modalOptionText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
-    color: '#334155',
+    color: ORDERS_THEME.textInk,
   },
   modalOptionTextSelected: {
     fontWeight: '700',
-    color: '#E85226',
+    color: ORDERS_THEME.primary,
   },
 });
