@@ -88,6 +88,11 @@ import {
 import { treePlantingsRouter } from './modules/tree-plantings/tree-plantings.routes.js';
 import { cropInputsRouter } from './modules/crop-inputs/crop-inputs.routes.js';
 import { cropMilestonesRouter } from './modules/crop-milestones/crop-milestones.routes.js';
+import {
+  adminPlatformEventsRouter,
+  farmerCalendarRouter,
+} from './modules/calendar/calendar.routes.js';
+
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -160,6 +165,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me', router: treePlantingsRouter },
   { prefix: '/v1/farmers/me', router: cropInputsRouter },
   { prefix: '/v1/farmers/me', router: cropMilestonesRouter },
+  { prefix: '/v1/farmers/me', router: farmerCalendarRouter },
+  { prefix: '/v1/admin', router: adminPlatformEventsRouter },
 ];
 
 /**

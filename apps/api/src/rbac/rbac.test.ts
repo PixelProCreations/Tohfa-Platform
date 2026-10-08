@@ -291,6 +291,30 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not track crop milestones (BR-16).',
   },
   {
+    permission: 'farmer.calendar.view_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'Farmers view their own consolidated calendar (BR-58).',
+  },
+  {
+    permission: 'farmer.calendar.view_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers do not view farmer operational calendars (BR-16).',
+  },
+  {
+    permission: 'platform.event.manage',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Super Admin manages platform calendar events and announcements (BR-58).',
+  },
+  {
+    permission: 'platform.event.manage',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'Farmers cannot create platform-wide calendar events (BR-58).',
+  },
+  {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.ALL,

@@ -1222,6 +1222,31 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-58 — Tohfa Calendar aggregates multi-domain schedules and platform notices within bounded date ranges
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.1, FR-F04 / FR-F06; Mobile CalendarScreen; Table `platform_events` (`0037_platform_events.sql`) |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/calendar/`; `platform_events` table |
+| **Scope** | Track 1 (farmer-facing read aggregator + admin platform events) |
+
+**Rule.** A farmer accesses a consolidated calendar of scheduled events, compliance expiries, and agricultural activities via `GET /farmers/me/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`.
+1. **Bounded date range:** `from` and `to` query parameters are required, valid ISO dates, with `from <= to`, and the range cannot exceed 366 days (1 year) (`BR-58a`).
+2. **Multi-domain aggregation:** Consolidates scheduled audits (from `audits`), certificate expiries (from `certifications`), expected crop harvests (from `farm_crops`), and published platform notices (from `platform_events`) into a unified chronological timeline (`BR-58b`).
+3. **Own data & Target audience scoping:** Farmer receives operational records belonging exclusively to their own farmer profile (BR-36), and platform events targeted to `ALL` or `FARMER` (`BR-58c`).
+4. **Platform event lifecycle:** Admins manage platform events (workshops, trainings, community meets) with audit logging on all mutations (BR-35) and soft deletion (`deleted_at = now()`) (`BR-58d`).
+
+**Failure mode if unenforced.** Unbounded queries cause heavy multi-table scans; cross-farmer leak reveals scheduled compliance audit dates and crop harvest timelines.
+
+**Test contract.** (`apps/api/src/modules/calendar/calendar.test.ts`)
+- `BR-58a` Rejects invalid date ordering or range exceeding 366 days with 422 `VALIDATION_FAILED`.
+- `BR-58b` Aggregates multi-domain events chronologically.
+- `BR-58c` Strictly scopes farmer calendar events to caller farmer profile (BR-36).
+- `BR-58d` Non-farmer roles cannot access farmer calendar (403 FORBIDDEN).
+- `BR-58e` Admin platform event mutations write audit logs and soft delete (BR-35).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
