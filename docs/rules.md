@@ -1114,6 +1114,32 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-54 — Profile Documents are own-data only with masked Aadhaar and short-lived signed read URLs
+| | |
+|---|---|
+| **Source** | FR-F02, Mobile ProfileScreen documents modal |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/farmer-documents/` |
+| **Scope** | Track 1 (farmer-facing read-only) |
+
+**Rule.** A farmer may inspect their uploaded registration and profile documents (Aadhaar Card, Land Patta / FMB Map, PGS Scope Certificate, Soil & Water Health Card) via `GET /farmers/me/documents`.
+1. **Own data only:** Authenticated FARMER can only see documents from their own farmer profile and application (BR-36).
+2. **Aadhaar privacy:** The full Aadhaar number is NEVER exposed in the API response. Only the last 4 digits (`aadhaarLast4`) may be returned.
+3. **Signed read URLs:** Any document file URL is returned as a short-lived (15-minute) signed read URL, generated server-side.
+4. **EXIF/GPS stripping:** Any image uploads follow BR-16 privacy sanitization.
+5. **Read-only post-approval:** Replacing or uploading documents after application approval is locked (BR-33); mutations on this endpoint are rejected.
+
+**Failure mode if unenforced.** Leaking full Aadhaar numbers violates Indian privacy regulations; long-lived public file URLs allow unauthorized access to sensitive KYC land and identity documents.
+
+**Test contract.** (`apps/api/src/modules/farmer-documents/farmer-documents.test.ts`)
+- `BR-54a` `GET /farmers/me/documents` returns documents with docType, displayName, uploadStatus, and signed readUrl.
+- `BR-54b` Aadhaar number is never returned in full; only `aadhaarLast4` (4 digits) is visible.
+- `BR-54c` Signed read URL expires in short duration and includes signed/expiry token.
+- `BR-54d` Cross-farmer access returns 404 (BR-36).
+- `BR-54e` Non-farmer roles cannot access `GET /farmers/me/documents` (403 FORBIDDEN).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

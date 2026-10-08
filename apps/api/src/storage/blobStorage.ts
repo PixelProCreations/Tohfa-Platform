@@ -29,6 +29,7 @@ export interface GenerateUploadOptions {
 
 export interface BlobStorage {
   generateUploadTarget(options: GenerateUploadOptions): Promise<SignedUploadTarget>;
+  generateReadUrl(key: string, expiresInMinutes?: number): Promise<string>;
   getPublicUrl(key: string): string;
   upload(key: string, data: Buffer, contentType: string): Promise<string>;
   download(key: string): Promise<Buffer | null>;
@@ -61,6 +62,11 @@ export class InMemoryBlobStorage implements BlobStorage {
 
   getPublicUrl(key: string): string {
     return `${this.baseUrl}/storage/${key}`;
+  }
+
+  async generateReadUrl(key: string, expiresInMinutes = 15): Promise<string> {
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
+    return `${this.baseUrl}/storage/${key}?expires=${encodeURIComponent(expiresAt)}`;
   }
 
   async upload(key: string, data: Buffer, contentType: string): Promise<string> {
@@ -138,6 +144,11 @@ export class LocalDiskBlobStorage implements BlobStorage {
     return `${this.baseUrl}/storage/${key}`;
   }
 
+  async generateReadUrl(key: string, expiresInMinutes = 15): Promise<string> {
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
+    return `${this.baseUrl}/storage/${key}?expires=${encodeURIComponent(expiresAt)}`;
+  }
+
   async upload(key: string, data: Buffer, _contentType: string): Promise<string> {
     const fullPath = this.resolvePath(key);
     await mkdir(path.dirname(fullPath), { recursive: true });
@@ -201,6 +212,15 @@ export class AzureBlobStorage implements BlobStorage {
   getPublicUrl(key: string): string {
     const containerClient = this.client.getContainerClient(this.containerName);
     return containerClient.getBlockBlobClient(key).url;
+  }
+
+  async generateReadUrl(key: string, expiresInMinutes = 15): Promise<string> {
+    const containerClient = this.client.getContainerClient(this.containerName);
+    const blockBlobClient = containerClient.getBlockBlobClient(key);
+    const expiresOn = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+    const permissions = BlobSASPermissions.parse('r');
+    const sasToken = await this.generateSasToken(key, permissions, expiresOn);
+    return sasToken ? `${blockBlobClient.url}?${sasToken}` : blockBlobClient.url;
   }
 
   async upload(key: string, data: Buffer, contentType: string): Promise<string> {

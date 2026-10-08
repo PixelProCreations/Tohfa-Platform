@@ -77,6 +77,7 @@ import { livestockRouter } from './modules/livestock/livestock.routes.js';
 import { livestockAdminRouter } from './modules/livestock/livestock.admin.routes.js';
 import { farmAssetsRouter } from './modules/farm-assets/farm-assets.routes.js';
 import { adminFarmAssetsRouter } from './modules/farm-assets/farm-assets.admin.routes.js';
+import { farmerDocumentsRouter } from './modules/farmer-documents/farmer-documents.routes.js';
 import { soilRouter } from './modules/soil/soil.routes.js';
 import { pestLibraryRouter, pestRouter, weatherRiskNotesRouter } from './modules/pest/pest.routes.js';
 import { workforceRouter } from './modules/workforce/workforce.routes.js';
@@ -133,6 +134,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
   { prefix: '/v1/admin/payouts', router: payoutsRouter },
   { prefix: '/v1/invoices', router: invoicesRouter },
+  { prefix: '/v1/farmers/me/documents', router: farmerDocumentsRouter },
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
   { prefix: '/v1/admin/audits', router: adminAuditsRouter },

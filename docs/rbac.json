@@ -451,6 +451,21 @@
       "source": "matrix §2"
     },
     {
+      "code": "farmer.documents.view_own",
+      "module": "Farmers Management",
+      "description": "View own uploaded registration and KYC documents with signed URLs.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "matrix §2 + reqs FR-F02 (BR-54)"
+    },
+    {
       "code": "farmer.account.disable",
       "module": "Farmers Management",
       "description": "Disable a farmer account.",

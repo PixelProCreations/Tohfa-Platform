@@ -243,6 +243,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Farmers access bank accounts through farmer.bank_account.manage_own, not admin-wide view.',
   },
   {
+    permission: 'farmer.documents.view_own',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.OWN,
+    because: 'Farmers view their own profile documents (BR-54).',
+  },
+  {
+    permission: 'farmer.documents.view_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers do not hold farmer profile documents (BR-16).',
+  },
+  {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.ALL,

@@ -1197,6 +1197,28 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/documents:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getMyDocuments
+      summary: Own profile and KYC documents
+      description: |
+        Returns the caller's registration, land, certificate, and KYC documents with masked identifiers
+        and short-lived signed read URLs (BR-54).
+      x-permission: farmer.documents.view_own
+      x-business-rules: [BR-54, BR-36, BR-33]
+      responses:
+        '200':
+          description: List of own profile documents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmerProfileDocumentsResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/me/certifications:
     get:
       tags: [Farmer Profile & Certifications]
@@ -9232,6 +9254,60 @@ components:
           type: string
           pattern: '^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$'
         isDefault: { type: boolean, default: false }
+    FarmerDocumentItem:
+      type: object
+      required:
+        - docType
+        - displayName
+        - uploadStatus
+      properties:
+        docType:
+          type: string
+          description: Standard document category or proof type (e.g. ID_PROOF, LAND_PATTA, CERTIFICATE, SOIL_CARD, OTHER).
+          example: ID_PROOF
+        displayName:
+          type: string
+          description: Human-readable localized title of the document.
+          example: Aadhaar Card
+        uploadStatus:
+          type: string
+          description: Current verification or upload status (e.g. VERIFIED, UPLOADED, PENDING, ACTION_NEEDED).
+          example: VERIFIED
+        readUrl:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived pre-signed read URL for fetching or previewing the document.
+          example: https://storage.tohfa.in/storage/id_proof/aadhaar.pdf?expires=1760000000
+        fileName:
+          type: [string, 'null']
+          description: Stored or original filename.
+          example: aadhaar.pdf
+        docSubType:
+          type: [string, 'null']
+          description: Granular subtype or tag (e.g. Aadhaar Card, Land Patta).
+          example: Aadhaar Card
+        documentNumberLast4:
+          type: [string, 'null']
+          description: Masked document number (last 4 digits only, e.g. for Aadhaar).
+          example: '4821'
+        uploadedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Timestamp when the document was uploaded.
+        verifiedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Timestamp when the document was verified by an admin.
+
+    FarmerProfileDocumentsResponse:
+      type: object
+      required:
+        - documents
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmerDocumentItem'
 
     FarmWeather:
       type: object
