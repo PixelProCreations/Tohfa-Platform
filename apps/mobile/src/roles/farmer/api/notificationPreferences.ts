@@ -1,6 +1,6 @@
 import { api } from '../../../shell/api/client';
 
-/** Mirrors `NotificationCategory` in docs/openapi.yaml (BR-48). */
+/** Mirrors `NotificationCategory` in docs/openapi.yaml (BR-52). */
 export type NotificationCategory = 'WEATHER' | 'FARM' | 'MARKETING' | 'PAYROLL' | 'COMMUNITY';
 
 export interface NotificationPreference {

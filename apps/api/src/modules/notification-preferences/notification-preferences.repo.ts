@@ -1,15 +1,4 @@
-/**
- * Generated from the _example reference module. See CLAUDE.md.
- *
- * <name>.repo.ts is the ONLY place that writes SQL for this module. Every
- * function takes an `Executor` first so a caller can compose it into its own
- * transaction. Rows are mapped to the domain shape here, so snake_case never
- * escapes this file.
- *
- * The table is SPARSE: a missing (user, category) row means "enabled". This
- * repo returns only what is stored; synthesising the defaults is the
- * service's job (`listMine`) or the caller's (`isCategoryEnabled`).
- */
+
 import type { Executor } from '../../db/pool.js';
 import type { NotificationCategory, NotificationPreferenceResponse } from './notification-preferences.schema.js';
 
@@ -37,7 +26,7 @@ export interface NotificationPreferencesRepo {
     enabled: boolean,
   ): Promise<NotificationPreferenceResponse>;
   /**
-   * Single-category lookup for the notification dispatcher (BR-48). Missing
+   * Single-category lookup for the notification dispatcher (BR-52). Missing
    * row → true, so a user who never opened Settings keeps today's all-on
    * behaviour.
    */

@@ -1,7 +1,7 @@
 /**
  * Generated from the _example reference module. See CLAUDE.md.
  *
- * Notification-category preferences (BR-48). The caller only ever reads or
+ * Notification-category preferences (BR-52). The caller only ever reads or
  * writes their OWN rows — the user id comes from the resolved scope, never
  * from the request — so there is no cross-user path and no predicate to
  * evaluate.

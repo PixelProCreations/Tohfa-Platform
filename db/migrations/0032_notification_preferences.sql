@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0027_notification_preferences.sql
+-- 0032_notification_preferences.sql
 -- BR-48: Per-user notification-category preferences (farmer app Settings,
 -- screen 73 — Weather alerts, Farm reminders, Marketing updates, Payroll and
 -- workforce, Community).

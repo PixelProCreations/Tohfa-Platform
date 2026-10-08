@@ -7948,9 +7948,9 @@ paths:
         Always all five categories, in a fixed order; a category the caller has never changed is
         reported as `enabled: true` (no stored row means enabled). A disabled category suppresses
         only the PUSH alert for the events mapped to it; the in-app (Notifications Center) and SMS
-        notifications are still created (BR-48). Events that map to no category are unaffected.
+        notifications are still created (BR-52). Events that map to no category are unaffected.
       x-permission: notification.own.view
-      x-business-rules: [BR-48]
+      x-business-rules: [BR-52]
       responses:
         '200':
           description: All five category preferences.
@@ -7979,7 +7979,7 @@ paths:
         a no-op, not an error. An unknown category is a validation failure (422), like any other
         malformed path parameter.
       x-permission: notification.own.view
-      x-business-rules: [BR-48]
+      x-business-rules: [BR-52]
       parameters:
         - name: category
           in: path

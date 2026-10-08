@@ -33,7 +33,7 @@ export const EVENT_TEMPLATE_MAP: Record<DomainEventName, string> = {
 };
 
 /**
- * BR-48: which Settings notification category (farmer app screen 73) gates
+ * BR-52: which Settings notification category (farmer app screen 73) gates
  * each event. Only events that genuinely belong to a category are listed;
  * every other event (application status, goods received, customer orders) is
  * always-on and never consults preferences. WEATHER, FARM and COMMUNITY have
@@ -146,7 +146,7 @@ export function createNotificationsService(
       const userId = (payload as { userId?: string }).userId;
       if (!userId) return null;
 
-      // BR-48: a category the user switched off suppresses the PUSH alert only
+      // BR-52: a category the user switched off suppresses the PUSH alert only
       // (screen-73 spec: "stops push alerts for that category only"). The
       // IN_APP row that feeds the Notifications Center and the SMS row are
       // still created, so badges and history elsewhere stay untouched.
@@ -194,7 +194,7 @@ export function createNotificationsService(
       });
 
       // 2. Queue Push Notification (if device tokens or push template exist),
-      //    unless the user disabled this event's category (BR-48).
+      //    unless the user disabled this event's category (BR-52).
       if (pushSuppressed) {
         logger.debug(
           { eventName, category, userId },

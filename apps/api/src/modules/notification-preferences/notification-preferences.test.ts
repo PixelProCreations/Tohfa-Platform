@@ -1,12 +1,12 @@
 /**
  * Two layers of test, per the _example reference module:
  *
- *  1. SERVICE tests with a fake repo — where BR-48's preference semantics
+ *  1. SERVICE tests with a fake repo — where BR-52's preference semantics
  *     (sparse table, missing row = enabled, own-user only) are asserted.
  *  2. ONE integration test against a real pool that proves the SQL parses and
- *     the columns match db/migrations/0027. Soft-skips without a database.
+ *     the columns match db/migrations/0032. Soft-skips without a database.
  *
- * The dispatcher half of BR-48 (a disabled category creates no IN_APP / PUSH /
+ * The dispatcher half of BR-52 (a disabled category creates no IN_APP / PUSH /
  * SMS row) is asserted in notifications.test.ts, next to handleDomainEvent.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -95,7 +95,7 @@ describe('notificationPreferencesService.listMine', () => {
 });
 
 describe('notificationPreferencesService.updateMine', () => {
-  it('BR-48: disabling a category is persisted for the caller and reported by the dispatcher lookup', async () => {
+  it('BR-52: disabling a category is persisted for the caller and reported by the dispatcher lookup', async () => {
     const repo = fakeRepo();
     const service = createNotificationPreferencesService({ repo, db: noopDb });
 

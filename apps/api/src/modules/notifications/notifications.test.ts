@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Replace only the queue's enqueue so the BR-48 tests can assert which
+// Replace only the queue's enqueue so the BR-52 tests can assert which
 // dispatch jobs were (not) queued. Every other test is indifferent to it —
 // handleDomainEvent already treats a failed enqueue as non-fatal.
 vi.mock('../../jobs/queue.js', async (importOriginal) => ({
@@ -500,7 +500,7 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
     });
   });
 
-  describe('BR-48: notification-preference categories gate delivery', () => {
+  describe('BR-52: notification-preference categories gate delivery', () => {
     /** In-memory stand-in for notification-preferences.repo's isCategoryEnabled. */
     function preferences(disabled: Array<{ userId: string; category: string }>) {
       return {
@@ -572,7 +572,7 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
     };
     const payout = { userId: IDS.userFarmer, payoutId: 'PAY-1', amount: '900.00', reference: 'UTR-1' };
 
-    it('BR-48: a disabled MARKETING category skips only the PUSH row and dispatch for counter_offer.received; IN_APP and SMS are still created', async () => {
+    it('BR-52: a disabled MARKETING category skips only the PUSH row and dispatch for counter_offer.received; IN_APP and SMS are still created', async () => {
       const repo = repoWithCategoryTemplates();
       const service = createNotificationsService(
         repo,
@@ -586,7 +586,7 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(enqueuedChannels()).toEqual(['SMS']);
     });
 
-    it('BR-48: a disabled PAYROLL category skips only the PUSH row and dispatch for payout.released; IN_APP and SMS are still created', async () => {
+    it('BR-52: a disabled PAYROLL category skips only the PUSH row and dispatch for payout.released; IN_APP and SMS are still created', async () => {
       const repo = repoWithCategoryTemplates();
       const service = createNotificationsService(
         repo,
@@ -600,7 +600,7 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(enqueuedChannels()).toEqual(['SMS']);
     });
 
-    it('BR-48: an enabled category still delivers, and a disabled one only affects its own user and events', async () => {
+    it('BR-52: an enabled category still delivers, and a disabled one only affects its own user and events', async () => {
       const repo = repoWithCategoryTemplates();
       const service = createNotificationsService(
         repo,
@@ -618,7 +618,7 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(enqueuedChannels()).toEqual(['PUSH', 'SMS']);
     });
 
-    it('BR-48: events with no category mapping stay always-on even when every category is disabled', async () => {
+    it('BR-52: events with no category mapping stay always-on even when every category is disabled', async () => {
       const repo = repoWithCategoryTemplates();
       const allOff = ['WEATHER', 'FARM', 'MARKETING', 'PAYROLL', 'COMMUNITY'].map((category) => ({
         userId: IDS.userFarmer,
