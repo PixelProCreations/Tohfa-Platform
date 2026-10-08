@@ -403,52 +403,7 @@ export function SubWarehouseSalesHistoryScreen({
         />
       </View>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={activeTab === 'Home'} />
-          <Text style={[styles.navLabel, activeTab === 'Home' && styles.navLabelActive]}>
-            Home
-          </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={activeTab === 'Receiving'} />
-          <Text style={[styles.navLabel, activeTab === 'Receiving' && styles.navLabelActive]}>
-            Receiving
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={activeTab === 'Inventory'} />
-          <Text style={[styles.navLabel, activeTab === 'Inventory' && styles.navLabelActive]}>
-            Inventory
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={activeTab === 'More'} />
-          <Text style={[styles.navLabel, activeTab === 'More' && styles.navLabelActive]}>
-            More
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S15Props {
   orderId?: string;
@@ -142,14 +142,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FAF8F5',
-  },
-  topSafeArea: {
-    flex: 0,
-    backgroundColor: '#F0562A',
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,

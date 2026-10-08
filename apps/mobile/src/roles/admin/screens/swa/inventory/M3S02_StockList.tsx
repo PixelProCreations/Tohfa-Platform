@@ -275,8 +275,6 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
             );
           })}
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );

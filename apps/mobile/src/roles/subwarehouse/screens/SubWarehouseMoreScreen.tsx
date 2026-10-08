@@ -199,25 +199,11 @@ const OPTION_GROUPS: OptionGroup[] = [
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function BackArrowWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 6L6 18M6 6l12 12"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -947,7 +933,7 @@ export function SubWarehouseMoreScreen({
             activeOpacity={0.75}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            <ArrowBackIcon size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
           <View style={styles.headerTextCol}>
@@ -1096,19 +1082,28 @@ const styles = StyleSheet.create({
   },
   headerBanner: {
     backgroundColor: PALETTE.primary,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 22,
+    paddingBottom: 20,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTextCol: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.3,
@@ -1118,15 +1113,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.92)',
     marginTop: 2,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
   },
   scroll: {
     flex: 1,

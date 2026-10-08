@@ -111,14 +111,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAF8F5',
   },
-  topSafeArea: {
-    flex: 0,
-    backgroundColor: '#F0562A',
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: ORDERS_THEME.primary,
-  },
   container: {
     flex: 1,
     backgroundColor: ORDERS_THEME.pageBg,

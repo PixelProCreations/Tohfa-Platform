@@ -123,8 +123,6 @@ export const M3S09_LowStock: React.FC<M3S09Props> = ({ onNavigate, onBack, onTab
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );

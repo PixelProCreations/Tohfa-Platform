@@ -241,25 +241,7 @@ export function SubWarehouseStaffAndAttendanceScreen({
 
       </ScrollView>
 
-      {/* Bottom Nav Placeholder (handled by parent usually, but matching image we have bottom nav) */}
-      <View style={styles.bottomNav}>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Home')}>
-           <HomeTabIcon active={false} />
-           <Text style={styles.navLabel}>Home</Text>
-         </TouchableOpacity>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Receiving')}>
-           <ReceivingTabIcon active={false} />
-           <Text style={styles.navLabel}>Receiving</Text>
-         </TouchableOpacity>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Inventory')}>
-           <InventoryTabIcon active={false} />
-           <Text style={styles.navLabel}>Inventory</Text>
-         </TouchableOpacity>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('More')}>
-           <MoreTabIcon active={true} />
-           <Text style={[styles.navLabel, { color: '#B45309', fontWeight: '800' }]}>More</Text>
-         </TouchableOpacity>
-      </View>
+
     </SafeAreaView>
   );
 }

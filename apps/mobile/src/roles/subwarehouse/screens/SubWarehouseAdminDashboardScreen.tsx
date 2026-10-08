@@ -177,29 +177,7 @@ const PALETTE = {
   primarySoft: '#FDF3F0',
   primaryBorder: '#EEDCD3',
   pageBg: '#F3EFE9',
-  primaryDark: '#7A2E14',
-  primarySoft: '#FDF3F0',
-  primaryBorder: '#EEDCD3',
-  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1A1A1A',
-  textSecondary: '#5F5E5A',
-  textMuted: '#5F5E5A',
-  border: '#EEDCD3',
-  divider: '#EEDCD3',
-  greenBadge: '#EAF3DE',
-  greenText: '#173404',
-  greenDot: '#173404',
-  amberBadge: '#FEF3E2',
-  amberText: '#854F0B',
-  amberIconBg: '#FEF3E2',
-  redBadge: '#FCEBEB',
-  redText: '#E24B4A',
-  redIconBg: '#FCEBEB',
-  tealBadge: '#E6F1FB',
-  tealText: '#0C447C',
-  tabInactive: '#5F5E5A',
-  tabBorder: '#EEDCD3',
   textInk: '#1A1A1A',
   textSecondary: '#5F5E5A',
   textMuted: '#5F5E5A',
@@ -1022,7 +1000,6 @@ interface SubWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
-  initialTab?: SubWHTab;
   initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
   initialInventoryScreen?: string;
 }
@@ -1456,7 +1433,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   const [showIncomingShipmentsScreen, setShowIncomingShipmentsScreen] = useState(false);
   const [incomingShipmentsTab, setIncomingShipmentsTab] = useState<
-    'All' | 'Expected' | 'Arrived' | 'Receiving' | 'QC Pending' | 'Completed' | 'Rejected'
+    'All' | 'Expected' | 'Arrived' | 'In Progress' | 'Completed'
   >('All');
   const [showReceivingSearchFilters, setShowReceivingSearchFilters] = useState(false);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>('GR-1024');
@@ -1466,7 +1443,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showPartialAcceptanceScreen, setShowPartialAcceptanceScreen] = useState(false);
   const [showReceivingHistoryScreen, setShowReceivingHistoryScreen] = useState(false);
   const [receivingHistoryFilter, setReceivingHistoryFilter] = useState<
-    'All' | 'Accepted' | 'Partial' | 'Rejected'
+    'All' | 'Accepted' | 'Partially Accepted' | 'Rejected'
   >('All');
   const [selectedGrnId, setSelectedGrnId] = useState<string>('GRN-000839');
   const [showReceivingHistoryDetail, setShowReceivingHistoryDetail] = useState(false);
@@ -4770,9 +4747,26 @@ export function SubWarehouseAdminDashboardScreen({
               <>
                 <View style={styles.receivingHeaderBanner}>
                   <View style={styles.receivingHeaderTopRow}>
-                    <View style={styles.receivingHeaderTitleRow}>
-                      <DeliveryTruckWhiteIcon />
-                      <Text style={styles.receivingHeaderTitle}>Goods Receiving</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <TouchableOpacity
+                        style={styles.receivingBackBtn}
+                        onPress={() => {
+                          if (history.length > 1) {
+                            goBack();
+                          } else {
+                            setActiveTab('Home');
+                          }
+                        }}
+                        activeOpacity={0.75}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      >
+                        <ArrowBackIcon size={22} color="#FFFFFF" />
+                      </TouchableOpacity>
+
+                      <View style={styles.receivingHeaderTitleRow}>
+                        <DeliveryTruckWhiteIcon />
+                        <Text style={styles.receivingHeaderTitle}>Goods Receiving</Text>
+                      </View>
                     </View>
 
                     <TouchableOpacity
@@ -5192,8 +5186,8 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Rendered for Home, Receiving) ─── */}
-      {activeTab !== 'More' && activeTab !== 'Inventory' && !showOrdersModule && !(activeTab === 'Receiving' && (receivingSubView === 'search_filters' || receivingSubView === 'shipment_detail')) && (
+      {/* ─── Bottom Navigation Bar (Rendered only for Main Sections: Home, Goods Receiving Overview) ─── */}
+      {(activeTab === 'Home' || (activeTab === 'Receiving' && receivingSubView === 'overview')) && !showOrdersModule && (
         <View style={styles.bottomTabBar}>
           <TouchableOpacity
             style={styles.tabItem}
@@ -5874,6 +5868,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.3,
+  },
+  receivingBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   receivingBellBtn: {
     width: 38,

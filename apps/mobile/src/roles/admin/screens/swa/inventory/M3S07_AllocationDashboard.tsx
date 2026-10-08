@@ -217,8 +217,6 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );

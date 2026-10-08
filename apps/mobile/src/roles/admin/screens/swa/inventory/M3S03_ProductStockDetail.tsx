@@ -173,8 +173,6 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
             </TouchableOpacity>
           </View>
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );

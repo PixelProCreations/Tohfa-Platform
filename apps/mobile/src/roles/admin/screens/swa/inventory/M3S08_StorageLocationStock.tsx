@@ -156,8 +156,6 @@ export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, o
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );

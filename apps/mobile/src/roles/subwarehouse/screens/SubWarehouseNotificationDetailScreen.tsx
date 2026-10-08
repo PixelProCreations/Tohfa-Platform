@@ -58,16 +58,16 @@ function WalletIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: s
 }
 
 export interface SubWarehouseNotificationDetailScreenProps {
-  onBack?: () => void;
-  onActionPress?: () => void;
-  onReviewReceiving?: () => void;
-  warehouseName?: string;
+  onBack?: (() => void) | undefined;
+  onActionPress?: (() => void) | undefined;
+  onReviewReceiving?: (() => void) | undefined;
+  warehouseName?: string | undefined;
   notificationData?: {
-    type?: 'goods' | 'wallet' | 'order';
-    title?: string;
-    message?: string;
-    reference?: string;
-  };
+    type?: 'goods' | 'wallet' | 'order' | undefined;
+    title?: string | undefined;
+    message?: string | undefined;
+    reference?: string | undefined;
+  } | undefined;
 }
 
 export function SubWarehouseNotificationDetailScreen({
