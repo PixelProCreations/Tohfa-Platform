@@ -1640,13 +1640,56 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (selectedNotification) {
+    return (
+      <SubWarehouseNotificationDetailScreen
+        onBack={() => setSelectedNotification(null)}
+        notificationData={{
+          type: selectedNotification.type === 'wallet' ? 'wallet' : (selectedNotification.type === 'order' ? 'order' : 'goods'),
+          title: selectedNotification.title,
+          message: selectedNotification.subtitle,
+          reference: selectedNotification.type === 'quality' ? 'GR-1024' : (selectedNotification.type === 'order' ? 'ORD-10245' : 'TOP-002845'),
+        }}
+        onActionPress={() => {
+          const item = selectedNotification;
+          setSelectedNotification(null);
+          setShowNotifications(false);
+          if (item?.actionLabel?.includes('Review') || item?.type === 'quality') {
+            setShowReviewReceiving(true);
+          } else if (item?.actionLabel?.includes('Stock') || item?.type === 'inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (item?.actionLabel?.includes('Order') || item?.type === 'order') {
+            setShowCustomerOrders(true);
+          } else if (item?.actionLabel?.includes('Wallet') || item?.actionLabel?.includes('Top-Up') || item?.type === 'wallet') {
+            setShowWalletOperations(true);
+          } else if (item?.actionLabel?.includes('Return') || item?.type === 'returns') {
+            setShowReturnsIssues(true);
+          } else if (item?.type === 'system') {
+            setShowSystemMessages(true);
+          }
+        }}
+      />
+    );
+  }
+
   if (showNotifications) {
     return (
       <SubWarehouseNotificationsScreen
         onBack={() => setShowNotifications(false)}
         onTabChange={(tab) => {
           setShowNotifications(false);
-          setActiveTab(tab);
+          if (tab === 'Receiving') {
+            setActiveTab('Receiving');
+            navigateTo('Receiving', 'overview');
+          } else if (tab === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else {
+            setActiveTab(tab);
+          }
         }}
         onNavigateToTasks={() => {
           if (onNavigate) onNavigate('SubWarehouseTaskActionCenter');
@@ -1661,15 +1704,22 @@ export function SubWarehouseAdminDashboardScreen({
           else setShowSystemMessages(true);
         }}
         onSelectNotification={(item) => setSelectedNotification(item)}
-        onNavigateToAction={(actionLabel) => {
+        onNavigateToAction={(actionLabel, item) => {
           setShowNotifications(false);
-          if (actionLabel.includes('Review')) {
+          if (actionLabel.includes('Review') || item?.type === 'quality') {
             setShowReviewReceiving(true);
-          } else if (actionLabel.includes('Stock')) {
+          } else if (actionLabel.includes('Stock') || item?.type === 'inventory') {
             setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (actionLabel.includes('Order') || actionLabel.includes('Return')) {
-            setShowOrdersModule(true);
+          } else if (actionLabel.includes('Order') || item?.type === 'order') {
+            setShowCustomerOrders(true);
+          } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
+            setShowWalletOperations(true);
+          } else if (actionLabel.includes('Return') || item?.type === 'returns') {
+            setShowReturnsIssues(true);
+          } else if (item?.type === 'system') {
+            setShowSystemMessages(true);
           }
         }}
       />
@@ -1683,6 +1733,7 @@ export function SubWarehouseAdminDashboardScreen({
         onTabChange={(tab) => {
           setShowTodayOverview(false);
           if (tab === 'Receiving') {
+            setActiveTab('Receiving');
             navigateTo('Receiving', 'overview');
           } else if (tab === 'Inventory') {
             setInventoryInitialScreen('M3S01');
@@ -1694,11 +1745,19 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToSection={(section) => {
           setShowTodayOverview(false);
-          if (section === 'Receiving') navigateTo('Receiving', 'overview');
-          else if (section === 'Inventory') setActiveTab('Inventory');
-          else if (section === 'Orders') setShowOrdersModule(true);
-          else if (section === 'Sales') setShowSalesScreen(true);
-          else if (section === 'Cash Top-Up') setShowWalletOperations(true);
+          if (section === 'Receiving') {
+            setShowReviewReceiving(true);
+          } else if (section === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (section === 'Orders') {
+            setShowCustomerOrders(true);
+          } else if (section === 'Sales') {
+            setShowSalesScreen(true);
+          } else if (section === 'Cash Top-Up') {
+            setShowWalletOperations(true);
+          }
         }}
       />
     );
