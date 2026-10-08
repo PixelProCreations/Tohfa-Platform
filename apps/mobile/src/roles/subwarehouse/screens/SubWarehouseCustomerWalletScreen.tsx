@@ -18,19 +18,20 @@ import {
 
 const PALETTE = {
   primary:       '#F0562A',
-  pageBg:        '#FAF7F2',
+  primaryDark:   '#7A2E14',
+  pageBg:        '#F3EFE9',
   cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
+  textInk:       '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted:     '#5F5E5A',
+  border:        '#EEDCD3',
+  divider:       '#EEDCD3',
 
-  greenAmount:   '#059669',
-  redAmount:     '#DC2626',
-  noticeBg:      '#FFF5F2',
-  noticeBorder:  '#FED7AA',
-  noticeText:    '#C2410C',
+  greenAmount:   '#173404',
+  redAmount:     '#E24B4A',
+  noticeBg:      '#FDF3F0',
+  noticeBorder:  '#EEDCD3',
+  noticeText:    '#7A2E14',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {

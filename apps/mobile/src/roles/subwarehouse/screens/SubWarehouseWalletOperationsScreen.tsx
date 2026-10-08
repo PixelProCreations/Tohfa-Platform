@@ -33,15 +33,15 @@ import {
   type AttentionCategory,
 } from './SubWarehouseWalletAttentionScreen';
 
-// ─── Design Tokens (#F0562A Tohfa Brand Palette) ─────────────────────────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
   primary: '#F0562A',
-  primaryDark: '#D4451B',
-  primaryLight: '#FFF2E8',
-  primarySoft: '#FEF1EC',
-  primaryBorder: '#F5C6A0',
+  primaryDark: '#7A2E14',
+  primaryLight: '#FDF3F0',
+  primarySoft: '#FDF3F0',
+  primaryBorder: '#EEDCD3',
 
-  pageBg: '#FAF7F2',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
   textInk: '#1D2420',
   textSecondary: '#7A726C',
@@ -54,17 +54,17 @@ const PALETTE = {
   customerBrown: '#8B4513',
 
   // Status & Badges
-  greenBadge: '#DCFCE7',
-  greenText: '#15803D',
-  greenDot: '#10B981',
+  greenBadge: '#EAF3DE',
+  greenText: '#173404',
+  greenDot: '#173404',
 
-  amberBadge: '#FFF0EB',
-  amberText: '#F0562A',
-  amberAccent: '#F0562A',
+  amberBadge: '#FEF3E2',
+  amberText: '#854F0B',
+  amberAccent: '#854F0B',
 
-  redBadge: '#FEE2E2',
-  redText: '#DC2626',
-  redAccent: '#EF4444',
+  redBadge: '#FCEBEB',
+  redText: '#E24B4A',
+  redAccent: '#E24B4A',
 
   tabInactive: '#7A726C',
   tabBorder: '#EAE6DF',

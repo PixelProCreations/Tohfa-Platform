@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ORDERS_THEME } from './theme';
@@ -42,58 +43,78 @@ export const M5S15B_EventDetail: React.FC<M5S15BProps> = ({
   onBack,
 }) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            activeOpacity={0.7}
-            onPress={onBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <BackArrowWhiteIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Event Detail</Text>
-        </View>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <SafeAreaView style={styles.topSafeArea} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Header matching Image 1 */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              activeOpacity={0.7}
+              onPress={onBack}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Event Detail</Text>
+          </View>
 
-        <View style={styles.content}>
-          {/* Event Detail Card */}
-          <View style={styles.card}>
-            <View style={styles.twoColRow}>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Event</Text>
-                <Text style={styles.fieldValue}>{eventName}</Text>
+          <View style={styles.content}>
+            {/* Event Detail Card */}
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Event</Text>
+                  <Text style={styles.fieldValue}>{eventName}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Date</Text>
+                  <Text style={styles.fieldValue}>{eventDate}</Text>
+                </View>
               </View>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Date</Text>
-                <Text style={styles.fieldValue}>{eventDate}</Text>
-              </View>
-            </View>
 
-            <View style={[styles.twoColRow, { marginTop: 16 }]}>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Time</Text>
-                <Text style={styles.fieldValue}>{eventTime}</Text>
+              <View style={[styles.twoColRow, { marginTop: 16 }]}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Time</Text>
+                  <Text style={styles.fieldValue}>{eventTime}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Performed By</Text>
+                  <Text style={styles.fieldValue}>{performedBy}</Text>
+                </View>
               </View>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Performed By</Text>
-                <Text style={styles.fieldValue}>{performedBy}</Text>
-              </View>
-            </View>
 
-            <View style={[styles.singleRow, { marginTop: 16 }]}>
-              <Text style={styles.fieldLabel}>Reference</Text>
-              <Text style={styles.fieldValue}>{orderId}</Text>
+              <View style={[styles.singleRow, { marginTop: 16 }]}>
+                <Text style={styles.fieldLabel}>Reference</Text>
+                <Text style={styles.fieldValue}>{orderId}</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
+  topSafeArea: {
+    flex: 0,
+    backgroundColor: '#F0562A',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
+  topSafeArea: {
+    flex: 0,
+    backgroundColor: '#F0562A',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: ORDERS_THEME.primary,
@@ -103,7 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: ORDERS_THEME.primary,
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

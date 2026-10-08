@@ -14,28 +14,30 @@ import { ActivityItem } from './SubWarehouseTodayOperationsScreen';
 
 const PALETTE = {
   primary: '#F0562A',
-  primaryDark: '#D4451B',
-  primarySoft: '#FEF1EC',
-  pageBg: '#FAF7F2',
+  primaryDark: '#7A2E14',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EBE5DC',
-  greenBadgeBg: '#E8F5E9',
-  greenBadgeText: '#0D9488',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  greenBadgeBg: '#EAF3DE',
+  greenBadgeText: '#173404',
   amberBadgeBg: '#FEF3C7',
-  amberBadgeText: '#D97706',
-  redBadgeBg: '#FEE2E2',
-  redBadgeText: '#DC2626',
-  blueBadgeBg: '#E0F2FE',
-  blueBadgeText: '#0284C7',
-  tabInactive: '#827A74',
+  amberBadgeText: '#B45309',
+  redBadgeBg: '#FCEBEB',
+  redBadgeText: '#E24B4A',
 };
 
-// ─── SVG Icons ────────────────────────────────────────────────────────────────
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
-function ArrowBackIcon({ size = 24, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function LockIcon({ size = 14, color = '#FFFFFF' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -404,14 +406,14 @@ export function SubWarehouseWarehouseActivityScreen({
               const badgeBg = isCompleted
                 ? PALETTE.greenBadgeBg
                 : isPending
-                ? PALETTE.amberBadgeBg
-                : PALETTE.redBadgeBg;
+                  ? PALETTE.amberBadgeBg
+                  : PALETTE.redBadgeBg;
 
               const badgeTextColor = isCompleted
                 ? PALETTE.greenBadgeText
                 : isPending
-                ? PALETTE.amberBadgeText
-                : PALETTE.redBadgeText;
+                  ? PALETTE.amberBadgeText
+                  : PALETTE.redBadgeText;
 
               return (
                 <TouchableOpacity

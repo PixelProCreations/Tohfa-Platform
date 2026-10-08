@@ -14,28 +14,28 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-// ─── Design Tokens (Matching Exact Screenshots) ──────────────────────────────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
   primary: '#F0562A',
-  primaryDark: '#D4451B',
-  primaryLight: '#FFF2E8',
-  primaryBorder: '#F5C6A0',
+  primaryDark: '#7A2E14',
+  primaryLight: '#FDF3F0',
+  primaryBorder: '#EEDCD3',
 
-  pageBg: '#FAF7F2',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  border: '#EBE5DC',
-  divider: '#F4EFE9',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  divider: '#EEDCD3',
 
   // Accent & Callout colors
-  blueInfoBg: '#EBF3FC',
-  blueInfoBorder: '#BFDBFE',
-  blueInfoText: '#1E40AF',
+  blueInfoBg: '#E6F1FB',
+  blueInfoBorder: '#EEDCD3',
+  blueInfoText: '#0C447C',
 
-  greenAmount: '#0D9488',
-  brownBalance: '#92400E',
+  greenAmount: '#173404',
+  brownBalance: '#7A2E14',
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────

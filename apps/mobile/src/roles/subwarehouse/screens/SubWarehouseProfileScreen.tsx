@@ -316,6 +316,10 @@ export function SubWarehouseProfileScreen({
       <SubWarehouseStorageInfoScreen
         onBack={() => setActiveSubScreen(null)}
         onTabChange={onTabChange}
+        onViewStock={() => {
+          setActiveSubScreen(null);
+          if (onTabChange) onTabChange('Inventory');
+        }}
       />
     );
   }

@@ -17,6 +17,7 @@ import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 import { SubWarehouseHelpSupportScreen } from './SubWarehouseHelpSupportScreen';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
+import { SubWarehouseCustomersScreen } from './SubWarehouseCustomersScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -197,6 +198,20 @@ const OPTION_GROUPS: OptionGroup[] = [
 ];
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function BackArrowWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -572,6 +587,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 export interface SubWarehouseMoreScreenProps {
   onBack?: (() => void) | undefined;
+  onNavigateToDashboard?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToProfile?: (() => void) | undefined;
@@ -605,6 +621,7 @@ export interface SubWarehouseMoreScreenProps {
 
 export function SubWarehouseMoreScreen({
   onBack,
+  onNavigateToDashboard,
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
@@ -639,6 +656,17 @@ export function SubWarehouseMoreScreen({
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
+  const [showCustomersScreen, setShowCustomersScreen] = useState(false);
+
+  const handleBackToDashboard = () => {
+    if (onNavigateToDashboard) {
+      onNavigateToDashboard();
+    } else if (onTabChange) {
+      onTabChange('Home');
+    } else if (onBack) {
+      onBack();
+    }
+  };
 
   const handleTabPress = (tab: SubWHTab) => {
     if (tab === 'More') return;
@@ -664,8 +692,11 @@ export function SubWarehouseMoreScreen({
         else Alert.alert(item.title, 'Opening Direct / Market Sales...');
         break;
       case 'customers':
-        if (onNavigateToCustomers) onNavigateToCustomers();
-        else Alert.alert(item.title, 'Opening Customers Directory...');
+        if (onNavigateToCustomers) {
+          onNavigateToCustomers();
+        } else {
+          setShowCustomersScreen(true);
+        }
         break;
       case 'wallet':
         if (onNavigateToWallet) onNavigateToWallet();
@@ -894,6 +925,15 @@ export function SubWarehouseMoreScreen({
     );
   }
 
+  if (showCustomersScreen) {
+    return (
+      <SubWarehouseCustomersScreen
+        onBack={() => setShowCustomersScreen(false)}
+        onTabChange={handleTabPress}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -901,21 +941,19 @@ export function SubWarehouseMoreScreen({
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackToDashboard}
+            activeOpacity={0.75}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>More</Text>
             <Text style={styles.headerSubtitle}>Coonoor Warehouse</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => {
-              if (onBack) onBack();
-            }}
-            activeOpacity={0.75}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <CloseIcon size={18} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1065,7 +1103,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   headerTextCol: {
     flex: 1,
@@ -1082,13 +1119,14 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.92)',
     marginTop: 2,
   },
-  closeButton: {
+  backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   scroll: {
     flex: 1,

@@ -86,6 +86,8 @@ function SearchIcon({ size = 18, color = '#8A928D' }: { size?: number; color?: s
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
+import { SubWarehouseReviewInvoiceScreen } from './SubWarehouseReviewInvoiceScreen';
+
 export interface SubWarehouseGenerateInvoiceScreenProps {
   onBack?: () => void;
   onSelectTransaction?: (transaction: TransactionRecord) => void;
@@ -98,6 +100,7 @@ export function SubWarehouseGenerateInvoiceScreen({
   onNavigateToGSTInvoice,
 }: SubWarehouseGenerateInvoiceScreenProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
 
   const filtered = TRANSACTIONS.filter((tx) => {
     if (!searchQuery.trim()) return true;
@@ -114,12 +117,31 @@ export function SubWarehouseGenerateInvoiceScreen({
       return;
     }
 
-    if (onSelectTransaction) {
-      onSelectTransaction(tx);
-    } else {
-      Alert.alert('Selected', `Transaction ${tx.id} selected for invoice generation.`);
-    }
+    setSelectedTx(tx);
   };
+
+  if (selectedTx) {
+    return (
+      <SubWarehouseReviewInvoiceScreen
+        onBack={() => setSelectedTx(null)}
+        onGenerateSuccess={() => {
+          if (onSelectTransaction) {
+            onSelectTransaction(selectedTx);
+          } else {
+            Alert.alert('Invoice Generated', `Invoice generated successfully for ${selectedTx.customerName}.`);
+          }
+        }}
+        invoiceData={{
+          invoiceType: selectedTx.saleType,
+          customerName: selectedTx.customerName,
+          itemsCount: 2,
+          subtotal: '₹740',
+          gst: '₹0',
+          total: '₹740',
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>

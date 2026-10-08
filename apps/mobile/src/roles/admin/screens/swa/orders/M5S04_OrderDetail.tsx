@@ -85,15 +85,15 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({
 
   const orderItemsList = isInv251
     ? [
-        { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
-      ]
+      { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
+    ]
     : isInv238
-    ? [
+      ? [
         { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
         { name: 'Carrot', grade: 'Grade 1', qtyDetail: '1 KG × ₹150', price: '₹150' },
         { name: 'Beans', grade: 'Grade 1', qtyDetail: '2 KG × ₹150', price: '₹300' },
       ]
-    : [
+      : [
         { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
         { name: 'Carrot', grade: 'Grade 1', qtyDetail: '3 KG × ₹120', price: '₹360' },
       ];
@@ -264,10 +264,11 @@ export const M5S04_OrderDetail: React.FC<M5S04Props> = ({
                 <Text style={styles.colValue}>Verification required</Text>
               </View>
             </View>
-
-            <View style={{ marginTop: 12 }}>
-              <Text style={styles.colLabel}>Order Pickup Type</Text>
-              <Text style={styles.colValue}>Direct Pickup</Text>
+            <View style={[styles.twoColRow, { marginTop: 14 }]}>
+              <View style={styles.col}>
+                <Text style={styles.colLabel}>Order Pickup Type</Text>
+                <Text style={styles.colValue}>Direct Pickup</Text>
+              </View>
             </View>
           </View>
 

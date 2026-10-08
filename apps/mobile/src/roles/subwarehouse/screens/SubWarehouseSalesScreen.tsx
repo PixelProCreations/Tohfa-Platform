@@ -17,27 +17,28 @@ import { SubWarehouseMarketDaySalesScreen } from './SubWarehouseMarketDaySalesSc
 import { SubWarehouseHorecaSalesScreen } from './SubWarehouseHorecaSalesScreen';
 import { SubWarehouseB2BSalesScreen } from './SubWarehouseB2BSalesScreen';
 import { SubWarehouseNeedsAttentionScreen } from './SubWarehouseNeedsAttentionScreen';
+import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
 
-// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primaryDark:   '#7A2E14',
+  primaryLight:  '#FDF3F0',
+  primarySoft:   '#FDF3F0',
+  primaryBorder: '#EEDCD3',
 
-  pageBg:        '#FAF7F2',
+  pageBg:        '#F3EFE9',
   cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F3EFEA',
+  textInk:       '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted:     '#5F5E5A',
+  border:        '#EEDCD3',
+  divider:       '#EEDCD3',
 
-  amberText:     '#B45309',
-  redText:       '#DC2626',
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
+  amberText:     '#854F0B',
+  redText:       '#E24B4A',
+  tabInactive:   '#5F5E5A',
+  tabBorder:     '#EEDCD3',
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -108,8 +109,15 @@ function MoneyCardIcon({ color = '#8B5E3C' }: { color?: string }) {
 function StorefrontCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l1-5h16l1 5M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 21V13h6v8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M3 8a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V4H3v4z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M4 10.2V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -117,7 +125,7 @@ function StorefrontCardIcon({ color = '#8B5E3C' }: { color?: string }) {
 function CutleryCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 2v20M21 2v6a3 3 0 0 1-3 3M18 11v11M6 2v7a3 3 0 0 0 3 3v10M9 2v7M3 2v7a3 3 0 0 0 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 3v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M8 11v10M17 3v18M14 3v5a3 3 0 0 0 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -125,7 +133,7 @@ function CutleryCardIcon({ color = '#8B5E3C' }: { color?: string }) {
 function BuildingCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h4a2 2 0 0 1 2 2v10M4 21h18M9 7h2M9 11h2M9 15h2M18 13h1M18 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M15 10h4a2 2 0 0 1 2 2v9M9 7h2M9 11h2M9 15h2M18 14h1M18 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -142,9 +150,16 @@ function ExclamationCircleCardIcon({ color = '#DC2626' }: { color?: string }) {
 function ShoppingCartActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="21" r="1.5" stroke={color} strokeWidth="2" />
-      <Circle cx="19" cy="21" r="1.5" stroke={color} strokeWidth="2" />
-      <Path d="M2.5 3h3.2l2.4 12.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6l1.8-8.2H6.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="20" r="1.5" stroke={color} strokeWidth="2" />
+      <Circle cx="18" cy="20" r="1.5" stroke={color} strokeWidth="2" />
+      <Path
+        d="M2 4h3l2.2 10.5a1.8 1.8 0 0 0 1.8 1.5h8.5a1.8 1.8 0 0 0 1.8-1.5L21 8H6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M13 2v4M11 4h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -152,8 +167,16 @@ function ShoppingCartActionIcon({ size = 22, color = PALETTE.primary }: { size?:
 function StoreActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l1-5h16l1 5M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 21V13h6v8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M3 9a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V5H3v4z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M4 11.2V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 5V3M12 5V3M17 5V3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -161,8 +184,61 @@ function StoreActionIcon({ size = 22, color = PALETTE.primary }: { size?: number
 function HistoryClockActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M12 6v6l4 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 3v5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CutleryActionIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Fork: 3 prongs, neck and handle */}
+      <Path
+        d="M5.5 4v6a2.8 2.8 0 0 0 2.8 2.8v7.2M8.3 4v6M11.1 4v6a2.8 2.8 0 0 1-2.8 2.8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Knife: contoured blade and handle */}
+      <Path
+        d="M18.5 4v16M18.5 4c-3 0-5 2.5-5 6v4h5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function BuildingActionIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Ground baseline */}
+      <Path d="M3 21h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      {/* Main Building Body */}
+      <Path
+        d="M4 21V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 14 5v16"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Side Wing */}
+      <Path
+        d="M14 10h5a1.5 1.5 0 0 1 1.5 1.5V21"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Windows - Main Tower */}
+      <Path d="M7 8h3M7 12h3M7 16h3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      {/* Windows - Side Wing */}
+      <Path d="M17 14h1M17 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -185,13 +261,9 @@ function WarningTriangleIcon({ size = 18, color = '#D97706' }: { size?: number; 
 function StockBoxIcon({ size = 20, color = '#DC2626' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 8l3-5h12l3 5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -282,6 +354,7 @@ export interface SubWarehouseSalesScreenProps {
   onNavigateToHorecaSales?: (() => void) | undefined;
   onNavigateToB2BSales?: (() => void) | undefined;
   onNavigateToNeedsAttention?: ((category?: 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue') => void) | undefined;
+  onNavigateToSaleDetail?: ((saleId?: string) => void) | undefined;
 }
 
 export function SubWarehouseSalesScreen({
@@ -294,6 +367,7 @@ export function SubWarehouseSalesScreen({
   onNavigateToHorecaSales,
   onNavigateToB2BSales,
   onNavigateToNeedsAttention,
+  onNavigateToSaleDetail,
 }: SubWarehouseSalesScreenProps) {
   const [activeTab, setActiveTab] = useState<SubWHTab>('More');
   const [showNewSaleScreen, setShowNewSaleScreen] = useState(false);
@@ -302,6 +376,7 @@ export function SubWarehouseSalesScreen({
   const [showHorecaSalesScreen, setShowHorecaSalesScreen] = useState(false);
   const [showB2BSalesScreen, setShowB2BSalesScreen] = useState(false);
   const [showNeedsAttentionScreen, setShowNeedsAttentionScreen] = useState(false);
+  const [showSaleDetailScreen, setShowSaleDetailScreen] = useState(false);
   const [attentionCategory, setAttentionCategory] = useState<'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue'>('all');
 
   const handleTabPress = (tab: SubWHTab) => {
@@ -361,6 +436,52 @@ export function SubWarehouseSalesScreen({
       setShowNeedsAttentionScreen(true);
     }
   };
+
+  const handleOpenSaleDetail = (saleId: string = 'SALE-00251') => {
+    if (onNavigateToSaleDetail) {
+      onNavigateToSaleDetail(saleId);
+    } else {
+      setShowSaleDetailScreen(true);
+    }
+  };
+
+  if (showSaleDetailScreen) {
+    return (
+      <SubWarehouseSaleDetailScreen
+        sale={{
+          id: 'SALE-00251',
+          customerName: 'Rajesh Kumar',
+          customerCode: 'CUS-00291',
+          channel: 'Direct Sale',
+          dateText: 'Today · 6:35 PM',
+          amount: 500,
+          status: 'Paid',
+          invoiceNo: 'INV-00251',
+          paymentMethod: 'UPI',
+          items: [
+            {
+              name: 'Tomato',
+              grade: 'Grade 1',
+              batch: 'BTH-00231',
+              qtyText: '2 KG @ ₹100',
+              pricePerUnit: 100,
+              lineTotal: 200,
+            },
+            {
+              name: 'Potato',
+              grade: 'Grade 1',
+              batch: 'BTH-00245',
+              qtyText: '3 KG @ ₹100',
+              pricePerUnit: 100,
+              lineTotal: 300,
+            },
+          ],
+        }}
+        onBack={() => setShowSaleDetailScreen(false)}
+        onTabChange={handleTabPress}
+      />
+    );
+  }
 
   if (showNeedsAttentionScreen) {
     return (
@@ -495,7 +616,7 @@ export function SubWarehouseSalesScreen({
           {/* Card 2: Direct */}
           <TouchableOpacity
             style={styles.channelCard}
-            onPress={() => Alert.alert('Direct Sales', '₹8,450 from 18 direct walk-in customer sales.')}
+            onPress={handleOpenNewSale}
             activeOpacity={0.75}
           >
             <View style={styles.cardIconWrap}>
@@ -508,7 +629,7 @@ export function SubWarehouseSalesScreen({
           {/* Card 3: Market */}
           <TouchableOpacity
             style={styles.channelCard}
-            onPress={() => Alert.alert('Market Sales', '₹7,200 from 15 market stall transactions.')}
+            onPress={handleOpenMarketDaySales}
             activeOpacity={0.75}
           >
             <View style={styles.cardIconWrap}>
@@ -538,7 +659,7 @@ export function SubWarehouseSalesScreen({
             activeOpacity={0.75}
           >
             <View style={styles.cardIconWrap}>
-              <BuildingCardIcon />
+              <BuildingCardIcon color={PALETTE.primary} />
             </View>
             <Text style={styles.cardAmount}>₹4,400</Text>
             <Text style={styles.cardSubtitle}>B2B · 4 orders</Text>
@@ -551,9 +672,9 @@ export function SubWarehouseSalesScreen({
             activeOpacity={0.75}
           >
             <View style={styles.cardIconWrap}>
-              <ExclamationCircleCardIcon />
+              <ExclamationCircleCardIcon color="#DC2626" />
             </View>
-            <Text style={[styles.cardAmount, { color: PALETTE.redText }]}>5</Text>
+            <Text style={[styles.cardAmount, { color: '#DC2626' }]}>5</Text>
             <Text style={styles.cardSubtitle}>Needs Attention</Text>
           </TouchableOpacity>
         </View>
@@ -568,7 +689,7 @@ export function SubWarehouseSalesScreen({
             onPress={handleOpenNewSale}
             activeOpacity={0.75}
           >
-            <ShoppingCartActionIcon size={24} />
+            <ShoppingCartActionIcon size={24} color={PALETTE.primary} />
             <Text style={styles.actionBtnLabel}>New Direct Sale</Text>
           </TouchableOpacity>
 
@@ -578,7 +699,7 @@ export function SubWarehouseSalesScreen({
             onPress={handleOpenMarketDaySales}
             activeOpacity={0.75}
           >
-            <StoreActionIcon size={24} />
+            <StoreActionIcon size={24} color={PALETTE.primary} />
             <Text style={styles.actionBtnLabel}>Market Day Sales</Text>
           </TouchableOpacity>
 
@@ -588,8 +709,31 @@ export function SubWarehouseSalesScreen({
             onPress={handleOpenSalesHistory}
             activeOpacity={0.75}
           >
-            <HistoryClockActionIcon size={24} />
+            <HistoryClockActionIcon size={24} color={PALETTE.primary} />
             <Text style={styles.actionBtnLabel}>Sales History</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Row 2: HORECA Sale & B2B Sale (Circled in red in Screenshot 2) */}
+        <View style={[styles.quickActionsRow, { marginTop: 10 }]}>
+          {/* Action 4: HORECA Sale */}
+          <TouchableOpacity
+            style={styles.actionBtnHalf}
+            onPress={handleOpenHorecaSales}
+            activeOpacity={0.75}
+          >
+            <CutleryActionIcon size={24} color={PALETTE.primary} />
+            <Text style={styles.actionBtnLabel}>HORECA Sale</Text>
+          </TouchableOpacity>
+
+          {/* Action 5: B2B Sale */}
+          <TouchableOpacity
+            style={styles.actionBtnHalf}
+            onPress={handleOpenB2BSales}
+            activeOpacity={0.75}
+          >
+            <BuildingActionIcon size={24} color={PALETTE.primary} />
+            <Text style={styles.actionBtnLabel}>B2B Sale</Text>
           </TouchableOpacity>
         </View>
 
@@ -656,7 +800,7 @@ export function SubWarehouseSalesScreen({
 
         <TouchableOpacity
           style={styles.recentSaleCard}
-          onPress={() => Alert.alert('SALE-00251', 'Customer: Rajesh Kumar\nItems: 2 Items\nType: Direct Sale\nTime: Today · 6:35 PM\nAmount: ₹500 (Paid)')}
+          onPress={() => handleOpenSaleDetail('SALE-00251')}
           activeOpacity={0.8}
         >
           <View style={styles.recentSaleTopRow}>
@@ -682,10 +826,11 @@ export function SubWarehouseSalesScreen({
         <View style={styles.alertsContainer}>
           {/* Alert 1: Payment Pending */}
           <TouchableOpacity
-            style={[styles.alertCardItem, { borderLeftColor: '#D97706' }]}
+            style={styles.alertCardItem}
             onPress={() => handleOpenNeedsAttention('payment_pending')}
             activeOpacity={0.75}
           >
+            <View style={[styles.alertAccentBar, { backgroundColor: '#F59E0B' }]} />
             <View style={styles.alertIconBox}>
               <MoneyCardIcon color="#D97706" />
             </View>
@@ -698,12 +843,13 @@ export function SubWarehouseSalesScreen({
 
           {/* Alert 2: Stock Issue */}
           <TouchableOpacity
-            style={[styles.alertCardItem, { borderLeftColor: '#EF4444' }]}
+            style={styles.alertCardItem}
             onPress={() => handleOpenNeedsAttention('stock_issue')}
             activeOpacity={0.75}
           >
+            <View style={[styles.alertAccentBar, { backgroundColor: '#E24B4A' }]} />
             <View style={styles.alertIconBox}>
-              <StockBoxIcon color="#EF4444" />
+              <StockBoxIcon color="#E24B4A" />
             </View>
             <View style={styles.alertTextBox}>
               <Text style={styles.alertTitle}>Stock Issue</Text>
@@ -714,12 +860,13 @@ export function SubWarehouseSalesScreen({
 
           {/* Alert 3: Failed Sale */}
           <TouchableOpacity
-            style={[styles.alertCardItem, { borderLeftColor: '#DC2626' }]}
+            style={styles.alertCardItem}
             onPress={() => handleOpenNeedsAttention('failed_sale')}
             activeOpacity={0.75}
           >
+            <View style={[styles.alertAccentBar, { backgroundColor: '#E24B4A' }]} />
             <View style={styles.alertIconBox}>
-              <ExclamationCircleCardIcon color="#DC2626" />
+              <ExclamationCircleCardIcon color="#E24B4A" />
             </View>
             <View style={styles.alertTextBox}>
               <Text style={styles.alertTitle}>Failed Sale</Text>
@@ -730,10 +877,11 @@ export function SubWarehouseSalesScreen({
 
           {/* Alert 4: Invoice Issue */}
           <TouchableOpacity
-            style={[styles.alertCardItem, { borderLeftColor: '#D97706' }]}
+            style={styles.alertCardItem}
             onPress={() => handleOpenNeedsAttention('invoice_issue')}
             activeOpacity={0.75}
           >
+            <View style={[styles.alertAccentBar, { backgroundColor: '#F59E0B' }]} />
             <View style={styles.alertIconBox}>
               <InvoiceDocumentIcon color="#D97706" />
             </View>
@@ -952,6 +1100,23 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
+  actionBtnHalf: {
+    width: '48%',
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 88,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
   actionBtnLabel: {
     fontSize: 11,
     fontWeight: '600',
@@ -1109,14 +1274,25 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    borderLeftWidth: 4,
     paddingVertical: 14,
     paddingHorizontal: 14,
+    paddingLeft: 18,
+    position: 'relative',
+    overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
+  },
+  alertAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
   },
   alertIconBox: {
     marginRight: 12,

@@ -845,6 +845,21 @@ export function PaymentScreen({
 // Screen 6: Sale Confirmation Screen
 // ─────────────────────────────────────────────────────────────────────────────
 
+function ShieldCheckIcon({ size = 18, color = '#065F46' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export interface SaleConfirmationScreenProps {
   saleId?: string | undefined;
   warehouseName?: string | undefined;
@@ -858,7 +873,7 @@ export interface SaleConfirmationScreenProps {
 export function SaleConfirmationScreen({
   saleId = 'SALE-00251',
   warehouseName = 'Coonoor',
-  customerName = 'Arun Kumar',
+  customerName = 'Rajesh Kumar',
   amount = 320,
   onViewInvoice,
   onNewSale,
@@ -869,62 +884,122 @@ export function SaleConfirmationScreen({
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
 
       {/* Header */}
-      <View style={styles.headerBanner}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.8}>
-            <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sale Confirmation</Text>
+      <View style={[styles.headerBanner, { paddingBottom: 16 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 36 }}>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', textAlign: 'center' }}>
+            Sale Confirmation
+          </Text>
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollPad, { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }]}>
         {/* Success Icon & Heading */}
-        <View style={styles.successHeadWrap}>
-          <CheckmarkCircleLargeIcon size={48} color={PALETTE.greenCheckIcon} />
-          <Text style={styles.successHeading}>Sale Completed</Text>
-          <Text style={styles.successSaleId}>{saleId}</Text>
+        <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 14 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            <CheckmarkCircleLargeIcon size={34} color="#10B981" />
+          </View>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: PALETTE.textInk }}>Sale Completed</Text>
         </View>
 
-        {/* Sale Information Section */}
-        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Sale Information</Text>
-        <View style={styles.card}>
+        {/* 1. Sale Information */}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: PALETTE.textInk, marginTop: 12, marginBottom: 8 }}>Sale Information</Text>
+        <View style={[styles.card, { borderRadius: 14, padding: 16, borderWidth: 1, borderColor: PALETTE.border }]}>
           <View style={styles.infoGridRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.contextTitle}>Warehouse</Text>
-              <Text style={styles.infoVal}>{warehouseName}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Sale ID</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>{saleId}</Text>
             </View>
-            <View style={{ flex: 1, paddingLeft: 12 }}>
-              <Text style={styles.contextTitle}>Customer</Text>
-              <Text style={styles.infoVal}>{customerName}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Date</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>24 Sep, 6:35 PM</Text>
             </View>
           </View>
 
           <View style={[styles.infoGridRow, { marginTop: 14 }]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.contextTitle}>Amount</Text>
-              <Text style={styles.infoVal}>₹{amount}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Warehouse</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>{warehouseName}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Channel</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>Direct Sale</Text>
             </View>
           </View>
         </View>
 
+        {/* 2. Customer */}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: PALETTE.textInk, marginTop: 12, marginBottom: 8 }}>Customer</Text>
+        <View style={[styles.card, { borderRadius: 14, padding: 16, borderWidth: 1, borderColor: PALETTE.border }]}>
+          <Text style={{ fontSize: 12, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 2 }}>{customerName}</Text>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>CUS-00291</Text>
+        </View>
+
+        {/* 3. Products */}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: PALETTE.textInk, marginTop: 12, marginBottom: 8 }}>Products</Text>
+        <View style={[styles.card, { borderRadius: 14, padding: 16, borderWidth: 1, borderColor: PALETTE.border }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+            <View>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: PALETTE.textInk, marginBottom: 2 }}>Tomato</Text>
+              <Text style={{ fontSize: 12, fontWeight: '500', color: PALETTE.textSecondary }}>Grade 1 · 2 KG</Text>
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: PALETTE.textInk }}>₹200</Text>
+          </View>
+          <View style={{ height: 1, backgroundColor: PALETTE.border, marginVertical: 10 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+            <View>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: PALETTE.textInk, marginBottom: 2 }}>Carrot</Text>
+              <Text style={{ fontSize: 12, fontWeight: '500', color: PALETTE.textSecondary }}>Grade 1 · 1 KG</Text>
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: PALETTE.textInk }}>₹120</Text>
+          </View>
+        </View>
+
+        {/* 4. Payment */}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: PALETTE.textInk, marginTop: 12, marginBottom: 8 }}>Payment</Text>
+        <View style={[styles.card, { borderRadius: 14, padding: 16, borderWidth: 1, borderColor: PALETTE.border }]}>
+          <View style={styles.infoGridRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Method</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>Cash</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Status</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>Paid</Text>
+            </View>
+          </View>
+          <View style={[styles.infoGridRow, { marginTop: 14 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Amount</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>₹{amount}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 5. Invoice */}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: PALETTE.textInk, marginTop: 12, marginBottom: 8 }}>Invoice</Text>
+        <View style={[styles.card, { borderRadius: 14, padding: 16, borderWidth: 1, borderColor: PALETTE.border }]}>
+          <Text style={{ fontSize: 11, fontWeight: '500', color: PALETTE.textSecondary, marginBottom: 4 }}>Invoice Number</Text>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: PALETTE.textInk }}>INV-00251</Text>
+        </View>
+
         {/* Info Banner Disclaimer */}
-        <View style={styles.confirmationInfoBanner}>
-          <Text style={styles.confirmationInfoBannerText}>
-            This screen only appears after Payment + Sale + Inventory Ledger Movement are ALL confirmed together by the server.
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#EAF5EE', borderRadius: 12, borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 14, paddingVertical: 12, gap: 10, marginTop: 14, marginBottom: 10 }}>
+          <ShieldCheckIcon color="#065F46" />
+          <Text style={{ flex: 1, fontSize: 11.5, fontWeight: '500', color: '#065F46', lineHeight: 16.5 }}>
+            This screen only ever appears after the server confirms payment, sale, and the inventory ledger movement together — never on a local/optimistic success.
           </Text>
         </View>
       </ScrollView>
 
       {/* Bottom CTA Dual Buttons */}
-      <View style={styles.bottomConfirmationButtonsWrap}>
-        <TouchableOpacity style={styles.ctaButton} onPress={onViewInvoice} activeOpacity={0.85}>
+      <View style={[styles.bottomConfirmationButtonsWrap, { paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 20, gap: 10 }]}>
+        <TouchableOpacity style={[styles.ctaButton, { height: 48, borderRadius: 12 }]} onPress={onViewInvoice} activeOpacity={0.85}>
           <InvoiceDocumentIcon size={18} color="#FFFFFF" />
-          <Text style={styles.ctaButtonText}>View Invoice</Text>
+          <Text style={[styles.ctaButtonText, { fontSize: 15, fontWeight: '800' }]}>View Invoice</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={onNewSale} activeOpacity={0.8}>
-          <Text style={styles.secondaryButtonText}>New Sale</Text>
+        <TouchableOpacity style={[styles.secondaryButton, { height: 48, borderRadius: 12, borderWidth: 1.5, borderColor: PALETTE.primary }]} onPress={onNewSale} activeOpacity={0.8}>
+          <Text style={[styles.secondaryButtonText, { fontSize: 15, fontWeight: '800', color: PALETTE.primary }]}>New Sale</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

@@ -56,15 +56,17 @@ export interface ReceivingHistoryItem {
 }
 
 export interface ReceivingHistoryScreenProps {
+  initialFilter?: 'All' | 'Accepted' | 'Partially Accepted' | 'Rejected';
   onBack?: () => void;
   onSelectRecord?: (grnId: string) => void;
 }
 
 export function ReceivingHistoryScreen({
+  initialFilter,
   onBack,
   onSelectRecord,
 }: ReceivingHistoryScreenProps) {
-  const [selectedFilter, setSelectedFilter] = useState<'All' | 'Accepted' | 'Partially Accepted' | 'Rejected'>('All');
+  const [selectedFilter, setSelectedFilter] = useState<'All' | 'Accepted' | 'Partially Accepted' | 'Rejected'>(initialFilter ?? 'All');
 
   const historyItems: ReceivingHistoryItem[] = [
     {

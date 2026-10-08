@@ -82,17 +82,19 @@ function TransferArrowsIcon({ size = 18, color = PALETTE.primary }: { size?: num
 export type ShipmentStatusTab = 'All' | 'Expected' | 'Arrived' | 'In Progress' | 'Completed';
 
 export interface IncomingShipmentsScreenProps {
+  initialFilterTab?: ShipmentStatusTab;
   onBack?: () => void;
   onOpenFilters?: () => void;
   onSelectShipment?: (shipmentId: string) => void;
 }
 
 export function IncomingShipmentsScreen({
+  initialFilterTab,
   onBack,
   onOpenFilters,
   onSelectShipment,
 }: IncomingShipmentsScreenProps) {
-  const [activeFilterTab, setActiveFilterTab] = useState<ShipmentStatusTab>('All');
+  const [activeFilterTab, setActiveFilterTab] = useState<ShipmentStatusTab>(initialFilterTab ?? 'All');
 
   const FILTER_TABS: ShipmentStatusTab[] = ['All', 'Expected', 'Arrived', 'In Progress', 'Completed'];
 

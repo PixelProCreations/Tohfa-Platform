@@ -15,27 +15,24 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
-
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F3EFEA',
-
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
+  primary: '#F0562A',
+  primaryDark: '#7A2E14',
+  primaryLight: '#FFF3EE',
+  primarySoft: '#FFF3EE',
+  primaryBorder: '#F0562A',
+  pageBg: '#F3EFE9',
+  cardBg: '#FFFFFF',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  divider: '#EEDCD3',
+  infoBg: '#E6F1FB',
+  infoBorder: '#EEDCD3',
+  infoText: '#0C447C',
 };
 
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
-
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path

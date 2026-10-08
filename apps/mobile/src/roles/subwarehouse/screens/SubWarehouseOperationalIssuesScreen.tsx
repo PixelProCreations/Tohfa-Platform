@@ -12,13 +12,14 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 const PALETTE = {
   primary: '#F0562A',
-  pageBg: '#F7F5F0',
+  primaryDark: '#7A2E14',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  border: '#EBE5DC',
-  redBadgeBg: '#FEE2E2',
-  redBadgeText: '#991B1B',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  border: '#EEDCD3',
+  redBadgeBg: '#FCEBEB',
+  redBadgeText: '#E24B4A',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
