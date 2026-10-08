@@ -272,14 +272,6 @@ export function SubWarehouseRmaDetailScreen({
           <Text style={styles.returnQtyText}>{rma.requestedQuantity}</Text>
         </View>
 
-        {/* Blue Info Alert Box */}
-        <View style={styles.blueAlertBox}>
-          <LockBlueIcon size={16} color="#2563EB" />
-          <Text style={styles.blueAlertText}>
-            SWA cannot change this quantity from this screen — it's the customer's original request.
-          </Text>
-        </View>
-
         {/* ─── Requested Resolution Section ─── */}
         <Text style={styles.sectionHeader}>Requested Resolution</Text>
         <View style={styles.card}>

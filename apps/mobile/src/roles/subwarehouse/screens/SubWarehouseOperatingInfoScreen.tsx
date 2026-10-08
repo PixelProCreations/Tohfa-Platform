@@ -371,13 +371,6 @@ export function SubWarehouseOperatingInfoScreen({
             </Text>
           </View>
 
-          {/* 8. Red Warning Alert Box */}
-          <View style={styles.redWarningBox}>
-            <SlashCircleIcon size={18} color={PALETTE.warningText} />
-            <Text style={styles.redWarningText}>
-              No Edit Operating Hours, Change Status, Change Capacity, or Configure Services — all remain with authorized higher-level roles.
-            </Text>
-          </View>
         </View>
       </ScrollView>
 

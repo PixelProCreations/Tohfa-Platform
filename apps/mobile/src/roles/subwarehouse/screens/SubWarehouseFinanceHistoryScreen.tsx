@@ -401,16 +401,6 @@ export function SubWarehouseFinanceHistoryScreen({
           ))}
         </View>
 
-        {/* ─── Pagination Info Callout ─── */}
-        <View style={styles.blueCallout}>
-          <Text style={styles.blueCalloutText}>
-            Large histories are paginated server-side rather than loaded all at once.
-          </Text>
-        </View>
-
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S09 · Finance History</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 

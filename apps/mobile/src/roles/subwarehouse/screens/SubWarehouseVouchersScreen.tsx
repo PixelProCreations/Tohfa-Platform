@@ -399,9 +399,6 @@ export function SubWarehouseVouchersScreen({
           })}
         </View>
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S07 · Vouchers</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 

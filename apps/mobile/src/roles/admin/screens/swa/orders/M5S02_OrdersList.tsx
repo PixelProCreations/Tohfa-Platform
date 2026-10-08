@@ -13,6 +13,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 interface M5S02Props {
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
+  routeParams?: any;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -135,13 +136,15 @@ const ORDERS = [
   },
 ];
 
-export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) => {
+export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack, routeParams }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredOrders = ORDERS.filter(
-    (order) =>
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase())
+    (order) => {
+      if (routeParams?.defaultFilter && order.status !== routeParams.defaultFilter) return false;
+      return order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             order.customer.toLowerCase().includes(searchQuery.toLowerCase());
+    }
   );
 
   return (

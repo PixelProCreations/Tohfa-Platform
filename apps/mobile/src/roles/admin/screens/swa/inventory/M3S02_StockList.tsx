@@ -7,6 +7,7 @@ interface M3S02Props {
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
   onTabChange?: ((tab: any) => void) | undefined;
+  initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
 }
 
 // ─── Custom Icons matching Design Mockup (Pure Path - zero Hermes/SVG errors) ─
@@ -112,8 +113,8 @@ function SearchIcon({ color = '#8A7E75' }: { color?: string }) {
   );
 }
 
-export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTabChange }) => {
-  const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Stock');
+export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTabChange, initialTab = 'Stock' }) => {
+  const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
 
   const stockItems = [

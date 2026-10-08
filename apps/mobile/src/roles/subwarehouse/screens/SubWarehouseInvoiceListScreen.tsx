@@ -249,17 +249,6 @@ export function SubWarehouseInvoiceListScreen({
             returnKeyType="search"
           />
         </View>
-
-        {/* ─── SWA Scope Info Box ─── */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoIconWrap}>
-            <InfoCircleIcon size={18} color="#2563EB" />
-          </View>
-          <Text style={styles.infoText}>
-            Only invoice types returned for the SWA scope appear here — Purchase Farmer, Payout, and Subscription invoices are not shown unless the backend explicitly grants that access.
-          </Text>
-        </View>
-
         {/* ─── Invoice Cards ─── */}
         {filteredInvoices.map((inv) => {
           const isPending = inv.status === 'Pending';
@@ -294,7 +283,6 @@ export function SubWarehouseInvoiceListScreen({
               {/* Action Buttons (shown only for expanded card) */}
               {isExpanded && (
                 <View style={styles.actionRow}>
-                  <View style={styles.actionCircleBtn} />
                   <TouchableOpacity
                     style={styles.viewBtn}
                     onPress={() => (onNavigateToInvoiceDetail ? onNavigateToInvoiceDetail(inv.id) : Alert.alert('View', `Opening detail for ${inv.id}`))}

@@ -286,7 +286,13 @@ export function SubWarehouseTodayOverviewScreen({
                     styles.filterChip,
                     isActive && styles.filterChipActive,
                   ]}
-                  onPress={() => setSelectedCategory(cat)}
+                  onPress={() => {
+                    if (cat !== 'All' && onNavigateToSection) {
+                      onNavigateToSection(cat);
+                    } else {
+                      setSelectedCategory(cat);
+                    }
+                  }}
                   activeOpacity={0.75}
                 >
                   <Text

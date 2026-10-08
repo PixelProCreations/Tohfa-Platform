@@ -139,8 +139,26 @@ function MapFoldedIcon({ size = 18, color = PALETTE.primary }: { size?: number; 
 function StorageRackIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 9h18M3 15h18M9 9v6M15 9v6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 21v-7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v7"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M10 17h4"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -478,12 +496,7 @@ export function SubWarehouseProfileScreen({
             </View>
           </View>
 
-          {/* Blue Info Notice Box */}
-          <View style={styles.blueNoticeBox}>
-            <Text style={styles.blueNoticeText}>
-              Current Stock links to <Text style={{ fontWeight: '700' }}>Inventory → Warehouse Inventory (Module 3)</Text> — it is not editable from here, and SWA cannot activate or deactivate the warehouse.
-            </Text>
-          </View>
+
 
           {/* 5. Warehouse Profile Sections */}
           <Text style={styles.sectionHeading}>Warehouse Profile Sections</Text>
@@ -561,13 +574,6 @@ export function SubWarehouseProfileScreen({
             </TouchableOpacity>
           </View>
 
-          {/* 6. Red Warning Alert Box */}
-          <View style={styles.redWarningBox}>
-            <SlashCircleIcon size={18} color={PALETTE.warningText} />
-            <Text style={styles.redWarningText}>
-              No Add Warehouse, Delete Warehouse, Change Assignment, or warehouse-switching dropdown anywhere in this module — SWA is locked to Coonoor, enforced server-side.
-            </Text>
-          </View>
         </View>
       </ScrollView>
 
@@ -767,41 +773,39 @@ export function SubWarehouseProfileScreen({
       </Modal>
 
       {/* 5. Map Preview Modal */}
-      <Modal visible={activeModal === 'map'} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
-                <View style={styles.sectionIconBox}>
-                  <MapPinIcon size={20} color={PALETTE.primary} />
-                </View>
-                <Text style={styles.modalTitle}>Warehouse Location</Text>
+      <Modal visible={activeModal === 'map'} transparent={false} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.cardBg }}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalTitleRow}>
+              <View style={styles.sectionIconBox}>
+                <MapPinIcon size={20} color={PALETTE.primary} />
               </View>
-              <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.modalCloseBtn}>
-                <CloseIcon />
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Warehouse Location</Text>
             </View>
-
-            <View style={styles.modalBody}>
-              <View style={styles.mapGraphicPlaceholder}>
-                <MapPinIcon size={36} color={PALETTE.primary} />
-                <Text style={styles.mapCoordsText}>11.3530° N, 76.7959° E</Text>
-                <Text style={styles.mapAddressSub}>Coonoor Agricultural Hub, BedFord, Coonoor, Nilgiris - 643101</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.modalActionButton}
-                onPress={() => {
-                  setActiveModal(null);
-                  Alert.alert('Directions', 'Opening GPS navigation to Coonoor Warehouse...');
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalActionButtonText}>Start GPS Navigation</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => setActiveModal(null)} style={styles.modalCloseBtn}>
+              <CloseIcon />
+            </TouchableOpacity>
           </View>
-        </View>
+
+          <View style={[styles.modalBody, { flex: 1 }]}>
+            <View style={[styles.mapGraphicPlaceholder, { flex: 1, marginBottom: 20 }]}>
+              <MapPinIcon size={36} color={PALETTE.primary} />
+              <Text style={styles.mapCoordsText}>11.3530° N, 76.7959° E</Text>
+              <Text style={styles.mapAddressSub}>Coonoor Agricultural Hub, BedFord, Coonoor, Nilgiris - 643101</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalActionButton}
+              onPress={() => {
+                setActiveModal(null);
+                Alert.alert('Directions', 'Opening GPS navigation to Coonoor Warehouse...');
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalActionButtonText}>Start GPS Navigation</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );

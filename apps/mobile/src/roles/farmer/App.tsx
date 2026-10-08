@@ -208,12 +208,14 @@ import {
   SubWarehouseRmaResolutionSuccessScreen,
   SubWarehouseStaffScreen,
   SubWarehouseStaffDetailScreen,
+  SubWarehouseEditStaffProfileScreen,
   SubWarehouseAttendanceScreen,
   SubWarehouseTodayAttendanceScreen,
   SubWarehouseAttendanceHistoryScreen,
   SubWarehouseDailyCashScreen,
   SubWarehouseFinanceScreen,
   SubWarehouseRevenueScreen,
+  SubWarehouseRevenueDetailScreen,
   SubWarehouseExpensesScreen,
   SubWarehouseAddExpenseScreen,
   SubWarehouseExpenseDetailScreen,
@@ -419,6 +421,7 @@ export type ScreenName =
   | 'SubWarehouseDailyCash'
   | 'SubWarehouseFinance'
   | 'SubWarehouseRevenue'
+  | 'SubWarehouseRevenueDetail'
   | 'SubWarehouseExpenses'
   | 'SubWarehouseAddExpense'
   | 'SubWarehouseExpenseDetail'
@@ -617,6 +620,7 @@ export type ScreenName =
   | 'SubWarehouseFinance'
   | 'SubWarehouseExpenses'
   | 'SubWarehouseRevenue'
+  | 'SubWarehouseRevenueDetail'
   | 'SubWarehouseVouchers'
   | 'SubWarehouseVoucherDetail'
   | 'SubWarehouseDailyCash'
@@ -2053,6 +2057,17 @@ export default function App(): React.JSX.Element {
             staff={params['staff'] as any}
             onBack={goBack}
             onViewAttendance={() => navigate('SubWarehouseAttendance', { staff: params['staff'] as any })}
+            onEditProfile={(staff) => navigate('SubWarehouseEditStaffProfile', { staff: staff as any })}
+          />
+        ) : screen === 'SubWarehouseEditStaffProfile' ? (
+          <SubWarehouseEditStaffProfileScreen
+            staff={params['staff'] as any}
+            onBack={goBack}
+            onSave={(staff) => {
+              // Usually we'd update state or refetch, but here just go back to Staff
+              goBack();
+              goBack();
+            }}
           />
         ) : screen === 'SubWarehouseAttendance' ? (
           <SubWarehouseAttendanceScreen
@@ -2115,6 +2130,8 @@ export default function App(): React.JSX.Element {
             onNavigateToDailyCash={() => navigate('SubWarehouseDailyCash')}
             onNavigateToHistory={() => navigate('SubWarehouseFinanceHistory')}
             onNavigateToCategories={() => navigate('SubWarehouseExpenseCategories')}
+            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
+            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
           />
         ) : screen === 'SubWarehouseRevenue' ? (
           <SubWarehouseRevenueScreen
@@ -2125,6 +2142,18 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
+            onNavigateToDetail={(id) => navigate('SubWarehouseRevenueDetail')}
+          />
+        ) : screen === 'SubWarehouseRevenueDetail' ? (
+          <SubWarehouseRevenueDetailScreen
+            onBack={goBack}
+            revenueId={(params['revenueId'] as string) || 'REV-000845'}
+            finalAmount={(params['finalAmount'] as string) || '3,450'}
+            salesChannel={(params['salesChannel'] as string) || 'Market Sale'}
+            transactionDate={(params['transactionDate'] as string) || '25 Sep, 11:20 AM'}
+            onViewOrder={() => navigate('SubWarehouseCustomerOrders')}
+            onViewInvoice={() => navigate('SubWarehouseInvoiceList')}
+            onViewTransactionHistory={() => navigate('SubWarehouseFinanceHistory')}
           />
         ) : screen === 'SubWarehouseExpenses' ? (
           <SubWarehouseExpensesScreen
@@ -2140,7 +2169,29 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SubWarehouseAddExpense' ? (
           <SubWarehouseAddExpenseScreen
             onBack={goBack}
-            onSaveSuccess={() => goBack()}
+            onSaveSuccess={() => {
+              navigate('SubWarehouseExpenseDetail', {
+                expenseId: 'EXP-001245',
+                amount: 2400,
+                category: 'Transport',
+                date: '25 Sep 2026',
+                description: 'Transport from Coonoor collection point to warehouse',
+                paymentMethod: 'Cash',
+                vendorPayee: 'Coonoor Transport Co.',
+                warehouse: 'Coonoor Warehouse',
+                createdBy: 'SWA - Suresh',
+                status: 'Recorded',
+              });
+            }}
+            initialExpense={{
+              expenseId: (params['expenseId'] as string) || 'EXP-001245',
+              amount: String(params['amount'] || '2400'),
+              category: (params['category'] as string) || 'Transport',
+              date: (params['date'] as string) || '25 Sep 2026',
+              description: (params['description'] as string) || 'Transport from Coonoor collection point to warehouse',
+              paymentMethod: (params['paymentMethod'] as 'Cash' | 'UPI' | 'Bank') || 'Cash',
+              vendorPayee: (params['vendorPayee'] as string) || 'Coonoor Transport Co.'
+            }}
           />
         ) : screen === 'SubWarehouseExpenseDetail' ? (
           <SubWarehouseExpenseDetailScreen
@@ -2161,7 +2212,10 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
-            onEdit={() => navigate('SubWarehouseAddExpense')}
+
+            onEdit={() => navigate('SubWarehouseAddExpense', params)}
+            isReceiptView={!!params['isReceiptView'] && params['isReceiptView'] === 'true'}
+            onViewReceipt={() => navigate('SubWarehouseExpenseDetail', { ...params, isReceiptView: 'true' })}
           />
         ) : screen === 'SubWarehouseExpenseCategories' ? (
           <SubWarehouseExpenseCategoriesScreen
@@ -2182,14 +2236,23 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
-            onSelectItem={(item) =>
-              navigate('SubWarehouseExpenseDetail', {
-                expenseId: item.id,
-                amount: item.amount,
-                category: item.title,
-                date: item.time,
-              })
-            }
+            onSelectItem={(item) => {
+              if (item.type === 'Revenue') {
+                navigate('SubWarehouseRevenueDetail', {
+                  revenueId: item.id,
+                  finalAmount: item.amount.toString(),
+                  salesChannel: item.title,
+                  transactionDate: item.time,
+                });
+              } else {
+                navigate('SubWarehouseExpenseDetail', {
+                  expenseId: item.id,
+                  amount: item.amount,
+                  category: item.title,
+                  date: item.time,
+                });
+              }
+            }}
           />
         ) : screen === 'SubWarehouseFinanceReports' ? (
           <SubWarehouseFinanceReportsScreen
@@ -2201,9 +2264,10 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
-            onSelectReport={(reportId) => {
-              Alert.alert('Report Selected', `Viewing report: ${reportId}`);
-            }}
+
+            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
+            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
+            onNavigateToHistory={() => navigate('SubWarehouseFinanceHistory')}
           />
         ) : screen === 'SubWarehouseVouchers' ? (
           <SubWarehouseVouchersScreen

@@ -58,6 +58,7 @@ export * from '../../../subwarehouse/screens/SubWarehouseReturnHistoryDetailScre
 export * from '../../../subwarehouse/screens/SubWarehouseRmaResolutionSuccessScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseStaffScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseStaffDetailScreen';
+export * from '../../../subwarehouse/screens/SubWarehouseEditStaffProfileScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceScreen';
 export { SubWarehouseTodayAttendanceScreen, type SubWarehouseTodayAttendanceScreenProps } from '../../../subwarehouse/screens/SubWarehouseTodayAttendanceScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
@@ -134,3 +135,4 @@ export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssueDetailS
 export * from '../../../subwarehouse/screens/SubWarehouseStaffAndAttendanceScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceDetailScreen';
 export { SubWarehouseWarehouseActivityScreen, type SubWarehouseWarehouseActivityScreenProps } from '../../../subwarehouse/screens/SubWarehouseWarehouseActivityScreen';
+export * from '../../../subwarehouse/screens/SubWarehouseRevenueDetailScreen';

@@ -50,6 +50,15 @@ const EXPENSE_CATEGORIES = [
 export interface SubWarehouseAddExpenseScreenProps {
   onBack?: (() => void) | undefined;
   onSaveSuccess?: (() => void) | undefined;
+  initialExpense?: {
+    expenseId: string;
+    amount: string;
+    category: string;
+    date: string;
+    description: string;
+    paymentMethod: 'Cash' | 'UPI' | 'Bank';
+    vendorPayee: string;
+  };
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -164,6 +173,42 @@ function QuestionCircleIcon({ size = 20, color = '#8B5E3C' }: { size?: number; c
   );
 }
 
+function DocumentIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckCircleOutlineIcon({ size = 48, color = '#059669' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2.5" />
+      <Path
+        d="M16 9l-5.5 5.5L8 12"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function CheckIcon({ size = 18, color = '#059669' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -213,18 +258,26 @@ const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 export function SubWarehouseAddExpenseScreen({
   onBack,
   onSaveSuccess,
+  initialExpense,
 }: SubWarehouseAddExpenseScreenProps) {
-  const [selectedCategory, setSelectedCategory] = useState('Transport');
+  const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || 'Transport');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [expenseDate, setExpenseDate] = useState('25 Sep 2026');
-  const [amount, setAmount] = useState('2400');
-  const [description, setDescription] = useState('Transport from Coonoor collection point to warehouse');
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>('Cash');
-  const [vendorPayee, setVendorPayee] = useState('');
+  const [expenseDate, setExpenseDate] = useState(initialExpense?.date || '25 Sep 2026');
+  const [amount, setAmount] = useState(initialExpense?.amount || '2400');
+  const [description, setDescription] = useState(initialExpense?.description || 'Transport from Coonoor collection point to warehouse');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>(initialExpense?.paymentMethod || 'Cash');
+  const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
   const [attachedDoc, setAttachedDoc] = useState<string | null>(null);
+
+  // Add Category State
+  const [showAddCategoryScreen, setShowAddCategoryScreen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryStatus, setNewCategoryStatus] = useState('Active');
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
 
   // Confirmation state
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // Calendar State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -287,20 +340,117 @@ export function SubWarehouseAddExpenseScreen({
   };
 
   const handleConfirmSave = () => {
-    Alert.alert(
-      'Expense Recorded',
-      `Expense for ₹${amount} (${selectedCategory}) on ${expenseDate} has been successfully saved.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onSaveSuccess) onSaveSuccess();
-            else if (onBack) onBack();
-          },
-        },
-      ]
-    );
+    setIsConfirming(false);
+    setIsSuccess(true);
   };
+
+  const handleSaveCategory = () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert('Validation Error', 'Please enter a category name.');
+      return;
+    }
+    Alert.alert('Category Added', `Category "${newCategoryName}" has been successfully added.`);
+    setShowAddCategoryScreen(false);
+    setNewCategoryName('');
+  };
+
+  if (showAddCategoryScreen) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+
+        {/* ─── Top Brand Header Banner ─── */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setShowAddCategoryScreen(false)}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Add Category</Text>
+          </View>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.confirmCard, { borderColor: PALETTE.primary, paddingBottom: 20 }]}>
+            <View style={[styles.confirmHeaderRow, { marginBottom: 16 }]}>
+              <Text style={{ color: PALETTE.iconColor, fontWeight: '800', fontSize: 14 }}>⊕ Add Category</Text>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Category Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                placeholder="e.g. Packaging"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Status</Text>
+              <TouchableOpacity
+                style={styles.dropdownBtn}
+                onPress={() => setShowStatusPicker(!showStatusPicker)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dropdownValueText}>{newCategoryStatus}</Text>
+                <ChevronDownIcon size={16} color="#1E1612" />
+              </TouchableOpacity>
+
+              {showStatusPicker && (
+                <View style={styles.pickerDropdown}>
+                  {['Active', 'Inactive'].map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.pickerOption,
+                        newCategoryStatus === status && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => {
+                        setNewCategoryStatus(status);
+                        setShowStatusPicker(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          newCategoryStatus === status && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {status}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.confirmGreenBtn, { marginTop: 8 }]}
+              onPress={handleSaveCategory}
+              activeOpacity={0.8}
+            >
+              <CheckIcon size={18} color="#059669" />
+              <Text style={styles.confirmGreenBtnText}>Save</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.confirmCancelBtn, { marginTop: 12 }]}
+              onPress={() => setShowAddCategoryScreen(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   // If in Confirmation step, render confirmation view
   if (isConfirming) {
@@ -319,7 +469,7 @@ export function SubWarehouseAddExpenseScreen({
             >
               <ArrowBackIcon size={22} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Add Expense</Text>
+            <Text style={styles.headerTitle}>{initialExpense ? 'Edit Expense' : 'Add Expense'}</Text>
           </View>
         </View>
 
@@ -378,6 +528,62 @@ export function SubWarehouseAddExpenseScreen({
     );
   }
 
+  // If successfully recorded, show the Expense Recorded success screen
+  if (isSuccess) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        
+        {/* Top Brand Header Banner */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (onBack) onBack();
+                else setIsSuccess(false);
+              }}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowBackIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Expense Recorded</Text>
+          </View>
+        </View>
+
+        {/* Content Area */}
+        <View style={styles.successContainer}>
+          <View style={styles.successIconCircle}>
+            <CheckCircleOutlineIcon size={32} color="#059669" />
+          </View>
+          <Text style={styles.successTitle}>Expense Recorded</Text>
+          <Text style={styles.successSubtitle}>Expense ID EXP-001245</Text>
+
+          <View style={styles.amountCard}>
+            <Text style={styles.amountCardLabel}>Amount</Text>
+            <Text style={styles.amountCardValue}>₹{amount}</Text>
+          </View>
+        </View>
+
+        {/* Sticky Bottom Bar */}
+        <View style={styles.successBottomBar}>
+          <TouchableOpacity
+            style={styles.viewExpenseBtn}
+            onPress={() => {
+              if (onSaveSuccess) onSaveSuccess();
+              else if (onBack) onBack();
+            }}
+            activeOpacity={0.8}
+          >
+            <DocumentIcon size={18} color="#FFFFFF" />
+            <Text style={styles.viewExpenseBtnText}>View Expense</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -393,12 +599,13 @@ export function SubWarehouseAddExpenseScreen({
           >
             <ArrowBackIcon size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add Expense</Text>
+          <Text style={styles.headerTitle}>{initialExpense ? 'Edit Expense' : 'Add Expense'}</Text>
         </View>
       </View>
 
-      {/* ─── Main Content Scroll Form ─── */}
-      <ScrollView
+      {/* ─── Main Content Area with Overlay ─── */}
+      <View style={{ flex: 1 }}>
+        <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -408,7 +615,12 @@ export function SubWarehouseAddExpenseScreen({
 
         {/* Field 1: Expense Category */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Expense Category</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={[styles.fieldLabel, { marginBottom: 0 }]}>Expense Category</Text>
+            <TouchableOpacity onPress={() => setShowAddCategoryScreen(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={{ color: PALETTE.primary, fontWeight: '700', fontSize: 13 }}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={styles.dropdownBtn}
             onPress={() => setShowCategoryPicker(!showCategoryPicker)}
@@ -445,13 +657,6 @@ export function SubWarehouseAddExpenseScreen({
               ))}
             </View>
           )}
-
-          {/* Callout 1: Expense Categories Note */}
-          <View style={styles.blueCallout}>
-            <Text style={styles.blueCalloutText}>
-              Categories are managed through Expense Categories (S06) — the list here always reflects what's configured there.
-            </Text>
-          </View>
         </View>
 
         {/* Field 2: Expense Date */}
@@ -528,13 +733,6 @@ export function SubWarehouseAddExpenseScreen({
               );
             })}
           </View>
-
-          {/* Callout 2: Payment Authorized Note */}
-          <View style={styles.blueCallout}>
-            <Text style={styles.blueCalloutText}>
-              Only payment methods configured/authorized for this warehouse are shown.
-            </Text>
-          </View>
         </View>
 
         {/* Field 5: Vendor / Payee */}
@@ -602,21 +800,14 @@ export function SubWarehouseAddExpenseScreen({
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S04 · Expense Entry</Text>
-
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* ─── Interactive Calendar Picker Modal ─── */}
-      <Modal
-        visible={showCalendarModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowCalendarModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.calendarCard}>
+      {/* ─── Interactive Calendar Picker Overlay ─── */}
+      {showCalendarModal && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.calendarCard}>
             {/* Header: Title + Close Button */}
             <View style={styles.calHeaderRow}>
               <View>
@@ -778,7 +969,9 @@ export function SubWarehouseAddExpenseScreen({
             </View>
           </View>
         </View>
-      </Modal>
+        </View>
+      )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -1363,5 +1556,74 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#8B4513',
+  },
+  
+  // ─── Success Screen Styles ───
+  successContainer: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1E1612',
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    fontSize: 13,
+    color: '#7A726C',
+    marginBottom: 32,
+  },
+  amountCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#EBE5DC',
+  },
+  amountCardLabel: {
+    fontSize: 13,
+    color: '#7A726C',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  amountCardValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1E1612',
+  },
+  successBottomBar: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#EBE5DC',
+  },
+  viewExpenseBtn: {
+    backgroundColor: '#F0562A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  viewExpenseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

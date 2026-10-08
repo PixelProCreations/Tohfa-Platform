@@ -68,6 +68,15 @@ function SlidersIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: 
   );
 }
 
+
+function HistoryIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 8v4l3 3M3.05 11a9 9 0 1 1 .5 4m-.5-4v-4h4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function CalendarIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -239,7 +248,7 @@ export const INITIAL_STAFF_MEMBERS: StaffMember[] = [
 export interface SubWarehouseStaffScreenProps {
   onBack: () => void;
   onSelectStaff: (staff: StaffMember) => void;
-  onNavigateToAttendance?: () => void;
+  onNavigateToHistory?: () => void;
   onNavigateToTodayAttendance?: () => void;
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
   warehouseName?: string;
@@ -248,7 +257,7 @@ export interface SubWarehouseStaffScreenProps {
 export function SubWarehouseStaffScreen({
   onBack,
   onSelectStaff,
-  onNavigateToAttendance,
+  onNavigateToHistory,
   onNavigateToTodayAttendance,
   onTabChange,
   warehouseName = 'Coonoor Warehouse',
@@ -294,14 +303,7 @@ export function SubWarehouseStaffScreen({
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              style={styles.headerAttendancePill}
-              onPress={onNavigateToTodayAttendance || onNavigateToAttendance}
-              activeOpacity={0.8}
-            >
-              <CalendarIcon size={14} color="#FFFFFF" />
-              <Text style={styles.headerAttendancePillText}>Attendance</Text>
-            </TouchableOpacity>
+
 
             <TouchableOpacity
               style={styles.sliderButton}
@@ -335,8 +337,8 @@ export function SubWarehouseStaffScreen({
           {/* Card 2: Present Today */}
           <TouchableOpacity
             style={styles.metricCard}
-            onPress={onNavigateToAttendance}
-            activeOpacity={onNavigateToAttendance ? 0.75 : 1}
+            onPress={onNavigateToHistory}
+            activeOpacity={onNavigateToHistory ? 0.75 : 1}
           >
             <Text style={styles.metricLabel}>PRESENT TODAY</Text>
             <Text style={styles.metricValueGreen}>9</Text>
@@ -345,8 +347,8 @@ export function SubWarehouseStaffScreen({
           {/* Card 3: Absent */}
           <TouchableOpacity
             style={styles.metricCard}
-            onPress={onNavigateToAttendance}
-            activeOpacity={onNavigateToAttendance ? 0.75 : 1}
+            onPress={onNavigateToHistory}
+            activeOpacity={onNavigateToHistory ? 0.75 : 1}
           >
             <Text style={styles.metricLabel}>ABSENT</Text>
             <Text style={styles.metricValueRed}>2</Text>
@@ -355,43 +357,15 @@ export function SubWarehouseStaffScreen({
           {/* Card 4: On Leave */}
           <TouchableOpacity
             style={styles.metricCard}
-            onPress={onNavigateToAttendance}
-            activeOpacity={onNavigateToAttendance ? 0.75 : 1}
+            onPress={onNavigateToHistory}
+            activeOpacity={onNavigateToHistory ? 0.75 : 1}
           >
             <Text style={styles.metricLabel}>ON LEAVE</Text>
             <Text style={styles.metricValueAmber}>1</Text>
           </TouchableOpacity>
         </View>
 
-        {/* ─── Blue Info Note ─── */}
-        <View style={styles.blueInfoBox}>
-          <Text style={styles.blueInfoText}>
-            "Total Visible" reflects only records SWA is authorized to see — never a misleading full-company staff count calculated over inaccessible admin records.
-          </Text>
-        </View>
 
-        {/* ─── Today's Attendance Quick Card ─── */}
-        <TouchableOpacity
-          style={styles.todayAttendanceCard}
-          onPress={onNavigateToTodayAttendance || onNavigateToAttendance}
-          activeOpacity={0.85}
-        >
-          <View style={styles.todayAttendanceLeft}>
-            <View style={styles.todayAttendanceIconWrap}>
-              <CalendarIcon size={18} color={PALETTE.primary} />
-            </View>
-            <View>
-              <Text style={styles.todayAttendanceTitle}>Today's Attendance</Text>
-              <Text style={styles.todayAttendanceSub}>9 / 12 Staff Present · Daily check-ins & roster</Text>
-            </View>
-          </View>
-          <View style={styles.todayAttendanceRight}>
-            <View style={styles.attendanceBadge}>
-              <Text style={styles.attendanceBadgeText}>9 / 12 In</Text>
-            </View>
-            <ArrowRightIcon size={14} color={PALETTE.primary} />
-          </View>
-        </TouchableOpacity>
 
         {/* ─── Filter Chips ─── */}
         <View style={styles.chipsRow}>
@@ -487,6 +461,27 @@ export function SubWarehouseStaffScreen({
               )}
             </TouchableOpacity>
           ))}
+        </View>
+
+        
+        {/* ─── Bottom Action Tabs ─── */}
+        <View style={styles.actionTabsRow}>
+          <TouchableOpacity
+            style={styles.actionTabCard}
+            onPress={onNavigateToTodayAttendance}
+            activeOpacity={0.8}
+          >
+            <CalendarIcon size={22} color={PALETTE.primary} />
+            <Text style={styles.actionTabText}>Attendance</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionTabCard}
+            onPress={onNavigateToHistory}
+            activeOpacity={0.8}
+          >
+            <HistoryIcon size={22} color={PALETTE.primary} />
+            <Text style={styles.actionTabText}>Attendance History</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ─── Red HR Disclaimer Card ─── */}
@@ -774,6 +769,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.textInk,
   },
+  
+  actionTabsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  actionTabCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EEDCD3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  actionTabText: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.primary,
+    marginTop: 8,
+  },
+
   redDisclaimerCard: {
     flexDirection: 'row',
     backgroundColor: PALETTE.redBoxBg,
@@ -829,62 +848,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  /* Today's Attendance Quick Card */
-  todayAttendanceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  todayAttendanceLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  todayAttendanceIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayAttendanceTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  todayAttendanceSub: {
-    fontSize: 11,
-    color: PALETTE.textSecondary,
-    marginTop: 2,
-  },
-  todayAttendanceRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  attendanceBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  attendanceBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#15803D',
-  },
+
 });

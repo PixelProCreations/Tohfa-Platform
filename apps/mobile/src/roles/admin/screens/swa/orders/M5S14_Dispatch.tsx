@@ -101,6 +101,14 @@ function HistoryClockWhiteIcon() {
   );
 }
 
+function ChevronDownIcon({ size = 16, color = '#1E1612' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export const M5S14_Dispatch: React.FC<M5S14Props> = ({
   orderId = 'ORD-1021',
   initialStep = 'details',
@@ -289,18 +297,13 @@ export const M5S14_Dispatch: React.FC<M5S14Props> = ({
           {/* Section 2: Delivery Partner */}
           <Text style={styles.sectionTitle}>Delivery Partner</Text>
 
-          {/* Blue Info Alert Box */}
-          <View style={styles.infoBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.infoText}>
-              Delivery-partner assignment is not duplicated here — if it exists, it's owned by another module.
-            </Text>
-          </View>
-
           {/* Assignment Card */}
-          <View style={[styles.card, { marginTop: 12 }]}>
+          <View style={[styles.card, { marginTop: 8 }]}>
             <Text style={styles.fieldLabel}>Assignment</Text>
-            <Text style={styles.fieldValue}>Not available in this build</Text>
+            <TouchableOpacity style={styles.dropdownBtn} activeOpacity={0.8}>
+              <Text style={styles.dropdownValueText}>Select delivery person</Text>
+              <ChevronDownIcon size={16} color="#1E1612" />
+            </TouchableOpacity>
           </View>
 
           <View style={{ height: 24 }} />
@@ -423,6 +426,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1E40AF',
     lineHeight: 16,
+  },
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  dropdownValueText: {
+    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1D2420',
   },
   confirmPromptBox: {
     backgroundColor: '#FEF9EE',
