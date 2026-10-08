@@ -1140,6 +1140,32 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-55 — Tree and perennial plantings are own-data, positive-count validated, and audit-logged
+| | |
+|---|---|
+| **Source** | FR-F04 / FR-F05, Agroforestry and perennial tree planting tracking; mobile TreePlantingScreen |
+| **Status** | LOCKED |
+| **Layer** | Server-side, `apps/api/src/modules/tree-plantings/`; `tree_plantings` table (`0034_tree_plantings.sql`) |
+| **Scope** | Track 1 (farmer-facing CRUD) |
+
+**Rule.** A farmer manages tree and perennial plantings under `/farmers/me/tree-plantings`.
+1. **Positive count:** `treeCount` must be an integer greater than 0 (`BR-55a`).
+2. **Planting date validation:** `plantedOn` cannot be a future date relative to today in Asia/Kolkata (`BR-55b`).
+3. **Own data only:** Authenticated farmer can only list, view, create, update, or delete plantings belonging to their own farmer profile. Attempting to access another farmer's planting returns 404 (BR-36, `BR-55c`).
+4. **Soft delete:** Deleting a tree planting sets `deleted_at = now()`. Soft-deleted plantings are excluded from lists and queries (`BR-55d`).
+5. **Audit logging & Row locking:** Creating, updating, or deleting a tree planting locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-55e`).
+
+**Failure mode if unenforced.** Zero or negative tree counts corrupt agroforestry metrics and tree cover reporting; future dates create inconsistent plantation timelines; cross-farmer access leaks confidential land usage.
+
+**Test contract.** (`apps/api/src/modules/tree-plantings/tree-plantings.test.ts`)
+- `BR-55a` Rejects `treeCount <= 0` or non-integer with 422 `VALIDATION_FAILED`.
+- `BR-55b` Rejects `plantedOn` in the future relative to Asia/Kolkata with 422 `VALIDATION_FAILED`.
+- `BR-55c` Cross-farmer access returns 404 `NOT_FOUND` (BR-36).
+- `BR-55d` Soft-delete sets `deleted_at` and removes record from list and get queries.
+- `BR-55e` Mutations lock the farmer row and write audit log records (BR-35).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

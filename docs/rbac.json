@@ -901,6 +901,21 @@
       "source": "BR-46, product decision 2026-09-29"
     },
     {
+      "code": "farmer.tree_planting.manage_own",
+      "module": "Crops",
+      "description": "Create, view, update, and delete own tree and perennial planting records.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M3 Tree Plantings (BR-55)"
+    },
+    {
       "code": "admin.crop_taxonomy.manage",
       "module": "Crops",
       "description": "Create, edit and deactivate crop_master reference rows (the crop taxonomy).",

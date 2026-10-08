@@ -174,6 +174,10 @@ tags:
       pay to be computed at read time from raw rows, never stored, and
       extends BR-38's no-automation boundary to attendance and payouts —
       both are exclusively farmer-initiated writes.
+  - name: Tree Plantings
+    description: |
+      A farmer's own tree and perennial plantings (`tree_plantings`). Tracks species, tree counts,
+      planting dates, and plot associations with server-side positive counts and date checks (BR-55).
   - name: Pricing
     description: Super-Admin fair price ceilings and admin retail prices.
   - name: Marketing
@@ -5441,6 +5445,132 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/tree-plantings:
+    get:
+      tags: [Tree Plantings]
+      operationId: listMyTreePlantings
+      summary: List own tree and perennial plantings
+      description: |
+        Returns paginated tree and perennial planting records for the authenticated farmer (BR-55).
+      x-permission: farmer.tree_planting.manage_own
+      x-business-rules: [BR-55, BR-36]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated list of tree plantings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreePlantingsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Tree Plantings]
+      operationId: createMyTreePlanting
+      summary: Record a new tree or perennial planting
+      description: |
+        Creates a new tree planting record. Validates that treeCount > 0 and plantedOn <= today in Asia/Kolkata (BR-55).
+      x-permission: farmer.tree_planting.manage_own
+      x-business-rules: [BR-55, BR-36, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTreePlantingRequest'
+      responses:
+        '201':
+          description: Created tree planting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreePlanting'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/tree-plantings/{id}:
+    get:
+      tags: [Tree Plantings]
+      operationId: getMyTreePlanting
+      summary: Get a single tree planting record
+      description: |
+        Retrieves details of an own tree planting by ID (BR-55).
+      x-permission: farmer.tree_planting.manage_own
+      x-business-rules: [BR-55, BR-36]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Tree planting details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreePlanting'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Tree Plantings]
+      operationId: updateMyTreePlanting
+      summary: Update a tree planting record
+      description: |
+        Updates fields of an own tree planting (BR-55).
+      x-permission: farmer.tree_planting.manage_own
+      x-business-rules: [BR-55, BR-36, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTreePlantingRequest'
+      responses:
+        '200':
+          description: Updated tree planting.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreePlanting'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Tree Plantings]
+      operationId: deleteMyTreePlanting
+      summary: Soft-delete a tree planting record
+      description: |
+        Soft-deletes an own tree planting (BR-55d).
+      x-permission: farmer.tree_planting.manage_own
+      x-business-rules: [BR-55, BR-36, BR-35]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Tree planting soft-deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/me/farm-assets:
     get:
       tags: [Farm Assets]
@@ -9308,6 +9438,70 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FarmerDocumentItem'
+
+    TreePlanting:
+      type: object
+      required:
+        - id
+        - farmerId
+        - speciesName
+        - treeCount
+        - createdAt
+      properties:
+        id: { type: string, format: uuid }
+        farmerId: { type: string, format: uuid }
+        farmId: { type: [string, 'null'], format: uuid }
+        plotId: { type: [string, 'null'], format: uuid }
+        speciesName: { type: string, maxLength: 200 }
+        treeCount: { type: integer, minimum: 1 }
+        plantedOn: { type: [string, 'null'], format: date }
+        zoneName: { type: [string, 'null'], maxLength: 200 }
+        purpose: { type: [string, 'null'], maxLength: 500 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    CreateTreePlantingRequest:
+      type: object
+      required:
+        - speciesName
+        - treeCount
+      properties:
+        farmId: { type: string, format: uuid }
+        plotId: { type: string, format: uuid }
+        speciesName: { type: string, minLength: 1, maxLength: 200 }
+        treeCount: { type: integer, minimum: 1 }
+        plantedOn: { type: string, format: date }
+        zoneName: { type: string, maxLength: 200 }
+        purpose: { type: string, maxLength: 500 }
+        notes: { type: string, maxLength: 2000 }
+
+    UpdateTreePlantingRequest:
+      type: object
+      properties:
+        farmId: { type: [string, 'null'], format: uuid }
+        plotId: { type: [string, 'null'], format: uuid }
+        speciesName: { type: string, minLength: 1, maxLength: 200 }
+        treeCount: { type: integer, minimum: 1 }
+        plantedOn: { type: [string, 'null'], format: date }
+        zoneName: { type: [string, 'null'], maxLength: 200 }
+        purpose: { type: [string, 'null'], maxLength: 500 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    TreePlantingsListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TreePlanting'
+        page:
+          type: object
+          required: [hasMore]
+          properties:
+            nextCursor: { type: [string, 'null'] }
+            hasMore: { type: boolean }
 
     FarmWeather:
       type: object

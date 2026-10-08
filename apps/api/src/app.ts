@@ -85,6 +85,7 @@ import {
   farmerBankAccountsRouter,
   farmerUpiRouter,
 } from './modules/farmer-bank-accounts/farmer-bank-accounts.routes.js';
+import { treePlantingsRouter } from './modules/tree-plantings/tree-plantings.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -154,6 +155,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farms', router: workforceRouter },
   { prefix: '/v1/pest-library', router: pestLibraryRouter },
   { prefix: '/v1/weather-risk-notes', router: weatherRiskNotesRouter },
+  { prefix: '/v1/farmers/me', router: treePlantingsRouter },
 ];
 
 /**
