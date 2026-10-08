@@ -648,6 +648,15 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-33a` TOHFA_ADMIN patches `aadhaar` or `mobile` on a farmer → 403, `code: FIELD_LOCKED`; other fields in the same request are not applied either.
 - `BR-33b` No API response body contains an unmasked Aadhaar number for any role.
 
+> [!NOTE]
+> **DRAFT - needs owner approval (Module 9 Proposal)**:
+> An exception to the strict mobile field lock is proposed in `docs/change-mobile-design.md` to permit self-service mobile number updates subject to:
+> 1. Successful two-step OTP challenge (verification of existing registered number followed by verification of target new number under BR-32 rate limits).
+> 2. Immediate revocation of all active sessions and user tokens.
+> 3. Security alert dispatch to the prior mobile number.
+> 4. Full audit logging under `audit_log` (BR-35).
+> Until explicitly approved by the platform owner, the strict lock under BR-33 remains active and enforced.
+
 ---
 
 ### BR-34 — Reactivating a disabled farmer is Super Admin only
