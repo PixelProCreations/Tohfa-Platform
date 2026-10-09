@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   twoColRowSpaced: { marginTop: 14 },
   detailCol: { flex: 1 },
   detailLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: 3 },
-  detailValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
+  detailValue: { ...adminType.sectionHead, color: adminColors.ink },
   packedQtyInputContainer: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: adminSpacing.lg,
   },
-  packedQtyTextInput: { flex: 1, fontSize: 15, fontWeight: '600', color: adminColors.ink, height: '100%' },
+  packedQtyTextInput: { ...adminType.sectionHead, flex: 1, color: adminColors.ink, height: '100%' },
   unitText: { ...adminType.body, fontWeight: '700', color: adminColors.muted },
   infoBox: {
     backgroundColor: adminColors.info.bg,
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: adminSpacing.sm,
   },
-  singleLineInput: { fontSize: 14, fontWeight: '600', color: adminColors.ink, height: '100%' },
+  singleLineInput: { ...adminType.sectionHead, color: adminColors.ink, height: '100%' },
   notesInputBox: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   outlineBtnText: { ...adminType.sectionHead, color: adminColors.brand },
   modalOverlay: { flex: 1, justifyContent: 'center', padding: adminSpacing.input },
   modalCard: { backgroundColor: adminColors.card, borderRadius: adminRadius.lg, padding: 18, ...adminShadow.lg },
-  modalTitle: { fontSize: 15, fontWeight: '700', color: adminColors.ink, marginBottom: adminSpacing.md },
+  modalTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.md },
   modalOption: { paddingVertical: adminSpacing.md, paddingHorizontal: 10, borderRadius: adminRadius.xs },
   modalOptionSelected: { backgroundColor: adminColors.brandTint },
   modalOptionText: { ...adminType.body, color: adminColors.ink },
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
     gap: adminSpacing.md,
     marginBottom: adminSpacing.lg,
   },
-  confirmPromptText: { fontSize: 15, fontWeight: '700', color: adminColors.warning.text },
+  confirmPromptText: { ...adminType.sectionHead, color: adminColors.warning.text },
   orderDetailsCard: { ...card, padding: adminSpacing.lg, marginBottom: 14 },
   checklistSectionTitle: {
     ...adminType.sectionHead,

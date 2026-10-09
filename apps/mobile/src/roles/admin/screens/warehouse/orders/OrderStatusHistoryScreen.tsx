@@ -192,8 +192,7 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   contentContainer: { paddingHorizontal: 20, paddingTop: adminSpacing.md, paddingBottom: adminSpacing.xxxl },
   orderRefLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: adminColors.muted,
     marginBottom: adminSpacing.lg,
     paddingLeft: adminSpacing.xs,
@@ -205,8 +204,8 @@ const styles = StyleSheet.create({
   textCol: { flex: 1, paddingLeft: adminSpacing.md, paddingBottom: adminSpacing.lg },
   stepHeader: { flexDirection: 'row', alignItems: 'center' },
   stepTextWrap: { flex: 1 },
-  stepTitle: { fontSize: 14, fontWeight: '700', color: adminColors.ink, marginBottom: 2 },
-  stepTime: { fontSize: 11.5, fontWeight: '500', color: adminColors.muted },
+  stepTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: 2 },
+  stepTime: { ...adminType.rowMeta, color: adminColors.muted },
   // Folded M5S15B event detail card
   detailCard: {
     backgroundColor: adminColors.card,
@@ -221,6 +220,6 @@ const styles = StyleSheet.create({
   detailRowGap: { marginTop: adminSpacing.lg },
   twoColRow: { flexDirection: 'row', justifyContent: 'space-between' },
   col: { flex: 1 },
-  fieldLabel: { fontSize: 11.5, fontWeight: '500', color: adminColors.muted, marginBottom: adminSpacing.xs },
-  fieldValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
+  fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
 });

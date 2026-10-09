@@ -279,8 +279,7 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.xs,
   },
   orderIdText: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   timeBadge: {
@@ -290,8 +289,7 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
   },
   timeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: adminColors.warning.text,
   },
   customerName: {
@@ -312,8 +310,7 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
   },
   amountText: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   packedReadyRow: {
@@ -322,8 +319,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   packedTimeText: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
   },
   readyBadge: {
@@ -333,8 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
   },
   readyBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.success.text,
   },
   bottomSpacer: {

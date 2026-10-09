@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.md,
     gap: adminSpacing.md,
   },
-  radioText: { fontSize: 14.5, fontWeight: '700', color: adminColors.ink },
+  radioText: { ...adminType.sectionHead, color: adminColors.ink },
   cardDivider: { height: 1, backgroundColor: adminColors.border, marginHorizontal: adminSpacing.lg },
   sectionHeading: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.sm },
   sectionHeaderRow: {
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: adminSpacing.sm,
   },
-  helperLabel: { fontSize: 11.5, fontWeight: '500', color: adminColors.muted },
+  helperLabel: { ...adminType.rowMeta, color: adminColors.muted },
   dropdownBox: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   },
   dropdownTextWrap: { flex: 1 },
   dropdownCaption: { ...adminType.caption, color: adminColors.muted, letterSpacing: 0.5, marginBottom: 2 },
-  dropdownValue: { fontSize: 13.5, fontWeight: '600', color: adminColors.ink },
+  dropdownValue: { ...adminType.sectionHead, color: adminColors.ink },
   dropdownPlaceholder: { color: adminColors.placeholder },
   inputBox: {
     backgroundColor: adminColors.card,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...adminShadow.sm,
   },
-  textInput: { fontSize: 13.5, color: adminColors.ink, paddingVertical: 0 },
+  textInput: { ...adminType.body, color: adminColors.ink, paddingVertical: 0 },
   textareaBox: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.lg,
   },
   photoBoxActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  photoBoxText: { fontSize: 9.5, fontWeight: '600', color: adminColors.muted, marginTop: adminSpacing.xs },
+  photoBoxText: { ...adminType.caption, color: adminColors.muted, marginTop: adminSpacing.xs },
   noticeBox: {
     backgroundColor: adminColors.danger.bg,
     borderWidth: 1,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   noticeIconWrap: { marginTop: 1 },
-  noticeText: { flex: 1, fontSize: 11.5, fontWeight: '600', color: adminColors.danger.text, lineHeight: 16 },
+  noticeText: { ...adminType.rowTitle, flex: 1, color: adminColors.danger.text },
   primaryBtn: {
     backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
     ...adminShadow.md,
   },
-  primaryBtnText: { fontSize: 15, fontWeight: '700', color: adminColors.onBrand },
+  primaryBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
   modalOverlay: { flex: 1, justifyContent: 'center', padding: 20 },
   modalCard: {
     backgroundColor: adminColors.card,
@@ -530,10 +530,10 @@ const styles = StyleSheet.create({
     padding: 18,
     ...adminShadow.lg,
   },
-  modalTitle: { fontSize: 15, fontWeight: '700', color: adminColors.ink, marginBottom: adminSpacing.md },
+  modalTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.md },
   modalOption: { paddingVertical: adminSpacing.md, paddingHorizontal: 10, borderRadius: adminRadius.xs },
   modalOptionSelected: { backgroundColor: adminColors.brandTint },
-  modalOptionText: { fontSize: 13.5, color: adminColors.ink },
+  modalOptionText: { ...adminType.body, color: adminColors.ink },
   modalOptionTextSelected: { fontWeight: '700', color: adminColors.brand },
   // Submitted step
   submittedContent: { flex: 1, paddingTop: 36, paddingHorizontal: adminSpacing.lg },
@@ -559,8 +559,8 @@ const styles = StyleSheet.create({
   },
   twoColRow: { flexDirection: 'row', justifyContent: 'space-between' },
   col: { flex: 1 },
-  fieldLabel: { fontSize: 11.5, fontWeight: '500', color: adminColors.muted, marginBottom: adminSpacing.xs },
-  fieldValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
+  fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
   bottomBar: {
     backgroundColor: adminColors.canvas,
     paddingHorizontal: adminSpacing.lg,

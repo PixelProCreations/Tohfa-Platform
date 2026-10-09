@@ -542,13 +542,11 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   fieldValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   promptTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     textAlign: 'center',
     marginBottom: 20,
@@ -570,8 +568,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   otpDigit: {
-    fontSize: 24,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
   },
   verifiedBox: {
@@ -585,8 +582,7 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.lg,
   },
   verifiedText: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.success.text,
   },
   errorBox: {
@@ -615,10 +611,8 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.lg,
   },
   infoText: {
+    ...adminType.rowTitle,
     flex: 1,
-    fontSize: 11.5,
-    fontWeight: '600',
-    lineHeight: 16,
     color: adminColors.info.text,
   },
   bottomSpacer: {

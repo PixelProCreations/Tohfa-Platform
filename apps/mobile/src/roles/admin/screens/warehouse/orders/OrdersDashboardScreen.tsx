@@ -613,8 +613,7 @@ const styles = StyleSheet.create({
     marginRight: 2,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
   },
   bellBtn: {
@@ -639,9 +638,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   warehousePillText: {
+    ...adminType.rowTitle,
     color: adminColors.onBrand,
-    fontSize: 11.5,
-    fontWeight: '700',
   },
   whChipRow: {
     flexDirection: 'row',
@@ -663,9 +661,8 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
   },
   whChipText: {
+    ...adminType.rowTitle,
     color: adminColors.onBrand,
-    fontSize: 11.5,
-    fontWeight: '700',
   },
   whChipTextActive: {
     color: adminColors.brand,
@@ -729,25 +726,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   newBadgeText: {
-    fontSize: 8.5,
-    fontWeight: '800',
+    ...adminType.caption,
     color: adminColors.brandDeep,
     letterSpacing: 0.6,
     includeFontPadding: false,
-    lineHeight: 11,
     textAlign: 'center',
   },
   statusNumber: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.kpiValue,
     color: adminColors.ink,
   },
   statusNumberDanger: {
     color: adminColors.danger.text,
   },
   statusLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: adminColors.muted,
     marginTop: 1,
   },
@@ -934,8 +927,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quickActionText: {
-    fontSize: 11.5,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.ink,
     textAlign: 'center',
   },

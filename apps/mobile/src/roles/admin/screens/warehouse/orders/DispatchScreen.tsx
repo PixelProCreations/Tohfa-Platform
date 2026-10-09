@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: adminSpacing.xs,
   },
-  topSubtitleText: { fontSize: 12, fontWeight: '600', color: adminColors.muted },
+  topSubtitleText: { ...adminType.rowTitle, color: adminColors.muted },
   content: { flex: 1 },
   contentContainer: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: 20 },
   contentContainerConfirm: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: 20 },
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   col: { flex: 1 },
   rowGap: { marginTop: 14 },
   fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: 3 },
-  fieldValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
+  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
   assignmentLabel: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.sm },
   pickerBox: {
     backgroundColor: adminColors.card,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  pickerText: { fontSize: 13.5, fontWeight: '600', color: adminColors.ink },
+  pickerText: { ...adminType.sectionHead, color: adminColors.ink },
   dropdownMenu: {
     marginTop: adminSpacing.sm,
     backgroundColor: adminColors.card,
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: adminSpacing.lg,
   },
-  confirmPromptText: { fontSize: 14.5, fontWeight: '700', color: adminColors.warning.text },
+  confirmPromptText: { ...adminType.sectionHead, color: adminColors.warning.text },
   bottomBar: {
     backgroundColor: adminColors.card,
     paddingHorizontal: adminSpacing.lg,

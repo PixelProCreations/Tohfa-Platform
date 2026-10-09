@@ -448,8 +448,7 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   orderCountLabel: {
-    fontSize: 12.5,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: adminColors.muted,
     marginBottom: adminSpacing.sm,
   },
@@ -489,8 +488,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   orderIdText: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   statusBadge: {
@@ -502,7 +500,7 @@ const styles = StyleSheet.create({
     ...adminType.caption,
   },
   customerNameText: {
-    fontSize: 12,
+    ...adminType.body,
     color: adminColors.muted,
     marginBottom: 6,
   },
@@ -523,12 +521,11 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   itemsCountText: {
-    fontSize: 12,
+    ...adminType.body,
     color: adminColors.muted,
   },
   amountText: {
-    fontSize: 15.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   fulfillmentRow: {
@@ -559,8 +556,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   actionBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
   },
   bottomSpacer: {

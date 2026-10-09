@@ -9,7 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { adminColors, adminRadius, adminShadow } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
 
 interface M5S03Props {
   onNavigate: (screen: string, params?: any) => void;
@@ -326,13 +326,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.onBrand,
   },
   clearAllText: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
     textDecorationLine: 'underline',
   },
@@ -355,8 +353,8 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   searchInput: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 13,
     color: adminColors.ink,
     paddingVertical: 0,
   },
@@ -368,8 +366,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   pillsWrap: {
@@ -392,8 +389,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pillText: {
-    fontSize: 12.5,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: adminColors.ink,
   },
   pillTextSelected: {
@@ -413,11 +409,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   warehouseNoticeText: {
+    ...adminType.rowTitle,
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
     color: adminColors.brandDeep,
-    lineHeight: 17,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -437,8 +431,7 @@ const styles = StyleSheet.create({
     ...adminShadow.md,
   },
   applyBtnText: {
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
-    fontSize: 14.5,
-    fontWeight: '700',
   },
 });

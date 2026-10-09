@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: adminSpacing.md,
   },
-  itemName: { fontSize: 14.5, fontWeight: '700', color: adminColors.ink },
+  itemName: { ...adminType.sectionHead, color: adminColors.ink },
   badge: { paddingHorizontal: 10, paddingVertical: adminSpacing.xs, borderRadius: adminRadius.full },
   badgeSuccess: { backgroundColor: adminColors.success.bg },
   badgeDanger: { backgroundColor: adminColors.danger.bg },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   twoColRow: { flexDirection: 'row', justifyContent: 'space-between' },
   col: { flex: 1 },
   colLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: 2 },
-  colValue: { fontSize: 15, fontWeight: '800', color: adminColors.ink },
+  colValue: { ...adminType.sectionHead, color: adminColors.ink },
   dangerText: { color: adminColors.danger.text },
   statusBox: {
     backgroundColor: adminColors.warning.bg,
@@ -475,10 +475,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     ...adminShadow.sm,
   },
-  shortageNumberText: { fontSize: 22, fontWeight: '800', color: adminColors.danger.text },
+  shortageNumberText: { ...adminType.title, color: adminColors.danger.text },
   shortageCropText: {
-    fontSize: 11,
-    fontWeight: '800',
+    ...adminType.caption,
     color: adminColors.danger.text,
     letterSpacing: 0.8,
     marginTop: adminSpacing.xs,
@@ -492,7 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryValText: { fontSize: 17, fontWeight: '800', color: adminColors.ink },
+  summaryValText: { ...adminType.title, color: adminColors.ink },
   summaryLblText: { ...adminType.caption, color: adminColors.muted, letterSpacing: 0.5, marginTop: 2 },
   sectionHeader: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.sm },
   relatedStockCard: {
@@ -503,7 +502,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   relatedLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  relatedValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
+  relatedValue: { ...adminType.sectionHead, color: adminColors.ink },
   noticeBox: {
     backgroundColor: adminColors.info.bg,
     borderWidth: 1,

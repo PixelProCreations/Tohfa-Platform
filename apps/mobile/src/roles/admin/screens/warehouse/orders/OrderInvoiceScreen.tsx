@@ -264,23 +264,20 @@ const styles = StyleSheet.create({
     paddingBottom: adminSpacing.xs,
   },
   brandTitle: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.brandDeep,
     letterSpacing: 0.8,
     marginBottom: adminSpacing.xs,
     textAlign: 'center',
   },
   brandSub: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: adminColors.muted,
     marginBottom: 6,
     textAlign: 'center',
   },
   invoiceCode: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   divider: {
@@ -304,8 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.xs,
   },
   fieldValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   sectionTitle: {
@@ -330,8 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   itemName: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   itemMeta: {
@@ -340,8 +335,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   itemTotal: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   itemDivider: {
@@ -369,8 +363,7 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
   },
   totalsValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: adminColors.ink,
   },
   totalsDivider: {
@@ -384,8 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalFinal: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: adminColors.ink,
   },
   paymentStatusCard: {
@@ -402,8 +394,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   paymentStatusLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: adminColors.muted,
   },
   paymentStatusBadge: {
@@ -413,8 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
   },
   paymentStatusValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.success.text,
   },
   gstInfoBox: {
@@ -433,10 +423,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   gstInfoText: {
+    ...adminType.rowTitle,
     flex: 1,
-    fontSize: 11.5,
-    fontWeight: '600',
-    lineHeight: 17,
     color: adminColors.info.text,
   },
   actionsContainer: {

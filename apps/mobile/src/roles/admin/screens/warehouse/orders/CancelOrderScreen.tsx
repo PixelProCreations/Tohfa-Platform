@@ -369,8 +369,8 @@ const styles = StyleSheet.create({
   twoColRow: { flexDirection: 'row', justifyContent: 'space-between' },
   col: { flex: 1 },
   fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  fieldValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
-  fieldValueBold: { fontSize: 15, fontWeight: '800', color: adminColors.ink },
+  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
+  fieldValueBold: { ...adminType.sectionHead, color: adminColors.ink },
   dropdownBox: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
@@ -384,8 +384,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dropdownContent: { flex: 1 },
-  dropdownLabel: { fontSize: 9.5, fontWeight: '700', color: adminColors.muted, letterSpacing: 0.5, marginBottom: 2 },
-  dropdownValue: { fontSize: 13.5, fontWeight: '600', color: adminColors.ink },
+  dropdownLabel: { ...adminType.caption, color: adminColors.muted, letterSpacing: 0.5, marginBottom: 2 },
+  dropdownValue: { ...adminType.sectionHead, color: adminColors.ink },
   confirmPromptBox: {
     backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: adminSpacing.lg,
   },
-  confirmPromptText: { fontSize: 14.5, fontWeight: '700', color: adminColors.warning.text },
+  confirmPromptText: { ...adminType.sectionHead, color: adminColors.warning.text },
   dangerAlertBox: {
     backgroundColor: adminColors.danger.bg,
     borderWidth: 1,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 14,
   },
-  dangerAlertText: { flex: 1, fontSize: 11.5, fontWeight: '600', color: adminColors.danger.text, lineHeight: 16 },
+  dangerAlertText: { flex: 1, ...adminType.rowTitle, color: adminColors.danger.text },
   bottomBar: {
     backgroundColor: adminColors.canvas,
     paddingHorizontal: adminSpacing.lg,
@@ -484,9 +484,9 @@ const styles = StyleSheet.create({
     padding: 18,
     ...adminShadow.lg,
   },
-  modalTitle: { fontSize: 15, fontWeight: '700', color: adminColors.ink, marginBottom: adminSpacing.md },
+  modalTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.md },
   modalOption: { paddingVertical: adminSpacing.md, paddingHorizontal: 10, borderRadius: adminRadius.xs },
   modalOptionSelected: { backgroundColor: adminColors.brandTint },
-  modalOptionText: { fontSize: 13.5, color: adminColors.ink },
+  modalOptionText: { ...adminType.body, color: adminColors.ink },
   modalOptionTextSelected: { fontWeight: '700', color: adminColors.brand },
 });

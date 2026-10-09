@@ -225,10 +225,10 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   orderIdLabel: { ...adminType.rowTitle, fontWeight: '700', color: adminColors.muted, marginBottom: adminSpacing.xs },
-  configuredAddressText: { fontSize: 13.5, fontWeight: '700', color: adminColors.ink, lineHeight: 19 },
+  configuredAddressText: { ...adminType.sectionHead, color: adminColors.ink },
   dateBlock: { marginTop: adminSpacing.md },
   fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  fieldValue: { fontSize: 14, fontWeight: '700', color: adminColors.ink },
+  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
   slotsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: 14 },
   // Styled as the old "selected" pill: the one slot the order has.
   slotPill: {
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  slotPillText: { fontSize: 11.5, fontWeight: '700', color: adminColors.brand },
+  slotPillText: { ...adminType.rowTitle, color: adminColors.brand },
   infoBox: {
     backgroundColor: adminColors.info.bg,
     borderWidth: 1,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: adminSpacing.lg,
   },
-  infoText: { flex: 1, fontSize: 11.5, fontWeight: '600', color: adminColors.info.text, lineHeight: 16 },
+  infoText: { flex: 1, ...adminType.rowTitle, color: adminColors.info.text },
   packingCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   packingCardSpaced: { marginTop: 10 },
-  packingCardText: { fontSize: 13.5, fontWeight: '700', color: adminColors.ink },
+  packingCardText: { ...adminType.sectionHead, color: adminColors.ink },
   checklistCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     marginRight: adminSpacing.md,
   },
-  checklistText: { fontSize: 13.5, fontWeight: '700', color: adminColors.ink },
+  checklistText: { ...adminType.sectionHead, color: adminColors.ink },
   bottomBar: {
     backgroundColor: adminColors.canvas,
     paddingHorizontal: adminSpacing.lg,
