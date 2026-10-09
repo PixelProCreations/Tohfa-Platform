@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { SubWarehouseInvoiceDetailScreen } from '../../../../subwarehouse/screens/SubWarehouseInvoiceDetailScreen';
+import { InvoiceDetailScreen } from '../billing-invoices';
 import { OrderStatusHistoryScreen } from '../orders';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
@@ -134,7 +134,7 @@ export function ChannelOrderDetailScreen({
 
   if (currentSubView === 'invoice') {
     return (
-      <SubWarehouseInvoiceDetailScreen invoiceId={invoiceId} onBack={() => setCurrentSubView('detail')} />
+      <InvoiceDetailScreen scope={scope} can={can} invoiceId={invoiceId} onBack={() => setCurrentSubView('detail')} />
     );
   }
 

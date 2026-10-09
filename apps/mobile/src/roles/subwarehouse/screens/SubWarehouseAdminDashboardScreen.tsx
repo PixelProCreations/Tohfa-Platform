@@ -52,18 +52,7 @@ import { SubWarehouseSupportHistoryScreen } from './SubWarehouseSupportHistorySc
 import { SubWarehouseCustomerSupportDetailScreen } from './SubWarehouseCustomerSupportDetailScreen';
 import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
 import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
-import { SubWarehouseBillingHubScreen } from './SubWarehouseBillingHubScreen';
-import { SubWarehouseInvoiceListScreen } from './SubWarehouseInvoiceListScreen';
-import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
-import { SubWarehouseGenerateInvoiceScreen } from './SubWarehouseGenerateInvoiceScreen';
-import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
-import { SubWarehouseInvoiceGeneratedScreen } from './SubWarehouseInvoiceGeneratedScreen';
-import { GSTInvoiceScreen } from '../../admin/screens/warehouse/billing-invoices';
-import { SubWarehouseInvoicePreviewScreen } from './SubWarehouseInvoicePreviewScreen';
-import { SubWarehouseInvoiceHistoryScreen } from './SubWarehouseInvoiceHistoryScreen';
-import { SubWarehouseInvoiceHistoryDetailScreen } from './SubWarehouseInvoiceHistoryDetailScreen';
-import { SubWarehouseInvoiceFiltersScreen, InvoiceFilterState } from './SubWarehouseInvoiceFiltersScreen';
-import { SubWarehouseInvoiceHistoryFiltersScreen, InvoiceHistoryFilterState } from './SubWarehouseInvoiceHistoryFiltersScreen';
+import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseOrderFiltersScreen, OrderFilterState } from './SubWarehouseOrderFiltersScreen';
 import { SubWarehousePurchaseFiltersScreen, PurchaseFilterState } from './SubWarehousePurchaseFiltersScreen';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
@@ -1104,16 +1093,9 @@ export function SubWarehouseAdminDashboardScreen({
   const [showNewSale, setShowNewSale] = useState(false);
   const [showSaleDetail, setShowSaleDetail] = useState(false);
   const [selectedSaleRecord, setSelectedSaleRecord] = useState<any>(undefined);
-  const [showBillingHub, setShowBillingHub] = useState(false);
-  const [showInvoiceList, setShowInvoiceList] = useState(false);
-  const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
-  const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
-  const [selectedTransactionForWizard, setSelectedTransactionForWizard] = useState<any>(null);
-  const [showInvoiceGenerated, setShowInvoiceGenerated] = useState(false);
-  const [showGSTInvoice, setShowGSTInvoice] = useState(false);
-  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
-  const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
-  const [showInvoiceHistoryDetail, setShowInvoiceHistoryDetail] = useState(false);
+  // The open billing module: BillingFlow (hub, list, filters, detail, generate,
+  // wizard, generated) owns its stack from here on (W4).
+  const [showBilling, setShowBilling] = useState(false);
   const [showTasks, setShowTasks] = useState(false);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
@@ -1125,15 +1107,10 @@ export function SubWarehouseAdminDashboardScreen({
   const [showMessageHistory, setShowMessageHistory] = useState(false);
   const [showPurchaseFilters, setShowPurchaseFilters] = useState(false);
   const [showOrderFilters, setShowOrderFilters] = useState(false);
-  const [showInvoiceFilters, setShowInvoiceFilters] = useState(false);
-  const [showInvoiceHistoryFilters, setShowInvoiceHistoryFilters] = useState(false);
 
   const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
   const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
-  const [invoiceFilters, setInvoiceFilters] = useState<InvoiceFilterState | undefined>(undefined);
-  const [invoiceHistoryFilters, setInvoiceHistoryFilters] = useState<InvoiceHistoryFilterState | undefined>(undefined);
 
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('INV-2026-001245');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showWalletOperations, setShowWalletOperations] = useState(false);
   // The open returns (RMA) module: ReturnsFlow owns the stack from here on.
@@ -2168,6 +2145,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReportsScreen) {
     return (
       <SubWarehouseReportsScreen
+        scope={scope}
+        can={can}
         onBack={() => {
           setShowReportsScreen(false);
           setActiveTab('More');
@@ -2234,6 +2213,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (showSaleDetail) {
     return (
       <SubWarehouseSaleDetailScreen
+        scope={scope}
+        can={can}
         sale={selectedSaleRecord}
         onBack={() => setShowSaleDetail(false)}
         onTabChange={(tab) => {
@@ -2560,195 +2541,20 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showInvoicePreview) {
+  if (showBilling) {
+    // The billing & invoice screens and their navigator live in
+    // admin/screens/warehouse/billing-invoices (shared with the Main shell).
     return (
-      <SubWarehouseInvoicePreviewScreen
-        invoiceId={selectedInvoiceId}
-        onBack={() => setShowInvoicePreview(false)}
-      />
-    );
-  }
-
-  if (showGSTInvoice) {
-    return (
-      <GSTInvoiceScreen
+      <BillingFlow
         scope={scope}
         can={can}
-        onBack={() => setShowGSTInvoice(false)}
-        onViewExisting={() => {
-          setShowGSTInvoice(false);
-          setShowInvoiceDetail(true);
-        }}
-        onPreviewAuthorized={() => {
-          setShowGSTInvoice(false);
-          setShowInvoicePreview(true);
-        }}
-      />
-    );
-  }
-
-  if (selectedTransactionForWizard) {
-    return (
-      <SubWarehouseInvoiceWizardScreen
-        transaction={selectedTransactionForWizard}
         onBack={() => {
-          setSelectedTransactionForWizard(null);
-          setShowGenerateInvoice(true);
-        }}
-        onSuccess={() => {
-          setSelectedTransactionForWizard(null);
-          setShowInvoiceGenerated(true);
-        }}
-      />
-    );
-  }
-
-  if (showInvoiceGenerated) {
-    return (
-      <SubWarehouseInvoiceGeneratedScreen
-        invoiceId="INV-2026-001245"
-        onBack={() => setShowInvoiceGenerated(false)}
-        onViewInvoice={(id) => {
-          setShowInvoiceGenerated(false);
-          setShowInvoicePreview(true);
-        }}
-      />
-    );
-  }
-
-  if (showGenerateInvoice) {
-    return (
-      <SubWarehouseGenerateInvoiceScreen
-        onBack={() => setShowGenerateInvoice(false)}
-        onSelectTransaction={(tx) => {
-          setSelectedTransactionForWizard(tx);
-          setShowGenerateInvoice(false);
-        }}
-        onNavigateToGSTInvoice={() => {
-          setShowGenerateInvoice(false);
-          setShowGSTInvoice(true);
-        }}
-      />
-    );
-  }
-
-  if (showInvoiceHistoryFilters) {
-    return (
-      <SubWarehouseInvoiceHistoryFiltersScreen
-        initialFilters={invoiceHistoryFilters}
-        onBack={() => setShowInvoiceHistoryFilters(false)}
-        onApplyFilters={(f) => {
-          setInvoiceHistoryFilters(f);
-          setShowInvoiceHistoryFilters(false);
-        }}
-      />
-    );
-  }
-
-  if (showInvoiceHistoryDetail) {
-    return (
-      <SubWarehouseInvoiceHistoryDetailScreen
-        invoiceId={selectedInvoiceId}
-        onBack={() => {
-          setShowInvoiceHistoryDetail(false);
-          setShowInvoiceHistory(true);
-        }}
-        onDownload={() => {
-          // Assuming clicking download from history detail still goes to preview
-          setShowInvoiceHistoryDetail(false);
-          setShowInvoicePreview(true);
-        }}
-      />
-    );
-  }
-
-  if (showInvoiceHistory) {
-    return (
-      <SubWarehouseInvoiceHistoryScreen
-        onBack={() => setShowInvoiceHistory(false)}
-        onNavigateToInvoiceDetail={(id) => {
-          setSelectedInvoiceId(id);
-          setShowInvoiceHistory(false);
-          setShowInvoiceHistoryDetail(true);
-        }}
-        onOpenFilters={() => {
-          if (onNavigate) onNavigate('SubWarehouseInvoiceHistoryFilters');
-          else setShowInvoiceHistoryFilters(true);
-        }}
-        appliedFilters={invoiceHistoryFilters}
-        onClearFilters={() => setInvoiceHistoryFilters(undefined)}
-      />
-    );
-  }
-
-  if (showInvoiceDetail) {
-    return (
-      <SubWarehouseInvoiceDetailScreen
-        invoiceId={selectedInvoiceId}
-        onBack={() => setShowInvoiceDetail(false)}
-        onDownload={() => setShowInvoicePreview(true)}
-      />
-    );
-  }
-
-  if (showInvoiceFilters) {
-    return (
-      <SubWarehouseInvoiceFiltersScreen
-        initialFilters={invoiceFilters}
-        onBack={() => setShowInvoiceFilters(false)}
-        onApplyFilters={(f) => {
-          setInvoiceFilters(f);
-          setShowInvoiceFilters(false);
-        }}
-      />
-    );
-  }
-
-  if (showInvoiceList) {
-    return (
-      <SubWarehouseInvoiceListScreen
-        onBack={() => setShowInvoiceList(false)}
-        onNavigateToInvoiceDetail={(id) => {
-          setSelectedInvoiceId(id);
-          setShowInvoiceDetail(true);
-        }}
-        onOpenFilters={() => {
-          if (onNavigate) onNavigate('SubWarehouseInvoiceFilters');
-          else setShowInvoiceFilters(true);
-        }}
-        appliedFilters={invoiceFilters}
-        onClearFilters={() => setInvoiceFilters(undefined)}
-      />
-    );
-  }
-
-  if (showBillingHub) {
-    return (
-      <SubWarehouseBillingHubScreen
-        onBack={() => {
-          setShowBillingHub(false);
+          setShowBilling(false);
           setActiveTab('More');
         }}
         onTabChange={(tab) => {
-          setShowBillingHub(false);
+          setShowBilling(false);
           setActiveTab(tab);
-        }}
-        onNavigateToInvoiceList={() => {
-          if (onNavigate) onNavigate('SubWarehouseInvoiceList');
-          else setShowInvoiceList(true);
-        }}
-        onNavigateToInvoiceDetail={(id) => {
-          setSelectedInvoiceId(id || 'INV-2026-001245');
-          if (onNavigate) onNavigate('SubWarehouseInvoiceDetail');
-          else setShowInvoiceDetail(true);
-        }}
-        onGenerateInvoice={() => {
-          if (onNavigate) onNavigate('SubWarehouseGenerateInvoice');
-          else setShowGenerateInvoice(true);
-        }}
-        onNavigateToInvoiceHistory={() => {
-          if (onNavigate) onNavigate('SubWarehouseInvoiceHistory');
-          else setShowInvoiceHistory(true);
         }}
         onNavigateToNotifications={() => {
           if (onNavigate) onNavigate('SubWarehouseNotifications');
@@ -4802,7 +4608,7 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToBilling={() => {
               if (onNavigate) onNavigate('SubWarehouseBillingHub');
-              else setShowBillingHub(true);
+              else setShowBilling(true);
             }}
             onNavigateToStaff={() => {
               if (onNavigate) onNavigate('SubWarehouseStaff');

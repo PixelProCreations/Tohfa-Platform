@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
+import { InvoiceDetailScreen } from '../../admin/screens/warehouse/billing-invoices';
+import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -481,6 +482,13 @@ export interface SubWarehouseReportsScreenProps {
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onSelectReport?: ((reportKey: string) => void) | undefined;
+  /**
+   * Needed only for the inline invoice detail (order report -> View Invoice): the shared
+   * invoice screen is scoped and permission-gated. Without them View Invoice is
+   * not offered (fail closed).
+   */
+  scope?: WarehouseScope | undefined;
+  can?: PermissionCheck | undefined;
 }
 
 export function SubWarehouseReportsScreen({
@@ -488,6 +496,8 @@ export function SubWarehouseReportsScreen({
   onTabChange,
   onNavigateToNotifications,
   onSelectReport,
+  scope,
+  can,
 }: SubWarehouseReportsScreenProps) {
   const [currentScreen, setCurrentScreen] = useState<ReportScreenType>('main');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1080,14 +1090,16 @@ export function SubWarehouseReportsScreen({
               <Text style={styles.actionCardBtnText}>View Order</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionCardBtn}
-              activeOpacity={0.75}
-              onPress={() => setCurrentScreen('invoice_detail')}
-            >
-              <InvoiceDocumentIcon size={18} color="#8B5E3C" />
-              <Text style={styles.actionCardBtnText}>View Invoice</Text>
-            </TouchableOpacity>
+            {scope && can ? (
+              <TouchableOpacity
+                style={styles.actionCardBtn}
+                activeOpacity={0.75}
+                onPress={() => setCurrentScreen('invoice_detail')}
+              >
+                <InvoiceDocumentIcon size={18} color="#8B5E3C" />
+                <Text style={styles.actionCardBtnText}>View Invoice</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={{ height: 28 }} />
@@ -1101,9 +1113,11 @@ export function SubWarehouseReportsScreen({
   // ═══════════════════════════════════════════════════════════════════════════
   // SCREEN: INVOICE DETAIL
   // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'invoice_detail') {
+  if (currentScreen === 'invoice_detail' && scope && can) {
     return (
-      <SubWarehouseInvoiceDetailScreen
+      <InvoiceDetailScreen
+        scope={scope}
+        can={can}
         invoiceId={selectedOrder.invoiceNumber || 'INV-2026-010284'}
         onBack={() => setCurrentScreen('sales_order_detail')}
       />

@@ -782,6 +782,8 @@ export function MoreScreen({
   if (showReportsScreen) {
     return (
       <SubWarehouseReportsScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowReportsScreen(false)}
         onTabChange={onTabChange}
         onNavigateToNotifications={onNavigateToNotifications}

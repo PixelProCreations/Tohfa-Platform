@@ -172,20 +172,6 @@ import {
   SubWarehouseCustomerIssueDetailScreen,
   SubWarehouseSupportHistoryScreen,
   SubWarehouseCustomerSupportDetailScreen,
-  SubWarehouseBillingHubScreen,
-  SubWarehouseInvoiceListScreen,
-  SubWarehouseInvoiceDetailScreen,
-  SubWarehouseGenerateInvoiceScreen,
-  SubWarehouseInvoiceWizardScreen,
-  SubWarehouseInvoiceGeneratedScreen,
-  SubWarehouseReviewInvoiceScreen,
-  GSTInvoiceScreen,
-  SubWarehouseInvoicePreviewScreen,
-  SubWarehouseInvoiceHistoryScreen,
-  SubWarehouseInvoiceFiltersScreen,
-  type InvoiceFilterState,
-  SubWarehouseInvoiceHistoryFiltersScreen,
-  type InvoiceHistoryFilterState,
   SubWarehouseOrderFiltersScreen,
   type OrderFilterState,
   SubWarehousePurchaseFiltersScreen,
@@ -292,6 +278,9 @@ import {
   InventoryFlow,
   ReturnsFlow,
   type ReturnsRoute,
+  BillingFlow,
+  type BillingRoute,
+  type BillingRouteParams,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -403,11 +392,6 @@ export type ScreenName =
   | 'SubWarehouseGenerateInvoice'
   | 'SubWarehouseInvoiceWizard'
   | 'SubWarehouseInvoiceGenerated'
-  | 'SubWarehouseReviewInvoice'
-  | 'WarehouseGSTInvoice'
-  | 'SubWarehouseInvoicePreview'
-  | 'SubWarehouseInvoiceHistory'
-  | 'SubWarehouseInvoiceHistoryFilters'
   | 'SubWarehouseOrderFilters'
   | 'SubWarehousePurchaseFilters'
   | 'SubWarehouseNotifications'
@@ -745,6 +729,22 @@ const RETURNS_ROUTE_ENTRY: Partial<Record<ScreenName, ReturnsRoute>> = {
   SubWarehouseReturnHistory: 'ReturnHistory',
   SubWarehouseReturnHistoryDetail: 'ReturnHistoryDetail',
 };
+/**
+ * Legacy Sub billing route keys -> shared BillingFlow routes (W4). Removed with
+ * their folded screens: SubWarehouseInvoiceHistory(+Filters) -> InvoiceList
+ * layout 'history', SubWarehouseInvoicePreview -> InvoiceDetail,
+ * SubWarehouseReviewInvoice -> InvoiceWizard with `review`, and the dropped
+ * WarehouseGSTInvoice.
+ */
+const BILLING_ROUTE_ENTRY: Partial<Record<ScreenName, BillingRoute>> = {
+  SubWarehouseBillingHub: 'BillingHub',
+  SubWarehouseInvoiceList: 'InvoiceList',
+  SubWarehouseInvoiceFilters: 'InvoiceFilters',
+  SubWarehouseInvoiceDetail: 'InvoiceDetail',
+  SubWarehouseGenerateInvoice: 'GenerateInvoice',
+  SubWarehouseInvoiceWizard: 'InvoiceWizard',
+  SubWarehouseInvoiceGenerated: 'InvoiceGenerated',
+};
 const INVENTORY_ROUTE_ENTRY: Record<string, string> = {
   StockLedger: 'M3S06',
   VerifyStock: 'M3S11',
@@ -790,8 +790,6 @@ export default function App(): React.JSX.Element {
   const [params, setParams] = useState<Record<string, any>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
-  const [invoiceFilters, setInvoiceFilters] = useState<InvoiceFilterState | undefined>(undefined);
-  const [invoiceHistoryFilters, setInvoiceHistoryFilters] = useState<InvoiceHistoryFilterState | undefined>(undefined);
   const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
   const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
   // Permission codes of the signed-in warehouse admin, from GET /v1/auth/me.
@@ -801,6 +799,23 @@ export default function App(): React.JSX.Element {
   const [warehousePermissions, setWarehousePermissions] = useState<string[] | undefined>(undefined);
   const warehousePermissionsRequested = useRef(false);
   const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
+  // Params for a BillingFlow entry, memoised so the flow does not restart its
+  // stack on every App render. An invoice opened from a sale record falls back
+  // to that record's invoice number, as the old SubWarehouseInvoiceDetail did.
+  const billingParams = useMemo<BillingRouteParams>(() => {
+    const invoiceNo = (selectedSaleRecord as { invoiceNo?: unknown } | null)?.invoiceNo;
+    return {
+      invoiceId:
+        typeof params['invoiceId'] === 'string'
+          ? params['invoiceId']
+          : typeof invoiceNo === 'string'
+            ? invoiceNo
+            : undefined,
+      transaction: params['transaction'],
+      review: params['review'],
+      layout: params['layout'] === 'history' ? 'history' : undefined,
+    };
+  }, [params, selectedSaleRecord]);
 
   useEffect(() => {
     if (warehousePermissionsRequested.current) return;
@@ -1363,14 +1378,16 @@ export default function App(): React.JSX.Element {
             totalAmount={typeof params['totalAmount'] === 'number' ? params['totalAmount'] : 320}
             onBack={goBack}
             onViewInvoice={() => {
-              navigate('SubWarehouseReviewInvoice', {
+              // Post-sale entry: the invoice wizard opens on its Review step (W4).
+              const review: BillingRouteParams['review'] = {
                 invoiceType: 'Direct Sale',
                 customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
                 itemsCount: 2,
                 subtotal: '₹320',
                 gst: '₹0',
                 total: '₹320',
-              });
+              };
+              navigate('SubWarehouseInvoiceWizard', { review });
             }}
             onNewSale={() => {
               navigate('SubWarehouseNewSale');
@@ -1935,8 +1952,14 @@ export default function App(): React.JSX.Element {
               goBack();
             }}
           />
-        ) : screen === 'SubWarehouseBillingHub' ? (
-          <SubWarehouseBillingHubScreen
+        ) : BILLING_ROUTE_ENTRY[screen] !== undefined ? (
+          // The billing & invoice screens live in the shared warehouse/billing-invoices
+          // area (W4); each old 'SubWarehouseXxx' key opens BillingFlow on the matching route.
+          <BillingFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={BILLING_ROUTE_ENTRY[screen]}
+            initialParams={billingParams}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -1944,122 +1967,7 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('WarehouseMore');
             }}
-            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
-            onNavigateToInvoiceDetail={(id) =>
-              navigate('SubWarehouseInvoiceDetail', { invoiceId: id || 'INV-2026-001245' })
-            }
-            onGenerateInvoice={() => navigate('SubWarehouseGenerateInvoice')}
-            onNavigateToInvoiceHistory={() => navigate('SubWarehouseInvoiceHistory')}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : screen === 'SubWarehouseGenerateInvoice' ? (
-          <SubWarehouseGenerateInvoiceScreen
-            onBack={goBack}
-            onSelectTransaction={(tx) =>
-              navigate('SubWarehouseInvoiceWizard', { transaction: tx })
-            }
-            onNavigateToGSTInvoice={() => navigate('WarehouseGSTInvoice')}
-          />
-        ) : screen === 'SubWarehouseInvoiceWizard' ? (
-          <SubWarehouseInvoiceWizardScreen
-            transaction={
-              (params['transaction'] as any) || {
-                id: 'ORD-002154',
-                orderNumber: 'ORD-002154',
-                customerName: 'Ravi Kumar',
-                amount: '₹2,450',
-                saleType: 'Direct Sale',
-                status: 'Completed',
-                date: '24 Sep 2026',
-              }
-            }
-            onBack={goBack}
-            onSuccess={() =>
-              navigate('SubWarehouseInvoiceGenerated', { invoiceId: 'INV-2026-001245' })
-            }
-          />
-        ) : screen === 'SubWarehouseInvoiceGenerated' ? (
-          <SubWarehouseInvoiceGeneratedScreen
-            invoiceId={(params['invoiceId'] as string) || 'INV-2026-001245'}
-            onBack={goBack}
-            onViewInvoice={(id) =>
-              navigate('SubWarehouseInvoicePreview', { invoiceId: id || 'INV-2026-001245' })
-            }
-          />
-        ) : screen === 'SubWarehouseReviewInvoice' ? (
-          <SubWarehouseReviewInvoiceScreen
-            onBack={goBack}
-            invoiceData={{
-              invoiceType: (params['invoiceType'] as string) || 'Direct Sale',
-              customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              itemsCount: (params['itemsCount'] as number) || 2,
-              subtotal: (params['subtotal'] as string) || '₹320',
-              gst: (params['gst'] as string) || '₹0',
-              total: (params['total'] as string) || '₹320',
-            }}
-            onGenerateSuccess={() =>
-              navigate('SubWarehouseInvoicePreview', { invoiceId: 'INV-2026-001245' })
-            }
-          />
-        ) : screen === 'WarehouseGSTInvoice' ? (
-          <GSTInvoiceScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onViewExisting={() =>
-              navigate('SubWarehouseInvoiceDetail', { invoiceId: 'INV-2026-001245' })
-            }
-            onPreviewAuthorized={() =>
-              navigate('SubWarehouseInvoicePreview', { invoiceId: 'INV-2026-001245' })
-            }
-          />
-        ) : screen === 'SubWarehouseInvoicePreview' ? (
-          <SubWarehouseInvoicePreviewScreen
-            invoiceId={(params['invoiceId'] as string) || 'INV-2026-001245'}
-            onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseInvoiceHistory' ? (
-          <SubWarehouseInvoiceHistoryScreen
-            onBack={goBack}
-            onNavigateToInvoiceDetail={(id) =>
-              navigate('SubWarehouseInvoiceDetail', { invoiceId: id })
-            }
-            onOpenFilters={() => navigate('SubWarehouseInvoiceHistoryFilters')}
-            appliedFilters={invoiceHistoryFilters}
-            onClearFilters={() => setInvoiceHistoryFilters(undefined)}
-          />
-        ) : screen === 'SubWarehouseInvoiceHistoryFilters' ? (
-          <SubWarehouseInvoiceHistoryFiltersScreen
-            initialFilters={invoiceHistoryFilters}
-            onBack={goBack}
-            onApplyFilters={(f) => {
-              setInvoiceHistoryFilters(f);
-              goBack();
-            }}
-          />
-        ) : screen === 'SubWarehouseInvoiceList' ? (
-          <SubWarehouseInvoiceListScreen
-            onBack={goBack}
-            onNavigateToInvoiceDetail={(id) =>
-              navigate('SubWarehouseInvoiceDetail', { invoiceId: id })
-            }
-            onOpenFilters={() => navigate('SubWarehouseInvoiceFilters')}
-            appliedFilters={invoiceFilters}
-            onClearFilters={() => setInvoiceFilters(undefined)}
-          />
-        ) : screen === 'SubWarehouseInvoiceFilters' ? (
-          <SubWarehouseInvoiceFiltersScreen
-            initialFilters={invoiceFilters}
-            onBack={goBack}
-            onApplyFilters={(f) => {
-              setInvoiceFilters(f);
-              goBack();
-            }}
-          />
-        ) : screen === 'SubWarehouseInvoiceDetail' ? (
-          <SubWarehouseInvoiceDetailScreen
-            invoiceId={(params['invoiceId'] as string) || (selectedSaleRecord as any)?.invoiceNo || 'INV-2026-001245'}
-            onBack={goBack}
           />
         ) : screen === 'SubWarehouseTaskActionCenter' ? (
           <SubWarehouseTaskActionCenterScreen
@@ -2666,6 +2574,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseReports' ? (
           <SubWarehouseReportsScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');

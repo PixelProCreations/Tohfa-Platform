@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { SubWarehouseReviewInvoiceScreen } from './SubWarehouseReviewInvoiceScreen';
+import { BillingFlow, type BillingRouteParams } from '../../admin/screens/warehouse/billing-invoices';
+import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -104,6 +105,13 @@ export interface SubWarehouseSaleConfirmationScreenProps {
   onBack?: (() => void) | undefined;
   onViewInvoice?: (() => void) | undefined;
   onNewSale?: (() => void) | undefined;
+  /**
+   * Needed only for the inline invoice fallback (no onViewInvoice): the shared
+   * billing flow is scoped and permission-gated. Without them the fallback is
+   * not offered (fail closed).
+   */
+  scope?: WarehouseScope | undefined;
+  can?: PermissionCheck | undefined;
 }
 
 export function SubWarehouseSaleConfirmationScreen({
@@ -115,8 +123,25 @@ export function SubWarehouseSaleConfirmationScreen({
   onBack,
   onViewInvoice,
   onNewSale,
+  scope,
+  can,
 }: SubWarehouseSaleConfirmationScreenProps) {
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
+  const canShowInvoice = onViewInvoice !== undefined || (scope !== undefined && can !== undefined);
+  // Post-sale entry of the invoice wizard: opens on its Review step (W4).
+  const invoiceParams = useMemo<BillingRouteParams>(
+    () => ({
+      review: {
+        invoiceType: 'Direct Sale',
+        customerName,
+        itemsCount: 2,
+        subtotal: `₹${totalAmount}`,
+        gst: '₹0',
+        total: `₹${totalAmount}`,
+      },
+    }),
+    [customerName, totalAmount],
+  );
 
   const handleViewInvoice = () => {
     if (onViewInvoice) {
@@ -134,18 +159,14 @@ export function SubWarehouseSaleConfirmationScreen({
     }
   };
 
-  if (showInvoiceScreen) {
+  if (showInvoiceScreen && scope && can) {
     return (
-      <SubWarehouseReviewInvoiceScreen
+      <BillingFlow
+        scope={scope}
+        can={can}
+        initialScreen="InvoiceWizard"
+        initialParams={invoiceParams}
         onBack={() => setShowInvoiceScreen(false)}
-        invoiceData={{
-          invoiceType: 'Direct Sale',
-          customerName: customerName,
-          itemsCount: 2,
-          subtotal: `₹${totalAmount}`,
-          gst: '₹0',
-          total: `₹${totalAmount}`,
-        }}
       />
     );
   }
@@ -284,14 +305,16 @@ export function SubWarehouseSaleConfirmationScreen({
 
       {/* ─── Bottom Actions ─── */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.viewInvoiceBtn}
-          onPress={handleViewInvoice}
-          activeOpacity={0.85}
-        >
-          <InvoiceIcon size={18} color="#FFFFFF" />
-          <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
-        </TouchableOpacity>
+        {canShowInvoice && (
+          <TouchableOpacity
+            style={styles.viewInvoiceBtn}
+            onPress={handleViewInvoice}
+            activeOpacity={0.85}
+          >
+            <InvoiceIcon size={18} color="#FFFFFF" />
+            <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.newSaleBtn}

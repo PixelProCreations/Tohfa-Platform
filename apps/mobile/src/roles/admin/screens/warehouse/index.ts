@@ -81,7 +81,6 @@ export {
   type CustomerSearchItem,
   type CustomerSearchScreenProps,
 } from './customers';
-export { GSTInvoiceScreen, type GSTInvoiceScreenProps } from './billing-invoices';
 export { WalletOperationsScreen, type WalletOperationsScreenProps } from './wallet-cashtopup';
 export {
   ChannelOrderDetailScreen,
@@ -108,3 +107,5 @@ export {
 export { ReturnsFlow, type ReturnsRoute } from './returns-rma';
 // Shared inventory navigator (W4); the screens themselves are imported from './inventory'.
 export { InventoryFlow } from './inventory';
+// Shared billing & invoice navigator (W4); the screens themselves are imported from './billing-invoices'.
+export { BillingFlow, type BillingRoute, type BillingRouteParams } from './billing-invoices';

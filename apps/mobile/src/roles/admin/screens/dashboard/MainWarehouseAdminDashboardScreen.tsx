@@ -17,7 +17,7 @@ import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { MoreScreen } from '../warehouse/dashboard-home-more';
 import { CustomerSearchScreen } from '../warehouse/customers';
-import { GSTInvoiceScreen } from '../warehouse/billing-invoices';
+import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletOperationsScreen } from '../warehouse/wallet-cashtopup';
 import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
 import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
@@ -102,14 +102,6 @@ import {
   CustomerIssuesScreen,
   SupportHistoryScreen,
 } from '../customers';
-import {
-  BillingInvoicesHubScreen,
-  InvoiceListScreen,
-  InvoiceDetailScreen,
-  GenerateInvoiceScreen,
-  DownloadInvoiceScreen,
-  InvoiceHistoryScreen,
-} from '../billing';
 
 export type ReceivingSubView =
   | 'dashboard'
@@ -230,14 +222,8 @@ type WarehouseSubView =
   | 'wallet_summary'
   | 'customer_issues'
   | 'support_history'
-  // Module 9: Billing & Invoices
-  | 'billing_invoices'
-  | 'invoice_list'
-  | 'invoice_detail'
-  | 'generate_invoice'
-  | 'gst_invoice'
-  | 'download_invoice'
-  | 'invoice_history';
+  // Module 9: Billing & Invoices (the shared BillingFlow owns its own sub-screens, W4)
+  | 'billing_invoices';
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
 
@@ -1903,55 +1889,16 @@ export function MainWarehouseAdminDashboardScreen({
                 onBack={goBackWh}
               />
             ) : whSubView === 'billing_invoices' ? (
-              <BillingInvoicesHubScreen
-                onBack={goBackWh}
-                onNavigateToGenerate={() => navigateWh('generate_invoice')}
-                onNavigateToViewInvoices={() => navigateWh('invoice_list')}
-                onNavigateToHistory={() => navigateWh('invoice_history')}
-                onNavigateToGst={() => navigateWh('gst_invoice')}
-                onNavigateToDetail={() => navigateWh('invoice_detail')}
-                onHomePress={() => {
-                  setActiveTab('Home');
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onMorePress={() => {
-                  setActiveTab('More');
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'invoice_list' ? (
-              <InvoiceListScreen
-                onBack={goBackWh}
-                onSelectInvoice={() => navigateWh('invoice_detail')}
-              />
-            ) : whSubView === 'invoice_detail' ? (
-              <InvoiceDetailScreen
-                onBack={goBackWh}
-                onNavigateToDownload={() => navigateWh('download_invoice')}
-              />
-            ) : whSubView === 'generate_invoice' ? (
-              <GenerateInvoiceScreen
-                onBack={goBackWh}
-                onSelectOrder={() => navigateWh('invoice_detail')}
-              />
-            ) : whSubView === 'gst_invoice' ? (
-              <GSTInvoiceScreen
+              // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
+              <BillingFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 onBack={goBackWh}
-                onViewExisting={() => navigateWh('invoice_detail')}
-                onPreviewAuthorized={() => navigateWh('invoice_detail')}
-              />
-            ) : whSubView === 'download_invoice' ? (
-              <DownloadInvoiceScreen
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'invoice_history' ? (
-              <InvoiceHistoryScreen
-                onBack={goBackWh}
-                onSelectInvoice={() => navigateWh('invoice_detail')}
+                onTabChange={(tab) => {
+                  setActiveTab(tab);
+                  setWhSubView('overview');
+                  setWhHistory([]);
+                }}
               />
             ) : whSubView === 'sales' ? (
               <ScrollView

@@ -453,6 +453,8 @@ export function SubWarehouseSalesScreen({
   if (showSaleDetailScreen) {
     return (
       <SubWarehouseSaleDetailScreen
+        scope={scope}
+        can={can}
         sale={{
           id: 'SALE-00251',
           customerName: 'Rajesh Kumar',

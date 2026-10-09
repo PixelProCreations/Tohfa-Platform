@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { SubWarehouseReviewInvoiceScreen } from './SubWarehouseReviewInvoiceScreen';
-import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
+import { InvoiceDetailScreen } from '../../admin/screens/warehouse/billing-invoices';
+import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -152,6 +152,13 @@ export interface SubWarehouseSaleDetailScreenProps {
   onBack?: (() => void) | undefined;
   onViewInvoice?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  /**
+   * Needed only for the inline invoice detail (no onViewInvoice): the shared
+   * invoice screen is scoped and permission-gated. Without them View Invoice is
+   * not offered (fail closed).
+   */
+  scope?: WarehouseScope | undefined;
+  can?: PermissionCheck | undefined;
 }
 
 export function SubWarehouseSaleDetailScreen({
@@ -179,7 +186,10 @@ export function SubWarehouseSaleDetailScreen({
   onBack,
   onViewInvoice,
   onTabChange,
+  scope,
+  can,
 }: SubWarehouseSaleDetailScreenProps) {
+  const canShowInvoice = onViewInvoice !== undefined || (scope !== undefined && can !== undefined);
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
 
@@ -200,9 +210,11 @@ export function SubWarehouseSaleDetailScreen({
     }
   };
 
-  if (showInvoiceScreen) {
+  if (showInvoiceScreen && scope && can) {
     return (
-      <SubWarehouseInvoiceDetailScreen
+      <InvoiceDetailScreen
+        scope={scope}
+        can={can}
         invoiceId={sale.invoiceNo || 'INV-00251'}
         onBack={() => setShowInvoiceScreen(false)}
       />
@@ -387,14 +399,16 @@ export function SubWarehouseSaleDetailScreen({
           <Text style={styles.fieldValueBold}>{sale.invoiceNo || 'INV-00251'}</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.viewInvoiceBtn}
-          onPress={handleViewInvoice}
-          activeOpacity={0.82}
-        >
-          <InvoiceReceiptIcon size={20} color="#D4451B" />
-          <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
-        </TouchableOpacity>
+        {canShowInvoice && (
+          <TouchableOpacity
+            style={styles.viewInvoiceBtn}
+            onPress={handleViewInvoice}
+            activeOpacity={0.82}
+          >
+            <InvoiceReceiptIcon size={20} color="#D4451B" />
+            <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ─── 7. Sale Timeline ─── */}
         <Text style={[styles.sectionHeading, { marginTop: 24 }]}>Sale Timeline</Text>
