@@ -1226,15 +1226,9 @@ export function MainWarehouseAdminDashboardScreen({
             />
           ) : receivingSubView === 'receiving_history_detail' ? (
             <ReceivingHistoryDetailScreen
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
               receiptId={selectedGrnId}
-              shipmentId={selectedShipmentId}
-              warehouseName={selectedWHName.replace(' Warehouse', '')}
-              result={selectedGrnId === 'GRN-000831' ? 'Rejected' : selectedGrnId === 'GRN-000839' ? 'Accepted' : 'Partially Accepted'}
-              receivedBy="Suresh"
-              date="25 Sep 2026"
-              productName={selectedGrnId === 'GRN-000839' ? 'Potato · Grade 1' : selectedGrnId === 'GRN-000831' ? 'Carrot · Grade 3' : 'Tomato · Grade 2'}
-              receivedQty={selectedGrnId === 'GRN-000831' ? '0 KG' : selectedGrnId === 'GRN-000839' ? '300 KG' : '445 KG'}
-              expectedQty={selectedGrnId === 'GRN-000831' ? '150 KG' : selectedGrnId === 'GRN-000839' ? '300 KG' : '480 KG'}
               onBack={() => setReceivingSubView('receiving_history')}
               onNavigateTimeline={() => {
                 setActiveTab('Home');

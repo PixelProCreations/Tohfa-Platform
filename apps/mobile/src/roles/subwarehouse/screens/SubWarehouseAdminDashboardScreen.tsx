@@ -15,7 +15,11 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
 import { AdminProfileScreen } from '../../admin/screens/dashboard/AdminProfileScreen';
-import { GoodsReceivingWizard, type ReceivingWizardStep } from '../../admin/screens/warehouse/GoodsReceivingWizard';
+import {
+  GoodsReceivingWizardScreen,
+  ReceivingHistoryDetailScreen,
+  type ReceivingWizardStep,
+} from '../../admin/screens/warehouse/receiving-qc';
 import {
   NotificationsFlow,
   SUB_NOTIFICATIONS,
@@ -29,7 +33,6 @@ import {
   QualityCheckScreen,
   PartialAcceptanceScreen,
   ReceivingHistoryScreen,
-  ReceivingHistoryDetailScreen,
   ReceivingSearchFiltersScreen,
   ShipmentDetailScreen,
 } from '../../admin/screens/warehouse';
@@ -1430,10 +1433,13 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (receivingWizardStep !== null) {
     return (
-      <GoodsReceivingWizard
+      <GoodsReceivingWizardScreen
+        scope={scope}
+        can={can}
         initialStep={receivingWizardStep}
-        shipment={selectedShipment as any}
-        onClose={() => setReceivingWizardStep(null)}
+        shipment={selectedShipment}
+        receiverName={userName}
+        onBack={() => setReceivingWizardStep(null)}
         onFinish={() => {
           setReceivingWizardStep(null);
           navigateTo('Receiving', 'overview');
@@ -2504,7 +2510,9 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReceivingHistoryDetail) {
     return (
       <ReceivingHistoryDetailScreen
-        grnId={selectedGrnId}
+        scope={scope}
+        can={can}
+        receiptId={selectedGrnId}
         onBack={() => setShowReceivingHistoryDetail(false)}
       />
     );

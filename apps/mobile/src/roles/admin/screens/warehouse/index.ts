@@ -39,7 +39,6 @@ export * from './ReportOperationalIssueScreen';
 export * from './TodaysOperationsMonitoringScreen';
 export * from './WarehousePerformanceScreen';
 export * from './ManageWarehousesScreen';
-export * from './ReceivingHistoryDetailScreen';
 export * from './DirectSaleScreens';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
@@ -152,3 +151,13 @@ export {
   type ProfileRoute,
   type WarehouseSettingsScreenProps,
 } from './profile-settings';
+// Shared goods receiving & QC screens (W4); the wizard absorbed the standalone receiving steps.
+export {
+  GoodsReceivingWizardScreen,
+  ReceivingHistoryDetailScreen,
+  type GoodsReceivingWizardScreenProps,
+  type ReceivingHistoryDetailScreenProps,
+  type ReceivingRecord,
+  type ReceivingWizardStep,
+  type WizardShipmentData,
+} from './receiving-qc';
