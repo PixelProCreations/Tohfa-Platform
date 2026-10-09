@@ -53,10 +53,59 @@ export const warehouseResponse = z.object({
 });
 export type WarehouseResponse = z.infer<typeof warehouseResponse>;
 
+/**
+ * Full wire representation (list and detail share it). It extends the original
+ * summary: `capacityKg` becomes a 3-decimal string, like every other quantity in
+ * the API, and the columns the table already holds are exposed.
+ * `operatingHours` is the raw jsonb — its format is not specified anywhere yet,
+ * so it is passed through untouched.
+ */
+export const warehouseDetailResponse = warehouseResponse.extend({
+  capacityKg: z.string().nullable(),
+  address: z.string().nullable(),
+  pincode: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  contactPhone: z.string().nullable(),
+  operatingHours: z.unknown(),
+  isMarketDayVenue: z.boolean(),
+  marketDayOfWeek: z.number().int().nullable(),
+});
+export type WarehouseDetail = z.infer<typeof warehouseDetailResponse>;
+
 export const listWarehousesResponse = z.object({
-  items: z.array(warehouseResponse),
+  items: z.array(warehouseDetailResponse),
   page: z.number().int(),
   pageSize: z.number().int(),
   total: z.number().int(),
 });
 export type ListWarehousesResponse = z.infer<typeof listWarehousesResponse>;
+
+/**
+ * Decimal string for `numeric(12,3)`: at most 9 integer digits and 3 decimals,
+ * strictly positive (the table's CHECK is `capacity_kg > 0`). A JSON number is
+ * refused on purpose, so the value is never rounded by a float on the way in.
+ */
+const capacityKgString = z
+  .string()
+  .regex(/^\d{1,9}(\.\d{1,3})?$/, 'capacityKg must be a decimal string with at most 9 integer digits and 3 decimals')
+  .refine((value) => /[1-9]/.test(value), 'capacityKg must be greater than 0');
+
+/** PATCH /v1/warehouses/:id/capacity */
+export const updateCapacityBody = z.object({ capacityKg: capacityKgString }).strict();
+export type UpdateCapacityBody = z.infer<typeof updateCapacityBody>;
+
+/**
+ * GET and PATCH /v1/warehouses/:id/capacity. `usedKg` is a read-only derivation
+ * (the sum of ACTIVE batch `qty_available`), not a business rule. `capacityKg`
+ * is null while no capacity has been set, and so are the two values that depend
+ * on it. Nothing is clamped: `availableKg` is negative when over capacity.
+ */
+export const warehouseCapacityResponse = z.object({
+  warehouseId: z.string().uuid(),
+  capacityKg: z.string().nullable(),
+  usedKg: z.string(),
+  availableKg: z.string().nullable(),
+  utilizationPercent: z.number().nullable(),
+});
+export type WarehouseCapacityResponse = z.infer<typeof warehouseCapacityResponse>;

@@ -8,7 +8,8 @@ export interface WarehouseItem {
   name: string;
   type: 'MAIN' | 'SUB';
   city: string | null;
-  capacityKg: number | null;
+  /** Decimal string from the API (BR-66 sibling: quantities are never JSON floats). */
+  capacityKg: string | null;
   isActive: boolean;
   createdAt: string;
 }

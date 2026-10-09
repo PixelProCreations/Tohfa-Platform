@@ -1669,6 +1669,21 @@
       "source": "reqs 6.2"
     },
     {
+      "code": "warehouse.own.view",
+      "module": "Inventory & Warehouse",
+      "description": "View a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-09: SUB_WH_ADMIN had no code to view its own warehouse; owner approval pending"
+    },
+    {
       "code": "warehouse.capacity.set",
       "module": "Inventory & Warehouse",
       "description": "Set warehouse capacity limits.",
