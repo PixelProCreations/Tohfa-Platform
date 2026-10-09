@@ -6,6 +6,7 @@ import { requirePermission, requireScope } from '../../rbac/requirePermission.js
 import {
   calendarQuery,
   createPlatformEventBody,
+  listPlatformEventsQuery,
   platformEventIdParams,
   updatePlatformEventBody,
 } from './calendar.schema.js';
@@ -33,9 +34,11 @@ adminPlatformEventsRouter.get(
   '/platform-events',
   requireAuth,
   requirePermission('platform.event.manage'),
+  validate({ query: listPlatformEventsQuery }),
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
-    res.json({ items: await calendarService.listPlatformEvents(scope) });
+    const query = getValidated(req, 'query', listPlatformEventsQuery);
+    res.json(await calendarService.listPlatformEvents(scope, query));
   }),
 );
 

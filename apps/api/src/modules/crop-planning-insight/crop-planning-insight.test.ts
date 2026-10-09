@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -11,10 +11,8 @@ import type {
   CropPlanningInsightRepo,
   HarvestStatRow,
 } from './crop-planning-insight.repo.js';
-import {
-  createCropPlanningInsightService,
-  DEFAULT_SPEC_GAPS,
-} from './crop-planning-insight.service.js';
+import { cropPlanningInsightResponse } from './crop-planning-insight.schema.js';
+import { createCropPlanningInsightService } from './crop-planning-insight.service.js';
 
 const FARMER_A = IDS.farmer;
 const FARMER_B = '30000000-0000-4000-8000-000000000002';
@@ -130,7 +128,7 @@ function createFakeRepo(): CropPlanningInsightRepo {
 describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
   const dummyDb = {} as Executor;
 
-  it('rejects caller when farmerId is missing (BR-36 own-data scoping)', async () => {
+  it('BR-36: rejects a caller with no farmer identity', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -141,7 +139,7 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     );
   });
 
-  it('calculates seasonal availability correctly in October (month 10)', async () => {
+  it('season: marks crops in or out of season for October (month 10)', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -161,7 +159,7 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     expect(cabbage.inSeason).toBeNull();
   });
 
-  it('calculates seasonal availability correctly in April (month 4)', async () => {
+  it('season: marks crops in or out of season for April (month 4)', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -177,7 +175,19 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     expect(potato.inSeason).toBe(true);
   });
 
-  it('derives active plantings, acreage, and expected yield correctly', async () => {
+  it('season: the default month is the Asia/Kolkata month, not the UTC month', async () => {
+    // 2026-09-30 20:00 UTC is 2026-10-01 01:30 IST: October in Kolkata, September in UTC.
+    vi.useFakeTimers({ now: new Date('2026-09-30T20:00:00Z') });
+    try {
+      const service = createCropPlanningInsightService({ repo: createFakeRepo(), db: dummyDb });
+      const res = await service.getCropPlanningInsight(farmerScope(FARMER_A));
+      expect(res.crops.find((c) => c.cropMasterId === CROP_CARROT)?.inSeason).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('plantings: derives active plots, acreage and expected yield', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -208,7 +218,7 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     expect(cabbage.expectedYieldKg).toBeNull();
   });
 
-  it('derives past harvest count and recency date', async () => {
+  it('harvests: derives past harvest count and recency date', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -230,7 +240,7 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     expect(cabbage.lastHarvestedOn).toBeNull();
   });
 
-  it('detects consecutive plantings on the same plot (monoculture signal)', async () => {
+  it('rotation: flags consecutive plantings of one crop on the same plot', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -252,7 +262,7 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     expect(cabbage.consecutivePlotNames).toEqual([]);
   });
 
-  it('returns empty stats for a farmer with no plantings or harvests', async () => {
+  it('BR-36: returns empty stats for a farmer with no plantings or harvests', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -274,7 +284,7 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     }
   });
 
-  it('includes documented deferred spec gaps per BR-38 and design note', async () => {
+  it('BR-38: the response carries no advisory text, only derived facts', async () => {
     const service = createCropPlanningInsightService({
       repo: createFakeRepo(),
       db: dummyDb,
@@ -282,9 +292,9 @@ describe('CropPlanningInsightService (Module 10 - BR-38, BR-36)', () => {
     });
 
     const res = await service.getCropPlanningInsight(farmerScope(FARMER_A));
-    expect(res.specGaps).toEqual(DEFAULT_SPEC_GAPS);
-    expect(res.specGaps).toContain(
-      'Automated crop-switching recommendations are deferred per BR-38.',
-    );
+    // The deferred-feature notes live in docs/crop-planning-insight-design.md,
+    // not in an English string on every response.
+    expect(Object.keys(res).sort()).toEqual(['crops', 'generatedAt']);
+    expect(cropPlanningInsightResponse.shape).not.toHaveProperty('specGaps');
   });
 });
