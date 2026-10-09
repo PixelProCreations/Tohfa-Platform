@@ -49,7 +49,6 @@ import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { SubWarehouseApprovalAlertsScreen } from './SubWarehouseApprovalAlertsScreen';
-import { SubWarehouseExpenseRecordScreen } from './SubWarehouseExpenseRecordScreen';
 import { SubWarehouseGoodsReceiptDetailScreen } from './SubWarehouseGoodsReceiptDetailScreen';
 import { SubWarehouseSystemMessagesScreen } from './SubWarehouseSystemMessagesScreen';
 import { SubWarehouseMessageHistoryScreen } from './SubWarehouseMessageHistoryScreen';
@@ -78,8 +77,12 @@ import { SubWarehouseOperationalIssueDetailScreen } from './SubWarehouseOperatio
 import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActivityScreen';
 import { SubWarehouseTodayOperationsScreen } from './SubWarehouseTodayOperationsScreen';
 import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailScreen';
-import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
-import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
+import {
+  ExpenseDetailScreen,
+  FinanceFlow,
+  type PermissionCheck,
+  type WarehouseScope,
+} from '../../admin/screens/warehouse/finance-expenses';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
 import { OrdersFlow } from '../../admin/screens/warehouse/orders';
@@ -1501,13 +1504,10 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showExpenseRecord) {
     return (
-      <SubWarehouseExpenseRecordScreen
-        onBack={() => setShowExpenseRecord(false)}
-        onApprove={() => {
-          Alert.alert('Approved', 'Expense EXP-001245 approved successfully.');
-          setShowExpenseRecord(false);
-        }}
-      />
+      // The old SubWarehouseExpenseRecordScreen duplicated this record with an
+      // 'Approve / Review' button; no rbac code grants expense approval, so the
+      // shared read-only ExpenseDetailScreen is shown instead (FINAL_LIST #35).
+      <ExpenseDetailScreen scope={scope} can={can} onBack={() => setShowExpenseRecord(false)} />
     );
   }
 
@@ -2561,7 +2561,8 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showFinanceScreen) {
     return (
-      <SubWarehouseFinanceScreen
+      // Shared finance flow (W4), scope-locked to this warehouse.
+      <FinanceFlow
         scope={scope}
         can={can}
         onBack={() => {
@@ -2571,6 +2572,10 @@ export function SubWarehouseAdminDashboardScreen({
         onTabChange={(tab) => {
           setShowFinanceScreen(false);
           setActiveTab(tab);
+        }}
+        onOpenWallet={() => {
+          setShowFinanceScreen(false);
+          setShowWalletOperations(true);
         }}
       />
     );

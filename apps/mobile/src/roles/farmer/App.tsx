@@ -158,7 +158,6 @@ import {
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
   SubWarehouseApprovalAlertsScreen,
-  SubWarehouseExpenseRecordScreen,
   SubWarehouseGoodsReceiptDetailScreen,
   SubWarehouseSystemMessagesScreen,
   SubWarehouseMessageHistoryScreen,
@@ -168,18 +167,10 @@ import {
   SubWarehouseAttendanceScreen,
   SubWarehouseTodayAttendanceScreen,
   SubWarehouseAttendanceHistoryScreen,
-  SubWarehouseFinanceScreen,
-  SubWarehouseRevenueScreen,
-  SubWarehouseRevenueDetailScreen,
-  WarehouseExpensesScreen,
-  WarehouseAddExpenseScreen,
-  ExpenseDetailScreen,
-  SubWarehouseExpenseCategoriesScreen,
-  FinanceHistoryScreen,
-  FinanceReportsScreen,
   type WarehouseScope,
-  SubWarehouseVouchersScreen,
-  SubWarehouseVoucherDetailScreen,
+  FinanceFlow,
+  type FinanceRoute,
+  type FinanceRouteParams,
   SubWarehouseWarehouseOperationsScreen,
   SubWarehouseWarehouseActivityScreen,
   SubWarehouseTodayOperationsScreen,
@@ -769,6 +760,26 @@ const WALLET_ROUTE_ENTRY: Partial<Record<ScreenName, WalletRoute>> = {
   SubWarehouseDailyCash: 'DailyCash',
   SubWarehouseWalletAttention: 'WalletAttention',
 };
+/**
+ * Legacy finance route keys -> shared FinanceFlow routes (W4). Every key still
+ * works. SubWarehouseExpenseRecord (a duplicate stub offering an 'Approve'
+ * action no rbac code grants) is the read-only ExpenseDetail; SubWarehouseDailyCash
+ * stays a WalletFlow key (W4i).
+ */
+const FINANCE_ROUTE_ENTRY: Partial<Record<ScreenName, FinanceRoute>> = {
+  SubWarehouseFinance: 'FinanceHub',
+  SubWarehouseRevenue: 'Revenue',
+  SubWarehouseRevenueDetail: 'RevenueDetail',
+  WarehouseExpenses: 'Expenses',
+  WarehouseAddExpense: 'AddExpense',
+  WarehouseExpenseDetail: 'ExpenseDetail',
+  SubWarehouseExpenseRecord: 'ExpenseDetail',
+  SubWarehouseExpenseCategories: 'ExpenseCategories',
+  WarehouseFinanceHistory: 'FinanceHistory',
+  WarehouseFinanceReports: 'FinanceReports',
+  SubWarehouseVouchers: 'Vouchers',
+  SubWarehouseVoucherDetail: 'VoucherDetail',
+};
 /** A route param as a string, or undefined. */
 function stringParam(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -887,6 +898,56 @@ export default function App(): React.JSX.Element {
             } as CustomersRouteParams['ticket'])
           : undefined,
       defaultFilter: stringParam(params['defaultFilter']),
+    };
+  }, [params]);
+
+  // Params for a FinanceFlow entry, memoised so the flow does not restart its
+  // stack on every App render. Deep links carry flat revenue / expense fields.
+  const financeParams = useMemo<FinanceRouteParams>(() => {
+    const revenueId = stringParam(params['revenueId']);
+    const expenseId = stringParam(params['expenseId']);
+    const amount = params['amount'];
+    const expense =
+      expenseId !== undefined
+        ? {
+            expenseId,
+            amount: typeof amount === 'number' || typeof amount === 'string' ? amount : undefined,
+            category: stringParam(params['category']),
+            date: stringParam(params['date']),
+            description: stringParam(params['description']),
+            paymentMethod: stringParam(params['paymentMethod']),
+            vendorPayee: stringParam(params['vendorPayee']),
+            warehouse: stringParam(params['warehouse']),
+            createdBy: stringParam(params['createdBy']),
+            status: stringParam(params['status']),
+          }
+        : undefined;
+    const method = stringParam(params['paymentMethod']);
+    return {
+      revenue:
+        revenueId !== undefined
+          ? {
+              revenueId,
+              finalAmount: stringParam(params['finalAmount']),
+              salesChannel: stringParam(params['salesChannel']),
+              transactionDate: stringParam(params['transactionDate']),
+            }
+          : undefined,
+      expense,
+      // An expense key opened with an expense id is an edit (the form prefills).
+      expenseDraft:
+        expense !== undefined
+          ? {
+              expenseId: expense.expenseId,
+              amount: String(expense.amount ?? ''),
+              category: expense.category ?? '',
+              date: expense.date ?? '',
+              description: expense.description ?? '',
+              paymentMethod: method === 'UPI' || method === 'Bank' ? method : 'Cash',
+              vendorPayee: expense.vendorPayee ?? '',
+            }
+          : undefined,
+      isReceiptView: params['isReceiptView'] === 'true' || params['isReceiptView'] === true,
     };
   }, [params]);
 
@@ -1719,6 +1780,26 @@ export default function App(): React.JSX.Element {
               } : undefined)
             }
           />
+        ) : FINANCE_ROUTE_ENTRY[screen] !== undefined ? (
+          // The finance screens live in the shared warehouse/finance-expenses area
+          // (W4); each old finance key opens FinanceFlow on the matching route.
+          <FinanceFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={FINANCE_ROUTE_ENTRY[screen]}
+            initialParams={financeParams}
+            onBack={goBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('WarehouseMore');
+            }}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            onOpenWallet={() => navigate('WarehouseWalletOperations')}
+            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
+            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
+          />
         ) : WALLET_ROUTE_ENTRY[screen] !== undefined ? (
           // The wallet & cash top-up screens live in the shared warehouse/wallet-cashtopup
           // area (W4); each old wallet key opens WalletFlow on the matching route.
@@ -1803,14 +1884,6 @@ export default function App(): React.JSX.Element {
               } else {
                 navigate('SubWarehouseExpenseRecord');
               }
-            }}
-          />
-        ) : screen === 'SubWarehouseExpenseRecord' ? (
-          <SubWarehouseExpenseRecordScreen
-            onBack={goBack}
-            onApprove={() => {
-              Alert.alert('Approved', 'Expense EXP-001245 approved successfully.');
-              goBack();
             }}
           />
         ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
@@ -1917,187 +1990,6 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseFinance' ? (
-          <SubWarehouseFinanceScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToReports={() => navigate('WarehouseFinanceReports')}
-            onNavigateToRevenue={() => navigate('SubWarehouseRevenue')}
-            onNavigateToExpenses={() => navigate('WarehouseExpenses')}
-            onNavigateToAddExpense={() => navigate('WarehouseAddExpense')}
-            onNavigateToVouchers={() => navigate('SubWarehouseVouchers')}
-            onNavigateToDailyCash={() => navigate('SubWarehouseDailyCash')}
-            onNavigateToHistory={() => navigate('WarehouseFinanceHistory')}
-            onNavigateToCategories={() => navigate('SubWarehouseExpenseCategories')}
-            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
-            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
-          />
-        ) : screen === 'SubWarehouseRevenue' ? (
-          <SubWarehouseRevenueScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToDetail={(id) => navigate('SubWarehouseRevenueDetail')}
-          />
-        ) : screen === 'SubWarehouseRevenueDetail' ? (
-          <SubWarehouseRevenueDetailScreen
-            onBack={goBack}
-            revenueId={(params['revenueId'] as string) || 'REV-000845'}
-            finalAmount={(params['finalAmount'] as string) || '3,450'}
-            salesChannel={(params['salesChannel'] as string) || 'Market Sale'}
-            transactionDate={(params['transactionDate'] as string) || '25 Sep, 11:20 AM'}
-            onViewOrder={() => navigate('SubWarehouseCustomerOrders')}
-            onViewInvoice={() => navigate('SubWarehouseInvoiceList')}
-            onViewTransactionHistory={() => navigate('WarehouseFinanceHistory')}
-          />
-        ) : screen === 'WarehouseExpenses' ? (
-          <WarehouseExpensesScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onAddExpense={() => navigate('WarehouseAddExpense')}
-          />
-        ) : screen === 'WarehouseAddExpense' ? (
-          <WarehouseAddExpenseScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onSaveSuccess={() => {
-              navigate('WarehouseExpenseDetail', {
-                expenseId: 'EXP-001245',
-                amount: 2400,
-                category: 'Transport',
-                date: '25 Sep 2026',
-                description: 'Transport from collection point to warehouse',
-                paymentMethod: 'Cash',
-                vendorPayee: 'Local Transport Co.',
-                createdBy: 'SWA - Suresh',
-                status: 'Recorded',
-              });
-            }}
-            initialExpense={{
-              expenseId: (params['expenseId'] as string) || 'EXP-001245',
-              amount: String(params['amount'] || '2400'),
-              category: (params['category'] as string) || 'Transport',
-              date: (params['date'] as string) || '25 Sep 2026',
-              description: (params['description'] as string) || 'Transport from collection point to warehouse',
-              paymentMethod: (params['paymentMethod'] as 'Cash' | 'UPI' | 'Bank') || 'Cash',
-              vendorPayee: (params['vendorPayee'] as string) || 'Local Transport Co.'
-            }}
-          />
-        ) : screen === 'WarehouseExpenseDetail' ? (
-          <ExpenseDetailScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            expenseId={(params['expenseId'] as string) || 'EXP-001245'}
-            amount={params['amount'] as any}
-            category={params['category'] as string}
-            date={params['date'] as string}
-            description={params['description'] as string}
-            paymentMethod={params['paymentMethod'] as string}
-            vendorPayee={params['vendorPayee'] as string}
-            warehouse={params['warehouse'] as string | undefined}
-            createdBy={params['createdBy'] as string}
-            status={params['status'] as string}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-
-            onEdit={() => navigate('WarehouseAddExpense', params)}
-            isReceiptView={!!params['isReceiptView'] && params['isReceiptView'] === 'true'}
-            onViewReceipt={() => navigate('WarehouseExpenseDetail', { ...params, isReceiptView: 'true' })}
-          />
-        ) : screen === 'SubWarehouseExpenseCategories' ? (
-          <SubWarehouseExpenseCategoriesScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'WarehouseFinanceHistory' ? (
-          <FinanceHistoryScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onSelectItem={(item) => {
-              if (item.type === 'Revenue') {
-                navigate('SubWarehouseRevenueDetail', {
-                  revenueId: item.id,
-                  finalAmount: item.amount.toString(),
-                  salesChannel: item.title,
-                  transactionDate: item.time,
-                });
-              } else {
-                navigate('WarehouseExpenseDetail', {
-                  expenseId: item.id,
-                  amount: item.amount,
-                  category: item.title,
-                  date: item.time,
-                });
-              }
-            }}
-          />
-        ) : screen === 'WarehouseFinanceReports' ? (
-          <FinanceReportsScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-
-            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
-            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
-            onNavigateToHistory={() => navigate('WarehouseFinanceHistory')}
-          />
-        ) : screen === 'SubWarehouseVouchers' ? (
-          <SubWarehouseVouchersScreen
-            warehouseName="Coonoor Warehouse"
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onSelectVoucher={(voucher) => {
-              Alert.alert('Voucher Record', `Voucher ${voucher.id} - Amount: ₹${voucher.amount}`);
             }}
           />
         ) : screen === 'SubWarehouseWarehouseOperations' ? (

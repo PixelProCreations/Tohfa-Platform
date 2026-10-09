@@ -43,16 +43,10 @@ export * from '../../../subwarehouse/screens/SubWarehouseSettingsScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseApprovalAlertsScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseExpenseRecordScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseGoodsReceiptDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseSystemMessagesScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseMessageHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReportsScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseFinanceScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseRevenueScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseVouchersScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseVoucherDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseExpenseCategoriesScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
 export * from './AdminProfileScreen';
 
@@ -80,7 +74,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssueDetailS
 export * from '../../../subwarehouse/screens/SubWarehouseStaffAndAttendanceScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceDetailScreen';
 export { SubWarehouseWarehouseActivityScreen, type SubWarehouseWarehouseActivityScreenProps } from '../../../subwarehouse/screens/SubWarehouseWarehouseActivityScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseRevenueDetailScreen';
 export { SubWarehouseTodayOperationsScreen, type SubWarehouseTodayOperationsScreenProps } from '../../../subwarehouse/screens/SubWarehouseTodayOperationsScreen';
 export { SubWarehouseActivityDetailScreen, type SubWarehouseActivityDetailScreenProps } from '../../../subwarehouse/screens/SubWarehouseActivityDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAddMaterialScreen';

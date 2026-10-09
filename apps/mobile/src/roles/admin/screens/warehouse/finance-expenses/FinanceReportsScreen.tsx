@@ -22,12 +22,12 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SubWarehouseRevenueScreen } from '../../../../subwarehouse/screens/SubWarehouseRevenueScreen';
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
-import { SubWarehouseExpenseCategoriesScreen } from '../../../../subwarehouse/screens/SubWarehouseExpenseCategoriesScreen';
-import { SubWarehouseVouchersScreen } from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { FinanceHistoryScreen } from './FinanceHistoryScreen';
+import { RevenueScreen } from './RevenueScreen';
+import { VouchersScreen } from './VouchersScreen';
 import { WarehouseExpensesScreen } from './WarehouseExpensesScreen';
 import type { FinanceReportItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
@@ -276,6 +276,8 @@ export function FinanceReportsScreen({
   onBack,
   onTabChange,
   onSelectReport,
+  onNavigateToCustomerOrders,
+  onNavigateToInvoiceList,
 }: FinanceReportsScreenProps) {
   const [activeSubScreen, setActiveSubScreen] = useState<
     'revenue' | 'expense' | 'daily' | 'monthly' | 'categories' | 'vouchers' | null
@@ -330,7 +332,16 @@ export function FinanceReportsScreen({
   const closeSubScreen = () => setActiveSubScreen(null);
 
   if (activeSubScreen === 'revenue') {
-    return <SubWarehouseRevenueScreen onBack={closeSubScreen} onTabChange={onTabChange} />;
+    return (
+      <RevenueScreen
+        scope={scope}
+        can={can}
+        onBack={closeSubScreen}
+        onTabChange={onTabChange}
+        onViewOrder={onNavigateToCustomerOrders}
+        onViewInvoice={onNavigateToInvoiceList}
+      />
+    );
   }
 
   if (activeSubScreen === 'expense') {
@@ -368,13 +379,14 @@ export function FinanceReportsScreen({
   }
 
   if (activeSubScreen === 'categories') {
-    return <SubWarehouseExpenseCategoriesScreen onBack={closeSubScreen} onTabChange={onTabChange} />;
+    return <ExpenseCategoriesScreen scope={scope} can={can} onBack={closeSubScreen} onTabChange={onTabChange} />;
   }
 
   if (activeSubScreen === 'vouchers') {
     return (
-      <SubWarehouseVouchersScreen
-        warehouseName={warehouseLabel}
+      <VouchersScreen
+        scope={scope}
+        can={can}
         onBack={closeSubScreen}
         onTabChange={onTabChange}
       />

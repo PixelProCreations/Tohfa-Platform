@@ -23,8 +23,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { SubWarehouseSettingsScreen } from '../../../../subwarehouse/screens/SubWarehouseSettingsScreen';
 import { SubWarehouseReportsScreen } from '../../../../subwarehouse/screens/SubWarehouseReportsScreen';
-import { SubWarehouseFinanceScreen } from '../../../../subwarehouse/screens/SubWarehouseFinanceScreen';
-import { SubWarehouseVouchersScreen } from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
+import { FinanceFlow } from '../finance-expenses/FinanceFlow';
 import { SubWarehouseHelpSupportScreen } from '../../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
 import { SubWarehouseWarehouseOperationsScreen } from '../../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
 import { CustomersFlow } from '../customers';
@@ -791,24 +790,21 @@ export function MoreScreen({
     );
   }
 
-  if (showVouchersScreen) {
+  if (showVouchersScreen || showFinanceScreen) {
+    // Shared finance flow (W4): the Warehouse Finance row opens the hub, the
+    // billing row's fallback opens the voucher list.
     return (
-      <SubWarehouseVouchersScreen
-        warehouseName={warehouseLabel}
-        onBack={() => setShowVouchersScreen(false)}
-        onTabChange={onTabChange}
-      />
-    );
-  }
-
-  if (showFinanceScreen) {
-    return (
-      <SubWarehouseFinanceScreen
+      <FinanceFlow
         scope={scope}
         can={can}
-        onBack={() => setShowFinanceScreen(false)}
+        initialScreen={showVouchersScreen ? 'Vouchers' : 'FinanceHub'}
+        onBack={() => {
+          setShowVouchersScreen(false);
+          setShowFinanceScreen(false);
+        }}
         onTabChange={onTabChange}
         onNavigateToNotifications={onNavigateToNotifications}
+        onOpenWallet={onNavigateToWallet}
       />
     );
   }

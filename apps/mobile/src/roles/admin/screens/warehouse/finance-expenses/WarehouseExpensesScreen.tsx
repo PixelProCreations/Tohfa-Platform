@@ -26,15 +26,12 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import { SubWarehouseExpenseCategoriesScreen } from '../../../../subwarehouse/screens/SubWarehouseExpenseCategoriesScreen';
-import {
-  SubWarehouseVouchersScreen,
-  type VoucherRecord,
-} from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
-import { SubWarehouseVoucherDetailScreen } from '../../../../subwarehouse/screens/SubWarehouseVoucherDetailScreen';
+import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
 import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
-import type { ExpenseDraft, ExpenseRecord, WarehouseScreenBaseProps } from './types';
+import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScreenBaseProps } from './types';
+import { VoucherDetailScreen } from './VoucherDetailScreen';
+import { VouchersScreen } from './VouchersScreen';
 
 const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';
@@ -270,7 +267,9 @@ export function WarehouseExpensesScreen({
 
   if (showCategoriesScreen) {
     return (
-      <SubWarehouseExpenseCategoriesScreen
+      <ExpenseCategoriesScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowCategoriesScreen(false)}
         onTabChange={onTabChange}
       />
@@ -294,15 +293,10 @@ export function WarehouseExpensesScreen({
 
   if (selectedVoucher) {
     return (
-      <SubWarehouseVoucherDetailScreen
-        voucherId={selectedVoucher.id}
-        type={selectedVoucher.type}
-        title={selectedVoucher.title}
-        amount={selectedVoucher.amount}
-        referenceId={selectedVoucher.referenceId}
-        date={selectedVoucher.date}
-        status={selectedVoucher.status}
-        warehouse={warehouseLabel}
+      <VoucherDetailScreen
+        scope={scope}
+        can={can}
+        voucher={selectedVoucher}
         onBack={() => setSelectedVoucher(null)}
         onTabChange={onTabChange}
       />
@@ -311,8 +305,9 @@ export function WarehouseExpensesScreen({
 
   if (showVouchersScreen) {
     return (
-      <SubWarehouseVouchersScreen
-        warehouseName={warehouseLabel}
+      <VouchersScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowVouchersScreen(false)}
         onTabChange={onTabChange}
         onSelectVoucher={(voucher) => setSelectedVoucher(voucher)}

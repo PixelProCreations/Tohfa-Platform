@@ -19,7 +19,7 @@ import { MoreScreen } from '../warehouse/dashboard-home-more';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
-import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
+import { FinanceFlow } from '../warehouse/finance-expenses';
 import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
 import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
@@ -1430,7 +1430,8 @@ export function MainWarehouseAdminDashboardScreen({
               }}
             />
           ) : moreSubScreen === 'finance' ? (
-            <MainWarehouseFinanceScreen
+            // Shared finance flow (W4); MAIN_WAREHOUSE_SCOPE shows all four warehouses.
+            <FinanceFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
               onBack={() => setMoreSubScreen(null)}
@@ -1438,6 +1439,15 @@ export function MainWarehouseAdminDashboardScreen({
               onNavigateToNotifications={() => {
                 setMoreSubScreen(null);
                 navigateWh('warehouse_notifications');
+              }}
+              onOpenWallet={() => setMoreSubScreen('wallet')}
+              onNavigateToCustomerOrders={() => {
+                setMoreSubScreen(null);
+                navigateWh('customer_orders');
+              }}
+              onNavigateToInvoiceList={() => {
+                setMoreSubScreen(null);
+                navigateWh('billing_invoices');
               }}
             />
           ) : moreSubScreen === 'reports' ? (
