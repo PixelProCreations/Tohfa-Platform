@@ -27,12 +27,9 @@ import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
+import { InventoryFlow } from '../warehouse/inventory';
 import {
   WarehouseOverviewScreen,
-  StockLedgerScreen,
-  VerifyStockScreen,
-  StockAdjustmentApprovalScreen,
-  LowStockAlertsScreen,
   WarehouseSettingsScreen,
   WarehousePerformanceScreen,
   ManageWarehousesScreen,
@@ -94,8 +91,6 @@ import {
   ReportOperationalIssueScreen,
   WarehouseNotificationsScreen,
   type WarehouseNotification,
-  type StockBatchItem,
-  type VerifyStockAdjustmentData,
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
@@ -590,6 +585,14 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 /** The Main Warehouse admin sees every warehouse: no warehouseId (see finance-expenses/types.ts). */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 
+/** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
+const INVENTORY_ENTRY = {
+  stock_ledger: 'M3S06',
+  verify_stock: 'M3S11',
+  stock_adjustment_approval: 'M3S17',
+  low_stock_alerts: 'M3S09',
+} as const;
+
 /**
  * Main-only screens opened from the shared More menu. The old
  * MainWarehouseMoreScreen rendered these itself as local fallbacks; the shared
@@ -616,8 +619,6 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
-  const [selectedBatch, setSelectedBatch] = useState<StockBatchItem | null>(null);
-  const [adjustmentRecord, setAdjustmentRecord] = useState<VerifyStockAdjustmentData | null>(null);
   const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
   const [cartProducts, setCartProducts] = useState<ProductItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<DirectSaleCustomerItem | null>({
@@ -1725,52 +1726,23 @@ export function MainWarehouseAdminDashboardScreen({
                 onWarehouseTargets={() => navigateWh('warehouse_settings')}
                 onReviewEscalations={() => navigateWh('alerts_action_center')}
               />
-            ) : whSubView === 'stock_ledger' ? (
-              <StockLedgerScreen
-                warehouseName={selectedWHName}
+            ) : whSubView === 'stock_ledger' ||
+              whSubView === 'verify_stock' ||
+              whSubView === 'stock_adjustment_approval' ||
+              whSubView === 'low_stock_alerts' ? (
+              // The four Main-only inventory screens were folded into the shared
+              // inventory area (W4); each old sub-view opens the flow on its survivor.
+              <InventoryFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen={INVENTORY_ENTRY[whSubView]}
+                initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
                 onBack={goBackWh}
-                onVerifyBatch={(batch) => {
-                  if (batch) setSelectedBatch(batch);
-                  navigateWh('verify_stock');
-                }}
-              />
-            ) : whSubView === 'verify_stock' ? (
-              <VerifyStockScreen
-                produceName={selectedBatch?.name ?? 'Carrots'}
-                batchId={selectedBatch?.batchId ?? 'BT-4471'}
-                zone={selectedBatch?.zone ?? 'Zone A-2'}
-                systemCount={selectedBatch?.quantityKg ?? 240}
-                initialPhysicalCount={selectedBatch?.name === 'Carrots' ? 225 : (selectedBatch?.quantityKg ? selectedBatch.quantityKg - 5 : 225)}
-                onBack={goBackWh}
-                onSubmitApproval={(data) => {
-                  setAdjustmentRecord(data);
-                  navigateWh('stock_adjustment_approval');
-                }}
-              />
-            ) : whSubView === 'stock_adjustment_approval' ? (
-              <StockAdjustmentApprovalScreen
-                produceName={adjustmentRecord?.produceName ?? selectedBatch?.name ?? 'Carrots'}
-                batchId={adjustmentRecord?.batchId ?? selectedBatch?.batchId ?? 'BT-4471'}
-                zone={adjustmentRecord?.zone ?? selectedBatch?.zone ?? 'Zone A-2'}
-                systemCount={adjustmentRecord?.systemCount ?? selectedBatch?.quantityKg ?? 240}
-                physicalCount={adjustmentRecord?.physicalCount ?? 225}
-                varianceKg={adjustmentRecord?.varianceKg ?? -15}
-                variancePct={adjustmentRecord?.variancePct ?? -6.25}
-                reason={adjustmentRecord?.reason ?? 'Spoilage during storage.'}
-                onBack={goBackWh}
-                onReturnToLedger={() => {
-                  setWhSubView('stock_ledger');
-                  setWhHistory(['overview']);
-                }}
-              />
-            ) : whSubView === 'low_stock_alerts' ? (
-              <LowStockAlertsScreen
-                onBack={goBackWh}
-                onInitiateTransfer={() => {
-                  navigateWh('inter_warehouse_transfer');
-                }}
-                onAdjustThresholds={() => {
-                  navigateWh('warehouse_settings');
+                onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
+                onTabChange={(tab) => {
+                  setActiveTab(tab);
+                  setWhSubView('overview');
+                  setWhHistory([]);
                 }}
               />
             ) : whSubView === 'inter_warehouse_transfer' ? (

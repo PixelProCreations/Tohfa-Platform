@@ -302,15 +302,10 @@ import {
   type OnlineOrderItem,
   type B2BAccount,
   WarehouseOverviewScreen,
-  StockLedgerScreen,
-  VerifyStockScreen,
-  StockAdjustmentApprovalScreen,
-  LowStockAlertsScreen,
   WarehouseSettingsScreen,
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
-  type StockBatchItem,
-  type VerifyStockAdjustmentData,
+  InventoryFlow,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -747,6 +742,15 @@ function channelForRoute(route: 'SubWarehouseB2BSales' | 'SubWarehouseB2BDetail'
 }
 
 const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' };
+/** Main Warehouse view: no warehouseId = all warehouses. */
+const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+/** Legacy Main inventory route keys -> shared InventoryFlow design ids (W4). */
+const INVENTORY_ROUTE_ENTRY: Record<string, string> = {
+  StockLedger: 'M3S06',
+  VerifyStock: 'M3S11',
+  StockAdjustmentApproval: 'M3S17',
+  LowStockAlerts: 'M3S09',
+};
 
 interface StackEntry {
   screen: ScreenName;
@@ -779,8 +783,6 @@ export default function App(): React.JSX.Element {
   const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
-  const [selectedStockBatch, setSelectedStockBatch] = useState<StockBatchItem | null>(null);
-  const [selectedStockAdjustment, setSelectedStockAdjustment] = useState<VerifyStockAdjustmentData | null>(null);
   const [selectedSaleRecord, setSelectedSaleRecord] = useState<any | null>(null);
   const [selectedChannelOrder, setSelectedChannelOrder] = useState<ChannelOrderItem | null>(null);
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
@@ -2923,45 +2925,19 @@ export default function App(): React.JSX.Element {
             onViewLowStock={() => navigate('LowStockAlerts')}
             onOpenSettings={() => navigate('WarehouseSettings')}
           />
-        ) : screen === 'StockLedger' ? (
-          <StockLedgerScreen
-            warehouseName={String(params['warehouseName'] ?? 'Ooty Warehouse')}
-            onBack={goBack}
-            onVerifyBatch={(b) => {
-              setSelectedStockBatch(b ?? null);
-              navigate('VerifyStock');
-            }}
-          />
-        ) : screen === 'VerifyStock' ? (
-          <VerifyStockScreen
-            produceName={selectedStockBatch?.name ?? 'Carrots'}
-            batchId={selectedStockBatch?.batchId ?? 'BT-4471'}
-            zone={selectedStockBatch?.zone ?? 'Zone A-2'}
-            systemCount={selectedStockBatch?.quantityKg ?? 240}
-            onBack={goBack}
-            onSubmitApproval={(data) => {
-              setSelectedStockAdjustment(data);
-              navigate('StockAdjustmentApproval');
-            }}
-          />
-        ) : screen === 'StockAdjustmentApproval' ? (
-          <StockAdjustmentApprovalScreen
-            produceName={selectedStockAdjustment?.produceName ?? 'Carrots'}
-            batchId={selectedStockAdjustment?.batchId ?? 'BT-4471'}
-            zone={selectedStockAdjustment?.zone ?? 'Zone A-2'}
-            systemCount={selectedStockAdjustment?.systemCount ?? 240}
-            physicalCount={selectedStockAdjustment?.physicalCount ?? 225}
-            varianceKg={selectedStockAdjustment?.varianceKg ?? -15}
-            variancePct={selectedStockAdjustment?.variancePct ?? -6.25}
-            reason={selectedStockAdjustment?.reason ?? 'Spoilage during storage.'}
-            onBack={goBack}
-            onReturnToLedger={() => navigate('StockLedger')}
-          />
-        ) : screen === 'LowStockAlerts' ? (
-          <LowStockAlertsScreen
+        ) : screen === 'StockLedger' ||
+          screen === 'VerifyStock' ||
+          screen === 'StockAdjustmentApproval' ||
+          screen === 'LowStockAlerts' ? (
+          // The Main-only inventory screens were folded into the shared
+          // warehouse/inventory area; the old keys open the flow on the survivor.
+          <InventoryFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={INVENTORY_ROUTE_ENTRY[screen]}
+            initialParams={params}
             onBack={goBack}
             onInitiateTransfer={() => navigate('InterWarehouseTransfer')}
-            onAdjustThresholds={() => navigate('WarehouseSettings')}
           />
         ) : screen === 'InterWarehouseTransfer' ? (
           <InterWarehouseTransferScreen

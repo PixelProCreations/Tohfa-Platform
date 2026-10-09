@@ -1,13 +1,13 @@
 // Design id: M3S04
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import { SWAHeader } from '../../swa/components';
 
-export interface BatchListScreenProps extends InventoryScreenBaseProps {}
+export type BatchListScreenProps = InventoryScreenBaseProps;
 
-export function BatchListScreen({ scope, can, onNavigate, onBack }: BatchListScreenProps) {
+export function BatchListScreen({ scope, onNavigate, onBack }: BatchListScreenProps) {
   const batches = [
     {
       id: 'BAT-2026-00124',
@@ -45,6 +45,8 @@ export function BatchListScreen({ scope, can, onNavigate, onBack }: BatchListScr
           title="Batches"
           subtitle="Tomato · Grade 1 · 5 Active Batches"
           onBack={onBack}
+          warehouseLocked={scope.warehouseId !== undefined}
+          warehouseName={scope.warehouseName}
         />
         
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

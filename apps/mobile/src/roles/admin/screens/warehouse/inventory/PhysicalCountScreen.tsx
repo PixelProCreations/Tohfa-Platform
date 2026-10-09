@@ -8,15 +8,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Platform,
   SafeAreaView,
 } from 'react-native';
 import { adminColors, adminShadow, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryScreenBaseProps, PhysicalCountResult } from './types';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export interface PhysicalCountScreenProps extends InventoryScreenBaseProps {}
+export type PhysicalCountScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -60,8 +59,30 @@ function UncheckedSquareIcon() {
   );
 }
 
-export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: PhysicalCountScreenProps) {
-  const [physicalCount, setPhysicalCount] = useState('95.000');
+export function PhysicalCountScreen({ scope, can, onNavigate, onBack, routeParams }: PhysicalCountScreenProps) {
+  // rbac: inventory.stock_verification.perform MAIN=all, SUB=own. Without it the
+  // screen is a read-only view of the batch (no count entry, no continue).
+  const canPerformCount = can('inventory.stock_verification.perform');
+  // The batch arrives from the ledger / verification flow (absorbed Main
+  // VerifyStockScreen took produce, batch, zone and system count as props).
+  const produceName = String(routeParams?.produceName ?? 'Tomato');
+  const batchId = String(routeParams?.batchId ?? 'BAT-2026-00124');
+  const zone = String(routeParams?.zone ?? 'Cold Storage · A03');
+  const systemCount = Number(routeParams?.systemCount ?? 100);
+  const [physicalCount, setPhysicalCount] = useState(String(routeParams?.physicalCount ?? '95.000'));
+  const physicalValue = Number.parseFloat(physicalCount) || 0;
+  const varianceKg = physicalValue - systemCount;
+  const variancePct = systemCount > 0 ? (varianceKg / systemCount) * 100 : 0;
+  const result: PhysicalCountResult = {
+    produceName,
+    batchId,
+    zone,
+    systemCount,
+    physicalCount: physicalValue,
+    varianceKg,
+    variancePct,
+    reason: '',
+  };
   const [checklist, setChecklist] = useState<Record<number, boolean>>({
     0: true,
     1: true,
@@ -97,7 +118,7 @@ export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: Physical
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Product</Text>
-                <Text style={styles.colValue}>Tomato</Text>
+                <Text style={styles.colValue}>{produceName}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Grade</Text>
@@ -108,11 +129,11 @@ export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: Physical
             <View style={[styles.twoColRow, { marginTop: 12 }]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Batch</Text>
-                <Text style={styles.colValue}>BAT-2026-00124</Text>
+                <Text style={styles.colValue}>{batchId}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Storage Location</Text>
-                <Text style={styles.colValue}>Cold Storage · A03</Text>
+                <Text style={styles.colValue}>{zone}</Text>
               </View>
             </View>
           </View>
@@ -120,10 +141,12 @@ export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: Physical
           {/* System Quantity */}
           <Text style={styles.sectionHeader}>System Quantity</Text>
           <View style={styles.systemQuantityCard}>
-            <Text style={styles.systemQuantityNumber}>100 KG</Text>
+            <Text style={styles.systemQuantityNumber}>{systemCount} KG</Text>
             <Text style={styles.systemQuantitySub}>SYSTEM QUANTITY</Text>
           </View>
 
+          {canPerformCount ? (
+          <>
           {/* Physical Count Input */}
           <Text style={styles.sectionHeader}>Physical Count</Text>
           <View style={styles.inputBox}>
@@ -139,12 +162,25 @@ export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: Physical
           </View>
 
           {/* Variance Warning Banner */}
-          <View style={styles.varianceWarningBox}>
-            <WarningTriangleIcon />
-            <Text style={styles.varianceWarningText}>
-              Variance Detected — System 100 KG vs. Physical 95 KG
-            </Text>
-          </View>
+          {varianceKg !== 0 ? (
+            <View style={styles.varianceWarningBox}>
+              <WarningTriangleIcon />
+              <Text style={styles.varianceWarningText}>
+                Variance Detected — System {systemCount} KG vs. Physical {physicalValue} KG ({variancePct.toFixed(2)}%)
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Main view (absorbed VerifyStockScreen): approval routing note. The
+              tolerance itself lives in system_config, so no number is shown here. */}
+          {scope.warehouseId === undefined && varianceKg !== 0 ? (
+            <View style={styles.varianceWarningBox}>
+              <WarningTriangleIcon />
+              <Text style={styles.varianceWarningText}>
+                A variance beyond the configured tolerance routes to SA/TA for approval before the ledger updates.
+              </Text>
+            </View>
+          ) : null}
 
           {/* Verification Checklist */}
           <Text style={styles.sectionHeader}>Verification Checklist</Text>
@@ -168,21 +204,26 @@ export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: Physical
             })}
           </View>
 
+          </>
+          ) : null}
+
           {/* Bottom Spacing */}
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Fixed Continue Button at Bottom */}
+        {/* Fixed Continue Button at Bottom (only for someone who may count) */}
+        {canPerformCount ? (
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.continueBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('M3S12')}
+            onPress={() => onNavigate?.('M3S12', { ...result })}
           >
             <ArrowRightIcon />
             <Text style={styles.continueBtnText}>Continue to Variance Review</Text>
           </TouchableOpacity>
         </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );

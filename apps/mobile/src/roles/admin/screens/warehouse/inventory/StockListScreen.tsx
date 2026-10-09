@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
 import { adminColors, adminShadow, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
+import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../../swa/components';
+import { SWAHeader } from '../../swa/components';
 
 export interface StockListScreenProps extends InventoryScreenBaseProps {
   initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
@@ -113,8 +114,18 @@ function SearchIcon({ color = adminColors.muted }: { color?: string }) {
   );
 }
 
-export function StockListScreen({ scope, can, onNavigate, onBack, onTabChange, initialTab = 'Stock' }: StockListScreenProps) {
+export function StockListScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  initialTab = 'Stock',
+  warehouseOptions,
+}: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
+  // Main (no warehouseId) may pick a warehouse; Sub is locked to its own.
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
+  const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const stockItems = [
@@ -160,6 +171,16 @@ export function StockListScreen({ scope, can, onNavigate, onBack, onTabChange, i
           onBack={onBack}
           showFilter={true}
           onFilterPress={() => onNavigate?.('M3S16')}
+          warehouseLocked={scope.warehouseId !== undefined}
+          warehouseName={scope.warehouseName}
+          bottomContent={
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions}
+              selectedId={selectedWarehouseId}
+              onSelect={setSelectedWarehouseId}
+            />
+          }
         />
 
         {/* 4 Rounded Tab Cards (positioned UP, directly below header matching reference) */}
@@ -174,7 +195,8 @@ export function StockListScreen({ scope, can, onNavigate, onBack, onTabChange, i
             <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>Stock</Text>
           </TouchableOpacity>
 
-          {/* Ledger Tab */}
+          {/* Ledger Tab (only with a ledger grant) */}
+          {canViewLedger ? (
           <TouchableOpacity 
             style={[styles.tabCard, activeTab === 'Ledger' && styles.activeTabCard]}
             onPress={() => {
@@ -186,6 +208,7 @@ export function StockListScreen({ scope, can, onNavigate, onBack, onTabChange, i
             <LedgerTabIcon color={activeTab === 'Ledger' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>Ledger</Text>
           </TouchableOpacity>
+          ) : null}
 
           {/* Allocation Tab */}
           <TouchableOpacity 

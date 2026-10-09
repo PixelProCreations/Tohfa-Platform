@@ -14,7 +14,7 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 
-export interface StockVerificationScreenProps extends InventoryScreenBaseProps {}
+export type StockVerificationScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons matching Reference Exactly ────────────────────────────────────
 
@@ -139,6 +139,9 @@ function HourglassIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
 }
 
 export function StockVerificationScreen({ scope, can, onNavigate, onBack }: StockVerificationScreenProps) {
+  // rbac: inventory.stock_verification.perform MAIN=all, SUB=own.
+  const canPerformCount = can('inventory.stock_verification.perform');
+  const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -160,11 +163,13 @@ export function StockVerificationScreen({ scope, can, onNavigate, onBack }: Stoc
             <Text style={styles.headerTitle}>Stock Verification</Text>
           </View>
 
-          {/* Warehouse Pill Row inside Header */}
-          <View style={styles.warehousePill}>
-            <LockSmallIcon size={13} color={adminColors.onBrand} />
-            <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'All Warehouses'}</Text>
-          </View>
+          {/* Warehouse Pill Row inside Header (Sub: locked to its own warehouse) */}
+          {scope.warehouseId !== undefined ? (
+            <View style={styles.warehousePill}>
+              <LockSmallIcon size={13} color={adminColors.onBrand} />
+              <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+            </View>
+          ) : null}
         </View>
       </SafeAreaView>
 
@@ -187,15 +192,17 @@ export function StockVerificationScreen({ scope, can, onNavigate, onBack }: Stoc
               <Text style={styles.tabCardText}>Stock</Text>
             </TouchableOpacity>
 
-            {/* Ledger Tab */}
-            <TouchableOpacity
-              style={styles.tabCard}
-              onPress={() => onNavigate?.('M3S06')}
-              activeOpacity={0.7}
-            >
-              <LedgerTabIcon color={adminColors.ink} />
-              <Text style={styles.tabCardText}>Ledger</Text>
-            </TouchableOpacity>
+            {/* Ledger Tab (only with a ledger grant) */}
+            {canViewLedger ? (
+              <TouchableOpacity
+                style={styles.tabCard}
+                onPress={() => onNavigate?.('M3S06')}
+                activeOpacity={0.7}
+              >
+                <LedgerTabIcon color={adminColors.ink} />
+                <Text style={styles.tabCardText}>Ledger</Text>
+              </TouchableOpacity>
+            ) : null}
 
             {/* Allocation Tab */}
             <TouchableOpacity
@@ -236,8 +243,12 @@ export function StockVerificationScreen({ scope, can, onNavigate, onBack }: Stoc
           </View>
 
           {/* Verification History */}
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, styles.sectionHeaderRow]}>
             <Text style={styles.sectionTitle}>Verification History</Text>
+            {/* M3S14 had no entry point; it is reached from here. */}
+            <TouchableOpacity onPress={() => onNavigate?.('M3S14')} activeOpacity={0.7}>
+              <Text style={styles.historyLink}>Adjustment History</Text>
+            </TouchableOpacity>
           </View>
 
           {/* History Item 1 */}
@@ -283,7 +294,8 @@ export function StockVerificationScreen({ scope, can, onNavigate, onBack }: Stoc
           <View style={{ height: 12 }} />
         </ScrollView>
 
-        {/* Start Physical Count Action Button (Anchored at Bottom) */}
+        {/* Start Physical Count Action Button (Anchored at Bottom), only with stock_verification.perform */}
+        {canPerformCount ? (
         <SafeAreaView style={styles.bottomSafeArea}>
           <View style={styles.bottomBar}>
             <TouchableOpacity
@@ -296,12 +308,19 @@ export function StockVerificationScreen({ scope, can, onNavigate, onBack }: Stoc
             </TouchableOpacity>
           </View>
         </SafeAreaView>
+        ) : null}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyLink: { ...adminType.rowTitle, color: adminColors.brand },
   screen: {
     flex: 1,
     backgroundColor: adminColors.brand,

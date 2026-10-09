@@ -1,8 +1,4 @@
 export * from './WarehouseOverviewScreen';
-export * from './StockLedgerScreen';
-export * from './VerifyStockScreen';
-export * from './StockAdjustmentApprovalScreen';
-export * from './LowStockAlertsScreen';
 export * from './WarehouseSettingsScreen';
 export * from './InterWarehouseTransferScreen';
 export * from './InitiateNewTransferScreen';
@@ -109,3 +105,5 @@ export {
   type ReportSummaryScreenProps,
 } from './reports';
 export { ReturnResultScreen, type ReturnResultScreenProps, type ReturnResultVariant } from './returns-rma';
+// Shared inventory navigator (W4); the screens themselves are imported from './inventory'.
+export { InventoryFlow } from './inventory';

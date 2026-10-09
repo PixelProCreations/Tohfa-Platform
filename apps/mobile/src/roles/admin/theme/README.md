@@ -111,9 +111,10 @@ titleText: { fontSize: 13.5, fontWeight: '800', letterSpacing: -0.2 },
 | #000 (177, 4), #000000 (104, 1) | shadowColor | `adminShadow.*` |
 
 **Order:** shared pieces first (headers, tab bar, cards, badges, toasts used by many screens), then one
-module folder at a time (`dashboard/`, `farmers/`, `finance/`, ...). **`swa/` is last:** `screens/swa/constants.ts`
-defines `SWA_COLORS` ("DO NOT modify these values - they match the uploaded HTML exactly") and most swa
-screens carry raw hex; the guard only baselines them for now. Converting swa needs a design decision first.
+module folder at a time (`dashboard/`, `farmers/`, `finance/`, ...). **`swa/` is last:** the orders and
+inventory survivors have moved to `screens/warehouse/<area>/` on the admin theme, `swa/components` is
+converted and `swa/constants.ts` (`SWA_COLORS`) is deleted (W4). What remains in `swa/` (M3S08, M5S03) is
+baselined by the guard until its area moves.
 
 ## Guard test
 

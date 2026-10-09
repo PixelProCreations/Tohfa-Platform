@@ -13,7 +13,7 @@ import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export interface VarianceReviewScreenProps extends InventoryScreenBaseProps {}
+export type VarianceReviewScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -57,7 +57,9 @@ function ListEditLinesIcon() {
   );
 }
 
-export function VarianceReviewScreen({ scope, can, onNavigate, onBack }: VarianceReviewScreenProps) {
+export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: VarianceReviewScreenProps) {
+  // rbac: inventory.stock_adjustment.create MAIN=all, SUB=own.
+  const canCreateAdjustment = can('inventory.stock_adjustment.create');
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -132,17 +134,19 @@ export function VarianceReviewScreen({ scope, can, onNavigate, onBack }: Varianc
           <View style={{ height: 28 }} />
         </ScrollView>
 
-        {/* Fixed Continue Button at Bottom */}
+        {/* Fixed Continue Button at Bottom (only with stock_adjustment.create) */}
+        {canCreateAdjustment ? (
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.continueBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('M3S13')}
+            onPress={() => onNavigate?.('M3S13', routeParams ?? undefined)}
           >
             <ListEditLinesIcon />
             <Text style={styles.continueBtnText}>Continue to Adjustment Request</Text>
           </TouchableOpacity>
         </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );

@@ -6,7 +6,7 @@ import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export interface BatchDetailScreenProps extends InventoryScreenBaseProps {}
+export type BatchDetailScreenProps = InventoryScreenBaseProps;
 
 function LedgerIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
@@ -33,7 +33,7 @@ function VerifyIcon({ color = adminColors.brandDeep }: { color?: string }) {
   );
 }
 
-export function BatchDetailScreen({ scope, can, onNavigate, onBack }: BatchDetailScreenProps) {
+export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: BatchDetailScreenProps) {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -74,7 +74,7 @@ export function BatchDetailScreen({ scope, can, onNavigate, onBack }: BatchDetai
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Warehouse</Text>
-                <Text style={styles.fieldValue}>Coonoor</Text>
+                <Text style={styles.fieldValue}>{scope.warehouseName ?? String(routeParams?.warehouseName ?? '—')}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>

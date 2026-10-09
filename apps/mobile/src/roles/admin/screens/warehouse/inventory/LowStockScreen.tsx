@@ -4,7 +4,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } fr
 import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../../swa/components';
+import { SWAHeader } from '../../swa/components';
 
 /** One low-stock row. `warehouseName` is shown in the Main (all-warehouses) view. */
 export interface LowStockItem {
@@ -21,14 +21,6 @@ export interface LowStockScreenProps extends InventoryScreenBaseProps {
   onInitiateTransfer?: (() => void) | undefined;
 }
 
-function LockSmallIcon({ color = adminColors.brandDeep }: { color?: string }) {
-  return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function TrendingDownIcon({ color = adminColors.danger.text, size = 20 }: { color?: string; size?: number }) {
   return (

@@ -1,12 +1,12 @@
 // Design id: M3S15
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminShadow, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export interface StockMovementDetailScreenProps extends InventoryScreenBaseProps {}
+export type StockMovementDetailScreenProps = InventoryScreenBaseProps;
 
 const TIMELINE_EVENTS = [
   { label: 'Movement Created', time: '10:40 AM' },
@@ -90,7 +90,13 @@ function LockNoticeIcon({ color = adminColors.brand, size = 18 }: { color?: stri
   );
 }
 
-export function StockMovementDetailScreen({ scope, can, onNavigate, onBack }: StockMovementDetailScreenProps) {
+export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, routeParams }: StockMovementDetailScreenProps) {
+  // rbac: stock_ledger.view_all MAIN=all, SUB=none. Without it the movement is
+  // forced to the viewer's own warehouse (view_own) whatever the deep link says.
+  const canViewAll = can('inventory.stock_ledger.view_all');
+  const warehouseLabel = canViewAll
+    ? String(routeParams?.warehouseName ?? scope.warehouseName ?? '—')
+    : (scope.warehouseName ?? '—');
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -139,7 +145,7 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack }: St
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Warehouse</Text>
-                  <Text style={styles.colValue}>Coonoor</Text>
+                  <Text style={styles.colValue}>{warehouseLabel}</Text>
                 </View>
               </View>
 
@@ -273,7 +279,7 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack }: St
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Performed By</Text>
-                  <Text style={styles.colValue}>SWA · Coonoor (Suresh)</Text>
+                  <Text style={styles.colValue}>Warehouse Admin · {warehouseLabel} (Suresh)</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Date & Time</Text>

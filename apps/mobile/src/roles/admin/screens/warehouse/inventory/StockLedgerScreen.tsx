@@ -1,12 +1,33 @@
 // Design id: M3S06
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
+import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../../swa/components';
+import { SWAHeader } from '../../swa/components';
 
-export interface StockLedgerScreenProps extends InventoryScreenBaseProps {}
+/** One batch row of the cross-warehouse batch list (absorbed Main StockLedgerScreen). */
+export interface StockBatchItem {
+  id: string;
+  name: string;
+  quantityKg: number;
+  batchId: string;
+  zone: string;
+  receivedDate: string;
+  warehouseName?: string | undefined;
+}
+
+const SAMPLE_BATCHES: StockBatchItem[] = [
+  { id: '1', name: 'Carrots', quantityKg: 240, batchId: 'BT-4471', zone: 'Zone A-2', receivedDate: 'Received Sep 9' },
+  { id: '2', name: 'Cabbage', quantityKg: 180, batchId: 'BT-4460', zone: 'Zone B-1', receivedDate: 'Received Sep 7' },
+  { id: '3', name: 'Beetroot', quantityKg: 95, batchId: 'BT-4452', zone: 'Zone A-3', receivedDate: 'Received Sep 5' },
+];
+
+export interface StockLedgerScreenProps extends InventoryScreenBaseProps {
+  /** Batches for the all-warehouses view; defaults to the design sample. */
+  batches?: readonly StockBatchItem[] | undefined;
+}
 
 // ─── Custom Icons matching Design Mockup ─────────────────────────────────────
 
@@ -113,8 +134,25 @@ function LockSmallIcon({ color = adminColors.brandDeep }: { color?: string }) {
   );
 }
 
-export function StockLedgerScreen({ scope, can, onNavigate, onBack, onTabChange }: StockLedgerScreenProps) {
+export function StockLedgerScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  warehouseOptions,
+  batches = SAMPLE_BATCHES,
+}: StockLedgerScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Ledger');
+  // rbac: stock_ledger.view_all MAIN=all, SUB=none. With it the ledger spans
+  // warehouses (selector + cross-warehouse batch list, from the absorbed Main
+  // screen); without it the ledger is forced to scope.warehouseId (view_own).
+  const canViewAll = can('inventory.stock_ledger.view_all');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    canViewAll ? undefined : scope.warehouseId,
+  );
+  // 'Verify / Adjust a Batch': stock_adjustment.create MAIN=all, SUB=own.
+  const canAdjust = can('inventory.stock_adjustment.create');
+  const firstBatch = batches[0];
 
   return (
     <View style={styles.safeArea}>
@@ -125,8 +163,18 @@ export function StockLedgerScreen({ scope, can, onNavigate, onBack, onTabChange 
           onBack={onBack}
           showFilter={true}
           onFilterPress={() => onNavigate?.('M3S16')}
-          showWarehouse={true}
+          showWarehouse={!canViewAll}
           warehouseName={scope.warehouseName}
+          bottomContent={
+            canViewAll ? (
+              <WarehouseSelector
+                scope={{}}
+                options={warehouseOptions}
+                selectedId={selectedWarehouseId}
+                onSelect={setSelectedWarehouseId}
+              />
+            ) : null
+          }
         />
 
         {/* 4 Tab Cards matching reference */}
@@ -278,6 +326,45 @@ export function StockLedgerScreen({ scope, can, onNavigate, onBack, onTabChange 
           <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7}>
             <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
           </TouchableOpacity>
+
+          {/* Batches across warehouses (absorbed Main StockLedgerScreen) */}
+          {canViewAll ? (
+            <>
+              <Text style={styles.batchSectionTitle}>Batches across warehouses</Text>
+              {batches.map((item) => (
+                <View key={item.id} style={styles.batchCard}>
+                  <View style={styles.batchRow}>
+                    <Text style={styles.batchName}>{item.name}</Text>
+                    <Text style={styles.batchName}>{item.quantityKg} kg</Text>
+                  </View>
+                  <View style={styles.batchRow}>
+                    <Text style={styles.batchMeta}>
+                      Batch {item.batchId} · {item.zone}
+                      {item.warehouseName ? ` · ${item.warehouseName}` : ''}
+                    </Text>
+                    <Text style={styles.batchMeta}>{item.receivedDate}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          ) : null}
+
+          {canAdjust && firstBatch ? (
+            <TouchableOpacity
+              style={styles.adjustBtn}
+              activeOpacity={0.8}
+              onPress={() =>
+                onNavigate?.('M3S11', {
+                  produceName: firstBatch.name,
+                  batchId: firstBatch.batchId,
+                  zone: firstBatch.zone,
+                  systemCount: firstBatch.quantityKg,
+                })
+              }
+            >
+              <Text style={styles.adjustBtnText}>Verify / Adjust a Batch</Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
       </View>
     </View>
@@ -285,6 +372,38 @@ export function StockLedgerScreen({ scope, can, onNavigate, onBack, onTabChange 
 }
 
 const styles = StyleSheet.create({
+  batchSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+  },
+  batchCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+    gap: adminSpacing.xs,
+  },
+  batchRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  batchName: { ...adminType.rowTitle, color: adminColors.ink },
+  batchMeta: { ...adminType.rowMeta, color: adminColors.muted },
+  adjustBtn: {
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    paddingVertical: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xl,
+    alignItems: 'center',
+  },
+  adjustBtnText: { ...adminType.sectionHead, color: adminColors.ink },
   safeArea: {
     flex: 1,
     backgroundColor: adminColors.brand, // status bar blends with header

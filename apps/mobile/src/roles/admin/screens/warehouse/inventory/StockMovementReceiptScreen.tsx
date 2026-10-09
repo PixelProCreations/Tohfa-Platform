@@ -1,5 +1,5 @@
 // Design id: M3S18
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { adminColors, adminShadow, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export interface StockMovementReceiptScreenProps extends InventoryScreenBaseProps {}
+export type StockMovementReceiptScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ function QrVoucherIcon() {
   );
 }
 
-export function StockMovementReceiptScreen({ scope, can, onNavigate, onBack }: StockMovementReceiptScreenProps) {
+export function StockMovementReceiptScreen({ scope, onBack, routeParams }: StockMovementReceiptScreenProps) {
   const handlePrint = () => {
     Alert.alert('Movement Voucher', 'Movement Voucher MOV-000248 sent to printer / share sheet.');
   };
@@ -90,7 +90,7 @@ export function StockMovementReceiptScreen({ scope, can, onNavigate, onBack }: S
             <View style={[styles.detailsRow, { marginTop: 12 }]}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Warehouse</Text>
-                <Text style={styles.detailValue}>Coonoor Sub-Warehouse</Text>
+                <Text style={styles.detailValue}>{scope.warehouseName ?? String(routeParams?.warehouseName ?? '—')}</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Location</Text>

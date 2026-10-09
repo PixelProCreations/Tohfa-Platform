@@ -13,7 +13,10 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 
-export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {}
+export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {
+  /** Rows to show; defaults to the design sample. */
+  adjustments?: readonly AdjustmentHistoryItem[] | undefined;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -34,7 +37,16 @@ function LockSmallWhiteIcon() {
   );
 }
 
-const ADJUSTMENTS = [
+/** One adjustment row. `warehouseId` is the warehouse the adjustment was created in. */
+export interface AdjustmentHistoryItem {
+  id: string;
+  status: string;
+  statusKey: 'Pending' | 'Approved' | 'Rejected';
+  product: string;
+  warehouseId?: string | undefined;
+}
+
+const ADJUSTMENTS: AdjustmentHistoryItem[] = [
   {
     id: 'ADJ-000128',
     status: 'Pending Approval',
@@ -55,10 +67,14 @@ const ADJUSTMENTS = [
   },
 ];
 
-export function AdjustmentHistoryScreen({ scope, can, onNavigate, onBack }: AdjustmentHistoryScreenProps) {
+export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments = ADJUSTMENTS }: AdjustmentHistoryScreenProps) {
   const [activeTab, setActiveTab] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
 
-  const filteredAdjustments = ADJUSTMENTS.filter((item) => {
+  const filteredAdjustments = adjustments.filter((item) => {
+    // Sub: only adjustments created in its own warehouse. Main sees all.
+    if (scope.warehouseId !== undefined && item.warehouseId !== undefined && item.warehouseId !== scope.warehouseId) {
+      return false;
+    }
     if (activeTab === 'All') return true;
     return item.statusKey === activeTab;
   });
@@ -80,11 +96,13 @@ export function AdjustmentHistoryScreen({ scope, can, onNavigate, onBack }: Adju
             <Text style={styles.headerTitle}>Adjustment History</Text>
           </View>
 
-          {/* Coonoor Warehouse Pill Badge */}
-          <View style={styles.warehousePill}>
-            <LockSmallWhiteIcon />
-            <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'All Warehouses'}</Text>
-          </View>
+          {/* Warehouse pill (Sub: locked to its own warehouse) */}
+          {scope.warehouseId !== undefined ? (
+            <View style={styles.warehousePill}>
+              <LockSmallWhiteIcon />
+              <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+            </View>
+          ) : null}
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

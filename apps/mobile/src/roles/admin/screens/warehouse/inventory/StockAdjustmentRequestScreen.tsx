@@ -14,7 +14,7 @@ import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export interface StockAdjustmentRequestScreenProps extends InventoryScreenBaseProps {}
+export type StockAdjustmentRequestScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -93,7 +93,9 @@ const REASONS = [
   'Other (configured reason)',
 ];
 
-export function StockAdjustmentRequestScreen({ scope, can, onNavigate, onBack }: StockAdjustmentRequestScreenProps) {
+export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routeParams }: StockAdjustmentRequestScreenProps) {
+  // rbac: inventory.stock_adjustment.create MAIN=all, SUB=own (own warehouse only).
+  const canCreateAdjustment = can('inventory.stock_adjustment.create');
   const [selectedReason, setSelectedReason] = useState('Physical Counting Error');
   const [notes, setNotes] = useState('');
 
@@ -180,17 +182,19 @@ export function StockAdjustmentRequestScreen({ scope, can, onNavigate, onBack }:
           <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Fixed Submit Button at Bottom */}
+        {/* Fixed Submit Button at Bottom (only with stock_adjustment.create) */}
+        {canCreateAdjustment ? (
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.submitBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('M3S17')}
+            onPress={() => onNavigate?.('M3S17', { ...(routeParams ?? {}), reason: selectedReason, notes, submitted: true })}
           >
             <SendPlaneWhiteIcon />
             <Text style={styles.submitBtnText}>Submit Adjustment Request</Text>
           </TouchableOpacity>
         </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );

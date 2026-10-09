@@ -13,7 +13,7 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-export interface AdjustmentDetailScreenProps extends InventoryScreenBaseProps {}
+export type AdjustmentDetailScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -52,25 +52,7 @@ function OutlinedImageIcon({ size = 22, color = adminColors.ink }: { size?: numb
   );
 }
 
-function PhotoIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={color} strokeWidth="1.8" />
-      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke={color} strokeWidth="1.5" />
-      <Path d="M21 15l-5-5-8 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 14l2-2 5 5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function LedgerHistoryIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function ProhibitedRedIcon() {
   return (
@@ -113,7 +95,15 @@ function TimelinePendingDot() {
   );
 }
 
-export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack }: AdjustmentDetailScreenProps) {
+export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack, routeParams }: AdjustmentDetailScreenProps) {
+  // Approval is read-only in this app: neither this screen nor the absorbed Main
+  // StockAdjustmentApprovalScreen ever had an approve/reject control. With
+  // inventory.stock_adjustment.approve (Main) we explain the dual-approval
+  // routing instead of the "no approval permission" notice.
+  const canApprove = can('inventory.stock_adjustment.approve');
+  const warehouseLabel = scope.warehouseName ?? String(routeParams?.warehouseName ?? '—');
+  const produceName = String(routeParams?.produceName ?? 'Tomato');
+  const batchId = String(routeParams?.batchId ?? 'BAT-2026-00241');
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -150,7 +140,7 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack }: Adjus
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Warehouse</Text>
-                <Text style={styles.colValue}>Coonoor</Text>
+                <Text style={styles.colValue}>{warehouseLabel}</Text>
               </View>
             </View>
 
@@ -172,7 +162,7 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack }: Adjus
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Product</Text>
-                <Text style={styles.colValue}>Tomato</Text>
+                <Text style={styles.colValue}>{produceName}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Grade</Text>
@@ -183,7 +173,7 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack }: Adjus
             <View style={[styles.twoColRow, { marginTop: 14 }]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Batch</Text>
-                <Text style={styles.colValue}>BAT-COO-00241</Text>
+                <Text style={styles.colValue}>{batchId}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Storage Location</Text>
@@ -328,7 +318,9 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack }: Adjus
           <View style={styles.disclaimerBox}>
             <ProhibitedRedIcon />
             <Text style={styles.disclaimerText}>
-              No approval action is shown here — SWA has adjustment/submit permission but not approval permission. Once approved, the resulting ADJUSTMENT_DOWN movement becomes visible through the Stock Ledger, not through an action on this screen.
+              {canApprove
+                ? 'Routed to the Super Admin dual-approval queue. Dual approval safeguards inventory integrity: the stock ledger updates automatically the moment Super Admin signs off.'
+                : 'No approval action is shown here — you can create and submit adjustments but not approve them. Once approved, the resulting ADJUSTMENT_DOWN movement becomes visible through the Stock Ledger, not through an action on this screen.'}
             </Text>
           </View>
 

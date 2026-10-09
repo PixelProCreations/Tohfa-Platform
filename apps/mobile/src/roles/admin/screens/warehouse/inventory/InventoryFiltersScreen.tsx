@@ -7,7 +7,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { SWAHeader } from '../../swa/components';
 
-export interface InventoryFiltersScreenProps extends InventoryScreenBaseProps {}
+export type InventoryFiltersScreenProps = InventoryScreenBaseProps;
 
 function WarehouseIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
@@ -100,7 +100,10 @@ function FunnelFilterIcon({ size = 18, color = adminColors.onBrand }: { size?: n
   );
 }
 
-export function InventoryFiltersScreen({ scope, can, onNavigate, onBack }: InventoryFiltersScreenProps) {
+export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOptions = [] }: InventoryFiltersScreenProps) {
+  // Warehouse facet only for the all-warehouses (Main) view; Sub is locked to its own.
+  const showWarehouseFacet = scope.warehouseId === undefined;
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('All Grades');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -145,6 +148,33 @@ export function InventoryFiltersScreen({ scope, can, onNavigate, onBack }: Inven
               <Icon name="expand_more" size={20} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
+
+          {/* Warehouse (Main only) */}
+          {showWarehouseFacet ? (
+            <View style={styles.filterSection}>
+              <View style={styles.sectionHeaderRow}>
+                <WarehouseIcon size={16} color={adminColors.ink} />
+                <Text style={styles.sectionTitle}>Warehouse</Text>
+              </View>
+              <View style={styles.chipGroup}>
+                {[{ warehouseId: undefined, warehouseName: 'All Warehouses' }, ...warehouseOptions].map((wh) => {
+                  const isActive = selectedWarehouseId === wh.warehouseId;
+                  return (
+                    <TouchableOpacity
+                      key={wh.warehouseId ?? 'all'}
+                      style={[styles.chip, isActive && styles.activeChip]}
+                      onPress={() => setSelectedWarehouseId(wh.warehouseId)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, isActive && styles.activeChipText]}>
+                        {wh.warehouseName ?? wh.warehouseId}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
 
           {/* Grade */}
           <View style={styles.filterSection}>

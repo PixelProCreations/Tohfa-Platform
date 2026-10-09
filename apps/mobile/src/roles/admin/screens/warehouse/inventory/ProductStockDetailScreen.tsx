@@ -4,9 +4,9 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } fr
 import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../../swa/components';
+import { SWAHeader } from '../../swa/components';
 
-export interface ProductStockDetailScreenProps extends InventoryScreenBaseProps {}
+export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 
@@ -48,7 +48,7 @@ function ActionVerifyIcon({ color = adminColors.brand }: { color?: string }) {
   );
 }
 
-export function ProductStockDetailScreen({ scope, can, onNavigate, onBack, onTabChange }: ProductStockDetailScreenProps) {
+export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductStockDetailScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -56,6 +56,8 @@ export function ProductStockDetailScreen({ scope, can, onNavigate, onBack, onTab
           title="Tomato"
           subtitle="Grade 1"
           onBack={onBack}
+          warehouseLocked={scope.warehouseId !== undefined}
+          warehouseName={scope.warehouseName}
           badge={
             <View style={styles.availableBadge}>
               <Text style={styles.availableBadgeText}>Available</Text>
