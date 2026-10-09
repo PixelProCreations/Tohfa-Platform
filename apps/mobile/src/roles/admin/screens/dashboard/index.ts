@@ -33,7 +33,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseReportIssueScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseReportsScreen';
 export * from './AdminProfileScreen';
 
 // Market & Pricing screens

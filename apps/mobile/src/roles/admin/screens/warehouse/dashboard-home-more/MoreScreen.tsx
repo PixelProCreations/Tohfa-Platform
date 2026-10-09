@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SubWarehouseReportsScreen } from '../../../../subwarehouse/screens/SubWarehouseReportsScreen';
+import { ReportsScreen } from '../reports';
 import { FinanceFlow } from '../finance-expenses/FinanceFlow';
 import { ProfileFlow } from '../profile-settings';
 import { SubWarehouseWarehouseOperationsScreen } from '../../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
@@ -783,9 +783,11 @@ export function MoreScreen({
 
   if (showReportsScreen) {
     return (
-      <SubWarehouseReportsScreen
+      <ReportsScreen
         scope={scope}
         can={can}
+        // MAIN holds report.export.file as `view` only (SPEC_GAPS.md #11, W2a-1).
+        canExport={isMain ? false : can('report.export.file')}
         onBack={() => setShowReportsScreen(false)}
         onTabChange={onTabChange}
         onNavigateToNotifications={onNavigateToNotifications}

@@ -37,7 +37,7 @@ import {
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
-import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
+import { ReportsScreen } from '../../admin/screens/warehouse/reports';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
@@ -1990,9 +1990,10 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showReportsScreen) {
     return (
-      <SubWarehouseReportsScreen
+      <ReportsScreen
         scope={scope}
         can={can}
+        canExport={can('report.export.file')}
         onBack={() => {
           setShowReportsScreen(false);
           setActiveTab('More');

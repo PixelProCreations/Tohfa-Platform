@@ -109,10 +109,12 @@ export {
   type SalesChannel,
 } from './sales-direct';
 
-// Main Warehouse report screens, W3b (`kind` prop).
+// Shared warehouse reports hub + inline reports (W4, M12).
 export {
+  ReportsScreen,
   ReportDetailScreen,
   ReportSummaryScreen,
+  type ReportsScreenProps,
   type ReportDetailScreenProps,
   type ReportKind,
   type ReportKpi,

@@ -182,7 +182,7 @@ import {
   SubWarehouseOperationalIssueDetailScreen,
   SubWarehouseStaffAndAttendanceScreen,
   SubWarehouseAttendanceDetailScreen,
-  SubWarehouseReportsScreen,
+  ReportsScreen,
   ProfileFlow,
   type ProfileRoute,
   type StaffMember,
@@ -2031,9 +2031,10 @@ export default function App(): React.JSX.Element {
             onBack={() => navigate('SubWarehouseStaffAndAttendance')}
           />
         ) : screen === 'SubWarehouseReports' ? (
-          <SubWarehouseReportsScreen
+          <ReportsScreen
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
+            canExport={warehouseCan('report.export.file')}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -2042,9 +2043,6 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onSelectReport={(reportKey) => {
-              Alert.alert('Report Selected', `Viewing analytics for: ${reportKey}`);
-            }}
           />
         ) : screen === 'WarehouseOverview' ? (
           <WarehouseOverviewScreen

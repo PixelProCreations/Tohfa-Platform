@@ -1,3 +1,28 @@
+// Design id: M12-S01
+/**
+ * Reports — the warehouse reports hub (M12-S01) and its inline report views
+ * (Sales M12-S02, Inventory S03, Receiving S04, Customers S05, Cash Top-Up S06,
+ * Expense S07, Revenue S08, Returns S09, Daily / Monthly Summary S10, Export
+ * S11), shared by the Main and Sub warehouse admins. Converted in place from
+ * subwarehouse/screens/SubWarehouseReportsScreen.tsx (W4); absorbs
+ * MainWarehouseReportsScreen / ExportReportScreen / SummaryReportScreen and the
+ * W3b ReportSummaryScreen / ReportDetailScreen.
+ *
+ * Scope: Sub is locked to `scope.warehouseName`; Main (`scope.warehouseId`
+ * undefined) gets the All-warehouses selector (pair_table M12-S01).
+ *
+ * Gates (docs/rbac.json; the server re-checks everything, CLAUDE.md 2.1):
+ *   - each report card and hub KPI tile renders only when can() of its data
+ *     code (REPORT_CODES in fixtures.ts): Sales order.list.view_all, Revenue
+ *     finance.sales_income.view, Expense finance.expense.log, Cash Top-Up
+ *     wallet.cash_topup.process, Returns rma.request.process, Customers
+ *     customer.list.view, Inventory / Receiving inventory.batch.view; the Summary
+ *     has no code and renders ungated.
+ *   - Export card: report.export.file (any grant). Generate / Download: also
+ *     `canExport` (MAIN's grant is `view`, so the Main shell passes false).
+ *   - View Invoice (sales order detail): delegated to InvoiceDetailScreen.
+ *   - HORECA / B2B channel chips: ungated, no per-channel code (SPEC_GAPS #5).
+ */
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,497 +36,87 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { InvoiceDetailScreen } from '../../admin/screens/warehouse/billing-invoices';
-import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import { InvoiceDetailScreen } from '../billing-invoices';
+import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
+import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './fixtures';
+import type { ReportCode, ReportScreenType } from './types';
+import {
+  TimelineDotIcon,
+  ArrowBackIcon,
+  RadioCircleIcon,
+  ArrowRightIcon,
+  ReportDocHeaderIcon,
+  BellHeaderIcon,
+  LockBadgeIcon,
+  SearchIcon,
+  FilterIcon,
+  ChevronRightIcon,
+  ShoppingBagIcon,
+  InvoiceDocumentIcon,
+  StorePickupIcon,
+  DeliveryTruckIcon,
+  ExcelFileIcon,
+  CsvFileIcon,
+  PdfFileIcon,
+  SparklesIcon,
+  DownloadIcon,
+  ReadyCheckIcon,
+} from './ReportsParts';
 
-// ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
-const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primarySoft:   '#FFF3ED',
-  primaryBorder: '#FCD9CE',
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F2ECE4',
-
-  categoryTitle: '#8B5E3C',
-  infoBg:        '#EDF5FD',
-  infoBorder:    '#B8D7F5',
-  infoText:      '#1D68A8',
-
-  amberBg:       '#FFFBEB',
-  amberBorder:   '#FDE68A',
-  amberText:     '#D97706',
-
-  greenBadge:    '#ECFDF5',
-  greenText:     '#059669',
-  redBadge:      '#FEF2F2',
-  redText:       '#DC2626',
-  blueBadge:     '#EFF6FF',
-  blueText:      '#2563EB',
-
-  tabInactive:   '#7A726C',
-  tabBorder:     '#EBE5DC',
-  };
-
-type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
-type ReportScreenType =
-  | 'main'
-  | 'sales_report'
-  | 'sales_order_detail'
-  | 'invoice_detail'
-  | 'orders_list'
-  | 'inventory_report'
-  | 'inventory_item_detail'
-  | 'receiving_report'
-  | 'receiving_item_detail'
-  | 'customer_report'
-  | 'customer_item_detail'
-  | 'cash_topup_report'
-  | 'cash_topup_item_detail'
-  | 'revenue_report'
-  | 'revenue_item_detail'
-  | 'expense_report'
-  | 'expense_item_detail'
-  | 'export_report'
-  | 'summary_report'
-  | 'returns_report'
-  | 'returns_item_detail';
-
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
-
-function TimelineDotIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#059669" strokeWidth="2.2" fill="#ECFDF5" />
-      <Circle cx="12" cy="12" r="4" fill="#059669" />
-    </Svg>
-  );
-}
-
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function RadioCircleIcon({ selected }: { selected: boolean }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke={selected ? PALETTE.primary : '#CBD5E1'}
-        strokeWidth="2"
-        fill={selected ? PALETTE.primary : 'none'}
-      />
-      {selected && <Circle cx="12" cy="12" r="3.5" fill="#FFFFFF" />}
-    </Svg>
-  );
-}
-
-function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 12h14M12 5l7 7-7 7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ReportDocHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function BellHeaderIcon() {
-  return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
-        stroke="#FFFFFF"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function LockBadgeIcon() {
-  return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke="#FFFFFF" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ShieldInfoIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke="#1E40AF"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SearchIcon({ size = 16, color = '#94A3B8' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" />
-      <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function FilterIcon({ size = 16, color = '#64748B' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ChevronRightIcon({ size = 16, color = '#64748B' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18l6-6-6-6"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CartReportIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="21" r="1" stroke={color} strokeWidth="2" />
-      <Circle cx="20" cy="21" r="1" stroke={color} strokeWidth="2" />
-      <Path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function PackageReportIcon({ size = 20, color = '#059669' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M16.5 9.4L7.55 4.24M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function TruckReportIcon({ size = 20, color = '#2563EB' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="15" height="13" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M16 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function UsersReportIcon({ size = 20, color = '#7C3AED' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
-      <Path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function TrendingReportIcon({ size = 20, color = '#D97706' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M23 6l-9.5 9.5-5-5L1 18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M17 6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceiptReportIcon({ size = 20, color = '#DC2626' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 7h8M8 11h8M8 15h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function WalletReportIcon({ size = 20, color = '#4F46E5' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M2 10h20" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="16" cy="14" r="1.5" fill={color} />
-    </Svg>
-  );
-}
-
-function ReturnsReportIcon({ size = 20, color = '#E11D48' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 4v6h6M23 20v-6h-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function SummaryReportIcon({ size = 20, color = '#0D9488' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M8 17V12M12 17V8M16 17v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ExportReportIcon({ size = 20, color = '#0891B2' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ShoppingBagIcon({ size = 18, color = '#8B5E3C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 6h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 10a4 4 0 0 1-8 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InvoiceDocumentIcon({ size = 18, color = '#8B5E3C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 3 2 3-2 3 2 3-2 3 2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 13h8M8 17h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function StorePickupIcon({ size = 14, color = '#7A726C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7M3 7l2-4h14l2 4M5 21V10.85M19 21V10.85M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function DeliveryTruckIcon({ size = 14, color = '#7A726C' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="15" height="13" rx="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M16 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
-    </Svg>
-  );
-}
-
-function getReportVisual(code: string) {
-  switch (code) {
-    case 'SALES_REPORT':
-      return { bg: '#FFF3ED', border: '#FFD9CC', renderIcon: () => <CartReportIcon size={20} color="#F0562A" /> };
-    case 'INVENTORY_REPORT':
-      return { bg: '#ECFDF5', border: '#A7F3D0', renderIcon: () => <PackageReportIcon size={20} color="#059669" /> };
-    case 'RECEIVING_REPORT':
-      return { bg: '#EFF6FF', border: '#BFDBFE', renderIcon: () => <TruckReportIcon size={20} color="#2563EB" /> };
-    case 'CUSTOMER_REPORT':
-      return { bg: '#F5F3FF', border: '#DDD6FE', renderIcon: () => <UsersReportIcon size={20} color="#7C3AED" /> };
-    case 'REVENUE_REPORT':
-      return { bg: '#FFFBEB', border: '#FDE68A', renderIcon: () => <TrendingReportIcon size={20} color="#D97706" /> };
-    case 'EXPENSE_REPORT':
-      return { bg: '#FEF2F2', border: '#FECACA', renderIcon: () => <ReceiptReportIcon size={20} color="#DC2626" /> };
-    case 'CASH_TOPUP_REPORT':
-      return { bg: '#EEF2FF', border: '#C7D2FE', renderIcon: () => <WalletReportIcon size={20} color="#4F46E5" /> };
-    case 'RETURNS_REPORT':
-      return { bg: '#FFF1F2', border: '#FECDD3', renderIcon: () => <ReturnsReportIcon size={20} color="#E11D48" /> };
-    case 'SUMMARY_REPORT':
-      return { bg: '#F0FDFA', border: '#99F6E4', renderIcon: () => <SummaryReportIcon size={20} color="#0D9488" /> };
-    case 'EXPORT_REPORT':
-      return { bg: '#ECFEFF', border: '#A5F3FC', renderIcon: () => <ExportReportIcon size={20} color="#0891B2" /> };
-    default:
-      return { bg: '#F1F5F9', border: '#CBD5E1', renderIcon: () => <ReportDocHeaderIcon size={20} color="#64748B" /> };
-  }
-}
-
-function ExcelFileIcon({ size = 26, color = '#107C41' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
-      <Path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function CsvFileIcon({ size = 26, color = '#0284C7' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M8 13h8M8 17h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function PdfFileIcon({ size = 26, color = '#DC2626' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Rect x="7" y="12" width="10" height="7" rx="1.5" stroke={color} strokeWidth="1.5" />
-    </Svg>
-  );
-}
-
-function SparklesIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4L12 2zM19 17l1.2 2.8L23 21l-2.8 1.2L19 25l-1.2-2.8L15 21l2.8-1.2L19 17z" fill={color} />
-    </Svg>
-  );
-}
-
-function DownloadIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReadyCheckIcon({ size = 32, color = '#059669' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2.2" />
-      <Path d="M8 12l2.5 2.5L16 9" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
-
-export interface SubWarehouseReportsScreenProps {
-  onBack?: (() => void) | undefined;
-  onTabChange?: ((tab: SubWHTab) => void) | undefined;
-  onNavigateToNotifications?: (() => void) | undefined;
-  onSelectReport?: ((reportKey: string) => void) | undefined;
+export interface ReportsScreenProps extends WarehouseScreenBaseProps {
   /**
-   * Needed only for the inline invoice detail (order report -> View Invoice): the shared
-   * invoice screen is scoped and permission-gated. Without them View Invoice is
-   * not offered (fail closed).
+   * Whether this viewer may Generate / Download an export. /auth/me drops the
+   * grant scope, so `can('report.export.file')` alone cannot tell MAIN's `view`
+   * grant from SUB's `own` (SPEC_GAPS.md W2a-1). The Main shell passes `false`;
+   * when absent it falls back to `can('report.export.file')`.
    */
-  scope?: WarehouseScope | undefined;
-  can?: PermissionCheck | undefined;
+  canExport?: boolean | undefined;
+  onNavigateToNotifications?: (() => void) | undefined;
+  /** Called for a report code that has no inline view (none today). */
+  onSelectReport?: ((reportKey: string) => void) | undefined;
+  /** Warehouses offered by the Main (all-warehouses) selector. */
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
-export function SubWarehouseReportsScreen({
+// `onTabChange` (WarehouseScreenBaseProps) is accepted but unused: the screen
+// renders no bottom tab bar of its own (the old handleTabPress was dead code).
+export function ReportsScreen({
   onBack,
-  onTabChange,
   onNavigateToNotifications,
   onSelectReport,
   scope,
   can,
-}: SubWarehouseReportsScreenProps) {
+  canExport,
+  warehouseOptions = REPORT_WAREHOUSES,
+}: ReportsScreenProps) {
   const [currentScreen, setCurrentScreen] = useState<ReportScreenType>('main');
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month'>('Today');
+
+  // Scope. Sub is locked to its own warehouse; Main (no warehouseId) gets the
+  // All-warehouses selector absorbed from MainWarehouseReportsScreen. The
+  // server scopes every report again (CLAUDE.md 2.1).
+  const isMain = scope.warehouseId === undefined;
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
+  const [pendingWarehouseId, setPendingWarehouseId] = useState<string | undefined>(undefined);
+  const warehouseLabel = isMain
+    ? (warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses')
+    : (scope.warehouseName ?? 'My warehouse');
+  // Mock rows carry the warehouse they belong to; with no real data yet they
+  // take the viewer's current warehouse label instead of a hard-coded name.
+  const rowWarehouse = warehouseLabel;
+  // Export: MAIN holds report.export.file only as `view` (SPEC_GAPS.md #11,
+  // W2a-1), so the Main shell passes canExport={false}.
+  const exportAllowed = (canExport ?? true) && can(REPORT_CODES.export);
+  const visibleSections = REPORT_SECTIONS.map((sec) => ({
+    ...sec,
+    reports: sec.reports.filter((r) => reportVisible(r, can)),
+  })).filter((sec) => sec.reports.length > 0);
+  const visibleTitles = new Set(visibleSections.flatMap((s) => s.reports.map((r) => r.title)));
+  // Only reports the viewer may open can be exported.
+  const exportOptions = EXPORT_REPORT_OPTIONS.filter((o) => visibleTitles.has(o.cardTitle)).map((o) => o.label);
 
   // Sales filter
   const [salesChannel, setSalesChannel] = useState<'All' | 'Online' | 'Market' | 'HORECA' | 'B2B'>('All');
@@ -519,8 +134,7 @@ export function SubWarehouseReportsScreen({
   // Cash Top-Up filter
   const [topupPeriod, setTopupPeriod] = useState<'All' | 'Today' | 'This Month'>('All');
 
-  // Revenue filter
-  const [revFilter, setRevFilter] = useState<'All' | 'Sales' | 'Top-Ups' | 'Refunds'>('All');
+  // Revenue filter (the unused revFilter state was dropped; the view has no filter chips)
   const [revChartPeriod, setRevChartPeriod] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
 
   // Export report states (5 Steps + Generating + Ready)
@@ -553,7 +167,7 @@ export function SubWarehouseReportsScreen({
     date: '25 Sep, 11:20 AM',
     channel: 'Online',
     customerRef: 'C1024',
-    warehouse: 'Coonoor',
+    warehouse: rowWarehouse,
     product: 'Tomato',
     grade: 'Grade 1',
     quantity: '4 KG',
@@ -594,7 +208,7 @@ export function SubWarehouseReportsScreen({
   const [selectedReceivingItem, setSelectedReceivingItem] = useState({
     receiptId: 'GR-00245',
     dateTime: '25 Sep, 10:20 AM',
-    warehouse: 'Coonoor',
+    warehouse: rowWarehouse,
     sourceRef: 'Farmer #FRM-0842',
     product: 'Carrot',
     grade: 'Grade 1',
@@ -642,7 +256,7 @@ export function SubWarehouseReportsScreen({
     paymentMethod: 'Wallet',
     status: 'Completed',
     dateTime: '25 Sep, 11:20 AM',
-    warehouse: 'Coonoor',
+    warehouse: rowWarehouse,
   });
 
   // Selected Cash Top-Up Details
@@ -665,10 +279,10 @@ export function SubWarehouseReportsScreen({
     amount: '₹2,400',
     date: '25 Sep 2026',
     paymentMethod: 'Cash',
-    vendorPayee: 'Coonoor Transport Co.',
+    vendorPayee: 'Local Transport Co.',
     voucher: 'VCH-000821',
     status: 'Recorded',
-    description: 'Transport from Coonoor collection point to warehouse',
+    description: 'Transport from the collection point to the warehouse',
     createdBy: 'SWA – Suresh',
     timeline: [
       { title: 'Expense Created' },
@@ -704,23 +318,11 @@ export function SubWarehouseReportsScreen({
     ],
   });
 
-  const handleTabPress = (tab: SubWHTab) => {
-    if (tab === 'More' && onBack) {
-      if (currentScreen !== 'main') {
-        setCurrentScreen('main');
-      } else {
-        onBack();
-      }
-      return;
-    }
-    if (onTabChange) {
-      onTabChange(tab);
-    } else if (tab === 'Home' && onBack) {
-      onBack();
-    }
-  };
 
-  const handleReportClick = (code: string) => {
+  const handleReportClick = (code: ReportCode) => {
+    // Fail closed: a card the viewer may not see never opens (the hub hides it anyway).
+    const card = REPORT_SECTIONS.flatMap((s) => s.reports).find((r) => r.code === code);
+    if (card && !reportVisible(card, can)) return;
     if (code === 'SALES_REPORT') {
       setCurrentScreen('sales_report');
       setSearchQuery('');
@@ -744,6 +346,7 @@ export function SubWarehouseReportsScreen({
       setSearchQuery('');
     } else if (code === 'EXPORT_REPORT') {
       setExportStep(1);
+      setSelectedExportReport((cur) => (exportOptions.includes(cur) ? cur : (exportOptions[0] ?? cur)));
       setCurrentScreen('export_report');
       setSearchQuery('');
     } else if (code === 'SUMMARY_REPORT') {
@@ -756,7 +359,7 @@ export function SubWarehouseReportsScreen({
       if (onSelectReport) {
         onSelectReport(code);
       } else {
-        Alert.alert('Report', `Opening report ${code} for Coonoor Warehouse...`);
+        Alert.alert('Report', `Opening report ${code} for ${warehouseLabel}...`);
       }
     }
   };
@@ -767,7 +370,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'sales_report') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -778,7 +381,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Sales Report</Text>
             </View>
@@ -806,7 +409,8 @@ export function SubWarehouseReportsScreen({
             </View>
           </View>
 
-          {/* Channel Filters */}
+          {/* Channel Filters. HORECA / B2B stay ungated: rbac.json has no per-channel
+              view code (SPEC_GAPS.md #5, W3a-1; matrix says MW=view, SW=none). */}
           <View style={styles.filterChipRow}>
             {(['All', 'Online', 'Market', 'HORECA', 'B2B'] as const).map((ch) => (
               <TouchableOpacity
@@ -822,15 +426,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Input with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Order ID, Invoice, Customer, Product"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Sales Transaction Cards */}
@@ -844,7 +448,7 @@ export function SubWarehouseReportsScreen({
                   date: '25 Sep, 11:20 AM',
                   channel: 'Online',
                   customerRef: 'C1024',
-                  warehouse: 'Coonoor',
+                  warehouse: rowWarehouse,
                   product: 'Tomato',
                   grade: 'Grade 1',
                   quantity: '4 KG',
@@ -879,7 +483,7 @@ export function SubWarehouseReportsScreen({
                   date: '25 Sep, 10:45 AM',
                   channel: 'Market',
                   customerRef: 'Walk-in Buyer',
-                  warehouse: 'Coonoor',
+                  warehouse: rowWarehouse,
                   product: 'Potato',
                   grade: 'Grade 1',
                   quantity: '2 KG',
@@ -953,7 +557,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'sales_order_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -964,7 +568,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('sales_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Sales Order Detail</Text>
             </View>
@@ -1086,17 +690,17 @@ export function SubWarehouseReportsScreen({
                 setCurrentScreen('orders_list');
               }}
             >
-              <ShoppingBagIcon size={18} color="#8B5E3C" />
+              <ShoppingBagIcon size={18} color={adminColors.brandDeep} />
               <Text style={styles.actionCardBtnText}>View Order</Text>
             </TouchableOpacity>
 
-            {scope && can ? (
+            {can('invoice.view_own') ? (
               <TouchableOpacity
                 style={styles.actionCardBtn}
                 activeOpacity={0.75}
                 onPress={() => setCurrentScreen('invoice_detail')}
               >
-                <InvoiceDocumentIcon size={18} color="#8B5E3C" />
+                <InvoiceDocumentIcon size={18} color={adminColors.brandDeep} />
                 <Text style={styles.actionCardBtnText}>View Invoice</Text>
               </TouchableOpacity>
             ) : null}
@@ -1113,7 +717,7 @@ export function SubWarehouseReportsScreen({
   // ═══════════════════════════════════════════════════════════════════════════
   // SCREEN: INVOICE DETAIL
   // ═══════════════════════════════════════════════════════════════════════════
-  if (currentScreen === 'invoice_detail' && scope && can) {
+  if (currentScreen === 'invoice_detail') {
     return (
       <InvoiceDetailScreen
         scope={scope}
@@ -1137,11 +741,11 @@ export function SubWarehouseReportsScreen({
         type: 'Pickup',
         time: 'Today · 10:32 AM',
         status: 'Confirmed',
-        statusBg: '#FEF3C7',
-        statusColor: '#D97706',
+        statusBg: adminColors.warning.bg,
+        statusColor: adminColors.warning.text,
         channel: 'Market',
         customerRef: 'C1024',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
         product: 'Tomato',
         grade: 'Grade 1',
         quantity: '3 KG',
@@ -1160,11 +764,11 @@ export function SubWarehouseReportsScreen({
         type: 'Pickup',
         time: 'Today · 09:45 AM',
         status: 'Ready for Pickup',
-        statusBg: '#D1FAE5',
-        statusColor: '#059669',
+        statusBg: adminColors.success.bg,
+        statusColor: adminColors.success.text,
         channel: 'Online',
         customerRef: 'C1023',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
         product: 'Capsicum & Beans',
         grade: 'Grade 1',
         quantity: '5 KG',
@@ -1183,11 +787,11 @@ export function SubWarehouseReportsScreen({
         type: 'Pickup',
         time: 'Today · 09:10 AM',
         status: 'Packing',
-        statusBg: '#FFEDD5',
-        statusColor: '#EA580C',
+        statusBg: adminColors.warning.bg,
+        statusColor: adminColors.warning.text,
         channel: 'Market',
         customerRef: 'C1022',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
         product: 'Potato',
         grade: 'Grade 1',
         quantity: '2 KG',
@@ -1206,11 +810,11 @@ export function SubWarehouseReportsScreen({
         type: 'Delivery',
         time: 'Today · 08:55 AM',
         status: 'Confirmed',
-        statusBg: '#FEF3C7',
-        statusColor: '#D97706',
+        statusBg: adminColors.warning.bg,
+        statusColor: adminColors.warning.text,
         channel: 'Online',
         customerRef: 'C1021',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
         product: 'Onion & Garlic',
         grade: 'Grade 1',
         quantity: '4 KG',
@@ -1229,11 +833,11 @@ export function SubWarehouseReportsScreen({
         type: 'Pickup',
         time: 'Yesterday · 4:20 PM',
         status: 'Quantity Issue',
-        statusBg: '#FFE4E6',
-        statusColor: '#E11D48',
+        statusBg: adminColors.danger.bg,
+        statusColor: adminColors.danger.text,
         channel: 'Market',
         customerRef: 'C1018',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
         product: 'Carrot',
         grade: 'Grade 2',
         quantity: '2 KG',
@@ -1254,7 +858,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -1265,7 +869,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('sales_order_detail')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Orders</Text>
             </View>
@@ -1275,7 +879,7 @@ export function SubWarehouseReportsScreen({
               onPress={() => Alert.alert('Filter', 'Filter order list')}
               activeOpacity={0.8}
             >
-              <FilterIcon size={18} color="#FFFFFF" />
+              <FilterIcon size={18} color={adminColors.onBrand} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1286,11 +890,11 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#7A726C" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search order / customer / phone"
-              placeholderTextColor="#7A726C"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               clearButtonMode="while-editing"
@@ -1342,9 +946,9 @@ export function SubWarehouseReportsScreen({
                 <View style={styles.orderMetaRow}>
                   <View style={styles.orderTypeGroup}>
                     {ord.type === 'Pickup' ? (
-                      <StorePickupIcon size={14} color="#7A726C" />
+                      <StorePickupIcon size={14} color={adminColors.muted} />
                     ) : (
-                      <DeliveryTruckIcon size={14} color="#7A726C" />
+                      <DeliveryTruckIcon size={14} color={adminColors.muted} />
                     )}
                     <Text style={styles.orderTypeText}>{ord.type}</Text>
                   </View>
@@ -1368,7 +972,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'inventory_report') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -1379,7 +983,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Inventory Report</Text>
             </View>
@@ -1424,15 +1028,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Product, code, batch, location"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Produce Inventory Items */}
@@ -1546,12 +1150,12 @@ export function SubWarehouseReportsScreen({
             >
               <View style={styles.recordHeaderRow}>
                 <Text style={styles.recordIdText}>Tomato — Grade 1</Text>
-                <View style={[styles.badgePillBase, { backgroundColor: PALETTE.amberBg }]}>
-                  <Text style={[styles.badgeTextBase, { color: PALETTE.amberText }]}>Low Stock</Text>
+                <View style={[styles.badgePillBase, { backgroundColor: adminColors.warning.bg }]}>
+                  <Text style={[styles.badgeTextBase, { color: adminColors.warning.text }]}>Low Stock</Text>
                 </View>
               </View>
               <Text style={styles.recordSubText}>Cold Storage B · Batch BAT-TM-0312</Text>
-              <Text style={[styles.recordAmountText, { color: PALETTE.amberText }]}>45 kg</Text>
+              <Text style={[styles.recordAmountText, { color: adminColors.warning.text }]}>45 kg</Text>
             </TouchableOpacity>
           </View>
 
@@ -1569,7 +1173,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'inventory_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -1580,7 +1184,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('inventory_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Inventory Detail</Text>
             </View>
@@ -1732,7 +1336,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'receiving_report') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -1743,7 +1347,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Receiving Report</Text>
             </View>
@@ -1791,15 +1395,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Input with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="GR ID, Farmer ref, Product, Batch"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
 
@@ -1812,7 +1416,7 @@ export function SubWarehouseReportsScreen({
                 setSelectedReceivingItem({
                   receiptId: 'GR-00245',
                   dateTime: '25 Sep, 10:20 AM',
-                  warehouse: 'Coonoor',
+                  warehouse: rowWarehouse,
                   sourceRef: 'Farmer #FRM-0842',
                   product: 'Carrot',
                   grade: 'Grade 1',
@@ -1852,7 +1456,7 @@ export function SubWarehouseReportsScreen({
                 setSelectedReceivingItem({
                   receiptId: 'GR-00244',
                   dateTime: '25 Sep, 09:15 AM',
-                  warehouse: 'Coonoor',
+                  warehouse: rowWarehouse,
                   sourceRef: 'Farmer #FRM-0714',
                   product: 'Nilgiris Potato',
                   grade: 'Grade 1',
@@ -1892,7 +1496,7 @@ export function SubWarehouseReportsScreen({
                 setSelectedReceivingItem({
                   receiptId: 'GR-00243',
                   dateTime: '24 Sep, 04:45 PM',
-                  warehouse: 'Coonoor',
+                  warehouse: rowWarehouse,
                   sourceRef: 'Farmer #FRM-0690',
                   product: 'Tomato',
                   grade: 'Grade 2',
@@ -1913,14 +1517,14 @@ export function SubWarehouseReportsScreen({
             >
               <View style={styles.recordHeaderRow}>
                 <Text style={styles.recordIdText}>GR-00243</Text>
-                <View style={[styles.badgePillBase, { backgroundColor: PALETTE.redBadge }]}>
-                  <Text style={[styles.badgeTextBase, { color: PALETTE.redText }]}>QC Rejected</Text>
+                <View style={[styles.badgePillBase, { backgroundColor: adminColors.danger.bg }]}>
+                  <Text style={[styles.badgeTextBase, { color: adminColors.danger.text }]}>QC Rejected</Text>
                 </View>
               </View>
               <Text style={styles.recordSubText}>Tomato — Grade 2</Text>
               <View style={styles.receivingAmountRow}>
                 <Text style={styles.receivedQtyMuted}>Received 320 kg</Text>
-                <Text style={[styles.acceptedQtyBold, { color: PALETTE.redText }]}>Rejected 320 kg</Text>
+                <Text style={[styles.acceptedQtyBold, { color: adminColors.danger.text }]}>Rejected 320 kg</Text>
               </View>
               <Text style={styles.recordDateText}>24 Sep 2026 · 04:45 PM</Text>
             </TouchableOpacity>
@@ -1940,7 +1544,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'receiving_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -1951,7 +1555,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('receiving_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Receiving Detail</Text>
             </View>
@@ -2177,7 +1781,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -2188,7 +1792,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Customer Report</Text>
             </View>
@@ -2232,15 +1836,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Customer ID, name, mobile"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Customer Records Stack */}
@@ -2293,7 +1897,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'customer_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -2304,7 +1908,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('customer_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Customer Detail</Text>
             </View>
@@ -2519,7 +2123,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -2530,7 +2134,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Cash Top-Up Report</Text>
             </View>
@@ -2575,15 +2179,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Top-up ID, Customer ID, Reference"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Top-Up Record Cards */}
@@ -2638,7 +2242,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'cash_topup_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -2649,7 +2253,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('cash_topup_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Top-Up Detail</Text>
             </View>
@@ -2735,7 +2339,7 @@ export function SubWarehouseReportsScreen({
         paymentMethod: 'Wallet',
         status: 'Completed',
         dateTime: '25 Sep, 11:20 AM',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
       },
       {
         id: 'REV-000844',
@@ -2749,7 +2353,7 @@ export function SubWarehouseReportsScreen({
         paymentMethod: 'UPI',
         status: 'Completed',
         dateTime: '25 Sep, 10:45 AM',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
       },
       {
         id: 'REV-000842',
@@ -2763,7 +2367,7 @@ export function SubWarehouseReportsScreen({
         paymentMethod: 'Card',
         status: 'Completed',
         dateTime: '24 Sep, 04:30 PM',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
       },
       {
         id: 'REV-000840',
@@ -2777,7 +2381,7 @@ export function SubWarehouseReportsScreen({
         paymentMethod: 'Cash',
         status: 'Completed',
         dateTime: '24 Sep, 02:15 PM',
-        warehouse: 'Coonoor',
+        warehouse: rowWarehouse,
       },
     ];
 
@@ -2801,7 +2405,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -2812,7 +2416,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Revenue Report</Text>
             </View>
@@ -2857,15 +2461,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Revenue ID, Order ID..."
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Revenue Records Stack */}
@@ -2900,7 +2504,7 @@ export function SubWarehouseReportsScreen({
                 </View>
                 <Text style={styles.recordSubText}>{item.type} · {item.order}</Text>
                 <View style={styles.topupAmountRow}>
-                  <Text style={[styles.topupAmountBold, { color: PALETTE.greenText }]}>{item.amount}</Text>
+                  <Text style={[styles.topupAmountBold, { color: adminColors.success.text }]}>{item.amount}</Text>
                   <Text style={styles.swaTagText}>{item.paymentMethod}</Text>
                 </View>
               </TouchableOpacity>
@@ -2944,7 +2548,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'revenue_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -2955,7 +2559,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('revenue_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Revenue Detail</Text>
             </View>
@@ -3051,8 +2655,8 @@ export function SubWarehouseReportsScreen({
         status: 'Recorded',
         date: '25 Sep 2026',
         paymentMethod: 'Cash',
-        vendorPayee: 'Coonoor Transport Co.',
-        description: 'Transport from Coonoor collection point to warehouse',
+        vendorPayee: 'Local Transport Co.',
+        description: 'Transport from the collection point to the warehouse',
         createdBy: 'SWA – Suresh',
         timeline: [
           { title: 'Expense Created' },
@@ -3067,7 +2671,7 @@ export function SubWarehouseReportsScreen({
         status: 'Recorded',
         date: '25 Sep 2026',
         paymentMethod: 'Cash',
-        vendorPayee: 'Coonoor Local Handlers',
+        vendorPayee: 'Local Handlers',
         description: 'Unloading & stacking produce crates at dock 2',
         createdBy: 'SWA – Suresh',
         timeline: [
@@ -3130,7 +2734,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -3141,7 +2745,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Expense Report</Text>
             </View>
@@ -3186,15 +2790,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Expense ID, Voucher ID, Vendor"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Expense Records Stack */}
@@ -3227,14 +2831,14 @@ export function SubWarehouseReportsScreen({
                     style={
                       item.status === 'Recorded'
                         ? styles.expenseRecordedBadge
-                        : [styles.badgePillBase, { backgroundColor: PALETTE.amberBg }]
+                        : [styles.badgePillBase, { backgroundColor: adminColors.warning.bg }]
                     }
                   >
                     <Text
                       style={
                         item.status === 'Recorded'
                           ? styles.expenseRecordedText
-                          : [styles.badgeTextBase, { color: PALETTE.amberText }]
+                          : [styles.badgeTextBase, { color: adminColors.warning.text }]
                       }
                     >
                       {item.status}
@@ -3270,7 +2874,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'expense_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -3281,7 +2885,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('expense_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Expense Detail</Text>
             </View>
@@ -3378,17 +2982,7 @@ export function SubWarehouseReportsScreen({
   // SCREEN 8: EXPORT REPORT (M12-S11) - 5 STEPS FLOW
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'export_report') {
-    const EXPORT_OPTIONS = [
-      'Sales Report',
-      'Inventory Report',
-      'Receiving Report',
-      'Customer Report',
-      'Cash Top-Up Report',
-      'Expense Report',
-      'Revenue Report',
-      'Returns Report',
-      'Daily/Monthly Summary',
-    ];
+    const EXPORT_OPTIONS = exportOptions;
 
     const handleBackStep = () => {
       if (exportStep === 'generating') {
@@ -3405,7 +2999,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -3416,7 +3010,7 @@ export function SubWarehouseReportsScreen({
                 onPress={handleBackStep}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Export Report</Text>
             </View>
@@ -3425,8 +3019,8 @@ export function SubWarehouseReportsScreen({
           {/* Warehouse Lock Sub-pill */}
           <View style={styles.warehouseLockSubRow}>
             <View style={styles.warehouseLockPill}>
-              <LockBadgeIcon />
-              <Text style={styles.warehouseLockPillText}>Coonoor Warehouse</Text>
+              {isMain ? null : <LockBadgeIcon />}
+              <Text style={styles.warehouseLockPillText}>{warehouseLabel}</Text>
             </View>
           </View>
         </View>
@@ -3439,7 +3033,7 @@ export function SubWarehouseReportsScreen({
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.generatingContainer}>
-              <ActivityIndicator size="large" color={PALETTE.primary} style={{ transform: [{ scale: 1.2 }], marginBottom: 24 }} />
+              <ActivityIndicator size="large" color={adminColors.brand} style={{ transform: [{ scale: 1.2 }], marginBottom: 24 }} />
               <Text style={styles.generatingTitle}>Generating Report...</Text>
               <Text style={styles.generatingSubtitle}>Preparing 1,284 records. Please wait.</Text>
             </View>
@@ -3456,21 +3050,24 @@ export function SubWarehouseReportsScreen({
             >
               <View style={styles.readyContainer}>
                 <View style={styles.readyBadgeCircle}>
-                  <ReadyCheckIcon size={32} color="#059669" />
+                  <ReadyCheckIcon size={32} color={adminColors.success.text} />
                 </View>
                 <Text style={styles.readyTitle}>Report Ready</Text>
                 <Text style={styles.readySubtitle}>
-                  {selectedExportReport} · Coonoor Warehouse · 01 Sep – 25 Sep
+                  {selectedExportReport} · {warehouseLabel} · 01 Sep – 25 Sep
                 </Text>
               </View>
             </ScrollView>
 
-            {/* Bottom Download Button */}
-            <View style={styles.exportBottomBar}>
+            {/* Bottom Download Button (+ Generate Another, from MainWarehouseExportReportScreen) */}
+            <View style={styles.exportBottomBarDual}>
               <TouchableOpacity
-                style={styles.nextActionButton}
+                style={[styles.nextActionButton, !exportAllowed && styles.buttonDisabled]}
                 activeOpacity={0.8}
+                disabled={!exportAllowed}
+                accessibilityState={{ disabled: !exportAllowed }}
                 onPress={() => {
+                  if (!exportAllowed) return;
                   Alert.alert(
                     'Download Complete',
                     `${selectedExportReport} (${exportFormat}) downloaded successfully to your device.`,
@@ -3486,8 +3083,11 @@ export function SubWarehouseReportsScreen({
                   );
                 }}
               >
-                <DownloadIcon size={18} color="#FFFFFF" />
+                <DownloadIcon size={18} color={adminColors.onBrand} />
                 <Text style={styles.nextActionButtonText}>Download</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.backStepBtn} activeOpacity={0.8} onPress={() => setExportStep(1)}>
+                <Text style={styles.backStepBtnText}>Generate Another</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -3560,8 +3160,8 @@ export function SubWarehouseReportsScreen({
                           style={[
                             styles.filterChip,
                             isSelected && {
-                              borderColor: PALETTE.primary,
-                              backgroundColor: '#FFF3ED',
+                              borderColor: adminColors.brand,
+                              backgroundColor: adminColors.brandTint,
                             },
                           ]}
                           onPress={() => setExportPeriod(p)}
@@ -3570,7 +3170,7 @@ export function SubWarehouseReportsScreen({
                           <Text
                             style={[
                               styles.filterChipText,
-                              isSelected && { color: PALETTE.primary, fontWeight: '700' },
+                              isSelected && { color: adminColors.brand, fontWeight: '700' },
                             ]}
                           >
                             {p}
@@ -3586,6 +3186,12 @@ export function SubWarehouseReportsScreen({
               {exportStep === 3 && (
                 <>
                   <Text style={styles.stepHeaderTitle}>Step 3 — Filters</Text>
+                  {isMain ? (
+                    // Ported from MainWarehouseExportReportScreen (step 3).
+                    <View style={styles.blueInfoBox}>
+                      <Text style={styles.blueInfoText}>Only filters relevant to the selected report type are shown.</Text>
+                    </View>
+                  ) : null}
 
                   {/* Channel Filter */}
                   <Text style={styles.exportFilterGroupTitle}>Channel</Text>
@@ -3598,8 +3204,8 @@ export function SubWarehouseReportsScreen({
                           style={[
                             styles.filterChip,
                             isSelected && {
-                              borderColor: PALETTE.primary,
-                              backgroundColor: '#FFF3ED',
+                              borderColor: adminColors.brand,
+                              backgroundColor: adminColors.brandTint,
                             },
                           ]}
                           onPress={() => setExportChannel(ch)}
@@ -3608,7 +3214,7 @@ export function SubWarehouseReportsScreen({
                           <Text
                             style={[
                               styles.filterChipText,
-                              isSelected && { color: PALETTE.primary, fontWeight: '700' },
+                              isSelected && { color: adminColors.brand, fontWeight: '700' },
                             ]}
                           >
                             {ch}
@@ -3629,8 +3235,8 @@ export function SubWarehouseReportsScreen({
                           style={[
                             styles.filterChip,
                             isSelected && {
-                              borderColor: PALETTE.primary,
-                              backgroundColor: '#FFF3ED',
+                              borderColor: adminColors.brand,
+                              backgroundColor: adminColors.brandTint,
                             },
                           ]}
                           onPress={() => setExportStatus(st)}
@@ -3639,7 +3245,7 @@ export function SubWarehouseReportsScreen({
                           <Text
                             style={[
                               styles.filterChipText,
-                              isSelected && { color: PALETTE.primary, fontWeight: '700' },
+                              isSelected && { color: adminColors.brand, fontWeight: '700' },
                             ]}
                           >
                             {st}
@@ -3668,9 +3274,9 @@ export function SubWarehouseReportsScreen({
                           onPress={() => setExportFormat(fmt)}
                           activeOpacity={0.75}
                         >
-                          {fmt === 'Excel' && <ExcelFileIcon size={28} color={isSelected ? PALETTE.primary : '#8B5E3C'} />}
-                          {fmt === 'CSV' && <CsvFileIcon size={28} color={isSelected ? PALETTE.primary : '#8B5E3C'} />}
-                          {fmt === 'PDF' && <PdfFileIcon size={28} color={isSelected ? PALETTE.primary : '#8B5E3C'} />}
+                          {fmt === 'Excel' && <ExcelFileIcon size={28} color={isSelected ? adminColors.brand : adminColors.brandDeep} />}
+                          {fmt === 'CSV' && <CsvFileIcon size={28} color={isSelected ? adminColors.brand : adminColors.brandDeep} />}
+                          {fmt === 'PDF' && <PdfFileIcon size={28} color={isSelected ? adminColors.brand : adminColors.brandDeep} />}
                           <Text
                             style={[
                               styles.exportFormatName,
@@ -3700,7 +3306,7 @@ export function SubWarehouseReportsScreen({
                       </View>
                       <View style={styles.detailCol}>
                         <Text style={styles.detailLabel}>Warehouse</Text>
-                        <Text style={styles.detailValueBold}>Coonoor Warehouse</Text>
+                        <Text style={styles.detailValueBold}>{warehouseLabel}</Text>
                       </View>
                     </View>
 
@@ -3734,6 +3340,15 @@ export function SubWarehouseReportsScreen({
                       <Text style={styles.previewMetricVal}>4,850</Text>
                     </View>
                   </View>
+
+                  {exportAllowed ? null : (
+                    // MAIN holds report.export.file as `view` only (SPEC_GAPS.md #11).
+                    <View style={styles.exportViewOnlyBox}>
+                      <Text style={styles.exportViewOnlyText}>
+                        View-only access: your role can preview this export but cannot generate or download it.
+                      </Text>
+                    </View>
+                  )}
                 </>
               )}
 
@@ -3748,18 +3363,22 @@ export function SubWarehouseReportsScreen({
                   activeOpacity={0.8}
                   onPress={() => setExportStep((prev) => (Number(prev) + 1) as 1 | 2 | 3 | 4 | 5)}
                 >
-                  <ArrowRightIcon size={18} color="#FFFFFF" />
+                  <ArrowRightIcon size={18} color={adminColors.onBrand} />
                   <Text style={styles.nextActionButtonText}>Next</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.exportBottomBarDual}>
                 <TouchableOpacity
-                  style={styles.generateReportBtn}
+                  style={[styles.generateReportBtn, !exportAllowed && styles.buttonDisabled]}
                   activeOpacity={0.8}
-                  onPress={() => setExportStep('generating')}
+                  disabled={!exportAllowed}
+                  accessibilityState={{ disabled: !exportAllowed }}
+                  onPress={() => {
+                    if (exportAllowed) setExportStep('generating');
+                  }}
                 >
-                  <SparklesIcon size={18} color="#FFFFFF" />
+                  <SparklesIcon size={18} color={adminColors.onBrand} />
                   <Text style={styles.generateReportBtnText}>Generate Report</Text>
                 </TouchableOpacity>
 
@@ -3786,7 +3405,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -3797,7 +3416,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Daily / Monthly Summary</Text>
             </View>
@@ -3806,8 +3425,8 @@ export function SubWarehouseReportsScreen({
           {/* Warehouse Lock Sub-pill */}
           <View style={styles.warehouseLockSubRow}>
             <View style={styles.warehouseLockPill}>
-              <LockBadgeIcon />
-              <Text style={styles.warehouseLockPillText}>Coonoor Warehouse</Text>
+              {isMain ? null : <LockBadgeIcon />}
+              <Text style={styles.warehouseLockPillText}>{warehouseLabel}</Text>
             </View>
           </View>
         </View>
@@ -4011,6 +3630,15 @@ export function SubWarehouseReportsScreen({
             <Text style={styles.chartDescText}>Daily trend — Mon Tue Wed Thu Fri bars</Text>
           </View>
 
+          {isMain && !isDaily ? (
+            // Ported from MainWarehouseSummaryReportScreen (monthly tab).
+            <View style={[styles.orangeInfoBox, styles.pickerGroupGap]}>
+              <Text style={styles.orangeInfoText}>
+                Monthly totals and trends only — individual transaction screens are never duplicated here.
+              </Text>
+            </View>
+          ) : null}
+
           <View style={{ height: 28 }} />
         </ScrollView>
 
@@ -4045,7 +3673,7 @@ export function SubWarehouseReportsScreen({
         resolutionDate: '25 Sep 2026',
         status: 'Approved',
         resolution: 'Refund Completed',
-        resolutionColor: PALETTE.greenText,
+        resolutionColor: adminColors.success.text,
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -4076,7 +3704,7 @@ export function SubWarehouseReportsScreen({
         resolutionDate: '25 Sep 2026',
         status: 'Approved',
         resolution: 'Replacement Dispatched',
-        resolutionColor: PALETTE.greenText,
+        resolutionColor: adminColors.success.text,
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -4107,7 +3735,7 @@ export function SubWarehouseReportsScreen({
         resolutionDate: '24 Sep 2026',
         status: 'Pending',
         resolution: 'Under Review',
-        resolutionColor: PALETTE.amberText,
+        resolutionColor: adminColors.warning.text,
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -4135,7 +3763,7 @@ export function SubWarehouseReportsScreen({
         resolutionDate: '24 Sep 2026',
         status: 'Rejected',
         resolution: 'Dispute Closed',
-        resolutionColor: PALETTE.redText,
+        resolutionColor: adminColors.danger.text,
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -4165,7 +3793,7 @@ export function SubWarehouseReportsScreen({
         resolutionDate: '24 Sep 2026',
         status: 'Approved',
         resolution: 'Wallet Credited',
-        resolutionColor: PALETTE.greenText,
+        resolutionColor: adminColors.success.text,
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -4196,7 +3824,7 @@ export function SubWarehouseReportsScreen({
         resolutionDate: '23 Sep 2026',
         status: 'Pending',
         resolution: 'Carrier Tracing',
-        resolutionColor: PALETTE.amberText,
+        resolutionColor: adminColors.warning.text,
         timeline: [
           { title: 'Issue Raised' },
           { title: 'RMA Created' },
@@ -4217,7 +3845,7 @@ export function SubWarehouseReportsScreen({
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -4228,7 +3856,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('main')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Returns Report</Text>
             </View>
@@ -4275,15 +3903,15 @@ export function SubWarehouseReportsScreen({
 
           {/* Search Bar with Filter Icon */}
           <View style={styles.searchBarWrap}>
-            <SearchIcon size={16} color="#9E9690" />
+            <SearchIcon size={16} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="RMA ID, Order ID, Customer ID, Ticket ID"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <FilterIcon size={16} color="#9E9690" />
+            <FilterIcon size={16} color={adminColors.muted} />
           </View>
 
           {/* Returns Records Stack */}
@@ -4324,10 +3952,10 @@ export function SubWarehouseReportsScreen({
                       {
                         backgroundColor:
                           item.status === 'Approved'
-                            ? PALETTE.greenBadge
+                            ? adminColors.success.bg
                             : item.status === 'Pending'
-                            ? PALETTE.amberBg
-                            : PALETTE.redBadge,
+                            ? adminColors.warning.bg
+                            : adminColors.danger.bg,
                       },
                     ]}
                   >
@@ -4337,10 +3965,10 @@ export function SubWarehouseReportsScreen({
                         {
                           color:
                             item.status === 'Approved'
-                              ? PALETTE.greenText
+                              ? adminColors.success.text
                               : item.status === 'Pending'
-                              ? PALETTE.amberText
-                              : PALETTE.redText,
+                              ? adminColors.warning.text
+                              : adminColors.danger.text,
                         },
                       ]}
                     >
@@ -4373,7 +4001,7 @@ export function SubWarehouseReportsScreen({
   if (currentScreen === 'returns_item_detail') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* Header Banner */}
         <View style={styles.headerBanner}>
@@ -4384,7 +4012,7 @@ export function SubWarehouseReportsScreen({
                 onPress={() => setCurrentScreen('returns_report')}
                 activeOpacity={0.75}
               >
-                <ArrowBackIcon size={22} color="#FFFFFF" />
+                <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Return Detail</Text>
             </View>
@@ -4521,78 +4149,39 @@ export function SubWarehouseReportsScreen({
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DEFAULT: MAIN WAREHOUSE REPORTS DIRECTORY (M12-S01)
+  // DEFAULT: REPORTS HUB (M12-S01), Sub locked / Main all-warehouses selector
   // ═══════════════════════════════════════════════════════════════════════════
-
-  const REPORT_SECTIONS = [
-    {
-      category: 'SALES',
-      reports: [
-        { title: 'Sales Report', code: 'SALES_REPORT', subtitle: 'Orders, channel sales & transaction log' },
-      ],
-    },
-    {
-      category: 'INVENTORY',
-      reports: [
-        { title: 'Inventory Report', code: 'INVENTORY_REPORT', subtitle: 'Stock balance, low stock & out-of-stock' },
-      ],
-    },
-    {
-      category: 'WAREHOUSE',
-      reports: [
-        { title: 'Receiving Report', code: 'RECEIVING_REPORT', subtitle: 'Goods receipts, QC status & quantities' },
-      ],
-    },
-    {
-      category: 'CUSTOMERS',
-      reports: [
-        { title: 'Customer Report', code: 'CUSTOMER_REPORT', subtitle: 'Customer orders, frequency & channel spend' },
-      ],
-    },
-    {
-      category: 'FINANCE',
-      reports: [
-        { title: 'Revenue Report', code: 'REVENUE_REPORT', subtitle: 'Revenue sources, orders & average sale' },
-        { title: 'Expense Report', code: 'EXPENSE_REPORT', subtitle: 'Operational expense categorization & vouchers' },
-        { title: 'Cash Top-Up Report', code: 'CASH_TOPUP_REPORT', subtitle: 'Customer wallet cash top-up records' },
-      ],
-    },
-    {
-      category: 'RETURNS',
-      reports: [
-        { title: 'Returns Report', code: 'RETURNS_REPORT', subtitle: 'Returns by issue category & resolutions' },
-      ],
-    },
-    {
-      category: 'SUMMARY',
-      reports: [
-        { title: 'Daily / Monthly Summary', code: 'SUMMARY_REPORT', subtitle: 'Consolidated overview & metrics' },
-        { title: 'Export Report', code: 'EXPORT_REPORT', subtitle: 'Download PDF / Excel reports' },
-      ],
-    },
-  ];
 
   const query = searchQuery.trim().toLowerCase();
 
+  // Hub KPI tiles, each shown only when the viewer may see the data behind it.
+  const hubKpis = [
+    { label: "TODAY'S SALES", value: '₹24,850', permission: REPORT_CODES.sales },
+    { label: 'INVENTORY', value: '12,480 kg', permission: REPORT_CODES.inventory },
+    { label: 'RECEIVED TODAY', value: '2,850 kg', permission: REPORT_CODES.inventory },
+    { label: 'CUSTOMERS SERVED', value: '126', permission: REPORT_CODES.customers },
+    { label: 'CASH TOP-UP', value: '₹18,500', permission: REPORT_CODES.cashTopUp },
+    { label: 'EXPENSES', value: '₹6,420', permission: REPORT_CODES.expense },
+    { label: 'RETURNS', value: '8', permission: REPORT_CODES.returns },
+  ].filter((k) => can(k.permission));
+
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerLeftGroup}>
-            {onBack ? (
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={onBack}
-                activeOpacity={0.7}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <ArrowBackIcon size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            ) : null}
-            <ReportDocHeaderIcon size={24} color="#FFFFFF" />
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowBackIcon size={20} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <ReportDocHeaderIcon size={24} color={adminColors.onBrand} />
             <Text style={styles.headerTitleText}>Reports</Text>
           </View>
 
@@ -4611,119 +4200,145 @@ export function SubWarehouseReportsScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Warehouse & Date Scope Pill */}
+        {/* Warehouse & Date Scope Pill: Sub is locked and cycles the period;
+            Main opens the all-warehouses selector (from MainWarehouseReportsScreen). */}
         <TouchableOpacity
           style={styles.warehouseBadgeRow}
           onPress={() => {
+            if (isMain) {
+              setPendingWarehouseId(selectedWarehouseId);
+              setShowWarehousePicker((open) => !open);
+              return;
+            }
             const next = timeFilter === 'Today' ? 'Week' : timeFilter === 'Week' ? 'Month' : 'Today';
             setTimeFilter(next);
           }}
           activeOpacity={0.8}
         >
           <View style={styles.warehouseBadge}>
-            <LockBadgeIcon />
-            <Text style={styles.warehouseBadgeText}>Coonoor Warehouse · {timeFilter} ▾</Text>
+            {isMain ? null : <LockBadgeIcon />}
+            <Text style={styles.warehouseBadgeText}>{warehouseLabel} · {timeFilter} ▾</Text>
           </View>
         </TouchableOpacity>
       </View>
 
-      {/* ─── Main Content Scroll ─── */}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ─── 1. KPI Metric Cards (2 Columns Grid) ─── */}
-        <View style={styles.kpiGrid}>
-          {/* Today's Sales */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>TODAY'S SALES</Text>
-            <Text style={styles.kpiValue}>₹24,850</Text>
+      {isMain && showWarehousePicker ? (
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.exportFilterGroupTitle}>Warehouse</Text>
+          <View style={styles.filterChipRow}>
+            {[{ warehouseId: undefined, warehouseName: 'All Warehouses' }, ...warehouseOptions].map((wh) => {
+              const active = pendingWarehouseId === wh.warehouseId;
+              return (
+                <TouchableOpacity
+                  key={wh.warehouseId ?? 'all'}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                  onPress={() => setPendingWarehouseId(wh.warehouseId)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{wh.warehouseName}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-
-          {/* Inventory */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>INVENTORY</Text>
-            <Text style={styles.kpiValue}>12,480 kg</Text>
+          <Text style={[styles.exportFilterGroupTitle, styles.pickerGroupGap]}>Period</Text>
+          <View style={styles.filterChipRow}>
+            {(['Today', 'Week', 'Month'] as const).map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.filterChip, timeFilter === p && styles.filterChipActive]}
+                onPress={() => setTimeFilter(p)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.filterChipText, timeFilter === p && styles.filterChipTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-
-          {/* Received Today */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>RECEIVED TODAY</Text>
-            <Text style={styles.kpiValue}>2,850 kg</Text>
-          </View>
-
-          {/* Customers Served */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>CUSTOMERS SERVED</Text>
-            <Text style={styles.kpiValue}>126</Text>
-          </View>
-
-          {/* Cash Top-Up */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>CASH TOP-UP</Text>
-            <Text style={styles.kpiValue}>₹18,500</Text>
-          </View>
-
-          {/* Expenses */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>EXPENSES</Text>
-            <Text style={styles.kpiValue}>₹6,420</Text>
-          </View>
-
-          {/* Returns (Full Width Card) */}
-          <View style={[styles.kpiCard, styles.kpiCardFull]}>
-            <Text style={styles.kpiLabel}>RETURNS</Text>
-            <Text style={styles.kpiValue}>8</Text>
-          </View>
-        </View>
-
-        {/* ─── 2. Search Reports Input ─── */}
-        <View style={styles.searchBarWrap}>
-          <SearchIcon size={16} color="#7A726C" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search reports..."
-            placeholderTextColor="#7A726C"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-        </View>
-
-        {/* ─── 3. Categorized Reports List ─── */}
-        {REPORT_SECTIONS.map((sec) => {
-          const filteredReports = sec.reports.filter(
-            (r) => !query || r.title.toLowerCase().includes(query) || (r.subtitle && r.subtitle.toLowerCase().includes(query))
-          );
-
-          if (filteredReports.length === 0) return null;
-
-          return (
-            <View key={sec.category} style={styles.sectionBlock}>
-              <Text style={styles.categoryHeading}>{sec.category}</Text>
-
-              <View style={styles.reportsStack}>
-                {filteredReports.map((report) => (
-                  <TouchableOpacity
-                    key={report.code}
-                    style={styles.reportRowCard}
-                    onPress={() => handleReportClick(report.code)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.reportName}>{report.title}</Text>
-                    <ChevronRightIcon size={16} color={PALETTE.categoryTitle} />
-                  </TouchableOpacity>
-                ))}
-              </View>
+          <TouchableOpacity
+            style={[styles.nextActionButton, styles.pickerApplyGap]}
+            activeOpacity={0.8}
+            onPress={() => {
+              setSelectedWarehouseId(pendingWarehouseId);
+              setShowWarehousePicker(false);
+            }}
+          >
+            <Text style={styles.nextActionButtonText}>Apply</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ─── 1. KPI Metric Cards (2 Columns Grid) ─── */}
+          {hubKpis.length > 0 ? (
+            <View style={styles.kpiGrid}>
+              {hubKpis.map((k, idx) => (
+                <View
+                  key={k.label}
+                  style={[styles.kpiCard, idx === hubKpis.length - 1 && hubKpis.length % 2 === 1 && styles.kpiCardFull]}
+                >
+                  <Text style={styles.kpiLabel}>{k.label}</Text>
+                  <Text style={styles.kpiValue}>{k.value}</Text>
+                </View>
+              ))}
             </View>
-          );
-        })}
+          ) : null}
 
-        <View style={{ height: 16 }} />
-      </ScrollView>
+          {/* ─── 2. Search Reports Input ─── */}
+          <View style={styles.searchBarWrap}>
+            <SearchIcon size={16} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search reports..."
+              placeholderTextColor={adminColors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              clearButtonMode="while-editing"
+            />
+          </View>
 
+          {/* ─── 3. Categorized Reports List (each card gated on its data code) ─── */}
+          {visibleSections.map((sec) => {
+            const filteredReports = sec.reports.filter(
+              (r) => !query || r.title.toLowerCase().includes(query) || r.subtitle.toLowerCase().includes(query)
+            );
 
+            if (filteredReports.length === 0) return null;
+
+            return (
+              <View key={sec.category} style={styles.sectionBlock}>
+                <Text style={styles.categoryHeading}>{sec.category}</Text>
+
+                <View style={styles.reportsStack}>
+                  {filteredReports.map((report) => (
+                    <TouchableOpacity
+                      key={report.code}
+                      style={styles.reportRowCard}
+                      onPress={() => handleReportClick(report.code)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.reportName}>{report.title}</Text>
+                      <ChevronRightIcon size={16} color={adminColors.brandDeep} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
+
+          {isMain ? (
+            // Ported from MainWarehouseReportsScreen (Main hub).
+            <View style={styles.orangeInfoBox}>
+              <Text style={styles.orangeInfoText}>
+                Reports use server-side scoping and pagination — unrestricted warehouse data is never loaded to the client.
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.hubBottomSpacer} />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -4731,20 +4346,16 @@ export function SubWarehouseReportsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 18,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    ...adminShadow.md,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -4761,7 +4372,8 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    // Was white at 0.22 on the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -4772,9 +4384,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitleText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   warehouseBadgeRow: {
@@ -4783,26 +4394,28 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    // Was white at 0.2 on the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5.5,
     borderRadius: 20,
     alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    // Was white at 0.25 on the orange header; no overlay token exists, so a solid deep-orange fill.
+    borderColor: adminColors.brandDeep,
   },
   warehouseBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    color: adminColors.onBrand,
+    ...adminType.caption,
     letterSpacing: 0.1,
   },
   headerBellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    // Was white at 0.22 on the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -4814,11 +4427,11 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   scroll: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -4834,33 +4447,27 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     width: '48.3%',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   kpiCardFull: {
     width: '100%',
   },
   kpiLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.7,
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   kpiValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.3,
   },
   filterChipRow: {
@@ -4873,77 +4480,64 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   filterChipActive: {
-    backgroundColor: PALETTE.primary,
-    borderColor: PALETTE.primary,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+    ...adminShadow.sm,
   },
   filterChipText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   blueInfoBox: {
-    backgroundColor: PALETTE.infoBg,
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: PALETTE.infoBorder,
+    borderColor: adminColors.border,
     borderRadius: 14,
     padding: 12,
     marginBottom: 14,
   },
   blueInfoText: {
-    fontSize: 12,
-    color: PALETTE.infoText,
-    lineHeight: 16,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.info.text,
   },
   orangeInfoBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     borderRadius: 14,
     padding: 12,
     marginBottom: 14,
   },
   orangeInfoText: {
-    fontSize: 12,
-    color: '#C2410C',
-    lineHeight: 16,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.brandDeep,
   },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     gap: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
-    color: PALETTE.textInk,
+    ...adminType.body,
+    color: adminColors.ink,
     padding: 0,
     margin: 0,
   },
@@ -4951,9 +4545,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   categoryHeading: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: PALETTE.categoryTitle,
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -4966,25 +4559,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   reportName: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   lockNoticeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.infoBg,
+    backgroundColor: adminColors.info.bg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.infoBorder,
+    borderColor: adminColors.border,
     padding: 14,
     gap: 12,
     marginTop: 8,
@@ -4992,25 +4584,22 @@ const styles = StyleSheet.create({
   },
   lockNoticeText: {
     flex: 1,
-    fontSize: 12.5,
-    color: PALETTE.infoText,
-    lineHeight: 17,
-    fontWeight: '600',
+    ...adminType.rowTitle,
+    color: adminColors.info.text,
   },
   detailSectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
     marginTop: 4,
     marginLeft: 2,
   },
   detailCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     marginBottom: 16,
     gap: 14,
   },
@@ -5023,15 +4612,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontSize: 11,
-    color: PALETTE.textSecondary,
-    fontWeight: '600',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   detailValueBold: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   movementFlowRow: {
     flexDirection: 'row',
@@ -5044,22 +4631,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   movementLabel: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   movementVal: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   movementArrow: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
     marginHorizontal: 2,
     alignSelf: 'center',
   },
@@ -5078,7 +4662,7 @@ const styles = StyleSheet.create({
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#A7F3D0',
+    backgroundColor: adminColors.success.bg,
     marginVertical: 3,
   },
   timelineContent: {
@@ -5086,15 +4670,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   timelineTime: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   historyRow: {
     flexDirection: 'row',
@@ -5103,14 +4685,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   historyOrderId: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   historyOrderDetails: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
   },
   actionBtnRow: {
     flexDirection: 'row',
@@ -5123,30 +4703,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   actionCardBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.categoryTitle,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   ordersCountText: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    fontWeight: '600',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 10,
     marginLeft: 2,
   },
   orderListCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   orderCardTopRow: {
     flexDirection: 'row',
@@ -5155,9 +4733,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   orderCardId: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   orderStatusBadge: {
     paddingHorizontal: 10,
@@ -5165,14 +4742,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   orderStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   orderCustomerName: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 8,
-    fontWeight: '500',
   },
   orderItemsPriceRow: {
     flexDirection: 'row',
@@ -5181,14 +4756,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   orderItemsCount: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   orderAmountBold: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   orderMetaRow: {
     flexDirection: 'row',
@@ -5202,30 +4775,24 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   orderTypeText: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   orderTimeText: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
-    fontWeight: '500',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   recordsStack: {
     gap: 10,
     marginBottom: 16,
   },
   recordCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   recordHeaderRow: {
     flexDirection: 'row',
@@ -5234,29 +4801,25 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   recordIdText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   recordSubText: {
-    fontSize: 12.5,
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 6,
-    fontWeight: '500',
   },
   recordAmountText: {
-    fontSize: 17.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.3,
     marginBottom: 2,
   },
   recordDateText: {
-    fontSize: 11.5,
-    color: PALETTE.textMuted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
-    fontWeight: '500',
   },
   receivingAmountRow: {
     flexDirection: 'row',
@@ -5266,14 +4829,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   receivedQtyMuted: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   acceptedQtyBold: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.greenText,
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   returnResolutionRow: {
     flexDirection: 'row',
@@ -5283,18 +4844,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   returnQtyText: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   returnResolutionText: {
-    fontSize: 13.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
   },
   custOrdersText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   topupAmountRow: {
@@ -5305,14 +4863,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   topupAmountBold: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   swaTagText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   badgePillBase: {
     paddingHorizontal: 9,
@@ -5321,45 +4877,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeTextBase: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     letterSpacing: 0.1,
   },
   greenBadgePill: {
-    backgroundColor: PALETTE.greenBadge,
-    borderColor: '#A7F3D0',
+    backgroundColor: adminColors.success.bg,
+    borderColor: adminColors.border,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 3.5,
     borderRadius: 20,
   },
   greenBadgeText: {
-    color: PALETTE.greenText,
-    fontSize: 11,
-    fontWeight: '700',
+    color: adminColors.success.text,
+    ...adminType.caption,
     letterSpacing: 0.1,
   },
   breakdownSectionTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 10,
     marginTop: 4,
     marginLeft: 2,
     letterSpacing: -0.2,
   },
   breakdownCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
     marginBottom: 16,
   },
   breakdownRow: {
@@ -5369,67 +4918,57 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   breakdownLabel: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   breakdownValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   breakdownDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   expenseRecordedBadge: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
+    backgroundColor: adminColors.warning.bg,
+    borderColor: adminColors.border,
     borderWidth: 1,
     paddingHorizontal: 9,
     paddingVertical: 3.5,
     borderRadius: 20,
   },
   expenseRecordedText: {
-    color: '#92400E',
-    fontSize: 11,
-    fontWeight: '700',
+    color: adminColors.warning.text,
+    ...adminType.caption,
   },
   expenseAmountRed: {
-    fontSize: 17.5,
-    fontWeight: '800',
-    color: '#DC2626',
+    ...adminType.kpiValue,
+    color: adminColors.danger.text,
     letterSpacing: -0.3,
     marginBottom: 2,
   },
   chartBoxContainer: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
     marginBottom: 16,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 90,
   },
   chartSubtitle: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     textAlign: 'center',
-    lineHeight: 18,
-    fontWeight: '500',
   },
   summaryToggleWrap: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
-    backgroundColor: '#EDE8E1',
+    backgroundColor: adminColors.border,
     borderRadius: 14,
     padding: 4,
   },
@@ -5441,57 +4980,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   summaryToggleBtnActive: {
-    backgroundColor: PALETTE.cardBg,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+    backgroundColor: adminColors.card,
+    ...adminShadow.sm,
   },
   summaryToggleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
   },
   summaryToggleTextActive: {
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     fontWeight: '700',
   },
   summaryDateBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 16,
   },
   summaryDateBoxText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8B5E3C',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   summarySectionTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
     marginTop: 4,
     marginLeft: 2,
     letterSpacing: -0.2,
   },
   summaryCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     marginBottom: 14,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   summaryCardRow: {
     flexDirection: 'row',
@@ -5506,15 +5034,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   summaryItemLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   summaryItemValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   financeRow: {
@@ -5524,29 +5050,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   financeLabel: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   financeVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   financeNetLabel: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   financeNetVal: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.greenText,
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   chartSectionTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 10,
     letterSpacing: -0.2,
   },
@@ -5559,34 +5080,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   chartTabBtnActive: {
-    backgroundColor: PALETTE.primary,
-    borderColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   chartTabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   chartTabTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   chartContainerCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
     marginBottom: 16,
   },
   barGraphArea: {
@@ -5596,7 +5112,7 @@ const styles = StyleSheet.create({
     height: 120,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: PALETTE.divider,
+    borderBottomColor: adminColors.border,
     marginBottom: 10,
   },
   barColumn: {
@@ -5604,23 +5120,21 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   barValueText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   barVisual: {
     width: 28,
     borderRadius: 6,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   barDayText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   chartDescText: {
-    fontSize: 11.5,
-    color: PALETTE.textMuted,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     textAlign: 'center',
   },
   warehouseLockSubRow: {
@@ -5629,19 +5143,20 @@ const styles = StyleSheet.create({
   warehouseLockPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    // Was white at 0.2 on the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5.5,
     borderRadius: 20,
     alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    // Was white at 0.25 on the orange header; no overlay token exists, so a solid deep-orange fill.
+    borderColor: adminColors.brandDeep,
   },
   warehouseLockPillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    color: adminColors.onBrand,
+    ...adminType.caption,
   },
   exportScrollContent: {
     paddingHorizontal: 16,
@@ -5659,29 +5174,24 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: adminColors.border,
   },
   stepDotActive: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   stepHeaderTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 14,
     marginLeft: 2,
     letterSpacing: -0.2,
   },
   exportCardContainer: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
     overflow: 'hidden',
     marginBottom: 16,
   },
@@ -5693,18 +5203,17 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   exportOptionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
     flex: 1,
   },
   exportOptionTextSelected: {
     fontWeight: '700',
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   exportRowDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   exportPeriodRow: {
     flexDirection: 'row',
@@ -5717,21 +5226,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   exportPeriodLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   exportPeriodDateText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   exportFilterGroupTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
     marginLeft: 2,
   },
@@ -5742,26 +5248,25 @@ const styles = StyleSheet.create({
   },
   exportFormatCard: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   exportFormatCardActive: {
-    borderColor: PALETTE.primary,
-    backgroundColor: '#FFF3ED',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
   },
   exportFormatName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   exportFormatNameActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
   previewMetricRow: {
@@ -5771,83 +5276,70 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   previewMetricLabel: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   previewMetricVal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   exportBottomBar: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.divider,
+    borderTopColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     paddingBottom: 20,
   },
   nextActionButton: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
+    ...adminShadow.md,
   },
   nextActionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15.5,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.sectionHead,
   },
   exportBottomBarDual: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.divider,
+    borderTopColor: adminColors.border,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 20,
     gap: 10,
   },
   generateReportBtn: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
+    ...adminShadow.md,
   },
   generateReportBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15.5,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.sectionHead,
   },
   backStepBtn: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
     paddingVertical: 13,
   },
   backStepBtnText: {
-    color: PALETTE.textInk,
-    fontSize: 14.5,
-    fontWeight: '700',
+    color: adminColors.ink,
+    ...adminType.sectionHead,
   },
   generatingContainer: {
     alignItems: 'center',
@@ -5856,17 +5348,15 @@ const styles = StyleSheet.create({
     paddingVertical: 80,
   },
   generatingTitle: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.title,
+    color: adminColors.ink,
     marginBottom: 6,
     letterSpacing: -0.2,
   },
   generatingSubtitle: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     textAlign: 'center',
-    fontWeight: '500',
   },
   readyContainer: {
     alignItems: 'center',
@@ -5878,52 +5368,46 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminColors.success.bg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
     borderWidth: 1.5,
-    borderColor: '#A7F3D0',
+    borderColor: adminColors.border,
   },
   readyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    ...adminType.title,
+    color: adminColors.ink,
     marginBottom: 6,
     letterSpacing: -0.2,
   },
   readySubtitle: {
-    fontSize: 12.5,
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     textAlign: 'center',
-    fontWeight: '500',
-    lineHeight: 18,
   },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 8,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    justifyContent: 'space-around',
-    alignItems: 'center',
+  pickerGroupGap: {
+    marginTop: 14,
   },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-    minWidth: 60,
+  pickerApplyGap: {
+    marginTop: 8,
   },
-  navLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
-    marginTop: 3,
+  hubBottomSpacer: {
+    height: 16,
   },
-  navLabelActive: {
-    color: PALETTE.primary,
-    fontWeight: '700',
+  exportViewOnlyBox: {
+    backgroundColor: adminColors.warning.bg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 14,
+  },
+  exportViewOnlyText: {
+    ...adminType.body,
+    color: adminColors.warning.text,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });
