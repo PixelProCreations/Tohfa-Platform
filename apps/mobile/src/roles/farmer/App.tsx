@@ -215,7 +215,6 @@ import {
   SubWarehouseRefundCompletedScreen,
   SubWarehouseReturnHistoryScreen,
   SubWarehouseReturnHistoryDetailScreen,
-  SubWarehouseRmaResolutionSuccessScreen,
   SubWarehouseStaffScreen,
   SubWarehouseStaffDetailScreen,
   SubWarehouseEditStaffProfileScreen,
@@ -399,7 +398,6 @@ export type ScreenName =
   | 'SubWarehouseRefundCompleted'
   | 'SubWarehouseReturnHistory'
   | 'SubWarehouseReturnHistoryDetail'
-  | 'SubWarehouseRmaResolutionSuccess'
   | 'SubWarehouseStaff'
   | 'SubWarehouseStaffDetail'
   | 'SubWarehouseAttendance'
@@ -680,7 +678,6 @@ export type ScreenName =
   | 'SubWarehouseAttendance'
   | 'SubWarehouseTodayAttendance'
   | 'SubWarehouseAttendanceHistory'
-  | 'SubWarehouseRmaResolutionSuccess'
   | 'SubWarehouseStorageLocationDetail'
   | 'SubWarehouseMaterialHandling'
   | 'SubWarehouseMaterialDetail'
@@ -2377,15 +2374,6 @@ export default function App(): React.JSX.Element {
           <SubWarehouseRefundFailedScreen
             rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
             onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseRmaResolutionSuccess' ? (
-          <SubWarehouseRmaResolutionSuccessScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            status={(params['status'] as any) || 'Approved'}
-            approvedQty={typeof params['approvedQty'] === 'string' ? params['approvedQty'] : '1.8 KG'}
-            refundAmount={typeof params['refundAmount'] === 'string' ? params['refundAmount'] : '₹180.00'}
-            onViewReturnsList={() => navigate('SubWarehouseReturnsIssues')}
-            onBackToMore={() => navigate('SubWarehouseMore')}
           />
         ) : screen === 'SubWarehouseStaff' ? (
           <SubWarehouseStaffScreen

@@ -58,7 +58,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseRefundFailedScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseRefundCompletedScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReturnHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReturnHistoryDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseRmaResolutionSuccessScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseStaffScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseStaffDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseEditStaffProfileScreen';

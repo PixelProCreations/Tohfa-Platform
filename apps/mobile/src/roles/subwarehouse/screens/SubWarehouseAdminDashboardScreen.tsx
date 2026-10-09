@@ -104,7 +104,6 @@ import { SubWarehouseTodayAttendanceScreen } from './SubWarehouseTodayAttendance
 import { SubWarehouseAttendanceHistoryScreen } from './SubWarehouseAttendanceHistoryScreen';
 import { SubWarehouseStaffAndAttendanceScreen } from './SubWarehouseStaffAndAttendanceScreen';
 import { SubWarehouseAttendanceDetailScreen } from './SubWarehouseAttendanceDetailScreen';
-import { SubWarehouseRmaResolutionSuccessScreen } from './SubWarehouseRmaResolutionSuccessScreen';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
 import { SubWarehouseMaterialHandlingScreen } from './SubWarehouseMaterialHandlingScreen';
@@ -150,12 +149,10 @@ import {
   M5S06_StockShortage,
   M5S07_Packing,
   M5S08_ConfirmPacking,
-  M5S08B_OrderPacked,
   M5S09_ReadyForPickup,
   M5S10_PickupVerification,
   M5S11_PickupOTP,
   M5S12_ConfirmHandover,
-  M5S12B_PickupCompleted,
   M5S13_DeliveryPreparation,
   M5S14_Dispatch,
   M5S14B_ConfirmDispatch,
@@ -165,8 +162,6 @@ import {
   M5S16_OrderIssue,
   M5S16B_IssueSubmitted,
   M5S17_CancelOrder,
-  M5S17B_ConfirmCancellation,
-  M5S17C_OrderCancelled,
   M5S18_OrderInvoice,
 } from '../../admin/screens/swa/orders';
 
@@ -1182,9 +1177,6 @@ export function OrdersModule({
       case 'M5S08':
       case 'M5S08_ConfirmPacking':
         return <M5S08_ConfirmPacking orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S08B':
-      case 'M5S08_OrderPacked':
-        return <M5S08B_OrderPacked orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
       case 'M5S09':
       case 'M5S09_ReadyForPickup':
         return <M5S09_ReadyForPickup onNavigate={handleNavigate} onBack={handleBack} />;
@@ -1197,9 +1189,6 @@ export function OrdersModule({
       case 'M5S12':
       case 'M5S12_ConfirmHandover':
         return <M5S12_ConfirmHandover orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S12B':
-      case 'M5S12_PickupCompleted':
-        return <M5S12B_PickupCompleted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
       case 'M5S13':
       case 'M5S13_DeliveryPreparation':
         return <M5S13_DeliveryPreparation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
@@ -1276,12 +1265,6 @@ export function OrdersModule({
       case 'M5S17':
       case 'M5S17_CancelOrder':
         return <M5S17_CancelOrder orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S17B':
-      case 'M5S17B_ConfirmCancellation':
-        return <M5S17B_ConfirmCancellation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S17C':
-      case 'M5S17C_OrderCancelled':
-        return <M5S17C_OrderCancelled orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
       case 'M5S18':
       case 'M5S18_OrderInvoice':
         return <M5S18_OrderInvoice orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
@@ -1402,12 +1385,6 @@ export function SubWarehouseAdminDashboardScreen({
     rma: RmaRecord;
     inspectedQty: string;
     notes: string;
-  } | null>(null);
-  const [resolutionSuccess, setResolutionSuccess] = useState<{
-    rma: RmaRecord;
-    status: 'Approved' | 'Rejected';
-    approvedQty: string;
-    refundAmount: string;
   } | null>(null);
   const [showRefundStatusRma, setShowRefundStatusRma] = useState<RmaRecord | null>(null);
   const [showRefundFailedRma, setShowRefundFailedRma] = useState<RmaRecord | null>(null);
@@ -3094,32 +3071,6 @@ export function SubWarehouseAdminDashboardScreen({
           setInspectingRma(null);
           setSelectedRma(null);
           setShowReturnsIssues(true);
-        }}
-      />
-    );
-  }
-
-  if (resolutionSuccess) {
-    return (
-      <SubWarehouseRmaResolutionSuccessScreen
-        rma={resolutionSuccess.rma}
-        status={resolutionSuccess.status}
-        approvedQty={resolutionSuccess.approvedQty}
-        refundAmount={resolutionSuccess.refundAmount}
-        onViewReturnsList={() => {
-          setResolutionSuccess(null);
-          setReviewingRma(null);
-          setInspectingRma(null);
-          setSelectedRma(null);
-          setShowReturnsIssues(true);
-        }}
-        onBackToMore={() => {
-          setResolutionSuccess(null);
-          setReviewingRma(null);
-          setInspectingRma(null);
-          setSelectedRma(null);
-          setShowReturnsIssues(false);
-          setActiveTab('More');
         }}
       />
     );
