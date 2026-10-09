@@ -35,7 +35,9 @@ cropMilestonesRouter.post(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     const { farmCropId } = getValidated(req, 'params', farmCropIdParams);
-    res.status(201).json(await cropMilestonesService.initializeMilestones(scope, farmCropId));
+    // 201 only when this call inserted milestones; a repeat call changes nothing and answers 200.
+    const { created, milestones } = await cropMilestonesService.initializeMilestones(scope, farmCropId);
+    res.status(created ? 201 : 200).json(milestones);
   }),
 );
 
