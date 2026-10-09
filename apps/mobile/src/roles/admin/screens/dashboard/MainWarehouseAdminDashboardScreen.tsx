@@ -20,7 +20,7 @@ import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import { FinanceFlow } from '../warehouse/finance-expenses';
-import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
+import { ReportsScreen } from '../warehouse/reports';
 import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
@@ -1455,7 +1455,18 @@ export function MainWarehouseAdminDashboardScreen({
               }}
             />
           ) : moreSubScreen === 'reports' ? (
-            <MainWarehouseReportsScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={() => setMoreSubScreen(null)} />
+            // Shared reports hub (W4); MAIN_WAREHOUSE_SCOPE shows the All-warehouses selector.
+            // MAIN holds report.export.file as `view` only, so Generate/Download stay off.
+            <ReportsScreen
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              canExport={false}
+              onBack={() => setMoreSubScreen(null)}
+              onNavigateToNotifications={() => {
+                setMoreSubScreen(null);
+                navigateWh('warehouse_notifications');
+              }}
+            />
           ) : moreSubScreen === 'returns' ? (
             // Shared RMA flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
             <ReturnsFlow
