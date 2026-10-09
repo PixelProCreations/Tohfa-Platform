@@ -50,17 +50,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssuesScreen
 export * from '../../../subwarehouse/screens/SubWarehouseReportIssueScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseSettingsScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomersScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomerDetailsScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomerActionsScreen';
-export * from '../../../subwarehouse/screens/SubWarehousePurchaseHistoryScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomerOrdersScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomerIssuesScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomerIssueDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseSupportHistoryScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseCustomerSupportDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseOrderFiltersScreen';
-export * from '../../../subwarehouse/screens/SubWarehousePurchaseFiltersScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseApprovalAlertsScreen';

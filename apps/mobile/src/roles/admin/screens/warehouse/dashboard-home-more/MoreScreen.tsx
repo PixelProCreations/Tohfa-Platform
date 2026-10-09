@@ -27,7 +27,7 @@ import { SubWarehouseFinanceScreen } from '../../../../subwarehouse/screens/SubW
 import { SubWarehouseVouchersScreen } from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
 import { SubWarehouseHelpSupportScreen } from '../../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
 import { SubWarehouseWarehouseOperationsScreen } from '../../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
-import { SubWarehouseCustomersScreen } from '../../../../subwarehouse/screens/SubWarehouseCustomersScreen';
+import { CustomersFlow } from '../customers';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
@@ -872,7 +872,9 @@ export function MoreScreen({
 
   if (showCustomersScreen) {
     return (
-      <SubWarehouseCustomersScreen
+      <CustomersFlow
+        scope={scope}
+        can={can}
         onBack={() => setShowCustomersScreen(false)}
         onTabChange={handleTabPress}
       />

@@ -78,8 +78,12 @@ export {
 } from './dashboard-home-more';
 export {
   CustomerSearchScreen,
+  CustomersFlow,
   type CustomerSearchItem,
   type CustomerSearchScreenProps,
+  type CustomersRoute,
+  type CustomersRouteParams,
+  type CustomersExternalRoute,
 } from './customers';
 export { WalletOperationsScreen, type WalletOperationsScreenProps } from './wallet-cashtopup';
 export {

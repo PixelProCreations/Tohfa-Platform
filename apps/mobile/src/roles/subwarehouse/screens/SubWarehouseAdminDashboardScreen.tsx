@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -39,22 +39,15 @@ import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { WalletOperationsScreen } from '../../admin/screens/warehouse/wallet-cashtopup';
 import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
 import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
-import { SubWarehouseCustomersScreen } from './SubWarehouseCustomersScreen';
-import { CustomerSearchScreen } from '../../admin/screens/warehouse/customers';
-import { SubWarehouseCustomerDetailsScreen } from './SubWarehouseCustomerDetailsScreen';
-import { SubWarehousePurchaseHistoryScreen } from './SubWarehousePurchaseHistoryScreen';
-import { SubWarehouseCustomerOrdersScreen } from './SubWarehouseCustomerOrdersScreen';
+import {
+  CustomersFlow,
+  type CustomersRoute,
+  type CustomersRouteParams,
+} from '../../admin/screens/warehouse/customers';
 import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
 import { SubWarehouseCashTopUpScreen } from './SubWarehouseCashTopUpScreen';
-import { SubWarehouseCustomerIssuesScreen } from './SubWarehouseCustomerIssuesScreen';
-import { SubWarehouseCustomerIssueDetailScreen } from './SubWarehouseCustomerIssueDetailScreen';
-import { SubWarehouseSupportHistoryScreen } from './SubWarehouseSupportHistoryScreen';
-import { SubWarehouseCustomerSupportDetailScreen } from './SubWarehouseCustomerSupportDetailScreen';
 import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
-import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
-import { SubWarehouseOrderFiltersScreen, OrderFilterState } from './SubWarehouseOrderFiltersScreen';
-import { SubWarehousePurchaseFiltersScreen, PurchaseFilterState } from './SubWarehousePurchaseFiltersScreen';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { SubWarehouseApprovalAlertsScreen } from './SubWarehouseApprovalAlertsScreen';
@@ -969,6 +962,71 @@ function InventoryModule({
   );
 }
 
+// ─── Customer issue -> RMA ───────────────────────────────────────────────────
+/** The RMA list sits beneath an RMA opened from a customer issue. */
+const ISSUE_RMA_BACK_STACK: ReturnsStackEntry[] = [{ screen: 'ReturnsIssues' }];
+
+/**
+ * Opens the shared returns flow on the RMA of a customer issue. The issue is
+ * mapped to an RmaRecord (mock mapping, as before the customers wave); the
+ * params are memoised because ReturnsFlow restarts its stack when they change.
+ */
+function CustomerIssueRmaFlow({
+  scope,
+  can,
+  params,
+  onBack,
+  onTabChange,
+}: {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  params: CustomersRouteParams;
+  onBack: () => void;
+  onTabChange: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
+}) {
+  const initialParams = useMemo(() => {
+    const issue = params.issue;
+    const c = params.customer;
+    const rmaId = (issue?.issueNo ?? 'ISSUE-00231').replace('ISSUE', 'RMA');
+    const rma: RmaRecord = {
+      id: rmaId.toLowerCase(),
+      rmaId,
+      orderId: issue?.orderNo ?? 'ORD-00251',
+      customerName: c?.name ?? 'Rajesh Kumar',
+      customerId: c?.code ?? c?.id ?? 'CUS-00291',
+      customerPhone: c?.phone ?? '+91 98765 43210',
+      orderDate: issue?.dateText ?? '24 Sep 2026',
+      salesChannel: 'Direct Sale',
+      paymentStatus: 'Paid',
+      productName: issue?.product ?? 'Tomato',
+      grade: 'Grade 1',
+      quantityPurchased: issue?.quantity ?? '2 KG',
+      unitPrice: '₹100 / KG',
+      lineTotal: '₹200',
+      issueCategory: (issue?.category as RmaRecord['issueCategory'] | undefined) ?? 'Quality',
+      reportedDate: issue?.dateText ?? '24 Sep 2026',
+      timestampText: '24 Sep 2026 · 10:45 AM',
+      description: issue?.description ?? 'Customer reported quality issue.',
+      ticketId: issue?.issueNo ?? 'ISSUE-00231',
+      requestedQuantity: issue?.quantity ?? '2 KG',
+      requestedResolution: 'Replacement / Refund',
+      status: 'Under Review',
+    };
+    return { rma };
+  }, [params]);
+  return (
+    <ReturnsFlow
+      scope={scope}
+      can={can}
+      initialScreen="RmaDetail"
+      initialParams={initialParams}
+      initialBackStack={ISSUE_RMA_BACK_STACK}
+      onBack={onBack}
+      onTabChange={onTabChange}
+    />
+  );
+}
+
 // ─── Orders Module ───────────────────────────────────────────────────────────
 // The order screens and their navigator live in admin/screens/warehouse/orders
 // (shared with the Main shell). This wrapper only adds what the Sub shell owns:
@@ -1076,23 +1134,15 @@ export function SubWarehouseAdminDashboardScreen({
   const [showWarehouseCapacity, setShowWarehouseCapacity] = useState(false);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
-  const [showCustomers, setShowCustomers] = useState(false);
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
-  const [showCustomerDetails, setShowCustomerDetails] = useState(false);
-  const [showPurchaseHistory, setShowPurchaseHistory] = useState(false);
-  const [showCustomerOrders, setShowCustomerOrders] = useState(false);
-  const [customerOrdersFilter, setCustomerOrdersFilter] = useState<string | undefined>(undefined);
-  const [showCustomerWallet, setShowCustomerWallet] = useState(false);
+  // The open customer module: CustomersFlow (list, search, details, orders,
+  // purchases, issues, support, filters) owns its stack from here on (W4).
+  const [customersEntry, setCustomersEntry] = useState<{
+    screen: CustomersRoute;
+    params?: CustomersRouteParams | undefined;
+  } | null>(null);
+  const openCustomers = (screen: CustomersRoute = 'CustomersList', params?: CustomersRouteParams) =>
+    setCustomersEntry({ screen, params });
   const [showCashTopUp, setShowCashTopUp] = useState(false);
-  const [showCustomerIssues, setShowCustomerIssues] = useState(false);
-  const [showCustomerIssueDetail, setShowCustomerIssueDetail] = useState(false);
-  const [selectedCustomerIssue, setSelectedCustomerIssue] = useState<any>(undefined);
-  const [showSupportHistory, setShowSupportHistory] = useState(false);
-  const [showCustomerSupportDetail, setShowCustomerSupportDetail] = useState(false);
-  const [selectedSupportTicket, setSelectedSupportTicket] = useState<any>(undefined);
-  const [showNewSale, setShowNewSale] = useState(false);
-  const [showSaleDetail, setShowSaleDetail] = useState(false);
-  const [selectedSaleRecord, setSelectedSaleRecord] = useState<any>(undefined);
   // The open billing module: BillingFlow (hub, list, filters, detail, generate,
   // wizard, generated) owns its stack from here on (W4).
   const [showBilling, setShowBilling] = useState(false);
@@ -1105,11 +1155,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
   const [showSystemMessages, setShowSystemMessages] = useState(false);
   const [showMessageHistory, setShowMessageHistory] = useState(false);
-  const [showPurchaseFilters, setShowPurchaseFilters] = useState(false);
-  const [showOrderFilters, setShowOrderFilters] = useState(false);
 
-  const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
-  const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
 
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showWalletOperations, setShowWalletOperations] = useState(false);
@@ -1444,9 +1490,7 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowOrderDetail(false)}
         onTabChange={(tab) => {
           setShowOrderDetail(false);
-          setShowPurchaseHistory(false);
-          setShowCustomerDetails(false);
-          setShowCustomers(false);
+          setCustomersEntry(null);
           setActiveTab(tab);
         }}
         onNavigateToOperationalIssues={() => {
@@ -1692,7 +1736,7 @@ export function SubWarehouseAdminDashboardScreen({
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
           } else if (section === 'Orders') {
-            setShowCustomerOrders(true);
+            openCustomers('CustomerOrders');
           } else if (section === 'Sales') {
             setShowSalesScreen(true);
           } else if (section === 'Cash Top-Up') {
@@ -2197,177 +2241,6 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showPurchaseFilters) {
-    return (
-      <SubWarehousePurchaseFiltersScreen
-        initialFilters={purchaseFilters}
-        onBack={() => setShowPurchaseFilters(false)}
-        onApplyFilters={(f) => {
-          setPurchaseFilters(f);
-          setShowPurchaseFilters(false);
-        }}
-      />
-    );
-  }
-
-  if (showSaleDetail) {
-    return (
-      <SubWarehouseSaleDetailScreen
-        scope={scope}
-        can={can}
-        sale={selectedSaleRecord}
-        onBack={() => setShowSaleDetail(false)}
-        onTabChange={(tab) => {
-          setShowSaleDetail(false);
-          setShowPurchaseHistory(false);
-          setShowCustomerDetails(false);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showPurchaseHistory) {
-    return (
-      <SubWarehousePurchaseHistoryScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowPurchaseHistory(false)}
-        onTabChange={(tab) => {
-          setShowPurchaseHistory(false);
-          setShowCustomerDetails(false);
-          setShowCustomers(false);
-          setActiveTab(tab);
-        }}
-        onOpenFilters={() => {
-          if (onNavigate) onNavigate('SubWarehousePurchaseFilters');
-          else setShowPurchaseFilters(true);
-        }}
-        appliedFilters={purchaseFilters}
-        onClearFilters={() => setPurchaseFilters(undefined)}
-        onNavigateToSaleDetail={(invoiceNo) => {
-          setSelectedSaleRecord({
-            id: 'SALE-00251',
-            customerName: selectedCustomer?.name || 'Rajesh Kumar',
-            customerCode: selectedCustomer?.code || 'CUS-00291',
-            channel: 'Direct Sale',
-            dateText: '24 Sep 2026',
-            amount: 200,
-            status: 'Completed',
-            invoiceNo: invoiceNo || 'INV-00251',
-            paymentMethod: 'UPI',
-            items: [
-              {
-                name: 'Tomato',
-                grade: 'Grade 1',
-                batch: 'BTH-00231',
-                qtyText: '2 KG @ ₹100',
-                pricePerUnit: 100,
-                lineTotal: 200,
-              },
-            ],
-          });
-          setShowSaleDetail(true);
-        }}
-        onNavigateToOrderDetail={(orderNo) => {
-          const is238 = orderNo === 'ORD-00238' || orderNo === 'INV-00238';
-          setSelectedOrder({
-            orderNo: orderNo || (is238 ? 'ORD-00238' : 'ORD-00251'),
-            status: 'Completed',
-            customer: selectedCustomer?.name || 'Rajesh Kumar',
-            items: is238 ? '3 Items' : '1 Item',
-            price: is238 ? '₹650' : '₹200',
-            date: is238 ? '20 Sep 2026' : '24 Sep 2026',
-            type: 'Pickup',
-            products: is238
-              ? [
-                { name: 'Tomato', grade: 'Grade 1', qty: '2 KG', price: '₹200' },
-                { name: 'Carrot', grade: 'Grade 1', qty: '1 KG', price: '₹150' },
-                { name: 'Beans', grade: 'Grade 1', qty: '2 KG', price: '₹300' },
-              ]
-              : [
-                { name: 'Tomato', grade: 'Grade 1', qty: '2 KG', price: '₹200' },
-              ],
-          });
-          setShowOrderDetail(true);
-        }}
-      />
-    );
-  }
-
-  if (showOrderFilters) {
-    return (
-      <SubWarehouseOrderFiltersScreen
-        initialFilters={orderFilters}
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowOrderFilters(false)}
-        onApplyFilters={(f) => {
-          setOrderFilters(f);
-          setShowOrderFilters(false);
-        }}
-      />
-    );
-  }
-
-  if (showCustomerOrders) {
-    return (
-      <SubWarehouseCustomerOrdersScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => {
-          setShowCustomerOrders(false);
-          setCustomerOrdersFilter(undefined);
-          if (returnToNotificationsOnBack) {
-            setReturnToNotificationsOnBack(false);
-            setShowNotifications(true);
-          }
-        }}
-        onOpenFilters={() => {
-          if (onNavigate) onNavigate('SubWarehouseOrderFilters');
-          else setShowOrderFilters(true);
-        }}
-        appliedFilters={orderFilters}
-        defaultFilter={customerOrdersFilter || 'All'}
-        onClearFilters={() => setOrderFilters(undefined)}
-        onOrderPress={(orderId) => setShowOrderDetail(true)}
-        onNavigateToOrderDetail={(order) => {
-          setSelectedOrder(order || {
-            orderNo: 'ORD-00251',
-            status: 'Ready for Pickup',
-            customer: selectedCustomer?.name || 'Rajesh Kumar',
-            items: '3 Items',
-            price: '₹850',
-            date: '24 Sep 2026',
-            type: 'Pickup',
-          });
-          setShowOrderDetail(true);
-        }}
-        onViewPickupStatus={(order) => {
-          setSelectedOrder(order || {
-            orderNo: 'ORD-00251',
-            status: 'Ready for Pickup',
-            customer: selectedCustomer?.name || 'Rajesh Kumar',
-            items: '3 Items',
-            price: '₹850',
-            date: '24 Sep 2026',
-            type: 'Pickup',
-          });
-          setShowOrderDetail(true);
-        }}
-        onViewInvoice={(order) => {
-          setSelectedOrder(order || {
-            orderNo: 'ORD-00238',
-            status: 'Completed',
-            customer: selectedCustomer?.name || 'Rajesh Kumar',
-            items: '2 Items',
-            price: '₹420',
-            date: '20 Sep 2026',
-            type: 'Pickup',
-          });
-          setShowOrderDetail(true);
-        }}
-      />
-    );
-  }
-
   if (showCashTopUp) {
     return (
       <SubWarehouseCashTopUpScreen
@@ -2380,162 +2253,95 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showCustomerWallet) {
+  if (customersEntry) {
+    // The customer screens and their navigator live in
+    // admin/screens/warehouse/customers (shared with the Main shell and App.tsx).
+    // Wallet, cash top-up, new sale, order detail and the RMA open inside the
+    // flow, so back returns to the customer screen that opened them.
     return (
-      <SubWarehouseCustomerWalletScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowCustomerWallet(false)}
-        onCashTopUp={() => setShowCashTopUp(true)}
-      />
-    );
-  }
-
-  if (showCustomerIssueDetail) {
-    return (
-      <SubWarehouseCustomerIssueDetailScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        issue={selectedCustomerIssue}
-        onBack={() => setShowCustomerIssueDetail(false)}
-        onViewRma={() => {
-          const rma: RmaRecord = {
-            id: 'rma-00231',
-            rmaId: 'RMA-00231',
-            orderId: selectedCustomerIssue?.orderNo || 'ORD-00251',
-            customerName: selectedCustomer?.name || 'Rajesh Kumar',
-            customerId: selectedCustomer?.code || 'CUS-00291',
-            customerPhone: '+91 98765 43210',
-            orderDate: '24 Sep 2026',
-            salesChannel: 'Direct Sale',
-            paymentStatus: 'Paid',
-            productName: selectedCustomerIssue?.product || 'Tomato',
-            grade: 'Grade 1',
-            quantityPurchased: selectedCustomerIssue?.quantity || '2 KG',
-            unitPrice: '₹100 / KG',
-            lineTotal: '₹200',
-            issueCategory: (selectedCustomerIssue?.category as any) || 'Quality',
-            reportedDate: '24 Sep 2026',
-            timestampText: '24 Sep 2026 · 10:45 AM',
-            description: selectedCustomerIssue?.description || 'Customer reported quality issue.',
-            ticketId: selectedCustomerIssue?.issueNo || 'ISSUE-00231',
-            requestedQuantity: '2 KG',
-            requestedResolution: 'Replacement / Refund',
-            status: 'Under Review',
-          };
-          setShowCustomerIssueDetail(false);
-          setShowCustomerIssues(false);
-          // Opens the RMA on its detail, with the RMA list beneath it (as before).
-          openReturns('RmaDetail', { rma }, [{ screen: 'ReturnsIssues' }]);
-        }}
-      />
-    );
-  }
-
-  if (showCustomerIssues) {
-    return (
-      <SubWarehouseCustomerIssuesScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowCustomerIssues(false)}
-        onSelectIssue={(issue) => {
-          setSelectedCustomerIssue(issue);
-          setShowCustomerIssueDetail(true);
-        }}
-      />
-    );
-  }
-
-  if (showCustomerSupportDetail) {
-    return (
-      <SubWarehouseCustomerSupportDetailScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        ticket={selectedSupportTicket}
-        onBack={() => setShowCustomerSupportDetail(false)}
-        onTabChange={(tab) => {
-          setShowCustomerSupportDetail(false);
-          setShowSupportHistory(false);
-          setShowCustomerDetails(false);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showSupportHistory) {
-    return (
-      <SubWarehouseSupportHistoryScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowSupportHistory(false)}
-        onSelectTicket={(ticket) => {
-          setSelectedSupportTicket(ticket);
-          setShowCustomerSupportDetail(true);
-        }}
-      />
-    );
-  }
-
-  if (showNewSale) {
-    return (
-      <SubWarehouseNewSaleScreen
-        initialCustomerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowNewSale(false)}
-      />
-    );
-  }
-
-  if (showCustomerDetails) {
-    return (
-      <SubWarehouseCustomerDetailsScreen
-        customer={selectedCustomer}
-        onBack={() => setShowCustomerDetails(false)}
-        onTabChange={(tab) => {
-          setShowCustomerDetails(false);
-          setShowCustomers(false);
-          setActiveTab(tab);
-        }}
-        onNavigateToOrders={() => setShowCustomerOrders(true)}
-        onNavigateToPurchases={() => setShowPurchaseHistory(true)}
-        onNavigateToWallet={() => setShowCustomerWallet(true)}
-        onNavigateToIssues={() => setShowCustomerIssues(true)}
-        onNavigateToSupport={() => setShowSupportHistory(true)}
-        onNavigateToNewSale={() => setShowNewSale(true)}
-        onNavigateToCashTopUp={() => setShowCashTopUp(true)}
-      />
-    );
-  }
-
-  if (showCustomerSearch) {
-    return (
-      <CustomerSearchScreen
+      <CustomersFlow
         scope={scope}
         can={can}
-        onBack={() => setShowCustomerSearch(false)}
-        onSelectCustomer={(name, id) => {
-          setSelectedCustomer({ name, id: id || 'CUS-00291' });
-          setShowCustomerSearch(false);
-          setShowCustomerDetails(true);
-        }}
-      />
-    );
-  }
-
-  if (showCustomers) {
-    return (
-      <SubWarehouseCustomersScreen
+        initialScreen={customersEntry.screen}
+        initialParams={customersEntry.params}
         onBack={() => {
-          setShowCustomers(false);
-          setActiveTab('More');
+          const fromOrders = customersEntry.screen === 'CustomerOrders';
+          setCustomersEntry(null);
+          if (customersEntry.screen === 'CustomersList') {
+            setActiveTab('More');
+          } else if (fromOrders && returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
         }}
         onTabChange={(tab) => {
-          setShowCustomers(false);
+          setCustomersEntry(null);
           setActiveTab(tab);
-        }}
-        onNavigateToSearch={() => setShowCustomerSearch(true)}
-        onSelectCustomer={(customer) => {
-          setSelectedCustomer(customer);
-          setShowCustomerDetails(true);
         }}
         onNavigateToNotifications={() => {
           if (onNavigate) onNavigate('SubWarehouseNotifications');
           else setShowNotifications(true);
+        }}
+        renderExternalScreen={(target, p, nav) => {
+          const c = p.customer;
+          if (target === 'CustomerWallet') {
+            return (
+              <SubWarehouseCustomerWalletScreen
+                {...(c?.name !== undefined ? { customerName: c.name } : {})}
+                onBack={nav.back}
+                onCashTopUp={() => nav.open('CashTopUp', p)}
+              />
+            );
+          }
+          if (target === 'CashTopUp') {
+            return (
+              <SubWarehouseCashTopUpScreen
+                {...(c?.name !== undefined ? { customerName: c.name } : {})}
+                {...(c?.code !== undefined ? { customerCode: c.code } : {})}
+                {...(c?.walletBalance !== undefined ? { currentBalance: c.walletBalance } : {})}
+                {...(scope.warehouseName !== undefined ? { warehouseName: scope.warehouseName } : {})}
+                onBack={nav.back}
+                onSuccess={nav.back}
+              />
+            );
+          }
+          if (target === 'NewSale') {
+            return <SubWarehouseNewSaleScreen initialCustomerName={c?.name} onBack={nav.back} />;
+          }
+          if (target === 'OrderDetail') {
+            return (
+              <OrdersModule
+                scope={scope}
+                can={can}
+                initialScreen="M5S04"
+                initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: c?.name }}
+                onBack={nav.back}
+                onTabChange={(tab) => {
+                  setCustomersEntry(null);
+                  setActiveTab(tab);
+                }}
+                onNavigateToOperationalIssues={() => {
+                  setCustomersEntry(null);
+                  setShowOperationalIssues(true);
+                }}
+              />
+            );
+          }
+          if (target === 'RmaDetail') {
+            return (
+              <CustomerIssueRmaFlow
+                scope={scope}
+                can={can}
+                params={p}
+                onBack={nav.back}
+                onTabChange={(tab) => {
+                  setCustomersEntry(null);
+                  setActiveTab(tab);
+                }}
+              />
+            );
+          }
+          return null;
         }}
       />
     );
@@ -2775,18 +2581,6 @@ export function SubWarehouseAdminDashboardScreen({
           setActiveTab('More');
         }}
         onLogout={onSignOut}
-      />
-    );
-  }
-
-  if (showCustomers) {
-    return (
-      <SubWarehouseCustomersScreen
-        onBack={() => setShowCustomers(false)}
-        onTabChange={(tab) => {
-          setShowCustomers(false);
-          setActiveTab(tab);
-        }}
       />
     );
   }
@@ -4604,7 +4398,7 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToCustomers={() => {
               if (onNavigate) onNavigate('SubWarehouseCustomerList');
-              else setShowCustomers(true);
+              else openCustomers('CustomersList');
             }}
             onNavigateToBilling={() => {
               if (onNavigate) onNavigate('SubWarehouseBillingHub');

@@ -15,7 +15,7 @@
 import React, { useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
-import { M5S03_SearchFilters } from '../../swa/orders';
+import { OrderFiltersScreen } from '../customers';
 import { CancelOrderScreen } from './CancelOrderScreen';
 import { DeliveryPreparationScreen } from './DeliveryPreparationScreen';
 import { DispatchScreen } from './DispatchScreen';
@@ -110,7 +110,32 @@ export function OrdersFlow({
         return <OrdersListScreen {...common} routeParams={params ?? undefined} />;
       case 'M5S03':
       case 'M5S03_SearchFilters':
-        return <M5S03_SearchFilters onNavigate={common.onNavigate} onBack={back} />;
+        // The order-queue filters are the shared OrderFiltersScreen ('order'
+        // config, queue variant) since the customers wave folded M5S03 into it.
+        return (
+          <OrderFiltersScreen
+            scope={scope}
+            can={can}
+            onBack={back}
+            config="order"
+            variant="queue"
+            onApplyFilters={(filters) => {
+              const listParams = {
+                defaultFilter: filters.orderStatus === 'All' ? undefined : filters.orderStatus,
+                warehouseId: filters.warehouseId,
+              };
+              // Back onto the list it was opened from, now filtered (M5S03 pushed a second list).
+              setStack((prev) => {
+                const below = prev.slice(0, -1);
+                const listEntry = below[below.length - 1];
+                if (listEntry && (listEntry.screen === 'M5S02' || listEntry.screen === 'M5S02_OrdersList')) {
+                  return [...below.slice(0, -1), { screen: listEntry.screen, params: { ...listEntry.params, ...listParams } }];
+                }
+                return [...below, { screen: 'M5S02', params: listParams }];
+              });
+            }}
+          />
+        );
       case 'M5S04':
       case 'M5S04_OrderDetail':
         return <OrderDetailScreen {...common} orderId={orderId} customerName={params?.customerName} />;

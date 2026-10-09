@@ -163,19 +163,6 @@ import {
   SubWarehouseNeedsAttentionScreen,
   SubWarehouseWalletAttentionScreen,
   MoreScreen,
-  SubWarehouseCustomersScreen,
-  SubWarehouseCustomerDetailsScreen,
-  SubWarehouseCustomerActionsScreen,
-  SubWarehousePurchaseHistoryScreen,
-  SubWarehouseCustomerOrdersScreen,
-  SubWarehouseCustomerIssuesScreen,
-  SubWarehouseCustomerIssueDetailScreen,
-  SubWarehouseSupportHistoryScreen,
-  SubWarehouseCustomerSupportDetailScreen,
-  SubWarehouseOrderFiltersScreen,
-  type OrderFilterState,
-  SubWarehousePurchaseFiltersScreen,
-  type PurchaseFilterState,
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
   SubWarehouseApprovalAlertsScreen,
@@ -281,6 +268,10 @@ import {
   BillingFlow,
   type BillingRoute,
   type BillingRouteParams,
+  CustomersFlow,
+  type CustomersExternalRoute,
+  type CustomersRoute,
+  type CustomersRouteParams,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -384,7 +375,6 @@ export type ScreenName =
   | 'SubWarehouseCustomerIssueDetail'
   | 'SubWarehouseCustomerSupport'
   | 'SubWarehouseCustomerSupportDetail'
-  | 'SubWarehouseCustomerActions'
   | 'SubWarehouseBillingHub'
   | 'SubWarehouseInvoiceList'
   | 'SubWarehouseInvoiceFilters'
@@ -745,6 +735,33 @@ const BILLING_ROUTE_ENTRY: Partial<Record<ScreenName, BillingRoute>> = {
   SubWarehouseInvoiceWizard: 'InvoiceWizard',
   SubWarehouseInvoiceGenerated: 'InvoiceGenerated',
 };
+/**
+ * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
+ * keys were aliases of one screen (CustomerList/Customers, CustomerDetail/
+ * CustomerDetails, CustomerPurchases/PurchaseHistory, CustomerSupport/
+ * SupportHistory). SubWarehouseCustomerActions was removed with the dropped
+ * Customer Actions screen (customer.profile.edit is none/none, SPEC_GAPS W4h-1).
+ */
+const CUSTOMERS_ROUTE_ENTRY: Partial<Record<ScreenName, CustomersRoute>> = {
+  SubWarehouseCustomerList: 'CustomersList',
+  SubWarehouseCustomers: 'CustomersList',
+  SubWarehouseCustomerDetail: 'CustomerDetails',
+  SubWarehouseCustomerDetails: 'CustomerDetails',
+  SubWarehouseCustomerOrders: 'CustomerOrders',
+  SubWarehouseOrderFilters: 'OrderFilters',
+  SubWarehouseCustomerPurchases: 'PurchaseHistory',
+  SubWarehousePurchaseHistory: 'PurchaseHistory',
+  SubWarehousePurchaseFilters: 'PurchaseFilters',
+  SubWarehouseCustomerIssues: 'CustomerIssues',
+  SubWarehouseCustomerIssueDetail: 'CustomerIssueDetail',
+  SubWarehouseCustomerSupport: 'SupportHistory',
+  SubWarehouseSupportHistory: 'SupportHistory',
+  SubWarehouseCustomerSupportDetail: 'SupportDetail',
+};
+/** A route param as a string, or undefined. */
+function stringParam(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
 const INVENTORY_ROUTE_ENTRY: Record<string, string> = {
   StockLedger: 'M3S06',
   VerifyStock: 'M3S11',
@@ -790,8 +807,6 @@ export default function App(): React.JSX.Element {
   const [params, setParams] = useState<Record<string, any>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
-  const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
-  const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
   // Permission codes of the signed-in warehouse admin, from GET /v1/auth/me.
   // Loaded once, the first time a Sub Warehouse screen mounts. Until it
   // resolves (or if it fails) makeCan fails closed: gated controls stay
@@ -816,6 +831,53 @@ export default function App(): React.JSX.Element {
       layout: params['layout'] === 'history' ? 'history' : undefined,
     };
   }, [params, selectedSaleRecord]);
+  // Params for a CustomersFlow entry, memoised so the flow does not restart its
+  // stack on every App render. Deep links carry flat customer / issue / ticket
+  // fields (customerName, issueNo, ticketNo, ...); the flow wants records.
+  const customersParams = useMemo<CustomersRouteParams>(() => {
+    const customerName = stringParam(params['customerName']) ?? stringParam(params['name']);
+    const customerId = stringParam(params['customerId']) ?? stringParam(params['id']);
+    const issueNo = stringParam(params['issueNo']);
+    const ticketNo = stringParam(params['ticketNo']);
+    return {
+      customer:
+        customerName !== undefined || customerId !== undefined
+          ? {
+              name: customerName,
+              id: customerId,
+              code: customerId,
+              phone: stringParam(params['customerPhone']),
+              ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : undefined,
+              lastPurchase: stringParam(params['customerPurchases']),
+            }
+          : undefined,
+      issue:
+        issueNo !== undefined
+          ? ({
+              issueNo,
+              orderNo: stringParam(params['orderNo']),
+              category: stringParam(params['category']),
+              status: stringParam(params['status']),
+              dateText: stringParam(params['dateText']),
+              product: stringParam(params['product']),
+              quantity: stringParam(params['quantity']),
+              description: stringParam(params['description']),
+            } as CustomersRouteParams['issue'])
+          : undefined,
+      ticket:
+        ticketNo !== undefined
+          ? ({
+              ticketNo,
+              orderRef: stringParam(params['orderRef']),
+              subject: stringParam(params['subject']),
+              status: stringParam(params['status']),
+              dateText: stringParam(params['dateText']),
+              resolvedBy: stringParam(params['resolvedBy']),
+            } as CustomersRouteParams['ticket'])
+          : undefined,
+      defaultFilter: stringParam(params['defaultFilter']),
+    };
+  }, [params]);
 
   useEffect(() => {
     if (warehousePermissionsRequested.current) return;
@@ -1536,17 +1598,57 @@ export default function App(): React.JSX.Element {
             onNavigateToSettings={() => navigate('SubWarehouseSettings')}
             onLogout={() => navigate('Login')}
           />
-        ) : screen === 'SubWarehouseCustomerList' ? (
-          <SubWarehouseCustomersScreen
+        ) : CUSTOMERS_ROUTE_ENTRY[screen] !== undefined ? (
+          // The customer screens live in the shared warehouse/customers area (W4);
+          // each old 'SubWarehouseXxx' key opens CustomersFlow on the matching route.
+          // Wallet, cash top-up, new sale, order detail and RMA stay App routes.
+          <CustomersFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={CUSTOMERS_ROUTE_ENTRY[screen]}
+            initialParams={customersParams}
             onBack={goBack}
-            onNavigateToSearch={() => navigate('WarehouseCustomerSearch')}
-            onSelectCustomer={(cust) => navigate('SubWarehouseCustomerDetail', { customerName: cust.name, customerId: cust.code })}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('WarehouseMore');
             }}
+            onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
+              const customerName = p.customer?.name;
+              const customerCode = p.customer?.code ?? p.customer?.id;
+              if (target === 'CustomerWallet') {
+                navigate('SubWarehouseCustomerWallet', {
+                  customerName,
+                  name: customerName,
+                  id: customerCode,
+                  customerId: customerCode,
+                  mobile: p.customer?.phone,
+                  balance: p.customer?.walletBalance,
+                });
+              } else if (target === 'CashTopUp') {
+                navigate('SubWarehouseCashTopUp', {
+                  customerName,
+                  customerCode,
+                  currentBalance: p.customer?.walletBalance,
+                });
+              } else if (target === 'NewSale') {
+                navigate('SubWarehouseNewSale', { customerName });
+              } else if (target === 'OrderDetail') {
+                navigate('SubWarehouseOrderDetail', {
+                  orderNo: p.order?.orderNo ?? p.orderNo,
+                  orderStatus: p.order?.status,
+                  orderItems: p.order?.items,
+                  orderPrice: p.order?.price,
+                  orderDate: p.order?.date,
+                  orderType: p.order?.type,
+                  customerName,
+                });
+              } else if (target === 'RmaDetail') {
+                navigate('SubWarehouseReturnsIssues');
+              }
+            }}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
         ) : screen === 'WarehouseCustomerSearch' ? (
           <CustomerSearchScreen
@@ -1584,190 +1686,6 @@ export default function App(): React.JSX.Element {
                 currentBalance: cust.balance,
               } : undefined)
             }
-          />
-        ) : screen === 'SubWarehouseCustomerDetail' ? (
-          <SubWarehouseCustomerDetailsScreen
-            customer={{
-              name: (params['customerName'] as string) || 'Rajesh Kumar',
-              id: (params['customerId'] as string) || 'CUS-00291',
-              code: (params['customerId'] as string) || 'CUS-00291',
-              phone: (params['customerPhone'] as string) || '+91 98765 43210',
-              ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : 12,
-              lastPurchase: (params['customerPurchases'] as string) || '24 Sep 2026',
-            }}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToOrders={() =>
-              navigate('SubWarehouseCustomerOrders', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToPurchases={() =>
-              navigate('SubWarehouseCustomerPurchases', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToWallet={() =>
-              navigate('SubWarehouseCustomerWallet', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToIssues={() =>
-              navigate('SubWarehouseCustomerIssues', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToSupport={() =>
-              navigate('SubWarehouseCustomerSupport', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onOpenCustomerActions={() =>
-              navigate('SubWarehouseCustomerActions', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-                customerId:
-                  (params['customer'] as any)?.id ||
-                  (params['customerId'] as string) ||
-                  'CUS-00291',
-                customerPhone:
-                  (params['customer'] as any)?.phone ||
-                  (params['customerPhone'] as string) ||
-                  '+91 98765 43210',
-              })
-            }
-            onNavigateToNewSale={() =>
-              navigate('SubWarehouseNewSale', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToCashTopUp={() =>
-              navigate('SubWarehouseCashTopUp', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-                customerCode:
-                  (params['customer'] as any)?.id ||
-                  (params['customerId'] as string) ||
-                  'CUS-00291',
-                currentBalance:
-                  (params['customer'] as any)?.walletBalance ||
-                  '₹1,250',
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseCustomerActions' ? (
-          <SubWarehouseCustomerActionsScreen
-            customer={{
-              name: (params['customerName'] as string) || 'Rajesh Kumar',
-              id: (params['customerId'] as string) || 'CUS-00291',
-              code: (params['customerId'] as string) || 'CUS-00291',
-              phone: (params['customerPhone'] as string) || '+91 98765 43210',
-            }}
-            onBack={goBack}
-            onNavigateToNewSale={() =>
-              navigate('SubWarehouseNewSale', {
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            onNavigateToOrders={() =>
-              navigate('SubWarehouseCustomerOrders', {
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            onNavigateToPurchases={() =>
-              navigate('SubWarehouseCustomerPurchases', {
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            onNavigateToCashTopUp={() =>
-              navigate('SubWarehouseCashTopUp', {
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-                customerCode: (params['customerId'] as string) || 'CUS-00291',
-                currentBalance: '₹1,250',
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseCustomerOrders' ? (
-          <SubWarehouseCustomerOrdersScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
-            onOpenFilters={() =>
-              navigate('SubWarehouseOrderFilters', {
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            appliedFilters={orderFilters}
-            onClearFilters={() => setOrderFilters(undefined)}
-            onNavigateToOrderDetail={(order) =>
-              navigate('SubWarehouseOrderDetail', {
-                orderNo: order?.orderNo,
-                orderStatus: order?.status,
-                orderItems: order?.items,
-                orderPrice: order?.price,
-                orderDate: order?.date,
-                orderType: order?.type,
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            onViewPickupStatus={(order) =>
-              navigate('SubWarehouseOrderDetail', {
-                orderNo: order?.orderNo,
-                orderStatus: order?.status,
-                orderItems: order?.items,
-                orderPrice: order?.price,
-                orderDate: order?.date,
-                orderType: order?.type,
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            onViewInvoice={(order) =>
-              navigate('SubWarehouseOrderDetail', {
-                orderNo: order?.orderNo,
-                orderStatus: order?.status,
-                orderItems: order?.items,
-                orderPrice: order?.price,
-                orderDate: order?.date,
-                orderType: order?.type,
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseOrderFilters' ? (
-          <SubWarehouseOrderFiltersScreen
-            initialFilters={orderFilters}
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
-            onApplyFilters={(f) => {
-              setOrderFilters(f);
-              goBack();
-            }}
           />
         ) : screen === 'SubWarehouseCustomerWallet' ? (
           <SubWarehouseCustomerWalletScreen
@@ -1818,138 +1736,6 @@ export default function App(): React.JSX.Element {
                 processedBy: data.processedBy,
                 fiscalCashTag: 'FC-20260925-0012',
               });
-            }}
-          />
-        ) : screen === 'SubWarehouseCustomerIssues' ? (
-          <SubWarehouseCustomerIssuesScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
-            onSelectIssue={(issue) =>
-              navigate('SubWarehouseCustomerIssueDetail', {
-                issueNo: issue.issueNo,
-                orderNo: issue.orderNo,
-                category: issue.category,
-                status: issue.status,
-                dateText: issue.dateText,
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseCustomerIssueDetail' ? (
-          <SubWarehouseCustomerIssueDetailScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            issue={{
-              issueNo: (params['issueNo'] as string) || 'ISSUE-00231',
-              orderNo: (params['orderNo'] as string) || 'ORD-00251',
-              category: (params['category'] as string) || 'Quality',
-              status: (params['status'] as string) || 'In Review',
-              dateText: (params['dateText'] as string) || '24 Sep 2026',
-              product: (params['product'] as string) || 'Tomato Grade 1',
-              quantity: (params['quantity'] as string) || '2 KG',
-              description: (params['description'] as string) || 'Customer reported quality issue.',
-            }}
-            onBack={goBack}
-            onViewRma={() => navigate('SubWarehouseReturnsIssues')}
-          />
-        ) : screen === 'SubWarehouseCustomerSupport' ? (
-          <SubWarehouseSupportHistoryScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
-            onSelectTicket={(ticket) =>
-              navigate('SubWarehouseCustomerSupportDetail', {
-                ticketNo: ticket.ticketNo,
-                orderRef: ticket.orderRef,
-                subject: ticket.subject,
-                status: ticket.status,
-                dateText: ticket.dateText,
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseCustomerSupportDetail' ? (
-          <SubWarehouseCustomerSupportDetailScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            ticket={{
-              ticketNo: (params['ticketNo'] as string) || 'SUP-00182',
-              orderRef: (params['orderRef'] as string) || 'ORD-00251',
-              subject: (params['subject'] as string) || 'Pickup Issue',
-              status: (params['status'] as string) || 'Resolved',
-              dateText: (params['dateText'] as string) || '24 Sep 2026',
-              resolvedBy: (params['resolvedBy'] as string) || 'Admin',
-            }}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseCustomerPurchases' || screen === 'SubWarehousePurchaseHistory' ? (
-          <SubWarehousePurchaseHistoryScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onOpenFilters={() =>
-              navigate('SubWarehousePurchaseFilters', {
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              })
-            }
-            appliedFilters={purchaseFilters}
-            onClearFilters={() => setPurchaseFilters(undefined)}
-            onNavigateToSaleDetail={(invoiceNo) => {
-              setSelectedSaleRecord({
-                id: 'SALE-00251',
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-                customerCode: 'CUS-00291',
-                channel: 'Direct Sale',
-                dateText: '24 Sep, 6:35 PM',
-                amount: 200,
-                status: 'Completed',
-                invoiceNo: invoiceNo || 'INV-00251',
-                paymentMethod: 'UPI',
-                items: [
-                  {
-                    name: 'Tomato',
-                    grade: 'Grade 1',
-                    batch: 'BTH-00231',
-                    qtyText: '2 KG @ ₹100',
-                    pricePerUnit: 100,
-                    lineTotal: 200,
-                  },
-                ],
-              });
-              navigate('SubWarehouseSaleDetail', {
-                saleId: 'SALE-00251',
-                invoiceNo: invoiceNo || 'INV-00251',
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              });
-            }}
-            onNavigateToOrderDetail={(orderNo) => {
-              const is238 = orderNo === 'ORD-00238' || orderNo === 'INV-00238';
-              navigate('SubWarehouseOrderDetail', {
-                orderNo: orderNo || (is238 ? 'ORD-00238' : 'ORD-00251'),
-                orderStatus: 'Completed',
-                orderItems: is238 ? '3 Items' : '1 Item',
-                orderPrice: is238 ? '₹650' : '₹200',
-                orderDate: is238 ? '20 Sep 2026' : '24 Sep 2026',
-                orderType: 'Pickup',
-                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-              });
-            }}
-          />
-        ) : screen === 'SubWarehousePurchaseFilters' ? (
-          <SubWarehousePurchaseFiltersScreen
-            initialFilters={purchaseFilters}
-            onBack={goBack}
-            onApplyFilters={(f) => {
-              setPurchaseFilters(f);
-              goBack();
             }}
           />
         ) : BILLING_ROUTE_ENTRY[screen] !== undefined ? (
@@ -2592,129 +2378,6 @@ export default function App(): React.JSX.Element {
           <SubWarehouseSettingsScreen
             onBack={goBack}
             onLogout={() => navigate('Login')}
-          />
-        ) : screen === 'SubWarehouseCustomers' ? (
-          <SubWarehouseCustomersScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToSearch={() => navigate('WarehouseCustomerSearch')}
-            onSelectCustomer={(cust) =>
-              navigate('SubWarehouseCustomerDetail', {
-                customerName: cust.name,
-                customerId: cust.code || cust.id,
-                customerPhone: cust.phone,
-                customerOrders: (cust as any).ordersCount ?? (cust as any).orders,
-                customerPurchases: cust.lastPurchase,
-              })
-            }
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : screen === 'SubWarehouseCustomerDetails' ? (
-          <SubWarehouseCustomerDetailsScreen
-            customer={{
-              name: (params['customerName'] as string) || 'Rajesh Kumar',
-              id: (params['customerId'] as string) || 'CUS-00291',
-              code: (params['customerId'] as string) || 'CUS-00291',
-              phone: (params['customerPhone'] as string) || '+91 98765 43210',
-              ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : 12,
-              lastPurchase: (params['customerPurchases'] as string) || '24 Sep 2026',
-            }}
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToOrders={() =>
-              navigate('SubWarehouseCustomerOrders', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToPurchases={() =>
-              navigate('SubWarehouseCustomerPurchases', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToWallet={() =>
-              navigate('SubWarehouseCustomerWallet', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToIssues={() =>
-              navigate('SubWarehouseCustomerIssues', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToSupport={() =>
-              navigate('SubWarehouseCustomerSupport', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToNewSale={() =>
-              navigate('SubWarehouseNewSale', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-              })
-            }
-            onNavigateToCashTopUp={() =>
-              navigate('SubWarehouseCashTopUp', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-                customerCode:
-                  (params['customer'] as any)?.id ||
-                  (params['customerId'] as string) ||
-                  'CUS-00291',
-                currentBalance:
-                  (params['customer'] as any)?.walletBalance ||
-                  '₹1,250',
-              })
-            }
-            onOpenCustomerActions={() =>
-              navigate('SubWarehouseCustomerActions', {
-                customerName:
-                  (params['customer'] as any)?.name ||
-                  (params['customerName'] as string) ||
-                  'Rajesh Kumar',
-                customerId:
-                  (params['customer'] as any)?.id ||
-                  (params['customerId'] as string) ||
-                  'CUS-00291',
-                customerPhone:
-                  (params['customer'] as any)?.phone ||
-                  (params['customerPhone'] as string) ||
-                  '+91 98765 43210',
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseSupportHistory' ? (
-          <SubWarehouseSupportHistoryScreen
-            customerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
           />
         ) : screen === 'WarehouseOverview' ? (
           <WarehouseOverviewScreen

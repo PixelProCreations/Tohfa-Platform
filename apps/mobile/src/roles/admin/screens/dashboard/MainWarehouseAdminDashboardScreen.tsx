@@ -16,7 +16,7 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { MoreScreen } from '../warehouse/dashboard-home-more';
-import { CustomerSearchScreen } from '../warehouse/customers';
+import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletOperationsScreen } from '../warehouse/wallet-cashtopup';
 import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
@@ -94,14 +94,7 @@ import {
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
-import {
-  CustomerListScreen,
-  CustomerDetailScreen,
-  PurchaseHistoryScreen,
-  WalletSummaryScreen,
-  CustomerIssuesScreen,
-  SupportHistoryScreen,
-} from '../customers';
+import { WalletSummaryScreen } from '../customers';
 
 export type ReceivingSubView =
   | 'dashboard'
@@ -213,15 +206,8 @@ type WarehouseSubView =
   | 'customer_orders'
   | 'warehouse_notifications'
   | 'profile'
-  // Module 7: Customers
+  // Module 7: Customers (the shared CustomersFlow owns its own sub-screens, W4)
   | 'customers_list'
-  | 'customer_search'
-  | 'customer_detail'
-  | 'customer_orders'
-  | 'purchase_history'
-  | 'wallet_summary'
-  | 'customer_issues'
-  | 'support_history'
   // Module 9: Billing & Invoices (the shared BillingFlow owns its own sub-screens, W4)
   | 'billing_invoices';
 
@@ -569,6 +555,8 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 }
 
 /** The Main Warehouse admin sees every warehouse: no warehouseId (see finance-expenses/types.ts). */
+/** External customer routes the Main shell draws inside CustomersFlow (New Sale leaves for the direct-sale flow). */
+const MAIN_CUSTOMER_INLINE_ROUTES = ['CustomerWallet', 'CashTopUp', 'OrderDetail', 'RmaDetail'] as const;
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
@@ -1838,27 +1826,56 @@ export function MainWarehouseAdminDashboardScreen({
                 onViewAllHistory={() => navigateWh('operations_history')}
               />
             ) : whSubView === 'customers_list' ? (
-              <CustomerListScreen
-                onBack={goBackWh}
-                onSelectCustomer={() => navigateWh('customer_detail')}
-                onSearchPress={() => navigateWh('customer_search')}
-                onFilterPress={() => navigateWh('customer_search')}
-              />
-            ) : whSubView === 'customer_search' ? (
-              <CustomerSearchScreen
+              // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
+              // customers with the all-warehouses selector. Wallet, cash top-up (the
+              // wallet operations hub), order detail and RMA open inside the flow;
+              // New Sale goes to the Main direct-sale flow.
+              <CustomersFlow
                 scope={MAIN_WAREHOUSE_SCOPE}
                 can={can}
                 onBack={goBackWh}
-                onSelectCustomer={() => navigateWh('customer_detail')}
-              />
-            ) : whSubView === 'customer_detail' ? (
-              <CustomerDetailScreen
-                onBack={goBackWh}
-                onNavigateOrders={() => navigateWh('customer_orders')}
-                onNavigatePurchases={() => navigateWh('purchase_history')}
-                onNavigateWallet={() => navigateWh('wallet_summary')}
-                onNavigateIssues={() => navigateWh('customer_issues')}
-                onNavigateSupport={() => navigateWh('support_history')}
+                onTabChange={(tab) => {
+                  setActiveTab(tab);
+                  setWhSubView('overview');
+                  setWhHistory([]);
+                }}
+                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+                inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
+                onOpenExternal={(target) => {
+                  if (target === 'NewSale') navigateWh('direct_sale_new');
+                }}
+                renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
+                  if (target === 'CustomerWallet') {
+                    return (
+                      <WalletSummaryScreen
+                        {...(p.customer?.name !== undefined ? { customerName: p.customer.name } : {})}
+                        onBack={nav.back}
+                        {...(can('wallet.cash_topup.process') ? { onCashTopUp: () => nav.open('CashTopUp', p) } : {})}
+                      />
+                    );
+                  }
+                  if (target === 'CashTopUp') {
+                    return <WalletOperationsScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={nav.back} />;
+                  }
+                  if (target === 'OrderDetail') {
+                    return (
+                      <OrdersFlow
+                        scope={MAIN_WAREHOUSE_SCOPE}
+                        can={can}
+                        initialScreen="M5S04"
+                        initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
+                        onBack={nav.back}
+                        onViewIssue={() => navigateWh('operational_issues')}
+                      />
+                    );
+                  }
+                  if (target === 'RmaDetail') {
+                    return (
+                      <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
+                    );
+                  }
+                  return null;
+                }}
               />
             ) : whSubView === 'customer_orders' ? (
               <OrdersFlow
@@ -1871,22 +1888,6 @@ export function MainWarehouseAdminDashboardScreen({
                   setWhSubView('overview');
                   setWhHistory([]);
                 }}
-              />
-            ) : whSubView === 'purchase_history' ? (
-              <PurchaseHistoryScreen
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'wallet_summary' ? (
-              <WalletSummaryScreen
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'customer_issues' ? (
-              <CustomerIssuesScreen
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'support_history' ? (
-              <SupportHistoryScreen
-                onBack={goBackWh}
               />
             ) : whSubView === 'billing_invoices' ? (
               // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
