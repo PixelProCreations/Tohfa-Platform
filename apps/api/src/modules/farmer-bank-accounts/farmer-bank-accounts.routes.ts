@@ -86,7 +86,7 @@ farmerUpiRouter.get(
   requirePermission('farmer.bank_account.manage_own'),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
-    const result = await farmerBankAccountsService.getMyUpiPreference(actor);
+    const result = await farmerBankAccountsService.getMyUpi(actor);
     res.json(result);
   }),
 );
@@ -99,7 +99,7 @@ farmerUpiRouter.put(
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
     const body = getValidated(req, 'body', updateFarmerUpiBody);
-    const result = await farmerBankAccountsService.setMyUpiPreference(actor, body);
+    const result = await farmerBankAccountsService.updateMyUpi(actor, body);
     res.json(result);
   }),
 );
@@ -110,7 +110,7 @@ farmerUpiRouter.delete(
   requirePermission('farmer.bank_account.manage_own'),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
-    await farmerBankAccountsService.deleteMyUpiPreference(actor);
+    await farmerBankAccountsService.deleteMyUpi(actor);
     res.status(204).send();
   }),
 );
