@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
@@ -5,6 +6,7 @@ import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { certificationsRepo } from '../certifications/certifications.repo.js';
 import { LISTING_QUALIFYING_CERT_TYPES } from '../certifications/certifications.schema.js';
 import {
@@ -14,6 +16,9 @@ import {
   type ListingRow,
 } from './listings.repo.js';
 import { getTodayKolkata, ListingsService } from './listings.service.js';
+
+/** A fresh Idempotency-Key per call: createListing and withdrawListing require one (BR-61). */
+const anyKey = (): string => randomUUID();
 
 describe('ListingsService (Unit & Business Rules)', () => {
   const dummyActor: Actor = {
@@ -112,6 +117,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
       mockRepo(overrides) as ListingsService['repo'],
       async (fn) => fn({} as Executor),
       pool,
+      createInMemoryIdempotencyStore(),
     );
 
   // -------------------------------------------------------------------------
@@ -168,7 +174,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).resolves.toBeDefined();
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).resolves.toBeDefined();
       // Only the qualifying certificate is frozen onto the listing as a badge.
       expect(inserted!['certificationBadges']).toEqual([validBadge]);
     });
@@ -184,7 +190,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).resolves.toBeDefined();
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).resolves.toBeDefined();
       expect(inserted).toBe(true);
     });
 
@@ -198,7 +204,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).rejects.toSatisfy(
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).rejects.toSatisfy(
         (err: unknown) => {
           expectProblem('CERT_EXPIRED')(err);
           expect((err as AppError).detail).toBe('NPOP certificate NPOP/TN/2025/11902 expired on 2026-03-31.');
@@ -218,7 +224,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).rejects.toSatisfy(
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).rejects.toSatisfy(
         (err: unknown) => {
           expectProblem('CERT_UNVERIFIED')(err);
           expect((err as AppError).detail).toBe('Certificate NPOP/TN/2026/9999 is pending verification.');
@@ -233,7 +239,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         getListingCertEligibility: async () => eligibility({ expiredCert, pendingCert }),
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).rejects.toSatisfy(
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).rejects.toSatisfy(
         expectProblem('CERT_UNVERIFIED'),
       );
     });
@@ -247,7 +253,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await service.createListing(dummyActor, dummyScope, body);
+      await service.createListing(dummyActor, dummyScope, body, anyKey());
       expect(todayArg).toBe(getTodayKolkata());
     });
 
@@ -268,7 +274,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await service.createListing(dummyActor, dummyScope, body);
+      await service.createListing(dummyActor, dummyScope, body, anyKey());
       expect(typesArg).toBe(LISTING_QUALIFYING_CERT_TYPES);
       // Pinned literally as well: adding OTHER to the shared list must be a
       // deliberate, test-visible change to BR-02.
@@ -291,7 +297,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         },
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).rejects.toSatisfy(
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).rejects.toSatisfy(
         (err: unknown) => {
           expectProblem('CERT_MISSING')(err);
           expect((err as AppError).detail).toMatch(/PGS or NPOP/);
@@ -313,7 +319,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         getListingCertEligibility: async () => eligibility({}),
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).rejects.toSatisfy(
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).rejects.toSatisfy(
         expectProblem('CERT_MISSING'),
       );
     });
@@ -330,7 +336,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         getListingCertEligibility: async () => eligibility({ eligible: true, qualifyingBadges: [validBadge] }),
       });
 
-      await expect(service.createListing(dummyActor, dummyScope, body)).rejects.toSatisfy(
+      await expect(service.createListing(dummyActor, dummyScope, body, anyKey())).rejects.toSatisfy(
         (err: unknown) => {
           expectProblem('CERT_EXPIRED')(err);
           expect((err as AppError).detail).toBe('Farmer market access is currently blocked.');
@@ -407,7 +413,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         grade: 'GRADE_1',
         quantityKg: '250.000',
         askingPricePerKg: '52.01',
-      }),
+      }, anyKey()),
     ).rejects.toSatisfy((err: unknown) => {
       const e = err as AppError;
       expect(e).toBeInstanceOf(AppError);
@@ -439,7 +445,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
       grade: 'GRADE_1',
       quantityKg: '250.000',
       askingPricePerKg: '52.00',
-    });
+    }, anyKey());
 
     expect(result).toBeDefined();
     expect(capturedInsert!['fairPriceId']).toBe('ceiling-uuid-1234');
@@ -470,7 +476,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         grade: 'GRADE_1',
         quantityKg: '250.000',
         askingPricePerKg: '50.00',
-      }),
+      }, anyKey()),
     ).rejects.toSatisfy((err: unknown) => {
       const e = err as AppError;
       expect(e.code).toBe('FREE_TIER_LIMIT');
@@ -491,7 +497,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
       grade: 'GRADE_1',
       quantityKg: '250.000',
       askingPricePerKg: '50.00',
-    });
+    }, anyKey());
     expect(res).toBeDefined();
   });
 
@@ -504,7 +510,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         grade: 'REJECT',
         quantityKg: '250.000',
         askingPricePerKg: '10.00',
-      }),
+      }, anyKey()),
     ).rejects.toSatisfy((err: unknown) => {
       const e = err as AppError;
       expect(e.code).toBe('VALIDATION_FAILED');
@@ -538,6 +544,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
       dummyScope,
       '11111111-1111-1111-1111-111111111111',
       1,
+      anyKey(),
     );
     expect(result.status).toBe('WITHDRAWN');
   });
@@ -585,7 +592,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         });
 
         await expect(
-          service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg }),
+          service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg }, anyKey()),
         ).rejects.toSatisfy(expectValidationFailed);
         expect(inserted).toBe(false);
       }
@@ -595,16 +602,16 @@ describe('ListingsService (Unit & Business Rules)', () => {
       const service = createTestService();
 
       await expect(
-        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '52.00' }),
+        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '52.00' }, anyKey()),
       ).resolves.toBeDefined();
       await expect(
-        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '52' }),
+        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '52' }, anyKey()),
       ).resolves.toBeDefined();
       await expect(
-        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '51.99' }),
+        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '51.99' }, anyKey()),
       ).resolves.toBeDefined();
       await expect(
-        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '52.01' }),
+        service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg: '52.01' }, anyKey()),
       ).rejects.toSatisfy((err: unknown) => {
         expect((err as AppError).code).toBe('PRICE_ABOVE_CEILING');
         return true;
@@ -623,7 +630,7 @@ describe('ListingsService (Unit & Business Rules)', () => {
         });
 
         await expect(
-          service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg }),
+          service.createListing(dummyActor, dummyScope, { ...baseBody, askingPricePerKg }, anyKey()),
         ).rejects.toSatisfy(expectValidationFailed);
         expect(inserted).toBe(false);
       },
@@ -1045,7 +1052,7 @@ describeIfDatabase('BR-01/BR-02 listing certificate eligibility (integration aga
           grade: 'GRADE_1',
           quantityKg: '100.000',
           askingPricePerKg: '50.00',
-        });
+        }, anyKey());
         return { kind: 'created', listing };
       } catch (err) {
         if (err instanceof AppError) return { kind: 'refused', error: err };

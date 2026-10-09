@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import type { AdminListingView, CounterOfferRow } from './counter-offers.repo.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { CounterOffersService } from './counter-offers.service.js';
 
 /**
@@ -334,11 +336,14 @@ function buildRepo(store: Store) {
   };
 }
 
+/** A fresh Idempotency-Key per call: the farmer responses require one (BR-61). */
+const anyKey = (): string => randomUUID();
+
 /** Wrap the in-memory repo in the exact deps the service was built to receive. */
 function createService(store: Store): CounterOffersService {
   const repo = buildRepo(store);
   const runTx = async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({});
-  return new CounterOffersService(repo as never, runTx as never, {} as never);
+  return new CounterOffersService(repo as never, runTx as never, {} as never, createInMemoryIdempotencyStore());
 }
 
 /** Assert a rejected promise is an AppError with a code. */
@@ -402,14 +407,14 @@ describe('S-22 counter-offer state machine', () => {
       const svc = createService(store);
 
       await expectAppError(
-        svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, pending.id),
+        svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, pending.id, anyKey()),
         'COUNTER_OFFER_EXPIRED',
       );
       // Never reported as accepted or rejected — the listing is untouched.
       expect(store.listing.status).toBe('COUNTER_OFFERED');
       expect(store.listing.finalPricePerKg).toBeNull();
       await expectAppError(
-        svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, pending.id, null),
+        svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, pending.id, null, anyKey()),
         'COUNTER_OFFER_EXPIRED',
       );
     },
@@ -425,7 +430,7 @@ describe('S-22 counter-offer state machine', () => {
     // The client "helpfully" forwards its clock by sending a future timestamp on the body.
     const body = { pricePerKg: '80.00', quantityKg: '80.000', message: 'x', clientExpiresAt: Date.now() + 3600000 } as never;
     await expectAppError(
-      svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, pending.id, body as never),
+      svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, pending.id, body as never, anyKey()),
       'COUNTER_OFFER_EXPIRED',
     );
   });
@@ -476,7 +481,7 @@ describe('S-22 counter-offer state machine', () => {
     const opening = await adminCounter(store, '75.00', '75.000');
     const svc = createService(store);
 
-    const accepted = await svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, opening.id);
+    const accepted = await svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, opening.id, anyKey());
     expect(accepted.status).toBe('ACCEPTED');
     expect(accepted.finalPricePerKg).toBe('75.00');
     expect(accepted.finalQuantityKg).toBe('75.000');
@@ -490,7 +495,7 @@ describe('S-22 counter-offer state machine', () => {
     const opening = await adminCounter(store);
     const svc = createService(store);
 
-    const view = await svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'too low');
+    const view = await svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'too low', anyKey());
     expect(view.status).toBe('REJECTED');
     expect(store.listing.status).toBe('PENDING_APPROVAL');
   });
@@ -503,7 +508,7 @@ describe('S-22 counter-offer state machine', () => {
     const r2 = await svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, {
       pricePerKg: '85.00',
       quantityKg: '100.000',
-    });
+    }, anyKey());
     expect(r2.round).toBe(2);
     expect(r2.offeredBy).toBe('FARMER');
     expect(r2.status).toBe('PENDING');
@@ -527,7 +532,7 @@ describe('S-22 counter-offer state machine', () => {
       const view = await svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, target.id, {
         pricePerKg: `${40 + round}`,
         quantityKg: '100.000',
-      });
+      }, anyKey());
       const created = store.offers.get(view.id);
       if (created === undefined) throw new Error('counter offer not stored');
       target = created;
@@ -539,7 +544,7 @@ describe('S-22 counter-offer state machine', () => {
       svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, target.id, {
         pricePerKg: '99.00',
         quantityKg: '100.000',
-      }),
+      }, anyKey()),
       'COUNTER_LIMIT_REACHED',
     );
   });
@@ -554,7 +559,7 @@ describe('S-22 counter-offer state machine', () => {
     await svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, r1.id, {
       pricePerKg: '85.00',
       quantityKg: '100.000',
-    });
+    }, anyKey());
     const round2Rows = Array.from(store.offers.values()).filter((o) => o.round === 2);
     expect(round2Rows).toHaveLength(1);
     const round2Row = round2Rows[0] as OfferMutable;
@@ -566,7 +571,7 @@ describe('S-22 counter-offer state machine', () => {
       svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, round2Row.id, {
         pricePerKg: '86.00',
         quantityKg: '100.000',
-      }),
+      }, anyKey()),
       'CONFLICT',
     );
     delete store.maxRoundOverride;
@@ -645,11 +650,11 @@ describe('S-22 counter-offer state machine', () => {
     const svcB = createService(store);
     const listingId = store.listing.id;
 
-    await svcA.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id);
+    await svcA.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id, anyKey());
     // The loser is refused either way — if it observes the listing already
     // accepted it is LISTING_NOT_PENDING, if it observes the offer consumed
     // it is CONFLICT. What must NEVER happen is a second ACCEPTED offer.
-    await expect(svcB.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id)).rejects.toThrow();
+    await expect(svcB.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id, anyKey())).rejects.toThrow();
     expect(store.listing.status).toBe('ACCEPTED');
     expect(Array.from(store.offers.values()).filter((o) => o.status === 'ACCEPTED')).toHaveLength(1);
   });
@@ -662,7 +667,7 @@ describe('S-22 counter-offer state machine', () => {
     // Admin opens round 1, then the farmer accepts; a second admin approve must
     // observe the new version/status and refuse rather than silently overwrite.
     const opening = await adminCounter(store, '75.00', '75.000');
-    await svc.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id);
+    await svc.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id, anyKey());
     await expectAppError(
       svc.approveListing(peerFarmerAdminActor, peerAdminScope('listing.approve'), listingId, {
         warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
@@ -675,3 +680,82 @@ describe('S-22 counter-offer state machine', () => {
 
 
 
+
+// ---------------------------------------------------------------------------
+// BR-61: the three farmer responses are idempotent. The database half (real
+// rollback, parallel requests, HTTP) is in listing-idempotency.test.ts.
+// ---------------------------------------------------------------------------
+describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () => {
+  // A replay is read back from JSON, so compare what a client would see.
+  const wire = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+  const counterBody = { pricePerKg: '85.00', quantityKg: '100.000' } as never;
+  const respondAudits = (store: Store): number =>
+    store.audits.filter((a) => a.actionCode === 'listing.counter_offer.respond').length;
+
+  it.each(['accept', 'reject', 'counter'] as const)(
+    'BR-61a: %s without an Idempotency-Key is 422 VALIDATION_FAILED and changes nothing',
+    async (verb) => {
+      const store = freshStore();
+      const opening = await adminCounter(store);
+      const svc = createService(store);
+      const call = (key: string | undefined) => {
+        if (verb === 'accept') return svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, opening.id, key);
+        if (verb === 'reject') return svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, opening.id, null, key);
+        return svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, counterBody, key);
+      };
+      for (const key of [undefined, '', '  ']) {
+        await expectAppError(call(key), 'VALIDATION_FAILED');
+      }
+      expect(store.listing.status).toBe('COUNTER_OFFERED');
+      expect(store.offers.size).toBe(1);
+      expect(respondAudits(store)).toBe(0);
+    },
+  );
+
+  it('BR-61b: replaying an accept returns the original listing, with no second audit row', async () => {
+    const store = freshStore();
+    const opening = await adminCounter(store);
+    const svc = createService(store);
+    const first = await svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'k-accept');
+    const replay = await svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'k-accept');
+    expect(wire(replay)).toEqual(wire(first));
+    expect(respondAudits(store)).toBe(1);
+  });
+
+  it('BR-61b: replaying a reject returns the original offer, with no second audit row', async () => {
+    const store = freshStore();
+    const opening = await adminCounter(store);
+    const svc = createService(store);
+    const first = await svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'no', 'k-reject');
+    const replay = await svc.respondReject(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'no', 'k-reject');
+    expect(wire(replay)).toEqual(wire(first));
+    expect(respondAudits(store)).toBe(1);
+  });
+
+  it('BR-61b: replaying a counter opens one new round only', async () => {
+    const store = freshStore();
+    const opening = await adminCounter(store);
+    const svc = createService(store);
+    const first = await svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, counterBody, 'k-counter');
+    const replay = await svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, counterBody, 'k-counter');
+    expect(wire(replay)).toEqual(wire(first));
+    expect(store.offers.size).toBe(2);
+    expect(respondAudits(store)).toBe(1);
+  });
+
+  it('BR-61c: the same key with a different counter body, or on a different offer action, is 409 IDEMPOTENCY_KEY_REUSED', async () => {
+    const store = freshStore();
+    const opening = await adminCounter(store);
+    const svc = createService(store);
+    await svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, counterBody, 'k-mix');
+    await expectAppError(
+      svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, { pricePerKg: '86.00', quantityKg: '100.000' } as never, 'k-mix'),
+      'IDEMPOTENCY_KEY_REUSED',
+    );
+    await expectAppError(
+      svc.respondAccept(farmerActor, farmerOwnScope, store.listing.id, opening.id, 'k-mix'),
+      'IDEMPOTENCY_KEY_REUSED',
+    );
+    expect(store.offers.size).toBe(2);
+  });
+});

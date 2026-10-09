@@ -18,7 +18,7 @@ import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { pool } from '../../db/pool.js';
-import { aScope, databaseReady, describeIfDatabase } from '../../test/factories.js';
+import { aScope, databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
 import { inventoryService } from '../inventory/inventory.service.js';
 
 // ---------------------------------------------------------------------------
@@ -284,6 +284,7 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
     const res = await request(app)
       .post('/v1/listings')
       .set('Authorization', `Bearer ${blockedToken}`)
+      .set('Idempotency-Key', newId())
       .send({
         cropId: IDS.cropCarrot,
         grade: 'GRADE_1',
@@ -301,6 +302,7 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
     const rejectRes = await request(app)
       .post('/v1/listings')
       .set('Authorization', `Bearer ${farmerToken}`)
+      .set('Idempotency-Key', newId())
       .send({
         cropId: IDS.cropCarrot,
         grade: 'GRADE_1',
@@ -313,6 +315,7 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
     const createRes = await request(app)
       .post('/v1/listings')
       .set('Authorization', `Bearer ${farmerToken}`)
+      .set('Idempotency-Key', newId())
       .send({
         cropId: IDS.cropCarrot,
         grade: 'GRADE_1',
@@ -383,6 +386,7 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
     const acceptRes = await request(app)
       .post(`/v1/listings/${createdListingId}/counter-offers/${activeOfferId}/accept`)
       .set('Authorization', `Bearer ${farmerToken}`)
+      .set('Idempotency-Key', newId())
       .send({});
 
     expect(acceptRes.status).toBe(200);

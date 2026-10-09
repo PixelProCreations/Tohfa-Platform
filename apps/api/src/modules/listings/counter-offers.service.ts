@@ -20,6 +20,7 @@
 import { ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import { beginIdempotent, idempotencyStore, requireIdempotencyKey, type IdempotencyStore } from '../../http/idempotency.js';
 import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -122,6 +123,7 @@ export class CounterOffersService {
     private readonly repo = counterOffersRepo,
     private readonly runTx: TransactionRunner = withTransaction,
     private readonly dbPool: Executor = pool,
+    private readonly idempotency: IdempotencyStore = idempotencyStore,
   ) {}
 
   // ------------------------------------------------------------------ config
@@ -517,8 +519,20 @@ export class CounterOffersService {
     scope: ResolvedScope,
     listingId: string,
     offerId: string,
+    idempotencyKey?: string,
   ): Promise<AdminListingView> {
+    // BR-61: the key is required, and a replay returns the original result
+    // before any state check (a second accept would be LISTING_NOT_PENDING).
+    const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (tx) => {
+      const idem = await beginIdempotent<AdminListingView>(this.idempotency, tx, {
+        actorUserId: scope.userId,
+        key,
+        operation: 'listing.counter_offer.accept',
+        request: { listingId, offerId },
+      });
+      if (idem.replay) return idem.response;
+
       const listing = await this.requireOwnListing(tx, scope, listingId);
       if (listing.status !== 'COUNTER_OFFERED') {
         throw new AppError('LISTING_NOT_PENDING', {
@@ -567,6 +581,7 @@ export class CounterOffersService {
         changedFields: ['status'],
       });
 
+      await idem.complete(updated);
       return updated;
     });
   }
@@ -582,8 +597,18 @@ export class CounterOffersService {
     listingId: string,
     offerId: string,
     message: string | null,
+    idempotencyKey?: string,
   ): Promise<CounterOfferView> {
+    const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (tx) => {
+      const idem = await beginIdempotent<CounterOfferView>(this.idempotency, tx, {
+        actorUserId: scope.userId,
+        key,
+        operation: 'listing.counter_offer.reject',
+        request: { listingId, offerId, message },
+      });
+      if (idem.replay) return idem.response;
+
       const listing = await this.requireOwnListing(tx, scope, listingId);
       if (listing.status !== 'COUNTER_OFFERED') {
         throw new AppError('LISTING_NOT_PENDING', {
@@ -628,7 +653,9 @@ export class CounterOffersService {
         changedFields: ['status'],
       });
 
-      return toCounterOfferView({ ...offer, status: 'REJECTED' });
+      const view = toCounterOfferView({ ...offer, status: 'REJECTED' });
+      await idem.complete(view);
+      return view;
     });
   }
 
@@ -645,8 +672,18 @@ export class CounterOffersService {
     listingId: string,
     offerId: string,
     body: CounterOfferCreateBody,
+    idempotencyKey?: string,
   ): Promise<CounterOfferView> {
+    const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (tx) => {
+      const idem = await beginIdempotent<CounterOfferView>(this.idempotency, tx, {
+        actorUserId: scope.userId,
+        key,
+        operation: 'listing.counter_offer.counter',
+        request: { listingId, offerId, body },
+      });
+      if (idem.replay) return idem.response;
+
       const listing = await this.requireOwnListing(tx, scope, listingId);
       if (listing.status !== 'COUNTER_OFFERED') {
         throw new AppError('LISTING_NOT_PENDING', {
@@ -726,7 +763,9 @@ export class CounterOffersService {
         changedFields: ['round'],
       });
 
-      return toCounterOfferView(created);
+      const view = toCounterOfferView(created);
+      await idem.complete(view);
+      return view;
     });
   }
 

@@ -1,6 +1,7 @@
 import { greaterThan, isMoney, parseMoney, ZERO, type Money } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import { beginIdempotent, idempotencyStore, requireIdempotencyKey, type IdempotencyStore } from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { LISTING_QUALIFYING_CERT_TYPES } from '../certifications/certifications.schema.js';
@@ -42,6 +43,7 @@ export class ListingsService {
     private readonly repo = listingsRepo,
     private readonly runTx: TransactionRunner = withTransaction,
     private readonly dbPool: Executor = pool,
+    private readonly idempotency: IdempotencyStore = idempotencyStore,
   ) {}
 
   private async resolveFarmer(db: Executor, actor: Actor): Promise<{ id: string; userId: string; isMarketBlocked: boolean }> {
@@ -63,9 +65,22 @@ export class ListingsService {
     actor: Actor,
     _scope: ResolvedScope,
     body: CreateListingBody,
-    _idempotencyKey?: string,
+    idempotencyKey?: string,
   ): Promise<ListingRow> {
+    // BR-61: a missing key is refused before anything else runs, and a replay
+    // returns the original listing before the gates below are re-evaluated (a
+    // retry after the certificate expired must not turn a created listing into
+    // an error).
+    const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (client) => {
+      const idem = await beginIdempotent<ListingRow>(this.idempotency, client, {
+        actorUserId: actor.userId,
+        key,
+        operation: 'listing.create',
+        request: body,
+      });
+      if (idem.replay) return idem.response;
+
       const farmer = await this.resolveFarmer(client, actor);
 
       // Gate 1: certificate eligibility (BR-01, BR-02). Decided for the FARMER,
@@ -189,6 +204,7 @@ export class ListingsService {
         certificationBadges: certs.qualifyingBadges,
       });
 
+      await idem.complete(listing);
       return listing;
     });
   }
@@ -288,8 +304,19 @@ export class ListingsService {
     _scope: ResolvedScope,
     id: string,
     version?: number,
+    idempotencyKey?: string,
   ): Promise<ListingRow> {
+    const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (client) => {
+      // BR-61: a replay returns the original body, not LISTING_NOT_PENDING.
+      const idem = await beginIdempotent<ListingRow>(this.idempotency, client, {
+        actorUserId: actor.userId,
+        key,
+        operation: 'listing.withdraw',
+        request: { id, version },
+      });
+      if (idem.replay) return idem.response;
+
       const farmer = await this.resolveFarmer(client, actor);
       const existing = await this.repo.findListingById(client, id);
 
@@ -314,6 +341,7 @@ export class ListingsService {
         });
       }
 
+      await idem.complete(withdrawn);
       return withdrawn;
     });
   }

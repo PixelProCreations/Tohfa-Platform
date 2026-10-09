@@ -378,6 +378,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const blockedRes = await request(app)
         .post('/v1/listings')
         .set('Authorization', `Bearer ${farmerToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           cropId: cropCarrotId,
           grade: 'GRADE_1',
@@ -427,6 +428,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const rejectRes = await request(app)
         .post('/v1/listings')
         .set('Authorization', `Bearer ${farmerToken}`)
+        .set('Idempotency-Key', newId())
         .send({
           cropId: cropCarrotId,
           grade: 'GRADE_1',
@@ -488,6 +490,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const acceptRes = await request(app)
         .post(`/v1/listings/${createdListingId}/counter-offers/${counterOfferId}/accept`)
         .set('Authorization', `Bearer ${farmerToken}`)
+        .set('Idempotency-Key', newId())
         .send({});
       expect(acceptRes.status).toBe(200);
 

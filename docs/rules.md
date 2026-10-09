@@ -1347,6 +1347,29 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-61 — Farmer listing writes are idempotent (Idempotency-Key)
+| | |
+|---|---|
+| **Source** | `docs/openapi.yaml` `IdempotencyKeyHeader` (required on these POSTs); root `CLAUDE.md` §2.4. Specification gap closed 2026-10-09: the header was declared but ignored. |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/http/idempotency.ts` over `idempotency_keys` (`0045_listing_idempotency.sql`), used by `listings.service.ts` and `counter-offers.service.ts` |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /listings`, `POST /listings/{id}/withdraw` and the farmer counter-offer responses (`accept`, `reject`, `counter`) require an `Idempotency-Key`. A missing or blank key is 422 `VALIDATION_FAILED`. Replaying a key with the same request by the same user returns the original response and writes no second row, audit row or notification. The same key with a different request (different body, target or operation) is 409 `IDEMPOTENCY_KEY_REUSED`. Keys are scoped to the acting user, so two users may use the same key string. The claim is made in the same transaction as the operation, so a refused or failed attempt leaves no claim and parallel requests with one key run the operation once. Keys are retained 24 hours (the spec's figure). The admin listing operations (`approve`, `reject`, `counter-offers`) are not covered yet: their only client, admin-web, sends no key.
+
+**Failure mode if unenforced.** A mobile retry after a dropped response creates a duplicate listing or counter round, or turns a successful withdraw/accept into a spurious 409 the farmer reads as failure.
+
+**Test contract.** (`apps/api/src/modules/listings/listing-idempotency.test.ts`, `counter-offers.test.ts`)
+- `BR-61a` Missing, empty or blank key on each of the five operations → 422 `VALIDATION_FAILED` naming `header.Idempotency-Key`; nothing is written.
+- `BR-61b` A replay returns the original body with no second row, audit row or round; a replayed withdraw is not `LISTING_NOT_PENDING`.
+- `BR-61c` The same key with a different body or on a different operation → 409 `IDEMPOTENCY_KEY_REUSED`; nothing more is written.
+- `BR-61d` Five parallel requests with one key run the operation exactly once and all return its result.
+- `BR-61e` Different users using the same key string do not collide.
+- `BR-61f` A refused attempt is not remembered; the key works once the cause is fixed.
+- `BR-61g` A key older than 24 hours is released for a new request.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

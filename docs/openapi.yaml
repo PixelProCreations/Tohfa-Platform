@@ -7671,8 +7671,14 @@ paths:
         check does not depend on `farmers.is_market_blocked`. A farmer whose market block
         is set also gets `CERT_EXPIRED`, checked after certificate eligibility. All
         three are 422.
+
+        `Idempotency-Key` is required (BR-61): a missing or blank key is 422 `VALIDATION_FAILED`.
+        Replaying a key with the same request by the same farmer returns the original 201
+        listing and creates no second row; the same key with a different request is 409
+        `IDEMPOTENCY_KEY_REUSED`. A refused attempt (any 4xx/5xx) is not remembered, so the key
+        can be reused after the cause is fixed. Keys are per farmer and kept 24 hours.
       x-permission: listing.create_own
-      x-business-rules: [BR-01, BR-02, BR-07, BR-14]
+      x-business-rules: [BR-01, BR-02, BR-07, BR-14, BR-61]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
@@ -7697,10 +7703,11 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422':
           description: |
             Refused with 422 in every case: field validation (`VALIDATION_FAILED`, also for a
-            `REJECT` grade), certificate eligibility (`CERT_MISSING`, `CERT_UNVERIFIED`,
+            `REJECT` grade, and a missing or blank `Idempotency-Key`), certificate eligibility (`CERT_MISSING`, `CERT_UNVERIFIED`,
             `CERT_EXPIRED`; BR-01, BR-02 — see the operation description), free-tier quota
             (`FREE_TIER_LIMIT`; BR-14) or price ceiling (`PRICE_ABOVE_CEILING`; BR-07). Only PGS
             and NPOP certificates are considered: a farmer holding only `OTHER` certificates gets
@@ -7814,8 +7821,11 @@ paths:
       description: |
         Withdraws the caller's own listing while it is still pending approval; an approved
         listing cannot be withdrawn and returns 409.
+        `Idempotency-Key` is required (BR-61): a missing or blank key is 422 `VALIDATION_FAILED`;
+        replaying a key with the same request returns the original response and changes nothing
+        again; the same key with a different request is 409 `IDEMPOTENCY_KEY_REUSED`.
       x-permission: listing.withdraw_own
-      x-business-rules: []
+      x-business-rules: [BR-61]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -7829,6 +7839,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/listings:
@@ -8027,9 +8038,13 @@ paths:
       tags: [Marketing]
       operationId: acceptCounterOffer
       summary: Farmer accepts the counter-offer
-      description: Accepting fixes the final price and quantity and moves the listing to `ACCEPTED`. Past `expiresAt` this returns 409 `COUNTER_OFFER_EXPIRED` (BR-10).
+      description: |
+        Accepting fixes the final price and quantity and moves the listing to `ACCEPTED`. Past `expiresAt` this returns 409 `COUNTER_OFFER_EXPIRED` (BR-10).
+        `Idempotency-Key` is required (BR-61): a missing or blank key is 422 `VALIDATION_FAILED`;
+        replaying a key with the same request returns the original response and changes nothing
+        again; the same key with a different request is 409 `IDEMPOTENCY_KEY_REUSED`.
       x-permission: listing.counter_offer.respond
-      x-business-rules: [BR-10]
+      x-business-rules: [BR-10, BR-61]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/OfferIdParam'
@@ -8044,6 +8059,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /listings/{id}/counter-offers/{offerId}/reject:
@@ -8054,8 +8070,11 @@ paths:
       description: |
         The farmer declines the counter-offer. The round closes and the listing returns to the
         admin queue for a further decision (BR-10).
+        `Idempotency-Key` is required (BR-61): a missing or blank key is 422 `VALIDATION_FAILED`;
+        replaying a key with the same request returns the original response and changes nothing
+        again; the same key with a different request is 409 `IDEMPOTENCY_KEY_REUSED`.
       x-permission: listing.counter_offer.respond
-      x-business-rules: [BR-10]
+      x-business-rules: [BR-10, BR-61]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/OfferIdParam'
@@ -8078,6 +8097,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /listings/{id}/counter-offers/{offerId}/counter:
@@ -8085,9 +8105,13 @@ paths:
       tags: [Marketing]
       operationId: counterBackCounterOffer
       summary: Farmer counters back
-      description: Opens round N+1. Refused with 409 `COUNTER_LIMIT_REACHED` once round 3 has closed (BR-11).
+      description: |
+        Opens round N+1. Refused with 409 `COUNTER_LIMIT_REACHED` once round 3 has closed (BR-11).
+        `Idempotency-Key` is required (BR-61): a missing or blank key is 422 `VALIDATION_FAILED`;
+        replaying a key with the same request returns the original response and changes nothing
+        again; the same key with a different request is 409 `IDEMPOTENCY_KEY_REUSED`.
       x-permission: listing.counter_offer.respond
-      x-business-rules: [BR-07, BR-10, BR-11]
+      x-business-rules: [BR-07, BR-10, BR-11, BR-61]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/OfferIdParam'
