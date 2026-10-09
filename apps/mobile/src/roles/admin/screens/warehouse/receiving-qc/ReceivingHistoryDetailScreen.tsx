@@ -113,6 +113,8 @@ export interface ReceivingHistoryDetailScreenProps extends WarehouseScreenBasePr
   onNavigateShipment?: (() => void) | undefined;
   /** Hand an open variance to the host (Sub shell: wizard Damage / Mismatch). Not a mutation. */
   onTakeAction?: (() => void) | undefined;
+  /** Label of the bottom return button (the wizard returns to a step, not to the history list). */
+  backLabel?: string | undefined;
 }
 
 function resultTone(result: ReceiptResult) {
@@ -134,6 +136,7 @@ export function ReceivingHistoryDetailScreen({
   onNavigateBatch,
   onNavigateShipment,
   onTakeAction,
+  backLabel = '← Back to Receiving History',
 }: ReceivingHistoryDetailScreenProps) {
   const canView = can(RECEIVING_CODES.batchView) || can(RECEIVING_CODES.receiptRecord);
   const canViewBatch = can(RECEIVING_CODES.batchView);
@@ -380,7 +383,7 @@ export function ReceivingHistoryDetailScreen({
 
         {/* Bottom Return Action */}
         <TouchableOpacity style={styles.returnBtn} onPress={onBack} activeOpacity={0.8}>
-          <Text style={styles.returnBtnText}>← Back to Receiving History</Text>
+          <Text style={styles.returnBtnText}>{backLabel}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 36 }} />

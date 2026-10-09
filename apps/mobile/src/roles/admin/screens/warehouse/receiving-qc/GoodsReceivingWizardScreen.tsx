@@ -1665,6 +1665,7 @@ export function GoodsReceivingWizardScreen({
         can={can}
         onBack={handleBack}
         record={current}
+        backLabel={selected !== undefined ? undefined : '← Back'}
         onNavigateDiscrepancy={canRecord ? () => goToStep('damage_mismatch') : undefined}
         onNavigateBatch={
           onViewBatch && current.batchId !== undefined ? () => onViewBatch(current.batchId ?? '') : undefined
@@ -2240,10 +2241,15 @@ export function GoodsReceivingWizardScreen({
               {/* QC / Batch Card */}
               <View style={styles.whiteCard}>
                 <View style={styles.summaryMetaGrid}>
-                  <View style={styles.summaryMetaCol}>
-                    <Text style={styles.summaryMetaLabel}>QC</Text>
-                    <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>Passed</Text>
-                  </View>
+                  {/* QC result from the recorded checks (was always "Passed"); QC gate only */}
+                  {canQc && (
+                    <View style={styles.summaryMetaCol}>
+                      <Text style={styles.summaryMetaLabel}>QC</Text>
+                      <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>
+                        {qcIssueCount > 0 ? `Passed · ${qcIssueCount} flagged` : 'Passed'}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.summaryMetaCol}>
                     <Text style={styles.summaryMetaLabel}>Batch</Text>
                     <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>{batchId}</Text>
