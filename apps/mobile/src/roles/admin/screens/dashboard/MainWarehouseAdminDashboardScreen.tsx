@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -16,6 +16,8 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { MainWarehouseMoreScreen } from './MainWarehouseMoreScreen';
+import { makeCan } from '../../permissions/can';
+import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
 import {
   WarehouseOverviewScreen,
@@ -580,6 +582,9 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
   );
 }
 
+/** The Main Warehouse admin sees every warehouse: no warehouseId (see finance-expenses/types.ts). */
+const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string) => void;
@@ -613,6 +618,9 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedLocationId, setSelectedLocationId] = useState('LOC-COO-A02-S03');
   const [selectedMaterialId, setSelectedMaterialId] = useState('MAT-0021');
   const [user, setUser] = useState<UserMe | null>(null);
+  // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
+  // or if it fails, makeCan fails closed and gated controls stay hidden.
+  const can = useMemo(() => makeCan(user?.permissions), [user]);
   const [whNotifications, setWhNotifications] = useState<WarehouseNotification[]>([
     { id: '1', type: 'shipment', title: 'New Shipment Arrived', message: 'Truck KA-04-1234 arrived at Bay 2 with 500 crates', timestamp: '10m ago', isRead: false, shipmentCode: 'SHP-2026-098' },
     { id: '2', type: 'quality', title: 'Quality Alert', message: 'Batch B-104 tomato inspection flagged 8% damage', timestamp: '45m ago', isRead: false },
@@ -1411,6 +1419,8 @@ export function MainWarehouseAdminDashboardScreen({
         {/* ─── More Tab ─── */}
         {activeTab === 'More' && whSubView === 'overview' && (
           <MainWarehouseMoreScreen
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
             onBack={() => setActiveTab('Home')}
             onNavigateToDashboard={() => {
               setActiveTab('Home');

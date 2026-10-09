@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Alert, BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
-import { logout } from './api/auth';
+import { fetchMe, logout } from './api/auth';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -225,12 +225,13 @@ import {
   SubWarehouseFinanceScreen,
   SubWarehouseRevenueScreen,
   SubWarehouseRevenueDetailScreen,
-  SubWarehouseExpensesScreen,
-  SubWarehouseAddExpenseScreen,
-  SubWarehouseExpenseDetailScreen,
+  WarehouseExpensesScreen,
+  WarehouseAddExpenseScreen,
+  ExpenseDetailScreen,
   SubWarehouseExpenseCategoriesScreen,
-  SubWarehouseFinanceHistoryScreen,
-  SubWarehouseFinanceReportsScreen,
+  FinanceHistoryScreen,
+  FinanceReportsScreen,
+  type WarehouseScope,
   SubWarehouseVouchersScreen,
   SubWarehouseVoucherDetailScreen,
   SubWarehouseWarehouseOperationsScreen,
@@ -323,7 +324,7 @@ import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScree
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
 import { ReportBuilderScreen } from '../admin/screens/reports';
-import { TohfaToast, type ToastData } from '../admin';
+import { TohfaToast, makeCan, type ToastData } from '../admin';
 import { M5S15_OrderStatusHistory } from '../admin/screens/swa/orders/M5S15_OrderStatusHistory';
 
 export type ScreenName =
@@ -444,12 +445,12 @@ export type ScreenName =
   | 'SubWarehouseFinance'
   | 'SubWarehouseRevenue'
   | 'SubWarehouseRevenueDetail'
-  | 'SubWarehouseExpenses'
-  | 'SubWarehouseAddExpense'
-  | 'SubWarehouseExpenseDetail'
+  | 'WarehouseExpenses'
+  | 'WarehouseAddExpense'
+  | 'WarehouseExpenseDetail'
   | 'SubWarehouseExpenseCategories'
-  | 'SubWarehouseFinanceHistory'
-  | 'SubWarehouseFinanceReports'
+  | 'WarehouseFinanceHistory'
+  | 'WarehouseFinanceReports'
   | 'SubWarehouseVouchers'
   | 'SubWarehouseWarehouseOperations'
   | 'SubWarehouseWarehouseActivity'
@@ -641,7 +642,7 @@ export type ScreenName =
   | 'SubWarehouseMore'
   | 'SubWarehouseHelpSupport'
   | 'SubWarehouseFinance'
-  | 'SubWarehouseExpenses'
+  | 'WarehouseExpenses'
   | 'SubWarehouseRevenue'
   | 'SubWarehouseRevenueDetail'
   | 'SubWarehouseVouchers'
@@ -652,8 +653,8 @@ export type ScreenName =
   | 'SubWarehouseInvoiceGenerated'
   | 'SubWarehouseDailyCash'
   | 'SubWarehouseExpenseCategories'
-  | 'SubWarehouseFinanceHistory'
-  | 'SubWarehouseFinanceReports'
+  | 'WarehouseFinanceHistory'
+  | 'WarehouseFinanceReports'
   | 'SubWarehouseWarehouseOperations'
   | 'SubWarehouseTodayOperations'
   | 'SubWarehouseWarehouseActivity'
@@ -735,6 +736,15 @@ function TabPlusIcon({ size = 22, color = colors.white }: { size?: number; color
   );
 }
 
+/**
+ * Warehouse scope for the Sub Warehouse admin screens. SPEC GAP: GET
+ * /v1/auth/me carries no warehouse assignment, so the app cannot know which
+ * warehouse a SUB_WH_ADMIN runs. Until it does, this is the seeded Coonoor
+ * warehouse (db/seed/001_reference.sql code WH-COON) in ONE place instead of
+ * a 'Coonoor Warehouse' literal inside every screen. See SPEC_GAPS.md.
+ */
+const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' };
+
 interface StackEntry {
   screen: ScreenName;
   params?: Record<string, any>;
@@ -780,6 +790,25 @@ export default function App(): React.JSX.Element {
   const [invoiceHistoryFilters, setInvoiceHistoryFilters] = useState<InvoiceHistoryFilterState | undefined>(undefined);
   const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
   const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
+  // Permission codes of the signed-in warehouse admin, from GET /v1/auth/me.
+  // Loaded once, the first time a Sub Warehouse screen mounts. Until it
+  // resolves (or if it fails) makeCan fails closed: gated controls stay
+  // hidden. The server re-checks every action anyway (CLAUDE.md 2.1).
+  const [warehousePermissions, setWarehousePermissions] = useState<string[] | undefined>(undefined);
+  const warehousePermissionsRequested = useRef(false);
+  const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
+
+  useEffect(() => {
+    if (warehousePermissionsRequested.current) return;
+    if (!screen.startsWith('SubWarehouse') && !screen.startsWith('Warehouse')) return;
+    warehousePermissionsRequested.current = true;
+    fetchMe()
+      .then((me) => setWarehousePermissions(me.permissions ?? []))
+      .catch(() => {
+        // Leave undefined (deny all) and allow a retry on the next screen change.
+        warehousePermissionsRequested.current = false;
+      });
+  }, [screen]);
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, any> = {}) => {
@@ -982,6 +1011,8 @@ export default function App(): React.JSX.Element {
             />
           ) : params['adminRole'] === 'SUB_WH_ADMIN' ? (
             <SubWarehouseAdminDashboardScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
               onSignOut={() => navigate('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
@@ -1018,6 +1049,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseAdminDashboard' ? (
           <SubWarehouseAdminDashboardScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             initialTab={params?.initialTab as any}
             initialReceivingSubView={params?.initialReceivingSubView as any}
             initialInventoryScreen={params?.initialInventoryScreen as any}
@@ -1478,6 +1511,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseMore' ? (
           <SubWarehouseMoreScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onNavigateToDashboard={() => navigate('SubWarehouseAdminDashboard')}
             onTabChange={(tab) => {
@@ -2451,6 +2486,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseFinance' ? (
           <SubWarehouseFinanceScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -2459,13 +2496,13 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToReports={() => navigate('SubWarehouseFinanceReports')}
+            onNavigateToReports={() => navigate('WarehouseFinanceReports')}
             onNavigateToRevenue={() => navigate('SubWarehouseRevenue')}
-            onNavigateToExpenses={() => navigate('SubWarehouseExpenses')}
-            onNavigateToAddExpense={() => navigate('SubWarehouseAddExpense')}
+            onNavigateToExpenses={() => navigate('WarehouseExpenses')}
+            onNavigateToAddExpense={() => navigate('WarehouseAddExpense')}
             onNavigateToVouchers={() => navigate('SubWarehouseVouchers')}
             onNavigateToDailyCash={() => navigate('SubWarehouseDailyCash')}
-            onNavigateToHistory={() => navigate('SubWarehouseFinanceHistory')}
+            onNavigateToHistory={() => navigate('WarehouseFinanceHistory')}
             onNavigateToCategories={() => navigate('SubWarehouseExpenseCategories')}
             onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
             onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
@@ -2490,10 +2527,12 @@ export default function App(): React.JSX.Element {
             transactionDate={(params['transactionDate'] as string) || '25 Sep, 11:20 AM'}
             onViewOrder={() => navigate('SubWarehouseCustomerOrders')}
             onViewInvoice={() => navigate('SubWarehouseInvoiceList')}
-            onViewTransactionHistory={() => navigate('SubWarehouseFinanceHistory')}
+            onViewTransactionHistory={() => navigate('WarehouseFinanceHistory')}
           />
-        ) : screen === 'SubWarehouseExpenses' ? (
-          <SubWarehouseExpensesScreen
+        ) : screen === 'WarehouseExpenses' ? (
+          <WarehouseExpensesScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -2501,21 +2540,22 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
-            onAddExpense={() => navigate('SubWarehouseAddExpense')}
+            onAddExpense={() => navigate('WarehouseAddExpense')}
           />
-        ) : screen === 'SubWarehouseAddExpense' ? (
-          <SubWarehouseAddExpenseScreen
+        ) : screen === 'WarehouseAddExpense' ? (
+          <WarehouseAddExpenseScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onSaveSuccess={() => {
-              navigate('SubWarehouseExpenseDetail', {
+              navigate('WarehouseExpenseDetail', {
                 expenseId: 'EXP-001245',
                 amount: 2400,
                 category: 'Transport',
                 date: '25 Sep 2026',
-                description: 'Transport from Coonoor collection point to warehouse',
+                description: 'Transport from collection point to warehouse',
                 paymentMethod: 'Cash',
-                vendorPayee: 'Coonoor Transport Co.',
-                warehouse: 'Coonoor Warehouse',
+                vendorPayee: 'Local Transport Co.',
                 createdBy: 'SWA - Suresh',
                 status: 'Recorded',
               });
@@ -2525,13 +2565,15 @@ export default function App(): React.JSX.Element {
               amount: String(params['amount'] || '2400'),
               category: (params['category'] as string) || 'Transport',
               date: (params['date'] as string) || '25 Sep 2026',
-              description: (params['description'] as string) || 'Transport from Coonoor collection point to warehouse',
+              description: (params['description'] as string) || 'Transport from collection point to warehouse',
               paymentMethod: (params['paymentMethod'] as 'Cash' | 'UPI' | 'Bank') || 'Cash',
-              vendorPayee: (params['vendorPayee'] as string) || 'Coonoor Transport Co.'
+              vendorPayee: (params['vendorPayee'] as string) || 'Local Transport Co.'
             }}
           />
-        ) : screen === 'SubWarehouseExpenseDetail' ? (
-          <SubWarehouseExpenseDetailScreen
+        ) : screen === 'WarehouseExpenseDetail' ? (
+          <ExpenseDetailScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             expenseId={(params['expenseId'] as string) || 'EXP-001245'}
             amount={params['amount'] as any}
             category={params['category'] as string}
@@ -2539,7 +2581,7 @@ export default function App(): React.JSX.Element {
             description={params['description'] as string}
             paymentMethod={params['paymentMethod'] as string}
             vendorPayee={params['vendorPayee'] as string}
-            warehouse={(params['warehouse'] as string) || 'Coonoor Warehouse'}
+            warehouse={params['warehouse'] as string | undefined}
             createdBy={params['createdBy'] as string}
             status={params['status'] as string}
             onBack={goBack}
@@ -2550,9 +2592,9 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
 
-            onEdit={() => navigate('SubWarehouseAddExpense', params)}
+            onEdit={() => navigate('WarehouseAddExpense', params)}
             isReceiptView={!!params['isReceiptView'] && params['isReceiptView'] === 'true'}
-            onViewReceipt={() => navigate('SubWarehouseExpenseDetail', { ...params, isReceiptView: 'true' })}
+            onViewReceipt={() => navigate('WarehouseExpenseDetail', { ...params, isReceiptView: 'true' })}
           />
         ) : screen === 'SubWarehouseExpenseCategories' ? (
           <SubWarehouseExpenseCategoriesScreen
@@ -2564,8 +2606,10 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('SubWarehouseMore');
             }}
           />
-        ) : screen === 'SubWarehouseFinanceHistory' ? (
-          <SubWarehouseFinanceHistoryScreen
+        ) : screen === 'WarehouseFinanceHistory' ? (
+          <FinanceHistoryScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -2582,7 +2626,7 @@ export default function App(): React.JSX.Element {
                   transactionDate: item.time,
                 });
               } else {
-                navigate('SubWarehouseExpenseDetail', {
+                navigate('WarehouseExpenseDetail', {
                   expenseId: item.id,
                   amount: item.amount,
                   category: item.title,
@@ -2591,9 +2635,10 @@ export default function App(): React.JSX.Element {
               }
             }}
           />
-        ) : screen === 'SubWarehouseFinanceReports' ? (
-          <SubWarehouseFinanceReportsScreen
-            warehouseName="Coonoor Warehouse"
+        ) : screen === 'WarehouseFinanceReports' ? (
+          <FinanceReportsScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -2604,7 +2649,7 @@ export default function App(): React.JSX.Element {
 
             onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
             onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
-            onNavigateToHistory={() => navigate('SubWarehouseFinanceHistory')}
+            onNavigateToHistory={() => navigate('WarehouseFinanceHistory')}
           />
         ) : screen === 'SubWarehouseVouchers' ? (
           <SubWarehouseVouchersScreen

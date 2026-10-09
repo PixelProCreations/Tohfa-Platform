@@ -119,6 +119,7 @@ import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActi
 import { SubWarehouseTodayOperationsScreen } from './SubWarehouseTodayOperationsScreen';
 import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
+import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import {
   M3S01_InventoryDashboard,
@@ -991,7 +992,10 @@ export const INITIAL_NOTIFICATIONS: WarehouseNotification[] = [
 ];
 
 interface SubWarehouseAdminDashboardScreenProps {
-  initialTab?: SubWHTab;
+  /** Warehouse this Sub Warehouse admin is assigned to; handed to shared warehouse screens. */
+  scope: WarehouseScope;
+  /** docs/rbac.json permission check for the signed-in admin (roles/admin/permissions/can.ts). */
+  can: PermissionCheck;
   onSignOut: () => void;
   onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
@@ -1282,6 +1286,8 @@ export function OrdersModule({
 }
 
 export function SubWarehouseAdminDashboardScreen({
+  scope,
+  can,
   onSignOut,
   onNavigate,
   onBack,
@@ -3354,6 +3360,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (showFinanceScreen) {
     return (
       <SubWarehouseFinanceScreen
+        scope={scope}
+        can={can}
         onBack={() => {
           setShowFinanceScreen(false);
           setActiveTab('More');
@@ -5159,6 +5167,8 @@ export function SubWarehouseAdminDashboardScreen({
         {/* ─── More Modules Directory Tab (Modules 5 to 16) ─── */}
         {activeTab === 'More' && !showOrdersModule && (
           <SubWarehouseMoreScreen
+            scope={scope}
+            can={can}
             onBack={() => setActiveTab('Home')}
             onNavigateToDashboard={() => setActiveTab('Home')}
             onTabChange={(tab) => {

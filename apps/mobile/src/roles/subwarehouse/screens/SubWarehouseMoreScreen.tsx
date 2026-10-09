@@ -14,6 +14,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
+import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 import { SubWarehouseHelpSupportScreen } from './SubWarehouseHelpSupportScreen';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
@@ -572,6 +573,10 @@ function MoreTabIcon({ active }: { active: boolean }) {
 }
 
 export interface SubWarehouseMoreScreenProps {
+  /** Warehouse scope handed to the shared warehouse screens. */
+  scope: WarehouseScope;
+  /** docs/rbac.json permission check for the signed-in admin. */
+  can: PermissionCheck;
   onBack?: (() => void) | undefined;
   onNavigateToDashboard?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
@@ -606,6 +611,8 @@ export interface SubWarehouseMoreScreenProps {
 }
 
 export function SubWarehouseMoreScreen({
+  scope,
+  can,
   onBack,
   onNavigateToDashboard,
   onTabChange,
@@ -847,6 +854,8 @@ export function SubWarehouseMoreScreen({
   if (showFinanceScreen) {
     return (
       <SubWarehouseFinanceScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowFinanceScreen(false)}
         onTabChange={onTabChange}
         onNavigateToNotifications={onNavigateToNotifications}

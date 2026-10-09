@@ -12,16 +12,20 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { MainWarehouseRevenueScreen } from './MainWarehouseRevenueScreen';
-import { MainWarehouseExpensesScreen } from './MainWarehouseExpensesScreen';
-import { MainWarehouseAddExpenseScreen } from './MainWarehouseAddExpenseScreen';
-import { MainWarehouseExpenseDetailScreen } from './MainWarehouseExpenseDetailScreen';
 import { MainWarehouseVouchersScreen } from './MainWarehouseVouchersScreen';
 import { MainWarehouseDailyCashScreen } from './MainWarehouseDailyCashScreen';
-import { MainWarehouseFinanceReportsScreen } from './MainWarehouseFinanceReportsScreen';
 import { MainWarehouseExpenseCategoriesScreen } from './MainWarehouseExpenseCategoriesScreen';
-import { MainWarehouseFinanceHistoryScreen } from './MainWarehouseFinanceHistoryScreen';
 import { MainWarehouseRevenueDetailScreen } from './MainWarehouseRevenueDetailScreen';
 import { MainWarehouseVoucherDetailScreen } from './MainWarehouseVoucherDetailScreen';
+import {
+  ExpenseDetailScreen,
+  FinanceHistoryScreen,
+  FinanceReportsScreen,
+  WarehouseAddExpenseScreen,
+  WarehouseExpensesScreen,
+  type PermissionCheck,
+  type WarehouseScope,
+} from '../warehouse/finance-expenses';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -59,6 +63,10 @@ const PALETTE = {
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 export interface MainWarehouseFinanceScreenProps {
+  /** Warehouse scope of the viewer; Main = all warehouses (warehouseId undefined). */
+  scope: WarehouseScope;
+  /** docs/rbac.json permission check for the signed-in admin (see roles/admin/permissions/can.ts). */
+  can: PermissionCheck;
   onBack?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
@@ -309,6 +317,8 @@ function MoreTabIcon({ active }: { active: boolean }) {
 }
 
 export function MainWarehouseFinanceScreen({
+  scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
@@ -438,8 +448,16 @@ export function MainWarehouseFinanceScreen({
 
   if (showExpenseDetailScreen) {
     return (
-      <MainWarehouseExpenseDetailScreen
+      <ExpenseDetailScreen
+        scope={scope}
+        can={can}
         isShortVersion={detailSourceIsHistory}
+        onTabChange={onTabChange}
+        onViewVouchers={() => {
+          setShowExpenseDetailScreen(false);
+          setDetailSourceIsHistory(false);
+          setShowVouchersScreen(true);
+        }}
         onBack={() => {
           setShowExpenseDetailScreen(false);
           setDetailSourceIsHistory(false);
@@ -466,7 +484,9 @@ export function MainWarehouseFinanceScreen({
 
   if (showFinanceHistoryScreen) {
     return (
-      <MainWarehouseFinanceHistoryScreen
+      <FinanceHistoryScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowFinanceHistoryScreen(false)}
         onTabChange={onTabChange}
         onSelectItem={(item) => {
@@ -486,8 +506,14 @@ export function MainWarehouseFinanceScreen({
 
   if (showFinanceReportsScreen) {
     return (
-      <MainWarehouseFinanceReportsScreen
-        warehouseName="Coonoor Warehouse"
+      <FinanceReportsScreen
+        scope={scope}
+        can={can}
+        // docs/rbac.json grants report.export.file to MAIN_WH_ADMIN as 'view'
+        // (read-only), and this hub is only mounted for the Main Warehouse
+        // admin. /auth/me returns codes without scope, so can() alone would
+        // say yes; keep Generate/Export off here. SPEC_GAPS.md section 1 #11.
+        canExport={false}
         onBack={() => setShowFinanceReportsScreen(false)}
         onTabChange={onTabChange}
       />
@@ -530,7 +556,10 @@ export function MainWarehouseFinanceScreen({
 
   if (showAddExpenseScreen) {
     return (
-      <MainWarehouseAddExpenseScreen
+      <WarehouseAddExpenseScreen
+        scope={scope}
+        can={can}
+        onTabChange={onTabChange}
         onBack={() => setShowAddExpenseScreen(false)}
         onSaveSuccess={() => setShowAddExpenseScreen(false)}
       />
@@ -548,7 +577,9 @@ export function MainWarehouseFinanceScreen({
 
   if (showExpensesScreen) {
     return (
-      <MainWarehouseExpensesScreen
+      <WarehouseExpensesScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowExpensesScreen(false)}
         onTabChange={onTabChange}
         onAddExpense={() => setShowAddExpenseScreen(true)}

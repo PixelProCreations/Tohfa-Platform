@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -13,29 +12,17 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
-const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  peachBg:       '#FDF0EB',
-  iconColor:     '#8B5E3C',
+import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import type { ExpenseDraft, WarehouseScreenBaseProps } from './types';
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textDark:      '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
-
-  blueBg:        '#EFF6FF',
-  blueBorder:    '#BFDBFE',
-  blueText:      '#1E40AF',
-  amberBg:       '#FEF3C7',
-  amberBorder:   '#FDE68A',
-  amberText:     '#92400E',
-};
+/**
+ * Add / edit expense form, shared by Main Warehouse and Sub Warehouse admins.
+ * - Save Expense is enabled only when can('finance.expense.log'); otherwise it is
+ *   rendered disabled and the handler no-ops.
+ * - There is no approve control: rbac.json has no approve code for expenses.
+ * - The form has no warehouse selector; the expense is logged against the viewer's scope.
+ * The server re-checks every permission (CLAUDE.md 2.1); `can` only decides what to render.
+ */
 
 const EXPENSE_CATEGORIES = [
   'Transport',
@@ -47,23 +34,14 @@ const EXPENSE_CATEGORIES = [
   'Other',
 ];
 
-export interface SubWarehouseAddExpenseScreenProps {
-  onBack?: (() => void) | undefined;
+export interface WarehouseAddExpenseScreenProps extends WarehouseScreenBaseProps {
   onSaveSuccess?: (() => void) | undefined;
-  initialExpense?: {
-    expenseId: string;
-    amount: string;
-    category: string;
-    date: string;
-    description: string;
-    paymentMethod: 'Cash' | 'UPI' | 'Bank';
-    vendorPayee: string;
-  };
+  initialExpense?: ExpenseDraft | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -77,7 +55,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function ChevronDownIcon({ size = 16, color = '#1E1612' }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -85,7 +63,7 @@ function ChevronDownIcon({ size = 16, color = '#1E1612' }: { size?: number; colo
   );
 }
 
-function ChevronLeftIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
+function ChevronLeftIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -93,7 +71,7 @@ function ChevronLeftIcon({ size = 18, color = '#1E1612' }: { size?: number; colo
   );
 }
 
-function ChevronRightIcon({ size = 18, color = '#1E1612' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -101,7 +79,7 @@ function ChevronRightIcon({ size = 18, color = '#1E1612' }: { size?: number; col
   );
 }
 
-function CloseIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function CloseIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -109,7 +87,7 @@ function CloseIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: st
   );
 }
 
-function CalendarIcon({ size = 18, color = '#6B7280' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -118,7 +96,7 @@ function CalendarIcon({ size = 18, color = '#6B7280' }: { size?: number; color?:
   );
 }
 
-function CameraIcon({ size = 22, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function CameraIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -133,7 +111,7 @@ function CameraIcon({ size = 22, color = '#8B5E3C' }: { size?: number; color?: s
   );
 }
 
-function GalleryIcon({ size = 22, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function GalleryIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -143,7 +121,7 @@ function GalleryIcon({ size = 22, color = '#8B5E3C' }: { size?: number; color?: 
   );
 }
 
-function SaveFloppyIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function SaveFloppyIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -158,7 +136,7 @@ function SaveFloppyIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color
   );
 }
 
-function QuestionCircleIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function QuestionCircleIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="1.8" />
@@ -173,7 +151,7 @@ function QuestionCircleIcon({ size = 20, color = '#8B5E3C' }: { size?: number; c
   );
 }
 
-function DocumentIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function DocumentIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -194,7 +172,7 @@ function DocumentIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?:
   );
 }
 
-function CheckCircleOutlineIcon({ size = 48, color = '#059669' }: { size?: number; color?: string }) {
+function CheckCircleOutlineIcon({ size = 48, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2.5" />
@@ -209,7 +187,7 @@ function CheckCircleOutlineIcon({ size = 48, color = '#059669' }: { size?: numbe
   );
 }
 
-function CheckIcon({ size = 18, color = '#059669' }: { size?: number; color?: string }) {
+function CheckIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -255,19 +233,21 @@ const MONTH_SHORT = [
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-export function SubWarehouseAddExpenseScreen({
+export function WarehouseAddExpenseScreen({
+  can,
   onBack,
   onSaveSuccess,
   initialExpense,
-}: SubWarehouseAddExpenseScreenProps) {
+}: WarehouseAddExpenseScreenProps) {
+  const canLog = can('finance.expense.log');
   const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || 'Transport');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [expenseDate, setExpenseDate] = useState(initialExpense?.date || '25 Sep 2026');
   const [amount, setAmount] = useState(initialExpense?.amount || '2400');
-  const [description, setDescription] = useState(initialExpense?.description || 'Transport from Coonoor collection point to warehouse');
+  const [description, setDescription] = useState(initialExpense?.description || 'Transport · Collection point → Warehouse');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>(initialExpense?.paymentMethod || 'Cash');
   const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
-  const [attachedDoc, setAttachedDoc] = useState<string | null>(null);
+  const [, setAttachedDoc] = useState<string | null>(null);
 
   // Add Category State
   const [showAddCategoryScreen, setShowAddCategoryScreen] = useState(false);
@@ -332,6 +312,7 @@ export function SubWarehouseAddExpenseScreen({
   };
 
   const handleSaveExpense = () => {
+    if (!canLog) return;
     if (!amount.trim() || isNaN(Number(amount.replace(/[^0-9.]/g, '')))) {
       Alert.alert('Validation Error', 'Please enter a valid expense amount.');
       return;
@@ -340,6 +321,7 @@ export function SubWarehouseAddExpenseScreen({
   };
 
   const handleConfirmSave = () => {
+    if (!canLog) return;
     setIsConfirming(false);
     setIsSuccess(true);
   };
@@ -357,7 +339,7 @@ export function SubWarehouseAddExpenseScreen({
   if (showAddCategoryScreen) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ─── Top Brand Header Banner ─── */}
         <View style={styles.headerBanner}>
@@ -368,16 +350,16 @@ export function SubWarehouseAddExpenseScreen({
               activeOpacity={0.75}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <ArrowBackIcon size={22} color="#FFFFFF" />
+              <ArrowBackIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Add Category</Text>
           </View>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.confirmCard, { borderColor: PALETTE.primary, paddingBottom: 20 }]}>
-            <View style={[styles.confirmHeaderRow, { marginBottom: 16 }]}>
-              <Text style={{ color: PALETTE.iconColor, fontWeight: '800', fontSize: 14 }}>⊕ Add Category</Text>
+          <View style={[styles.confirmCard, { borderColor: adminColors.brand, paddingBottom: adminSpacing.input }]}>
+            <View style={[styles.confirmHeaderRow, { marginBottom: adminSpacing.lg }]}>
+              <Text style={{ ...adminType.sectionHead, color: adminColors.brandDeep }}>⊕ Add Category</Text>
             </View>
 
             <View style={styles.fieldGroup}>
@@ -387,7 +369,7 @@ export function SubWarehouseAddExpenseScreen({
                 value={newCategoryName}
                 onChangeText={setNewCategoryName}
                 placeholder="e.g. Packaging"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={adminColors.placeholder}
               />
             </View>
 
@@ -399,7 +381,7 @@ export function SubWarehouseAddExpenseScreen({
                 activeOpacity={0.8}
               >
                 <Text style={styles.dropdownValueText}>{newCategoryStatus}</Text>
-                <ChevronDownIcon size={16} color="#1E1612" />
+                <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
 
               {showStatusPicker && (
@@ -431,16 +413,16 @@ export function SubWarehouseAddExpenseScreen({
             </View>
 
             <TouchableOpacity
-              style={[styles.confirmGreenBtn, { marginTop: 8 }]}
+              style={[styles.confirmGreenBtn, { marginTop: adminSpacing.sm }]}
               onPress={handleSaveCategory}
               activeOpacity={0.8}
             >
-              <CheckIcon size={18} color="#059669" />
+              <CheckIcon size={18} color={adminColors.success.text} />
               <Text style={styles.confirmGreenBtnText}>Save</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.confirmCancelBtn, { marginTop: 12 }]}
+              style={[styles.confirmCancelBtn, { marginTop: adminSpacing.md }]}
               onPress={() => setShowAddCategoryScreen(false)}
               activeOpacity={0.8}
             >
@@ -456,7 +438,7 @@ export function SubWarehouseAddExpenseScreen({
   if (isConfirming) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
         {/* ─── Top Brand Header Banner ─── */}
         <View style={styles.headerBanner}>
@@ -467,7 +449,7 @@ export function SubWarehouseAddExpenseScreen({
               activeOpacity={0.75}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <ArrowBackIcon size={22} color="#FFFFFF" />
+              <ArrowBackIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{initialExpense ? 'Edit Expense' : 'Add Expense'}</Text>
           </View>
@@ -478,7 +460,7 @@ export function SubWarehouseAddExpenseScreen({
           <View style={styles.confirmCard}>
             {/* Title with question icon */}
             <View style={styles.confirmHeaderRow}>
-              <QuestionCircleIcon size={20} color="#8B5E3C" />
+              <QuestionCircleIcon size={20} color={adminColors.brandDeep} />
               <Text style={styles.confirmHeaderTitle}>Save Expense?</Text>
             </View>
 
@@ -496,7 +478,7 @@ export function SubWarehouseAddExpenseScreen({
                 </View>
               </View>
 
-              <View style={[styles.confirmDetailRow, { marginTop: 14 }]}>
+              <View style={[styles.confirmDetailRow, { marginTop: adminSpacing.md }]}>
                 <View style={styles.confirmDetailCol}>
                   <Text style={styles.confirmDetailLabel}>Date</Text>
                   <Text style={styles.confirmDetailValue}>{expenseDate}</Text>
@@ -506,11 +488,12 @@ export function SubWarehouseAddExpenseScreen({
 
             {/* Confirm Outline Button (Green) */}
             <TouchableOpacity
-              style={styles.confirmGreenBtn}
+              style={[styles.confirmGreenBtn, !canLog && styles.confirmBtnDisabled]}
               onPress={handleConfirmSave}
+              disabled={!canLog}
               activeOpacity={0.8}
             >
-              <CheckIcon size={18} color="#059669" />
+              <CheckIcon size={18} color={adminColors.success.text} />
               <Text style={styles.confirmGreenBtnText}>Confirm</Text>
             </TouchableOpacity>
 
@@ -532,7 +515,7 @@ export function SubWarehouseAddExpenseScreen({
   if (isSuccess) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         
         {/* Top Brand Header Banner */}
         <View style={styles.headerBanner}>
@@ -546,7 +529,7 @@ export function SubWarehouseAddExpenseScreen({
               activeOpacity={0.75}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <ArrowBackIcon size={22} color="#FFFFFF" />
+              <ArrowBackIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Expense Recorded</Text>
           </View>
@@ -555,7 +538,7 @@ export function SubWarehouseAddExpenseScreen({
         {/* Content Area */}
         <View style={styles.successContainer}>
           <View style={styles.successIconCircle}>
-            <CheckCircleOutlineIcon size={32} color="#059669" />
+            <CheckCircleOutlineIcon size={32} color={adminColors.success.text} />
           </View>
           <Text style={styles.successTitle}>Expense Recorded</Text>
           <Text style={styles.successSubtitle}>Expense ID EXP-001245</Text>
@@ -576,7 +559,7 @@ export function SubWarehouseAddExpenseScreen({
             }}
             activeOpacity={0.8}
           >
-            <DocumentIcon size={18} color="#FFFFFF" />
+            <DocumentIcon size={18} color={adminColors.onBrand} />
             <Text style={styles.viewExpenseBtnText}>View Expense</Text>
           </TouchableOpacity>
         </View>
@@ -586,7 +569,7 @@ export function SubWarehouseAddExpenseScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
@@ -597,7 +580,7 @@ export function SubWarehouseAddExpenseScreen({
             activeOpacity={0.75}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowBackIcon size={22} color="#FFFFFF" />
+            <ArrowBackIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{initialExpense ? 'Edit Expense' : 'Add Expense'}</Text>
         </View>
@@ -615,10 +598,10 @@ export function SubWarehouseAddExpenseScreen({
 
         {/* Field 1: Expense Category */}
         <View style={styles.fieldGroup}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.sm }}>
             <Text style={[styles.fieldLabel, { marginBottom: 0 }]}>Expense Category</Text>
             <TouchableOpacity onPress={() => setShowAddCategoryScreen(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={{ color: PALETTE.primary, fontWeight: '700', fontSize: 13 }}>+ Add</Text>
+              <Text style={{ ...adminType.sectionHead, color: adminColors.brand }}>+ Add</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -627,7 +610,7 @@ export function SubWarehouseAddExpenseScreen({
             activeOpacity={0.8}
           >
             <Text style={styles.dropdownValueText}>{selectedCategory || 'Select Category'}</Text>
-            <ChevronDownIcon size={16} color="#1E1612" />
+            <ChevronDownIcon size={16} color={adminColors.ink} />
           </TouchableOpacity>
 
           {/* Category Dropdown List */}
@@ -657,6 +640,13 @@ export function SubWarehouseAddExpenseScreen({
               ))}
             </View>
           )}
+
+          {/* Ported from the Main copy: the list is configuration, not a local list. */}
+          <View style={styles.blueCallout}>
+            <Text style={styles.blueCalloutText}>
+              This list reflects Expense Categories (S06) configuration — never a separately maintained list.
+            </Text>
+          </View>
         </View>
 
         {/* Field 2: Expense Date */}
@@ -668,7 +658,7 @@ export function SubWarehouseAddExpenseScreen({
             activeOpacity={0.8}
           >
             <Text style={styles.dateValueText}>{expenseDate}</Text>
-            <CalendarIcon size={18} color={PALETTE.primary} />
+            <CalendarIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
         </View>
 
@@ -683,7 +673,7 @@ export function SubWarehouseAddExpenseScreen({
               onChangeText={setAmount}
               keyboardType="numeric"
               placeholder="0.00"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={adminColors.placeholder}
             />
           </View>
         </View>
@@ -696,7 +686,7 @@ export function SubWarehouseAddExpenseScreen({
             value={description}
             onChangeText={setDescription}
             placeholder="Enter expense details..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={adminColors.placeholder}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -742,8 +732,8 @@ export function SubWarehouseAddExpenseScreen({
             style={styles.textInput}
             value={vendorPayee}
             onChangeText={setVendorPayee}
-            placeholder="Optional — e.g. Coonoor Transport Co."
-            placeholderTextColor="#9CA3AF"
+            placeholder="Optional — e.g. Local Transport Co."
+            placeholderTextColor={adminColors.placeholder}
           />
         </View>
 
@@ -759,7 +749,7 @@ export function SubWarehouseAddExpenseScreen({
               }}
               activeOpacity={0.75}
             >
-              <CameraIcon size={22} color={PALETTE.iconColor} />
+              <CameraIcon size={22} color={adminColors.brandDeep} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -770,7 +760,7 @@ export function SubWarehouseAddExpenseScreen({
               }}
               activeOpacity={0.75}
             >
-              <GalleryIcon size={22} color={PALETTE.iconColor} />
+              <GalleryIcon size={22} color={adminColors.brandDeep} />
             </TouchableOpacity>
           </View>
         </View>
@@ -778,18 +768,22 @@ export function SubWarehouseAddExpenseScreen({
         {/* Callout 3: SWA Permissions Notice */}
         <View style={styles.amberCallout}>
           <Text style={styles.amberCalloutText}>
-            SWA has Log Operational Expenses — Save Expense is available. No approval control is added here; the matrix keeps logging expenses separate from approving expense claims.
+            {canLog
+              ? 'Log Operational Expenses is granted — Save Expense is available. No approval control is added here; the matrix keeps logging expenses separate from approving expense claims.'
+              : 'Log Operational Expenses is not granted for your role, so Save Expense is disabled.'}
           </Text>
         </View>
 
         {/* ─── Bottom Actions ─── */}
         <TouchableOpacity
-          style={styles.saveBtn}
+          style={[styles.saveBtn, !canLog && styles.saveBtnDisabled]}
           onPress={handleSaveExpense}
+          disabled={!canLog}
+          accessibilityState={{ disabled: !canLog }}
           activeOpacity={0.8}
         >
-          <SaveFloppyIcon size={18} color="#FFFFFF" />
-          <Text style={styles.saveBtnText}>Save Expense</Text>
+          <SaveFloppyIcon size={18} color={canLog ? adminColors.onBrand : adminColors.muted} />
+          <Text style={[styles.saveBtnText, !canLog && styles.saveBtnTextDisabled]}>Save Expense</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -800,7 +794,7 @@ export function SubWarehouseAddExpenseScreen({
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
 
       {/* ─── Interactive Calendar Picker Overlay ─── */}
@@ -821,7 +815,7 @@ export function SubWarehouseAddExpenseScreen({
                 onPress={() => setShowCalendarModal(false)}
                 activeOpacity={0.7}
               >
-                <CloseIcon size={18} color="#6B7280" />
+                <CloseIcon size={18} color={adminColors.muted} />
               </TouchableOpacity>
             </View>
 
@@ -889,7 +883,7 @@ export function SubWarehouseAddExpenseScreen({
                 onPress={handlePrevMonth}
                 activeOpacity={0.7}
               >
-                <ChevronLeftIcon size={20} color="#1E1612" />
+                <ChevronLeftIcon size={20} color={adminColors.ink} />
               </TouchableOpacity>
 
               <Text style={styles.monthNavTitle}>
@@ -901,7 +895,7 @@ export function SubWarehouseAddExpenseScreen({
                 onPress={handleNextMonth}
                 activeOpacity={0.7}
               >
-                <ChevronRightIcon size={20} color="#1E1612" />
+                <ChevronRightIcon size={20} color={adminColors.ink} />
               </TouchableOpacity>
             </View>
 
@@ -977,384 +971,250 @@ export function SubWarehouseAddExpenseScreen({
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: PALETTE.primary,
-  },
+  root: { flex: 1, backgroundColor: adminColors.brand },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 18,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
   },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    marginRight: 12,
-    padding: 2,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  scroll: {
-    flex: 1,
-    backgroundColor: PALETTE.pageBg,
-  },
+  headerTopRow: { flexDirection: 'row', alignItems: 'center' },
+  backButton: { marginRight: adminSpacing.md, padding: 2 },
+  headerTitle: { ...adminType.title, color: adminColors.onBrand },
+  scroll: { flex: 1, backgroundColor: adminColors.canvas },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
   },
 
-  sectionHeading: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.textDark,
-    marginBottom: 14,
-  },
-  sectionSubHeading: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textDark,
-    marginBottom: 8,
-  },
+  sectionHeading: { ...adminType.sectionHead, color: adminColors.brandDeep, marginBottom: adminSpacing.md },
+  sectionSubHeading: { ...adminType.sectionHead, color: adminColors.brandDeep, marginBottom: adminSpacing.sm },
 
-  fieldGroup: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textDark,
-    marginBottom: 6,
-  },
+  fieldGroup: { marginBottom: adminSpacing.lg },
+  fieldLabel: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.sm },
 
   // ─── Dropdown ───
   dropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
   },
-  dropdownValueText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.textDark,
-  },
+  dropdownValueText: { ...adminType.sectionHead, color: adminColors.ink },
   pickerDropdown: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginTop: 6,
+    borderColor: adminColors.border,
+    marginTop: adminSpacing.sm,
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   pickerOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: PALETTE.divider,
+    borderBottomColor: adminColors.border,
   },
-  pickerOptionActive: {
-    backgroundColor: PALETTE.peachBg,
-  },
-  pickerOptionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textDark,
-  },
-  pickerOptionTextActive: {
-    color: PALETTE.primaryDark,
-    fontWeight: '800',
-  },
+  pickerOptionActive: { backgroundColor: adminColors.brandTint },
+  pickerOptionText: { ...adminType.body, color: adminColors.ink },
+  pickerOptionTextActive: { ...adminType.sectionHead, color: adminColors.brandDeep },
 
   // ─── Date Picker ───
   datePickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
   },
-  dateValueText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: PALETTE.textDark,
-  },
+  dateValueText: { ...adminType.body, color: adminColors.ink },
 
   // ─── Amount Input ───
   amountInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: PALETTE.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
-  currencySymbol: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: PALETTE.textDark,
-    marginRight: 6,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
-    color: PALETTE.textDark,
-    padding: 0,
-    margin: 0,
-  },
+  currencySymbol: { ...adminType.title, color: adminColors.ink, marginRight: adminSpacing.sm },
+  amountInput: { ...adminType.title, flex: 1, color: adminColors.ink, padding: 0, margin: 0 },
 
   // ─── Text Areas & Inputs ───
   textAreaInput: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    ...adminType.body,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: PALETTE.textDark,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    color: adminColors.ink,
     minHeight: 70,
   },
   textInput: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    ...adminType.body,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 13,
-    color: PALETTE.textDark,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    color: adminColors.ink,
   },
 
   // ─── Payment Method Segmented ───
-  paymentMethodRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
+  paymentMethodRow: { flexDirection: 'row', gap: adminSpacing.sm, marginBottom: adminSpacing.sm },
   paymentMethodBtn: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingVertical: 10,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  paymentMethodBtnActive: {
-    backgroundColor: PALETTE.peachBg,
-    borderColor: PALETTE.primary,
-  },
-  paymentMethodText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
-  },
-  paymentMethodTextActive: {
-    color: PALETTE.primaryDark,
-    fontWeight: '800',
-  },
+  paymentMethodBtnActive: { backgroundColor: adminColors.brandTint, borderColor: adminColors.brand },
+  paymentMethodText: { ...adminType.rowTitle, color: adminColors.muted },
+  paymentMethodTextActive: { ...adminType.rowTitle, color: adminColors.brandDeep },
 
   // ─── Upload Boxes ───
-  uploadRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  uploadRow: { flexDirection: 'row', gap: adminSpacing.md },
   uploadBox: {
     width: 54,
     height: 54,
-    borderRadius: 12,
-    backgroundColor: PALETTE.cardBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#C7BCB0',
+    borderColor: adminColors.placeholder,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // ─── Callouts ───
   blueCallout: {
-    backgroundColor: PALETTE.blueBg,
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: PALETTE.blueBorder,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 8,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
   },
-  blueCalloutText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: PALETTE.blueText,
-    lineHeight: 16,
-  },
+  blueCalloutText: { ...adminType.rowMeta, color: adminColors.info.text },
   amberCallout: {
-    backgroundColor: PALETTE.amberBg,
+    backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
-    borderColor: PALETTE.amberBorder,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 18,
+    borderColor: adminColors.warning.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
-  amberCalloutText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.amberText,
-    lineHeight: 16,
-  },
+  amberCalloutText: { ...adminType.rowMeta, color: adminColors.warning.text },
 
   // ─── Action Buttons ───
   saveBtn: {
-    backgroundColor: PALETTE.primary,
-    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
     paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 10,
-    shadowColor: PALETTE.primaryDark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
   },
-  saveBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  saveBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
+  // Visibly inert: flat, no shadow, muted label (viewer lacks finance.expense.log).
+  saveBtnDisabled: {
+    backgroundColor: adminColors.border,
+    shadowOpacity: 0,
+    elevation: 0,
   },
+  saveBtnTextDisabled: { color: adminColors.muted },
   cancelBtn: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: PALETTE.primary,
-    paddingVertical: 12,
+    borderColor: adminColors.brand,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
-  cancelBtnText: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: PALETTE.primary,
-  },
-
-  // ─── Screen Footer ───
-  screenFooterCode: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.textMuted,
-    textAlign: 'center',
-    marginVertical: 4,
-  },
+  cancelBtnText: { ...adminType.sectionHead, color: adminColors.brand },
 
   // ─── Calendar Modal Styles ───
+  // Was a translucent black scrim: no translucent token exists, so it is dropped
+  // and the card's lg shadow separates it from the form.
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: adminSpacing.input,
   },
   calendarCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     width: '100%',
     maxWidth: 360,
-    padding: 18,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: '#EBE5DC',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    elevation: 8,
+    borderColor: adminColors.border,
+    ...adminShadow.lg,
   },
   calHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingBottom: adminSpacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F4EFE9',
+    borderBottomColor: adminColors.border,
   },
-  calHeaderTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1612',
-  },
-  calHeaderSub: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.primary,
-    marginTop: 2,
-  },
+  calHeaderTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  calHeaderSub: { ...adminType.rowTitle, color: adminColors.brand, marginTop: 2 },
   calCloseBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F4EFE9',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Quick Presets Row
-  presetRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginVertical: 12,
-  },
+  presetRow: { flexDirection: 'row', gap: adminSpacing.sm, marginVertical: adminSpacing.md },
   presetPill: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
-    paddingVertical: 7,
+    backgroundColor: adminColors.canvas,
+    paddingVertical: adminSpacing.sm,
     paddingHorizontal: 6,
-    borderRadius: 8,
+    borderRadius: adminRadius.xs,
     borderWidth: 1,
-    borderColor: '#EBE5DC',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  presetPillActive: {
-    backgroundColor: PALETTE.peachBg,
-    borderColor: PALETTE.primary,
-  },
-  presetPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7A726C',
-  },
-  presetPillTextActive: {
-    color: PALETTE.primaryDark,
-    fontWeight: '800',
-  },
+  presetPillActive: { backgroundColor: adminColors.brandTint, borderColor: adminColors.brand },
+  presetPillText: { ...adminType.caption, color: adminColors.muted },
+  presetPillTextActive: { ...adminType.caption, color: adminColors.brandDeep },
 
   // Month Navigation
   monthNavRow: {
@@ -1362,51 +1222,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 6,
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   navArrowBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FAF7F2',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
     borderWidth: 1,
-    borderColor: '#EBE5DC',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monthNavTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#1E1612',
-  },
+  monthNavTitle: { ...adminType.sectionHead, color: adminColors.ink },
 
   // Weekdays
-  weekdaysRow: {
-    flexDirection: 'row',
-    paddingVertical: 4,
-    marginBottom: 4,
-  },
-  weekdayCol: {
-    width: '14.28%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekdayText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#9CA3AF',
-  },
+  weekdaysRow: { flexDirection: 'row', paddingVertical: adminSpacing.xs, marginBottom: adminSpacing.xs },
+  weekdayCol: { width: '14.28%', alignItems: 'center', justifyContent: 'center' },
+  weekdayText: { ...adminType.caption, color: adminColors.muted },
 
   // Days Grid
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 14,
-  },
-  dayCellEmpty: {
-    width: '14.28%',
-    height: 38,
-  },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: adminSpacing.md },
+  dayCellEmpty: { width: '14.28%', height: 38 },
   dayCell: {
     width: '14.28%',
     height: 38,
@@ -1414,216 +1251,142 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 19,
   },
-  dayCellSelected: {
-    backgroundColor: PALETTE.primary,
-  },
-  dayCellToday: {
-    borderWidth: 1.5,
-    borderColor: PALETTE.primary,
-  },
-  dayCellText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E1612',
-  },
-  dayCellTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  dayCellTextToday: {
-    color: PALETTE.primary,
-    fontWeight: '800',
-  },
+  dayCellSelected: { backgroundColor: adminColors.brand },
+  dayCellToday: { borderWidth: 1.5, borderColor: adminColors.brand },
+  dayCellText: { ...adminType.body, color: adminColors.ink },
+  dayCellTextSelected: { ...adminType.sectionHead, color: adminColors.onBrand },
+  dayCellTextToday: { ...adminType.sectionHead, color: adminColors.brand },
 
   // Calendar Action Row
   calActionRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: adminSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F4EFE9',
-    paddingTop: 12,
+    borderTopColor: adminColors.border,
+    paddingTop: adminSpacing.md,
   },
   calCancelBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
-    borderColor: '#EBE5DC',
-    backgroundColor: '#FAF7F2',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  calCancelText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7A726C',
-  },
+  calCancelText: { ...adminType.sectionHead, color: adminColors.muted },
   calApplyBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: PALETTE.primary,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  calApplyText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
+  calApplyText: { ...adminType.sectionHead, color: adminColors.onBrand },
 
   // ─── Confirmation Screen Styles ───
   confirmationContainer: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
   },
   confirmCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.2,
-    borderColor: '#E88B52',
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   confirmHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
-  confirmHeaderTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: '#1E1612',
-  },
+  confirmHeaderTitle: { ...adminType.sectionHead, color: adminColors.ink },
   confirmDetailsBox: {
-    backgroundColor: '#F5EFEB',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
-  confirmDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  confirmDetailCol: {
-    flex: 1,
-  },
-  confirmDetailLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#7A726C',
-    marginBottom: 4,
-  },
-  confirmDetailValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1612',
-  },
+  confirmDetailRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  confirmDetailCol: { flex: 1 },
+  confirmDetailLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  confirmDetailValue: { ...adminType.sectionHead, color: adminColors.ink },
   confirmGreenBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#059669',
-    paddingVertical: 12,
+    borderColor: adminColors.success.text,
+    paddingVertical: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
-  confirmGreenBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#059669',
-  },
+  confirmBtnDisabled: { borderColor: adminColors.border, backgroundColor: adminColors.canvas },
+  confirmGreenBtnText: { ...adminType.sectionHead, color: adminColors.success.text },
   confirmCancelBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1.5,
-    borderColor: '#D4753F',
-    paddingVertical: 12,
+    borderColor: adminColors.brand,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmCancelBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#8B4513',
-  },
-  
+  confirmCancelBtnText: { ...adminType.sectionHead, color: adminColors.brandDeep },
+
   // ─── Success Screen Styles ───
   successContainer: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: adminSpacing.input,
   },
   successIconCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminColors.success.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: adminSpacing.xl,
   },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E1612',
-    marginBottom: 8,
-  },
-  successSubtitle: {
-    fontSize: 13,
-    color: '#7A726C',
-    marginBottom: 32,
-  },
+  successTitle: { ...adminType.title, color: adminColors.ink, marginBottom: adminSpacing.sm },
+  successSubtitle: { ...adminType.body, color: adminColors.muted, marginBottom: adminSpacing.xxl },
   amountCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.input,
     borderWidth: 1,
-    borderColor: '#EBE5DC',
+    borderColor: adminColors.border,
   },
-  amountCardLabel: {
-    fontSize: 13,
-    color: '#7A726C',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  amountCardValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1E1612',
-  },
+  amountCardLabel: { ...adminType.body, color: adminColors.muted, marginBottom: adminSpacing.sm },
+  amountCardValue: { ...adminType.kpiValue, color: adminColors.ink },
   successBottomBar: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    paddingBottom: 24,
+    backgroundColor: adminColors.card,
+    padding: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
     borderTopWidth: 1,
-    borderTopColor: '#EBE5DC',
+    borderTopColor: adminColors.border,
   },
   viewExpenseBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: adminSpacing.md,
+    borderRadius: adminRadius.md,
+    gap: adminSpacing.sm,
   },
-  viewExpenseBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
+  viewExpenseBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
 });

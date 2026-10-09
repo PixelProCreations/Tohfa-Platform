@@ -12,15 +12,19 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { SubWarehouseRevenueScreen } from './SubWarehouseRevenueScreen';
-import { SubWarehouseExpensesScreen } from './SubWarehouseExpensesScreen';
-import { SubWarehouseAddExpenseScreen } from './SubWarehouseAddExpenseScreen';
 import { SubWarehouseRevenueDetailScreen } from './SubWarehouseRevenueDetailScreen';
-import { SubWarehouseExpenseDetailScreen } from './SubWarehouseExpenseDetailScreen';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 import { SubWarehouseDailyCashScreen } from './SubWarehouseDailyCashScreen';
-import { SubWarehouseFinanceReportsScreen } from './SubWarehouseFinanceReportsScreen';
 import { SubWarehouseExpenseCategoriesScreen } from './SubWarehouseExpenseCategoriesScreen';
-import { SubWarehouseFinanceHistoryScreen } from './SubWarehouseFinanceHistoryScreen';
+import {
+  ExpenseDetailScreen,
+  FinanceHistoryScreen,
+  FinanceReportsScreen,
+  WarehouseAddExpenseScreen,
+  WarehouseExpensesScreen,
+  type PermissionCheck,
+  type WarehouseScope,
+} from '../../admin/screens/warehouse/finance-expenses';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -58,6 +62,10 @@ const PALETTE = {
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 export interface SubWarehouseFinanceScreenProps {
+  /** Warehouse the viewer is scoped to, handed to the shared finance screens. */
+  scope: WarehouseScope;
+  /** docs/rbac.json permission check for the signed-in admin (roles/admin/permissions/can.ts). */
+  can: PermissionCheck;
   onBack?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
@@ -310,6 +318,8 @@ function MoreTabIcon({ active }: { active: boolean }) {
 }
 
 export function SubWarehouseFinanceScreen({
+  scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
@@ -440,7 +450,9 @@ export function SubWarehouseFinanceScreen({
 
   if (showFinanceHistoryScreen) {
     return (
-      <SubWarehouseFinanceHistoryScreen
+      <FinanceHistoryScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowFinanceHistoryScreen(false)}
         onTabChange={onTabChange}
         onSelectItem={(item) => {
@@ -467,8 +479,9 @@ export function SubWarehouseFinanceScreen({
 
   if (showFinanceReportsScreen) {
     return (
-      <SubWarehouseFinanceReportsScreen
-        warehouseName="Coonoor Warehouse"
+      <FinanceReportsScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowFinanceReportsScreen(false)}
         onTabChange={onTabChange}
       />
@@ -478,7 +491,7 @@ export function SubWarehouseFinanceScreen({
   if (showDailyCashScreen) {
     return (
       <SubWarehouseDailyCashScreen
-        warehouseName="Coonoor Warehouse"
+        warehouseName={scope.warehouseName}
         date="25 Sep 2026"
         onBack={() => setShowDailyCashScreen(false)}
         onTabChange={onTabChange}
@@ -489,7 +502,7 @@ export function SubWarehouseFinanceScreen({
   if (showVouchersScreen) {
     return (
       <SubWarehouseVouchersScreen
-        warehouseName="Coonoor Warehouse"
+        warehouseName={scope.warehouseName}
         onBack={() => setShowVouchersScreen(false)}
         onTabChange={onTabChange}
       />
@@ -498,15 +511,16 @@ export function SubWarehouseFinanceScreen({
 
   if (showExpenseDetailScreen) {
     return (
-      <SubWarehouseExpenseDetailScreen
+      <ExpenseDetailScreen
+        scope={scope}
+        can={can}
         expenseId="EXP-001245"
         amount="2,400"
         category="Transport"
         date="25 Sep 2026"
-        description="Transport from Coonoor collection point to warehouse"
+        description="Transport from collection point to warehouse"
         paymentMethod="Cash"
-        vendorPayee="Coonoor Transport Co."
-        warehouse="Coonoor"
+        vendorPayee="Local Transport Co."
         createdBy="SWA – Suresh"
         status="Recorded"
         onBack={() => setShowExpenseDetailScreen(false)}
@@ -522,15 +536,16 @@ export function SubWarehouseFinanceScreen({
 
   if (showExpenseReceiptScreen) {
     return (
-      <SubWarehouseExpenseDetailScreen
+      <ExpenseDetailScreen
+        scope={scope}
+        can={can}
         expenseId="EXP-001245"
         amount="2,400"
         category="Transport"
         date="25 Sep 2026"
-        description="Transport from Coonoor collection point to warehouse"
+        description="Transport from collection point to warehouse"
         paymentMethod="Cash"
-        vendorPayee="Coonoor Transport Co."
-        warehouse="Coonoor"
+        vendorPayee="Local Transport Co."
         createdBy="SWA – Suresh"
         status="Recorded"
         onBack={() => setShowExpenseReceiptScreen(false)}
@@ -541,7 +556,10 @@ export function SubWarehouseFinanceScreen({
 
   if (showAddExpenseScreen) {
     return (
-      <SubWarehouseAddExpenseScreen
+      <WarehouseAddExpenseScreen
+        scope={scope}
+        can={can}
+        onTabChange={onTabChange}
         onBack={() => setShowAddExpenseScreen(false)}
         onSaveSuccess={() => {
           setShowAddExpenseScreen(false);
@@ -552,9 +570,9 @@ export function SubWarehouseFinanceScreen({
           amount: '2400',
           category: 'Transport',
           date: '25 Sep 2026',
-          description: 'Transport from Coonoor collection point to warehouse',
+          description: 'Transport from collection point to warehouse',
           paymentMethod: 'Cash',
-          vendorPayee: 'Coonoor Transport Co.'
+          vendorPayee: 'Local Transport Co.'
         }}
       />
     );
@@ -586,7 +604,9 @@ export function SubWarehouseFinanceScreen({
 
   if (showExpensesScreen) {
     return (
-      <SubWarehouseExpensesScreen
+      <WarehouseExpensesScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowExpensesScreen(false)}
         onTabChange={onTabChange}
         onAddExpense={() => setShowAddExpenseScreen(true)}
@@ -628,14 +648,14 @@ export function SubWarehouseFinanceScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Coonoor Warehouse · Today Pill */}
+        {/* Warehouse · Today Pill */}
         <TouchableOpacity
           style={styles.warehousePill}
-          onPress={() => Alert.alert('Filter Period', 'Current filter: Coonoor Warehouse · Today')}
+          onPress={() => Alert.alert('Filter Period', `Current filter: ${scope.warehouseName ?? 'All Warehouses'} · Today`)}
           activeOpacity={0.8}
         >
           <LockIcon size={11} color="#FFFFFF" />
-          <Text style={styles.warehousePillText}>Coonoor Warehouse · Today</Text>
+          <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'All Warehouses'} · Today</Text>
           <ChevronDownIcon size={10} color="#FFFFFF" />
         </TouchableOpacity>
       </View>

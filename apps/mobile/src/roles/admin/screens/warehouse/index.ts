@@ -50,3 +50,26 @@ export * from './WarehousePerformanceScreen';
 export * from './ManageWarehousesScreen';
 export * from './ReceivingHistoryDetailScreen';
 export * from './DirectSaleScreens';
+
+// Shared Main/Sub warehouse finance & expense screens (scope + can props).
+export {
+  ExpenseDetailScreen,
+  FinanceHistoryScreen,
+  FinanceReportsScreen,
+  WarehouseAddExpenseScreen,
+  WarehouseExpensesScreen,
+  type ExpenseDetailScreenProps,
+  type ExpenseDraft,
+  type ExpenseRecord,
+  type FinanceHistoryItem,
+  type FinanceHistoryScreenProps,
+  type FinanceReportItem,
+  type FinanceReportsScreenProps,
+  type PermissionCheck,
+  type WarehouseAddExpenseScreenProps,
+  type WarehouseExpensesScreenProps,
+  type WarehouseNavigate,
+  type WarehouseScope,
+  type WarehouseScreenBaseProps,
+  type WarehouseTab,
+} from './finance-expenses';

@@ -1,3 +1,14 @@
+/**
+ * Finance Reports: the menu of finance reports for a warehouse.
+ *
+ * Serves both Main Warehouse admins (scope.warehouseId undefined = all
+ * warehouses) and Sub Warehouse admins (one warehouse). Which report cards are
+ * listed is gated by the docs/rbac.json code of the data behind them
+ * ('finance.sales_income.view' for revenue, 'finance.expense.log' for expenses;
+ * reports mixing both need either). Generating/exporting is a separate
+ * decision, see `canExport` below. This is presentation only; the server
+ * re-checks every code and scope (CLAUDE.md 2.1).
+ */
 import React, { useState } from 'react';
 import {
   Alert,
@@ -11,78 +22,97 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { MainWarehouseRevenueScreen } from './MainWarehouseRevenueScreen';
-import { MainWarehouseExpensesScreen } from './MainWarehouseExpensesScreen';
-import { MainWarehouseDailyCashScreen } from './MainWarehouseDailyCashScreen';
-import { MainWarehouseFinanceHistoryScreen } from './MainWarehouseFinanceHistoryScreen';
-import { MainWarehouseVouchersScreen } from './MainWarehouseVouchersScreen';
+import { SubWarehouseRevenueScreen } from '../../../../subwarehouse/screens/SubWarehouseRevenueScreen';
+import { SubWarehouseDailyCashScreen } from '../../../../subwarehouse/screens/SubWarehouseDailyCashScreen';
+import { SubWarehouseExpenseCategoriesScreen } from '../../../../subwarehouse/screens/SubWarehouseExpenseCategoriesScreen';
+import { SubWarehouseVouchersScreen } from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
+import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { FinanceHistoryScreen } from './FinanceHistoryScreen';
+import { WarehouseExpensesScreen } from './WarehouseExpensesScreen';
+import type { FinanceReportItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
-// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
-const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  peachBg:       '#FDF0EB',
-  iconColor:     '#8B5E3C',
-
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textDark:      '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
-
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
-};
-
-type MainWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
-
-export interface FinanceReportItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  iconType: 'revenue' | 'expense' | 'daily' | 'monthly' | 'category' | 'voucher';
+/** Which rbac code(s) unlock a report: any one of `codes` is enough. */
+interface GatedReport {
+  item: FinanceReportItem;
+  codes: readonly string[];
 }
 
-const FINANCE_REPORT_ITEMS: FinanceReportItem[] = [
+const REVENUE_CODE = 'finance.sales_income.view';
+const EXPENSE_CODE = 'finance.expense.log';
+
+const FINANCE_REPORTS: GatedReport[] = [
   {
-    id: 'daily_summary',
-    title: 'Daily Finance Summary',
-    subtitle: 'Opening, Revenue, Expenses, Closing',
-    iconType: 'daily',
+    item: {
+      id: 'revenue_report',
+      title: 'Revenue Report',
+      subtitle: 'By date, sales channel, payment method',
+      iconType: 'revenue',
+    },
+    codes: [REVENUE_CODE],
   },
   {
-    id: 'monthly_summary',
-    title: 'Monthly Finance Summary',
-    subtitle: 'Monthly revenue, expenses, net movement',
-    iconType: 'monthly',
+    item: {
+      id: 'expense_report',
+      title: 'Expense Report',
+      subtitle: 'By date, category, payment method',
+      iconType: 'expense',
+    },
+    codes: [EXPENSE_CODE],
   },
   {
-    id: 'expense_category',
-    title: 'Expense Category Report',
-    subtitle: 'Transport, Loading, Unloading, Maintenance...',
-    iconType: 'category',
+    item: {
+      id: 'daily_summary',
+      title: 'Daily Finance Summary',
+      subtitle: 'Opening, Revenue, Expenses, Closing',
+      iconType: 'daily',
+    },
+    codes: [REVENUE_CODE, EXPENSE_CODE],
   },
   {
-    id: 'voucher_report',
-    title: 'Voucher Report',
-    subtitle: 'Voucher count, amount, type, date, status',
-    iconType: 'voucher',
+    item: {
+      id: 'monthly_summary',
+      title: 'Monthly Finance Summary',
+      subtitle: 'Monthly revenue, expenses, net movement',
+      iconType: 'monthly',
+    },
+    codes: [REVENUE_CODE, EXPENSE_CODE],
+  },
+  {
+    item: {
+      id: 'expense_category',
+      title: 'Expense Category Report',
+      subtitle: 'Transport, Loading, Unloading, Maintenance...',
+      iconType: 'category',
+    },
+    codes: [EXPENSE_CODE],
+  },
+  {
+    item: {
+      id: 'voucher_report',
+      title: 'Voucher Report',
+      subtitle: 'Voucher count, amount, type, date, status',
+      iconType: 'voucher',
+    },
+    codes: [EXPENSE_CODE],
   },
 ];
 
-export interface MainWarehouseFinanceReportsScreenProps {
-  warehouseName?: string | undefined;
-  onBack?: (() => void) | undefined;
-  onTabChange?: ((tab: MainWHTab) => void) | undefined;
+export interface FinanceReportsScreenProps extends WarehouseScreenBaseProps {
+  /**
+   * Whether Generate/Export is offered. rbac.json grants report.export.file as MAIN_WH_ADMIN=view (read-only)
+   * and SUB_WH_ADMIN=own, but /auth/me returns codes without their scope, so can() cannot tell view from own.
+   * The host passes this explicitly; undefined falls back to can('report.export.file').
+   */
+  canExport?: boolean | undefined;
   onSelectReport?: ((reportId: string) => void) | undefined;
+  onNavigateToCustomerOrders?: (() => void) | undefined;
+  onNavigateToInvoiceList?: (() => void) | undefined;
+  onNavigateToHistory?: (() => void) | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -96,7 +126,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.placeholder }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -104,7 +134,7 @@ function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; col
   );
 }
 
-function RevenueReportIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function RevenueReportIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -119,7 +149,7 @@ function RevenueReportIcon({ size = 20, color = '#8B5E3C' }: { size?: number; co
   );
 }
 
-function ExpenseReportIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function ExpenseReportIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="2" width="16" height="20" rx="2" stroke={color} strokeWidth="2" />
@@ -128,7 +158,7 @@ function ExpenseReportIcon({ size = 20, color = '#8B5E3C' }: { size?: number; co
   );
 }
 
-function DailySummaryIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function DailySummaryIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -138,7 +168,7 @@ function DailySummaryIcon({ size = 20, color = '#8B5E3C' }: { size?: number; col
   );
 }
 
-function MonthlySummaryIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function MonthlySummaryIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -148,7 +178,7 @@ function MonthlySummaryIcon({ size = 20, color = '#8B5E3C' }: { size?: number; c
   );
 }
 
-function ExpenseCategoryIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function ExpenseCategoryIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="9" y="3" width="6" height="6" rx="1" stroke={color} strokeWidth="2" />
@@ -159,7 +189,7 @@ function ExpenseCategoryIcon({ size = 20, color = '#8B5E3C' }: { size?: number; 
   );
 }
 
-function VoucherReportIcon({ size = 20, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function VoucherReportIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -168,7 +198,7 @@ function VoucherReportIcon({ size = 20, color = '#8B5E3C' }: { size?: number; co
   );
 }
 
-function ProhibitedIcon({ size = 16, color = '#7A726C' }: { size?: number; color?: string }) {
+function ProhibitedIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -180,7 +210,7 @@ function ProhibitedIcon({ size = 16, color = '#7A726C' }: { size?: number; color
 // ─── Bottom Tab Icons ────────────────────────────────────────────────────────
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -196,7 +226,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -211,7 +241,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -221,7 +251,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -239,20 +269,26 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function MainWarehouseFinanceReportsScreen({
-  warehouseName = 'Coonoor Warehouse',
+export function FinanceReportsScreen({
+  scope,
+  can,
+  canExport,
   onBack,
   onTabChange,
   onSelectReport,
-}: MainWarehouseFinanceReportsScreenProps) {
+}: FinanceReportsScreenProps) {
   const [activeSubScreen, setActiveSubScreen] = useState<
     'revenue' | 'expense' | 'daily' | 'monthly' | 'categories' | 'vouchers' | null
   >(null);
 
-  const handleTabPress = (tab: MainWHTab) => {
+  const warehouseLabel = scope.warehouseId === undefined ? 'All Warehouses' : (scope.warehouseName ?? '');
+  const exportAllowed = canExport ?? can('report.export.file');
+  const visibleReports = FINANCE_REPORTS.filter((r) => r.codes.some((code) => can(code))).map((r) => r.item);
+
+  const handleTabPress = (tab: WarehouseTab) => {
     if (onTabChange) {
       onTabChange(tab);
-    } else if (onBack) {
+    } else {
       onBack();
     }
   };
@@ -283,23 +319,26 @@ export function MainWarehouseFinanceReportsScreen({
         setActiveSubScreen('vouchers');
         break;
       default:
-        Alert.alert(report.title, `Generating report: ${report.title} (${report.subtitle})...`);
+        // Only a viewer allowed to export gets the generate action; everyone
+        // else can open a report but not produce a file from it.
+        if (exportAllowed) {
+          Alert.alert(report.title, `Generating report: ${report.title} (${report.subtitle})...`);
+        }
     }
   };
 
+  const closeSubScreen = () => setActiveSubScreen(null);
+
   if (activeSubScreen === 'revenue') {
-    return (
-      <MainWarehouseRevenueScreen
-        onBack={() => setActiveSubScreen(null)}
-        onTabChange={onTabChange}
-      />
-    );
+    return <SubWarehouseRevenueScreen onBack={closeSubScreen} onTabChange={onTabChange} />;
   }
 
   if (activeSubScreen === 'expense') {
     return (
-      <MainWarehouseExpensesScreen
-        onBack={() => setActiveSubScreen(null)}
+      <WarehouseExpensesScreen
+        scope={scope}
+        can={can}
+        onBack={closeSubScreen}
         onTabChange={onTabChange}
       />
     );
@@ -307,10 +346,10 @@ export function MainWarehouseFinanceReportsScreen({
 
   if (activeSubScreen === 'daily') {
     return (
-      <MainWarehouseDailyCashScreen
-        warehouseName={warehouseName}
+      <SubWarehouseDailyCashScreen
+        warehouseName={warehouseLabel}
         date="25 Sep 2026"
-        onBack={() => setActiveSubScreen(null)}
+        onBack={closeSubScreen}
         onTabChange={onTabChange}
       />
     );
@@ -318,27 +357,25 @@ export function MainWarehouseFinanceReportsScreen({
 
   if (activeSubScreen === 'monthly') {
     return (
-      <MainWarehouseFinanceHistoryScreen
-        onBack={() => setActiveSubScreen(null)}
+      <FinanceHistoryScreen
+        scope={scope}
+        can={can}
+        onBack={closeSubScreen}
         onTabChange={onTabChange}
       />
     );
   }
 
-  // if (activeSubScreen === 'categories') {
-  //   return (
-  //     <MainWarehouseExpenseCategoriesScreen
-  //       onBack={() => setActiveSubScreen(null)}
-  //       onTabChange={onTabChange}
-  //     />
-  //   );
-  // }
+  if (activeSubScreen === 'categories') {
+    return <SubWarehouseExpenseCategoriesScreen onBack={closeSubScreen} onTabChange={onTabChange} />;
+  }
 
   if (activeSubScreen === 'vouchers') {
     return (
-      <MainWarehouseVouchersScreen
-        onBack={() => setActiveSubScreen(null)}
-        onVoucherPress={(id) => { console.log('Voucher press', id) }}
+      <SubWarehouseVouchersScreen
+        warehouseName={warehouseLabel}
+        onBack={closeSubScreen}
+        onTabChange={onTabChange}
       />
     );
   }
@@ -346,25 +383,25 @@ export function MainWarehouseFinanceReportsScreen({
   const renderReportIcon = (type: FinanceReportItem['iconType']) => {
     switch (type) {
       case 'revenue':
-        return <RevenueReportIcon size={20} color={PALETTE.iconColor} />;
+        return <RevenueReportIcon size={20} color={adminColors.brandDeep} />;
       case 'expense':
-        return <ExpenseReportIcon size={20} color={PALETTE.iconColor} />;
+        return <ExpenseReportIcon size={20} color={adminColors.brandDeep} />;
       case 'daily':
-        return <DailySummaryIcon size={20} color={PALETTE.iconColor} />;
+        return <DailySummaryIcon size={20} color={adminColors.brandDeep} />;
       case 'monthly':
-        return <MonthlySummaryIcon size={20} color={PALETTE.iconColor} />;
+        return <MonthlySummaryIcon size={20} color={adminColors.brandDeep} />;
       case 'category':
-        return <ExpenseCategoryIcon size={20} color={PALETTE.iconColor} />;
+        return <ExpenseCategoryIcon size={20} color={adminColors.brandDeep} />;
       case 'voucher':
-        return <VoucherReportIcon size={20} color={PALETTE.iconColor} />;
+        return <VoucherReportIcon size={20} color={adminColors.brandDeep} />;
       default:
-        return <ExpenseReportIcon size={20} color={PALETTE.iconColor} />;
+        return <ExpenseReportIcon size={20} color={adminColors.brandDeep} />;
     }
   };
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
@@ -375,11 +412,11 @@ export function MainWarehouseFinanceReportsScreen({
             activeOpacity={0.75}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowBackIcon size={22} color="#FFFFFF" />
+            <ArrowBackIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Finance Reports</Text>
-            <Text style={styles.headerSubtitle}>{warehouseName}</Text>
+            <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>
           </View>
         </View>
       </View>
@@ -392,7 +429,10 @@ export function MainWarehouseFinanceReportsScreen({
       >
         {/* ─── Reports Menu Container Card ─── */}
         <View style={styles.cardContainer}>
-          {FINANCE_REPORT_ITEMS.map((item, index) => (
+          {visibleReports.length === 0 && (
+            <Text style={styles.emptyText}>You do not have access to any finance reports.</Text>
+          )}
+          {visibleReports.map((item, index) => (
             <React.Fragment key={item.id}>
               <TouchableOpacity
                 style={styles.reportRow}
@@ -411,65 +451,50 @@ export function MainWarehouseFinanceReportsScreen({
                 </View>
 
                 {/* Right Arrow */}
-                <ChevronRightIcon size={18} color="#9CA3AF" />
+                <ChevronRightIcon size={18} color={adminColors.placeholder} />
               </TouchableOpacity>
 
-              {index < FINANCE_REPORT_ITEMS.length - 1 && <View style={styles.rowDivider} />}
+              {index < visibleReports.length - 1 && <View style={styles.rowDivider} />}
             </React.Fragment>
           ))}
         </View>
 
-        {/* ─── SWA Scope Restriction Notice Card ─── */}
-        <View style={styles.restrictionCard}>
-          <View style={styles.restrictionIconBox}>
-            <ProhibitedIcon size={16} color="#7A726C" />
+        {/* ─── Scope Restriction Notice Card ─── */}
+        {/* Only the single-warehouse view carries the restriction; the all-warehouses
+            (Main) view is not described by this limit. */}
+        {scope.warehouseId !== undefined && (
+          <View style={styles.restrictionCard}>
+            <View style={styles.restrictionIconBox}>
+              <ProhibitedIcon size={16} color={adminColors.muted} />
+            </View>
+            <Text style={styles.restrictionText}>
+              No Tally/Zoho export, GST filing report, or company-wide P&L appears here — those capabilities are not granted to sub warehouse admins.
+            </Text>
           </View>
-          <Text style={styles.restrictionText}>
-            No Tally/Zoho export, GST filing report, or company-wide P&L appears here — those capabilities are not granted to SWA.
-          </Text>
-        </View>
+        )}
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S10 · Finance Reports</Text>
-
-        <View style={{ height: 20 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* ─── Bottom Navigation Bar ─── */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Home')} activeOpacity={0.7}>
           <HomeTabIcon active={false} />
           <Text style={styles.navLabel}>Home</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Receiving')} activeOpacity={0.7}>
           <ReceivingTabIcon active={false} />
           <Text style={styles.navLabel}>Receiving</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('Inventory')} activeOpacity={0.7}>
           <InventoryTabIcon active={false} />
           <Text style={styles.navLabel}>Inventory</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.7}
-        >
-          <MoreTabIcon active={true} />
+        <TouchableOpacity style={styles.navTab} onPress={() => handleTabPress('More')} activeOpacity={0.7}>
+          <MoreTabIcon active />
           <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
         </TouchableOpacity>
       </View>
@@ -482,72 +507,68 @@ export function MainWarehouseFinanceReportsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
-    paddingHorizontal: 20,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.input,
     paddingTop: 10,
-    paddingBottom: 16,
+    paddingBottom: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   backButton: {
-    marginRight: 12,
+    marginRight: adminSpacing.md,
     padding: 2,
   },
   headerTitleWrap: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.85)',
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
     marginTop: 2,
   },
   scroll: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+  },
+  bottomSpacer: {
+    height: adminSpacing.input,
   },
 
   // Reports Menu Card Container
   cardContainer: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingVertical: 4,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.xs,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   reportRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 14,
   },
   iconBox: {
     width: 42,
     height: 42,
-    borderRadius: 12,
-    backgroundColor: PALETTE.peachBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -556,30 +577,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reportTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textDark,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   reportSubtitle: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
-    marginHorizontal: 16,
+    backgroundColor: adminColors.border,
+    marginHorizontal: adminSpacing.lg,
+  },
+  emptyText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+    padding: adminSpacing.lg,
   },
 
   // Restriction Notice Card
   restrictionCard: {
-    backgroundColor: '#FAF5EE',
-    borderRadius: 12,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#EFE6D8',
-    padding: 12,
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
@@ -589,35 +614,19 @@ const styles = StyleSheet.create({
   },
   restrictionText: {
     flex: 1,
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-    lineHeight: 16,
-  },
-
-  // Screen Footer
-  screenFooterCode: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 4,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
 
   // Bottom Navigation
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 4,
+    borderTopColor: adminColors.border,
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    ...adminShadow.sm,
   },
   navTab: {
     flex: 1,
@@ -626,13 +635,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   navLabel: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
   },
   navLabelActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

@@ -106,15 +106,10 @@ export * from '../../../subwarehouse/screens/SubWarehouseMessageHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReportsScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseFinanceScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseRevenueScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseExpensesScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseAddExpenseScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseExpenseDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseVouchersScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseVoucherDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseDailyCashScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseExpenseCategoriesScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseFinanceHistoryScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseFinanceReportsScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
 export * from './AdminProfileScreen';
 
