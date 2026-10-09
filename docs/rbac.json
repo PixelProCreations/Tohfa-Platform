@@ -1,6 +1,6 @@
 {
   "$schema": "./rbac.schema.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "note": "Ground truth for all authorization. Source: Requirements v1.0 Ch.6 + Role & Feature Matrix v1.0. Where the two disagree, PRECEDENCE is stated in `conflicts` below.",
   "scopeLevels": {
     "all": "Unrestricted across the whole system",
@@ -1843,11 +1843,11 @@
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "view",
-        "SUB_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §11"
+      "source": "matrix §11; SUB_WH_ADMIN own = owner decision 2026-10-09 (see conflicts)"
     },
     {
       "code": "finance.pnl.view",
@@ -1984,6 +1984,21 @@
         "CUSTOMER": "none"
       },
       "source": "matrix §10"
+    },
+    {
+      "code": "warehouse.staff.list_view",
+      "module": "Workforce & Staff",
+      "description": "View the warehouse workforce roster (drivers and warehouse staff) and a roster member's detail. Distinct from admin.staff.list_view, which is the admin-account list. Read-only: no edit, delivery-assignment or attendance authority is granted by this code.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-10-09 (spec gap: no source document defines a warehouse-roster permission; see conflicts)"
     },
     {
       "code": "admin.super_admin.create",
@@ -2557,6 +2572,20 @@
       "roleMatrix": "Principle 9: all orders fulfilled via warehouse pickup; no driver or delivery-fleet feature anywhere",
       "precedence": "unresolved — scope-level conflict",
       "decision": "`order.delivery_slot.select` is modelled for CUSTOMER but is not implemented in Track 1. The pickup + 4-digit OTP path is the default. Requires client confirmation."
+    },
+    {
+      "topic": "Financial dashboard for Sub Warehouse Admin",
+      "reqsCh6": "not stated (finance.dashboard.view is sourced from the matrix only)",
+      "roleMatrix": "§11: SUB_WH_ADMIN = none",
+      "precedence": "owner decision 2026-10-09 (overrides a matrix-only value; Ch.6 states none)",
+      "decision": "`finance.dashboard.view` = `own` for SUB_WH_ADMIN (own warehouse only, mirroring finance.sales_income.view / finance.expense.log). MAIN_WH_ADMIN stays `view`. Server endpoints serving the dashboard must apply the warehouse_id scope filter for SUB_WH_ADMIN."
+    },
+    {
+      "topic": "Warehouse workforce roster (drivers and warehouse staff)",
+      "reqsCh6": "not stated",
+      "roleMatrix": "§10 defines only `admin.staff.list_view` (the admin-account list); no warehouse driver/staff roster permission exists in either document",
+      "precedence": "owner decision 2026-10-09 (spec gap filled)",
+      "decision": "New code `warehouse.staff.list_view`: SA/TA all, MAIN_WH_ADMIN own (all four warehouses it oversees, mirroring its admin.staff.list_view grant), SUB_WH_ADMIN own (its assigned warehouse), others none. `admin.staff.list_view` is NOT repurposed and SUB_WH_ADMIN stays none on it. Editing roster members, assigning deliveries and attendance remain ungated spec gaps with no code. Note the related driver-feature scope conflict above (Principle 9 vs Ch.2.3)."
     }
   ],
   "conflictPrecedence": "Requirements Document Ch.6 is authoritative. The Role & Feature Matrix supplies additional features Ch.6 omits, but never overrides a value Ch.6 states."

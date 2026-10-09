@@ -35,8 +35,11 @@ import type { MoreOptionItem, OptionGroup } from './types';
 // Menu items whose visibility depends on a docs/rbac.json permission. Items not
 // listed here are shown to every warehouse admin. The server re-checks each of
 // these when the destination screen loads its data.
+// `staff` opens the driver / warehouse-staff roster, not the admin-account list,
+// so it is gated by warehouse.staff.list_view (Main and Sub both hold it, owner
+// decision 2026-10-09) rather than admin.staff.list_view.
 const ITEM_PERMISSION: Readonly<Record<string, string>> = {
-  staff: 'admin.staff.list_view',
+  staff: 'warehouse.staff.list_view',
   finance: 'finance.dashboard.view',
   reports: 'report.export.file',
 };

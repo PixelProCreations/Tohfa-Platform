@@ -256,6 +256,44 @@ const GRANT_CASES: readonly GrantCase[] = [
     expected: ScopeLevel.NONE,
     because: 'TOHFA Admin cannot configure rating tier thresholds.',
   },
+
+  // --- Owner decision 2026-10-09: Sub Warehouse Admin sees Finance hub and roster. ---
+  {
+    permission: 'finance.dashboard.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.VIEW,
+    because: 'Main Warehouse Admin keeps read-only access to the financial dashboard (matrix §11).',
+  },
+  {
+    permission: 'finance.dashboard.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Owner decision: Sub Warehouse Admin sees the Finance hub for its own warehouse only.',
+  },
+  {
+    permission: 'warehouse.staff.list_view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Main Warehouse Admin views the driver/warehouse-staff roster of the warehouses it oversees.',
+  },
+  {
+    permission: 'warehouse.staff.list_view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Owner decision: Sub Warehouse Admin views the roster of its own warehouse only.',
+  },
+  {
+    permission: 'warehouse.staff.list_view',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Elected farmer admins have no warehouse workforce access.',
+  },
+  {
+    permission: 'admin.staff.list_view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'The admin staff list is not widened; the warehouse roster has its own code.',
+  },
 ];
 
 describe('docs/rbac.json grants', () => {
