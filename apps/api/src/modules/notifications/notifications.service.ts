@@ -75,6 +75,8 @@ import { enqueue } from '../../jobs/queue.js';
 export interface NotificationsService {
   listMyNotifications(actor: Actor, query: ListNotificationsQuery): Promise<unknown>;
   markAsRead(actor: Actor, id: string): Promise<unknown>;
+  getMyNotification(actor: Actor, id: string): Promise<unknown>;
+  markAllAsRead(actor: Actor): Promise<{ updated: number }>;
   registerDeviceToken(actor: Actor, input: RegisterDeviceTokenBody): Promise<unknown>;
   revokeDeviceToken(actor: Actor, token: string): Promise<unknown>;
   handleDomainEvent<E extends DomainEventName>(
@@ -112,6 +114,18 @@ export function createNotificationsService(
         throw new AppError('NOT_FOUND', { detail: 'Notification not found.' });
       }
       return mapNotificationResponse(updated);
+    },
+
+    async getMyNotification(actor, id) {
+      const row = await repo.findOwnById(pool, id, actor.userId);
+      if (row === null) {
+        throw new AppError('NOT_FOUND', { detail: 'Notification not found.' });
+      }
+      return mapNotificationResponse(row);
+    },
+
+    async markAllAsRead(actor) {
+      return { updated: await repo.markAllAsRead(pool, actor.userId) };
     },
 
     async registerDeviceToken(actor, input) {

@@ -101,6 +101,18 @@ function mockNotificationsRepo(): NotificationsRepo & {
       found.status = 'READ';
       return found;
     },
+    findOwnById: async (_db, id, userId) =>
+      notifications.find((n) => n.id === id && n.user_id === userId && n.channel === 'IN_APP') ?? null,
+    markAllAsRead: async (_db, userId) => {
+      const unread = notifications.filter(
+        (n) => n.user_id === userId && n.channel === 'IN_APP' && n.read_at === null,
+      );
+      for (const n of unread) {
+        n.read_at = new Date();
+        n.status = 'READ';
+      }
+      return unread.length;
+    },
     createNotification: async (_db, params: CreateNotificationParams) => {
       if (params.dedupeKey) {
         const existing = notifications.find(
@@ -497,6 +509,92 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
 
       // Customer attempts to mark farmer's notification as read
       await expect(service.markAsRead(customerActor, foreignId)).rejects.toThrow();
+    });
+  });
+
+  describe('BR-65: own notifications (service, mocked repo)', () => {
+    async function seed(service: ReturnType<typeof createNotificationsService>) {
+      await service.handleDomainEvent('farmer.application.approved', {
+        userId: IDS.userFarmer,
+        applicationId: 'APP-01',
+        tohfaFarmerId: 'TOHFA-01',
+      });
+      await service.handleDomainEvent('farmer.application.approved', {
+        userId: IDS.userFarmer,
+        applicationId: 'APP-02',
+        tohfaFarmerId: 'TOHFA-02',
+      });
+      await service.handleDomainEvent('order.confirmed', {
+        userId: IDS.customer,
+        orderId: 'ORD-01',
+        orderNumber: 'ORD-01',
+        totalAmount: '100',
+      });
+    }
+
+    it('BR-65a: getMyNotification returns the caller own row in the list item shape', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+      const row = repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!;
+
+      const item = await service.getMyNotification(anActor({ userId: IDS.userFarmer }), row.id);
+
+      expect(item).toEqual({
+        id: row.id,
+        channel: 'IN_APP',
+        title: row.title,
+        body: row.body,
+        locale: row.locale,
+        data: row.data,
+        readAt: null,
+        createdAt: row.created_at.toISOString(),
+      });
+    });
+
+    it('BR-65a: getMyNotification is 404 NOT_FOUND for another user and for an unknown id', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+      const farmersId = repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!.id;
+      const customer = anActor({ userId: IDS.customer });
+
+      await expect(service.getMyNotification(customer, farmersId)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+      await expect(service.getMyNotification(customer, '99999999-9999-4999-8999-999999999999')).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+    });
+
+    it('BR-65b: markAllAsRead only touches the caller rows and reports how many it changed', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+
+      const result = await service.markAllAsRead(anActor({ userId: IDS.userFarmer }));
+
+      expect(result).toEqual({ updated: 2 });
+      const customersRow = repo.notifications.find((n) => n.user_id === IDS.customer && n.channel === 'IN_APP')!;
+      expect(customersRow.read_at).toBeNull();
+    });
+
+    it('BR-65b: markAllAsRead is idempotent: a replay changes nothing and reports 0', async () => {
+      const repo = mockNotificationsRepo();
+      const service = createNotificationsService(repo);
+      await seed(service);
+      const farmer = anActor({ userId: IDS.userFarmer });
+
+      await service.markAllAsRead(farmer);
+      const firstReadAt = repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!.read_at;
+      const replay = await service.markAllAsRead(farmer);
+
+      expect(replay).toEqual({ updated: 0 });
+      expect(
+        repo.notifications.find((n) => n.user_id === IDS.userFarmer && n.channel === 'IN_APP')!.read_at,
+      ).toBe(firstReadAt);
     });
   });
 
