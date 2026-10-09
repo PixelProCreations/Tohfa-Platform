@@ -39,6 +39,21 @@ export interface SessionRow {
   revoke_reason: string | null;
 }
 
+/**
+ * The only session columns a user may ever be shown. Deliberately NOT a
+ * `SessionRow`: `device_id`, `fcm_token`, `revoked_*` and the owner id are
+ * absent so that a future `SELECT *` cannot leak them through this shape.
+ */
+export interface LiveSessionRow {
+  id: string;
+  platform: 'ios' | 'android' | 'web' | null;
+  user_agent: string | null;
+  last_seen_ip: string | null;
+  issued_at: Date;
+  last_seen_at: Date | null;
+  expires_at: Date;
+}
+
 export interface RefreshTokenRow {
   id: string;
   session_id: string;
@@ -111,6 +126,7 @@ export interface AuthRepo {
     },
   ): Promise<SessionRow>;
   findSessionById(db: Executor, sessionId: string): Promise<SessionRow | null>;
+  listLiveSessionsForUser(db: Executor, userId: string, limit: number): Promise<LiveSessionRow[]>;
   revokeSession(db: Executor, sessionId: string, revokedBy?: string | undefined, reason?: string | undefined): Promise<void>;
   revokeAllUserSessions(db: Executor, userId: string, revokedBy?: string | undefined, reason?: string | undefined): Promise<void>;
   createRefreshToken(
@@ -325,6 +341,23 @@ export const authRepo: AuthRepo = {
       [sessionId],
     );
     return result.rows[0] ?? null;
+  },
+
+  async listLiveSessionsForUser(db, userId, limit) {
+    // Live = not revoked and not expired. `id DESC` breaks issued_at ties so
+    // the order (and therefore the cap) is deterministic.
+    const result = await db.query<LiveSessionRow>(
+      `SELECT id, platform, user_agent, host(last_seen_ip) AS last_seen_ip,
+              issued_at, last_seen_at, expires_at
+         FROM sessions
+        WHERE user_id = $1
+          AND revoked_at IS NULL
+          AND expires_at > now()
+        ORDER BY issued_at DESC, id DESC
+        LIMIT $2`,
+      [userId, limit],
+    );
+    return result.rows;
   },
 
   async revokeSession(db, sessionId, revokedBy, reason) {
