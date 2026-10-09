@@ -2577,7 +2577,7 @@
       "topic": "Financial dashboard for Sub Warehouse Admin",
       "reqsCh6": "not stated (finance.dashboard.view is sourced from the matrix only)",
       "roleMatrix": "§11: SUB_WH_ADMIN = none",
-      "precedence": "owner decision 2026-10-09 (overrides a matrix-only value; Ch.6 states none)",
+      "precedence": "owner decision 2026-10-09 (overrides a matrix-only value; Ch.6 is silent)",
       "decision": "`finance.dashboard.view` = `own` for SUB_WH_ADMIN (own warehouse only, mirroring finance.sales_income.view / finance.expense.log). MAIN_WH_ADMIN stays `view`. Server endpoints serving the dashboard must apply the warehouse_id scope filter for SUB_WH_ADMIN."
     },
     {
