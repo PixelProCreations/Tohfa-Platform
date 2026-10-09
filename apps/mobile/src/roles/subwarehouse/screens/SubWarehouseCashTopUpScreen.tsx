@@ -12,7 +12,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import {
+  CASH_TOPUP_CAP_PAISE,
+  formatCashTopUpCap,
+  validateTopUpAmount,
+} from '../../admin/config/businessThresholds';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -63,15 +68,6 @@ function ArrowForwardIcon({ size = 18, color = '#FFFFFF' }: { size?: number; col
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function InfoCircleIcon({ size = 18, color = '#1E40AF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -148,13 +144,16 @@ export function SubWarehouseCashTopUpScreen({
   const newBalance = baseBalance + (amount || 0);
 
   const handleProceed = () => {
-    if (!amount || amount <= 0) {
+    // `amount` is whole rupees (the input strips non-digits), so * 100 is exact
+    // integer paise. The cap is BR-19's, from the config module, never a literal.
+    const check = validateTopUpAmount(amount * 100, CASH_TOPUP_CAP_PAISE);
+    if (!check.ok && check.reason === 'INVALID_AMOUNT') {
       Alert.alert('Invalid Amount', 'Please enter a valid cash top-up amount.');
       return;
     }
 
-    if (amount > 100000) {
-      Alert.alert('Amount Limit', 'Single cash deposit cannot exceed ₹1,00,000 as per warehouse cash handling limits.');
+    if (!check.ok) {
+      Alert.alert('Amount Limit', `A single cash top-up cannot exceed ${formatCashTopUpCap()}.`);
       return;
     }
 

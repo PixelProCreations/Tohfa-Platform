@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { formatCashTopUpCap } from '../../config/businessThresholds';
 
 const PALETTE = {
   primary: '#F0562A',
@@ -136,7 +137,7 @@ export function MainWarehouseCashTopUpScreen({
 
         <View style={styles.infoBox}>
           <InfoIcon />
-          <Text style={styles.infoText}>Maximum cash top-up: ₹10,000 per transaction</Text>
+          <Text style={styles.infoText}>Maximum cash top-up: {formatCashTopUpCap()} per transaction</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Balance Preview</Text>
