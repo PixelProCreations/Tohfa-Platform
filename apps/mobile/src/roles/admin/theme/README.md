@@ -113,8 +113,8 @@ titleText: { fontSize: 13.5, fontWeight: '800', letterSpacing: -0.2 },
 **Order:** shared pieces first (headers, tab bar, cards, badges, toasts used by many screens), then one
 module folder at a time (`dashboard/`, `farmers/`, `finance/`, ...). **`swa/` is last:** the orders and
 inventory survivors have moved to `screens/warehouse/<area>/` on the admin theme, `swa/components` is
-converted and `swa/constants.ts` (`SWA_COLORS`) is deleted (W4). What remains in `swa/` (M3S08, M5S03) is
-baselined by the guard until its area moves.
+converted and `swa/constants.ts` (`SWA_COLORS`) is deleted (W4). M3S08 was absorbed into
+`warehouse/profile-settings/StorageInfoScreen` (W4 part B); only `swa/components` (still imported) remains.
 
 ## Guard test
 

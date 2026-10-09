@@ -1,5 +1,4 @@
 export * from './WarehouseOverviewScreen';
-export * from './WarehouseSettingsScreen';
 export * from './InterWarehouseTransferScreen';
 export * from './InitiateNewTransferScreen';
 export * from './TransferDetailScreen';
@@ -28,7 +27,6 @@ export * from './ReceivingHistoryScreen';
 export * from './TransferReceivingScreen';
 export * from './TransferReceivingInspectionScreen';
 export * from './WarehouseOperationsHubScreen';
-export * from './StorageLocationsScreen';
 export * from './LocationDetailScreen';
 export * from './MaterialHandlingScreen';
 export * from './MaterialDetailScreen';
@@ -147,4 +145,10 @@ export {
   type NotificationTarget,
 } from './notifications';
 // Shared account (profile & settings) navigator (W4); the screens themselves are imported from './profile-settings'.
-export { ProfileFlow, type ProfileFlowProps, type ProfileRoute } from './profile-settings';
+export {
+  ProfileFlow,
+  WarehouseSettingsScreen,
+  type ProfileFlowProps,
+  type ProfileRoute,
+  type WarehouseSettingsScreenProps,
+} from './profile-settings';

@@ -9,6 +9,15 @@ export { SessionSecurityScreen, type SessionSecurityScreenProps } from './Sessio
 export { HelpSupportScreen, type HelpSupportScreenProps } from './HelpSupportScreen';
 export { AboutScreen, type AboutScreenProps } from './AboutScreen';
 export { ProfileFlow, type ProfileFlowProps } from './ProfileFlow';
+// Part B: warehouse-facing profile screens (design module M15).
+export { WarehouseInfoScreen, type WarehouseInfoScreenProps, type WarehouseProfileChildRoute } from './WarehouseInfoScreen';
+export { StorageInfoScreen, type StorageInfoScreenProps } from './StorageInfoScreen';
+export { OperatingInfoScreen, type OperatingInfoScreenProps } from './OperatingInfoScreen';
+export { ContactScreen, type ContactScreenProps } from './ContactScreen';
+export { DocumentsScreen, type DocumentsScreenProps } from './DocumentsScreen';
+export { WarehouseSettingsScreen, type WarehouseSettingsScreenProps } from './WarehouseSettingsScreen';
+export { WAREHOUSE_PROFILE_CODES } from './WarehouseProfileParts';
+export { PROFILE_WAREHOUSES } from './warehouseFixtures';
 export { PASSWORD_MIN_LENGTH, PROFILE_CODES } from './ProfileParts';
 export { defaultProfile, FAQ_ITEMS, roleLabelOf, scopeLabelOf } from './fixtures';
 export type {
@@ -17,5 +26,9 @@ export type {
   FaqCategory,
   FaqItem,
   ProfileRoute,
+  StorageLocationItem,
   SupportTicketItem,
+  WarehouseDocItem,
+  WarehouseProfileInfo,
+  WarehouseSettingsValues,
 } from './types';

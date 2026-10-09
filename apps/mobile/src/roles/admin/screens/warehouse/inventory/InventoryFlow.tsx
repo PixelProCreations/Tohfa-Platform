@@ -10,12 +10,13 @@
  *
  * Route keys are the design ids ('M3S01'...'M3S18') because deep links from the
  * shells, notifications and App.tsx already use them. M3S08 (storage location
- * stock) is not part of this area yet; it still renders from swa/inventory.
+ * stock) was absorbed into the profile-settings StorageInfoScreen (W4 part B);
+ * the 'M3S08' key renders that screen so ProductStockDetail's "View Storage
+ * Locations" keeps working.
  */
 import React, { useEffect, useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
-import { M3S08_StorageLocationStock } from '../../swa/inventory';
 import { AdjustmentDetailScreen } from './AdjustmentDetailScreen';
 import { AdjustmentHistoryScreen } from './AdjustmentHistoryScreen';
 import { BatchDetailScreen } from './BatchDetailScreen';
@@ -33,6 +34,8 @@ import { StockMovementDetailScreen } from './StockMovementDetailScreen';
 import { StockMovementReceiptScreen } from './StockMovementReceiptScreen';
 import { StockVerificationScreen } from './StockVerificationScreen';
 import { VarianceReviewScreen } from './VarianceReviewScreen';
+// File import, not the profile-settings barrel: the barrel pulls in ProfileFlow, which this flow never needs.
+import { StorageInfoScreen } from '../profile-settings/StorageInfoScreen';
 import type { InventoryRouteParams, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
 
 /** Navigation handle given to `renderExternalScreen`. */
@@ -125,14 +128,7 @@ export function InventoryFlow({
       case 'M3S07':
         return <StockAllocationDashboardScreen {...common} />;
       case 'M3S08':
-        return (
-          <M3S08_StorageLocationStock
-            onNavigate={(screen: string) => navigate(screen)}
-            onBack={back}
-            onTabChange={onTabChange}
-            warehouseName={scope.warehouseName}
-          />
-        );
+        return <StorageInfoScreen scope={scope} can={can} onBack={back} onTabChange={onTabChange} warehouseOptions={warehouseOptions} />;
       case 'M3S09':
         return <LowStockScreen {...common} onInitiateTransfer={onInitiateTransfer} />;
       case 'M3S10':

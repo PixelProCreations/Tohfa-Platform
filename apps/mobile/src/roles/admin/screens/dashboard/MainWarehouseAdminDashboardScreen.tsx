@@ -15,7 +15,7 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { MoreScreen } from '../warehouse/dashboard-home-more';
-import { ProfileFlow } from '../warehouse/profile-settings';
+import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
@@ -30,7 +30,6 @@ import { InventoryFlow } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
 import {
   WarehouseOverviewScreen,
-  WarehouseSettingsScreen,
   WarehousePerformanceScreen,
   ManageWarehousesScreen,
   InterWarehouseTransferScreen,
@@ -78,7 +77,6 @@ import {
   TransferReceivingScreen,
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
-  StorageLocationsScreen,
   LocationDetailScreen,
   MaterialHandlingScreen,
   MaterialDetailScreen,
@@ -560,6 +558,12 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 /** External customer routes the Main shell draws inside CustomersFlow (New Sale leaves for the direct-sale flow). */
 const MAIN_CUSTOMER_INLINE_ROUTES = ['CustomerWallet', 'CashTopUp', 'OrderDetail', 'RmaDetail'] as const;
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+
+/** Seeded warehouse id for a display name like 'Ooty Warehouse' or 'Ooty' (the overview still passes names). */
+function warehouseIdForName(name: string): string | undefined {
+  const key = name.replace(/ Warehouse$/, '').toLowerCase();
+  return PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').toLowerCase().startsWith(key))?.warehouseId;
+}
 
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
 const INVENTORY_ENTRY = {
@@ -1632,13 +1636,17 @@ export function MainWarehouseAdminDashboardScreen({
             ) : whSubView === 'warehouse_notifications' ? (
               renderNotificationsFlow('Notifications')
             ) : whSubView === 'storage_locations' ? (
-              <StorageLocationsScreen
+              // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
+              // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
+              <ProfileFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="StorageInfo"
                 onBack={() => navigateWh('warehouse_operations')}
-                onSelectLocation={(locId) => {
+                onSelectStorageLocation={(locId) => {
                   setSelectedLocationId(locId);
                   navigateWh('location_detail');
                 }}
-                onBrowseHierarchy={() => { }}
               />
             ) : whSubView === 'location_detail' ? (
               <LocationDetailScreen
@@ -1812,8 +1820,13 @@ export function MainWarehouseAdminDashboardScreen({
                 }}
               />
             ) : whSubView === 'warehouse_settings' ? (
-              <WarehouseSettingsScreen
-                warehouseName={selectedWHName}
+              // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
+              // on warehouse.capacity.set; opens on the warehouse the overview showed.
+              <ProfileFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="WarehouseSettings"
+                initialWarehouseId={warehouseIdForName(selectedWHName)}
                 onBack={goBackWh}
               />
             ) : whSubView === 'warehouse_performance' ? (

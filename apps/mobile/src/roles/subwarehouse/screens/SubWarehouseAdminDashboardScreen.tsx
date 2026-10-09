@@ -33,7 +33,6 @@ import {
   ReceivingSearchFiltersScreen,
   ShipmentDetailScreen,
 } from '../../admin/screens/warehouse';
-import { SubWarehouseProfileScreen } from './SubWarehouseProfileScreen';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
@@ -70,7 +69,6 @@ import { SubWarehouseMaterialHandlingScreen } from './SubWarehouseMaterialHandli
 import { SubWarehouseAddMaterialScreen } from './SubWarehouseAddMaterialScreen';
 import { SubWarehouseMaterialDetailScreen } from './SubWarehouseMaterialDetailScreen';
 import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
-import { SubWarehouseStorageInfoScreen } from './SubWarehouseStorageInfoScreen';
 import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
 import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
 import { SubWarehouseIssueSubmittedScreen } from './SubWarehouseIssueSubmittedScreen';
@@ -1727,31 +1725,25 @@ export function SubWarehouseAdminDashboardScreen({
   }
 
   if (showStorageInfo) {
+    // Storage Information lives in the shared profile-settings area (W4 part B);
+    // the location detail stays here (selectedStorageLocationId, above).
     return (
-      <SubWarehouseStorageInfoScreen
-        warehouseName="Coonoor Warehouse"
+      <ProfileFlow
+        scope={scope}
+        can={can}
+        initialScreen="StorageInfo"
         onBack={() => {
           // Back from Storage List → go back to Profile or Operations
           setShowStorageInfo(false);
-          if (showProfile) {
-            setShowProfile(true);
-          } else {
-            setShowWarehouseOperations(true);
-          }
+          if (!showProfile) setShowWarehouseOperations(true);
         }}
         onTabChange={(tab) => {
           setShowStorageInfo(false);
           setActiveTab(tab);
         }}
-        onSelectLocation={(id) => {
+        onSelectStorageLocation={(id) => {
           setShowStorageInfo(false);
           setSelectedStorageLocationId(id);
-        }}
-        onViewStock={() => {
-          setShowStorageInfo(false);
-          setShowProfile(false);
-          setShowWarehouseOperations(false);
-          setActiveTab('Inventory');
         }}
       />
     );
@@ -1984,22 +1976,25 @@ export function SubWarehouseAdminDashboardScreen({
   }
 
   if (showProfile) {
+    // Warehouse Profile (+ Storage / Operating / Contact / Documents) is the
+    // shared ProfileFlow (W4 part B). A storage location opens the shell's detail.
     return (
-      <SubWarehouseProfileScreen
+      <ProfileFlow
+        scope={scope}
+        can={can}
+        initialScreen="WarehouseProfile"
         onBack={() => setShowProfile(false)}
         onTabChange={(tab) => {
           setShowProfile(false);
           setActiveTab(tab);
         }}
-        onNavigateToInventory={() => {
+        onSelectStorageLocation={(id) => {
           setShowProfile(false);
-          setActiveTab('Inventory');
+          setSelectedStorageLocationId(id);
         }}
       />
     );
   }
-
-
 
   if (showReportsScreen) {
     return (

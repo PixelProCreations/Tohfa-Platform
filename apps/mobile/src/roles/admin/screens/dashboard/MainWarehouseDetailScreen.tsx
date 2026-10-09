@@ -7,8 +7,15 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
-import { MainWarehouseDocumentsScreen } from './MainWarehouseDocumentsScreen';
+import Svg, { Path } from 'react-native-svg';
+import { makeCan, type Can } from '../../permissions/can';
+import { DocumentsScreen } from '../warehouse/profile-settings';
+import type { WarehouseScope } from '../warehouse/profile-settings/types';
+
+/** Main Warehouse view: no warehouseId means every warehouse. */
+const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+/** No permission list is wired into this screen yet: fail closed (Documents is read-only and checks no code). */
+const NO_PERMISSIONS: Can = makeCan();
 
 const PALETTE = {
   primary: '#F0562A',
@@ -36,11 +43,12 @@ function DocumentIcon({ color = '#F0562A' }) {
   );
 }
 
-export function MainWarehouseDetailScreen({ onBack }: { onBack: () => void }) {
+export function MainWarehouseDetailScreen({ onBack, can = NO_PERMISSIONS }: { onBack: () => void; can?: Can | undefined }) {
   const [showDocs, setShowDocs] = useState(false);
 
   if (showDocs) {
-    return <MainWarehouseDocumentsScreen onBack={() => setShowDocs(false)} />;
+    // MainWarehouseDocumentsScreen was absorbed into the shared DocumentsScreen (W4 part B).
+    return <DocumentsScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={() => setShowDocs(false)} />;
   }
   return (
     <View style={styles.root}>

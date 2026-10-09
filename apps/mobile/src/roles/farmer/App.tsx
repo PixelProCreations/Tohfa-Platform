@@ -124,13 +124,8 @@ import {
   MainWarehouseAdminDashboardScreen,
   SubWarehouseAdminDashboardScreen,
   OrdersModule,
-  SubWarehouseProfileScreen,
   SubWarehouseOverviewScreen,
   SubWarehouseRecentActivityScreen,
-  SubWarehouseStorageInfoScreen,
-  SubWarehouseOperatingInfoScreen,
-  SubWarehouseContactScreen,
-  SubWarehouseDocumentsScreen,
   SubWarehouseTodayOverviewScreen,
   SubWarehouseReviewReceivingScreen,
   SubWarehouseSalesScreen,
@@ -240,7 +235,6 @@ import {
   type OnlineOrderItem,
   type B2BAccount,
   WarehouseOverviewScreen,
-  WarehouseSettingsScreen,
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
   InventoryFlow,
@@ -795,11 +789,19 @@ const NOTIFICATIONS_ROUTE_ENTRY: Partial<Record<ScreenName, NotificationsRoute>>
  * Legacy account route keys -> shared ProfileFlow routes (W4). Settings opens the
  * hub (Profile, Notification Settings, Security, Change Password, Session &
  * Security, Help & Support, About and Logout are reached from it); Help & Support
- * keeps its own key for the More menu.
+ * keeps its own key for the More menu. The warehouse profile keys open the
+ * warehouse-facing screens (W4 part B).
  */
 const PROFILE_ROUTE_ENTRY: Partial<Record<ScreenName, ProfileRoute>> = {
   SubWarehouseSettings: 'Settings',
   SubWarehouseHelpSupport: 'HelpSupport',
+  // Part B: the warehouse-facing profile screens (Profile -> Storage /
+  // Operating / Contact / Documents are also reachable inside the flow).
+  SubWarehouseProfile: 'WarehouseProfile',
+  SubWarehouseStorageInfo: 'StorageInfo',
+  SubWarehouseOperatingInfo: 'OperatingInfo',
+  SubWarehouseContact: 'Contact',
+  SubWarehouseDocuments: 'Documents',
 };
 /** NotificationsFlow params for a legacy key (detail carries `notification`). */
 function notificationsParamsFor(screen: ScreenName, params: Record<string, unknown>): NotificationsRouteParams {
@@ -1261,19 +1263,6 @@ export default function App(): React.JSX.Element {
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
             onBack={goBack}
           />
-        ) : screen === 'SubWarehouseProfile' ? (
-          <SubWarehouseProfileScreen
-            onBack={goBack}
-            onNavigateToStorageInfo={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToOperatingInfo={() => navigate('SubWarehouseOperatingInfo')}
-            onNavigateToContact={() => navigate('SubWarehouseContact')}
-            onNavigateToDocuments={() => navigate('SubWarehouseDocuments')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') goBack();
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-            }}
-          />
         ) : screen === 'SubWarehouseOverview' ? (
           <SubWarehouseOverviewScreen
             warehouseName="Coonoor Warehouse"
@@ -1329,48 +1318,6 @@ export default function App(): React.JSX.Element {
                 };
                 navigate('SubWarehouseNotificationDetail', { notification });
               }
-            }}
-          />
-        ) : screen === 'SubWarehouseStorageInfo' ? (
-          <SubWarehouseStorageInfoScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
-            onSelectLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
-            onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory' })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseOperatingInfo' ? (
-          <SubWarehouseOperatingInfoScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseContact' ? (
-          <SubWarehouseContactScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseDocuments' ? (
-          <SubWarehouseDocumentsScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
@@ -1634,7 +1581,9 @@ export default function App(): React.JSX.Element {
         ) : PROFILE_ROUTE_ENTRY[screen] !== undefined ? (
           // The account screens live in the shared warehouse/profile-settings area
           // (W4); 'SubWarehouseSettings' opens the hub, 'SubWarehouseHelpSupport'
-          // the help centre. Report an issue is offered by the screen only with
+          // the help centre, 'SubWarehouseProfile' / 'SubWarehouseStorageInfo' / ...
+          // the warehouse-facing screens (part B; a location's detail stays here).
+          // Report an issue is offered by the screen only with
           // support.ticket.create_own (none for warehouse admins today).
           <ProfileFlow
             scope={SUB_WAREHOUSE_SCOPE}
@@ -1643,6 +1592,7 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onLogout={() => navigate('Login')}
             onReportIssue={() => navigate('SubWarehouseReportIssue')}
+            onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
@@ -2126,8 +2076,13 @@ export default function App(): React.JSX.Element {
             onSubmitTransfer={() => navigate('InterWarehouseTransfer')}
           />
         ) : screen === 'WarehouseSettings' ? (
-          <WarehouseSettingsScreen
-            warehouseName="Kotagiri Warehouse"
+          // Main-only warehouse settings now live in the shared profile-settings
+          // area; ProfileFlow opens them for the Main scope (the screen is
+          // route-guarded on warehouse.capacity.set).
+          <ProfileFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen="WarehouseSettings"
             onBack={goBack}
           />
         ) : screen === 'SalesChannelOverview' ? (
