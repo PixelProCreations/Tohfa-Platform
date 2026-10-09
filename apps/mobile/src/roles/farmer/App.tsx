@@ -145,12 +145,10 @@ import {
   SubWarehouseSalesHistoryScreen,
   SubWarehouseSaleDetailScreen,
   SubWarehouseMarketDaySalesScreen,
-  SubWarehouseHorecaSalesScreen,
-  SubWarehouseHorecaDetailScreen,
-  type HorecaOrderItem,
-  SubWarehouseB2BSalesScreen,
-  SubWarehouseB2BDetailScreen,
-  type B2BOrderItem,
+  ChannelSalesScreen,
+  ChannelOrderDetailScreen,
+  type ChannelOrderItem,
+  type SalesChannel,
   WalletOperationsScreen,
   SubWarehouseCashTopUpScreen,
   SubWarehouseFiscalTagScreen,
@@ -743,6 +741,11 @@ function TabPlusIcon({ size = 22, color = colors.white }: { size?: number; color
  * warehouse (db/seed/001_reference.sql code WH-COON) in ONE place instead of
  * a 'Coonoor Warehouse' literal inside every screen. See SPEC_GAPS.md.
  */
+/** Sales channel shown by a B2B / HORECA route (the merged ChannelSales / ChannelOrderDetail screens). */
+function channelForRoute(route: 'SubWarehouseB2BSales' | 'SubWarehouseB2BDetail' | 'SubWarehouseHorecaSales' | 'SubWarehouseHorecaDetail'): SalesChannel {
+  return route === 'SubWarehouseB2BSales' || route === 'SubWarehouseB2BDetail' ? 'B2B' : 'HORECA';
+}
+
 const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' };
 
 interface StackEntry {
@@ -779,8 +782,7 @@ export default function App(): React.JSX.Element {
   const [selectedStockBatch, setSelectedStockBatch] = useState<StockBatchItem | null>(null);
   const [selectedStockAdjustment, setSelectedStockAdjustment] = useState<VerifyStockAdjustmentData | null>(null);
   const [selectedSaleRecord, setSelectedSaleRecord] = useState<any | null>(null);
-  const [selectedHorecaOrder, setSelectedHorecaOrder] = useState<HorecaOrderItem | null>(null);
-  const [selectedB2BOrder, setSelectedB2BOrder] = useState<B2BOrderItem | null>(null);
+  const [selectedChannelOrder, setSelectedChannelOrder] = useState<ChannelOrderItem | null>(null);
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [params, setParams] = useState<Record<string, any>>({});
@@ -1277,6 +1279,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseSales' ? (
           <SubWarehouseSalesScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -1436,59 +1440,29 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
-        ) : screen === 'SubWarehouseHorecaSales' ? (
-          <SubWarehouseHorecaSalesScreen
+        ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
+          <ChannelSalesScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            channel={channelForRoute(screen)}
             onBack={goBack}
             onSelectOrder={(ord) => {
-              setSelectedHorecaOrder(ord);
-              navigate('SubWarehouseHorecaDetail');
-            }}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
+              setSelectedChannelOrder(ord);
+              navigate(ord.channel === 'B2B' ? 'SubWarehouseB2BDetail' : 'SubWarehouseHorecaDetail');
             }}
           />
-        ) : screen === 'SubWarehouseHorecaDetail' ? (
-          <SubWarehouseHorecaDetailScreen
-            order={selectedHorecaOrder || undefined}
+        ) : screen === 'SubWarehouseB2BDetail' || screen === 'SubWarehouseHorecaDetail' ? (
+          <ChannelOrderDetailScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            channel={channelForRoute(screen)}
+            // Only reuse the selection if it belongs to this route's channel.
+            order={selectedChannelOrder?.channel === channelForRoute(screen) ? selectedChannelOrder : undefined}
             onBack={goBack}
-            onViewInvoice={() =>
-              navigate('SubWarehouseInvoiceDetail', {
-                invoiceId: `INV-${(selectedHorecaOrder?.id || 'HORECA-0021').replace('HORECA-', '')}`,
-              })
-            }
-            onViewStatus={() => {
-              setSelectedStatusOrderId(selectedHorecaOrder?.id || 'HORECA-0021');
-              navigate('SubWarehouseOrderStatusHistory');
-            }}
-          />
-        ) : screen === 'SubWarehouseB2BSales' ? (
-          <SubWarehouseB2BSalesScreen
-            onBack={goBack}
-            onSelectOrder={(ord) => {
-              setSelectedB2BOrder(ord);
-              navigate('SubWarehouseB2BDetail');
-            }}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseB2BDetail' ? (
-          <SubWarehouseB2BDetailScreen
-            order={selectedB2BOrder || undefined}
-            onBack={goBack}
-            onViewInvoice={() =>
-              navigate('SubWarehouseInvoiceDetail', {
-                invoiceId: `INV-${(selectedB2BOrder?.id || 'B2B-00124').replace('B2B-', '')}`,
-              })
-            }
-            onViewStatus={() => {
-              setSelectedStatusOrderId(selectedB2BOrder?.id || 'B2B-00124');
+            onNavigate={(next, nextParams) => navigate(next as ScreenName, nextParams)}
+            onViewInvoice={(invoiceId) => navigate('SubWarehouseInvoiceDetail', { invoiceId })}
+            onViewStatus={(orderId) => {
+              setSelectedStatusOrderId(orderId);
               navigate('SubWarehouseOrderStatusHistory');
             }}
           />

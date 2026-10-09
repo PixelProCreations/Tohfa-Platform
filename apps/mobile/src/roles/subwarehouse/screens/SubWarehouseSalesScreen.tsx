@@ -14,8 +14,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
 import { SubWarehouseSalesHistoryScreen } from './SubWarehouseSalesHistoryScreen';
 import { SubWarehouseMarketDaySalesScreen } from './SubWarehouseMarketDaySalesScreen';
-import { SubWarehouseHorecaSalesScreen } from './SubWarehouseHorecaSalesScreen';
-import { SubWarehouseB2BSalesScreen } from './SubWarehouseB2BSalesScreen';
+import { ChannelSalesScreen, type SalesChannel } from '../../admin/screens/warehouse/sales-direct';
+import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 import { SubWarehouseNeedsAttentionScreen } from './SubWarehouseNeedsAttentionScreen';
 import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
 
@@ -345,6 +345,10 @@ function MoreTabIcon({ active }: { active: boolean }) {
 }
 
 export interface SubWarehouseSalesScreenProps {
+  /** Warehouse the viewer is scoped to, handed to the shared channel sales screens. */
+  scope: WarehouseScope;
+  /** docs/rbac.json permission check for the signed-in admin (roles/admin/permissions/can.ts). */
+  can: PermissionCheck;
   onBack?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
@@ -358,6 +362,8 @@ export interface SubWarehouseSalesScreenProps {
 }
 
 export function SubWarehouseSalesScreen({
+  scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
@@ -373,8 +379,7 @@ export function SubWarehouseSalesScreen({
   const [showNewSaleScreen, setShowNewSaleScreen] = useState(false);
   const [showSalesHistoryScreen, setShowSalesHistoryScreen] = useState(false);
   const [showMarketDaySalesScreen, setShowMarketDaySalesScreen] = useState(false);
-  const [showHorecaSalesScreen, setShowHorecaSalesScreen] = useState(false);
-  const [showB2BSalesScreen, setShowB2BSalesScreen] = useState(false);
+  const [channelSales, setChannelSales] = useState<SalesChannel | null>(null);
   const [showNeedsAttentionScreen, setShowNeedsAttentionScreen] = useState(false);
   const [showSaleDetailScreen, setShowSaleDetailScreen] = useState(false);
   const [attentionCategory, setAttentionCategory] = useState<'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue'>('all');
@@ -416,7 +421,7 @@ export function SubWarehouseSalesScreen({
     if (onNavigateToHorecaSales) {
       onNavigateToHorecaSales();
     } else {
-      setShowHorecaSalesScreen(true);
+      setChannelSales('HORECA');
     }
   };
 
@@ -424,7 +429,7 @@ export function SubWarehouseSalesScreen({
     if (onNavigateToB2BSales) {
       onNavigateToB2BSales();
     } else {
-      setShowB2BSalesScreen(true);
+      setChannelSales('B2B');
     }
   };
 
@@ -492,20 +497,13 @@ export function SubWarehouseSalesScreen({
     );
   }
 
-  if (showHorecaSalesScreen) {
+  if (channelSales) {
     return (
-      <SubWarehouseHorecaSalesScreen
-        onBack={() => setShowHorecaSalesScreen(false)}
-        onTabChange={handleTabPress}
-      />
-    );
-  }
-
-  if (showB2BSalesScreen) {
-    return (
-      <SubWarehouseB2BSalesScreen
-        onBack={() => setShowB2BSalesScreen(false)}
-        onTabChange={handleTabPress}
+      <ChannelSalesScreen
+        scope={scope}
+        can={can}
+        channel={channelSales}
+        onBack={() => setChannelSales(null)}
       />
     );
   }

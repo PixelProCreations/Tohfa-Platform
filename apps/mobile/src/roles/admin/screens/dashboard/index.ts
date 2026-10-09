@@ -25,10 +25,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseSaleConfirmationScreen'
 export * from '../../../subwarehouse/screens/SubWarehouseSalesHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseSaleDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseMarketDaySalesScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseHorecaSalesScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseHorecaDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseB2BSalesScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseB2BDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseCashTopUpScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseConfirmCashTopUpScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseCustomerWalletScreen';

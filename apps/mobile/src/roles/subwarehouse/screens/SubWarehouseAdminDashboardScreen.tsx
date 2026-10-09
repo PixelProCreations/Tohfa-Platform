@@ -2443,6 +2443,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (showSalesScreen) {
     return (
       <SubWarehouseSalesScreen
+        scope={scope}
+        can={can}
         onBack={() => {
           setShowSalesScreen(false);
           setActiveTab('More');
