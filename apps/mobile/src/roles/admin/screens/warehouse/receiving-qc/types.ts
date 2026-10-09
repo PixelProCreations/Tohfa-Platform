@@ -26,8 +26,8 @@ export type {
 /**
  * Every step of the Goods Receiving wizard. The first fifteen are the original
  * wizard steps; the rest were absorbed from standalone screens:
- *   grade_verification  <- GradeProductVerificationScreen (M2-S08)
- *   batch_assignment    <- BatchAssignmentScreen (M2-S14) + the Review
+ *   grade_verification  <- GradeProductVerificationScreen
+ *   batch_assignment    <- BatchAssignmentScreen + the Review
  *                          Receiving putaway bay
  *   counter_offer       <- new: the rbac code inventory.quality.counter_offer
  *                          had no surface (see SPEC_GAPS W4n-2)

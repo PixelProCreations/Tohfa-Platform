@@ -127,7 +127,6 @@ import {
   SubWarehouseOverviewScreen,
   SubWarehouseRecentActivityScreen,
   SubWarehouseTodayOverviewScreen,
-  SubWarehouseReviewReceivingScreen,
   SubWarehouseSalesScreen,
   SubWarehouseNewSaleScreen,
   SubWarehouseSelectProductsScreen,
@@ -150,7 +149,10 @@ import {
   MoreScreen,
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
-  SubWarehouseGoodsReceiptDetailScreen,
+  GoodsReceivingWizardScreen,
+  ReceivingHistoryDetailScreen,
+  ALERT_RECEIPT_ID,
+  DEMO_SHIPMENT,
   SubWarehouseStaffScreen,
   SubWarehouseStaffDetailScreen,
   SubWarehouseEditStaffProfileScreen,
@@ -1352,15 +1354,14 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseReviewReceiving' ? (
-          <SubWarehouseReviewReceivingScreen
+          // SubWarehouseReviewReceivingScreen was absorbed as the wizard's Review step (W4 receiving-qc).
+          <GoodsReceivingWizardScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialStep="review_receiving"
+            shipment={DEMO_SHIPMENT}
             onBack={goBack}
-            onSuccess={() => navigate('SubWarehouseAdminDashboard')}
-            shipmentData={{
-              reference: 'GR-1024',
-              source: 'Main Warehouse (Ooty Hub)',
-              product: 'Tomato (Grade 1)',
-              expectedQuantity: '150 KG',
-            }}
+            onFinish={() => navigate('SubWarehouseAdminDashboard')}
           />
         ) : screen === 'SubWarehouseTodayOverview' ? (
           <SubWarehouseTodayOverviewScreen
@@ -1815,12 +1816,13 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
-          <SubWarehouseGoodsReceiptDetailScreen
+          // SubWarehouseGoodsReceiptDetailScreen was absorbed by the shared receipt detail (W4 receiving-qc).
+          <ReceivingHistoryDetailScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            receiptId={ALERT_RECEIPT_ID}
             onBack={goBack}
-            onTakeAction={() => {
-              Alert.alert('Action Taken', 'Variance reconciliation initiated.');
-              goBack();
-            }}
+            onTakeAction={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving' })}
           />
         ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
           // The RMA screens live in the shared warehouse/returns-rma area (W4);

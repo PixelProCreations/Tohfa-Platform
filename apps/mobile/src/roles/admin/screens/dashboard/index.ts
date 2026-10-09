@@ -6,7 +6,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseAdminDashboardScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOverviewScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseRecentActivityScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTodayOverviewScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseReviewReceivingScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseSalesScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseNewSaleScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseSelectProductsScreen';
@@ -34,7 +33,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseReportIssueScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceHistoryScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseGoodsReceiptDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReportsScreen';
 export * from './AdminProfileScreen';
 

@@ -16,6 +16,7 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
 import { AdminProfileScreen } from '../../admin/screens/dashboard/AdminProfileScreen';
 import {
+  ALERT_RECEIPT_ID,
   GoodsReceivingWizardScreen,
   ReceivingHistoryDetailScreen,
   type ReceivingWizardStep,
@@ -29,16 +30,12 @@ import {
 } from '../../admin/screens/warehouse/notifications';
 import {
   IncomingShipmentsScreen,
-  StartReceivingScreen,
-  QualityCheckScreen,
-  PartialAcceptanceScreen,
   ReceivingHistoryScreen,
   ReceivingSearchFiltersScreen,
   ShipmentDetailScreen,
 } from '../../admin/screens/warehouse';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
-import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
@@ -54,7 +51,6 @@ import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
-import { SubWarehouseGoodsReceiptDetailScreen } from './SubWarehouseGoodsReceiptDetailScreen';
 import {
   SubWarehouseStaffScreen,
   type StaffMember,
@@ -1162,9 +1158,6 @@ export function SubWarehouseAdminDashboardScreen({
   const [showReceivingSearchFilters, setShowReceivingSearchFilters] = useState(false);
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>('GR-1024');
   const [showShipmentDetailScreen, setShowShipmentDetailScreen] = useState(false);
-  const [showStartReceivingScreen, setShowStartReceivingScreen] = useState(false);
-  const [showQualityCheckScreen, setShowQualityCheckScreen] = useState(false);
-  const [showPartialAcceptanceScreen, setShowPartialAcceptanceScreen] = useState(false);
   const [showReceivingHistoryScreen, setShowReceivingHistoryScreen] = useState(false);
   const [receivingHistoryFilter, setReceivingHistoryFilter] = useState<
     'All' | 'Accepted' | 'Partially Accepted' | 'Rejected'
@@ -1306,18 +1299,6 @@ export function SubWarehouseAdminDashboardScreen({
         setShowShipmentDetailScreen(false);
         return true;
       }
-      if (showStartReceivingScreen) {
-        setShowStartReceivingScreen(false);
-        return true;
-      }
-      if (showQualityCheckScreen) {
-        setShowQualityCheckScreen(false);
-        return true;
-      }
-      if (showPartialAcceptanceScreen) {
-        setShowPartialAcceptanceScreen(false);
-        return true;
-      }
       if (showReceivingHistoryScreen) {
         setShowReceivingHistoryScreen(false);
         return true;
@@ -1404,11 +1385,16 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showGoodsReceiptDetail) {
     return (
-      <SubWarehouseGoodsReceiptDetailScreen
+      // Was SubWarehouseGoodsReceiptDetailScreen, absorbed by the shared receipt detail (W4).
+      // "Take Action" reconciles the variance in the wizard's Damage / Mismatch step.
+      <ReceivingHistoryDetailScreen
+        scope={scope}
+        can={can}
+        receiptId={ALERT_RECEIPT_ID}
         onBack={() => setShowGoodsReceiptDetail(false)}
         onTakeAction={() => {
-          Alert.alert('Action Taken', 'Variance reconciliation initiated.');
           setShowGoodsReceiptDetail(false);
+          setReceivingWizardStep('damage_mismatch');
         }}
       />
     );
@@ -1959,7 +1945,13 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showReviewReceiving) {
     return (
-      <SubWarehouseReviewReceivingScreen
+      // Was SubWarehouseReviewReceivingScreen: now the wizard's one-page Review step (W4).
+      <GoodsReceivingWizardScreen
+        scope={scope}
+        can={can}
+        initialStep="review_receiving"
+        shipment={INITIAL_SHIPMENTS[0]}
+        receiverName={userName}
         onBack={() => {
           setShowReviewReceiving(false);
           if (returnToNotificationsOnBack) {
@@ -1967,15 +1959,9 @@ export function SubWarehouseAdminDashboardScreen({
             setShowNotifications(true);
           }
         }}
-        onSuccess={() => {
+        onFinish={() => {
           setShowReviewReceiving(false);
           navigateTo('Receiving', 'overview');
-        }}
-        shipmentData={{
-          reference: 'GR-1024',
-          source: 'Main Warehouse (Ooty Hub)',
-          product: 'Tomato (Grade 1)',
-          expectedQuantity: '150 KG',
         }}
       />
     );
@@ -2444,52 +2430,8 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowShipmentDetailScreen(false)}
         onStartReceiving={() => {
           setShowShipmentDetailScreen(false);
-          setShowStartReceivingScreen(true);
+          setReceivingWizardStep('start_receiving');
         }}
-      />
-    );
-  }
-
-  if (showStartReceivingScreen) {
-    return (
-      <StartReceivingScreen
-        shipmentId="GR-1024"
-        source="Main Warehouse"
-        destination="Coonoor Warehouse"
-        expectedProduct="Tomato · Grade 1"
-        expectedQty="150 KG"
-        mwaName={userName}
-        warehouse="Coonoor Warehouse"
-        onBack={() => setShowStartReceivingScreen(false)}
-        onConfirmStartReceiving={() => {
-          setShowStartReceivingScreen(false);
-          setShowQualityCheckScreen(true);
-        }}
-      />
-    );
-  }
-
-  if (showQualityCheckScreen) {
-    return (
-      <QualityCheckScreen
-        shipmentId="GR-1024"
-        productName="Tomato · Grade 1"
-        receivedQty="145 / 150 KG received"
-        onBack={() => setShowQualityCheckScreen(false)}
-        onContinueToGradeVerification={() => setShowQualityCheckScreen(false)}
-        onViewQualitySummary={() => setShowQualityCheckScreen(false)}
-      />
-    );
-  }
-
-  if (showPartialAcceptanceScreen) {
-    return (
-      <PartialAcceptanceScreen
-        shipmentId="GR-1021"
-        productName="Carrot · Grade 1"
-        receivedQtyNum={100}
-        onBack={() => setShowPartialAcceptanceScreen(false)}
-        onContinueToSummary={() => setShowPartialAcceptanceScreen(false)}
       />
     );
   }
@@ -4033,7 +3975,9 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.attentionCard}
                       onPress={() => {
-                        setShowPartialAcceptanceScreen(true);
+                        // GR-1021 quantity mismatch -> the wizard's Partial Acceptance step
+                        setSelectedShipment(INITIAL_SHIPMENTS[1]!);
+                        setReceivingWizardStep('partial_acceptance');
                       }}
                       activeOpacity={0.75}
                     >
@@ -4087,7 +4031,9 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.recentCard}
                       onPress={() => {
-                        setShowQualityCheckScreen(true);
+                        // GR-1024 awaiting QC -> the wizard's Quality step
+                        setSelectedShipment(INITIAL_SHIPMENTS[0]!);
+                        setReceivingWizardStep('quality_check');
                       }}
                       activeOpacity={0.8}
                     >

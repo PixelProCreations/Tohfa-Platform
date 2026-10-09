@@ -62,18 +62,8 @@ import {
   QualityIssuesOperationsScreen,
   ActivityTimelineOperationsScreen,
   ShipmentDetailScreen,
-  StartReceivingScreen,
-  QuantityVerificationScreen,
-  QualityCheckScreen,
-  GradeProductVerificationScreen,
-  DamageMismatchReportScreen,
-  AcceptanceDecisionScreen,
-  PartialAcceptanceScreen,
-  GoodsReceiptSummaryScreen,
-  BatchAssignmentScreen,
   StorageLocationAssignmentScreen,
   ReceivingHistoryScreen,
-  ReceivingHistoryDetailScreen,
   TransferReceivingScreen,
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
@@ -89,6 +79,12 @@ import {
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
+import {
+  DEMO_SHIPMENT,
+  GoodsReceivingWizardScreen,
+  ReceivingHistoryDetailScreen,
+  type ReceivingWizardStep,
+} from '../warehouse/receiving-qc';
 import {
   MAIN_NOTIFICATIONS,
   NotificationsFlow,
@@ -115,6 +111,23 @@ export type ReceivingSubView =
   | 'receiving_history_detail'
   | 'transfer_receiving'
   | 'transfer_receiving_inspection';
+
+/**
+ * Receiving sub-views that are steps of the shared Goods Receiving wizard
+ * (the standalone screens were absorbed, W4 receiving-qc). The keys stay so
+ * every existing navigation keeps working.
+ */
+const RECEIVING_WIZARD_STEP: Partial<Record<ReceivingSubView, ReceivingWizardStep>> = {
+  start_receiving: 'start_receiving',
+  quantity_verification: 'quantity_verification',
+  quality_check: 'quality_check',
+  grade_product_verification: 'grade_verification',
+  damage_mismatch_report: 'damage_mismatch',
+  acceptance_decision: 'receiving_decision',
+  partial_acceptance: 'partial_acceptance',
+  goods_receipt_summary: 'receipt_summary',
+  batch_assignment: 'batch_assignment',
+};
 
 // ─── Design Tokens (Exact match to TOHFA Admin App Design System v1.0 PDF) ───
 const PALETTE = {
@@ -593,6 +606,12 @@ export function MainWarehouseAdminDashboardScreen({
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
   const [selectedShipmentId, setSelectedShipmentId] = useState('SHP-000124');
   const [selectedGrnId, setSelectedGrnId] = useState('GRN-000842');
+  /** Where the receiving wizard returns when backed out of its first step. */
+  const [receivingWizardReturn, setReceivingWizardReturn] = useState<ReceivingSubView>('shipment_detail');
+  const openReceivingWizard = (view: ReceivingSubView, returnTo: ReceivingSubView) => {
+    setReceivingWizardReturn(returnTo);
+    setReceivingSubView(view);
+  };
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
@@ -1139,81 +1158,28 @@ export function MainWarehouseAdminDashboardScreen({
             <ShipmentDetailScreen
               shipmentId={selectedShipmentId}
               onBack={() => setReceivingSubView('incoming_shipments')}
-              onStartReceiving={() => setReceivingSubView('start_receiving')}
-              onViewProductDetail={() => setReceivingSubView('quantity_verification')}
-              onViewTimeline={() => setReceivingSubView('goods_receipt_summary')}
+              onStartReceiving={() => openReceivingWizard('start_receiving', 'shipment_detail')}
+              onViewProductDetail={() => openReceivingWizard('quantity_verification', 'shipment_detail')}
+              onViewTimeline={() => openReceivingWizard('goods_receipt_summary', 'shipment_detail')}
             />
-          ) : receivingSubView === 'start_receiving' ? (
-            <StartReceivingScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('shipment_detail')}
-              onConfirmStartReceiving={() => setReceivingSubView('quantity_verification')}
-            />
-          ) : receivingSubView === 'quantity_verification' ? (
-            <QuantityVerificationScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('start_receiving')}
-              onContinueToQualityCheck={() => setReceivingSubView('quality_check')}
-            />
-          ) : receivingSubView === 'quality_check' ? (
-            <QualityCheckScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('quantity_verification')}
-              onViewQualitySummary={() => setReceivingSubView('damage_mismatch_report')}
-              onContinueToGradeVerification={() => setReceivingSubView('grade_product_verification')}
-            />
-          ) : receivingSubView === 'grade_product_verification' ? (
-            <GradeProductVerificationScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('quality_check')}
-              onContinueToMismatchReport={() => setReceivingSubView('damage_mismatch_report')}
-              onNavigateProductMismatch={() => setReceivingSubView('damage_mismatch_report')}
-              onNavigateGradeMismatch={() => setReceivingSubView('damage_mismatch_report')}
-              onNavigateProductSummary={() => setReceivingSubView('damage_mismatch_report')}
-              onNavigateGradeSummary={() => setReceivingSubView('damage_mismatch_report')}
-            />
-          ) : receivingSubView === 'damage_mismatch_report' ? (
-            <DamageMismatchReportScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('grade_product_verification')}
-              onViewMismatchSummary={() => setReceivingSubView('acceptance_decision')}
-              onContinueToAcceptanceDecision={() => setReceivingSubView('acceptance_decision')}
-            />
-          ) : receivingSubView === 'acceptance_decision' ? (
-            <AcceptanceDecisionScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('damage_mismatch_report')}
-              onSelectOutcome={(outcome) => {
-                if (outcome === 'Partial Accept') {
-                  setReceivingSubView('partial_acceptance');
-                } else {
-                  setReceivingSubView('goods_receipt_summary');
-                }
-              }}
-            />
-          ) : receivingSubView === 'partial_acceptance' ? (
-            <PartialAcceptanceScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('acceptance_decision')}
-              onContinueToSummary={() => setReceivingSubView('goods_receipt_summary')}
-            />
-          ) : receivingSubView === 'goods_receipt_summary' ? (
-            <GoodsReceiptSummaryScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('acceptance_decision')}
-              onAssignBatch={() => setReceivingSubView('batch_assignment')}
-              onViewPreview={() => setReceivingSubView('batch_assignment')}
-              onViewDetail={() => setReceivingSubView('storage_location_assignment')}
-              onViewActivity={() => setReceivingSubView('receiving_history')}
-            />
-          ) : receivingSubView === 'batch_assignment' ? (
-            <BatchAssignmentScreen
-              onBack={() => setReceivingSubView('goods_receipt_summary')}
-              onReviewBatch={() => setReceivingSubView('storage_location_assignment')}
+          ) : RECEIVING_WIZARD_STEP[receivingSubView] !== undefined ? (
+            // The ten standalone receiving screens are steps of the shared wizard now
+            // (W4 receiving-qc); every old sub-view key opens it on the matching step.
+            <GoodsReceivingWizardScreen
+              key={receivingSubView}
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialStep={RECEIVING_WIZARD_STEP[receivingSubView] ?? 'start_receiving'}
+              shipment={{ ...DEMO_SHIPMENT, code: selectedShipmentId, to: selectedWHName }}
+              receiverName={user?.fullName}
+              onBack={() => setReceivingSubView(receivingWizardReturn)}
+              onFinish={() => setReceivingSubView('receiving_history')}
+              onBackToShipments={() => setReceivingSubView('incoming_shipments')}
+              onOpenStorageLocations={() => setReceivingSubView('storage_location_assignment')}
             />
           ) : receivingSubView === 'storage_location_assignment' ? (
             <StorageLocationAssignmentScreen
-              onBack={() => setReceivingSubView('batch_assignment')}
+              onBack={() => openReceivingWizard('batch_assignment', receivingWizardReturn)}
               onSelectStorageLocation={() => setReceivingSubView('receiving_history')}
             />
           ) : receivingSubView === 'receiving_history' ? (
@@ -1234,8 +1200,8 @@ export function MainWarehouseAdminDashboardScreen({
                 setActiveTab('Home');
                 navigateWh('activity_timeline_ops');
               }}
-              onNavigateDiscrepancy={() => setReceivingSubView('damage_mismatch_report')}
-              onNavigateBatch={() => setReceivingSubView('batch_assignment')}
+              onNavigateDiscrepancy={() => openReceivingWizard('damage_mismatch_report', 'receiving_history_detail')}
+              onNavigateBatch={() => openReceivingWizard('batch_assignment', 'receiving_history_detail')}
               onNavigateShipment={() => setReceivingSubView('shipment_detail')}
             />
           ) : receivingSubView === 'transfer_receiving' ? (
