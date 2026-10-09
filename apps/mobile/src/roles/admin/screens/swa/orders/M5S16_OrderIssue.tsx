@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S16Props {
   orderId?: string;
@@ -40,7 +40,7 @@ function ChevronDownIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M6 9l6 6 6-6"
-        stroke="#64748B"
+        stroke={ORDERS_THEME.textSecondary}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -54,12 +54,12 @@ function CameraPhotoIcon() {
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-        stroke="#64748B"
+        stroke={ORDERS_THEME.textSecondary}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="12" cy="13" r="4" stroke="#64748B" strokeWidth="1.8" />
+      <Circle cx="12" cy="13" r="4" stroke={ORDERS_THEME.textSecondary} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -80,17 +80,17 @@ function SendPlaneWhiteIcon() {
 
 function RadioSelectedIcon() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#E85226" strokeWidth="2.5" />
-      <Circle cx="12" cy="12" r="4.5" fill="#E85226" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={ORDERS_THEME.primary} strokeWidth="2.2" />
+      <Circle cx="12" cy="12" r="4.5" fill={ORDERS_THEME.primary} />
     </Svg>
   );
 }
 
 function RadioUnselectedIcon() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#CBD5E1" strokeWidth="2" />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={ORDERS_THEME.border} strokeWidth="2" />
     </Svg>
   );
 }
@@ -98,121 +98,53 @@ function RadioUnselectedIcon() {
 function InfoCircleRedIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.danger} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={ORDERS_THEME.danger} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
-
-function BigGreenCheckSuccessIcon() {
-  return (
-    <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#10B981" strokeWidth="2" />
-      <Path
-        d="M8 12l2.5 2.5L16 9.5"
-        stroke="#10B981"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-const ISSUE_TYPES = [
-  'Quality',
-  'Quantity',
-  'Missing',
-  'Wrong',
-  'Damaged',
-  'Late',
-];
-
-const ITEMS_LIST = [
-  'Select item',
-  'Tomato · 2 KG',
-  'Carrot · 3 KG',
-  'Beans · 1 KG',
-  'Cabbage · 2 KG',
-  'Entire Order',
-];
 
 export const M5S16_OrderIssue: React.FC<M5S16Props> = ({
   orderId = 'ORD-1024',
-  initialSubmitted = false,
   onNavigate,
   onBack,
 }) => {
-  const [selectedType, setSelectedType] = useState('Quality');
+  const issueTypes = [
+    'Quality',
+    'Quantity',
+    'Missing',
+    'Wrong',
+    'Damaged',
+    'Late',
+  ];
+
+  const [issueType, setIssueType] = useState('Quality');
   const [selectedItem, setSelectedItem] = useState('Select item');
   const [showItemPicker, setShowItemPicker] = useState(false);
-  const [quantity, setQuantity] = useState('');
+  const [affectedQty, setAffectedQty] = useState('');
   const [description, setDescription] = useState('');
   const [hasPhoto, setHasPhoto] = useState(false);
-  const [submitted, setSubmitted] = useState(initialSubmitted);
 
-  // ─── STATE 2: Issue Submitted (Image 4 Left) ──────────────────────────────
-  if (submitted) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              activeOpacity={0.7}
-              onPress={() => setSubmitted(false)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <BackArrowWhiteIcon />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Issue Submitted</Text>
-          </View>
+  const orderItems = [
+    'Tomato - Grade 1 (2 KG)',
+    'Carrot - Grade 1 (3 KG)',
+    'Potato - Grade 1 (5 KG)',
+    'Whole Order',
+  ];
 
-          <View style={styles.contentPacked}>
-            {/* Centered Green Circle Badge */}
-            <View style={styles.heroContainer}>
-              <View style={styles.successCircleBadge}>
-                <BigGreenCheckSuccessIcon />
-              </View>
-              <Text style={styles.heroTitle}>Issue Submitted</Text>
-            </View>
+  const handleSubmit = () => {
+    onNavigate('M5S16B', {
+      orderId,
+      issueId: 'ISS-0028',
+      category: issueType,
+      item: selectedItem,
+    });
+  };
 
-            {/* Summary Card */}
-            <View style={styles.card}>
-              <View style={styles.twoColRow}>
-                <View style={styles.col}>
-                  <Text style={styles.fieldLabel}>Issue ID</Text>
-                  <Text style={styles.fieldValue}>ISS-0028</Text>
-                </View>
-                <View style={styles.col}>
-                  <Text style={styles.fieldLabel}>Status</Text>
-                  <Text style={styles.fieldValue}>Open</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Bottom Fixed Action Button: Resolved "Continue in Module 10" to clean "Continue" */}
-          <View style={styles.bottomBar}>
-            <TouchableOpacity
-              style={styles.submitBtn}
-              activeOpacity={0.8}
-              onPress={() => onNavigate('M5S01')}
-            >
-              <Text style={styles.submitBtnText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ─── STATE 1: Order Issue Form (Images 2 & 3) ─────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 2 */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -225,120 +157,121 @@ export const M5S16_OrderIssue: React.FC<M5S16Props> = ({
           <Text style={styles.headerTitle}>Order Issue</Text>
         </View>
 
-        {/* Subtitle directly below header */}
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{orderId}</Text>
-        </View>
-
         <ScrollView
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Section 1: Issue Type (Required) */}
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Issue Type</Text>
-            <Text style={styles.requiredText}>Required</Text>
+          {/* Top Label: Order ID */}
+          <Text style={styles.orderRefLabel}>{orderId}</Text>
+
+          {/* Section: Issue Type (Required) */}
+          <View style={styles.sectionHeaderRowTop}>
+            <Text style={styles.sectionHeading}>Issue Type</Text>
+            <Text style={styles.helperLabel}>Required</Text>
           </View>
-          <View style={styles.radioListCard}>
-            {ISSUE_TYPES.map((type, index) => {
-              const isSelected = selectedType === type;
+
+          {/* Issue Type Card with all 6 options */}
+          <View style={styles.categoryCard}>
+            {issueTypes.map((type, index) => {
+              const isSelected = issueType === type;
+              const isLast = index === issueTypes.length - 1;
               return (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.radioItem,
-                    index < ISSUE_TYPES.length - 1 && styles.radioItemBorder,
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedType(type)}
-                >
-                  {isSelected ? <RadioSelectedIcon /> : <RadioUnselectedIcon />}
-                  <Text style={styles.radioText}>{type}</Text>
-                </TouchableOpacity>
+                <React.Fragment key={type}>
+                  <TouchableOpacity
+                    style={styles.radioRow}
+                    activeOpacity={0.75}
+                    onPress={() => setIssueType(type)}
+                  >
+                    {isSelected ? <RadioSelectedIcon /> : <RadioUnselectedIcon />}
+                    <Text style={styles.radioText}>{type}</Text>
+                  </TouchableOpacity>
+                  {!isLast && <View style={styles.cardDivider} />}
+                </React.Fragment>
               );
             })}
           </View>
 
-          {/* Section 2: Affected Item */}
-          <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Affected Item</Text>
+          {/* Affected Item Section */}
+          <Text style={styles.sectionHeading}>Affected Item</Text>
           <TouchableOpacity
             style={styles.dropdownBox}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
             onPress={() => setShowItemPicker(true)}
           >
-            <View style={styles.dropdownContent}>
-              <Text style={styles.dropdownLabel}>AFFECTED ITEM</Text>
-              <Text style={styles.dropdownValue}>{selectedItem}</Text>
+            <View style={styles.dropdownTextWrap}>
+              <Text style={styles.dropdownCaption}>AFFECTED ITEM</Text>
+              <Text style={[styles.dropdownValue, selectedItem === 'Select item' && styles.dropdownPlaceholder]}>
+                {selectedItem}
+              </Text>
             </View>
             <ChevronDownIcon />
           </TouchableOpacity>
 
-          {/* Section 3: Affected Quantity (If supported) */}
+          {/* Affected Quantity Section */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Affected Quantity</Text>
-            <Text style={styles.optionalText}>If supported</Text>
+            <Text style={styles.sectionHeading}>Affected Quantity</Text>
+            <Text style={styles.helperLabel}>If supported</Text>
           </View>
           <View style={styles.inputBox}>
             <TextInput
-              style={styles.singleLineInput}
-              value={quantity}
-              onChangeText={setQuantity}
+              style={styles.textInput}
               placeholder="e.g. 2 KG"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={ORDERS_THEME.textSecondary}
+              value={affectedQty}
+              onChangeText={setAffectedQty}
             />
           </View>
 
-          {/* Section 4: Description (Required) */}
+          {/* Description Section */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.requiredText}>Required</Text>
+            <Text style={styles.sectionHeading}>Description</Text>
+            <Text style={styles.helperLabel}>Required</Text>
           </View>
-          <View style={styles.notesInputBox}>
+          <View style={styles.textareaBox}>
             <TextInput
-              style={styles.notesTextInput}
+              style={styles.textareaInput}
+              placeholder="Describe the issue..."
+              placeholderTextColor={ORDERS_THEME.textSecondary}
               value={description}
               onChangeText={setDescription}
-              placeholder="Describe the issue..."
-              placeholderTextColor="#94A3B8"
               multiline
-              numberOfLines={4}
             />
           </View>
 
-          {/* Section 5: Photos */}
-          <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Photos</Text>
+          {/* Photos Section */}
+          <Text style={styles.sectionHeading}>Photos</Text>
           <TouchableOpacity
-            style={styles.photoBox}
-            activeOpacity={0.7}
+            style={[styles.photoBox, hasPhoto && styles.photoBoxActive]}
+            activeOpacity={0.75}
             onPress={() => setHasPhoto(!hasPhoto)}
           >
             <CameraPhotoIcon />
-            <Text style={styles.photoText}>{hasPhoto ? 'Photo Added' : 'Add Photo'}</Text>
+            <Text style={styles.photoBoxText}>{hasPhoto ? '1 Photo' : 'Add Photo'}</Text>
           </TouchableOpacity>
 
-          {/* Red RMA Alert Box matching Image 3 */}
-          <View style={styles.redAlertBox}>
-            <InfoCircleRedIcon />
-            <Text style={styles.redAlertText}>
+          {/* Red Alert Notice Box */}
+          <View style={styles.noticeBox}>
+            <View style={styles.noticeIconWrap}>
+              <InfoCircleRedIcon />
+            </View>
+            <Text style={styles.noticeText}>
               Further RMA/refund processing happens in Module 10 — Returns & Issues. No refund calculation is performed here.
             </Text>
           </View>
 
-          <View style={{ height: 24 }} />
-        </ScrollView>
-
-        {/* Bottom Fixed Action Button matching Image 3 */}
-        <View style={styles.bottomBar}>
+          {/* Submit Issue Button */}
           <TouchableOpacity
             style={styles.submitBtn}
             activeOpacity={0.8}
-            onPress={() => setSubmitted(true)}
+            onPress={handleSubmit}
           >
             <SendPlaneWhiteIcon />
             <Text style={styles.submitBtnText}>Submit Issue</Text>
           </TouchableOpacity>
-        </View>
+
+          <View style={{ height: 28 }} />
+        </ScrollView>
 
         {/* Item Picker Modal */}
         <Modal
@@ -354,7 +287,7 @@ export const M5S16_OrderIssue: React.FC<M5S16Props> = ({
           >
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Select Affected Item</Text>
-              {ITEMS_LIST.map((item) => (
+              {orderItems.map((item) => (
                 <TouchableOpacity
                   key={item}
                   style={[
@@ -387,277 +320,249 @@ export const M5S16_OrderIssue: React.FC<M5S16Props> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
-  },
-  subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
-  },
-  subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#8C7A6B',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  orderRefLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: ORDERS_THEME.textSecondary,
+    marginBottom: 8,
+    paddingLeft: 2,
+  },
+  sectionHeaderRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryCard: {
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
+    borderWidth: 1,
+    borderColor: ORDERS_THEME.border,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  radioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  radioText: {
+    fontFamily: 'Poppins',
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: ORDERS_THEME.textInk,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: ORDERS_THEME.border,
+    marginHorizontal: 16,
+  },
+  sectionHeading: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
+    marginBottom: 8,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: 14,
     marginBottom: 8,
   },
-  sectionTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
-  },
-  requiredText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+  helperLabel: {
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
-  },
-  optionalText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#78716C',
-  },
-  radioListCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EFECE6',
-    overflow: 'hidden',
-  },
-  radioItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    gap: 12,
-  },
-  radioItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1ECE4',
-  },
-  radioText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textSecondary,
   },
   dropdownBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 16,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  dropdownContent: {
+  dropdownTextWrap: {
     flex: 1,
   },
-  dropdownLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+  dropdownCaption: {
+    fontFamily: 'Poppins',
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   dropdownValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#334155',
+    color: ORDERS_THEME.textInk,
+  },
+  dropdownPlaceholder: {
+    color: ORDERS_THEME.textSecondary,
   },
   inputBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    height: 48,
-    paddingHorizontal: 16,
+    borderColor: ORDERS_THEME.border,
+    height: 46,
+    paddingHorizontal: 14,
     justifyContent: 'center',
-    marginTop: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  singleLineInput: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 14,
-    color: '#1D2420',
-    height: '100%',
+  textInput: {
+    fontFamily: 'Poppins',
+    fontSize: 13.5,
+    color: ORDERS_THEME.textInk,
+    paddingVertical: 0,
   },
-  notesInputBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+  textareaBox: {
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ORDERS_THEME.border,
+    height: 85,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    height: 90,
-    marginTop: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  notesTextInput: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+  textareaInput: {
+    fontFamily: 'Poppins',
     fontSize: 13,
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     textAlignVertical: 'top',
     height: '100%',
   },
   photoBox: {
-    width: 68,
-    height: 68,
-    borderRadius: 10,
+    width: 72,
+    height: 72,
+    borderRadius: ORDERS_THEME.radiusSM,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: ORDERS_THEME.border,
     borderStyle: 'dashed',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: ORDERS_THEME.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 2,
     marginBottom: 16,
   },
-  photoText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+  photoBoxActive: {
+    borderColor: ORDERS_THEME.primary,
+    backgroundColor: ORDERS_THEME.orangeTint,
+  },
+  photoBoxText: {
+    fontFamily: 'Poppins',
     fontSize: 9.5,
     fontWeight: '600',
-    color: '#64748B',
+    color: ORDERS_THEME.textSecondary,
     marginTop: 4,
   },
-  redAlertBox: {
-    backgroundColor: '#FEF2F2',
+  noticeBox: {
+    backgroundColor: ORDERS_THEME.dangerBg,
     borderWidth: 1,
     borderColor: '#FECACA',
-    borderRadius: 12,
+    borderRadius: ORDERS_THEME.radiusMD,
     paddingVertical: 12,
     paddingHorizontal: 14,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
+    marginBottom: 20,
   },
-  redAlertText: {
+  noticeIconWrap: {
+    marginTop: 1,
+  },
+  noticeText: {
     flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#B91C1C',
+    color: ORDERS_THEME.danger,
     lineHeight: 16,
   },
-  bottomBar: {
-    backgroundColor: '#FAF8F5',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
-  },
   submitBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   submitBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
-  // ─── Issue Submitted Styles (Image 4 Left) ────────────────────────────────
-  contentPacked: {
-    flex: 1,
-    paddingTop: 36,
-    paddingHorizontal: 16,
-  },
-  heroContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  successCircleBadge: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#E8F8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EFECE6',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-  },
-  twoColRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  col: {
-    flex: 1,
-  },
-  fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#78716C',
-    marginBottom: 4,
-  },
-  fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
-  },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -665,32 +570,32 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     padding: 18,
   },
   modalTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     marginBottom: 12,
   },
   modalOption: {
     paddingVertical: 12,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: ORDERS_THEME.radiusXS,
   },
   modalOptionSelected: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: ORDERS_THEME.orangeTint,
   },
   modalOptionText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 13.5,
-    color: '#334155',
+    color: ORDERS_THEME.textInk,
   },
   modalOptionTextSelected: {
     fontWeight: '700',
-    color: '#E85226',
+    color: ORDERS_THEME.primary,
   },
 });

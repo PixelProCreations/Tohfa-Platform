@@ -12,16 +12,18 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 const PALETTE = {
-  primary:       '#F0562A',
-  pageBg:        '#F7F5EE',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1D2420',
-  textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#E7E2D6',
-  divider:       '#F0ECE3',
-  pickupBadgeBg: '#FFF0EB',
-  pickupBadgeText:'#F0562A',
+  primary:       '#F0562A', // Orange (Brand Palette)
+  orangeDeep:    '#7A2E14', // Orange Deep
+  orangeTint:    '#FDF3F0', // Orange Tint
+  pageBg:        '#F3EFE9', // Background: App canvas
+  cardBg:        '#FFFFFF', // Card surfaces
+  textInk:       '#1A1A1A', // Ink: Primary text
+  textSecondary: '#5F5E5A', // Muted: Secondary text
+  textMuted:     '#5F5E5A',
+  border:        '#EEDCD3', // Border: Card and input borders
+  divider:       '#EEDCD3',
+  pickupBadgeBg: '#EAF3DE', // Success BG
+  pickupBadgeText:'#173404', // Success
   buttonPrimary: '#F0562A',
 };
 
@@ -54,14 +56,35 @@ function PackageIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: 
 }
 
 export interface SubWarehouseOrderDetailScreenProps {
-  onBack?: () => void;
-  onViewStatus?: () => void;
+  onBack?: (() => void) | undefined;
+  onViewStatus?: (() => void) | undefined;
+  order?: {
+    id?: string | undefined;
+    orderNo?: string | undefined;
+    customer?: string | undefined;
+    items?: string | undefined;
+    price?: string | undefined;
+    totalAmount?: string | undefined;
+    status?: string | undefined;
+    pickupType?: string | undefined;
+    type?: string | undefined;
+    date?: string | undefined;
+  } | undefined;
 }
 
 export function SubWarehouseOrderDetailScreen({
   onBack,
   onViewStatus,
+  order,
 }: SubWarehouseOrderDetailScreenProps): React.JSX.Element {
+  const orderId = order?.orderNo || 'ORD-00251';
+  const orderStatus = order?.status || 'Ready for Pickup';
+  const orderDate = order?.date || '24 Sep 2026';
+  const orderItems = order?.items || '3 Items';
+  const orderAmount = order?.price || order?.totalAmount || '₹850';
+  const customerName = order?.customer || 'Rajesh Kumar';
+  const pickupType = order?.type || order?.pickupType || 'Pickup';
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -91,12 +114,12 @@ export function SubWarehouseOrderDetailScreen({
         {/* Header Order Card */}
         <View style={styles.card}>
           <View style={styles.cardTopRow}>
-            <Text style={styles.orderId}>ORD-10284</Text>
+            <Text style={styles.orderId}>{orderId}</Text>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Ready for Pickup</Text>
+              <Text style={styles.statusBadgeText}>{orderStatus}</Text>
             </View>
           </View>
-          <Text style={styles.orderSubtitle}>20 Sep 2026 · 2 Items</Text>
+          <Text style={styles.orderSubtitle}>{orderDate} · {orderItems}</Text>
         </View>
 
         {/* Order Information Card */}
@@ -105,29 +128,29 @@ export function SubWarehouseOrderDetailScreen({
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Customer</Text>
-            <Text style={styles.infoValue}>Rajesh Kumar</Text>
+            <Text style={styles.infoValue}>{customerName}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Items</Text>
-            <Text style={styles.infoValue}>2 Items</Text>
+            <Text style={styles.infoValue}>{orderItems}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Total Amount</Text>
-            <Text style={[styles.infoValue, { color: PALETTE.textInk, fontWeight: '700' }]}>₹850</Text>
+            <Text style={[styles.infoValue, { color: PALETTE.textInk, fontWeight: '700' }]}>{orderAmount}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Status</Text>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Ready for Pickup</Text>
+              <Text style={styles.statusBadgeText}>{orderStatus}</Text>
             </View>
           </View>
 
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.infoLabel}>Pickup Type</Text>
-            <Text style={styles.infoValue}>Pickup</Text>
+            <Text style={styles.infoValue}>{pickupType}</Text>
           </View>
         </View>
       </ScrollView>

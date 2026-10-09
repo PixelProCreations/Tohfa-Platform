@@ -399,50 +399,10 @@ export function SubWarehouseVouchersScreen({
           })}
         </View>
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S07 · Vouchers</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.7}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.7}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.7}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.7}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

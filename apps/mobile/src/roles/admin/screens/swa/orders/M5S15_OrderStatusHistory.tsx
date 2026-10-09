@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
-import { SWABottomNav } from '../components/SWABottomNav';
+import { ORDERS_THEME } from './theme';
 
 interface M5S15Props {
   orderId?: string;
@@ -33,19 +33,12 @@ function BackArrowWhiteIcon() {
   );
 }
 
-function InfoCircleBlueIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
+
 
 function TimelineGreenNode() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#16A34A" strokeWidth="2.5" />
+      <Circle cx="12" cy="12" r="9.5" stroke="#16A34A" strokeWidth="2" fill="#FFFFFF" />
       <Circle cx="12" cy="12" r="4.5" fill="#16A34A" />
     </Svg>
   );
@@ -68,135 +61,128 @@ export const M5S15_OrderStatusHistory: React.FC<M5S15Props> = ({
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Top Header - Orange Theme matching Image 5 */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            activeOpacity={0.7}
-            onPress={onBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <SafeAreaView style={styles.topSafeArea} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Top Header - Orange Theme matching Image 5 */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              activeOpacity={0.7}
+              onPress={onBack}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Order Status History</Text>
+          </View>
+
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
           >
-            <BackArrowWhiteIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Order Status History</Text>
-        </View>
+            {/* Order Ref Label on Canvas */}
+            <Text style={styles.orderRefLabel}>{orderId}</Text>
 
-        {/* Subtitle directly below header */}
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{orderId}</Text>
-        </View>
+            {/* Vertical Timeline */}
+            <View style={styles.timelineContainer}>
+              {steps.map((step, index) => {
+                const isLast = index === steps.length - 1;
+                return (
+                  <View key={step.id} style={styles.stepRow}>
+                    {/* Indicator Column */}
+                    <View style={styles.indicatorCol}>
+                      <TimelineGreenNode />
+                      {!isLast && <View style={styles.verticalGreenLine} />}
+                    </View>
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Vertical Timeline matching Image 5 */}
-          <View style={styles.timelineContainer}>
-            {steps.map((step, index) => {
-              const isLast = index === steps.length - 1;
-              return (
-                <View key={step.id} style={styles.stepRow}>
-                  {/* Indicator Column with Circle and Vertical Line */}
-                  <View style={styles.indicatorCol}>
-                    <TimelineGreenNode />
-                    {!isLast && <View style={styles.verticalGreenLine} />}
+                    {/* Text Column - Clicking opens Event Detail */}
+                    <TouchableOpacity
+                      style={styles.textCol}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        onNavigate &&
+                        onNavigate('M5S15B', {
+                          orderId,
+                          eventName: step.title.replace(' ✓', ''),
+                          eventTime: step.time,
+                          eventDate: '24 Sep 2026',
+                          performedBy: 'Warehouse Admin',
+                        })
+                      }
+                    >
+                      <Text style={styles.stepTitle}>{step.title}</Text>
+                      <Text style={styles.stepTime}>{step.time}</Text>
+                    </TouchableOpacity>
                   </View>
+                );
+              })}
+            </View>
 
-                  {/* Text Column - Clicking opens Event Detail */}
-                  <TouchableOpacity
-                    style={styles.textCol}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      onNavigate &&
-                      onNavigate('M5S15B', {
-                        orderId,
-                        eventName: step.title.replace(' ✓', ''),
-                        eventTime: step.time,
-                        eventDate: '24 Sep 2026',
-                        performedBy: 'Warehouse Admin',
-                      })
-                    }
-                  >
-                    <Text style={styles.stepTitle}>{step.title}</Text>
-                    <Text style={styles.stepTime}>{step.time}</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Blue Info Alert Box matching Image 5 */}
-          <View style={styles.infoBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.infoText}>
-              For delivery orders, this same timeline shows Dispatched → Out for Delivery → Delivered instead — delivery status is configurable, per the source.
-            </Text>
-          </View>
-
-          <View style={{ height: 20 }} />
-        </ScrollView>
-
-        {/* Bottom Navigation matching Image 5 */}
-        <SWABottomNav
-          activeTab="More"
-          onTabChange={(tab) => {
-            if (tab === 'Home') onBack();
-          }}
-        />
-      </View>
-    </SafeAreaView>
+            <View style={{ height: 20 }} />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
+  topSafeArea: {
+    flex: 0,
+    backgroundColor: '#F0562A',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#FAF8F5',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
-  },
-  subtitleRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#FAF8F5',
-  },
-  subtitleText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#8C7A6B',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 24,
+  },
+  orderRefLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: ORDERS_THEME.textSecondary,
+    marginBottom: 16,
+    paddingLeft: 4,
   },
   timelineContainer: {
     marginBottom: 20,
@@ -210,9 +196,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   verticalGreenLine: {
-    width: 2,
+    width: 1.5,
     flex: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#D6D3D1',
     marginVertical: 4,
   },
   textCol: {
@@ -221,36 +207,16 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   stepTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     marginBottom: 2,
   },
   stepTime: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
-  },
-  infoBox: {
-    backgroundColor: '#EBF5FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
-  },
-  infoText: {
-    flex: 1,
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#1E40AF',
-    lineHeight: 16,
+    color: ORDERS_THEME.textSecondary,
   },
 });

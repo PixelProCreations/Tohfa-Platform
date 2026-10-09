@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -26,21 +27,32 @@ function BackArrowWhiteIcon() {
 
 function DownArrowGreyIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke="#7A726C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#7A726C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function DownArrowRedIcon() {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#E52E2E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function PhotoIcon({ color = '#E85226', size = 20 }: { color?: string; size?: number }) {
+function OutlinedImageIcon({ size = 22, color = '#1D2420' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="3.5" stroke={color} strokeWidth="1.8" />
+      <Circle cx="8.5" cy="8.5" r="1.5" stroke={color} strokeWidth="1.5" />
+      <Path d="M21 16l-5-5-5 5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 14l2-2 5 5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PhotoIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={color} strokeWidth="1.8" />
@@ -51,7 +63,7 @@ function PhotoIcon({ color = '#E85226', size = 20 }: { color?: string; size?: nu
   );
 }
 
-function LedgerHistoryIcon({ color = '#E85226', size = 18 }: { color?: string; size?: number }) {
+function LedgerHistoryIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -69,19 +81,34 @@ function ProhibitedRedIcon() {
   );
 }
 
+function LedgerIcon({ color = '#8B4513', size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 20V5.5L7.5 3.5 10 5.5l2-2 2 2 2-2 3 2V20H5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8 9h8M8 13h8M8 16.5h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function TimelineCheckDot() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#1E8E5A" strokeWidth="2.5" fill="#FFFFFF" />
-      <Circle cx="12" cy="12" r="5" fill="#1E8E5A" />
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke="#2E7D32" strokeWidth="1.8" fill="#FFFFFF" />
+      <Circle cx="12" cy="12" r="5" fill="#2E7D32" />
     </Svg>
   );
 }
 
 function TimelinePendingDot() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke="#CBD5E1" strokeWidth="2" fill="#FFFFFF" />
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke="#D1D5DB" strokeWidth="1.8" fill="#FFFFFF" />
     </Svg>
   );
 }
@@ -203,12 +230,8 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
           {/* Section 6: Evidence */}
           <Text style={styles.sectionHeader}>Evidence</Text>
           <View style={styles.evidenceThumbnailsRow}>
-            <View style={styles.thumbnailBox}>
-              <PhotoIcon color="#E85226" size={20} />
-            </View>
-            <View style={styles.thumbnailBox}>
-              <PhotoIcon color="#E85226" size={20} />
-            </View>
+            <OutlinedImageIcon />
+            <OutlinedImageIcon />
           </View>
 
           {/* Section 7: Notes */}
@@ -221,12 +244,12 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
 
           {/* Section 8: Approval Status */}
           <Text style={styles.sectionHeader}>Approval Status</Text>
-          <View style={styles.timelineCard}>
+          <View style={styles.timelineContainer}>
             {/* Step 1 */}
             <View style={styles.timelineRow}>
               <View style={styles.timelineIndicatorCol}>
                 <TimelineCheckDot />
-                <View style={styles.timelineGreenLine} />
+                <View style={styles.timelineLine} />
               </View>
               <View style={styles.timelineTextCol}>
                 <Text style={styles.timelineTitle}>Adjustment Created</Text>
@@ -238,7 +261,7 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
             <View style={styles.timelineRow}>
               <View style={styles.timelineIndicatorCol}>
                 <TimelineCheckDot />
-                <View style={styles.timelineGrayLine} />
+                <View style={styles.timelineLine} />
               </View>
               <View style={styles.timelineTextCol}>
                 <Text style={styles.timelineTitle}>Submitted for Approval</Text>
@@ -247,9 +270,10 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
             </View>
 
             {/* Step 3 */}
-            <View style={styles.timelineRow}>
+            <View style={styles.timelineRowLast}>
               <View style={styles.timelineIndicatorCol}>
                 <TimelinePendingDot />
+                <View style={styles.timelineLineShort} />
               </View>
               <View style={styles.timelineTextCol}>
                 <Text style={[styles.timelineTitle, { color: '#7A726C' }]}>Awaiting Approval</Text>
@@ -284,10 +308,10 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
             </View>
           </View>
 
-          {/* Section 10: Actions (with Orange Theme) */}
+          {/* Section 10: Actions */}
           <Text style={styles.sectionHeader}>Actions</Text>
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <PhotoIcon color="#E85226" size={18} />
+            <OutlinedImageIcon size={18} color="#8B4513" />
             <Text style={styles.actionBtnText}>View Evidence</Text>
           </TouchableOpacity>
 
@@ -296,7 +320,7 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
             activeOpacity={0.7}
             onPress={() => onNavigate('M3S06')}
           >
-            <LedgerHistoryIcon color="#E85226" size={18} />
+            <LedgerIcon color="#8B4513" size={18} />
             <Text style={styles.actionBtnText}>View Ledger History</Text>
           </TouchableOpacity>
 
@@ -318,15 +342,15 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
     backgroundColor: '#F4F1EA',
   },
   header: {
-    backgroundColor: '#E85226',
-    paddingTop: 16,
+    backgroundColor: '#F0562A',
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -336,26 +360,25 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   backButton: {
-    width: 32,
-    height: 32,
+    padding: 2,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: 'Poppins',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 12.5,
+    fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.85)',
     fontFamily: 'Poppins',
-    fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   pendingBadge: {
     backgroundColor: '#FFF7ED',
@@ -417,73 +440,64 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#EAE6DF',
-    paddingVertical: 22,
+    paddingVertical: 24,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 10,
   },
   flowNumber: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '800',
     color: '#1D2420',
     fontFamily: 'Poppins',
   },
   flowLabel: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#7A726C',
     fontFamily: 'Poppins',
-    letterSpacing: 0.5,
-    marginTop: 2,
+    letterSpacing: 0.8,
+    marginTop: 4,
   },
   arrowWrap: {
-    marginVertical: 10,
+    marginVertical: 12,
   },
   flowVarianceNumber: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#E24B4A',
+    color: '#E52E2E',
     fontFamily: 'Poppins',
   },
   flowVarianceLabel: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#E24B4A',
+    color: '#7A726C',
     fontFamily: 'Poppins',
-    letterSpacing: 0.5,
-    marginTop: 2,
+    letterSpacing: 0.8,
+    marginTop: 4,
   },
   adjustmentBadge: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    alignSelf: 'flex-start',
+    backgroundColor: '#FDE8E8',
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 10,
   },
   adjustmentBadgeText: {
-    fontSize: 12.5,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#DC2626',
+    color: '#E52E2E',
     fontFamily: 'Poppins',
+    letterSpacing: 0.3,
   },
   evidenceThumbnailsRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 10,
-  },
-  thumbnailBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1.2,
-    borderColor: '#FDBA74',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   notesText: {
     fontSize: 13,
@@ -491,72 +505,68 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
     lineHeight: 19,
   },
-  timelineCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EAE6DF',
-    padding: 16,
-    marginBottom: 10,
+  timelineContainer: {
+    marginBottom: 16,
+    paddingLeft: 4,
+    marginTop: 4,
   },
   timelineRow: {
     flexDirection: 'row',
-    minHeight: 46,
+    minHeight: 52,
+  },
+  timelineRowLast: {
+    flexDirection: 'row',
   },
   timelineIndicatorCol: {
     alignItems: 'center',
     width: 20,
-    marginRight: 10,
+    marginRight: 12,
+    paddingTop: 1,
   },
-  timelineGreenLine: {
-    width: 2,
+  timelineLine: {
+    width: 1.5,
     flex: 1,
-    backgroundColor: '#1E8E5A',
-    marginVertical: 3,
+    backgroundColor: '#D1D5DB',
+    marginVertical: 2,
   },
-  timelineGrayLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#CBD5E1',
-    marginVertical: 3,
+  timelineLineShort: {
+    width: 1.5,
+    height: 12,
+    backgroundColor: '#D1D5DB',
+    marginTop: 2,
   },
   timelineTextCol: {
     flex: 1,
-    paddingBottom: 10,
   },
   timelineTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#1D2420',
     fontFamily: 'Poppins',
   },
   timelineTime: {
-    fontSize: 11,
+    fontSize: 11.5,
+    fontWeight: '500',
     color: '#7A726C',
     fontFamily: 'Poppins',
     marginTop: 2,
   },
   actionBtn: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E85226',
-    height: 48,
+    borderColor: '#8B4513',
+    height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: 10,
-    shadowColor: '#E85226',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+    marginBottom: 12,
   },
   actionBtnText: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#8B4513',
     fontFamily: 'Poppins',
   },
   disclaimerBox: {

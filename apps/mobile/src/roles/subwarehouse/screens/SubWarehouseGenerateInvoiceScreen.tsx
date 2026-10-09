@@ -86,6 +86,8 @@ function SearchIcon({ size = 18, color = '#8A928D' }: { size?: number; color?: s
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
+import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
+
 export interface SubWarehouseGenerateInvoiceScreenProps {
   onBack?: () => void;
   onSelectTransaction?: (transaction: TransactionRecord) => void;
@@ -98,6 +100,7 @@ export function SubWarehouseGenerateInvoiceScreen({
   onNavigateToGSTInvoice,
 }: SubWarehouseGenerateInvoiceScreenProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
 
   const filtered = TRANSACTIONS.filter((tx) => {
     if (!searchQuery.trim()) return true;
@@ -117,9 +120,22 @@ export function SubWarehouseGenerateInvoiceScreen({
     if (onSelectTransaction) {
       onSelectTransaction(tx);
     } else {
-      Alert.alert('Selected', `Transaction ${tx.id} selected for invoice generation.`);
+      setSelectedTx(tx);
     }
   };
+
+  if (selectedTx) {
+    return (
+      <SubWarehouseInvoiceWizardScreen
+        transaction={selectedTx as any}
+        onBack={() => setSelectedTx(null)}
+        onSuccess={() => {
+          Alert.alert('Invoice Generated', `Invoice generated successfully for ${selectedTx.customerName}.`);
+          setSelectedTx(null);
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -193,16 +209,14 @@ export function SubWarehouseGenerateInvoiceScreen({
                 <Text style={styles.amountText}>{tx.amount}</Text>
               </View>
 
-              {/* Select Button for Completed */}
-              {isCompleted && (
-                <TouchableOpacity
-                  style={styles.selectBtn}
-                  onPress={() => handleSelect(tx)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.selectBtnText}>Select</Text>
-                </TouchableOpacity>
-              )}
+              {/* Select Button for All */}
+              <TouchableOpacity
+                style={styles.selectBtn}
+                onPress={() => handleSelect(tx)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.selectBtnText}>Select</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         })}

@@ -98,31 +98,6 @@ export function GSTInvoiceScreen({
           </Text>
         </View>
 
-        {/* Subtext note box with warm peach tint matching target design */}
-        <View style={styles.noteCard}>
-          <Text style={styles.noteText}>
-            Shown, not hidden — generation stays blocked unless the Role & Feature Matrix explicitly confirms MWA authorization.
-          </Text>
-        </View>
-
-        {/* Action Button 1 with orange border and warm brown text */}
-        <TouchableOpacity
-          style={styles.actionBtnCard}
-          onPress={() => (onViewExisting ? onViewExisting() : Alert.alert('GST Invoice', 'No existing GST invoice found for this batch.'))}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.actionBtnText}>View Existing GST Invoice</Text>
-        </TouchableOpacity>
-
-        {/* Action Button 2 with orange border and warm brown text */}
-        <TouchableOpacity
-          style={styles.actionBtnCard}
-          onPress={() => (onPreviewAuthorized ? onPreviewAuthorized() : Alert.alert('Preview', 'Previewing Authorized Admin view...'))}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.actionBtnTextSecondary}>Preview: what an authorized role (SA/TA) would see →</Text>
-        </TouchableOpacity>
-
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>

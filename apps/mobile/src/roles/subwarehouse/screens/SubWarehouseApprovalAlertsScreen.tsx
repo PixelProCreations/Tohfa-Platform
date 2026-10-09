@@ -298,13 +298,6 @@ export function SubWarehouseApprovalAlertsScreen({
           </TouchableOpacity>
         )}
 
-        {/* ─── Blue Info Box ─── */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            SWA can view this alert, but only actions the role matrix actually grants appear — SWA does not get an approval action here since expense-claim approval isn't granted.
-          </Text>
-        </View>
-
         {/* ─── Alert Card 2: Quantity Mismatch (Red Accent) ─── */}
         {filteredAlerts.some((a) => a.id === 'GR-00245') && (
           <TouchableOpacity

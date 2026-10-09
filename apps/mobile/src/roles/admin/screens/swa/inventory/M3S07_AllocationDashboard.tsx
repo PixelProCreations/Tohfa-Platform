@@ -79,7 +79,7 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
     {
       channel: 'ONLINE',
       titleColor: '#8B4513',
-      borderColor: '#E85226',
+      borderColor: '#F0562A',
       allocated: '420 KG',
       consumed: '180 KG',
       reserved: '120 KG',
@@ -117,18 +117,11 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Stock Allocation"
           onBack={onBack}
+          showWarehouse={true}
         />
-
-        {/* Warehouse Pill */}
-        <View style={styles.warehousePillRow}>
-          <View style={styles.warehousePill}>
-            <LockSmallIcon />
-            <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
-          </View>
-        </View>
 
         {/* 4 Rounded Tab Cards */}
         <View style={styles.tabCardsRow}>
@@ -181,7 +174,7 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
 
           {/* Multi-color Split Bar matching Reference Design */}
           <View style={styles.multiSplitBar}>
-            <View style={[styles.splitSegment, { flex: 420, backgroundColor: '#E85226' }]} />
+            <View style={[styles.splitSegment, { flex: 420, backgroundColor: '#F0562A' }]} />
             <View style={[styles.splitSegment, { flex: 120, backgroundColor: '#0D6E4F' }]} />
             <View style={[styles.splitSegment, { flex: 80, backgroundColor: '#2563EB' }]} />
             <View style={[styles.splitSegment, { flex: 60, backgroundColor: '#D97706' }]} />
@@ -224,8 +217,6 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );
@@ -234,7 +225,7 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -282,8 +273,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   activeTabCard: {
-    backgroundColor: '#E85226',
-    borderColor: '#E85226',
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabCardText: {
     fontSize: 12,

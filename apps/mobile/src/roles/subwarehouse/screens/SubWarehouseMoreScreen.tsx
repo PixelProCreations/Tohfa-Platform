@@ -17,6 +17,7 @@ import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 import { SubWarehouseHelpSupportScreen } from './SubWarehouseHelpSupportScreen';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
+import { SubWarehouseCustomersScreen } from './SubWarehouseCustomersScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -198,11 +199,11 @@ const OPTION_GROUPS: OptionGroup[] = [
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M18 6L6 18M6 6l12 12"
+        d="M19 12H5M12 19l-7-7 7-7"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -572,6 +573,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 export interface SubWarehouseMoreScreenProps {
   onBack?: (() => void) | undefined;
+  onNavigateToDashboard?: (() => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToProfile?: (() => void) | undefined;
@@ -592,11 +594,20 @@ export interface SubWarehouseMoreScreenProps {
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
+  onNavigateToStorageLocations?: (() => void) | undefined;
+  onNavigateToCapacity?: (() => void) | undefined;
+  onNavigateToMaterialHandling?: (() => void) | undefined;
+  onNavigateToOperationalIssues?: (() => void) | undefined;
+  onNavigateToWarehouseActivity?: (() => void) | undefined;
+  onNavigateToTodayOperations?: (() => void) | undefined;
+  onNavigateToReceiveGoods?: (() => void) | undefined;
+  onNavigateToStockVerification?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
 }
 
 export function SubWarehouseMoreScreen({
   onBack,
+  onNavigateToDashboard,
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
@@ -615,6 +626,14 @@ export function SubWarehouseMoreScreen({
   onNavigateToSettings,
   onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
+  onNavigateToStorageLocations,
+  onNavigateToCapacity,
+  onNavigateToMaterialHandling,
+  onNavigateToOperationalIssues,
+  onNavigateToWarehouseActivity,
+  onNavigateToTodayOperations,
+  onNavigateToReceiveGoods,
+  onNavigateToStockVerification,
   onLogout,
 }: SubWarehouseMoreScreenProps) {
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
@@ -623,6 +642,17 @@ export function SubWarehouseMoreScreen({
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
+  const [showCustomersScreen, setShowCustomersScreen] = useState(false);
+
+  const handleBackToDashboard = () => {
+    if (onNavigateToDashboard) {
+      onNavigateToDashboard();
+    } else if (onTabChange) {
+      onTabChange('Home');
+    } else if (onBack) {
+      onBack();
+    }
+  };
 
   const handleTabPress = (tab: SubWHTab) => {
     if (tab === 'More') return;
@@ -648,8 +678,11 @@ export function SubWarehouseMoreScreen({
         else Alert.alert(item.title, 'Opening Direct / Market Sales...');
         break;
       case 'customers':
-        if (onNavigateToCustomers) onNavigateToCustomers();
-        else Alert.alert(item.title, 'Opening Customers Directory...');
+        if (onNavigateToCustomers) {
+          onNavigateToCustomers();
+        } else {
+          setShowCustomersScreen(true);
+        }
         break;
       case 'wallet':
         if (onNavigateToWallet) onNavigateToWallet();
@@ -836,6 +869,53 @@ export function SubWarehouseMoreScreen({
       <SubWarehouseWarehouseOperationsScreen
         onBack={() => setShowWarehouseOperationsScreen(false)}
         onTabChange={onTabChange}
+        onNavigateToReceiveGoods={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToReceiveGoods) onNavigateToReceiveGoods();
+          else onTabChange?.('Receiving');
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToStockVerification) onNavigateToStockVerification();
+          else onTabChange?.('Inventory');
+        }}
+        onNavigateToStaffAttendance={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToAttendance) onNavigateToAttendance();
+        }}
+        onNavigateToStorageLocations={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToStorageLocations?.();
+        }}
+        onNavigateToCapacity={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToCapacity?.();
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToMaterialHandling?.();
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToOperationalIssues?.();
+        }}
+        onNavigateToWarehouseActivity={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToWarehouseActivity?.();
+        }}
+        onNavigateToTodayOperations={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToTodayOperations?.();
+        }}
+      />
+    );
+  }
+
+  if (showCustomersScreen) {
+    return (
+      <SubWarehouseCustomersScreen
+        onBack={() => setShowCustomersScreen(false)}
+        onTabChange={handleTabPress}
       />
     );
   }
@@ -847,21 +927,19 @@ export function SubWarehouseMoreScreen({
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackToDashboard}
+            activeOpacity={0.75}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>More</Text>
             <Text style={styles.headerSubtitle}>Coonoor Warehouse</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => {
-              if (onBack) onBack();
-            }}
-            activeOpacity={0.75}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <CloseIcon size={18} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1004,20 +1082,28 @@ const styles = StyleSheet.create({
   },
   headerBanner: {
     backgroundColor: PALETTE.primary,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 22,
+    paddingBottom: 20,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTextCol: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.3,
@@ -1027,14 +1113,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.92)',
     marginTop: 2,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scroll: {
     flex: 1,

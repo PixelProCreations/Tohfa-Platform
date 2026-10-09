@@ -21,28 +21,28 @@ import {
   type TopUpDetailsData,
 } from './SubWarehouseTopUpDetailsScreen';
 
-// ─── Design Tokens (Matching Exact Screenshots) ──────────────────────────────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF2E8',
-  primaryBorder: '#F5C6A0',
+  primaryDark:   '#7A2E14',
+  primaryLight:  '#FDF3F0',
+  primaryBorder: '#EEDCD3',
 
-  pageBg:        '#FAF7F2',
+  pageBg:        '#F3EFE9',
   cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#6B7280',
-  textMuted:     '#9CA3AF',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
+  textInk:       '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted:     '#5F5E5A',
+  border:        '#EEDCD3',
+  divider:       '#EEDCD3',
 
   // Amber callout banner
-  amberCalloutBg:     '#FEF3C7',
-  amberCalloutBorder: '#FDE68A',
-  amberCalloutText:   '#B45309',
+  amberCalloutBg:     '#FEF3E2',
+  amberCalloutBorder: '#EEDCD3',
+  amberCalloutText:   '#854F0B',
 
-  greenAmount:   '#0D9488',
-  brownBalance:  '#92400E',
+  greenAmount:   '#173404',
+  brownBalance:  '#7A2E14',
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S14CProps {
   orderId?: string;
@@ -32,10 +32,10 @@ function BackArrowWhiteIcon() {
 function DeliveryTruckGreenIcon() {
   return (
     <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="14" height="13" rx="1" stroke="#10B981" strokeWidth="2" />
-      <Path d="M15 8h4l3 3v5h-7V8z" stroke="#10B981" strokeWidth="2" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#10B981" strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#10B981" strokeWidth="2" />
+      <Rect x="1" y="3" width="14" height="13" rx="1" stroke={ORDERS_THEME.success} strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke={ORDERS_THEME.success} strokeWidth="2" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.success} strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.success} strokeWidth="2" />
     </Svg>
   );
 }
@@ -57,7 +57,7 @@ export const M5S14C_OrderDispatched: React.FC<M5S14CProps> = ({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 4 */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -71,7 +71,7 @@ export const M5S14C_OrderDispatched: React.FC<M5S14CProps> = ({
         </View>
 
         <View style={styles.contentPacked}>
-          {/* Centered Hero Delivery Truck Badge matching Image 4 */}
+          {/* Centered Hero Delivery Truck Badge */}
           <View style={styles.heroContainer}>
             <View style={styles.successCircleBadge}>
               <DeliveryTruckGreenIcon />
@@ -94,7 +94,7 @@ export const M5S14C_OrderDispatched: React.FC<M5S14CProps> = ({
           </View>
         </View>
 
-        {/* Bottom Fixed Action Button matching Image 4 */}
+        {/* Bottom Fixed Action Button */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.primaryBtn}
@@ -113,28 +113,31 @@ export const M5S14C_OrderDispatched: React.FC<M5S14CProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   contentPacked: {
@@ -150,24 +153,29 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E8F8F0',
+    backgroundColor: ORDERS_THEME.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 20,
     paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -177,36 +185,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
   primaryBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',

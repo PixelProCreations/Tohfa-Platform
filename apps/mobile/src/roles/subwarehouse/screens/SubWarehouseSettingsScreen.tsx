@@ -6,13 +6,18 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { SubWarehouseUserProfileScreen } from './SubWarehouseUserProfileScreen';
+import { SubWarehouseNotificationSettingsScreen } from './SubWarehouseNotificationSettingsScreen';
+import { SubWarehouseSecurityScreen } from './SubWarehouseSecurityScreen';
+import { SubWarehouseHelpSupportScreen } from './SubWarehouseHelpSupportScreen';
+import { SubWarehouseSessionSecurityScreen } from './SubWarehouseSessionSecurityScreen';
+import { SubWarehouseAboutScreen } from './SubWarehouseAboutScreen';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -36,18 +41,22 @@ const PALETTE = {
   redText:       '#DC2626',
   redBg:         '#FEE2E2',
 
+  iconBoxBg:     '#FBF1EA',
+  iconColor:     '#8B5E3C',
+
   tabInactive:   '#786F66',
   tabBorder:     '#EAE4DB',
 };
 
 type SettingsSubScreen =
-  | 'dashboard' // M16-S01
-  | 'profile' // M16-S02
-  | 'security' // M16-S03
-  | 'change_password' // M16-S04
-  | 'session_security' // M16-S05
-  | 'help_support' // M16-S06
-  | 'about'; // M16-S07
+  | 'dashboard' // Main Settings List
+  | 'profile' // Profile Screen
+  | 'notifications' // Notification Settings
+  | 'security' // Security Screen
+  | 'change_password' // Change Password
+  | 'session_security' // Session & Security
+  | 'help_support' // Help & Support
+  | 'about'; // About TOHFA
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -80,7 +89,7 @@ function SettingsGearIcon({ size = 22, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-function UserIcon({ color = PALETTE.primary }: { color?: string }) {
+function UserIcon({ color = PALETTE.iconColor }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -89,17 +98,7 @@ function UserIcon({ color = PALETTE.primary }: { color?: string }) {
   );
 }
 
-function ShieldLockIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Rect x="9" y="10" width="6" height="5" rx="1" stroke={color} strokeWidth="2" />
-      <Path d="M10 10V8a2 2 0 0 1 4 0v2" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function BellIcon({ color = PALETTE.primary }: { color?: string }) {
+function BellIcon({ color = PALETTE.iconColor }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -107,7 +106,36 @@ function BellIcon({ color = PALETTE.primary }: { color?: string }) {
   );
 }
 
-function HelpCircleIcon({ color = PALETTE.primary }: { color?: string }) {
+function ShieldSecurityIcon({ color = PALETTE.iconColor }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function KeyPasswordIcon({ color = PALETTE.iconColor }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="20" height="12" rx="4" stroke={color} strokeWidth="2" />
+      <Circle cx="7" cy="12" r="1.5" fill={color} />
+      <Circle cx="12" cy="12" r="1.5" fill={color} />
+      <Circle cx="17" cy="12" r="1.5" fill={color} />
+    </Svg>
+  );
+}
+
+function DeviceSessionIcon({ color = PALETTE.iconColor }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="4" width="13" height="10" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M5 18h7M8.5 14v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="15" y="8" width="7" height="11" rx="1.5" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function HelpCircleIcon({ color = PALETTE.iconColor }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -116,7 +144,7 @@ function HelpCircleIcon({ color = PALETTE.primary }: { color?: string }) {
   );
 }
 
-function InfoIcon({ color = PALETTE.primary }: { color?: string }) {
+function InfoIcon({ color = PALETTE.iconColor }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -141,25 +169,75 @@ function ChevronRightIcon({ size = 18, color = '#9CA3AF' }: { size?: number; col
   );
 }
 
+function HomeTabIcon({ active }: { active: boolean }) {
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ReceivingTabIcon({ active }: { active: boolean }) {
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function InventoryTabIcon({ active }: { active: boolean }) {
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function MoreTabIcon({ active }: { active: boolean }) {
+  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Circle cx="5" cy="5" r="2" fill={color} />
+      <Circle cx="12" cy="5" r="2" fill={color} />
+      <Circle cx="19" cy="5" r="2" fill={color} />
+      <Circle cx="5" cy="12" r="2" fill={color} />
+      <Circle cx="12" cy="12" r="2" fill={color} />
+      <Circle cx="19" cy="12" r="2" fill={color} />
+      <Circle cx="5" cy="19" r="2" fill={color} />
+      <Circle cx="12" cy="19" r="2" fill={color} />
+      <Circle cx="19" cy="19" r="2" fill={color} />
+    </Svg>
+  );
+}
+
 export interface SubWarehouseSettingsScreenProps {
   onBack?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
+  onTabChange?: ((tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void) | undefined;
 }
 
-export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSettingsScreenProps) {
+export function SubWarehouseSettingsScreen({ onBack, onLogout, onTabChange }: SubWarehouseSettingsScreenProps) {
   const [currentScreen, setCurrentScreen] = useState<SettingsSubScreen>('dashboard');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  // Notification toggles
-  const [notifReceiving, setNotifReceiving] = useState(true);
-  const [notifSales, setNotifSales] = useState(true);
-  const [notifStock, setNotifStock] = useState(true);
-  const [notifFinance, setNotifFinance] = useState(false);
 
   // Password change state
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+
+  const handleTabPress = (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => {
+    if (tab === 'More') {
+      setCurrentScreen('dashboard');
+    } else if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
 
   const handleUpdatePassword = () => {
     if (!currentPass || !newPass || !confirmPass) {
@@ -182,7 +260,7 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
           setCurrentPass('');
           setNewPass('');
           setConfirmPass('');
-          setCurrentScreen('security');
+          setCurrentScreen('dashboard');
         },
       },
     ]);
@@ -197,123 +275,72 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
     }
   };
 
-  // ─── Subscreen: M16-S02 My Profile ──────────────────────────────────────────
+  // ─── Subscreen: Profile ───────────────────────────────────────────────────
   if (currentScreen === 'profile') {
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('dashboard')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>My Profile</Text>
-            <View style={{ width: 36 }} />
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.profileAvatarCard}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>RK</Text>
-            </View>
-            <Text style={styles.profileName}>Rajesh Kannan</Text>
-            <Text style={styles.profileRole}>Sub-Warehouse Administrator</Text>
-            <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedText}>Active · Verified</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Employee ID</Text>
-              <Text style={styles.infoVal}>EMP-SW-0842</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Assigned Warehouse</Text>
-              <Text style={styles.infoVal}>Coonoor Warehouse (SW-04)</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Mobile Number</Text>
-              <Text style={styles.infoVal}>+91 98765 43210</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoVal}>rajesh.k@tohfa.ag</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Account Status</Text>
-              <Text style={[styles.infoVal, { color: PALETTE.greenText }]}>Active</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Last Login</Text>
-              <Text style={styles.infoVal}>Today · 08:30 AM (IST)</Text>
-            </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+      <SubWarehouseUserProfileScreen
+        onBack={() => setCurrentScreen('dashboard')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
     );
   }
 
-  // ─── Subscreen: M16-S03 Security ───────────────────────────────────────────
+  // ─── Subscreen: Notifications ─────────────────────────────────────────────
+  if (currentScreen === 'notifications') {
+    return (
+      <SubWarehouseNotificationSettingsScreen
+        onBack={() => setCurrentScreen('dashboard')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
+    );
+  }
+
+  // ─── Subscreen: Help & Support ────────────────────────────────────────────
+  if (currentScreen === 'help_support') {
+    return (
+      <SubWarehouseHelpSupportScreen
+        onBack={() => setCurrentScreen('dashboard')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
+    );
+  }
+
+  // ─── Subscreen: Security ──────────────────────────────────────────────────
   if (currentScreen === 'security') {
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('dashboard')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Security</Text>
-            <View style={{ width: 36 }} />
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('change_password')} activeOpacity={0.75}>
-              <View style={styles.menuLeft}>
-                <Text style={styles.menuTitle}>Change Password</Text>
-                <Text style={styles.menuSub}>Last changed 45 days ago</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-            <View style={styles.divider} />
-            <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('session_security')} activeOpacity={0.75}>
-              <View style={styles.menuLeft}>
-                <Text style={styles.menuTitle}>Session & Device Security</Text>
-                <Text style={styles.menuSub}>1 active session on Android</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+      <SubWarehouseSecurityScreen
+        onBack={() => setCurrentScreen('dashboard')}
+        onChangePassword={() => setCurrentScreen('change_password')}
+        onViewSessionSecurity={() => setCurrentScreen('session_security')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
     );
   }
 
-  // ─── Subscreen: M16-S04 Change Password ─────────────────────────────────────
+  // ─── Subscreen: Change Password ───────────────────────────────────────────
   if (currentScreen === 'change_password') {
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
         <View style={styles.headerBanner}>
           <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('security')} activeOpacity={0.75}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setCurrentScreen('dashboard')}
+              activeOpacity={0.75}
+            >
               <ArrowBackIcon size={22} />
             </TouchableOpacity>
             <Text style={styles.headerTitleText}>Change Password</Text>
-            <View style={{ width: 36 }} />
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionHeading}>UPDATE CREDENTIALS</Text>
           <View style={styles.formCard}>
             <Text style={styles.inputLabel}>Current Password</Text>
             <TextInput
@@ -330,7 +357,7 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
               style={styles.inputField}
               value={newPass}
               onChangeText={setNewPass}
-              placeholder="Enter new password (min 6 chars)"
+              placeholder="Enter new password (min 6 characters)"
               secureTextEntry
               placeholderTextColor={PALETTE.textMuted}
             />
@@ -346,157 +373,52 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
             />
 
             <View style={styles.formActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setCurrentScreen('security')} activeOpacity={0.75}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setCurrentScreen('dashboard')}
+                activeOpacity={0.75}
+              >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={handleUpdatePassword} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.submitBtn}
+                onPress={handleUpdatePassword}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.submitBtnText}>Update Password</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          <View style={{ height: 28 }} />
         </ScrollView>
+
       </SafeAreaView>
     );
   }
 
-  // ─── Subscreen: M16-S05 Session & Security ──────────────────────────────────
+  // ─── Subscreen: Session & Security ────────────────────────────────────────
   if (currentScreen === 'session_security') {
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('security')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Session & Security</Text>
-            <View style={{ width: 36 }} />
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.infoCard}>
-            <Text style={styles.cardHeaderTitle}>Current Active Session</Text>
-            <View style={styles.sessionBox}>
-              <Text style={styles.sessionDevice}>Pixel 8 · Android 14</Text>
-              <Text style={styles.sessionDetails}>TOHFA Sub Warehouse Admin v2.4.1</Text>
-              <Text style={styles.sessionIp}>IP: 106.51.72.18 · Coonoor, Nilgiris</Text>
-              <View style={styles.activeTag}>
-                <Text style={styles.activeTagText}>Active Now</Text>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+      <SubWarehouseSessionSecurityScreen
+        onBack={() => setCurrentScreen('dashboard')}
+        onLogout={onLogout}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
     );
   }
 
-  // ─── Subscreen: M16-S06 Help & Support ─────────────────────────────────────
-  if (currentScreen === 'help_support') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('dashboard')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>Help & Support</Text>
-            <View style={{ width: 36 }} />
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.infoCard}>
-            <Text style={styles.cardHeaderTitle}>Contact Support</Text>
-            <Text style={styles.supportDesc}>
-              Our technical and warehouse support desk is active 24/7 for sub-warehouse operations.
-            </Text>
-            <TouchableOpacity
-              style={styles.contactBtn}
-              onPress={() => Alert.alert('Support Hotline', 'Calling Toll-free 1800-TOHFA-AG (1800-864-3224)...')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.contactBtnText}>📞 Call Toll-Free: 1800-TOHFA-AG</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.contactBtn, { backgroundColor: '#F3F4F6' }]}
-              onPress={() => Alert.alert('Support Email', 'Opening mail to support@tohfa.ag...')}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.contactBtnText, { color: PALETTE.textInk }]}>✉️ Email: support@tohfa.ag</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.cardHeaderTitle}>Frequently Asked Questions</Text>
-            <TouchableOpacity
-              style={styles.faqRow}
-              onPress={() => Alert.alert('Receiving QC', 'If a batch fails inspection, log the defect in Module 2 (Receiving QC) and select return or price markdown.')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.faqQ}>How to handle produce QC rejection?</Text>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-            <View style={styles.divider} />
-            <TouchableOpacity
-              style={styles.faqRow}
-              onPress={() => Alert.alert('Cash Reconciliation', 'Reconcile cashier cash deposits under Module 8 (Wallet & Cash Top-Up) before closing the day.')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.faqQ}>How to reconcile daily cash deposits?</Text>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ─── Subscreen: M16-S07 About TOHFA ────────────────────────────────────────
+  // ─── Subscreen: About TOHFA ───────────────────────────────────────────────
   if (currentScreen === 'about') {
     return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('dashboard')} activeOpacity={0.75}>
-              <ArrowBackIcon size={22} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitleText}>About TOHFA</Text>
-            <View style={{ width: 36 }} />
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.aboutCard}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>🌱 TOHFA</Text>
-            </View>
-            <Text style={styles.appName}>TOHFA Sub Warehouse Admin</Text>
-            <Text style={styles.appVersion}>Version 2.4.1 (Build 2026.09)</Text>
-            <Text style={styles.appDesc}>
-              Agricultural Produce Supply Chain & Warehouse Intelligence Platform.
-            </Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <TouchableOpacity style={styles.infoRow} onPress={() => Alert.alert('Privacy Policy', 'TOHFA complies with agricultural data privacy regulations.')} activeOpacity={0.7}>
-              <Text style={styles.infoLabel}>Privacy Policy</Text>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-            <View style={styles.divider} />
-            <TouchableOpacity style={styles.infoRow} onPress={() => Alert.alert('Terms of Service', 'Standard enterprise warehouse license agreement applies.')} activeOpacity={0.7}>
-              <Text style={styles.infoLabel}>Terms of Service</Text>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+      <SubWarehouseAboutScreen
+        onBack={() => setCurrentScreen('dashboard')}
+        {...(onTabChange ? { onTabChange } : {})}
+      />
     );
   }
 
-  // ─── Default: M16-S01 Settings Dashboard ────────────────────────────────────
+  // ─── Main Settings Dashboard (Landing) ────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -504,96 +426,84 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
       {/* Header */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              if (onBack) onBack();
-            }}
-            activeOpacity={0.75}
-          >
-            <ArrowBackIcon size={22} />
-          </TouchableOpacity>
+          {onBack && (
+            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.75}>
+              <ArrowBackIcon size={22} />
+            </TouchableOpacity>
+          )}
           <View style={styles.headerTitleRow}>
             <SettingsGearIcon size={22} />
             <Text style={styles.headerTitleText}>Settings</Text>
           </View>
-          <View style={{ width: 36 }} />
         </View>
-        <Text style={styles.headerSubtitle}>Module 16 · App Preferences & Account Configuration</Text>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Section 1: Account */}
-        <Text style={styles.sectionHeading}>Account</Text>
+        {/* Section 1: ACCOUNT */}
+        <Text style={styles.sectionHeading}>ACCOUNT</Text>
         <View style={styles.menuCard}>
           <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('profile')} activeOpacity={0.75}>
             <View style={styles.iconBox}>
               <UserIcon />
             </View>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuTitle}>My Profile</Text>
-              <Text style={styles.menuSub}>Rajesh Kannan · EMP-SW-0842</Text>
+              <Text style={styles.menuTitle}>Profile</Text>
+              <Text style={styles.menuSub}>Personal account information</Text>
             </View>
             <ChevronRightIcon />
           </TouchableOpacity>
           <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('notifications')} activeOpacity={0.75}>
+            <View style={styles.iconBox}>
+              <BellIcon />
+            </View>
+            <View style={styles.menuLeft}>
+              <Text style={styles.menuTitle}>Notification Settings</Text>
+              <Text style={styles.menuSub}>Manage your notifications</Text>
+            </View>
+            <ChevronRightIcon />
+          </TouchableOpacity>
+        </View>
+
+        {/* Section 2: SECURITY */}
+        <Text style={styles.sectionHeading}>SECURITY</Text>
+        <View style={styles.menuCard}>
           <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('security')} activeOpacity={0.75}>
             <View style={styles.iconBox}>
-              <ShieldLockIcon />
+              <ShieldSecurityIcon />
             </View>
             <View style={styles.menuLeft}>
               <Text style={styles.menuTitle}>Security</Text>
-              <Text style={styles.menuSub}>Password & session management</Text>
+              <Text style={styles.menuSub}>Password & login security</Text>
+            </View>
+            <ChevronRightIcon />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('change_password')} activeOpacity={0.75}>
+            <View style={styles.iconBox}>
+              <KeyPasswordIcon />
+            </View>
+            <View style={styles.menuLeft}>
+              <Text style={styles.menuTitle}>Change Password</Text>
+              <Text style={styles.menuSub}>Update your password</Text>
+            </View>
+            <ChevronRightIcon />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('session_security')} activeOpacity={0.75}>
+            <View style={styles.iconBox}>
+              <DeviceSessionIcon />
+            </View>
+            <View style={styles.menuLeft}>
+              <Text style={styles.menuTitle}>Session & Security</Text>
+              <Text style={styles.menuSub}>Login history & current session</Text>
             </View>
             <ChevronRightIcon />
           </TouchableOpacity>
         </View>
 
-        {/* Section 2: Notifications */}
-        <Text style={styles.sectionHeading}>Notification Preferences</Text>
-        <View style={styles.menuCard}>
-          <View style={styles.switchRow}>
-            <View style={styles.menuLeft}>
-              <Text style={styles.menuTitle}>Receiving Alerts</Text>
-              <Text style={styles.menuSub}>QC rejections & farmer dispatch updates</Text>
-            </View>
-            <Switch
-              value={notifReceiving}
-              onValueChange={setNotifReceiving}
-              trackColor={{ false: '#D1D5DB', true: PALETTE.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.switchRow}>
-            <View style={styles.menuLeft}>
-              <Text style={styles.menuTitle}>Sales & Orders</Text>
-              <Text style={styles.menuSub}>New HORECA/B2B orders & payments</Text>
-            </View>
-            <Switch
-              value={notifSales}
-              onValueChange={setNotifSales}
-              trackColor={{ false: '#D1D5DB', true: PALETTE.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.switchRow}>
-            <View style={styles.menuLeft}>
-              <Text style={styles.menuTitle}>Low Stock Warnings</Text>
-              <Text style={styles.menuSub}>Crate thresholds & spoilage reminders</Text>
-            </View>
-            <Switch
-              value={notifStock}
-              onValueChange={setNotifStock}
-              trackColor={{ false: '#D1D5DB', true: PALETTE.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
-
-        {/* Section 3: Support */}
-        <Text style={styles.sectionHeading}>Support & About</Text>
+        {/* Section 3: SUPPORT */}
+        <Text style={styles.sectionHeading}>SUPPORT</Text>
         <View style={styles.menuCard}>
           <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('help_support')} activeOpacity={0.75}>
             <View style={styles.iconBox}>
@@ -601,42 +511,44 @@ export function SubWarehouseSettingsScreen({ onBack, onLogout }: SubWarehouseSet
             </View>
             <View style={styles.menuLeft}>
               <Text style={styles.menuTitle}>Help & Support</Text>
-              <Text style={styles.menuSub}>FAQs, hotline & issue reporting</Text>
+              <Text style={styles.menuSub}>Get help or contact support</Text>
             </View>
             <ChevronRightIcon />
           </TouchableOpacity>
-          <View style={styles.divider} />
+        </View>
+
+        {/* Section 4: ABOUT */}
+        <Text style={styles.sectionHeading}>ABOUT</Text>
+        <View style={styles.menuCard}>
           <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentScreen('about')} activeOpacity={0.75}>
             <View style={styles.iconBox}>
               <InfoIcon />
             </View>
             <View style={styles.menuLeft}>
               <Text style={styles.menuTitle}>About TOHFA</Text>
-              <Text style={styles.menuSub}>Version 2.4.1 (Build 2026.09)</Text>
+              <Text style={styles.menuSub}>App information & legal</Text>
             </View>
             <ChevronRightIcon />
           </TouchableOpacity>
         </View>
 
-        {/* Section 4: Account Actions */}
-        <Text style={styles.sectionHeading}>Account Actions</Text>
+        {/* Section 5: LOGOUT */}
         <View style={styles.menuCard}>
           <TouchableOpacity style={styles.menuRow} onPress={() => setShowLogoutModal(true)} activeOpacity={0.75}>
             <View style={[styles.iconBox, { backgroundColor: PALETTE.redBg }]}>
               <LogoutIcon />
             </View>
             <View style={styles.menuLeft}>
-              <Text style={[styles.menuTitle, { color: PALETTE.redText }]}>Logout</Text>
-              <Text style={styles.menuSub}>Sign out of Coonoor Warehouse terminal</Text>
+              <Text style={[styles.menuTitle, { color: PALETTE.redText, fontWeight: '700' }]}>Logout</Text>
             </View>
-            <ChevronRightIcon color={PALETTE.redText} />
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* ─── M16-S08 Logout Confirmation Modal ─── */}
+
+      {/* ─── Logout Confirmation Modal ─── */}
       <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => setShowLogoutModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -670,14 +582,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 18,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    gap: 12,
   },
   backButton: {
     width: 36,
@@ -698,13 +607,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.88)',
-    fontWeight: '500',
-    marginTop: 2,
-    marginLeft: 4,
-  },
   scroll: {
     flex: 1,
   },
@@ -713,18 +615,18 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   sectionHeading: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#8B5E3C',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 14,
+    marginTop: 12,
     marginBottom: 8,
     marginLeft: 4,
   },
   menuCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: PALETTE.border,
     overflow: 'hidden',
@@ -736,18 +638,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
   iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: PALETTE.primaryLight,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: PALETTE.iconBoxBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -759,63 +654,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: PALETTE.textInk,
+    marginBottom: 2,
   },
   menuSub: {
     fontSize: 12,
     color: PALETTE.textSecondary,
     fontWeight: '500',
-    marginTop: 2,
   },
   divider: {
     height: 1,
     backgroundColor: PALETTE.divider,
-    marginLeft: 68,
-  },
-  profileAvatarCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: PALETTE.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  profileName: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-    marginBottom: 2,
-  },
-  profileRole: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  verifiedPill: {
-    backgroundColor: PALETTE.greenBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  verifiedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.greenText,
+    marginLeft: 72,
   },
   infoCard: {
     backgroundColor: PALETTE.cardBg,
@@ -841,11 +690,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: PALETTE.textSecondary,
     fontWeight: '500',
-  },
-  infoVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textInk,
   },
   sessionBox: {
     backgroundColor: '#F9FAFB',
@@ -936,36 +780,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  supportDesc: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  contactBtn: {
-    backgroundColor: PALETTE.primary,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  contactBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  faqRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  faqQ: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textInk,
-    flex: 1,
-  },
   aboutCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 18,
@@ -1000,14 +814,41 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   appDesc: {
-    fontSize: 12,
-    color: PALETTE.textMuted,
+    fontSize: 13,
+    color: PALETTE.textSecondary,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 18,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: PALETTE.cardBg,
+    borderTopWidth: 1,
+    borderTopColor: PALETTE.tabBorder,
+    paddingVertical: 8,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+    minWidth: 60,
+  },
+  navLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: PALETTE.tabInactive,
+    marginTop: 3,
+  },
+  navLabelActive: {
+    color: PALETTE.primary,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -1016,18 +857,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
-    alignItems: 'center',
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
+    alignItems: 'center',
   },
   logoutIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#FEE2E2',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   modalTitle: {
     fontSize: 18,
@@ -1039,13 +880,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: PALETTE.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
     lineHeight: 18,
+    marginBottom: 20,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
     width: '100%',
+    gap: 10,
   },
   modalCancelBtn: {
     flex: 1,

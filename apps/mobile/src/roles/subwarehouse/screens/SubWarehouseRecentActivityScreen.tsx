@@ -202,11 +202,13 @@ const ACTIVITIES_DATA: ActivityItem[] = [
 export interface SubWarehouseRecentActivityScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
+  onNavigateToCategory?: (category: string, activity?: ActivityItem) => void;
 }
 
 export function SubWarehouseRecentActivityScreen({
   onBack,
   onTabChange,
+  onNavigateToCategory,
 }: SubWarehouseRecentActivityScreenProps) {
   const [activeTab, setActiveTab] = useState<'Home' | 'Receiving' | 'Inventory' | 'More'>('Home');
   const [dateFilter, setDateFilter] = useState<'Today' | 'Yesterday' | 'This Week' | 'All Time'>('Today');
@@ -281,7 +283,7 @@ export function SubWarehouseRecentActivityScreen({
         showsVerticalScrollIndicator={false}
       >
         {filteredActivities.map((act) => (
-          <View key={act.id} style={styles.activityCard}>
+          <TouchableOpacity key={act.id} style={styles.activityCard} activeOpacity={0.8} onPress={() => onNavigateToCategory && onNavigateToCategory(act.type, act)}>
             {/* Card Header Row */}
             <View style={styles.cardHeaderRow}>
               <Text style={styles.cardTitle}>{act.title}</Text>
@@ -318,7 +320,7 @@ export function SubWarehouseRecentActivityScreen({
               <Text style={styles.footerOperator}>{act.operator}</Text>
               <Text style={styles.footerTime}>{act.time}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
 
         {filteredActivities.length === 0 && (

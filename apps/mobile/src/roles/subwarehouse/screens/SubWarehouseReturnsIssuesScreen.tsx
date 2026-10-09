@@ -49,6 +49,34 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
+function ReturnBoxHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Rect
+        x="3.5"
+        y="5"
+        width="17"
+        height="16"
+        rx="3.5"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path
+        d="M14.5 13H8.5M8.5 13l2.8-2.8M8.5 13l2.8 2.8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function BellIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -359,35 +387,30 @@ export function SubWarehouseReturnsIssuesScreen({
       {/* ─── Header ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.8}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>Returns & Issues</Text>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              style={styles.historyHeaderPill}
-              onPress={onNavigateToHistory}
-              activeOpacity={0.8}
-            >
-              <HistoryClockIcon size={14} color="#FFFFFF" />
-              <Text style={styles.historyHeaderPillText}>History</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.bellButton}
-              onPress={onNavigateToNotifications}
-              activeOpacity={0.8}
-            >
-              <BellIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
+          <View style={styles.headerTitleGroup}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel="Go back"
+              >
+                <ArrowBackIcon size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <ReturnBoxHeaderIcon size={22} color="#FFFFFF" />
+            <Text style={styles.headerTitle}>Returns & Issues</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={onNavigateToNotifications}
+            activeOpacity={0.8}
+            accessibilityLabel="Notifications"
+          >
+            <BellIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
         {/* Warehouse Pill Chip */}
@@ -404,19 +427,19 @@ export function SubWarehouseReturnsIssuesScreen({
       >
         {/* ─── 4 Metric Cards (2x2 Grid) ─── */}
         <View style={styles.metricsGrid}>
-          {/* Card 1: New Requests */}
+          {/* Card 1: New Requests (Matching Reference Design: CheckCircleIcon) */}
           <View style={styles.metricCard}>
             <View style={styles.metricIconWrap}>
-              <NewBadgeIcon size={20} color="#8D4321" />
+              <CheckCircleIcon size={20} color="#8D4321" />
             </View>
             <Text style={styles.metricValue}>8</Text>
             <Text style={styles.metricLabel}>New Requests</Text>
           </View>
 
-          {/* Card 2: Under Review */}
+          {/* Card 2: Under Review (Matching Reference Design: PendingDotsIcon) */}
           <View style={styles.metricCard}>
             <View style={styles.metricIconWrap}>
-              <EditNoteIcon size={20} color="#8D4321" />
+              <PendingDotsIcon size={20} color="#8D4321" />
             </View>
             <Text style={styles.metricValue}>5</Text>
             <Text style={styles.metricLabel}>Under Review</Text>
@@ -497,24 +520,6 @@ export function SubWarehouseReturnsIssuesScreen({
           </TouchableOpacity>
         </View>
 
-        {/* ─── Search Bar ─── */}
-        <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#9E9690" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search RMA ID, Order ID or Customer"
-            placeholderTextColor="#9E9690"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          <TouchableOpacity
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => {}}
-          >
-            <FilterIcon size={18} color="#7A726C" />
-          </TouchableOpacity>
-        </View>
-
         {/* ─── RMA List Cards ─── */}
         <View style={styles.listContainer}>
           {filteredItems.map((item) => {
@@ -592,24 +597,6 @@ export function SubWarehouseReturnsIssuesScreen({
               <Text style={styles.emptyText}>No RMA records found</Text>
             </View>
           )}
-
-          {/* ─── Bottom Return History Link Card ─── */}
-          <TouchableOpacity
-            style={styles.bottomHistoryCard}
-            onPress={onNavigateToHistory}
-            activeOpacity={0.8}
-          >
-            <View style={styles.bottomHistoryLeft}>
-              <View style={styles.bottomHistoryIconWrap}>
-                <HistoryClockIcon size={16} color={PALETTE.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bottomHistoryTitle}>Return History</Text>
-                <Text style={styles.bottomHistorySub}>View completed & rejected returns</Text>
-              </View>
-            </View>
-            <ArrowForwardIcon size={16} color={PALETTE.primary} />
-          </TouchableOpacity>
         </View>
 
         <View style={{ height: 32 }} />
@@ -671,11 +658,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  backButton: {
-    width: 38,
-    height: 38,
+  headerTitleGroup: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  backBtn: {
+    marginRight: 2,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
@@ -700,7 +691,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 16,
     marginTop: 2,
-    marginLeft: 38,
     gap: 6,
   },
   warehousePillText: {

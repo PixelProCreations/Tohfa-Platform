@@ -7,6 +7,7 @@ interface M3S02Props {
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
   onTabChange?: ((tab: any) => void) | undefined;
+  initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
 }
 
 // ─── Custom Icons matching Design Mockup (Pure Path - zero Hermes/SVG errors) ─
@@ -112,8 +113,8 @@ function SearchIcon({ color = '#8A7E75' }: { color?: string }) {
   );
 }
 
-export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTabChange }) => {
-  const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Stock');
+export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTabChange, initialTab = 'Stock' }) => {
+  const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
 
   const stockItems = [
@@ -154,7 +155,7 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Stock List"
           onBack={onBack}
           showFilter={true}
@@ -274,8 +275,6 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
             );
           })}
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );
@@ -284,7 +283,7 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -314,8 +313,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   activeTabCard: {
-    backgroundColor: '#E85226',
-    borderColor: '#E85226',
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabCardText: {
     fontSize: 12,
@@ -438,13 +437,13 @@ const styles = StyleSheet.create({
   viewLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#F0562A',
     fontFamily: 'Poppins',
   },
   viewChevron: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#F0562A',
     marginTop: -1,
   },
 });

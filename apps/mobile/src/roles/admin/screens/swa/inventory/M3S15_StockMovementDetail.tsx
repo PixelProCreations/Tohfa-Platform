@@ -29,10 +29,10 @@ function MoreDotsIcon() {
 function PhotoThumbnailIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke="#E85226" strokeWidth="1.8" />
-      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke="#E85226" strokeWidth="1.5" />
-      <Path d="M21 15l-5-5-8 8" stroke="#E85226" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 14l2-2 5 5" stroke="#E85226" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke="#F0562A" strokeWidth="1.8" />
+      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke="#F0562A" strokeWidth="1.5" />
+      <Path d="M21 15l-5-5-8 8" stroke="#F0562A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 14l2-2 5 5" stroke="#F0562A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -55,7 +55,7 @@ function InfoCircleIcon() {
   );
 }
 
-function QrIcon({ color = '#E85226', size = 18 }: { color?: string; size?: number }) {
+function QrIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -63,7 +63,7 @@ function QrIcon({ color = '#E85226', size = 18 }: { color?: string; size?: numbe
   );
 }
 
-function DocumentReferenceIcon({ color = '#E85226', size = 18 }: { color?: string; size?: number }) {
+function DocumentReferenceIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -72,7 +72,7 @@ function DocumentReferenceIcon({ color = '#E85226', size = 18 }: { color?: strin
   );
 }
 
-function HistoryLedgerIcon({ color = '#E85226', size = 18 }: { color?: string; size?: number }) {
+function HistoryLedgerIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -81,7 +81,7 @@ function HistoryLedgerIcon({ color = '#E85226', size = 18 }: { color?: string; s
   );
 }
 
-function LockNoticeIcon({ color = '#E85226', size = 18 }: { color?: string; size?: number }) {
+function LockNoticeIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2" />
@@ -94,7 +94,7 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Stock Movement"
           onBack={onBack}
           rightAction={
@@ -328,7 +328,7 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
               onPress={() => onNavigate('M3S04')}
               activeOpacity={0.7}
             >
-              <QrIcon color="#E85226" size={18} />
+              <QrIcon color="#F0562A" size={18} />
               <Text style={styles.actionBtnText}>View Batch</Text>
             </TouchableOpacity>
 
@@ -337,7 +337,7 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
               onPress={() => onNavigate('M3S06')}
               activeOpacity={0.7}
             >
-              <DocumentReferenceIcon color="#E85226" size={18} />
+              <DocumentReferenceIcon color="#F0562A" size={18} />
               <Text style={styles.actionBtnText}>View Reference</Text>
             </TouchableOpacity>
 
@@ -346,14 +346,14 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
               onPress={() => onNavigate('M3S06')}
               activeOpacity={0.7}
             >
-              <HistoryLedgerIcon color="#E85226" size={18} />
+              <HistoryLedgerIcon color="#F0562A" size={18} />
               <Text style={styles.actionBtnText}>View Ledger History</Text>
             </TouchableOpacity>
           </View>
 
           {/* Disclaimer Banner */}
           <View style={styles.disclaimerBox}>
-            <LockNoticeIcon color="#E85226" size={18} />
+            <LockNoticeIcon color="#F0562A" size={18} />
             <Text style={styles.disclaimerText}>
               No Edit Balance action exists on this screen. Stock changes only ever happen through a new ledger movement — never a direct edit here.
             </Text>
@@ -369,7 +369,7 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -605,14 +605,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: '#F0562A',
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     marginBottom: 10,
-    shadowColor: '#E85226',
+    shadowColor: '#F0562A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#F0562A',
     fontFamily: 'Poppins',
   },
   disclaimerBox: {

@@ -11,28 +11,28 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
   primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primaryDark:   '#7A2E14',
+  primaryLight:  '#FDF3F0',
+  primarySoft:   '#FDF3F0',
+  primaryBorder: '#EEDCD3',
 
-  pageBg:        '#FAF7F2',
+  pageBg:        '#F3EFE9',
   cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  textInk:       '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted:     '#5F5E5A',
+  border:        '#EEDCD3',
+  divider:       '#EEDCD3',
 
-  infoBg:        '#EBF5FF',
-  infoBorder:    '#BAE6FD',
-  infoText:      '#0369A1',
+  infoBg:        '#E6F1FB',
+  infoBorder:    '#EEDCD3',
+  infoText:      '#0C447C',
 
-  amberPillBg:   '#FEF3C7',
-  amberPillText: '#92400E',
+  amberPillBg:   '#FEF3E2',
+  amberPillText: '#854F0B',
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -96,26 +96,28 @@ function PlusIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: str
 }
 
 import { SubWarehouseSelectProductsScreen } from './SubWarehouseSelectProductsScreen';
+import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
 
 export interface SubWarehouseNewSaleScreenProps {
+  initialCustomerName?: string | undefined;
   onBack?: (() => void) | undefined;
   onSelectProducts?: (() => void) | undefined;
 }
 
 export function SubWarehouseNewSaleScreen({
+  initialCustomerName,
   onBack,
   onSelectProducts,
 }: SubWarehouseNewSaleScreenProps) {
   const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket'>('Direct');
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('Select Customer / Walk-in');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>(
+    initialCustomerName || 'Select Customer / Walk-in'
+  );
   const [showSelectProducts, setShowSelectProducts] = useState(false);
+  const [showSelectCustomer, setShowSelectCustomer] = useState(false);
 
   const handleSelectCustomer = () => {
-    Alert.alert('Customer Selection', 'Choose customer type:', [
-      { text: 'Walk-in Customer (Default)', onPress: () => setSelectedCustomer('Walk-in Customer') },
-      { text: 'Registered Retailer', onPress: () => setSelectedCustomer('Green Grocer Coonoor') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setShowSelectCustomer(true);
   };
 
   const handleSelectProductsPress = () => {
@@ -125,6 +127,18 @@ export function SubWarehouseNewSaleScreen({
       setShowSelectProducts(true);
     }
   };
+
+  if (showSelectCustomer) {
+    return (
+      <SubWarehouseSelectCustomerScreen
+        onBack={() => setShowSelectCustomer(false)}
+        onContinueToPayment={(cust) => {
+          setSelectedCustomer(`${cust.name} (${cust.code})`);
+          setShowSelectCustomer(false);
+        }}
+      />
+    );
+  }
 
   if (showSelectProducts) {
     return (
@@ -199,14 +213,6 @@ export function SubWarehouseNewSaleScreen({
             </View>
             <Text style={styles.channelLabel}>Live Market</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Info Banner */}
-        <View style={styles.infoBanner}>
-          <InfoCircleIcon size={16} color={PALETTE.infoText} />
-          <Text style={styles.infoBannerText}>
-            HORECA and B2B use their own dedicated sections (S11/S12), not this flow.
-          </Text>
         </View>
 
         {/* ─── 3. Customer ─── */}

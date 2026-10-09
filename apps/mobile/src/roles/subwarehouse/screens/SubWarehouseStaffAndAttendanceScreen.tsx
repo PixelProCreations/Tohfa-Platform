@@ -13,15 +13,16 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 const PALETTE = {
   primary: '#F0562A',
   primaryHeader: '#F0562A',
-  pageBg: '#F7F5F0',
+  primaryDark: '#7A2E14',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  border: '#EBE5DC',
-  greenText: '#059669',
-  redText: '#DC2626',
-  avatarBg: '#FEF3C7',
-  avatarText: '#B45309',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  border: '#EEDCD3',
+  greenText: '#173404',
+  redText: '#E24B4A',
+  avatarBg: '#FEF3E2',
+  avatarText: '#854F0B',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
@@ -240,25 +241,7 @@ export function SubWarehouseStaffAndAttendanceScreen({
 
       </ScrollView>
 
-      {/* Bottom Nav Placeholder (handled by parent usually, but matching image we have bottom nav) */}
-      <View style={styles.bottomNav}>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Home')}>
-           <HomeTabIcon active={false} />
-           <Text style={styles.navLabel}>Home</Text>
-         </TouchableOpacity>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Receiving')}>
-           <ReceivingTabIcon active={false} />
-           <Text style={styles.navLabel}>Receiving</Text>
-         </TouchableOpacity>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('Inventory')}>
-           <InventoryTabIcon active={false} />
-           <Text style={styles.navLabel}>Inventory</Text>
-         </TouchableOpacity>
-         <TouchableOpacity style={styles.navItem} onPress={() => onTabChange?.('More')}>
-           <MoreTabIcon active={true} />
-           <Text style={[styles.navLabel, { color: '#B45309', fontWeight: '800' }]}>More</Text>
-         </TouchableOpacity>
-      </View>
+
     </SafeAreaView>
   );
 }

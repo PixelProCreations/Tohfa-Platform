@@ -1,83 +1,138 @@
 import React from 'react';
 import {
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
+// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
-  primary: '#F0562A',
-  pageBg: '#F7F5F0',
-  cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  border: '#EBE5DC',
-  successGreen: '#059669',
+  primary:       '#F0562A',
+  primaryDark:   '#D4451B',
+  primaryLight:  '#FFF0EB',
+  primarySoft:   '#FEF1EC',
+  primaryBorder: '#FCD9CE',
+
+  pageBg:        '#FAF7F2',
+  cardBg:        '#FFFFFF',
+  textInk:       '#1E1612',
+  textSecondary: '#6B7280',
+  textMuted:     '#9CA3AF',
+  border:        '#EBE5DC',
+  divider:       '#F3EFEA',
+
+  greenBg:       '#DCFCE7',
+  greenText:     '#15803D',
 };
 
-function CheckCircleIcon({ size = 48, color = '#059669' }) {
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M8 12l3 3 5-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function EyeIcon({ color = '#FFFFFF' }) {
+function CheckIcon({ size = 32, color = PALETTE.greenText }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 6L9 17l-5-5"
+        stroke={color}
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
 export interface SubWarehouseIssueSubmittedScreenProps {
-  onViewIssue: () => void;
+  supportId?: string | undefined;
+  onBack?: (() => void | ((fallbackScreen?: any) => void)) | undefined;
+  onBackToSettings?: (() => void) | undefined;
+  onViewIssue?: (() => void) | undefined;
 }
 
 export function SubWarehouseIssueSubmittedScreen({
+  supportId = 'SUP-00246',
+  onBack,
+  onBackToSettings,
   onViewIssue,
 }: SubWarehouseIssueSubmittedScreenProps) {
+  const handleBack = () => {
+    if (onBackToSettings) {
+      onBackToSettings();
+    } else if (onViewIssue) {
+      onViewIssue();
+    } else if (onBack) {
+      onBack();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Issue Submitted</Text>
-      </View>
 
-      <View style={styles.content}>
-        <View style={styles.successIconWrap}>
-          <CheckCircleIcon size={56} color={PALETTE.successGreen} />
-        </View>
-        <Text style={styles.successTitle}>Issue Submitted</Text>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Issue ID</Text>
-              <Text style={styles.summaryValue}>ISS-0029</Text>
-            </View>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Status</Text>
-              <Text style={styles.summaryValue}>Open</Text>
-            </View>
-          </View>
+      {/* Header Banner */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.75}
+            accessibilityLabel="Back"
+          >
+            <ArrowBackIcon size={22} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitleText}>Request Submitted</Text>
         </View>
       </View>
 
-      {/* Bottom Bar */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Success Icon */}
+        <View style={styles.iconCircle}>
+          <CheckIcon size={34} color={PALETTE.greenText} />
+        </View>
+
+        {/* Title & Subtitle */}
+        <Text style={styles.title}>Request Submitted</Text>
+        <Text style={styles.subtitle}>Support ID {supportId}</Text>
+
+        {/* Card */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoText}>
+            Our support team will review your request.
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Bottom Button */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={onViewIssue} activeOpacity={0.8}>
-          <EyeIcon />
-          <Text style={styles.primaryBtnText}>View Issue</Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={handleBack}
+          activeOpacity={0.85}
+        >
+          <ArrowBackIcon size={18} color="#FFFFFF" />
+          <Text style={styles.backBtnText}>Back to Settings</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -85,75 +140,111 @@ export function SubWarehouseIssueSubmittedScreen({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: PALETTE.pageBg },
-  header: {
+  root: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
+  },
+  headerBanner: {
     backgroundColor: PALETTE.primary,
-    paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 20,
-    alignItems: 'flex-start',
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF' },
-
-  content: {
-    flex: 1,
-    padding: 16,
-    alignItems: 'center',
-    paddingTop: 48,
+  headerTitleText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
-  successIconWrap: {
+
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 36,
+    alignItems: 'center',
+  },
+
+  iconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: PALETTE.greenBg,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
   },
-  successTitle: {
+
+  title: {
     fontSize: 20,
     fontWeight: '800',
     color: PALETTE.textInk,
-    marginBottom: 32,
+    marginBottom: 6,
   },
-  
-  summaryCard: {
+  subtitle: {
+    fontSize: 13,
+    color: PALETTE.textSecondary,
+    marginBottom: 24,
+  },
+
+  infoCard: {
+    width: '100%',
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    padding: 16,
-    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryCol: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    marginBottom: 4,
+  infoText: {
+    fontSize: 15,
     fontWeight: '600',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '800',
     color: PALETTE.textInk,
+    lineHeight: 22,
   },
 
   bottomBar: {
-    backgroundColor: PALETTE.cardBg,
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderColor: PALETTE.border,
+    backgroundColor: PALETTE.pageBg,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    paddingTop: 8,
   },
-  primaryBtn: {
+  backBtn: {
     backgroundColor: PALETTE.primary,
-    borderRadius: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 10,
+    gap: 8,
+    shadowColor: PALETTE.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  backBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });

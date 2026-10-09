@@ -53,6 +53,7 @@ interface GoodsReceivingWizardProps {
   onClose: () => void;
   onFinish?: (() => void) | undefined;
   onBackToShipments?: (() => void) | undefined;
+  onViewBatch?: ((batchId: string) => void) | undefined;
 }
 
 const PRIMARY_COLOR = '#F0562A';
@@ -562,6 +563,7 @@ export function GoodsReceivingWizard({
   onClose,
   onFinish,
   onBackToShipments,
+  onViewBatch,
 }: GoodsReceivingWizardProps) {
   const [currentStep, setCurrentStep] = useState<ReceivingWizardStep>(initialStep);
   const [history, setHistory] = useState<ReceivingWizardStep[]>([initialStep]);
@@ -601,12 +603,7 @@ export function GoodsReceivingWizard({
     setIsSubmittingReceipt(true);
     setTimeout(() => {
       setIsSubmittingReceipt(false);
-      if (!hasEncounteredSubmitError) {
-        setHasEncounteredSubmitError(true);
-        goToStep('submission_error');
-      } else {
-        goToStep('receipt_confirmation');
-      }
+      goToStep('receipt_confirmation');
     }, 600);
   };
 
@@ -622,16 +619,13 @@ export function GoodsReceivingWizard({
   const [receivedDate, setReceivedDate] = useState(shipment?.receivedDate ?? '24 Sep 2026');
   const [receivedTime, setReceivedTime] = useState(shipment?.receivedTime ?? '10:30 AM');
   const [startReceivingPhotos, setStartReceivingPhotos] = useState<string[]>([]);
-  const [startReceivedQty, setStartReceivedQty] = useState('');
-  const [startDamagedQty, setStartDamagedQty] = useState('');
-  const [startCondition, setStartCondition] = useState('Good condition');
 
   // Screen 3: Quality Check States
   type QCStatus = 'pass' | 'attention' | 'fail';
   const [qcStatusMap, setQcStatusMap] = useState<Record<string, QCStatus>>({
-    appearance: 'attention',
+    appearance: 'pass',
     size: 'pass',
-    moisture: 'fail',
+    moisture: 'pass',
     damage: 'attention',
     freshness: 'pass',
   });
@@ -705,22 +699,6 @@ export function GoodsReceivingWizard({
             </View>
           </View>
 
-          <Text style={styles.sectionHeader}>Receiving Notes</Text>
-          <View style={styles.rowTwoCols}>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Received Qty (KG)</Text>
-              <TextInput style={styles.textInput} placeholder="e.g. 148" placeholderTextColor="#999" value={startReceivedQty} onChangeText={setStartReceivedQty} keyboardType="numeric" />
-            </View>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Damaged Qty (KG)</Text>
-              <TextInput style={styles.textInput} placeholder="e.g. 2" placeholderTextColor="#999" value={startDamagedQty} onChangeText={setStartDamagedQty} keyboardType="numeric" />
-            </View>
-          </View>
-          <Text style={styles.inputLabel}>Condition</Text>
-          <View style={[styles.textInput, { justifyContent: 'space-between', flexDirection: 'row', alignItems: 'center' }]}>
-            <Text style={{ color: '#1E1612' }}>{startCondition}</Text>
-            <ChevronDownIcon />
-          </View>
 
           <Text style={styles.sectionHeader}>Physical Information</Text>
           <View style={styles.rowTwoCols}>
@@ -784,10 +762,6 @@ export function GoodsReceivingWizard({
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <StepperHeader currentStepIndex={2} />
 
-          <View style={styles.shortageBanner}>
-            <WarningTriangleIcon color="#B45309" size={20} />
-            <Text style={styles.shortageBannerText}>Shortage detected — 5 KG less than expected</Text>
-          </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
@@ -915,49 +889,6 @@ export function GoodsReceivingWizard({
             );
           })}
 
-          <Text style={styles.sectionHeader}>Quality Check Photos</Text>
-          <View style={styles.qcPhotosRow}>
-            {qcPhotos.map((_, idx) => (
-              <View key={idx} style={styles.qcPhotoThumbnail}>
-                <PictureIcon />
-                <TouchableOpacity
-                  style={styles.qcPhotoDeleteBadge}
-                  onPress={() => setQcPhotos(prev => prev.filter((__, i) => i !== idx))}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.qcPhotoDeleteX}>×</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            <TouchableOpacity
-              style={styles.qcPhotoAddBox}
-              onPress={() => {
-                Alert.alert('Camera', 'Photo added.');
-                setQcPhotos(prev => [...prev, 'photo']);
-              }}
-              activeOpacity={0.7}
-            >
-              <CameraPlusIcon size={24} />
-              <Text style={styles.qcPhotoAddText}>Add Photo</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>QC Notes</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
-          </View>
-
-          <TextInput
-            style={styles.qcNotesArea}
-            placeholder="Add inspector notes or observations..."
-            placeholderTextColor="#9CA3AF"
-            multiline
-            numberOfLines={3}
-            value={qcNotes}
-            onChangeText={setQcNotes}
-          />
-
           <View style={{ height: 100 }} />
         </ScrollView>
 
@@ -967,7 +898,10 @@ export function GoodsReceivingWizard({
             activeOpacity={0.85}
             onPress={() => goToStep('receiving_decision')}
           >
-            <Text style={styles.primaryCtaText}>Continue to Decision  →</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <Text style={styles.primaryCtaText}>Continue to Decision</Text>
+              <RightArrowIcon color="#FFFFFF" size={18} />
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -2179,7 +2113,13 @@ export function GoodsReceivingWizard({
                 <TouchableOpacity
                   style={[styles.actionPrimaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginBottom: 0 }]}
                   activeOpacity={0.85}
-                  onPress={() => Alert.alert('View Batch', `BAT-2026-00125\nFull ${acceptedQty || expectedQty} KG ${shipment?.produce ?? 'Tomato'} allocated to Bay A-01.`)}
+                  onPress={() => {
+                    if (onViewBatch) {
+                      onViewBatch('BAT-2026-00125');
+                    } else {
+                      Alert.alert('View Batch', `BAT-2026-00125\nFull ${acceptedQty || expectedQty} KG ${shipment?.produce ?? 'Tomato'} allocated to Bay A-01.`);
+                    }
+                  }}
                 >
                   <QrCodeIcon color="#FFFFFF" size={20} />
                   <Text style={styles.actionPrimaryBtnText}>View Batch</Text>
@@ -2461,12 +2401,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
+    fontFamily: 'Poppins',
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
   headerSub: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.92)',
@@ -2537,7 +2479,7 @@ const styles = StyleSheet.create({
   },
   stepItem: {
     alignItems: 'center',
-    width: 58,
+    width: 65,
     zIndex: 1,
   },
   stepCircle: {
@@ -2556,26 +2498,28 @@ const styles = StyleSheet.create({
     backgroundColor: SUCCESS_COLOR,
   },
   stepNumberText: {
+    fontFamily: 'Poppins',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#9CA3AF',
   },
   stepNumberTextCurrent: {
     color: '#FFFFFF',
   },
   stepLabel: {
+    fontFamily: 'Poppins',
     fontSize: 11.5,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#9CA3AF',
     textAlign: 'center',
   },
   stepLabelDone: {
     color: '#4B5563',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   stepLabelCurrent: {
     color: PRIMARY_COLOR,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
   /* White Card */
@@ -2802,7 +2746,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#EAE4DB',
     marginBottom: 12,
   },
   criteriaHeader: {
@@ -2812,10 +2756,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   criteriaIconWrap: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 10,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FDF4E7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2823,14 +2767,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   criteriaCode: {
-    fontSize: 10.5,
-    fontWeight: '800',
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#6B7280',
     letterSpacing: 0.3,
   },
   criteriaTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1E1612',
     marginTop: 1,
   },
@@ -2844,32 +2790,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 10,
-    paddingVertical: 9,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   choiceBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '600',
     color: '#4B5563',
   },
   choiceBtnPassActive: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#E6F4EA',
     borderColor: '#1E8E5A',
     borderWidth: 1.5,
   },
   choiceBtnPassTextActive: {
-    color: '#1E8E5A',
-    fontWeight: '800',
+    color: '#15803D',
+    fontWeight: '700',
   },
   choiceBtnAttentionActive: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#FFFFFF',
     borderColor: '#D97706',
     borderWidth: 1.5,
   },
   choiceBtnAttentionTextActive: {
     color: '#B45309',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   choiceBtnFailActive: {
     backgroundColor: '#FEF2F2',
@@ -2878,7 +2825,7 @@ const styles = StyleSheet.create({
   },
   choiceBtnFailTextActive: {
     color: '#DC2626',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   qcPhotosRow: {
     flexDirection: 'row',
@@ -3360,9 +3307,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   primaryCtaText: {
+    fontFamily: 'Poppins',
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
 

@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { SubWarehouseReviewInvoiceScreen } from './SubWarehouseReviewInvoiceScreen';
+import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -179,6 +181,7 @@ export function SubWarehouseSaleDetailScreen({
   onTabChange,
 }: SubWarehouseSaleDetailScreenProps) {
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
+  const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
 
   const handleTabPress = (tab: SubWHTab) => {
     setActiveTab(tab);
@@ -193,12 +196,18 @@ export function SubWarehouseSaleDetailScreen({
     if (onViewInvoice) {
       onViewInvoice();
     } else {
-      Alert.alert(
-        `Invoice ${sale.invoiceNo ?? 'INV-00251'}`,
-        `Invoice for ${sale.customerName} (${sale.customerCode ?? 'CUS-00291'})\nAmount: ₹${sale.amount}\nStatus: Paid\n\nPDF invoice generated successfully.`
-      );
+      setShowInvoiceScreen(true);
     }
   };
+
+  if (showInvoiceScreen) {
+    return (
+      <SubWarehouseInvoiceDetailScreen
+        invoiceId={sale.invoiceNo || 'INV-00251'}
+        onBack={() => setShowInvoiceScreen(false)}
+      />
+    );
+  }
 
   const timelineSteps = [
     { title: 'Sale Created', time: '6:30 PM' },
@@ -411,52 +420,7 @@ export function SubWarehouseSaleDetailScreen({
         </View>
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={activeTab === 'Home'} />
-          <Text style={[styles.navLabel, activeTab === 'Home' && styles.navLabelActive]}>
-            Home
-          </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={activeTab === 'Receiving'} />
-          <Text style={[styles.navLabel, activeTab === 'Receiving' && styles.navLabelActive]}>
-            Receiving
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={activeTab === 'Inventory'} />
-          <Text style={[styles.navLabel, activeTab === 'Inventory' && styles.navLabelActive]}>
-            Inventory
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={activeTab === 'More'} />
-          <Text style={[styles.navLabel, activeTab === 'More' && styles.navLabelActive]}>
-            More
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -603,6 +567,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: PALETTE.primaryDark,
+  },
+  downloadInvoiceTooltip: {
+    alignSelf: 'center',
+    backgroundColor: '#1E252B',
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginTop: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  downloadInvoiceTooltipText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
   timelineContainer: {
     paddingLeft: 4,

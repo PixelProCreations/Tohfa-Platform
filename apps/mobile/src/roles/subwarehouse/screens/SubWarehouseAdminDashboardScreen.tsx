@@ -17,16 +17,28 @@ import { fetchMe, type UserMe } from '../../farmer/api/auth';
 import { AdminProfileScreen } from '../../admin/screens/dashboard/AdminProfileScreen';
 import { GoodsReceivingWizard, type ReceivingWizardStep } from '../../admin/screens/warehouse/GoodsReceivingWizard';
 import { WarehouseNotificationsScreen, type WarehouseNotification } from '../../admin/screens/warehouse/WarehouseNotificationsScreen';
+import {
+  IncomingShipmentsScreen,
+  StartReceivingScreen,
+  QualityCheckScreen,
+  PartialAcceptanceScreen,
+  ReceivingHistoryScreen,
+  ReceivingHistoryDetailScreen,
+  ReceivingSearchFiltersScreen,
+  ShipmentDetailScreen,
+} from '../../admin/screens/warehouse';
 import { SubWarehouseProfileScreen } from './SubWarehouseProfileScreen';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseNotificationsScreen } from './SubWarehouseNotificationsScreen';
+import { SubWarehouseNotificationDetailScreen } from './SubWarehouseNotificationDetailScreen';
 import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
 import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
 import { SubWarehouseMoreScreen } from './SubWarehouseMoreScreen';
+import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
 import { SubWarehouseCustomersScreen } from './SubWarehouseCustomersScreen';
 import { SubWarehouseCustomerSearchScreen } from './SubWarehouseCustomerSearchScreen';
 import { SubWarehouseCustomerDetailsScreen } from './SubWarehouseCustomerDetailsScreen';
@@ -35,14 +47,21 @@ import { SubWarehouseCustomerOrdersScreen } from './SubWarehouseCustomerOrdersSc
 import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
 import { SubWarehouseCashTopUpScreen } from './SubWarehouseCashTopUpScreen';
 import { SubWarehouseCustomerIssuesScreen } from './SubWarehouseCustomerIssuesScreen';
+import { SubWarehouseCustomerIssueDetailScreen } from './SubWarehouseCustomerIssueDetailScreen';
 import { SubWarehouseSupportHistoryScreen } from './SubWarehouseSupportHistoryScreen';
+import { SubWarehouseCustomerSupportDetailScreen } from './SubWarehouseCustomerSupportDetailScreen';
+import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
+import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
 import { SubWarehouseBillingHubScreen } from './SubWarehouseBillingHubScreen';
 import { SubWarehouseInvoiceListScreen } from './SubWarehouseInvoiceListScreen';
 import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScreen';
 import { SubWarehouseGenerateInvoiceScreen } from './SubWarehouseGenerateInvoiceScreen';
+import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
+import { SubWarehouseInvoiceGeneratedScreen } from './SubWarehouseInvoiceGeneratedScreen';
 import { SubWarehouseGSTInvoiceScreen } from './SubWarehouseGSTInvoiceScreen';
 import { SubWarehouseInvoicePreviewScreen } from './SubWarehouseInvoicePreviewScreen';
 import { SubWarehouseInvoiceHistoryScreen } from './SubWarehouseInvoiceHistoryScreen';
+import { SubWarehouseInvoiceHistoryDetailScreen } from './SubWarehouseInvoiceHistoryDetailScreen';
 import { SubWarehouseInvoiceFiltersScreen, InvoiceFilterState } from './SubWarehouseInvoiceFiltersScreen';
 import { SubWarehouseInvoiceHistoryFiltersScreen, InvoiceHistoryFilterState } from './SubWarehouseInvoiceHistoryFiltersScreen';
 import { SubWarehouseOrderFiltersScreen, OrderFilterState } from './SubWarehouseOrderFiltersScreen';
@@ -80,6 +99,7 @@ import {
   type StaffMember,
 } from './SubWarehouseStaffScreen';
 import { SubWarehouseStaffDetailScreen } from './SubWarehouseStaffDetailScreen';
+import { SubWarehouseEditStaffProfileScreen } from './SubWarehouseEditStaffProfileScreen';
 import { SubWarehouseAttendanceScreen } from './SubWarehouseAttendanceScreen';
 import { SubWarehouseTodayAttendanceScreen } from './SubWarehouseTodayAttendanceScreen';
 import { SubWarehouseAttendanceHistoryScreen } from './SubWarehouseAttendanceHistoryScreen';
@@ -98,6 +118,8 @@ import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
 import { SubWarehouseIssueSubmittedScreen } from './SubWarehouseIssueSubmittedScreen';
 import { SubWarehouseOperationalIssueDetailScreen } from './SubWarehouseOperationalIssueDetailScreen';
 import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActivityScreen';
+import { SubWarehouseTodayOperationsScreen } from './SubWarehouseTodayOperationsScreen';
+import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailScreen';
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import {
@@ -149,32 +171,32 @@ import {
   M5S18_OrderInvoice,
 } from '../../admin/screens/swa/orders';
 
-// ─── Design Tokens (Brand Color: #F0562A Unified Subwarehouse Palette) ───────
+// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
   primary: '#F0562A',
-  primaryDark: '#D4451B',
-  primarySoft: '#FEF1EC',
-  primaryBorder: '#FCD9CE',
-  pageBg: '#FAF7F2',
+  primaryDark: '#7A2E14',
+  primarySoft: '#FDF3F0',
+  primaryBorder: '#EEDCD3',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EBE5DC',
-  divider: '#F4EFE9',
-  greenBadge: '#DCFCE7',
-  greenText: '#15803D',
-  greenDot: '#10B981',
-  amberBadge: '#FEF3C7',
-  amberText: '#B45309',
-  amberIconBg: '#FEF3C7',
-  redBadge: '#FEE2E2',
-  redText: '#DC2626',
-  redIconBg: '#FEE2E2',
-  tealBadge: '#E0F2FE',
-  tealText: '#0284C7',
-  tabInactive: '#827A74',
-  tabBorder: '#EAE4DB',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  textMuted: '#5F5E5A',
+  border: '#EEDCD3',
+  divider: '#EEDCD3',
+  greenBadge: '#EAF3DE',
+  greenText: '#173404',
+  greenDot: '#173404',
+  amberBadge: '#FEF3E2',
+  amberText: '#854F0B',
+  amberIconBg: '#FEF3E2',
+  redBadge: '#FCEBEB',
+  redText: '#E24B4A',
+  redIconBg: '#FCEBEB',
+  tealBadge: '#E6F1FB',
+  tealText: '#0C447C',
+  tabInactive: '#5F5E5A',
+  tabBorder: '#EEDCD3',
   linkText: '#F0562A',
 };
 
@@ -237,10 +259,10 @@ function LockBadgeIcon() {
 function ClipboardClockIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="14" r="4" stroke={color} strokeWidth="1.8" />
-      <Path d="M12 12.5v1.5l1 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.8" />
+      <Circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.8" fill="#FFF" />
+      <Path d="M16 14v2l1.5 1.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -269,8 +291,9 @@ function DeliveryTruckIcon({ color = PALETTE.primary }: { color?: string }) {
 function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="2" />
+      <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -278,9 +301,10 @@ function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
 function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
+      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill="#FFF" />
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
       <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -288,8 +312,9 @@ function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
 function WalletIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 14h.01M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -307,9 +332,9 @@ function PackageBagIcon({ color = PALETTE.primary }: { color?: string }) {
 function ReceiveGoodsActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="3" width="16" height="18" rx="2.5" stroke={color} strokeWidth="1.8" />
-      <Path d="M12 7v7M8.5 10.5L12 14l3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 17h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="1.8" />
+      <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M12 12v5m-3-3l3 3 3-3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -317,9 +342,9 @@ function ReceiveGoodsActionIcon({ color = PALETTE.primary }: { color?: string })
 function CashRegisterActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 4h14a1 1 0 0 1 1 1v3H4V5a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 12h2M11 12h2M15 12h2M7 16h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="6" y="14" width="12" height="8" rx="1" stroke={color} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -327,8 +352,10 @@ function CashRegisterActionIcon({ color = PALETTE.primary }: { color?: string })
 function ViewOrdersActionIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 3v18l3-1.5 3 1.5 3-1.5 3 1.5 4-2V3H4z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 7h8M8 11h8M8 15h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 8H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M16 12H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M13 16H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -493,10 +520,29 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
 function DeliveryTruckWhiteIcon() {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 3h15v13H1V3z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M16 8h4l3 3v5h-7V8z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Path
+        d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M15 18H9"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="17" cy="18" r="2" stroke="#FFFFFF" strokeWidth="2.2" />
+      <Circle cx="7" cy="18" r="2" stroke="#FFFFFF" strokeWidth="2.2" />
     </Svg>
   );
 }
@@ -588,17 +634,18 @@ function AlertCircleIcon({ color = '#1E1612' }: { color?: string }) {
 function StartReceivingBoxIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 14h4l2 3h4l2-3h4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 3v9M8 8l4 4 4-4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Path d="M12 7v5.5M9.5 10l2.5 2.5L14.5 10" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7.5 14.5v1.5h9v-1.5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function WarningAmberTriangleIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 9v4M12 17h.01" stroke="#D97706" strokeWidth="2.2" strokeLinecap="round" />
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="#1E1612" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 9v4M12 17h.01" stroke="#1E1612" strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -616,6 +663,14 @@ function ChevronRightGrayIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke="#9E9690" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightRedIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke="#E11D48" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -787,8 +842,8 @@ const INITIAL_SHIPMENTS: ShipmentItem[] = [
     reference: 'PO-2026-0026',
     status: 'Expected',
     badgeLabel: 'Expected',
-    statusColor: '#B45309',
-    statusBg: '#FEF3C7',
+    statusColor: '#C2410C',
+    statusBg: '#FFEDD5',
     from: 'Main Warehouse',
     to: 'Coonoor',
     produce: 'Beetroot',
@@ -842,6 +897,64 @@ const INITIAL_SHIPMENTS: ShipmentItem[] = [
   },
 ];
 
+interface ReceivingHistoryItem {
+  id: string;
+  code: string;
+  status: 'Accepted' | 'Partial' | 'Rejected';
+  badgeLabel: string;
+  badgeBg: string;
+  badgeColor: string;
+  produce: string;
+  grade: string;
+  receivedQty: number;
+  acceptedQty?: number;
+  rejectedQty?: number;
+  date: string;
+}
+
+const RECEIVING_HISTORY_ITEMS: ReceivingHistoryItem[] = [
+  {
+    id: 'h1',
+    code: 'GR-1024',
+    status: 'Partial',
+    badgeLabel: 'Partially Accepted',
+    badgeBg: '#FDF4E7',
+    badgeColor: '#92400E',
+    produce: 'Tomato',
+    grade: 'Grade 1',
+    receivedQty: 145,
+    acceptedQty: 140,
+    rejectedQty: 5,
+    date: '24 Sep 2026',
+  },
+  {
+    id: 'h2',
+    code: 'GR-1023',
+    status: 'Accepted',
+    badgeLabel: 'Accepted',
+    badgeBg: '#DCFCE7',
+    badgeColor: '#15803D',
+    produce: 'Carrot',
+    grade: 'Grade 1',
+    receivedQty: 80,
+    acceptedQty: 80,
+    date: '24 Sep 2026',
+  },
+  {
+    id: 'h3',
+    code: 'GR-1018',
+    status: 'Rejected',
+    badgeLabel: 'Rejected',
+    badgeBg: '#FEE2E2',
+    badgeColor: '#DC2626',
+    produce: 'Spinach',
+    grade: 'Grade 2',
+    receivedQty: 30,
+    rejectedQty: 30,
+    date: '22 Sep 2026',
+  },
+];
+
 export const INITIAL_NOTIFICATIONS: WarehouseNotification[] = [
   {
     id: 'n1',
@@ -884,16 +997,39 @@ export const INITIAL_NOTIFICATIONS: WarehouseNotification[] = [
 ];
 
 interface SubWarehouseAdminDashboardScreenProps {
+  initialTab?: SubWHTab;
   onSignOut: () => void;
-  onNavigate?: (screen: string) => void;
+  onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
+  initialShowOrders?: boolean;
+  initialTab?: SubWHTab;
+  initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
+  initialInventoryScreen?: string;
 }
 
 // ─── Inventory Module Navigation Component ───────────────────────────────────
-function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void }) {
-  const [currentScreen, setCurrentScreen] = useState<string>('M3S01');
-  const [screenParams, setScreenParams] = useState<any>(null);
-  const [navigationStack, setNavigationStack] = useState<string[]>(['M3S01']);
+function InventoryModule({
+  onBack,
+  onTabChange,
+  initialScreen = 'M3S01',
+  initialParams = null,
+}: {
+  onBack: () => void;
+  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  initialScreen?: string | undefined;
+  initialParams?: any | undefined;
+}) {
+  const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
+  const [screenParams, setScreenParams] = useState<any>(initialParams);
+  const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
+
+  useEffect(() => {
+    if (initialScreen) {
+      setCurrentScreen(initialScreen);
+      setNavigationStack([initialScreen]);
+      setScreenParams(initialParams);
+    }
+  }, [initialScreen, initialParams]);
 
   const handleNavigate = (screen: string, params?: any) => {
     setNavigationStack(prev => [...prev, screen]);
@@ -922,7 +1058,7 @@ function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabCha
     case 'M3S01':
       return <M3S01_InventoryDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
     case 'M3S02':
-      return <M3S02_StockList onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
+      return <M3S02_StockList onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} initialTab={screenParams?.initialTab} />;
     case 'M3S03':
       return <M3S03_ProductStockDetail onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
     case 'M3S04':
@@ -961,10 +1097,22 @@ function InventoryModule({ onBack, onTabChange }: { onBack: () => void; onTabCha
 }
 
 // ─── Orders Module Navigation Component ──────────────────────────────────────
-function OrdersModule({ onBack, onTabChange }: { onBack: () => void; onTabChange?: (tab: SubWHTab) => void }) {
-  const [currentScreen, setCurrentScreen] = useState<string>('M5S01');
-  const [screenParams, setScreenParams] = useState<any>(null);
-  const [navigationStack, setNavigationStack] = useState<string[]>(['M5S01']);
+export function OrdersModule({
+  initialScreen = 'M5S01',
+  initialParams = null,
+  onBack,
+  onTabChange,
+  onNavigateToOperationalIssues,
+}: {
+  initialScreen?: string;
+  initialParams?: any;
+  onBack: () => void;
+  onTabChange?: (tab: SubWHTab) => void;
+  onNavigateToOperationalIssues?: () => void;
+}) {
+  const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
+  const [screenParams, setScreenParams] = useState<any>(initialParams);
+  const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
 
   const handleNavigate = (screen: string, params?: any) => {
     setNavigationStack(prev => [...prev, screen]);
@@ -983,126 +1131,191 @@ function OrdersModule({ onBack, onTabChange }: { onBack: () => void; onTabChange
       }
       setScreenParams(null);
     } else {
-      // At root (M5S01), exit to main dashboard
+      // At root, exit to main dashboard
       onBack();
     }
   };
 
   // Render the appropriate screen based on currentScreen state
-  switch (currentScreen) {
-    case 'M5S01':
-    case 'M5S01_OrdersDashboard':
-      return (
-        <M5S01_OrdersDashboard
-          onNavigate={handleNavigate}
-          onBack={handleBack}
-          onTabChange={(tab) => {
-            if (tab === 'Home') {
-              onBack();
-            } else if (onTabChange) {
-              onBack();
-              onTabChange(tab as SubWHTab);
-            }
-          }}
-        />
-      );
-    case 'M5S02':
-    case 'M5S02_OrdersList':
-      return <M5S02_OrdersList onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S03':
-    case 'M5S03_SearchFilters':
-      return <M5S03_SearchFilters onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S04':
-    case 'M5S04_OrderDetail':
-      return <M5S04_OrderDetail orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S05':
-    case 'M5S05_StockCheck':
-      return <M5S05_StockCheck orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S06':
-    case 'M5S06_StockShortage':
-      return <M5S06_StockShortage orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S07':
-    case 'M5S07_Packing':
-      return <M5S07_Packing orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S08':
-    case 'M5S08_ConfirmPacking':
-      return <M5S08_ConfirmPacking orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S08B':
-    case 'M5S08_OrderPacked':
-      return <M5S08B_OrderPacked orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S09':
-    case 'M5S09_ReadyForPickup':
-      return <M5S09_ReadyForPickup onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S10':
-    case 'M5S10_PickupVerification':
-      return <M5S10_PickupVerification orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S11':
-    case 'M5S11_PickupOTP':
-      return <M5S11_PickupOTP orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S12':
-    case 'M5S12_ConfirmHandover':
-      return <M5S12_ConfirmHandover orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S12B':
-    case 'M5S12_PickupCompleted':
-      return <M5S12B_PickupCompleted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S13':
-    case 'M5S13_DeliveryPreparation':
-      return <M5S13_DeliveryPreparation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S14':
-    case 'M5S14_Dispatch':
-      return <M5S14_Dispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S14B':
-    case 'M5S14B_ConfirmDispatch':
-      return <M5S14B_ConfirmDispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S14C':
-    case 'M5S14C_OrderDispatched':
-      return <M5S14C_OrderDispatched orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S15':
-    case 'M5S15_OrderStatusHistory':
-      return <M5S15_OrderStatusHistory orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S15B':
-    case 'M5S15B_EventDetail':
-      return (
-        <M5S15B_EventDetail
-          orderId={screenParams?.orderId}
-          eventName={screenParams?.eventName}
-          eventTime={screenParams?.eventTime}
-          eventDate={screenParams?.eventDate}
-          performedBy={screenParams?.performedBy}
-          onNavigate={handleNavigate}
-          onBack={handleBack}
-        />
-      );
-    case 'M5S16':
-    case 'M5S16_OrderIssue':
-      return <M5S16_OrderIssue orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S16B':
-    case 'M5S16B_IssueSubmitted':
-      return <M5S16B_IssueSubmitted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S17':
-    case 'M5S17_CancelOrder':
-      return <M5S17_CancelOrder orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S17B':
-    case 'M5S17B_ConfirmCancellation':
-      return <M5S17B_ConfirmCancellation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S17C':
-    case 'M5S17C_OrderCancelled':
-      return <M5S17C_OrderCancelled orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M5S18':
-    case 'M5S18_OrderInvoice':
-      return <M5S18_OrderInvoice orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-    default:
-      return <M5S01_OrdersDashboard onNavigate={handleNavigate} onBack={handleBack} />;
-  }
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'M5S01':
+      case 'M5S01_OrdersDashboard':
+        return (
+          <M5S01_OrdersDashboard
+            onNavigate={handleNavigate}
+            onBack={handleBack}
+            onTabChange={(tab) => {
+              if (tab === 'Home') {
+                onBack();
+              } else if (onTabChange) {
+                onBack();
+                onTabChange(tab as SubWHTab);
+              }
+            }}
+          />
+        );
+      case 'M5S02':
+      case 'M5S02_OrdersList':
+        return <M5S02_OrdersList onNavigate={handleNavigate} onBack={handleBack} routeParams={screenParams} />;
+      case 'M5S03':
+      case 'M5S03_SearchFilters':
+        return <M5S03_SearchFilters onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S04':
+      case 'M5S04_OrderDetail':
+        return (
+          <M5S04_OrderDetail
+            orderId={screenParams?.orderId}
+            customerName={screenParams?.customerName}
+            onNavigate={handleNavigate}
+            onBack={handleBack}
+          />
+        );
+      case 'M5S05':
+      case 'M5S05_StockCheck':
+        return <M5S05_StockCheck orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S06':
+      case 'M5S06_StockShortage':
+        return <M5S06_StockShortage orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S07':
+      case 'M5S07_Packing':
+        return <M5S07_Packing orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S08':
+      case 'M5S08_ConfirmPacking':
+        return <M5S08_ConfirmPacking orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S08B':
+      case 'M5S08_OrderPacked':
+        return <M5S08B_OrderPacked orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S09':
+      case 'M5S09_ReadyForPickup':
+        return <M5S09_ReadyForPickup onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S10':
+      case 'M5S10_PickupVerification':
+        return <M5S10_PickupVerification orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S11':
+      case 'M5S11_PickupOTP':
+        return <M5S11_PickupOTP orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S12':
+      case 'M5S12_ConfirmHandover':
+        return <M5S12_ConfirmHandover orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S12B':
+      case 'M5S12_PickupCompleted':
+        return <M5S12B_PickupCompleted orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S13':
+      case 'M5S13_DeliveryPreparation':
+        return <M5S13_DeliveryPreparation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S14':
+      case 'M5S14_Dispatch':
+        return <M5S14_Dispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S14B':
+      case 'M5S14B_ConfirmDispatch':
+        return <M5S14B_ConfirmDispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S14C':
+      case 'M5S14C_OrderDispatched':
+        return <M5S14C_OrderDispatched orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S15':
+      case 'M5S15_OrderStatusHistory':
+        return <M5S15_OrderStatusHistory orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S15B':
+      case 'M5S15B_EventDetail':
+        return (
+          <M5S15B_EventDetail
+            orderId={screenParams?.orderId}
+            eventName={screenParams?.eventName}
+            eventTime={screenParams?.eventTime}
+            eventDate={screenParams?.eventDate}
+            performedBy={screenParams?.performedBy}
+            onNavigate={handleNavigate}
+            onBack={handleBack}
+          />
+        );
+      case 'M5S16':
+      case 'M5S16_OrderIssue':
+        return <M5S16_OrderIssue orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S16B':
+      case 'M5S16B_IssueSubmitted':
+        return (
+          <M5S16B_IssueSubmitted
+            orderId={screenParams?.orderId}
+            issueId={screenParams?.issueId}
+            onNavigate={(screen, params) => {
+              if (screen === 'M4S09' || screen === 'OperationalIssues') {
+                if (onNavigateToOperationalIssues) {
+                  onNavigateToOperationalIssues();
+                } else {
+                  handleNavigate('M4S09', params);
+                }
+              } else {
+                handleNavigate(screen, params);
+              }
+            }}
+            onViewIssue={() => {
+              if (onNavigateToOperationalIssues) {
+                onNavigateToOperationalIssues();
+              } else {
+                handleNavigate('M4S09', screenParams);
+              }
+            }}
+            onBack={handleBack}
+          />
+        );
+      case 'M4S09':
+      case 'OperationalIssues':
+        return (
+          <SubWarehouseOperationalIssuesScreen
+            onBack={handleBack}
+            onNavigateToReport={() => handleNavigate('M5S16')}
+            onViewIssueDetail={() => handleNavigate('OperationalIssueDetail')}
+          />
+        );
+      case 'OperationalIssueDetail':
+        return (
+          <SubWarehouseOperationalIssueDetailScreen
+            onBack={handleBack}
+          />
+        );
+      case 'M5S17':
+      case 'M5S17_CancelOrder':
+        return <M5S17_CancelOrder orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S17B':
+      case 'M5S17B_ConfirmCancellation':
+        return <M5S17B_ConfirmCancellation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S17C':
+      case 'M5S17C_OrderCancelled':
+        return <M5S17C_OrderCancelled orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      case 'M5S18':
+      case 'M5S18_OrderInvoice':
+        return <M5S18_OrderInvoice orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
+      default:
+        return <M5S01_OrdersDashboard onNavigate={handleNavigate} onBack={handleBack} />;
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F0562A' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      {renderScreen()}
+    </View>
+  );
 }
 
 export function SubWarehouseAdminDashboardScreen({
   onSignOut,
   onNavigate,
   onBack,
+  initialShowOrders = false,
+  initialTab,
+  initialReceivingSubView,
+  initialInventoryScreen,
 }: SubWarehouseAdminDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
-  const [receivingSubView, setReceivingSubView] = useState<'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail'>('overview');
+  const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
+  const [receivingSubView, setReceivingSubView] = useState<
+    'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history'
+  >(initialReceivingSubView || 'overview');
+  const [receivingHistoryFilterTab, setReceivingHistoryFilterTab] = useState<
+    'All' | 'Accepted' | 'Partial' | 'Rejected'
+  >('All');
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [selectedShipment, setSelectedShipment] = useState<ShipmentItem>(INITIAL_SHIPMENTS[0]!);
   const [shipmentsFilterTab, setShipmentsFilterTab] = useState<
     'All' | 'Expected' | 'Arrived' | 'Receiving' | 'QC Pending' | 'Completed' | 'Rejected'
@@ -1116,13 +1329,17 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedReceivingCard, setSelectedReceivingCard] = useState<string | null>(null);
   const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [returnToNotificationsOnBack, setReturnToNotificationsOnBack] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
   const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showWarehouseOperations, setShowWarehouseOperations] = useState(false);
+  const [showTodayOperations, setShowTodayOperations] = useState(false);
   const [showWarehouseActivity, setShowWarehouseActivity] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   const [showMaterialHandling, setShowMaterialHandling] = useState(false);
   const [showAddMaterial, setShowAddMaterial] = useState(false);
@@ -1135,20 +1352,32 @@ export function SubWarehouseAdminDashboardScreen({
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const [showPurchaseHistory, setShowPurchaseHistory] = useState(false);
   const [showCustomerOrders, setShowCustomerOrders] = useState(false);
+  const [customerOrdersFilter, setCustomerOrdersFilter] = useState<string | undefined>(undefined);
   const [showCustomerWallet, setShowCustomerWallet] = useState(false);
   const [showCashTopUp, setShowCashTopUp] = useState(false);
   const [showCustomerIssues, setShowCustomerIssues] = useState(false);
+  const [showCustomerIssueDetail, setShowCustomerIssueDetail] = useState(false);
+  const [selectedCustomerIssue, setSelectedCustomerIssue] = useState<any>(undefined);
   const [showSupportHistory, setShowSupportHistory] = useState(false);
+  const [showCustomerSupportDetail, setShowCustomerSupportDetail] = useState(false);
+  const [selectedSupportTicket, setSelectedSupportTicket] = useState<any>(undefined);
+  const [showNewSale, setShowNewSale] = useState(false);
+  const [showSaleDetail, setShowSaleDetail] = useState(false);
+  const [selectedSaleRecord, setSelectedSaleRecord] = useState<any>(undefined);
   const [showBillingHub, setShowBillingHub] = useState(false);
   const [showInvoiceList, setShowInvoiceList] = useState(false);
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   const [showGenerateInvoice, setShowGenerateInvoice] = useState(false);
+  const [selectedTransactionForWizard, setSelectedTransactionForWizard] = useState<any>(null);
+  const [showInvoiceGenerated, setShowInvoiceGenerated] = useState(false);
   const [showGSTInvoice, setShowGSTInvoice] = useState(false);
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [showInvoiceHistory, setShowInvoiceHistory] = useState(false);
+  const [showInvoiceHistoryDetail, setShowInvoiceHistoryDetail] = useState(false);
   const [showTasks, setShowTasks] = useState(false);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(undefined);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showExpenseRecord, setShowExpenseRecord] = useState(false);
   const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
@@ -1192,6 +1421,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedReturnHistoryRecord, setSelectedReturnHistoryRecord] = useState<ReturnHistoryRecord | null>(null);
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [selectedStaffMember, setSelectedStaffMember] = useState<StaffMember | null>(null);
+  const [showEditStaffProfileScreen, setShowEditStaffProfileScreen] = useState(false);
   const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
   const [showStaffAndAttendance, setShowStaffAndAttendance] = useState(false);
   const [selectedAttendanceStaffId, setSelectedAttendanceStaffId] = useState<string | null>(null);
@@ -1204,6 +1434,37 @@ export function SubWarehouseAdminDashboardScreen({
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
+  const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string | undefined>(initialInventoryScreen || 'M3S01');
+  const [inventoryInitialParams, setInventoryInitialParams] = useState<any>(null);
+
+  const [showIncomingShipmentsScreen, setShowIncomingShipmentsScreen] = useState(false);
+  const [incomingShipmentsTab, setIncomingShipmentsTab] = useState<
+    'All' | 'Expected' | 'Arrived' | 'In Progress' | 'Completed'
+  >('All');
+  const [showReceivingSearchFilters, setShowReceivingSearchFilters] = useState(false);
+  const [selectedShipmentId, setSelectedShipmentId] = useState<string>('GR-1024');
+  const [showShipmentDetailScreen, setShowShipmentDetailScreen] = useState(false);
+  const [showStartReceivingScreen, setShowStartReceivingScreen] = useState(false);
+  const [showQualityCheckScreen, setShowQualityCheckScreen] = useState(false);
+  const [showPartialAcceptanceScreen, setShowPartialAcceptanceScreen] = useState(false);
+  const [showReceivingHistoryScreen, setShowReceivingHistoryScreen] = useState(false);
+  const [receivingHistoryFilter, setReceivingHistoryFilter] = useState<
+    'All' | 'Accepted' | 'Partially Accepted' | 'Rejected'
+  >('All');
+  const [selectedGrnId, setSelectedGrnId] = useState<string>('GRN-000839');
+  const [showReceivingHistoryDetail, setShowReceivingHistoryDetail] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+    if (initialReceivingSubView) {
+      setReceivingSubView(initialReceivingSubView);
+    }
+    if (initialInventoryScreen) {
+      setInventoryInitialScreen(initialInventoryScreen);
+    }
+  }, [initialTab, initialReceivingSubView, initialInventoryScreen]);
   const [user, setUser] = useState<UserMe | null>(null);
   const [notifications, setNotifications] = useState<WarehouseNotification[]>(INITIAL_NOTIFICATIONS);
 
@@ -1264,7 +1525,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   interface NavHistoryItem {
     tab: SubWHTab;
-    receivingSubView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
+    receivingSubView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history';
     selectedShipment?: ShipmentItem;
   }
 
@@ -1274,7 +1535,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   const navigateTo = (
     tab: SubWHTab,
-    subView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' = 'overview',
+    subView: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail' | 'receiving_history' = 'overview',
     shipment?: ShipmentItem
   ) => {
     if (shipment) {
@@ -1322,7 +1583,17 @@ export function SubWarehouseAdminDashboardScreen({
     }
   };
 
-  const [showOrdersModule, setShowOrdersModule] = useState(false);
+  const [showOrdersModule, setShowOrdersModule] = useState(initialShowOrders);
+  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
+  const [ordersInitialParams, setOrdersInitialParams] = useState<any>(null);
+
+  useEffect(() => {
+    if (initialShowOrders) {
+      setShowOrdersModule(true);
+      setOrdersInitialScreen('M5S01');
+      setOrdersInitialParams(null);
+    }
+  }, [initialShowOrders]);
 
   useEffect(() => {
     const onHardwareBack = () => {
@@ -1332,6 +1603,48 @@ export function SubWarehouseAdminDashboardScreen({
       }
       if (showOrdersModule) {
         setShowOrdersModule(false);
+        if (returnToNotificationsOnBack) {
+          setReturnToNotificationsOnBack(false);
+          setShowNotifications(true);
+        }
+        return true;
+      }
+      if (activeTab === 'Inventory' && returnToNotificationsOnBack) {
+        setInventoryInitialScreen(undefined);
+        setReturnToNotificationsOnBack(false);
+        setShowNotifications(true);
+        return true;
+      }
+      if (showIncomingShipmentsScreen) {
+        setShowIncomingShipmentsScreen(false);
+        return true;
+      }
+      if (showReceivingSearchFilters) {
+        setShowReceivingSearchFilters(false);
+        return true;
+      }
+      if (showShipmentDetailScreen) {
+        setShowShipmentDetailScreen(false);
+        return true;
+      }
+      if (showStartReceivingScreen) {
+        setShowStartReceivingScreen(false);
+        return true;
+      }
+      if (showQualityCheckScreen) {
+        setShowQualityCheckScreen(false);
+        return true;
+      }
+      if (showPartialAcceptanceScreen) {
+        setShowPartialAcceptanceScreen(false);
+        return true;
+      }
+      if (showReceivingHistoryScreen) {
+        setShowReceivingHistoryScreen(false);
+        return true;
+      }
+      if (showReceivingHistoryDetail) {
+        setShowReceivingHistoryDetail(false);
         return true;
       }
       if (receivingWizardStep !== null) {
@@ -1356,6 +1669,34 @@ export function SubWarehouseAdminDashboardScreen({
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
   }, [history, receivingWizardStep, activeTab, receivingSubView, showNotifications, showOrdersModule]);
+
+  if (selectedNotification) {
+    return (
+      <SubWarehouseNotificationDetailScreen
+        onBack={() => setSelectedNotification(null)}
+        notificationData={selectedNotification}
+        onActionPress={() => {
+          const item = selectedNotification;
+          setSelectedNotification(null);
+          setShowNotifications(false);
+          setReturnToNotificationsOnBack(true);
+          if (!item) return;
+          const t = item.type;
+          if (t === 'wallet') setShowWalletOperations(true);
+          else if (t === 'inventory' || item?.actionLabel?.includes('Stock') || item?.title?.toLowerCase().includes('stock')) {
+            setInventoryInitialScreen('M3S02');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (t === 'order' || item?.actionLabel?.includes('Order') || item?.title?.toLowerCase().includes('order')) {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (t === 'returns') setShowOrdersModule(true);
+          else if (t === 'quality') setShowReviewReceiving(true);
+          else navigateTo('Receiving', 'overview');
+        }}
+      />
+    );
+  }
 
   useEffect(() => {
     fetchMe()
@@ -1387,11 +1728,24 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showOrderDetail) {
     return (
-      <SubWarehouseOrderDetailScreen
+      <OrdersModule
+        initialScreen="M5S04"
+        initialParams={{
+          orderId: selectedOrder?.orderNo || 'ORD-00251',
+          customerName: selectedOrder?.customer || selectedCustomer?.name || 'Rajesh Kumar',
+        }}
         onBack={() => setShowOrderDetail(false)}
-        onViewStatus={() =>
-          Alert.alert('Pickup Status', 'Ready for customer pickup at Bay 2.')
-        }
+        onTabChange={(tab) => {
+          setShowOrderDetail(false);
+          setShowPurchaseHistory(false);
+          setShowCustomerDetails(false);
+          setShowCustomers(false);
+          setActiveTab(tab);
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowOrderDetail(false);
+          setShowOperationalIssues(true);
+        }}
       />
     );
   }
@@ -1457,7 +1811,13 @@ export function SubWarehouseAdminDashboardScreen({
   if (showSystemMessages) {
     return (
       <SubWarehouseSystemMessagesScreen
-        onBack={() => setShowSystemMessages(false)}
+        onBack={() => {
+          setShowSystemMessages(false);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onTabChange={(tab) => {
           setShowSystemMessages(false);
           setActiveTab(tab);
@@ -1484,6 +1844,48 @@ export function SubWarehouseAdminDashboardScreen({
           setReceivingWizardStep(null);
           navigateTo('Receiving', 'incoming_shipments');
         }}
+        onViewBatch={(batchId) => {
+          setReceivingWizardStep(null);
+          setInventoryInitialScreen('M3S05');
+          setInventoryInitialParams({ batchId }); // pass parameter if M3S05 uses it
+          setActiveTab('Inventory');
+        }}
+      />
+    );
+  }
+
+  if (selectedNotification) {
+    return (
+      <SubWarehouseNotificationDetailScreen
+        onBack={() => setSelectedNotification(null)}
+        notificationData={{
+          type: selectedNotification.type === 'wallet' ? 'wallet' : (selectedNotification.type === 'order' ? 'order' : 'goods'),
+          title: selectedNotification.title,
+          message: selectedNotification.subtitle,
+          reference: selectedNotification.type === 'quality' ? 'GR-1024' : (selectedNotification.type === 'order' ? 'ORD-10245' : 'TOP-002845'),
+        }}
+        onActionPress={() => {
+          const item = selectedNotification;
+          setSelectedNotification(null);
+          setShowNotifications(false);
+          setReturnToNotificationsOnBack(true);
+          if (item?.actionLabel?.includes('Review') || item?.type === 'quality') {
+            setShowReviewReceiving(true);
+          } else if (item?.actionLabel?.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
+            setInventoryInitialScreen('M3S02');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (item?.actionLabel?.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (item?.actionLabel?.includes('Wallet') || item?.actionLabel?.includes('Top-Up') || item?.type === 'wallet') {
+            setShowWalletOperations(true);
+          } else if (item?.actionLabel?.includes('Return') || item?.type === 'returns') {
+            setShowReturnsIssues(true);
+          } else if (item?.type === 'system') {
+            setShowSystemMessages(true);
+          }
+        }}
       />
     );
   }
@@ -1494,7 +1896,16 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowNotifications(false)}
         onTabChange={(tab) => {
           setShowNotifications(false);
-          setActiveTab(tab);
+          if (tab === 'Receiving') {
+            setActiveTab('Receiving');
+            navigateTo('Receiving', 'overview');
+          } else if (tab === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else {
+            setActiveTab(tab);
+          }
         }}
         onNavigateToTasks={() => {
           if (onNavigate) onNavigate('SubWarehouseTaskActionCenter');
@@ -1508,15 +1919,40 @@ export function SubWarehouseAdminDashboardScreen({
           if (onNavigate) onNavigate('SubWarehouseSystemMessages');
           else setShowSystemMessages(true);
         }}
-        onNavigateToAction={(actionLabel) => {
-          setShowNotifications(false);
-          if (actionLabel.includes('Review')) {
-            if (onNavigate) onNavigate('SubWarehouseReviewReceiving');
-            else setShowReviewReceiving(true);
-          } else if (actionLabel.includes('Stock')) {
+        onSelectNotification={(item) => {
+          if (item?.type === 'order' || item?.title?.toLowerCase().includes('order') || item?.actionLabel?.toLowerCase().includes('order')) {
+            setShowNotifications(false);
+            setReturnToNotificationsOnBack(true);
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock') || item?.actionLabel?.toLowerCase().includes('stock')) {
+            setShowNotifications(false);
+            setReturnToNotificationsOnBack(true);
+            setInventoryInitialScreen('M3S02');
+            setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (actionLabel.includes('Order')) {
-            setActiveTab('Home');
+          } else {
+            setSelectedNotification(item);
+          }
+        }}
+        onNavigateToAction={(actionLabel, item) => {
+          setShowNotifications(false);
+          setReturnToNotificationsOnBack(true);
+          if (actionLabel.includes('Review') || item?.type === 'quality') {
+            setShowReviewReceiving(true);
+          } else if (actionLabel.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
+            setInventoryInitialScreen('M3S02');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (actionLabel.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
+            setShowWalletOperations(true);
+          } else if (actionLabel.includes('Return') || item?.type === 'returns') {
+            setShowReturnsIssues(true);
+          } else if (item?.type === 'system') {
+            setShowSystemMessages(true);
           }
         }}
       />
@@ -1529,12 +1965,32 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowTodayOverview(false)}
         onTabChange={(tab) => {
           setShowTodayOverview(false);
-          setActiveTab(tab);
+          if (tab === 'Receiving') {
+            setActiveTab('Receiving');
+            navigateTo('Receiving', 'overview');
+          } else if (tab === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else {
+            setActiveTab(tab);
+          }
         }}
         onNavigateToSection={(section) => {
           setShowTodayOverview(false);
-          if (section === 'Receiving') setActiveTab('Receiving');
-          else if (section === 'Inventory') setActiveTab('Inventory');
+          if (section === 'Receiving') {
+            setShowReviewReceiving(true);
+          } else if (section === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (section === 'Orders') {
+            setShowCustomerOrders(true);
+          } else if (section === 'Sales') {
+            setShowSalesScreen(true);
+          } else if (section === 'Cash Top-Up') {
+            setShowWalletOperations(true);
+          }
         }}
       />
     );
@@ -1552,19 +2008,78 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToInventory={() => {
           setShowWarehouseOverview(false);
+          setInventoryInitialScreen('M3S01');
+          setInventoryInitialParams(null);
           setActiveTab('Inventory');
         }}
         onNavigateToReceiving={() => {
           setShowWarehouseOverview(false);
-          setActiveTab('Receiving');
+          navigateTo('Receiving', 'overview');
         }}
         onNavigateToOrders={() => {
           setShowWarehouseOverview(false);
+          setOrdersInitialScreen('M5S01');
+          setOrdersInitialParams(null);
           setShowOrdersModule(true);
         }}
         onNavigateToOperations={() => {
           setShowWarehouseOverview(false);
-          setActiveTab('More');
+          setShowWalletOperations(true);
+        }}
+      />
+    );
+  }
+
+  if (selectedActivity) {
+    return (
+      <SubWarehouseActivityDetailScreen
+        activity={selectedActivity}
+        onBack={() => setSelectedActivity(null)}
+      />
+    );
+  }
+
+  if (showTodayOperations) {
+    return (
+      <SubWarehouseTodayOperationsScreen
+        onBack={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(true);
+        }}
+        onTabChange={(tab) => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setActiveTab(tab);
+        }}
+        onSelectActivity={(activity) => {
+          setSelectedActivity(activity);
+        }}
+        onNavigateToReceiving={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setReceivingSubView('incoming_shipments');
+          setActiveTab('Receiving');
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setShowMaterialHandling(true);
+        }}
+        onNavigateToStorage={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setShowStorageInfo(true);
+        }}
+        onNavigateToStockVerification={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowTodayOperations(false);
+          setShowWarehouseOperations(false);
+          setShowOperationalIssues(true);
         }}
       />
     );
@@ -1574,9 +2089,10 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseWarehouseActivityScreen
         onBack={() => {
-          // Back from Activity → return to the Storage Location Detail
           setShowWarehouseActivity(false);
-          // selectedStorageLocationId still has the id, so detail screen renders
+          if (!selectedStorageLocationId) {
+            setShowWarehouseOperations(true);
+          }
         }}
         onTabChange={(tab) => {
           setShowWarehouseActivity(false);
@@ -1584,6 +2100,46 @@ export function SubWarehouseAdminDashboardScreen({
           setShowStorageInfo(false);
           setShowWarehouseOperations(false);
           setActiveTab(tab);
+        }}
+        onSelectActivity={(activity) => {
+          setSelectedActivity(activity);
+        }}
+        onNavigateToReceiving={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setReceivingSubView('incoming_shipments');
+          setActiveTab('Receiving');
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowMaterialHandling(true);
+        }}
+        onNavigateToStorage={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
+          else setShowStorageInfo(true);
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowWarehouseActivity(false);
+          setShowWarehouseOperations(false);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowOperationalIssues(true);
         }}
       />
     );
@@ -1598,6 +2154,13 @@ export function SubWarehouseAdminDashboardScreen({
           setSelectedStorageLocationId(null);
           setShowStorageInfo(true);
         }}
+        onViewStock={() => {
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setShowWarehouseOperations(false);
+          setInventoryInitialScreen('M3S02');
+          setActiveTab('Inventory');
+        }}
         onViewActivity={() => setShowWarehouseActivity(true)}
       />
     );
@@ -1606,10 +2169,15 @@ export function SubWarehouseAdminDashboardScreen({
   if (showStorageInfo) {
     return (
       <SubWarehouseStorageInfoScreen
+        warehouseName="Coonoor Warehouse"
         onBack={() => {
-          // Back from Storage List → go back to Warehouse Operations
+          // Back from Storage List → go back to Profile or Operations
           setShowStorageInfo(false);
-          setShowWarehouseOperations(true);
+          if (showProfile) {
+            setShowProfile(true);
+          } else {
+            setShowWarehouseOperations(true);
+          }
         }}
         onTabChange={(tab) => {
           setShowStorageInfo(false);
@@ -1618,6 +2186,12 @@ export function SubWarehouseAdminDashboardScreen({
         onSelectLocation={(id) => {
           setShowStorageInfo(false);
           setSelectedStorageLocationId(id);
+        }}
+        onViewStock={() => {
+          setShowStorageInfo(false);
+          setShowProfile(false);
+          setShowWarehouseOperations(false);
+          setActiveTab('Inventory');
         }}
       />
     );
@@ -1629,8 +2203,7 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowWarehouseOperations(false)}
         onNavigateToStorageLocations={() => {
           setShowWarehouseOperations(false);
-          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
-          else setShowStorageInfo(true);
+          setShowStorageInfo(true);
         }}
         onNavigateToCapacity={() => {
           setShowWarehouseOperations(false);
@@ -1644,26 +2217,31 @@ export function SubWarehouseAdminDashboardScreen({
           setShowWarehouseOperations(false);
           setShowOperationalIssues(true);
         }}
+        onNavigateToStaffAttendance={() => {
+          setShowWarehouseOperations(false);
+          setShowTodayAttendanceScreen(true);
+        }}
+        onNavigateToReceiveGoods={() => {
+          setShowWarehouseOperations(false);
+          setReceivingSubView('incoming_shipments');
+          setActiveTab('Receiving');
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseOperations(false);
+          setInventoryInitialScreen('M3S10');
+          setActiveTab('Inventory');
+        }}
         onNavigateToWarehouseActivity={() => {
           setShowWarehouseOperations(false);
           setShowWarehouseActivity(true);
         }}
+        onNavigateToTodayOperations={() => {
+          setShowWarehouseOperations(false);
+          setShowTodayOperations(true);
+        }}
         onTabChange={(tab) => {
           setShowWarehouseOperations(false);
           setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (selectedMaterialId) {
-    return (
-      <SubWarehouseMaterialDetailScreen
-        materialId={selectedMaterialId}
-        onBack={() => setSelectedMaterialId(null)}
-        onAddStock={() => {
-          setSelectedMaterialId(null);
-          setShowAddMaterial(true);
         }}
       />
     );
@@ -1675,7 +2253,18 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => setShowAddMaterial(false)}
         onSave={() => {
           setShowAddMaterial(false);
-          // Handle save logic if needed
+        }}
+      />
+    );
+  }
+
+  if (selectedMaterialId) {
+    return (
+      <SubWarehouseMaterialDetailScreen
+        materialId={selectedMaterialId}
+        onBack={() => setSelectedMaterialId(null)}
+        onAddStock={() => {
+          setShowAddMaterial(true);
         }}
       />
     );
@@ -1684,7 +2273,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showMaterialHandling) {
     return (
       <SubWarehouseMaterialHandlingScreen
-        onBack={() => setShowMaterialHandling(false)}
+        onBack={() => {
+          setShowMaterialHandling(false);
+          setShowWarehouseOperations(true);
+        }}
         onSelectMaterial={(id) => setSelectedMaterialId(id)}
         onAddMaterial={() => setShowAddMaterial(true)}
       />
@@ -1694,7 +2286,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showWarehouseCapacity) {
     return (
       <SubWarehouseCapacityScreen
-        onBack={() => setShowWarehouseCapacity(false)}
+        onBack={() => {
+          setShowWarehouseCapacity(false);
+          setShowWarehouseOperations(true);
+        }}
         onTabChange={(tab) => {
           setShowWarehouseCapacity(false);
           setActiveTab(tab as SubWHTab);
@@ -1706,7 +2301,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReportIssue) {
     return (
       <SubWarehouseReportIssueScreen
-        onBack={() => setShowReportIssue(false)}
+        onBack={() => {
+          setShowReportIssue(false);
+          setShowOperationalIssues(true);
+        }}
         onSubmit={() => {
           setShowReportIssue(false);
           setShowIssueSubmitted(true);
@@ -1720,7 +2318,7 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseIssueSubmittedScreen
         onViewIssue={() => {
           setShowIssueSubmitted(false);
-          setShowIssueDetail(true);
+          setShowOperationalIssues(true);
         }}
       />
     );
@@ -1729,7 +2327,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showIssueDetail) {
     return (
       <SubWarehouseOperationalIssueDetailScreen
-        onBack={() => setShowIssueDetail(false)}
+        onBack={() => {
+          setShowIssueDetail(false);
+          setShowOperationalIssues(true);
+        }}
       />
     );
   }
@@ -1737,7 +2338,10 @@ export function SubWarehouseAdminDashboardScreen({
   if (showOperationalIssues) {
     return (
       <SubWarehouseOperationalIssuesScreen
-        onBack={() => setShowOperationalIssues(false)}
+        onBack={() => {
+          setShowOperationalIssues(false);
+          setShowWarehouseOperations(true);
+        }}
         onNavigateToReport={() => {
           setShowOperationalIssues(false);
           setShowReportIssue(true);
@@ -1758,6 +2362,33 @@ export function SubWarehouseAdminDashboardScreen({
           setShowRecentActivity(false);
           setActiveTab(tab);
         }}
+        onNavigateToCategory={(category) => {
+          setShowRecentActivity(false);
+          if (category === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (category === 'Receiving') {
+            setActiveTab('Receiving');
+            navigateTo('Receiving', 'overview');
+          } else if (category === 'Orders') {
+            setOrdersInitialScreen('M5S01');
+            setOrdersInitialParams(null);
+            setShowOrdersModule(true);
+          } else if (category === 'Cash') {
+            setShowCashTopUp(true);
+          } else if (category === 'QC') {
+            setSelectedNotification({
+              id: 'qc-1',
+              type: 'quality',
+              title: 'QC Required',
+              subtitle: 'Tomato batch GR-1024 is waiting for quality inspection.',
+              timestamp: '10 minutes ago',
+              isUnread: false,
+              actionLabel: 'View Receiving',
+            });
+          }
+        }}
       />
     );
   }
@@ -1765,10 +2396,16 @@ export function SubWarehouseAdminDashboardScreen({
   if (showReviewReceiving) {
     return (
       <SubWarehouseReviewReceivingScreen
-        onBack={() => setShowReviewReceiving(false)}
+        onBack={() => {
+          setShowReviewReceiving(false);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onSuccess={() => {
           setShowReviewReceiving(false);
-          setActiveTab('Receiving');
+          navigateTo('Receiving', 'overview');
         }}
         shipmentData={{
           reference: 'GR-1024',
@@ -1792,25 +2429,11 @@ export function SubWarehouseAdminDashboardScreen({
           setShowProfile(false);
           setActiveTab('Inventory');
         }}
-        onNavigateToStorageInfo={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
-        }}
-        onNavigateToOperatingInfo={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseOperatingInfo');
-        }}
-        onNavigateToContact={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseContact');
-        }}
-        onNavigateToDocuments={() => {
-          setShowProfile(false);
-          if (onNavigate) onNavigate('SubWarehouseDocuments');
-        }}
       />
     );
   }
+
+
 
   if (showReportsScreen) {
     return (
@@ -1854,6 +2477,11 @@ export function SubWarehouseAdminDashboardScreen({
             setShowNotifications(true);
           }
         }}
+        onNavigateToSaleDetail={(saleId) => {
+          if (onNavigate) {
+            onNavigate('SubWarehouseSaleDetail');
+          }
+        }}
       />
     );
   }
@@ -1866,6 +2494,21 @@ export function SubWarehouseAdminDashboardScreen({
         onApplyFilters={(f) => {
           setPurchaseFilters(f);
           setShowPurchaseFilters(false);
+        }}
+      />
+    );
+  }
+
+  if (showSaleDetail) {
+    return (
+      <SubWarehouseSaleDetailScreen
+        sale={selectedSaleRecord}
+        onBack={() => setShowSaleDetail(false)}
+        onTabChange={(tab) => {
+          setShowSaleDetail(false);
+          setShowPurchaseHistory(false);
+          setShowCustomerDetails(false);
+          setActiveTab(tab);
         }}
       />
     );
@@ -1888,6 +2531,52 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         appliedFilters={purchaseFilters}
         onClearFilters={() => setPurchaseFilters(undefined)}
+        onNavigateToSaleDetail={(invoiceNo) => {
+          setSelectedSaleRecord({
+            id: 'SALE-00251',
+            customerName: selectedCustomer?.name || 'Rajesh Kumar',
+            customerCode: selectedCustomer?.code || 'CUS-00291',
+            channel: 'Direct Sale',
+            dateText: '24 Sep 2026',
+            amount: 200,
+            status: 'Completed',
+            invoiceNo: invoiceNo || 'INV-00251',
+            paymentMethod: 'UPI',
+            items: [
+              {
+                name: 'Tomato',
+                grade: 'Grade 1',
+                batch: 'BTH-00231',
+                qtyText: '2 KG @ ₹100',
+                pricePerUnit: 100,
+                lineTotal: 200,
+              },
+            ],
+          });
+          setShowSaleDetail(true);
+        }}
+        onNavigateToOrderDetail={(orderNo) => {
+          const is238 = orderNo === 'ORD-00238' || orderNo === 'INV-00238';
+          setSelectedOrder({
+            orderNo: orderNo || (is238 ? 'ORD-00238' : 'ORD-00251'),
+            status: 'Completed',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: is238 ? '3 Items' : '1 Item',
+            price: is238 ? '₹650' : '₹200',
+            date: is238 ? '20 Sep 2026' : '24 Sep 2026',
+            type: 'Pickup',
+            products: is238
+              ? [
+                { name: 'Tomato', grade: 'Grade 1', qty: '2 KG', price: '₹200' },
+                { name: 'Carrot', grade: 'Grade 1', qty: '1 KG', price: '₹150' },
+                { name: 'Beans', grade: 'Grade 1', qty: '2 KG', price: '₹300' },
+              ]
+              : [
+                { name: 'Tomato', grade: 'Grade 1', qty: '2 KG', price: '₹200' },
+              ],
+          });
+          setShowOrderDetail(true);
+        }}
       />
     );
   }
@@ -1910,13 +2599,58 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseCustomerOrdersScreen
         customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        onBack={() => setShowCustomerOrders(false)}
+        onBack={() => {
+          setShowCustomerOrders(false);
+          setCustomerOrdersFilter(undefined);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onOpenFilters={() => {
           if (onNavigate) onNavigate('SubWarehouseOrderFilters');
           else setShowOrderFilters(true);
         }}
         appliedFilters={orderFilters}
+        defaultFilter={customerOrdersFilter || 'All'}
         onClearFilters={() => setOrderFilters(undefined)}
+        onOrderPress={(orderId) => setShowOrderDetail(true)}
+        onNavigateToOrderDetail={(order) => {
+          setSelectedOrder(order || {
+            orderNo: 'ORD-00251',
+            status: 'Ready for Pickup',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: '3 Items',
+            price: '₹850',
+            date: '24 Sep 2026',
+            type: 'Pickup',
+          });
+          setShowOrderDetail(true);
+        }}
+        onViewPickupStatus={(order) => {
+          setSelectedOrder(order || {
+            orderNo: 'ORD-00251',
+            status: 'Ready for Pickup',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: '3 Items',
+            price: '₹850',
+            date: '24 Sep 2026',
+            type: 'Pickup',
+          });
+          setShowOrderDetail(true);
+        }}
+        onViewInvoice={(order) => {
+          setSelectedOrder(order || {
+            orderNo: 'ORD-00238',
+            status: 'Completed',
+            customer: selectedCustomer?.name || 'Rajesh Kumar',
+            items: '2 Items',
+            price: '₹420',
+            date: '20 Sep 2026',
+            type: 'Pickup',
+          });
+          setShowOrderDetail(true);
+        }}
       />
     );
   }
@@ -1943,11 +2677,70 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showCustomerIssueDetail) {
+    return (
+      <SubWarehouseCustomerIssueDetailScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        issue={selectedCustomerIssue}
+        onBack={() => setShowCustomerIssueDetail(false)}
+        onViewRma={() => {
+          setSelectedRma({
+            id: 'rma-00231',
+            rmaId: 'RMA-00231',
+            orderId: selectedCustomerIssue?.orderNo || 'ORD-00251',
+            customerName: selectedCustomer?.name || 'Rajesh Kumar',
+            customerId: selectedCustomer?.code || 'CUS-00291',
+            customerPhone: '+91 98765 43210',
+            orderDate: '24 Sep 2026',
+            salesChannel: 'Direct Sale',
+            paymentStatus: 'Paid',
+            productName: selectedCustomerIssue?.product || 'Tomato',
+            grade: 'Grade 1',
+            quantityPurchased: selectedCustomerIssue?.quantity || '2 KG',
+            unitPrice: '₹100 / KG',
+            lineTotal: '₹200',
+            issueCategory: (selectedCustomerIssue?.category as any) || 'Quality',
+            reportedDate: '24 Sep 2026',
+            timestampText: '24 Sep 2026 · 10:45 AM',
+            description: selectedCustomerIssue?.description || 'Customer reported quality issue.',
+            ticketId: selectedCustomerIssue?.issueNo || 'ISSUE-00231',
+            requestedQuantity: '2 KG',
+            requestedResolution: 'Replacement / Refund',
+            status: 'Under Review',
+          });
+          setShowCustomerIssueDetail(false);
+          setShowCustomerIssues(false);
+          setShowReturnsIssues(true);
+        }}
+      />
+    );
+  }
+
   if (showCustomerIssues) {
     return (
       <SubWarehouseCustomerIssuesScreen
         customerName={selectedCustomer?.name || 'Rajesh Kumar'}
         onBack={() => setShowCustomerIssues(false)}
+        onSelectIssue={(issue) => {
+          setSelectedCustomerIssue(issue);
+          setShowCustomerIssueDetail(true);
+        }}
+      />
+    );
+  }
+
+  if (showCustomerSupportDetail) {
+    return (
+      <SubWarehouseCustomerSupportDetailScreen
+        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        ticket={selectedSupportTicket}
+        onBack={() => setShowCustomerSupportDetail(false)}
+        onTabChange={(tab) => {
+          setShowCustomerSupportDetail(false);
+          setShowSupportHistory(false);
+          setShowCustomerDetails(false);
+          setActiveTab(tab);
+        }}
       />
     );
   }
@@ -1957,6 +2750,19 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseSupportHistoryScreen
         customerName={selectedCustomer?.name || 'Rajesh Kumar'}
         onBack={() => setShowSupportHistory(false)}
+        onSelectTicket={(ticket) => {
+          setSelectedSupportTicket(ticket);
+          setShowCustomerSupportDetail(true);
+        }}
+      />
+    );
+  }
+
+  if (showNewSale) {
+    return (
+      <SubWarehouseNewSaleScreen
+        initialCustomerName={selectedCustomer?.name || 'Rajesh Kumar'}
+        onBack={() => setShowNewSale(false)}
       />
     );
   }
@@ -1976,6 +2782,8 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToWallet={() => setShowCustomerWallet(true)}
         onNavigateToIssues={() => setShowCustomerIssues(true)}
         onNavigateToSupport={() => setShowSupportHistory(true)}
+        onNavigateToNewSale={() => setShowNewSale(true)}
+        onNavigateToCashTopUp={() => setShowCashTopUp(true)}
       />
     );
   }
@@ -2042,14 +2850,42 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (selectedTransactionForWizard) {
+    return (
+      <SubWarehouseInvoiceWizardScreen
+        transaction={selectedTransactionForWizard}
+        onBack={() => {
+          setSelectedTransactionForWizard(null);
+          setShowGenerateInvoice(true);
+        }}
+        onSuccess={() => {
+          setSelectedTransactionForWizard(null);
+          setShowInvoiceGenerated(true);
+        }}
+      />
+    );
+  }
+
+  if (showInvoiceGenerated) {
+    return (
+      <SubWarehouseInvoiceGeneratedScreen
+        invoiceId="INV-2026-001245"
+        onBack={() => setShowInvoiceGenerated(false)}
+        onViewInvoice={(id) => {
+          setShowInvoiceGenerated(false);
+          setShowInvoicePreview(true);
+        }}
+      />
+    );
+  }
+
   if (showGenerateInvoice) {
     return (
       <SubWarehouseGenerateInvoiceScreen
         onBack={() => setShowGenerateInvoice(false)}
         onSelectTransaction={(tx) => {
-          setSelectedInvoiceId('INV-2026-001245');
+          setSelectedTransactionForWizard(tx);
           setShowGenerateInvoice(false);
-          setShowInvoicePreview(true);
         }}
         onNavigateToGSTInvoice={() => {
           setShowGenerateInvoice(false);
@@ -2072,6 +2908,23 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showInvoiceHistoryDetail) {
+    return (
+      <SubWarehouseInvoiceHistoryDetailScreen
+        invoiceId={selectedInvoiceId}
+        onBack={() => {
+          setShowInvoiceHistoryDetail(false);
+          setShowInvoiceHistory(true);
+        }}
+        onDownload={() => {
+          // Assuming clicking download from history detail still goes to preview
+          setShowInvoiceHistoryDetail(false);
+          setShowInvoicePreview(true);
+        }}
+      />
+    );
+  }
+
   if (showInvoiceHistory) {
     return (
       <SubWarehouseInvoiceHistoryScreen
@@ -2079,7 +2932,7 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToInvoiceDetail={(id) => {
           setSelectedInvoiceId(id);
           setShowInvoiceHistory(false);
-          setShowInvoiceDetail(true);
+          setShowInvoiceHistoryDetail(true);
         }}
         onOpenFilters={() => {
           if (onNavigate) onNavigate('SubWarehouseInvoiceHistoryFilters');
@@ -2096,6 +2949,7 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseInvoiceDetailScreen
         invoiceId={selectedInvoiceId}
         onBack={() => setShowInvoiceDetail(false)}
+        onDownload={() => setShowInvoicePreview(true)}
       />
     );
   }
@@ -2173,7 +3027,12 @@ export function SubWarehouseAdminDashboardScreen({
         warehouseName="Coonoor Warehouse"
         onBack={() => {
           setShowWalletOperations(false);
-          setActiveTab('More');
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          } else {
+            setActiveTab('More');
+          }
         }}
         onTabChange={(tab) => {
           setShowWalletOperations(false);
@@ -2194,47 +3053,6 @@ export function SubWarehouseAdminDashboardScreen({
           } else {
             setShowProfile(true);
           }
-        }}
-      />
-    );
-  }
-
-  if (showAttendanceScreen) {
-    return (
-      <SubWarehouseAttendanceScreen
-        warehouseName="Coonoor Warehouse"
-        onBack={() => setShowAttendanceScreen(false)}
-        onTabChange={(tab) => {
-          setShowAttendanceScreen(false);
-          setShowStaffScreen(false);
-          setSelectedStaffMember(null);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (selectedStaffMember) {
-    return (
-      <SubWarehouseStaffDetailScreen
-        staff={selectedStaffMember}
-        onBack={() => setSelectedStaffMember(null)}
-        onViewAttendance={() => {
-          setShowAttendanceScreen(true);
-        }}
-      />
-    );
-  }
-
-  if (showStaffScreen) {
-    return (
-      <SubWarehouseStaffScreen
-        warehouseName="Coonoor Warehouse"
-        onBack={() => setShowStaffScreen(false)}
-        onSelectStaff={(staff) => setSelectedStaffMember(staff)}
-        onTabChange={(tab) => {
-          setShowStaffScreen(false);
-          setActiveTab(tab);
         }}
       />
     );
@@ -2443,7 +3261,13 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <SubWarehouseReturnsIssuesScreen
         warehouseName="Coonoor Warehouse"
-        onBack={() => setShowReturnsIssues(false)}
+        onBack={() => {
+          setShowReturnsIssues(false);
+          if (returnToNotificationsOnBack) {
+            setReturnToNotificationsOnBack(false);
+            setShowNotifications(true);
+          }
+        }}
         onSelectRma={(rma) => setSelectedRma(rma)}
         onNavigateToHistory={() => setShowReturnHistory(true)}
         onTabChange={(tab) => {
@@ -2510,12 +3334,30 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showEditStaffProfileScreen && selectedStaffMember) {
+    return (
+      <SubWarehouseEditStaffProfileScreen
+        staff={selectedStaffMember}
+        onBack={() => setShowEditStaffProfileScreen(false)}
+        onSave={(staff) => setShowEditStaffProfileScreen(false)}
+      />
+    );
+  }
+
   if (selectedStaffMember) {
     return (
       <SubWarehouseStaffDetailScreen
         staff={selectedStaffMember}
         onBack={() => setSelectedStaffMember(null)}
         onViewAttendance={() => setShowAttendanceScreen(true)}
+        onEditProfile={(staff) => setShowEditStaffProfileScreen(true)}
+        onAssignDelivery={(staff) => {
+          setSelectedStaffMember(null);
+          setShowStaffScreen(false);
+          setOrdersInitialScreen('M5S01');
+          setOrdersInitialParams(null);
+          setShowOrdersModule(true);
+        }}
       />
     );
   }
@@ -2525,7 +3367,6 @@ export function SubWarehouseAdminDashboardScreen({
       <SubWarehouseStaffScreen
         onBack={() => setShowStaffScreen(false)}
         onSelectStaff={(staff) => setSelectedStaffMember(staff)}
-        onNavigateToAttendance={() => setShowAttendanceScreen(true)}
         onNavigateToTodayAttendance={() => setShowTodayAttendanceScreen(true)}
         onTabChange={(tab) => {
           setShowStaffScreen(false);
@@ -2587,6 +3428,120 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showCustomers) {
+    return (
+      <SubWarehouseCustomersScreen
+        onBack={() => setShowCustomers(false)}
+        onTabChange={(tab) => {
+          setShowCustomers(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
+  if (showIncomingShipmentsScreen) {
+    return (
+      <IncomingShipmentsScreen
+        initialFilterTab={incomingShipmentsTab}
+        onBack={() => setShowIncomingShipmentsScreen(false)}
+        onOpenFilters={() => setShowReceivingSearchFilters(true)}
+        onSelectShipment={(shipmentId) => {
+          setSelectedShipmentId(shipmentId);
+          setShowShipmentDetailScreen(true);
+        }}
+      />
+    );
+  }
+
+  if (showReceivingSearchFilters) {
+    return (
+      <ReceivingSearchFiltersScreen
+        onBack={() => setShowReceivingSearchFilters(false)}
+        onApplyFilters={() => setShowReceivingSearchFilters(false)}
+      />
+    );
+  }
+
+  if (showShipmentDetailScreen) {
+    return (
+      <ShipmentDetailScreen
+        shipmentId={selectedShipmentId}
+        onBack={() => setShowShipmentDetailScreen(false)}
+        onStartReceiving={() => {
+          setShowShipmentDetailScreen(false);
+          setShowStartReceivingScreen(true);
+        }}
+      />
+    );
+  }
+
+  if (showStartReceivingScreen) {
+    return (
+      <StartReceivingScreen
+        shipmentId="GR-1024"
+        source="Main Warehouse"
+        destination="Coonoor Warehouse"
+        expectedProduct="Tomato · Grade 1"
+        expectedQty="150 KG"
+        mwaName={userName}
+        warehouse="Coonoor Warehouse"
+        onBack={() => setShowStartReceivingScreen(false)}
+        onConfirmStartReceiving={() => {
+          setShowStartReceivingScreen(false);
+          setShowQualityCheckScreen(true);
+        }}
+      />
+    );
+  }
+
+  if (showQualityCheckScreen) {
+    return (
+      <QualityCheckScreen
+        shipmentId="GR-1024"
+        productName="Tomato · Grade 1"
+        receivedQty="145 / 150 KG received"
+        onBack={() => setShowQualityCheckScreen(false)}
+        onContinueToGradeVerification={() => setShowQualityCheckScreen(false)}
+        onViewQualitySummary={() => setShowQualityCheckScreen(false)}
+      />
+    );
+  }
+
+  if (showPartialAcceptanceScreen) {
+    return (
+      <PartialAcceptanceScreen
+        shipmentId="GR-1021"
+        productName="Carrot · Grade 1"
+        receivedQtyNum={100}
+        onBack={() => setShowPartialAcceptanceScreen(false)}
+        onContinueToSummary={() => setShowPartialAcceptanceScreen(false)}
+      />
+    );
+  }
+
+  if (showReceivingHistoryScreen) {
+    return (
+      <ReceivingHistoryScreen
+        initialFilter={receivingHistoryFilter}
+        onBack={() => setShowReceivingHistoryScreen(false)}
+        onSelectRecord={(grnId) => {
+          setSelectedGrnId(grnId);
+          setShowReceivingHistoryDetail(true);
+        }}
+      />
+    );
+  }
+
+  if (showReceivingHistoryDetail) {
+    return (
+      <ReceivingHistoryDetailScreen
+        grnId={selectedGrnId}
+        onBack={() => setShowReceivingHistoryDetail(false)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -2606,16 +3561,6 @@ export function SubWarehouseAdminDashboardScreen({
             {/* ─── Top Brand Header Banner (#F0562A) ─── */}
             <View style={styles.headerBanner}>
               <View style={styles.headerTopRow}>
-                {onBack && (
-                  <TouchableOpacity
-                    style={styles.backBtn}
-                    onPress={onBack}
-                    activeOpacity={0.8}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <ArrowBackIcon size={24} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.headerGreeting}>Good Morning, {userName}</Text>
                   <TouchableOpacity
@@ -2728,10 +3673,9 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
               <View style={styles.overviewGrid}>
                 {/* 1. Pending Orders */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setShowOrdersModule(true)}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <ClipboardClockIcon />
@@ -2739,13 +3683,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>12</Text>
                   <Text style={styles.overviewTitle}>Pending Orders</Text>
                   <Text style={styles.overviewSub}>8 need action</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 2. Ready for Pickup */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setShowOrdersModule(true)}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <PersonCheckIcon />
@@ -2753,13 +3696,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>08</Text>
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
                   <Text style={styles.overviewSub}>3 customers expected</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 3. Today's Receiving */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => navigateTo('Receiving', 'overview')}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <DeliveryTruckIcon />
@@ -2767,13 +3709,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>03</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
                   <Text style={styles.overviewSub}>1 awaiting QC</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 4. Low Stock Items */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setActiveTab('Inventory')}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <BoxIcon color={PALETTE.primary} />
@@ -2781,11 +3722,11 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={[styles.overviewNumber, { color: '#E11D48' }]}>05</Text>
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 5. Today's Sales */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
@@ -2793,7 +3734,6 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowSalesScreen(true);
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <BanknotesIcon />
@@ -2801,11 +3741,11 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>₹24,850</Text>
                   <Text style={styles.overviewTitle}>Today's Sales</Text>
                   <Text style={styles.overviewSub}>42 transactions</Text>
-                </TouchableOpacity>
+                </Pressable>
 
                 {/* 6. Cash Top-Ups */}
-                <TouchableOpacity
-                  style={styles.overviewCard}
+                <Pressable
+                  style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseWalletOperations');
@@ -2813,7 +3753,6 @@ export function SubWarehouseAdminDashboardScreen({
                       setActiveTab('More');
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <View style={styles.overviewIconWrap}>
                     <WalletIcon />
@@ -2821,23 +3760,22 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewNumber}>₹18,500</Text>
                   <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
                   <Text style={styles.overviewSub}>12 transactions</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               {/* 3. Quick Actions */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
               <View style={styles.quickActionsGrid}>
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setReceivingWizardStep('start_receiving')}
-                  activeOpacity={0.75}
                 >
                   <ReceiveGoodsActionIcon />
                   <Text style={styles.quickActionLabel}>Receive Goods</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
@@ -2845,23 +3783,21 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowSalesScreen(true);
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <CashRegisterActionIcon />
                   <Text style={styles.quickActionLabel}>New Sale</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setShowOrdersModule(true)}
-                  activeOpacity={0.75}
                 >
                   <ViewOrdersActionIcon />
                   <Text style={styles.quickActionLabel}>View Orders</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseWalletOperations');
@@ -2869,23 +3805,21 @@ export function SubWarehouseAdminDashboardScreen({
                       setActiveTab('More');
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <CashTopUpActionIcon />
                   <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setActiveTab('Inventory')}
-                  activeOpacity={0.75}
                 >
                   <StockVerifyActionIcon />
                   <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseRecentActivity');
@@ -2893,11 +3827,10 @@ export function SubWarehouseAdminDashboardScreen({
                       setShowRecentActivity(true);
                     }
                   }}
-                  activeOpacity={0.75}
                 >
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               {/* 4. Needs Attention */}
@@ -3071,7 +4004,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <TouchableOpacity
                   style={styles.linkButton}
-                  onPress={() => Alert.alert('All Orders', 'Displaying 12 customer and B2B orders.')}
+                  onPress={() => setShowOrdersModule(true)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View All Orders →</Text>
@@ -3148,7 +4081,11 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => Alert.alert('Stock Allocation Detail', 'Online: 420 KG\nLive Market: 120 KG\nReserve: 80 KG\nBuffer: 60 KG')}
+                  onPress={() => {
+                    setInventoryInitialScreen('M3S02');
+                    setInventoryInitialParams({ initialTab: 'Allocation' });
+                    setActiveTab('Inventory');
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
@@ -3206,7 +4143,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
-                  onPress={() => Alert.alert('Cash History', '12 Cash Top-up transactions logged today.')}
+                  onPress={() => setShowWalletOperations(true)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.linkButtonText}>View History →</Text>
@@ -3231,19 +4168,13 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.activityCardContainer}
-                onPress={() => {
-                  if (onNavigate) {
-                    onNavigate('SubWarehouseRecentActivity');
-                  } else {
-                    setShowRecentActivity(true);
-                  }
-                }}
-                activeOpacity={0.85}
-              >
+              <View style={styles.activityCardContainer}>
                 {/* Activity 1 */}
-                <View style={styles.activityItemRow}>
+                <TouchableOpacity
+                  style={styles.activityItemRow}
+                  activeOpacity={0.7}
+                  onPress={() => navigateTo('Receiving', 'overview')}
+                >
                   <View style={styles.activityIconBox}>
                     <ReceiveGoodsActionIcon />
                   </View>
@@ -3252,12 +4183,16 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>GR-00124 · 150 KG Tomato</Text>
                     <Text style={styles.activityTimeText}>10:42 AM</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.cardDivider} />
 
                 {/* Activity 2 */}
-                <View style={styles.activityItemRow}>
+                <TouchableOpacity
+                  style={styles.activityItemRow}
+                  activeOpacity={0.7}
+                  onPress={() => setShowOrdersModule(true)}
+                >
                   <View style={styles.activityIconBox}>
                     <PackageBagIcon />
                   </View>
@@ -3266,12 +4201,16 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>ORD-10242</Text>
                     <Text style={styles.activityTimeText}>10:20 AM</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.cardDivider} />
 
                 {/* Activity 3 */}
-                <View style={styles.activityItemRow}>
+                <TouchableOpacity
+                  style={styles.activityItemRow}
+                  activeOpacity={0.7}
+                  onPress={() => setShowWalletOperations(true)}
+                >
                   <View style={styles.activityIconBox}>
                     <CashTopUpActionIcon />
                   </View>
@@ -3280,8 +4219,8 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityItemSub}>₹2,000 · Customer CUS-1042</Text>
                     <Text style={styles.activityTimeText}>09:55 AM</Text>
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
 
               {/* 13. Warehouse Alerts */}
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
@@ -3409,7 +4348,7 @@ export function SubWarehouseAdminDashboardScreen({
                         <Text style={styles.shipmentRouteText}>{item.from} → {item.to}</Text>
                       </View>
 
-                      <Text style={styles.produceTitle}>{item.produce} · {item.grade}</Text>
+                      <Text style={styles.shipmentProduceTitle}>{item.produce} · {item.grade}</Text>
 
                       <View style={styles.shipmentStatsRow}>
                         {item.status === 'Completed' ? (
@@ -3782,24 +4721,154 @@ export function SubWarehouseAdminDashboardScreen({
               </View>
             )}
 
-            {/* 4. VIEW: Overview (Today's Receiving Overview) */}
+            {/* 4. VIEW: Receiving History (Reference Image) */}
+            {receivingSubView === 'receiving_history' && (
+              <View style={{ flex: 1, backgroundColor: PALETTE.pageBg }}>
+                {/* Header */}
+                <View style={styles.historyHeaderBanner}>
+                  <TouchableOpacity
+                    style={styles.shipmentsBackBtn}
+                    onPress={goBack}
+                    activeOpacity={0.7}
+                  >
+                    <BackArrowWhiteIcon />
+                  </TouchableOpacity>
+                  <Text style={styles.historyHeaderTitle}>Receiving History</Text>
+                </View>
+
+                {/* Search Bar */}
+                <View style={styles.historySearchContainer}>
+                  <SearchGlassGrayIcon />
+                  <TextInput
+                    style={styles.historySearchInput}
+                    placeholder="Search GR number / product"
+                    placeholderTextColor="#6B7280"
+                    value={historySearchQuery}
+                    onChangeText={setHistorySearchQuery}
+                  />
+                </View>
+
+                {/* Filter Pills */}
+                <View style={styles.historyFilterPillsContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.historyFilterPillsScroll}
+                  >
+                    {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map(tab => {
+                      const isActive = receivingHistoryFilterTab === tab;
+                      return (
+                        <TouchableOpacity
+                          key={tab}
+                          style={[styles.historyFilterPill, isActive && styles.historyFilterPillActive]}
+                          onPress={() => setReceivingHistoryFilterTab(tab)}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.historyFilterPillText, isActive && styles.historyFilterPillTextActive]}>
+                            {tab}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                {/* Receiving History Cards */}
+                <ScrollView
+                  style={styles.scroll}
+                  contentContainerStyle={styles.historyListScrollContent}
+                  showsVerticalScrollIndicator={true}
+                  decelerationRate={0.985}
+                  scrollEventThrottle={16}
+                >
+                  {RECEIVING_HISTORY_ITEMS.filter(item => {
+                    if (receivingHistoryFilterTab === 'Accepted' && item.status !== 'Accepted') return false;
+                    if (receivingHistoryFilterTab === 'Partial' && item.status !== 'Partial') return false;
+                    if (receivingHistoryFilterTab === 'Rejected' && item.status !== 'Rejected') return false;
+                    if (historySearchQuery) {
+                      const q = historySearchQuery.toLowerCase();
+                      if (!item.code.toLowerCase().includes(q) && !item.produce.toLowerCase().includes(q)) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  }).map(item => {
+                    const matchedShipment = INITIAL_SHIPMENTS.find(s => s.code === item.code);
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.shipmentCard}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (matchedShipment) {
+                            navigateTo('Receiving', 'shipment_detail', matchedShipment);
+                          }
+                        }}
+                      >
+                        <View style={styles.shipmentCardTopRow}>
+                          <Text style={styles.shipmentCardCode}>{item.code}</Text>
+                          <View style={[styles.shipmentCardStatusBadge, { backgroundColor: item.badgeBg }]}>
+                            <Text style={[styles.shipmentCardStatusText, { color: item.badgeColor }]}>
+                              {item.badgeLabel}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.shipmentProduceTitle}>{item.produce} · {item.grade}</Text>
+
+                        <View style={styles.shipmentStatsRow}>
+                          <View style={styles.shipmentStatCol}>
+                            <Text style={styles.shipmentStatLabel}>Received</Text>
+                            <Text style={styles.shipmentStatVal}>{item.receivedQty} KG</Text>
+                          </View>
+                          {item.acceptedQty !== undefined && (
+                            <View style={styles.shipmentStatCol}>
+                              <Text style={styles.shipmentStatLabel}>Accepted</Text>
+                              <Text style={styles.shipmentStatVal}>{item.acceptedQty} KG</Text>
+                            </View>
+                          )}
+                          {item.rejectedQty !== undefined && (
+                            <View style={styles.shipmentStatCol}>
+                              <Text style={styles.shipmentStatLabel}>Rejected</Text>
+                              <Text style={styles.shipmentStatVal}>{item.rejectedQty} KG</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <Text style={styles.historyCardDate}>{item.date}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <View style={{ height: 28 }} />
+                </ScrollView>
+              </View>
+            )}
+
+            {/* 5. VIEW: Overview (Today's Receiving Overview) */}
             {receivingSubView === 'overview' && (
               <>
                 <View style={styles.receivingHeaderBanner}>
                   <View style={styles.receivingHeaderTopRow}>
-                    <View style={styles.receivingHeaderTitleRow}>
-                      {history.length > 1 && history[history.length - 2]?.tab === 'Home' ? (
-                        <TouchableOpacity
-                          style={[styles.shipmentsBackBtn, { marginRight: 6 }]}
-                          onPress={goBack}
-                          activeOpacity={0.7}
-                        >
-                          <BackArrowWhiteIcon />
-                        </TouchableOpacity>
-                      ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <TouchableOpacity
+                        style={styles.receivingBackBtn}
+                        onPress={() => {
+                          if (history.length > 1) {
+                            goBack();
+                          } else {
+                            setActiveTab('Home');
+                          }
+                        }}
+                        activeOpacity={0.75}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      >
+                        <ArrowBackIcon size={22} color="#FFFFFF" />
+                      </TouchableOpacity>
+
+                      <View style={styles.receivingHeaderTitleRow}>
                         <DeliveryTruckWhiteIcon />
-                      )}
-                      <Text style={styles.receivingHeaderTitle}>Goods Receiving</Text>
+                        <Text style={styles.receivingHeaderTitle}>Goods Receiving</Text>
+                      </View>
                     </View>
 
                     <TouchableOpacity
@@ -3833,21 +4902,17 @@ export function SubWarehouseAdminDashboardScreen({
                   scrollEventThrottle={16}
                 >
                   {/* 1. Today's Receiving Overview (6 Boxes) */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={[styles.receivingSectionTitle, { marginBottom: 0 }]}>Today's Receiving Overview</Text>
-                    <TouchableOpacity onPress={() => navigateTo('Receiving', 'incoming_shipments')}>
-                      <Text style={{ color: '#E07A2A', fontWeight: 'bold' }}>View Details</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.receivingSectionTitle}>Today's Receiving Overview</Text>
                   <View style={styles.receivingGrid}>
-                    {/* Expected Today */}
+                    {/* 1. Expected Today */}
                     <TouchableOpacity
                       style={[
                         styles.receivingOverviewCard,
                         selectedReceivingCard === 'expected' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Receiving');
+                        setSelectedReceivingCard('expected');
+                        setShipmentsFilterTab('Expected');
                         setFilterStatus('Expected');
                         navigateTo('Receiving', 'incoming_shipments');
                       }}
@@ -3858,13 +4923,14 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.receivingOverviewLabel}>Expected Today</Text>
                     </TouchableOpacity>
 
-                    {/* Awaiting Receiving */}
+                    {/* 2. Awaiting Receiving */}
                     <TouchableOpacity
                       style={[
                         styles.receivingOverviewCard,
                         selectedReceivingCard === 'awaiting' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
+                        setSelectedReceivingCard('awaiting');
                         setShipmentsFilterTab('Receiving');
                         setFilterStatus('Receiving');
                         navigateTo('Receiving', 'incoming_shipments');
@@ -3876,15 +4942,16 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.receivingOverviewLabel}>Awaiting Receiving</Text>
                     </TouchableOpacity>
 
-                    {/* Awaiting QC */}
+                    {/* 3. Awaiting QC */}
                     <TouchableOpacity
                       style={[
                         styles.receivingOverviewCard,
                         selectedReceivingCard === 'qc' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
+                        setSelectedReceivingCard('qc');
                         setSelectedShipment(INITIAL_SHIPMENTS[0]!); // The shipment that is Awaiting QC
-                        setReceivingWizardStep('receiving_in_progress');
+                        setReceivingWizardStep('quality_check');
                       }}
                       activeOpacity={0.8}
                     >
@@ -3893,16 +4960,16 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.receivingOverviewLabel}>Awaiting QC</Text>
                     </TouchableOpacity>
 
-                    {/* Partially Accepted */}
+                    {/* 4. Partially Accepted */}
                     <TouchableOpacity
                       style={[
                         styles.receivingOverviewCard,
                         selectedReceivingCard === 'partially' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Receiving');
-                        setFilterStatus('Partially Accepted');
-                        navigateTo('Receiving', 'incoming_shipments');
+                        setSelectedReceivingCard('partially');
+                        setReceivingHistoryFilterTab('Partial');
+                        navigateTo('Receiving', 'receiving_history');
                       }}
                       activeOpacity={0.8}
                     >
@@ -3911,16 +4978,16 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.receivingOverviewLabel}>Partially Accepted</Text>
                     </TouchableOpacity>
 
-                    {/* Completed Today */}
+                    {/* 5. Completed Today */}
                     <TouchableOpacity
                       style={[
                         styles.receivingOverviewCard,
                         selectedReceivingCard === 'completed' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Completed');
-                        setFilterStatus('Completed');
-                        navigateTo('Receiving', 'incoming_shipments');
+                        setSelectedReceivingCard('completed');
+                        setReceivingHistoryFilterTab('Accepted');
+                        navigateTo('Receiving', 'receiving_history');
                       }}
                       activeOpacity={0.8}
                     >
@@ -3929,16 +4996,14 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.receivingOverviewLabel}>Completed Today</Text>
                     </TouchableOpacity>
 
-                    {/* Issues */}
+                    {/* 6. Issues */}
                     <TouchableOpacity
                       style={[
                         styles.receivingOverviewCard,
                         selectedReceivingCard === 'issues' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShipmentsFilterTab('Rejected');
-                        setFilterStatus('Rejected');
-                        navigateTo('Receiving', 'incoming_shipments');
+                        setShowOperationalIssues(true);
                       }}
                       activeOpacity={0.8}
                     >
@@ -3948,6 +5013,18 @@ export function SubWarehouseAdminDashboardScreen({
                     </TouchableOpacity>
                   </View>
 
+                  {/* 2. Start Receiving CTA Button */}
+                  <TouchableOpacity
+                    style={styles.startReceivingBtn}
+                    onPress={() => {
+                      setSelectedShipment(INITIAL_SHIPMENTS[0]!);
+                      setReceivingWizardStep('start_receiving');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <StartReceivingBoxIcon />
+                    <Text style={styles.startReceivingBtnText}>Start Receiving</Text>
+                  </TouchableOpacity>
 
                   {/* 3. Needs Attention Section */}
                   <View style={styles.needsAttentionHeader}>
@@ -3961,12 +5038,13 @@ export function SubWarehouseAdminDashboardScreen({
                       style={styles.attentionCard}
                       onPress={() => {
                         setSelectedShipment(INITIAL_SHIPMENTS[0]!);
-                        setReceivingWizardStep('receiving_in_progress');
+                        setReceivingWizardStep('quality_check');
                       }}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.attentionIconBox, { backgroundColor: '#FEF3C7' }]}>
-                        <FlaskOutlineIcon color="#B45309" />
+                      <View style={[styles.attentionLeftBar, { backgroundColor: '#B47D16' }]} />
+                      <View style={styles.attentionIconBox}>
+                        <FlaskOutlineIcon color="#B47D16" />
                       </View>
                       <View style={styles.attentionTextBox}>
                         <Text style={styles.attentionCardTitle}>QC Pending</Text>
@@ -3979,38 +5057,38 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.attentionCard}
                       onPress={() => {
-                        setSelectedShipment(INITIAL_SHIPMENTS[1]!);
-                        setReceivingWizardStep('quantity_verification');
+                        setShowPartialAcceptanceScreen(true);
                       }}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.attentionIconBox, { backgroundColor: '#FEE2E2' }]}>
-                        <AlertCircleIcon color="#DC2626" />
+                      <View style={[styles.attentionLeftBar, { backgroundColor: '#E11D48' }]} />
+                      <View style={styles.attentionIconBox}>
+                        <AlertCircleIcon color="#E11D48" />
                       </View>
                       <View style={styles.attentionTextBox}>
                         <Text style={styles.attentionCardTitle}>Quantity Mismatch</Text>
                         <Text style={styles.attentionCardSub}>Carrot — GR-1021</Text>
                       </View>
-                      <ChevronRightGrayIcon />
+                      <ChevronRightRedIcon />
                     </TouchableOpacity>
 
                     {/* Item 3: Damage Report */}
                     <TouchableOpacity
                       style={styles.attentionCard}
                       onPress={() => {
-                        setSelectedShipment(INITIAL_SHIPMENTS[4]!);
-                        setReceivingWizardStep('rejected_goods');
+                        setShowOperationalIssues(true);
                       }}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.attentionIconBox, { backgroundColor: '#FFE4E6' }]}>
+                      <View style={[styles.attentionLeftBar, { backgroundColor: '#E11D48' }]} />
+                      <View style={styles.attentionIconBox}>
                         <DamageBrokenImageIcon />
                       </View>
                       <View style={styles.attentionTextBox}>
                         <Text style={styles.attentionCardTitle}>Damage Report</Text>
-                        <Text style={styles.attentionCardSub}>Spinach — GR-1018</Text>
+                        <Text style={styles.attentionCardSub}>Beans — GR-1020</Text>
                       </View>
-                      <ChevronRightGrayIcon />
+                      <ChevronRightRedIcon />
                     </TouchableOpacity>
                   </View>
 
@@ -4019,8 +5097,8 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.recentReceivingTitle}>Recent Receiving</Text>
                     <TouchableOpacity
                       onPress={() => {
-                        setShipmentsFilterTab('All');
-                        navigateTo('Receiving', 'incoming_shipments');
+                        setReceivingHistoryFilter('All');
+                        setShowReceivingHistoryScreen(true);
                       }}
                       activeOpacity={0.7}
                     >
@@ -4033,7 +5111,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.recentCard}
                       onPress={() => {
-                        navigateTo('Receiving', 'shipment_detail', INITIAL_SHIPMENTS[0]!);
+                        setShowQualityCheckScreen(true);
                       }}
                       activeOpacity={0.8}
                     >
@@ -4051,7 +5129,8 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.recentCard}
                       onPress={() => {
-                        navigateTo('Receiving', 'shipment_detail', INITIAL_SHIPMENTS[3]!);
+                        setSelectedGrnId('GRN-000839');
+                        setShowReceivingHistoryDetail(true);
                       }}
                       activeOpacity={0.8}
                     >
@@ -4076,18 +5155,53 @@ export function SubWarehouseAdminDashboardScreen({
         {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && !showOrdersModule && (
           <InventoryModule
-            onBack={() => setActiveTab('Home')}
-            onTabChange={(tab) => setActiveTab(tab)}
+            initialScreen={inventoryInitialScreen}
+            initialParams={inventoryInitialParams}
+            onBack={() => {
+              setInventoryInitialScreen(undefined);
+              if (returnToNotificationsOnBack) {
+                setReturnToNotificationsOnBack(false);
+                setShowNotifications(true);
+              } else if (initialInventoryScreen && onBack) {
+                onBack();
+              } else {
+                setActiveTab('Home');
+              }
+            }}
+            onTabChange={(tab) => {
+              setInventoryInitialScreen(undefined);
+              setReturnToNotificationsOnBack(false);
+              setActiveTab(tab);
+            }}
           />
         )}
 
         {/* ─── Orders Module ─── */}
         {showOrdersModule && (
           <OrdersModule
-            onBack={() => setShowOrdersModule(false)}
+            initialScreen={ordersInitialScreen}
+            initialParams={ordersInitialParams}
+            onBack={() => {
+              setShowOrdersModule(false);
+              setOrdersInitialScreen('M5S01');
+              setOrdersInitialParams(null);
+              if (returnToNotificationsOnBack) {
+                setReturnToNotificationsOnBack(false);
+                setShowNotifications(true);
+              } else if (onBack) {
+                onBack();
+              }
+            }}
             onTabChange={(tab) => {
               setShowOrdersModule(false);
+              setOrdersInitialScreen('M5S01');
+              setOrdersInitialParams(null);
+              setReturnToNotificationsOnBack(false);
               setActiveTab(tab);
+            }}
+            onNavigateToOperationalIssues={() => {
+              setShowOrdersModule(false);
+              setShowOperationalIssues(true);
             }}
           />
         )}
@@ -4096,6 +5210,7 @@ export function SubWarehouseAdminDashboardScreen({
         {activeTab === 'More' && !showOrdersModule && (
           <SubWarehouseMoreScreen
             onBack={() => setActiveTab('Home')}
+            onNavigateToDashboard={() => setActiveTab('Home')}
             onTabChange={(tab) => {
               if (tab === 'More') return;
               setActiveTab(tab);
@@ -4151,8 +5266,33 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowFinanceScreen(true);
             }}
             onNavigateToWarehouseOperations={() => {
-              if (onNavigate) onNavigate('SubWarehouseWarehouseOperations');
-              else setShowWarehouseOperations(true);
+              setShowWarehouseOperations(true);
+            }}
+            onNavigateToStorageLocations={() => {
+              setShowStorageInfo(true);
+            }}
+            onNavigateToCapacity={() => {
+              setShowWarehouseCapacity(true);
+            }}
+            onNavigateToMaterialHandling={() => {
+              setShowMaterialHandling(true);
+            }}
+            onNavigateToOperationalIssues={() => {
+              setShowOperationalIssues(true);
+            }}
+            onNavigateToWarehouseActivity={() => {
+              setShowWarehouseActivity(true);
+            }}
+            onNavigateToTodayOperations={() => {
+              setShowTodayOperations(true);
+            }}
+            onNavigateToReceiveGoods={() => {
+              setReceivingSubView('incoming_shipments');
+              setActiveTab('Receiving');
+            }}
+            onNavigateToStockVerification={() => {
+              setInventoryInitialScreen('M3S10');
+              setActiveTab('Inventory');
             }}
             onNavigateToSettings={() => {
               if (onNavigate) onNavigate('SubWarehouseSettings');
@@ -4163,8 +5303,8 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Rendered for Home, Receiving) ─── */}
-      {activeTab !== 'More' && activeTab !== 'Inventory' && !showOrdersModule && !(activeTab === 'Receiving' && (receivingSubView === 'search_filters' || receivingSubView === 'shipment_detail')) && (
+      {/* ─── Bottom Navigation Bar (Rendered only for Main Sections: Home, Goods Receiving Overview) ─── */}
+      {(activeTab === 'Home' || (activeTab === 'Receiving' && receivingSubView === 'overview')) && !showOrdersModule && (
         <View style={styles.bottomTabBar}>
           <TouchableOpacity
             style={styles.tabItem}
@@ -4245,7 +5385,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   tabSubHeading: {
-    fontSize: 12.5,
+    fontSize: 13,
+    fontWeight: '400',
     color: PALETTE.textSecondary,
     marginTop: 3,
   },
@@ -4256,8 +5397,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 18,
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
   },
   backBtn: {
     padding: 6,
@@ -4285,7 +5424,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   warehouseNameText: {
-    fontSize: 21,
+    fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.4,
@@ -4350,7 +5489,7 @@ const styles = StyleSheet.create({
   // ─── Status Card ───────────────────────────────────────────────────────────
   statusCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -4360,7 +5499,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
@@ -4368,7 +5507,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusWarehouseTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginBottom: 4,
@@ -4393,26 +5532,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   receivingLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: PALETTE.textSecondary,
   },
   receivingValue: {
-    fontSize: 13,
+    fontSize: 19,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginTop: 1,
   },
   syncText: {
-    fontSize: 10,
+    fontSize: 9.5,
+    fontWeight: '700',
     color: PALETTE.textMuted,
     marginTop: 2,
   },
 
   // ─── Section Headings ──────────────────────────────────────────────────────
   sectionHeading: {
-    fontSize: 15.5,
+    fontSize: 13,
     fontWeight: '800',
-    color: PALETTE.textInk,
+    color: PALETTE.primaryDark,
     marginTop: 6,
     marginBottom: 10,
     letterSpacing: -0.2,
@@ -4459,7 +5599,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
+    shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
@@ -4470,19 +5610,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overviewNumber: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: PALETTE.textInk,
     letterSpacing: -0.4,
   },
   overviewTitle: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
     color: PALETTE.textInk,
     marginTop: 3,
   },
   overviewSub: {
     fontSize: 10.5,
+    fontWeight: '400',
     color: PALETTE.textSecondary,
     marginTop: 2,
   },
@@ -4498,7 +5639,7 @@ const styles = StyleSheet.create({
   quickActionBtn: {
     width: '31.6%',
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: 12,
     paddingVertical: 13,
     paddingHorizontal: 4,
     alignItems: 'center',
@@ -4507,8 +5648,8 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
     elevation: 1,
     gap: 6,
   },
@@ -4517,8 +5658,8 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.primarySoft,
   },
   quickActionLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
     color: PALETTE.textInk,
     textAlign: 'center',
   },
@@ -4551,11 +5692,12 @@ const styles = StyleSheet.create({
   },
   alertCardTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: PALETTE.textInk,
   },
   alertCardSub: {
-    fontSize: 11,
+    fontSize: 10.5,
+    fontWeight: '400',
     color: PALETTE.textSecondary,
     marginTop: 2,
     lineHeight: 14.5,
@@ -4844,6 +5986,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
+  receivingBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   receivingBellBtn: {
     width: 38,
     height: 38,
@@ -4959,43 +6109,55 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   needsAttentionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1E1612',
   },
   needsAttentionStack: {
-    gap: 10,
+    gap: 12,
     marginBottom: 20,
   },
   attentionCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingLeft: 20,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: '#EFECE8',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  attentionLeftBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
   attentionIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   attentionTextBox: {
     flex: 1,
   },
   attentionCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E1612',
   },
   attentionCardSub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
+    fontSize: 14,
+    color: '#1E1612',
+    fontWeight: '600',
     marginTop: 2,
   },
   recentReceivingHeaderRow: {
@@ -5132,6 +6294,81 @@ const styles = StyleSheet.create({
   shipmentFilterPillTextActive: {
     color: '#9A3412',
     fontWeight: '800',
+  },
+  historyHeaderBanner: {
+    backgroundColor: PALETTE.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+  },
+  historyHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  historySearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  historySearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#1F2937',
+    padding: 0,
+  },
+  historyFilterPillsContainer: {
+    backgroundColor: PALETTE.pageBg,
+    paddingVertical: 12,
+  },
+  historyFilterPillsScroll: {
+    paddingHorizontal: 16,
+    gap: 10,
+    flexDirection: 'row',
+  },
+  historyFilterPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  historyFilterPillActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: PALETTE.primary,
+    borderWidth: 1.5,
+  },
+  historyFilterPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  historyFilterPillTextActive: {
+    color: '#9A3412',
+    fontWeight: '800',
+  },
+  historyListScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+  },
+  historyCardDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'right',
   },
   shipmentsListScrollContent: {
     paddingHorizontal: 16,

@@ -11,21 +11,22 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
+// ─── Design Tokens (TOHFA Admin App — Design System PDF) ─────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  pageBg:        '#F7F5EE',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1D2420',
-  textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  textBody:      '#4B5563',
-  border:        '#F0ECE3',
-  divider:       '#F0ECE3',
-  greenBadge:    '#E6F5ED',
-  greenText:     '#1E8E5A',
-  tabInactive:   '#786F66',
-  tabBorder:     '#EAE4DB',
+  primary:       '#F0562A', // Orange: primary
+  orangeDeep:    '#7A2E14',
+  pageBg:        '#F3EFE9', // App canvas
+  cardBg:        '#FFFFFF', // Surface
+  textInk:       '#1A1A1A', // Ink
+  textSecondary: '#5F5E5A', // Muted
+  textMuted:     '#5F5E5A',
+  textBody:      '#1A1A1A',
+  border:        '#EEDCD3', // Border
+  divider:       '#EEDCD3',
+  greenBadge:    '#EAF3DE',
+  greenText:     '#173404',
+  tabInactive:   '#5F5E5A',
+  tabBorder:     '#EEDCD3',
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -162,8 +163,11 @@ export interface PurchaseItem {
   invoiceNo: string;
   dateText: string;
   itemsSummary: string;
+  items?: string[] | undefined;
   amount: string;
   status: 'Paid' | 'Pending';
+  targetModule?: 'SaleDetail' | 'OrderDetail' | undefined;
+  orderNo?: string | undefined;
 }
 
 const SAMPLE_PURCHASES: PurchaseItem[] = [
@@ -174,14 +178,19 @@ const SAMPLE_PURCHASES: PurchaseItem[] = [
     itemsSummary: 'Tomato Grade 1 · 2 KG',
     amount: '₹200',
     status: 'Paid',
+    targetModule: 'OrderDetail',
+    orderNo: 'ORD-00251',
   },
   {
     id: 'p2',
     invoiceNo: 'INV-00238',
     dateText: '20 Sep 2026 · 3 Items',
     itemsSummary: 'Tomato — 2 KG · Carrot — 1 KG · Beans — 2 KG',
+    items: ['Tomato — 2 KG', 'Carrot — 1 KG', 'Beans — 2 KG'],
     amount: '₹650',
     status: 'Paid',
+    targetModule: 'OrderDetail',
+    orderNo: 'ORD-00238',
   },
 ];
 
@@ -194,6 +203,9 @@ export interface SubWarehousePurchaseHistoryScreenProps {
   onOpenFilters?: (() => void) | undefined;
   appliedFilters?: PurchaseFilterState | undefined;
   onClearFilters?: (() => void) | undefined;
+  onNavigateToSaleDetail?: ((invoiceNo: string) => void) | undefined;
+  onNavigateToOrderDetail?: ((orderNo: string) => void) | undefined;
+  onSelectPurchase?: ((purchase: PurchaseItem) => void) | undefined;
 }
 
 export function SubWarehousePurchaseHistoryScreen({
@@ -203,6 +215,9 @@ export function SubWarehousePurchaseHistoryScreen({
   onOpenFilters,
   appliedFilters,
   onClearFilters,
+  onNavigateToSaleDetail,
+  onNavigateToOrderDetail,
+  onSelectPurchase,
 }: SubWarehousePurchaseHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -255,6 +270,18 @@ export function SubWarehousePurchaseHistoryScreen({
     }
     return b.id.localeCompare(a.id);
   });
+
+  const handlePurchasePress = (purchase: PurchaseItem) => {
+    if (onSelectPurchase) {
+      onSelectPurchase(purchase);
+      return;
+    }
+    if (onNavigateToOrderDetail) {
+      onNavigateToOrderDetail(purchase.orderNo || purchase.invoiceNo);
+    } else if (onNavigateToSaleDetail) {
+      onNavigateToSaleDetail(purchase.invoiceNo);
+    }
+  };
 
   const handleBottomTabPress = (tab: SubWHTab) => {
     if (tab === 'More') {
@@ -339,8 +366,15 @@ export function SubWarehousePurchaseHistoryScreen({
 
         {/* ─── Purchase Cards List ─── */}
         {filteredPurchases.map((purchase) => {
+          const isMultiItem = Boolean(purchase.items && purchase.items.length > 0);
+
           return (
-            <View key={purchase.id} style={styles.purchaseCard}>
+            <TouchableOpacity
+              key={purchase.id}
+              style={styles.purchaseCard}
+              activeOpacity={0.8}
+              onPress={() => handlePurchasePress(purchase)}
+            >
               <View style={styles.cardTopRow}>
                 <Text style={styles.invoiceNo}>{purchase.invoiceNo}</Text>
                 <View style={styles.paidBadge}>
@@ -350,57 +384,34 @@ export function SubWarehousePurchaseHistoryScreen({
 
               <Text style={styles.dateText}>{purchase.dateText}</Text>
 
-              <View style={styles.cardBottomRow}>
-                <Text style={styles.itemsSummary} numberOfLines={2}>
-                  {purchase.itemsSummary}
-                </Text>
-                <Text style={styles.amountText}>{purchase.amount}</Text>
-              </View>
-            </View>
+              {isMultiItem ? (
+                <View style={styles.multiItemsContainer}>
+                  {purchase.items!.map((it, idx) => (
+                    <View key={idx}>
+                      <Text style={styles.multiItemText}>{it}</Text>
+                      {idx < purchase.items!.length - 1 && <View style={styles.itemDivider} />}
+                    </View>
+                  ))}
+                  <View style={styles.multiAmountRow}>
+                    <Text style={styles.amountText}>{purchase.amount}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.cardBottomRow}>
+                  <Text style={styles.itemsSummary} numberOfLines={2}>
+                    {purchase.itemsSummary}
+                  </Text>
+                  <Text style={styles.amountText}>{purchase.amount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           );
         })}
 
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleBottomTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -581,6 +592,25 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     fontWeight: '700',
     color: PALETTE.textInk,
+  },
+  multiItemsContainer: {
+    marginTop: 4,
+  },
+  multiItemText: {
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: PALETTE.textInk,
+    paddingVertical: 3,
+  },
+  itemDivider: {
+    height: 1,
+    backgroundColor: PALETTE.divider,
+    marginVertical: 4,
+  },
+  multiAmountRow: {
+    alignItems: 'flex-end',
+    marginTop: 8,
   },
   bottomNav: {
     flexDirection: 'row',

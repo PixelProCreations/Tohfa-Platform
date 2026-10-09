@@ -5,9 +5,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S15BProps {
   orderId?: string;
@@ -42,82 +43,97 @@ export const M5S15B_EventDetail: React.FC<M5S15BProps> = ({
   onBack,
 }) => {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header matching Image 1 */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            activeOpacity={0.7}
-            onPress={onBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <BackArrowWhiteIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Event Detail</Text>
-        </View>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <SafeAreaView style={styles.topSafeArea} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {/* Header matching Image 1 */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              activeOpacity={0.7}
+              onPress={onBack}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Event Detail</Text>
+          </View>
 
-        <View style={styles.content}>
-          {/* Event Detail Card matching Image 1 */}
-          <View style={styles.card}>
-            <View style={styles.twoColRow}>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Event</Text>
-                <Text style={styles.fieldValue}>{eventName}</Text>
+          <View style={styles.content}>
+            {/* Event Detail Card */}
+            <View style={styles.card}>
+              <View style={styles.twoColRow}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Event</Text>
+                  <Text style={styles.fieldValue}>{eventName}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Date</Text>
+                  <Text style={styles.fieldValue}>{eventDate}</Text>
+                </View>
               </View>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Date</Text>
-                <Text style={styles.fieldValue}>{eventDate}</Text>
-              </View>
-            </View>
 
-            <View style={[styles.twoColRow, { marginTop: 16 }]}>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Time</Text>
-                <Text style={styles.fieldValue}>{eventTime}</Text>
+              <View style={[styles.twoColRow, { marginTop: 16 }]}>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Time</Text>
+                  <Text style={styles.fieldValue}>{eventTime}</Text>
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.fieldLabel}>Performed By</Text>
+                  <Text style={styles.fieldValue}>{performedBy}</Text>
+                </View>
               </View>
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Performed By</Text>
-                <Text style={styles.fieldValue}>{performedBy}</Text>
-              </View>
-            </View>
 
-            <View style={[styles.singleRow, { marginTop: 16 }]}>
-              <Text style={styles.fieldLabel}>Reference</Text>
-              <Text style={styles.fieldValue}>{orderId}</Text>
+              <View style={[styles.singleRow, { marginTop: 16 }]}>
+                <Text style={styles.fieldLabel}>Reference</Text>
+                <Text style={styles.fieldValue}>{orderId}</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
+  topSafeArea: {
+    flex: 0,
+    backgroundColor: '#F0562A',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#FAF8F5',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   content: {
@@ -126,12 +142,17 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 20,
     paddingVertical: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -142,16 +163,16 @@ const styles = StyleSheet.create({
   },
   singleRow: {},
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
 });

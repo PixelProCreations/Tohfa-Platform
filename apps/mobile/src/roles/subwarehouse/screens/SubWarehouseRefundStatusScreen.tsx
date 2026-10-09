@@ -116,7 +116,7 @@ export interface SubWarehouseRefundStatusScreenProps {
   refundAmount?: string;
   onBack: () => void;
   onConfirmSuccess: (data: { rma: RmaRecord; refundAmount: string }) => void;
-  onSimulateFailure: (rma: RmaRecord) => void;
+  onSimulateFailure?: ((rma: RmaRecord) => void) | undefined;
 }
 
 export function SubWarehouseRefundStatusScreen({
@@ -249,14 +249,6 @@ export function SubWarehouseRefundStatusScreen({
               <Text style={styles.amountBigVal}>{refundAmount}</Text>
             </View>
 
-            {/* Blue Authorized Notice Banner */}
-            <View style={styles.blueNoticeBox}>
-              <ServerIcon size={16} color="#2563EB" />
-              <Text style={styles.blueNoticeText}>
-                This is the backend-authorized amount — never quantity × price calculated locally.
-              </Text>
-            </View>
-
             {/* Refund Method */}
             <Text style={styles.sectionHeader}>Refund Method</Text>
             <View style={styles.card}>
@@ -307,15 +299,6 @@ export function SubWarehouseRefundStatusScreen({
                 No "Process Bank Refund" action — SWA does not have that permission. Bank refunds are managed by an authorized finance/admin role; SWA can only view status here.
               </Text>
             </View>
-
-            {/* Simulate Refund Failure Button */}
-            <TouchableOpacity
-              style={styles.simulateFailureBtn}
-              onPress={() => onSimulateFailure(rma)}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.simulateFailureText}>Simulate refund failure (demo)</Text>
-            </TouchableOpacity>
 
             <View style={{ height: 32 }} />
           </>

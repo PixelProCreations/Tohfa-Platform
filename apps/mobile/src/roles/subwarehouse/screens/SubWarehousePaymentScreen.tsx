@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -98,6 +99,49 @@ function LockIcon({ size = 14, color = PALETTE.amberNoticeText }: { size?: numbe
   );
 }
 
+function QuestionCircleIcon({ size = 20, color = '#7A3E26' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path
+        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckmarkOutlineIcon({ size = 18, color = '#10B981' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 13l4 4L19 7"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CancelCrossIcon({ size = 18, color = '#7A3E26' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 6L6 18M6 6l12 12"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import { SubWarehouseSaleConfirmationScreen } from './SubWarehouseSaleConfirmationScreen';
 
 type PaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Wallet';
@@ -116,6 +160,7 @@ export function SubWarehousePaymentScreen({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Cash');
   const [receivedAmount, setReceivedAmount] = useState<string>('500');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
 
   // UPI State
   const [upiStatus, setUpiStatus] = useState<'Waiting' | 'Received'>('Waiting');
@@ -142,7 +187,11 @@ export function SubWarehousePaymentScreen({
       Alert.alert('Insufficient Amount', `Amount received must be at least ₹${amountDue}.`);
       return;
     }
+    setShowConfirmPopup(true);
+  };
 
+  const handleFinalConfirm = () => {
+    setShowConfirmPopup(false);
     if (onPaymentConfirmed) {
       onPaymentConfirmed();
     } else {
@@ -158,6 +207,9 @@ export function SubWarehousePaymentScreen({
         customerCode="CUS-00291"
         paymentMethod={selectedMethod}
         totalAmount={amountDue}
+        onBack={() => {
+          setShowConfirmation(false);
+        }}
         onNewSale={() => {
           setShowConfirmation(false);
           if (onBack) onBack();
@@ -338,14 +390,6 @@ export function SubWarehousePaymentScreen({
                 <Text style={styles.detailValue}>{upiRef}</Text>
               </View>
             </View>
-
-            <TouchableOpacity
-              style={styles.simulateBtn}
-              onPress={handleSimulateUpiPayment}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.simulateBtnText}>Simulate payment received (demo)</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -384,13 +428,6 @@ export function SubWarehousePaymentScreen({
                 </View>
               </View>
             </View>
-
-            <View style={styles.walletNoticeBanner}>
-              <LockIcon size={16} color={PALETTE.amberNoticeText} />
-              <Text style={styles.walletNoticeText}>
-                The wallet is debited only through the authorized backend transaction — SWA never directly edits the wallet balance.
-              </Text>
-            </View>
           </View>
         )}
 
@@ -408,6 +445,56 @@ export function SubWarehousePaymentScreen({
           <Text style={styles.confirmBtnText}>Confirm Payment</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ─── Confirm Payment Popup Modal ─── */}
+      <Modal
+        visible={showConfirmPopup}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmPopup(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.popupCard}>
+            {/* Header: (?) Confirm Payment? */}
+            <View style={styles.popupHeader}>
+              <QuestionCircleIcon size={20} color="#7A3E26" />
+              <Text style={styles.popupTitle}>Confirm Payment?</Text>
+            </View>
+
+            {/* Summary Box (Amount & Method) */}
+            <View style={styles.popupSummaryBox}>
+              <View style={styles.popupSummaryCol}>
+                <Text style={styles.popupSummaryLabel}>Amount</Text>
+                <Text style={styles.popupSummaryVal}>₹{amountDue}</Text>
+              </View>
+              <View style={styles.popupSummaryCol}>
+                <Text style={styles.popupSummaryLabel}>Method</Text>
+                <Text style={styles.popupSummaryVal}>{selectedMethod}</Text>
+              </View>
+            </View>
+
+            {/* Confirm Payment Button (Green outline) */}
+            <TouchableOpacity
+              style={styles.popupConfirmBtn}
+              onPress={handleFinalConfirm}
+              activeOpacity={0.8}
+            >
+              <CheckmarkOutlineIcon size={18} color="#10B981" />
+              <Text style={styles.popupConfirmBtnText}>Confirm Payment</Text>
+            </TouchableOpacity>
+
+            {/* Cancel Button (Orange/brown outline) */}
+            <TouchableOpacity
+              style={styles.popupCancelBtn}
+              onPress={() => setShowConfirmPopup(false)}
+              activeOpacity={0.8}
+            >
+              <CancelCrossIcon size={18} color="#7A3E26" />
+              <Text style={styles.popupCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -638,5 +725,95 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  popupCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#F0562A',
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  popupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  popupTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#7A3E26',
+  },
+  popupSummaryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  popupSummaryCol: {
+    flex: 1,
+  },
+  popupSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#7A726C',
+    marginBottom: 4,
+  },
+  popupSummaryVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E1612',
+  },
+  popupConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  popupConfirmBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  popupCancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: '#F0562A',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  popupCancelBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#7A3E26',
   },
 });

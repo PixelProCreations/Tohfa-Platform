@@ -37,11 +37,18 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function BellIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BellIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
+        d="M18 15V10a6 6 0 0 0-12 0v5l-2 3h16l-2-3z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M10 18v1a2 2 0 0 0 4 0v-1"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
@@ -136,7 +143,7 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {/* Custom Header matching Design Mockup Exactly */}
-        <SWAGradient colors={[SWA_COLORS.screenGradientStart, SWA_COLORS.screenGradientEnd]}>
+        <SWAGradient colors={['#F0562A', '#F0562A']}>
           <View style={styles.header}>
             {/* Top Row: Back Button + Box Icon + "Inventory & Stock" (Left) and Notification Bell (Right) */}
             <View style={styles.headerTopRow}>
@@ -361,7 +368,7 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -369,7 +376,7 @@ const styles = StyleSheet.create({
   },
   // Dashboard Header matching Design Mockup
   header: {
-    paddingTop: 44,
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -381,25 +388,24 @@ const styles = StyleSheet.create({
   headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   backButton: {
-    marginRight: 2,
     padding: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
     fontFamily: 'Poppins',
   },
   notificationButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -407,7 +413,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,

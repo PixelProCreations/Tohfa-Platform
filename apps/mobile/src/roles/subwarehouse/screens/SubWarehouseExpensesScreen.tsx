@@ -231,6 +231,7 @@ export function SubWarehouseExpensesScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddExpenseScreen, setShowAddExpenseScreen] = useState(false);
   const [showCategoriesScreen, setShowCategoriesScreen] = useState(false);
+  const [showReceiptScreen, setShowReceiptScreen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(null);
 
   const handleTabPress = (tab: SubWHTab) => {
@@ -270,6 +271,25 @@ export function SubWarehouseExpensesScreen({
     );
   }
 
+  if (showReceiptScreen) {
+    return (
+      <SubWarehouseExpenseDetailScreen
+        expenseId={selectedExpense?.id || 'EXP-001245'}
+        amount={selectedExpense?.amount || 2400}
+        category={selectedExpense?.categoryRef.split('·')[0]?.trim() || 'Transport'}
+        date="25 Sep 2026"
+        description="Transport from Coonoor collection point to warehouse"
+        paymentMethod="Cash"
+        vendorPayee="Coonoor Transport Co."
+        warehouse="Coonoor"
+        createdBy="SWA – Suresh"
+        status={selectedExpense?.status || 'Recorded'}
+        onBack={() => setShowReceiptScreen(false)}
+        isReceiptView={true}
+      />
+    );
+  }
+
   if (selectedExpense) {
     return (
       <SubWarehouseExpenseDetailScreen
@@ -289,6 +309,7 @@ export function SubWarehouseExpensesScreen({
           setSelectedExpense(null);
           setShowAddExpenseScreen(true);
         }}
+        onViewReceipt={() => setShowReceiptScreen(true)}
       />
     );
   }
@@ -297,7 +318,25 @@ export function SubWarehouseExpensesScreen({
     return (
       <SubWarehouseAddExpenseScreen
         onBack={() => setShowAddExpenseScreen(false)}
-        onSaveSuccess={() => setShowAddExpenseScreen(false)}
+        onSaveSuccess={() => {
+          setShowAddExpenseScreen(false);
+          setSelectedExpense({
+            id: 'EXP-001245',
+            categoryRef: 'Transport',
+            amount: 2400,
+            timestamp: '25 Sep - 09:30 AM',
+            status: 'Recorded',
+          });
+        }}
+        initialExpense={{
+          expenseId: 'EXP-001245',
+          amount: '2400',
+          category: 'Transport',
+          date: '25 Sep 2026',
+          description: 'Transport from Coonoor collection point to warehouse',
+          paymentMethod: 'Cash',
+          vendorPayee: 'Coonoor Transport Co.'
+        }}
       />
     );
   }
@@ -372,13 +411,6 @@ export function SubWarehouseExpensesScreen({
               <Text style={styles.kpiValue}>42</Text>
             </View>
           </View>
-        </View>
-
-        {/* ─── Callout: Approval Workflow Note ─── */}
-        <View style={styles.blueCallout}>
-          <Text style={styles.blueCalloutText}>
-            The approval workflow status shown here (Pending/Approved) stays configurable — SWA's own financial approval authority is not fully defined by the source.
-          </Text>
         </View>
 
         {/* ─── Expense Categories Summary ─── */}
@@ -503,50 +535,10 @@ export function SubWarehouseExpensesScreen({
           ))}
         </View>
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S03 · Expenses</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

@@ -81,12 +81,57 @@ function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color
   );
 }
 
-interface CustomerRecord {
+function UserOutlineIcon({ size = 18, color = '#8B5E3C' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CheckWhiteIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 6L9 17l-5-5"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckCircleGreenIcon({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke="#16A34A" strokeWidth="2" fill="#DCFCE7" />
+      <Path
+        d="M8 12l2.5 2.5L16 9.5"
+        stroke="#16A34A"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export interface CustomerRecord {
   id: string;
   code: string;
   name: string;
   phone: string;
   orderCount: number;
+  walletBalance: number;
 }
 
 const MOCK_CUSTOMERS: CustomerRecord[] = [
@@ -96,6 +141,7 @@ const MOCK_CUSTOMERS: CustomerRecord[] = [
     name: 'Rajesh Kumar',
     phone: '+91 XXXXX XXXXX',
     orderCount: 12,
+    walletBalance: 1250,
   },
   {
     id: 'cus-2',
@@ -103,6 +149,7 @@ const MOCK_CUSTOMERS: CustomerRecord[] = [
     name: 'Priya Stores',
     phone: '+91 XXXXX XXXXX',
     orderCount: 8,
+    walletBalance: 800,
   },
   {
     id: 'cus-3',
@@ -110,6 +157,7 @@ const MOCK_CUSTOMERS: CustomerRecord[] = [
     name: 'Kavitha Greens',
     phone: '+91 XXXXX XXXXX',
     orderCount: 19,
+    walletBalance: 3400,
   },
   {
     id: 'cus-4',
@@ -117,6 +165,7 @@ const MOCK_CUSTOMERS: CustomerRecord[] = [
     name: 'Mani Fresh Mart',
     phone: '+91 XXXXX XXXXX',
     orderCount: 5,
+    walletBalance: 450,
   },
 ];
 
@@ -133,6 +182,8 @@ export function SubWarehouseSelectCustomerScreen({
 }: SubWarehouseSelectCustomerScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('cus-1');
+  const [isDetailView, setIsDetailView] = useState<boolean>(false);
+  const [isConfirmedSelected, setIsConfirmedSelected] = useState<boolean>(false);
   const [showPaymentScreen, setShowPaymentScreen] = useState(false);
 
   const filteredCustomers = useMemo(() => {
@@ -148,6 +199,21 @@ export function SubWarehouseSelectCustomerScreen({
 
   const selectedCustomer =
     MOCK_CUSTOMERS.find((c) => c.id === selectedCustomerId) ?? MOCK_CUSTOMERS[0]!;
+
+  const handleSelectCard = (customer: CustomerRecord) => {
+    setSelectedCustomerId(customer.id);
+    setIsDetailView(true);
+  };
+
+  const handleConfirmSelectCustomer = () => {
+    setIsConfirmedSelected(true);
+    setIsDetailView(false);
+  };
+
+  const handleChangeCustomer = () => {
+    setIsConfirmedSelected(false);
+    setIsDetailView(false);
+  };
 
   const handleContinue = () => {
     if (onContinueToPayment) {
@@ -179,7 +245,13 @@ export function SubWarehouseSelectCustomerScreen({
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={onBack}
+            onPress={() => {
+              if (isDetailView) {
+                setIsDetailView(false);
+              } else if (onBack) {
+                onBack();
+              }
+            }}
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -210,44 +282,110 @@ export function SubWarehouseSelectCustomerScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredCustomers.map((customer) => {
-          const isSelected = customer.id === selectedCustomerId;
-
-          return (
-            <TouchableOpacity
-              key={customer.id}
-              style={[
-                styles.customerCard,
-                isSelected && styles.customerCardSelected,
-              ]}
-              onPress={() => setSelectedCustomerId(customer.id)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.customerName}>{customer.name}</Text>
-              <Text style={styles.customerSubtitle}>
-                {customer.code} · {customer.phone}
-              </Text>
-
-              <View style={styles.ordersRow}>
-                <Text style={styles.ordersLabel}>Orders</Text>
-                <Text style={styles.ordersCount}>{customer.orderCount}</Text>
+        {/* State 3: Confirmed Selected Banner (Matching Image 3) */}
+        {isConfirmedSelected && (
+          <View style={styles.confirmedBannerCard}>
+            <View style={styles.confirmedLeftGroup}>
+              <CheckCircleGreenIcon size={22} />
+              <View>
+                <Text style={styles.confirmedLabel}>Selected</Text>
+                <Text style={styles.confirmedNameText}>
+                  {selectedCustomer.name} · {selectedCustomer.code}
+                </Text>
               </View>
-            </TouchableOpacity>
-          );
-        })}
+            </View>
 
-        {/* Informational Banner */}
-        <View style={styles.noticeBanner}>
-          <InfoCircleIcon size={16} color="#8B420F" />
-          <Text style={styles.noticeBannerText}>
-            SWA has view access to customers only — there's no Create Customer or Edit Customer action anywhere in this flow.
-          </Text>
-        </View>
+            <TouchableOpacity
+              onPress={handleChangeCustomer}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.changeBtnText}>Change</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* State 2: Customer Detail Inspection Card (Matching Image 2) */}
+        {!isConfirmedSelected && isDetailView && (
+          <View style={styles.detailCard}>
+            <View style={styles.detailHeaderRow}>
+              <UserOutlineIcon size={18} color="#8B5E3C" />
+              <Text style={styles.detailCustomerName}>{selectedCustomer.name}</Text>
+            </View>
+
+            {/* Row 1: Customer ID & Mobile */}
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>Customer ID</Text>
+                <Text style={styles.detailValueCode}>{selectedCustomer.code}</Text>
+              </View>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>Mobile</Text>
+                <Text style={styles.detailValuePhone}>{selectedCustomer.phone}</Text>
+              </View>
+            </View>
+
+            {/* Row 2: Orders & Wallet */}
+            <View style={styles.detailGridRow}>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>Orders</Text>
+                <Text style={styles.detailValueOrders}>{selectedCustomer.orderCount}</Text>
+              </View>
+              <View style={styles.detailCol}>
+                <Text style={styles.detailLabel}>Wallet</Text>
+                <Text style={styles.detailValueWallet}>
+                  ₹{selectedCustomer.walletBalance.toLocaleString('en-IN')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Select Customer Button */}
+            <TouchableOpacity
+              style={styles.selectCustomerBtn}
+              onPress={handleConfirmSelectCustomer}
+              activeOpacity={0.85}
+            >
+              <CheckWhiteIcon size={18} />
+              <Text style={styles.selectCustomerBtnText}>Select Customer</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* State 1: Customer List (Matching Image 1) */}
+        {!isConfirmedSelected && !isDetailView && (
+          <>
+            {filteredCustomers.map((customer) => {
+              const isSelected = customer.id === selectedCustomerId;
+
+              return (
+                <TouchableOpacity
+                  key={customer.id}
+                  style={[
+                    styles.customerCard,
+                    isSelected && styles.customerCardSelected,
+                  ]}
+                  onPress={() => handleSelectCard(customer)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.customerName}>{customer.name}</Text>
+                  <Text style={styles.customerSubtitle}>
+                    {customer.code} · {customer.phone}
+                  </Text>
+
+                  <View style={styles.ordersRow}>
+                    <Text style={styles.ordersLabel}>Orders</Text>
+                    <Text style={styles.ordersCount}>{customer.orderCount}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
 
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ─── Bottom Action Button ─── */}
+      {/* ─── Bottom Action Button (Matching Reference Image 1) ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.continueBtn}
@@ -320,6 +458,8 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
   },
+
+  // ─── Customer Card (List View) ───
   customerCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
@@ -330,7 +470,7 @@ const styles = StyleSheet.create({
   },
   customerCardSelected: {
     borderColor: PALETTE.primary,
-    backgroundColor: '#FFFAF7',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
   },
   customerName: {
@@ -358,6 +498,126 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: PALETTE.textInk,
   },
+
+  // ─── Detail Card (Image 2) ───
+  detailCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: PALETTE.primary,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: PALETTE.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  detailCustomerName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  detailGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  detailCol: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  detailValueCode: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  detailValuePhone: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  detailValueOrders: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  detailValueWallet: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  selectCustomerBtn: {
+    backgroundColor: PALETTE.primary,
+    borderRadius: 14,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    shadowColor: PALETTE.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  selectCustomerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // ─── Confirmed Selected Banner (Image 3) ───
+  confirmedBannerCard: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  confirmedLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  confirmedLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#15803D',
+    marginBottom: 2,
+  },
+  confirmedNameText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+  changeBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8B5E3C',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+
+  // ─── Notice Banner ───
   noticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -378,6 +638,8 @@ const styles = StyleSheet.create({
     color: PALETTE.noticeText,
     lineHeight: 17,
   },
+
+  // ─── Bottom Bar ───
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,

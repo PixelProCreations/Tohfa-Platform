@@ -72,6 +72,15 @@ function RefreshIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: 
   );
 }
 
+function HistoryClockIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function WarehouseStoreIcon({ size = 12, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -90,20 +99,18 @@ function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: s
   );
 }
 
-function ProhibitedCircleIcon({ size = 16, color = '#DC2626' }: { size?: number; color?: string }) {
+function CircleIcon({ size = 8, color = '#10B981' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M4.93 4.93l14.14 14.14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" fill={color} />
     </Svg>
   );
 }
 
-function CalendarHistoryIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FilterLinesIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -175,6 +182,7 @@ const INITIAL_TODAY_RECORDS: AttendanceRecord[] = [
     role: 'Driver',
     status: 'Present',
     checkInTime: '09:02 AM',
+    checkOutTime: '06:10 PM',
   },
   {
     id: 'att-2',
@@ -199,21 +207,23 @@ const INITIAL_TODAY_RECORDS: AttendanceRecord[] = [
 
 export interface SubWarehouseTodayAttendanceScreenProps {
   onBack: () => void;
-  onNavigateToHistory?: () => void;
   onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
   warehouseName?: string;
   dateStr?: string;
+  onNavigateToHistory?: () => void;
 }
 
 export function SubWarehouseTodayAttendanceScreen({
   onBack,
-  onNavigateToHistory,
   onTabChange,
   warehouseName = 'Coonoor Warehouse',
   dateStr = '25 Sep 2026',
+  onNavigateToHistory,
 }: SubWarehouseTodayAttendanceScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'All' | 'Present' | 'Absent' | 'On Leave'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
 
   const filteredRecords = INITIAL_TODAY_RECORDS.filter((rec) => {
     const q = searchQuery.toLowerCase().trim();
@@ -222,68 +232,22 @@ export function SubWarehouseTodayAttendanceScreen({
     return matchesQuery && matchesFilter;
   });
 
-  const presentRecords = filteredRecords.filter((r) => r.status === 'Present');
-  const absentRecords = filteredRecords.filter((r) => r.status === 'Absent');
-  const leaveRecords = filteredRecords.filter((r) => r.status === 'On Leave');
+  const handleBack = () => {
+    if (selectedRecord) {
+      setSelectedRecord(null);
+    } else {
+      onBack();
+    }
+  };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
-
-      {/* ─── Header ─── */}
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.8}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>Today's Attendance</Text>
-
-          <View style={styles.headerActions}>
-            {onNavigateToHistory && (
-              <TouchableOpacity
-                style={styles.historyBtn}
-                onPress={onNavigateToHistory}
-                activeOpacity={0.8}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <CalendarHistoryIcon size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.refreshButton}
-              activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <RefreshIcon size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Warehouse Pill Chip */}
-        <TouchableOpacity
-          style={styles.warehousePill}
-          activeOpacity={0.8}
-          onPress={onNavigateToHistory}
-        >
-          <WarehouseStoreIcon size={13} color="#FFFFFF" />
-          <Text style={styles.warehousePillText}>
-            {warehouseName} · {dateStr}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
+  const renderList = () => (
+    <>
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Row 1: 3 Metrics Cards (Present, Absent, On Leave) ─── */}
+        {/* ─── Row 1: 4 Metrics Cards ─── */}
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>PRESENT</Text>
@@ -297,55 +261,10 @@ export function SubWarehouseTodayAttendanceScreen({
             <Text style={styles.metricLabel}>ON LEAVE</Text>
             <Text style={styles.metricValueAmber}>1</Text>
           </View>
-        </View>
-
-        {/* ─── Row 2: NOT CHECKED IN Full-width Card ─── */}
-        <View style={styles.notCheckedInCard}>
-          <Text style={styles.metricLabel}>NOT CHECKED IN</Text>
-          <Text style={styles.metricValueBlack}>2</Text>
-        </View>
-
-        {/* ─── Blue Info Callout ─── */}
-        <View style={styles.blueInfoBox}>
-          <Text style={styles.blueInfoText}>
-            "Not Checked In" is only shown if the attendance system actually supports that state.
-          </Text>
-        </View>
-
-        {/* ─── Section: Today's Attendance Progress ─── */}
-        <View style={styles.sectionHeaderWrap}>
-          <Text style={styles.sectionHeaderTitle}>Today's Attendance</Text>
-          {onNavigateToHistory && (
-            <TouchableOpacity onPress={onNavigateToHistory} activeOpacity={0.7}>
-              <Text style={styles.historyLinkText}>View History →</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.progressCard}>
-          <Text style={styles.progressLabel}>9 / 12 Present</Text>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: '75%' }]} />
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>TOTAL</Text>
+            <Text style={styles.metricValueBlack}>12</Text>
           </View>
-        </View>
-
-        {/* ─── Filter Pills Row ─── */}
-        <View style={styles.chipsRow}>
-          {(['All', 'Present', 'Absent', 'On Leave'] as const).map((chip) => {
-            const isActive = activeFilter === chip;
-            return (
-              <TouchableOpacity
-                key={chip}
-                style={[styles.chipBtn, isActive && styles.chipBtnActive]}
-                onPress={() => setActiveFilter(chip)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                  {chip}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
         </View>
 
         {/* ─── Search Bar ─── */}
@@ -353,97 +272,44 @@ export function SubWarehouseTodayAttendanceScreen({
           <SearchIcon size={18} color="#9E9690" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search staff..."
+            placeholder="Search employee..."
             placeholderTextColor="#9E9690"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          <TouchableOpacity activeOpacity={0.7} style={styles.filterBtn}>
+            <FilterLinesIcon size={18} color="#9E9690" />
+          </TouchableOpacity>
         </View>
 
-        {/* ─── Grouped Section: PRESENT ─── */}
-        {(activeFilter === 'All' || activeFilter === 'Present') && presentRecords.length > 0 && (
-          <View style={styles.groupSection}>
-            <Text style={styles.groupHeading}>PRESENT</Text>
-            <View style={styles.groupCard}>
-              {presentRecords.map((item, idx) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.groupItemRow,
-                    idx < presentRecords.length - 1 && styles.groupItemDivider,
-                  ]}
-                  onPress={onNavigateToHistory}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.itemLeft}>
-                    <Text style={styles.staffName}>{item.name}</Text>
-                    <Text style={styles.staffRole}>{item.role}</Text>
-                  </View>
-                  <Text style={styles.checkInTimeText}>{item.checkInTime || '09:00 AM'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ─── Grouped Section: ABSENT ─── */}
-        {(activeFilter === 'All' || activeFilter === 'Absent') && absentRecords.length > 0 && (
-          <View style={styles.groupSection}>
-            <Text style={styles.groupHeading}>ABSENT</Text>
-            <View style={styles.groupCard}>
-              {absentRecords.map((item, idx) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.groupItemRow,
-                    idx < absentRecords.length - 1 && styles.groupItemDivider,
-                  ]}
-                  onPress={onNavigateToHistory}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.itemLeft}>
-                    <Text style={styles.staffName}>{item.name}</Text>
-                    <Text style={styles.staffRole}>{item.role}</Text>
-                  </View>
-                  <Text style={styles.statusAbsentText}>Absent</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ─── Grouped Section: ON LEAVE ─── */}
-        {(activeFilter === 'All' || activeFilter === 'On Leave') && leaveRecords.length > 0 && (
-          <View style={styles.groupSection}>
-            <Text style={styles.groupHeading}>ON LEAVE</Text>
-            <View style={styles.groupCard}>
-              {leaveRecords.map((item, idx) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.groupItemRow,
-                    idx < leaveRecords.length - 1 && styles.groupItemDivider,
-                  ]}
-                  onPress={onNavigateToHistory}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.itemLeft}>
-                    <Text style={styles.staffName}>{item.name}</Text>
-                    <Text style={styles.staffRole}>{item.role}</Text>
-                  </View>
-                  <Text style={styles.statusLeaveText}>On Leave</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ─── Red Disclaimer Card ─── */}
-        <View style={styles.redDisclaimerCard}>
-          <ProhibitedCircleIcon size={18} color={PALETTE.redBoxText} />
-          <Text style={styles.redDisclaimerText}>
-            No Mark Attendance, Edit Attendance, or Approve Attendance actions here — the source only establishes SWA's ability to view team attendance, not edit it.
-          </Text>
+        {/* ─── Unified Employee List ─── */}
+        <View style={styles.groupCard}>
+          {filteredRecords.map((item, idx) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.groupItemRow,
+                idx < filteredRecords.length - 1 && styles.groupItemDivider,
+              ]}
+              onPress={() => setSelectedRecord(item)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.itemLeft}>
+                <Text style={styles.staffName}>{item.name}</Text>
+                <Text style={styles.staffRole}>{item.role}</Text>
+              </View>
+              <View style={styles.itemRight}>
+                <View style={styles.statusRow}>
+                  <CircleIcon size={8} color={item.status === 'Present' ? PALETTE.greenDot : item.status === 'Absent' ? PALETTE.redDot : PALETTE.amberText} />
+                  <Text style={[styles.statusText]}>
+                    {item.status}
+                  </Text>
+                </View>
+                {item.status === 'Present' && item.checkInTime && <Text style={styles.timeText}>{item.checkInTime}</Text>}
+                <Text style={styles.dateText}>{dateStr}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={{ height: 32 }} />
@@ -487,6 +353,149 @@ export function SubWarehouseTodayAttendanceScreen({
           <Text style={styles.tabLabelActive}>More</Text>
         </Pressable>
       </View>
+    </>
+  );
+
+  const renderDetail = (record: AttendanceRecord) => (
+    <ScrollView
+      style={styles.content}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.detailSectionTitle}>Attendance Detail</Text>
+      <View style={styles.detailCard}>
+        <View style={styles.detailRowTwoCol}>
+          <View style={styles.detailCol}>
+            <Text style={styles.detailLabel}>Date</Text>
+            <Text style={styles.detailValue}>{dateStr}</Text>
+          </View>
+          <View style={styles.detailCol}>
+            <Text style={styles.detailLabel}>Employee</Text>
+            <Text style={styles.detailValue}>{record.name}</Text>
+          </View>
+        </View>
+        <View style={styles.detailRowTwoCol}>
+          <View style={styles.detailCol}>
+            <Text style={styles.detailLabel}>Role</Text>
+            <Text style={styles.detailValue}>{record.role}</Text>
+          </View>
+          <View style={styles.detailCol}>
+            <Text style={styles.detailLabel}>Status</Text>
+            <Text style={styles.detailValue}>{record.status}</Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={styles.detailSectionTitle}>Time</Text>
+      <View style={styles.detailCard}>
+        <View style={styles.detailRowTwoCol}>
+          <View style={styles.detailCol}>
+            <Text style={styles.detailLabel}>Check-in</Text>
+            <Text style={styles.detailValue}>{record.checkInTime || '--'}</Text>
+          </View>
+          <View style={styles.detailCol}>
+            <Text style={styles.detailLabel}>Check-out</Text>
+            <Text style={styles.detailValue}>{record.checkOutTime || '--'}</Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={styles.detailSectionTitle}>Timeline</Text>
+      <View style={styles.timelineContainer}>
+        {/* Check-in Node */}
+        <View style={styles.timelineRow}>
+          <View style={styles.timelineNodeCol}>
+            <View style={styles.timelineRing}>
+              <View style={styles.timelineInnerDot} />
+            </View>
+            <View style={styles.timelineLine} />
+          </View>
+          <View style={styles.timelineTextCol}>
+            <Text style={styles.timelineTitle}>Check-in</Text>
+            {record.checkInTime && <Text style={styles.timelineTime}>{record.checkInTime}</Text>}
+          </View>
+        </View>
+
+        {/* Workday Node */}
+        <View style={styles.timelineRow}>
+          <View style={styles.timelineNodeCol}>
+            <View style={styles.timelineRing}>
+              <View style={styles.timelineInnerDot} />
+            </View>
+            <View style={styles.timelineLine} />
+          </View>
+          <View style={styles.timelineTextCol}>
+            <Text style={styles.timelineTitle}>Workday</Text>
+          </View>
+        </View>
+
+        {/* Check-out Node */}
+        <View style={styles.timelineRow}>
+          <View style={styles.timelineNodeCol}>
+            <View style={styles.timelineRing}>
+              <View style={styles.timelineInnerDot} />
+            </View>
+          </View>
+          <View style={styles.timelineTextCol}>
+            <Text style={styles.timelineTitle}>Check-out</Text>
+            {record.checkOutTime && <Text style={styles.timelineTime}>{record.checkOutTime}</Text>}
+          </View>
+        </View>
+      </View>
+      
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+
+      {/* ─── Header ─── */}
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>Today's Attendance</Text>
+
+          <View style={styles.headerActions}>
+            {onNavigateToHistory && (
+              <TouchableOpacity
+                style={styles.refreshButton}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={onNavigateToHistory}
+              >
+                <HistoryClockIcon size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.refreshButton}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <RefreshIcon size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Warehouse Pill Chip */}
+        <View style={styles.warehousePill}>
+          <WarehouseStoreIcon size={13} color="#FFFFFF" />
+          <Text style={styles.warehousePillText}>
+            {warehouseName} · {dateStr}
+          </Text>
+        </View>
+      </View>
+
+      {selectedRecord ? renderDetail(selectedRecord) : renderList()}
     </SafeAreaView>
   );
 }
@@ -525,9 +534,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  historyBtn: {
-    padding: 6,
   },
   refreshButton: {
     padding: 6,
@@ -601,106 +607,6 @@ const styles = StyleSheet.create({
     color: PALETTE.textInk,
   },
 
-  /* Not Checked In Card */
-  notCheckedInCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 12,
-  },
-
-  /* Blue Info Box */
-  blueInfoBox: {
-    backgroundColor: PALETTE.blueBoxBg,
-    borderWidth: 1,
-    borderColor: PALETTE.blueBoxBorder,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  blueInfoText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.blueBoxText,
-    lineHeight: 18,
-  },
-
-  /* Section Header */
-  sectionHeaderWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  sectionHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  historyLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.primary,
-  },
-
-  /* Progress Card */
-  progressCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 14,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 10,
-  },
-  progressBarTrack: {
-    height: 10,
-    backgroundColor: '#F3EFEA',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: PALETTE.primary,
-    borderRadius: 5,
-  },
-
-  /* Filter Chips */
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  chipBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-  },
-  chipBtnActive: {
-    borderColor: PALETTE.primary,
-    backgroundColor: '#FFF7ED',
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-  },
-  chipTextActive: {
-    color: PALETTE.primary,
-    fontWeight: '700',
-  },
-
   /* Search Bar */
   searchBar: {
     flexDirection: 'row',
@@ -720,18 +626,11 @@ const styles = StyleSheet.create({
     color: PALETTE.textInk,
     paddingVertical: 0,
   },
+  filterBtn: {
+    padding: 4,
+  },
 
   /* Group Sections */
-  groupSection: {
-    marginBottom: 16,
-  },
-  groupHeading: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8A5D3B',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
   groupCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 14,
@@ -755,48 +654,38 @@ const styles = StyleSheet.create({
   },
   staffName: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: PALETTE.textInk,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   staffRole: {
     fontSize: 12,
     color: PALETTE.textSecondary,
   },
-  checkInTimeText: {
+  itemRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  statusText: {
     fontSize: 13,
+    fontWeight: '700',
+  },
+  timeText: {
+    fontSize: 12,
     fontWeight: '600',
     color: PALETTE.textInk,
   },
-  statusAbsentText: {
-    fontSize: 13,
+  dateText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: PALETTE.redText,
-  },
-  statusLeaveText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.amberText,
-  },
-
-  /* Red Disclaimer */
-  redDisclaimerCard: {
-    flexDirection: 'row',
-    backgroundColor: PALETTE.redBoxBg,
-    borderWidth: 1,
-    borderColor: PALETTE.redBoxBorder,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'flex-start',
-    gap: 10,
-    marginTop: 4,
-  },
-  redDisclaimerText: {
-    flex: 1,
-    fontSize: 12,
-    color: PALETTE.redBoxText,
-    lineHeight: 17,
-    fontWeight: '500',
+    color: '#A16207', /* Amber 700ish color */
+    marginTop: 2,
   },
 
   /* Bottom Tab Bar */
@@ -828,5 +717,97 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: PALETTE.primary,
     fontWeight: '700',
+  },
+
+  // ─── Detail View Styles ───
+  detailSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  detailCard: {
+    backgroundColor: PALETTE.cardBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    padding: 16,
+    marginBottom: 16,
+  },
+  detailRowTwoCol: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  detailCol: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.textSecondary,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: PALETTE.textInk,
+  },
+
+  // ─── Timeline ───
+  timelineContainer: {
+    marginTop: 8,
+    paddingLeft: 4,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    marginBottom: 0,
+  },
+  timelineNodeCol: {
+    width: 24,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  timelineRing: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAF7F2',
+    zIndex: 2,
+    marginTop: 2,
+  },
+  timelineInnerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  timelineLine: {
+    width: 1.5,
+    flex: 1,
+    backgroundColor: '#EBE5DC',
+    marginTop: -4,
+    marginBottom: -4,
+    zIndex: 1,
+    minHeight: 36,
+  },
+  timelineTextCol: {
+    flex: 1,
+    paddingBottom: 24,
+  },
+  timelineTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.textInk,
+    marginBottom: 2,
+  },
+  timelineTime: {
+    fontSize: 12,
+    color: PALETTE.textSecondary,
   },
 });

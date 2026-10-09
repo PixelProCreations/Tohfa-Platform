@@ -9,11 +9,11 @@ interface M3S09Props {
   onTabChange?: ((tab: any) => void) | undefined;
 }
 
-function LockSmallIcon() {
+function LockSmallIcon({ color = '#8B4513' }: { color?: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke="#8B4513" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#8B4513" strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -38,8 +38,8 @@ function ChevronRightIcon({ color = '#9CA3AF', size = 18 }: { color?: string; si
 function InfoCircleIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="#0284C7" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#0284C7" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="#1E40AF" strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke="#1E40AF" strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -77,17 +77,11 @@ export const M3S09_LowStock: React.FC<M3S09Props> = ({ onNavigate, onBack, onTab
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
+          colors={['#F0562A', '#F0562A']} 
           title="Low Stock"
           onBack={onBack}
+          showWarehouse={true}
         />
-
-        {/* Warehouse Pill */}
-        <View style={styles.warehousePillRow}>
-          <View style={styles.warehousePill}>
-            <LockSmallIcon />
-            <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
-          </View>
-        </View>
 
         <ScrollView
           style={styles.content}
@@ -114,7 +108,7 @@ export const M3S09_LowStock: React.FC<M3S09Props> = ({ onNavigate, onBack, onTab
             >
               <View style={styles.itemRow}>
                 <View style={styles.iconWrap}>
-                  <TrendingDownIcon color="#EF4444" size={20} />
+                  <TrendingDownIcon color="#DC2626" size={20} />
                 </View>
                 <View style={styles.itemContent}>
                   <Text style={styles.itemName}>{item.name}</Text>
@@ -122,15 +116,13 @@ export const M3S09_LowStock: React.FC<M3S09Props> = ({ onNavigate, onBack, onTab
                     Available {item.available} · Configured Threshold {item.threshold}
                   </Text>
                 </View>
-                <ChevronRightIcon color="#9CA3AF" size={18} />
+                <ChevronRightIcon color="#DC2626" size={18} />
               </View>
             </TouchableOpacity>
           ))}
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );
@@ -139,24 +131,22 @@ export const M3S09_LowStock: React.FC<M3S09Props> = ({ onNavigate, onBack, onTab
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
     backgroundColor: '#F4F1EA',
   },
   warehousePillRow: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingTop: 8,
   },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5ED',
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#E8E2D8',
-    borderRadius: 8,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 14,
     paddingVertical: 5,
     paddingHorizontal: 10,
     alignSelf: 'flex-start',
@@ -165,7 +155,7 @@ const styles = StyleSheet.create({
   warehousePillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8B4513',
+    color: '#FFFFFF',
     fontFamily: 'Poppins',
   },
   content: {
@@ -173,14 +163,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 20,
   },
   infoBanner: {
     flexDirection: 'row',
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#60A5FA',
     padding: 12,
     borderRadius: 12,
     marginBottom: 14,
@@ -192,11 +182,11 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 12.5,
+    fontWeight: '600',
     color: '#1E40AF',
     fontFamily: 'Poppins',
-    lineHeight: 17,
+    lineHeight: 18,
   },
   itemCard: {
     backgroundColor: '#FFFFFF',
@@ -206,8 +196,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#EAE6DF',
-    borderLeftWidth: 4.5,
-    borderLeftColor: '#EF4444',
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
   },
   itemRow: {
     flexDirection: 'row',
@@ -227,8 +217,8 @@ const styles = StyleSheet.create({
   },
   itemDetails: {
     fontSize: 11.5,
-    fontWeight: '400',
-    color: '#7A726C',
+    fontWeight: '500',
+    color: '#3B4856',
     fontFamily: 'Poppins',
     marginTop: 3,
   },

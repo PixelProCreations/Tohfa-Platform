@@ -69,6 +69,23 @@ function PinIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: stri
   );
 }
 
+function ArrowsUpDownIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M7 16V4M7 4l-4 4M7 4l4 4M17 8v12M17 20l-4-4M17 20l4-4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CalendarIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke={color} strokeWidth="1.8" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function FunnelFilterIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -87,12 +104,14 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('All Grades');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedMovement, setSelectedMovement] = useState<string | null>(null);
+  const [selectedDateRange, setSelectedDateRange] = useState('Today');
   const [showMore, setShowMore] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Inventory Filters"
           onBack={onBack}
           rightAction={
@@ -113,21 +132,6 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-          </View>
-
-          {/* Warehouse - Locked Box matching reference */}
-          <View style={styles.filterSection}>
-            <View style={styles.sectionHeaderRow}>
-              <WarehouseIcon size={16} color="#1D2420" />
-              <Text style={styles.sectionTitle}>Warehouse</Text>
-            </View>
-            <View style={styles.warehouseBox}>
-              <Icon name="lock" size={16} color="#E85226" style={styles.warehouseLockIcon} />
-              <Text style={styles.warehouseText}>
-                <Text style={styles.warehouseTextBold}>Coonoor Warehouse — </Text>
-                Assigned Warehouse. Not an editable dropdown; SWA cannot select Ooty, Kotagiri or Gudalur. This scope also applies to any export.
-              </Text>
-            </View>
           </View>
 
           {/* Product / Crop */}
@@ -165,6 +169,30 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
             </View>
           </View>
 
+          {/* Batch */}
+          <View style={styles.filterSection}>
+            <View style={styles.sectionHeaderRow}>
+              <QrIcon size={16} color="#1D2420" />
+              <Text style={styles.sectionTitle}>Batch</Text>
+            </View>
+            <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
+              <Text style={styles.dropdownPlaceholder}>Search / Select Batch</Text>
+              <Icon name="expand_more" size={20} color="#7A726C" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Storage Location */}
+          <View style={styles.filterSection}>
+            <View style={styles.sectionHeaderRow}>
+              <PinIcon size={16} color="#1D2420" />
+              <Text style={styles.sectionTitle}>Storage Location</Text>
+            </View>
+            <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
+              <Text style={styles.dropdownPlaceholder}>Select Location</Text>
+              <Icon name="expand_more" size={20} color="#7A726C" />
+            </TouchableOpacity>
+          </View>
+
           {/* Stock Status */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
@@ -188,28 +216,66 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
             </View>
           </View>
 
-          {/* Batch */}
+          {/* Movement Type For Stock Ledger */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <QrIcon size={16} color="#1D2420" />
-              <Text style={styles.sectionTitle}>Batch</Text>
+              <ArrowsUpDownIcon size={16} color="#1D2420" />
+              <Text style={styles.sectionTitle}>Movement Type <Text style={{fontWeight: '700'}}>For Stock Ledger</Text></Text>
             </View>
-            <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
-              <Text style={styles.dropdownPlaceholder}>Search / Select Batch</Text>
-              <Icon name="expand_more" size={20} color="#7A726C" />
-            </TouchableOpacity>
+            <View style={styles.chipGroup}>
+              {['Receipt', 'Dispatch', 'Allocation', 'Reservation', 'Consumption', 'Write-off', 'Adjustment'].map((mov) => {
+                const isActive = selectedMovement === mov;
+                return (
+                  <TouchableOpacity 
+                    key={mov} 
+                    style={[styles.chip, isActive && styles.activeChip]}
+                    onPress={() => setSelectedMovement(mov)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.activeChipText]}>{mov}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
-          {/* Storage Location */}
+          {/* Date Range */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <PinIcon size={16} color="#1D2420" />
-              <Text style={styles.sectionTitle}>Storage Location</Text>
+              <CalendarIcon size={16} color="#1D2420" />
+              <Text style={styles.sectionTitle}>Date Range</Text>
             </View>
-            <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
-              <Text style={styles.dropdownPlaceholder}>Select Location</Text>
-              <Icon name="expand_more" size={20} color="#7A726C" />
-            </TouchableOpacity>
+            <View style={styles.chipGroup}>
+              {['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Custom'].map((range) => {
+                const isActive = selectedDateRange === range;
+                return (
+                  <TouchableOpacity 
+                    key={range} 
+                    style={[styles.chip, isActive && styles.activeChip]}
+                    onPress={() => setSelectedDateRange(range)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.activeChipText]}>{range}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* From / To Dates */}
+          <View style={[styles.filterSection, { flexDirection: 'row', gap: 12 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dateLabel}>From</Text>
+              <TouchableOpacity style={styles.dateInput} activeOpacity={0.7}>
+                <Text style={styles.dateInputValue}>16 Sep 2026</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.dateLabel}>To</Text>
+              <TouchableOpacity style={styles.dateInput} activeOpacity={0.7}>
+                <Text style={styles.dateInputValue}>16 Sep 2026</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Results Count */}
@@ -304,6 +370,8 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
               setSearchQuery('');
               setSelectedGrade('All Grades');
               setSelectedStatus('All');
+              setSelectedMovement(null);
+              setSelectedDateRange('Today');
               setShowMore(false);
             }}
             activeOpacity={0.8}
@@ -319,7 +387,7 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,
@@ -429,18 +497,40 @@ const styles = StyleSheet.create({
   },
   activeChip: {
     backgroundColor: '#FFF8F2',
-    borderColor: '#E85226',
+    borderColor: '#F0562A',
     borderWidth: 1.5,
   },
   chipText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#5C6B63',
     fontFamily: 'Poppins',
   },
   activeChipText: {
-    color: '#E85226',
-    fontWeight: '600',
+    color: '#F0562A',
+    fontWeight: '700',
+  },
+  dateLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1D2420',
+    fontFamily: 'Poppins',
+    marginBottom: 8,
+  },
+  dateInput: {
+    backgroundColor: '#FFFFFF',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  dateInputValue: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#1D2420',
+    fontFamily: 'Poppins',
   },
   resultsHeader: {
     flexDirection: 'row',
@@ -560,7 +650,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   applyButton: {
-    backgroundColor: '#E85226',
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -577,7 +667,7 @@ const styles = StyleSheet.create({
   clearButton: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: '#F0562A',
     alignItems: 'center',
     justifyContent: 'center',
     height: 48,
@@ -586,7 +676,7 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#E85226',
+    color: '#F0562A',
     fontFamily: 'Poppins',
   },
 });

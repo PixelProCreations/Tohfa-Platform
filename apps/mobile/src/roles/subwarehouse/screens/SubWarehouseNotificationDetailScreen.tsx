@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,43 +8,33 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
   primary: '#F0562A',
   primaryDark: '#D4451B',
   primaryLight: '#FFF0EB',
-  primarySoft: '#FEF1EC',
-  primaryBorder: '#FCD9CE',
-
   pageBg: '#FAF7F2',
   cardBg: '#FFFFFF',
   textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
   border: '#EBE5DC',
-  divider: '#F4EFE9',
-
-  // Badges
-  actionRequiredBg: '#FEE2E2',
-  actionRequiredText: '#DC2626',
-  timestampBadgeBg: '#F3EDE6',
-  timestampBadgeText: '#59524C',
+  buttonBg: '#F0562A',
 };
-
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function WarehouseIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 22v-2h16v2H4z" fill={color} />
+      <Path d="M6 20V9L12 4l6 5v11H6z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 13v7h6v-7H9z" fill={color} />
     </Svg>
   );
 }
@@ -53,72 +42,47 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
 function ReviewTrayIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M7 10l5 5 5-5M12 15V3"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function WalletIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M22 12h-4v2h4" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
 export interface SubWarehouseNotificationDetailScreenProps {
-  onBack: () => void;
-  onReviewReceiving?: () => void;
+  onBack?: (() => void) | undefined;
+  onActionPress?: (() => void) | undefined;
+  onReviewReceiving?: (() => void) | undefined;
+  warehouseName?: string | undefined;
   notificationData?: {
-    title?: string;
-    actionRequired?: string;
-    time?: string;
-    message?: string;
-    reference?: string;
-    source?: string;
-    product?: string;
-    expectedQuantity?: string;
-    receivedTime?: string;
-    readTime?: string;
-  };
+    type?: 'goods' | 'wallet' | 'order' | undefined;
+    title?: string | undefined;
+    message?: string | undefined;
+    reference?: string | undefined;
+  } | undefined;
 }
 
 export function SubWarehouseNotificationDetailScreen({
   onBack,
+  onActionPress,
   onReviewReceiving,
+  warehouseName = 'Coonoor Warehouse',
   notificationData,
 }: SubWarehouseNotificationDetailScreenProps) {
-  const data = {
-    title: notificationData?.title ?? 'Quality Check Required',
-    actionRequired: notificationData?.actionRequired ?? 'Action Required',
-    time: notificationData?.time ?? '10:32 AM · Today',
-    message:
-      notificationData?.message ??
-      'A new incoming shipment has arrived at Coonoor Warehouse and requires quantity verification and quality check.',
-    reference: notificationData?.reference ?? 'GR-1024',
-    source: notificationData?.source ?? 'Main Warehouse',
-    product: notificationData?.product ?? 'Tomato',
-    expectedQuantity: notificationData?.expectedQuantity ?? '150 KG',
-    receivedTime: notificationData?.receivedTime ?? '10:32 AM',
-    readTime: notificationData?.readTime ?? '10:35 AM',
-  };
+  const type = notificationData?.type || 'goods';
+  const title = notificationData?.title || (type === 'wallet' ? 'Wallet Credited' : 'Goods Received');
+  const message = notificationData?.message || (type === 'wallet' ? 'A customer wallet transaction has been completed.\nAmount: ₹500 · 25 Sep 2026 · 09:45 AM' : 'New goods receiving activity is available for Coonoor Warehouse. Received: 420 kg · 25 Sep 2026 · 10:20 AM');
+  const reference = notificationData?.reference || (type === 'wallet' ? 'TOP-002845' : 'GR-00245');
 
-  const handleReview = () => {
-    if (onReviewReceiving) {
-      onReviewReceiving();
-    } else {
-      Alert.alert(
-        'Review Receiving',
-        `Navigating to Quality Check inspection for Shipment ${data.reference} (${data.product}).`,
-        [{ text: 'OK' }]
-      );
-    }
-  };
+  const buttonLabel = type === 'wallet' ? 'View Wallet Report' : 'View Receiving';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -134,7 +98,13 @@ export function SubWarehouseNotificationDetailScreen({
           >
             <ArrowBackIcon size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitleText}>Notification</Text>
+          <Text style={styles.headerTitleText}>Notification Detail</Text>
+        </View>
+        <View style={styles.warehousePillRow}>
+          <View style={styles.warehousePill}>
+            <WarehouseIcon size={12} color="#FFFFFF" />
+            <Text style={styles.warehousePillText}>{warehouseName}</Text>
+          </View>
         </View>
       </View>
 
@@ -143,280 +113,131 @@ export function SubWarehouseNotificationDetailScreen({
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        decelerationRate={0.985}
-        bounces={true}
       >
         <View style={styles.mainContainer}>
-          {/* 1. Top Title & Badges Card */}
+          <Text style={styles.sectionHeading}>{title}</Text>
           <View style={styles.card}>
-            <Text style={styles.topCardTitle}>{data.title}</Text>
-            <View style={styles.badgeRow}>
-              {/* Action Required Badge */}
-              <View style={styles.actionRequiredBadge}>
-                <View style={styles.redDot} />
-                <Text style={styles.actionRequiredText}>{data.actionRequired}</Text>
-              </View>
-
-              {/* Timestamp Badge */}
-              <View style={styles.timestampBadge}>
-                <Text style={styles.timestampBadgeText}>{data.time}</Text>
-              </View>
-            </View>
+            <Text style={styles.messageText}>{message}</Text>
           </View>
 
-          {/* 2. Message Section */}
-          <Text style={styles.sectionHeading}>Message</Text>
+          <Text style={styles.sectionHeading}>Reference</Text>
           <View style={styles.card}>
-            <Text style={styles.messageText}>{data.message}</Text>
+            <Text style={styles.infoGridLabel}>Reference</Text>
+            <Text style={styles.infoGridValue}>{reference}</Text>
           </View>
 
-          {/* 3. Related Information Section */}
-          <Text style={styles.sectionHeading}>Related Information</Text>
-          <View style={styles.card}>
-            {/* Grid Row 1: Reference & Source */}
-            <View style={styles.infoGridRow}>
-              <View style={styles.infoGridCol}>
-                <Text style={styles.infoGridLabel}>Reference</Text>
-                <Text style={styles.infoGridValue}>{data.reference}</Text>
-              </View>
-              <View style={styles.infoGridCol}>
-                <Text style={styles.infoGridLabel}>Source</Text>
-                <Text style={styles.infoGridValue}>{data.source}</Text>
-              </View>
-            </View>
-
-            {/* Grid Row 2: Product & Expected Quantity */}
-            <View style={[styles.infoGridRow, { marginTop: 14 }]}>
-              <View style={styles.infoGridCol}>
-                <Text style={styles.infoGridLabel}>Product</Text>
-                <Text style={styles.infoGridValue}>{data.product}</Text>
-              </View>
-              <View style={styles.infoGridCol}>
-                <Text style={styles.infoGridLabel}>Expected Quantity</Text>
-                <Text style={styles.infoGridValue}>{data.expectedQuantity}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 4. Timeline Section */}
-          <Text style={styles.sectionHeading}>Timeline</Text>
-          <View style={styles.card}>
-            <View style={styles.timelineRow}>
-              <Text style={styles.timelineLabel}>Received</Text>
-              <Text style={styles.timelineValue}>{data.receivedTime}</Text>
-            </View>
-
-            <View style={styles.dividerLine} />
-
-            <View style={styles.timelineRow}>
-              <Text style={styles.timelineLabel}>Read</Text>
-              <Text style={styles.timelineValue}>{data.readTime}</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onActionPress || onReviewReceiving}
+            activeOpacity={0.85}
+          >
+            {type === 'wallet' ? <WalletIcon size={18} color="#FFFFFF" /> : <ReviewTrayIcon size={18} color="#FFFFFF" />}
+            <Text style={styles.actionButtonText}>{buttonLabel}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* ─── Bottom Fixed Sticky Action Button ─── */}
-      <View style={styles.bottomFooter}>
-        <TouchableOpacity
-          style={styles.reviewButton}
-          onPress={handleReview}
-          activeOpacity={0.85}
-        >
-          <ReviewTrayIcon size={18} color="#FFFFFF" />
-          <Text style={styles.reviewButtonText}>Review Receiving</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.primary,
-  },
-  scroll: {
-    flex: 1,
     backgroundColor: PALETTE.pageBg,
   },
-  scrollContent: {
-    paddingBottom: 28,
-  },
-
-  // ─── Header Banner ─────────────────────────────────────────────────────────
   headerBanner: {
     backgroundColor: PALETTE.primary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 16,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
   backButton: {
-    padding: 6,
-    marginRight: 8,
-    marginLeft: -4,
+    marginRight: 12,
+    padding: 2,
   },
   headerTitleText: {
-    color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
-
-  // ─── Main Container ────────────────────────────────────────────────────────
-  mainContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+  warehousePillRow: {
+    flexDirection: 'row',
   },
+  warehousePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  warehousePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  mainContainer: {},
   sectionHeading: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     color: PALETTE.textInk,
-    marginTop: 16,
     marginBottom: 8,
-    letterSpacing: -0.2,
+    marginTop: 4,
   },
-
-  // ─── Cards ─────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
+    padding: 16,
+    marginBottom: 20,
   },
-  topCardTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: PALETTE.textInk,
-    letterSpacing: -0.3,
-    marginBottom: 10,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionRequiredBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.actionRequiredBg,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    gap: 5,
-  },
-  redDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: PALETTE.actionRequiredText,
-  },
-  actionRequiredText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: PALETTE.actionRequiredText,
-  },
-  timestampBadge: {
-    backgroundColor: PALETTE.timestampBadgeBg,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  timestampBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: PALETTE.timestampBadgeText,
-  },
-
-  // ─── Message Section ───────────────────────────────────────────────────────
   messageText: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: PALETTE.textInk,
-    lineHeight: 20,
-  },
-
-  // ─── Related Info Grid ─────────────────────────────────────────────────────
-  infoGridRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  infoGridCol: {
-    flex: 1,
+    fontSize: 14,
+    color: '#333333',
+    lineHeight: 22,
   },
   infoGridLabel: {
     fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
-    marginBottom: 3,
+    color: '#7A726C',
+    fontWeight: '600',
+    marginBottom: 4,
   },
   infoGridValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: PALETTE.textInk,
   },
-
-  // ─── Timeline ──────────────────────────────────────────────────────────────
-  timelineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  timelineLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
-  },
-  timelineValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  dividerLine: {
-    height: 1,
-    backgroundColor: PALETTE.divider,
-    marginVertical: 10,
-  },
-
-  // ─── Bottom Footer Action Button ───────────────────────────────────────────
-  bottomFooter: {
-    backgroundColor: PALETTE.pageBg,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.divider,
-  },
-  reviewButton: {
+  actionButton: {
+    backgroundColor: PALETTE.buttonBg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
     paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
+    borderRadius: 12,
+    marginTop: 10,
   },
-  reviewButtonText: {
+  actionButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
   },
 });

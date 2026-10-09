@@ -295,12 +295,6 @@ export function SubWarehouseDailyCashScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Top Info Callout ─── */}
-        <View style={styles.blueCallout}>
-          <Text style={styles.blueCalloutText}>
-            This is the financial/accounting view of daily warehouse cash — distinct from the operational wallet cash summary in Module 8. The two are not duplicated.
-          </Text>
-        </View>
 
         {/* ─── Section 1: Opening Balance ─── */}
         <View style={styles.sectionWrap}>
@@ -360,12 +354,6 @@ export function SubWarehouseDailyCashScreen({
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Expected Closing Cash</Text>
             <Text style={styles.cardBigValue}>₹22,080</Text>
-          </View>
-
-          <View style={styles.blueCallout}>
-            <Text style={styles.blueCalloutText}>
-              This calculated figure cannot be manually overridden by SWA — Opening + Cash In - Cash Out = Expected Closing, computed server-side.
-            </Text>
           </View>
         </View>
 
@@ -427,13 +415,6 @@ export function SubWarehouseDailyCashScreen({
         >
           <Text style={styles.submitBtnText}>Submit Reconciliation</Text>
         </TouchableOpacity>
-
-        {/* Reconciliation Policy Note */}
-        <View style={styles.blueCallout}>
-          <Text style={styles.blueCalloutText}>
-            Reconciliation is shown as available here, but the exact authority to submit/approve a reconciliation stays configurable per the source.
-          </Text>
-        </View>
 
         {/* ─── Section 6: Transaction Breakdown ─── */}
         <View style={styles.sectionWrap}>
@@ -500,50 +481,10 @@ export function SubWarehouseDailyCashScreen({
           </View>
         </View>
 
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S08 · Daily Cash Summary</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.7}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.7}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.7}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.7}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

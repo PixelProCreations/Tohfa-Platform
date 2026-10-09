@@ -8,11 +8,14 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { ORDERS_THEME } from './theme';
+import { SWABottomNav } from '../components/SWABottomNav';
 
 interface M5S02Props {
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
+  routeParams?: any;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -28,40 +31,42 @@ function BackArrowWhiteIcon() {
 function FilterSlidersIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
-        stroke="#FFFFFF"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {/* Top track */}
+      <Path d="M3.5 8h17" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
+      {/* Top knob on right */}
+      <Path d="M15.5 4.5v7" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
+
+      {/* Bottom track */}
+      <Path d="M3.5 16h17" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
+      {/* Bottom knob on left */}
+      <Path d="M8.5 12.5v7" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function SearchIconGrey() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke="#7A726C" strokeWidth="2" />
-      <Path d="M16 16l4.5 4.5" stroke="#7A726C" strokeWidth="2" strokeLinecap="round" />
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={ORDERS_THEME.textSecondary} strokeWidth="2" />
+      <Path d="M16 16l4.5 4.5" stroke={ORDERS_THEME.textSecondary} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function StorefrontIcon() {
   return (
-    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l1-6h16l1 6M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4 12v9h16v-9" stroke="#7A726C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 9l1-6h16l1 6M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4 12v9h16v-9" stroke={ORDERS_THEME.textSecondary} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function DeliveryTruckSmallIcon() {
   return (
-    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 3h13v12H1zM14 8h4l3 3v4h-7V8z" stroke="#7A726C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5" cy="17" r="2" stroke="#7A726C" strokeWidth="1.8" />
-      <Circle cx="17" cy="17" r="2" stroke="#7A726C" strokeWidth="1.8" />
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path d="M1 3h13v12H1zM14 8h4l3 3v4h-7V8z" stroke={ORDERS_THEME.textSecondary} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5" cy="17" r="2" stroke={ORDERS_THEME.textSecondary} strokeWidth="1.8" />
+      <Circle cx="17" cy="17" r="2" stroke={ORDERS_THEME.textSecondary} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -135,13 +140,15 @@ const ORDERS = [
   },
 ];
 
-export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) => {
+export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack, routeParams }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredOrders = ORDERS.filter(
-    (order) =>
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase())
+    (order) => {
+      if (routeParams?.defaultFilter && order.status !== routeParams.defaultFilter) return false;
+      return order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             order.customer.toLowerCase().includes(searchQuery.toLowerCase());
+    }
   );
 
   return (
@@ -164,7 +171,7 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) =
           {/* Filter Icon Button -> Navigates to M5S03 (Order Filters) */}
           <TouchableOpacity
             style={styles.filterButton}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
             onPress={() => onNavigate('M5S03')}
           >
             <FilterSlidersIcon />
@@ -181,13 +188,13 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) =
             <TextInput
               style={styles.searchInput}
               placeholder="Search order / customer / phone"
-              placeholderTextColor="#7A726C"
+              placeholderTextColor={ORDERS_THEME.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
 
-          {/* Order Cards List */}
+          {/* Order Cards List with Reduced Box Size */}
           {filteredOrders.map((order) => {
             const isConfirmed = order.status === 'Confirmed';
             const isReady = order.status === 'Ready for Pickup';
@@ -199,7 +206,7 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) =
               <TouchableOpacity
                 key={order.id}
                 style={styles.orderCard}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
                 onPress={() => onNavigate('M5S04', { orderId: order.id })}
               >
                 {/* Top Row: Order ID & Status Badge */}
@@ -248,11 +255,19 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) =
                   <Text style={styles.timeText}>{order.time}</Text>
                 </View>
 
+                {/* Bottom Action Button */}
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  activeOpacity={0.8}
+                  onPress={() => onNavigate(order.actionScreen, { orderId: order.id })}
+                >
+                  <Text style={styles.actionBtnText}>{order.action}</Text>
+                </TouchableOpacity>
               </TouchableOpacity>
             );
           })}
 
-          <View style={{ height: 28 }} />
+          <View style={{ height: 16 }} />
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -262,16 +277,16 @@ export const M5S02_OrdersList: React.FC<M5S02Props> = ({ onNavigate, onBack }) =
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
-    paddingTop: 16,
-    paddingBottom: 16,
+    backgroundColor: ORDERS_THEME.primary,
+    paddingTop: 12,
+    paddingBottom: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -280,7 +295,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   backButton: {
     width: 32,
@@ -297,7 +312,7 @@ const styles = StyleSheet.create({
   filterButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: ORDERS_THEME.radiusFull,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -305,149 +320,161 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 12,
   },
   orderCountLabel: {
-    fontSize: 12,
-    color: '#7A726C',
+    fontSize: 12.5,
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
     marginBottom: 8,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   searchBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#EAE6DF',
-    height: 48,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusMD,
+    borderWidth: 1,
+    borderColor: ORDERS_THEME.border,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    gap: 10,
-    marginBottom: 16,
+    paddingHorizontal: 12,
+    gap: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: '#1D2420',
+    fontSize: 12.5,
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
     paddingVertical: 0,
   },
   orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
-    padding: 16,
-    marginBottom: 14,
+    borderColor: ORDERS_THEME.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   orderIdText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: ORDERS_THEME.radiusFull,
   },
   badgeConfirmed: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#FEF3E2',
   },
   badgeTextConfirmed: {
-    color: '#C2410C',
+    color: '#854F0B',
   },
   badgeReady: {
-    backgroundColor: '#E0F2FE',
+    backgroundColor: ORDERS_THEME.successBg,
   },
   badgeTextReady: {
-    color: '#0369A1',
+    color: ORDERS_THEME.success,
   },
   badgePacking: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#FEF3E2',
   },
   badgeTextPacking: {
-    color: '#C2410C',
+    color: '#854F0B',
   },
   badgeIssue: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FCEBEB',
   },
   badgeTextIssue: {
-    color: '#DC2626',
+    color: '#E24B4A',
   },
   badgeCompleted: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: ORDERS_THEME.successBg,
   },
   badgeTextCompleted: {
-    color: '#166534',
+    color: ORDERS_THEME.success,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     fontFamily: 'Poppins',
   },
   customerNameText: {
-    fontSize: 13,
-    color: '#7A726C',
+    fontSize: 12,
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   itemsPriceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   itemsCountText: {
-    fontSize: 12.5,
-    color: '#7A726C',
+    fontSize: 12,
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
   },
   amountText: {
-    fontSize: 17,
+    fontSize: 15.5,
     fontWeight: '800',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
     fontFamily: 'Poppins',
   },
   fulfillmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 2,
   },
   fulfillmentLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   fulfillmentText: {
-    fontSize: 12,
-    color: '#7A726C',
+    fontSize: 11.5,
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
   },
   timeText: {
-    fontSize: 11.5,
-    color: '#7A726C',
+    fontSize: 11,
+    color: ORDERS_THEME.textSecondary,
     fontFamily: 'Poppins',
   },
-  cardActionButton: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 12,
-    height: 40,
+  actionBtn: {
+    backgroundColor: '#FDF0EA',
+    borderRadius: 10,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 10,
   },
-  cardActionText: {
+  actionBtnText: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '700',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    color: ORDERS_THEME.orangeDeep,
   },
 });

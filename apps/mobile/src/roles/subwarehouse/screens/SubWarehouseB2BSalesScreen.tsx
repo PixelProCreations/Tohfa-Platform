@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
+import { SubWarehouseB2BDetailScreen } from './SubWarehouseB2BDetailScreen';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -282,21 +282,9 @@ export function SubWarehouseB2BSalesScreen({
 
   if (selectedOrderDetail) {
     return (
-      <SubWarehouseSaleDetailScreen
-        sale={{
-          id: selectedOrderDetail.id,
-          customerName: selectedOrderDetail.businessName,
-          customerCode: selectedOrderDetail.customerCode,
-          channel: 'B2B Wholesale',
-          dateText: selectedOrderDetail.dateText,
-          amount: selectedOrderDetail.amount,
-          status: selectedOrderDetail.status,
-          invoiceNo: `INV-${selectedOrderDetail.id.replace('B2B-', '')}`,
-          paymentMethod: 'Credit / Bank Transfer',
-          items: selectedOrderDetail.items,
-        }}
+      <SubWarehouseB2BDetailScreen
+        order={selectedOrderDetail}
         onBack={() => setSelectedOrderDetail(null)}
-        onTabChange={handleTabPress}
       />
     );
   }
@@ -429,52 +417,7 @@ export function SubWarehouseB2BSalesScreen({
         />
       </View>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={activeTab === 'Home'} />
-          <Text style={[styles.navLabel, activeTab === 'Home' && styles.navLabelActive]}>
-            Home
-          </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={activeTab === 'Receiving'} />
-          <Text style={[styles.navLabel, activeTab === 'Receiving' && styles.navLabelActive]}>
-            Receiving
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={activeTab === 'Inventory'} />
-          <Text style={[styles.navLabel, activeTab === 'Inventory' && styles.navLabelActive]}>
-            Inventory
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={activeTab === 'More'} />
-          <Text style={[styles.navLabel, activeTab === 'More' && styles.navLabelActive]}>
-            More
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

@@ -291,15 +291,7 @@ export function SubWarehouseInvoiceDetailScreen({
           <Text style={styles.generatedByVal}>SWA – Suresh</Text>
         </View>
 
-        {/* ─── Traceability Separation Notice (from inspect) ─── */}
-        <View style={styles.traceabilityNoticeBox}>
-          <View style={styles.noticeIconWrap}>
-            <ShieldInfoIcon size={18} color="#2563EB" />
-          </View>
-          <Text style={styles.traceabilityNoticeText}>
-            No farmer name, farm location, village, GPS, or internal listing ID appears anywhere on this invoice — customer-facing product information stays fully separated from internal farmer traceability.
-          </Text>
-        </View>
+        <View style={{ height: 16 }} />
       </ScrollView>
 
       {/* ─── Sticky Bottom Action Bar ─── */}

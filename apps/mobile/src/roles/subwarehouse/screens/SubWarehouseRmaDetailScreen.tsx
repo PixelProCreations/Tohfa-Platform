@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { RmaRecord } from './SubWarehouseReturnsIssuesScreen';
+import { SubWarehouseImageViewerScreen } from './SubWarehouseImageViewerScreen';
 
 // ─── Design Tokens (Primary Brand Color: #F0562A) ────────────────────────────
 const PALETTE = {
@@ -90,13 +91,35 @@ export interface SubWarehouseRmaDetailScreenProps {
   rma: RmaRecord;
   onBack: () => void;
   onInspectProduct: (rma: RmaRecord) => void;
+  onViewImage?: ((photoIndex: number) => void) | undefined;
 }
 
 export function SubWarehouseRmaDetailScreen({
   rma,
   onBack,
   onInspectProduct,
+  onViewImage,
 }: SubWarehouseRmaDetailScreenProps) {
+  const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
+
+  const handleOpenPhoto = (index: number) => {
+    if (onViewImage) {
+      onViewImage(index);
+    } else {
+      setSelectedPhoto(index);
+    }
+  };
+
+  if (selectedPhoto !== null) {
+    return (
+      <SubWarehouseImageViewerScreen
+        rma={rma}
+        photoIndex={selectedPhoto}
+        onBack={() => setSelectedPhoto(null)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -242,12 +265,22 @@ export function SubWarehouseRmaDetailScreen({
         {/* ─── Customer Evidence Section ─── */}
         <Text style={styles.sectionHeader}>Customer Evidence</Text>
         <View style={styles.evidenceRow}>
-          <View style={styles.evidenceBox}>
+          <TouchableOpacity
+            style={styles.evidenceBox}
+            onPress={() => handleOpenPhoto(1)}
+            activeOpacity={0.75}
+            accessibilityLabel="Customer Photo 1"
+          >
             <ImageIcon size={24} color="#C2410C" />
-          </View>
-          <View style={styles.evidenceBox}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.evidenceBox}
+            onPress={() => handleOpenPhoto(2)}
+            activeOpacity={0.75}
+            accessibilityLabel="Customer Photo 2"
+          >
             <ImageIcon size={24} color="#C2410C" />
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* ─── Ticket Information Section ─── */}
@@ -270,14 +303,6 @@ export function SubWarehouseRmaDetailScreen({
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Requested Return Quantity</Text>
           <Text style={styles.returnQtyText}>{rma.requestedQuantity}</Text>
-        </View>
-
-        {/* Blue Info Alert Box */}
-        <View style={styles.blueAlertBox}>
-          <LockBlueIcon size={16} color="#2563EB" />
-          <Text style={styles.blueAlertText}>
-            SWA cannot change this quantity from this screen — it's the customer's original request.
-          </Text>
         </View>
 
         {/* ─── Requested Resolution Section ─── */}

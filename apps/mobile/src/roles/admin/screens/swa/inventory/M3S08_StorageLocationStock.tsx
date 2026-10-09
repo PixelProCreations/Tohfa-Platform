@@ -52,18 +52,11 @@ export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, o
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader colors={['#F0562A', '#F0562A']} 
           title="Storage Locations"
           onBack={onBack}
+          showWarehouse={true}
         />
-
-        {/* Warehouse Pill Row */}
-        <View style={styles.lockBarRow}>
-          <View style={styles.warehousePill}>
-            <LockSmallIcon />
-            <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
-          </View>
-        </View>
 
         <ScrollView
           style={styles.content}
@@ -163,8 +156,6 @@ export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, o
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
       </View>
     </SafeAreaView>
   );
@@ -173,7 +164,7 @@ export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, o
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: '#F0562A',
   },
   container: {
     flex: 1,

@@ -14,6 +14,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SubWarehouseRevenueScreen } from './SubWarehouseRevenueScreen';
 import { SubWarehouseExpensesScreen } from './SubWarehouseExpensesScreen';
 import { SubWarehouseAddExpenseScreen } from './SubWarehouseAddExpenseScreen';
+import { SubWarehouseRevenueDetailScreen } from './SubWarehouseRevenueDetailScreen';
 import { SubWarehouseExpenseDetailScreen } from './SubWarehouseExpenseDetailScreen';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
 import { SubWarehouseDailyCashScreen } from './SubWarehouseDailyCashScreen';
@@ -68,6 +69,8 @@ export interface SubWarehouseFinanceScreenProps {
   onNavigateToDailyCash?: (() => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
   onNavigateToCategories?: (() => void) | undefined;
+  onNavigateToCustomerOrders?: (() => void) | undefined;
+  onNavigateToInvoiceList?: (() => void) | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -318,12 +321,16 @@ export function SubWarehouseFinanceScreen({
   onNavigateToDailyCash,
   onNavigateToHistory,
   onNavigateToCategories,
+  onNavigateToCustomerOrders,
+  onNavigateToInvoiceList,
 }: SubWarehouseFinanceScreenProps) {
   const [activeTrendTab, setActiveTrendTab] = useState<'Revenue' | 'Expenses' | 'Net'>('Revenue');
   const [showRevenueScreen, setShowRevenueScreen] = useState(false);
+  const [showRevenueDetailScreen, setShowRevenueDetailScreen] = useState(false);
   const [showExpensesScreen, setShowExpensesScreen] = useState(false);
   const [showAddExpenseScreen, setShowAddExpenseScreen] = useState(false);
   const [showExpenseDetailScreen, setShowExpenseDetailScreen] = useState(false);
+  const [showExpenseReceiptScreen, setShowExpenseReceiptScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
   const [showDailyCashScreen, setShowDailyCashScreen] = useState(false);
   const [showFinanceReportsScreen, setShowFinanceReportsScreen] = useState(false);
@@ -436,6 +443,15 @@ export function SubWarehouseFinanceScreen({
       <SubWarehouseFinanceHistoryScreen
         onBack={() => setShowFinanceHistoryScreen(false)}
         onTabChange={onTabChange}
+        onSelectItem={(item) => {
+          if (item.type === 'Revenue') {
+            setShowFinanceHistoryScreen(false);
+            setShowRevenueDetailScreen(true);
+          } else {
+            setShowFinanceHistoryScreen(false);
+            setShowExpenseDetailScreen(true);
+          }
+        }}
       />
     );
   }
@@ -499,6 +515,26 @@ export function SubWarehouseFinanceScreen({
           setShowExpenseDetailScreen(false);
           setShowAddExpenseScreen(true);
         }}
+        onViewReceipt={() => setShowExpenseReceiptScreen(true)}
+      />
+    );
+  }
+
+  if (showExpenseReceiptScreen) {
+    return (
+      <SubWarehouseExpenseDetailScreen
+        expenseId="EXP-001245"
+        amount="2,400"
+        category="Transport"
+        date="25 Sep 2026"
+        description="Transport from Coonoor collection point to warehouse"
+        paymentMethod="Cash"
+        vendorPayee="Coonoor Transport Co."
+        warehouse="Coonoor"
+        createdBy="SWA – Suresh"
+        status="Recorded"
+        onBack={() => setShowExpenseReceiptScreen(false)}
+        isReceiptView={true}
       />
     );
   }
@@ -507,7 +543,30 @@ export function SubWarehouseFinanceScreen({
     return (
       <SubWarehouseAddExpenseScreen
         onBack={() => setShowAddExpenseScreen(false)}
-        onSaveSuccess={() => setShowAddExpenseScreen(false)}
+        onSaveSuccess={() => {
+          setShowAddExpenseScreen(false);
+          setShowExpenseDetailScreen(true);
+        }}
+        initialExpense={{
+          expenseId: 'EXP-001245',
+          amount: '2400',
+          category: 'Transport',
+          date: '25 Sep 2026',
+          description: 'Transport from Coonoor collection point to warehouse',
+          paymentMethod: 'Cash',
+          vendorPayee: 'Coonoor Transport Co.'
+        }}
+      />
+    );
+  }
+
+  if (showRevenueDetailScreen) {
+    return (
+      <SubWarehouseRevenueDetailScreen
+        onBack={() => setShowRevenueDetailScreen(false)}
+        onViewOrder={onNavigateToCustomerOrders}
+        onViewInvoice={onNavigateToInvoiceList}
+        onViewTransactionHistory={onNavigateToHistory}
       />
     );
   }
@@ -517,6 +576,10 @@ export function SubWarehouseFinanceScreen({
       <SubWarehouseRevenueScreen
         onBack={() => setShowRevenueScreen(false)}
         onTabChange={onTabChange}
+        onNavigateToDetail={(id) => {
+          setShowRevenueScreen(false);
+          setShowRevenueDetailScreen(true);
+        }}
       />
     );
   }
@@ -642,14 +705,6 @@ export function SubWarehouseFinanceScreen({
           </View>
         </View>
 
-        {/* ─── Callout 1: Net Movement Note ─── */}
-        <View style={styles.blueCallout}>
-          <DocumentLedgerIcon size={16} color={PALETTE.blue} />
-          <Text style={styles.blueCalloutText}>
-            Net Movement is calculated from backend financial records — never manually entered.
-          </Text>
-        </View>
-
         {/* ─── Revenue Breakdown ─── */}
         <View style={styles.sectionWrap}>
           <TouchableOpacity
@@ -773,7 +828,6 @@ export function SubWarehouseFinanceScreen({
               ]}
               onPress={() => {
                 setActiveTrendTab('Revenue');
-                handleOpenRevenue();
               }}
               activeOpacity={0.75}
             >
@@ -794,7 +848,6 @@ export function SubWarehouseFinanceScreen({
               ]}
               onPress={() => {
                 setActiveTrendTab('Expenses');
-                handleOpenExpenses();
               }}
               activeOpacity={0.75}
             >
@@ -815,7 +868,6 @@ export function SubWarehouseFinanceScreen({
               ]}
               onPress={() => {
                 setActiveTrendTab('Net');
-                handleOpenFinanceHistory();
               }}
               activeOpacity={0.75}
             >
@@ -832,21 +884,69 @@ export function SubWarehouseFinanceScreen({
 
           {/* Trend Chart Card */}
           <TouchableOpacity
-            style={styles.chartCard}
+            style={[styles.chartCard, { alignItems: 'stretch' }]}
             onPress={handleOpenFinanceHistory}
             activeOpacity={0.85}
           >
-            {/* Visual Micro-chart Bar Representation */}
-            <View style={styles.chartBarsContainer}>
-              <View style={[styles.barCol, { height: '55%' }]} />
-              <View style={[styles.barCol, { height: '70%' }]} />
-              <View style={[styles.barCol, { height: '60%' }]} />
-              <View style={[styles.barCol, { height: '85%' }]} />
-              <View style={[styles.barCol, { height: '75%' }]} />
-              <View style={[styles.barCol, { height: '95%', backgroundColor: PALETTE.primary }]} />
+            <View style={{ flexDirection: 'row', height: 130, marginBottom: 12 }}>
+              {/* Y-Axis */}
+              <View style={{ width: 36, justifyContent: 'space-between', paddingBottom: 22, paddingTop: 4 }}>
+                <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>30k</Text>
+                <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>20k</Text>
+                <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>10k</Text>
+                <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>0</Text>
+              </View>
+
+              {/* Chart Area */}
+              <View style={{ flex: 1 }}>
+                <View style={[styles.chartBarsContainer, { height: 108, width: '100%', marginBottom: 0, paddingBottom: 0, borderBottomWidth: 1, borderBottomColor: PALETTE.border, gap: 10 }]}>
+                  {activeTrendTab === 'Revenue' && (
+                    <>
+                      <View style={[styles.barCol, { height: '55%' }]} />
+                      <View style={[styles.barCol, { height: '70%' }]} />
+                      <View style={[styles.barCol, { height: '60%' }]} />
+                      <View style={[styles.barCol, { height: '85%' }]} />
+                      <View style={[styles.barCol, { height: '75%' }]} />
+                      <View style={[styles.barCol, { height: '95%', backgroundColor: PALETTE.primary }]} />
+                    </>
+                  )}
+                  {activeTrendTab === 'Expenses' && (
+                    <>
+                      <View style={[styles.barCol, { height: '40%' }]} />
+                      <View style={[styles.barCol, { height: '50%' }]} />
+                      <View style={[styles.barCol, { height: '35%' }]} />
+                      <View style={[styles.barCol, { height: '45%' }]} />
+                      <View style={[styles.barCol, { height: '65%' }]} />
+                      <View style={[styles.barCol, { height: '75%', backgroundColor: PALETTE.primary }]} />
+                    </>
+                  )}
+                  {activeTrendTab === 'Net' && (
+                    <>
+                      <View style={[styles.barCol, { height: '65%' }]} />
+                      <View style={[styles.barCol, { height: '80%' }]} />
+                      <View style={[styles.barCol, { height: '45%' }]} />
+                      <View style={[styles.barCol, { height: '75%' }]} />
+                      <View style={[styles.barCol, { height: '85%' }]} />
+                      <View style={[styles.barCol, { height: '100%', backgroundColor: PALETTE.primary }]} />
+                    </>
+                  )}
+                </View>
+                {/* X-Axis */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6, paddingRight: 4, paddingLeft: 4 }}>
+                  <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>Mon</Text>
+                  <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>Tue</Text>
+                  <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>Wed</Text>
+                  <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>Thu</Text>
+                  <Text style={{ fontSize: 9, color: PALETTE.textMuted, fontWeight: '600' }}>Fri</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '600', color: PALETTE.primaryDark }}>Sat</Text>
+                </View>
+              </View>
             </View>
-            <Text style={styles.chartPlaceholderText}>
-              Revenue trend chart — daily revenue for selected period
+
+            <Text style={[styles.chartPlaceholderText, { marginTop: 4 }]}>
+              {activeTrendTab === 'Revenue' && 'Revenue trend chart — daily revenue for selected period'}
+              {activeTrendTab === 'Expenses' && 'Expense trend chart — daily expenses for selected period'}
+              {activeTrendTab === 'Net' && 'Net movement chart — daily net for selected period'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -940,15 +1040,6 @@ export function SubWarehouseFinanceScreen({
             <View style={styles.quickActionRow}>
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => handleQuickAction('Add Voucher')}
-                activeOpacity={0.75}
-              >
-                <VoucherIcon size={20} color={PALETTE.iconColor} />
-                <Text style={styles.actionBtnText}>Add Voucher</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
                 onPress={() => handleQuickAction('Daily Cash')}
                 activeOpacity={0.75}
               >
@@ -958,11 +1049,20 @@ export function SubWarehouseFinanceScreen({
 
               <TouchableOpacity
                 style={styles.actionBtn}
+                onPress={() => handleQuickAction('History')}
+                activeOpacity={0.75}
+              >
+                <DocumentLedgerIcon size={20} color={PALETTE.iconColor} />
+                <Text style={styles.actionBtnText}>Finance History</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionBtn}
                 onPress={() => handleQuickAction('Reports')}
                 activeOpacity={0.75}
               >
                 <ReportsFileIcon size={20} color={PALETTE.iconColor} />
-                <Text style={styles.actionBtnText}>Reports</Text>
+                <Text style={styles.actionBtnText}>Finance Reports</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -976,50 +1076,10 @@ export function SubWarehouseFinanceScreen({
           </Text>
         </View>
 
-        {/* Bottom Screen Subtitle */}
-        <Text style={styles.screenFooterCode}>M11-S01 · Finance Dashboard</Text>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Home')}
-          activeOpacity={0.75}
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.navLabel}>Home</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Receiving')}
-          activeOpacity={0.75}
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.navLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('Inventory')}
-          activeOpacity={0.75}
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.navLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleTabPress('More')}
-          activeOpacity={0.75}
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

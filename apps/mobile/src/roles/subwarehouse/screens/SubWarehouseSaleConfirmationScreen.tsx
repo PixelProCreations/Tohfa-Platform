@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { SubWarehouseReviewInvoiceScreen } from './SubWarehouseReviewInvoiceScreen';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -109,20 +110,19 @@ export function SubWarehouseSaleConfirmationScreen({
   saleId = 'SALE-00251',
   customerName = 'Rajesh Kumar',
   customerCode = 'CUS-00291',
-  paymentMethod = 'Wallet',
+  paymentMethod = 'Cash',
   totalAmount = 320,
   onBack,
   onViewInvoice,
   onNewSale,
 }: SubWarehouseSaleConfirmationScreenProps) {
+  const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
+
   const handleViewInvoice = () => {
     if (onViewInvoice) {
       onViewInvoice();
     } else {
-      Alert.alert(
-        'Invoice INV-00251',
-        `Invoice for ${customerName} (${customerCode})\nTotal: ₹${totalAmount}\nPayment: ${paymentMethod} (Paid)\n\nPDF downloaded to storage.`
-      );
+      setShowInvoiceScreen(true);
     }
   };
 
@@ -134,6 +134,22 @@ export function SubWarehouseSaleConfirmationScreen({
     }
   };
 
+  if (showInvoiceScreen) {
+    return (
+      <SubWarehouseReviewInvoiceScreen
+        onBack={() => setShowInvoiceScreen(false)}
+        invoiceData={{
+          invoiceType: 'Direct Sale',
+          customerName: customerName,
+          itemsCount: 2,
+          subtotal: `₹${totalAmount}`,
+          gst: '₹0',
+          total: `₹${totalAmount}`,
+        }}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
@@ -142,12 +158,10 @@ export function SubWarehouseSaleConfirmationScreen({
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => {
-              if (onBack) onBack();
-              else if (onNewSale) onNewSale();
-            }}
-            activeOpacity={0.8}
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.75}
+            accessibilityLabel="Back"
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ArrowBackIcon size={24} color="#FFFFFF" />
@@ -300,31 +314,26 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.primary,
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: 16,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    justifyContent: 'flex-start',
+    width: '100%',
     minHeight: 36,
+    gap: 12,
   },
-  backBtn: {
-    position: 'absolute',
-    left: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+  backButton: {
+    padding: 4,
+    marginLeft: -4,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.2,
+    textAlign: 'left',
   },
   scroll: {
     flex: 1,
@@ -340,29 +349,29 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   successCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: PALETTE.greenCircleBg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   successTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: PALETTE.textInk,
-    marginTop: 14,
+    marginTop: 12,
     marginBottom: 8,
   },
   card: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.border,
     paddingHorizontal: 16,
@@ -383,7 +392,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   valueBold: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
@@ -391,10 +400,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: PALETTE.textSecondary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   customerCode: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
@@ -405,7 +414,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   productName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: PALETTE.textInk,
     marginBottom: 2,
@@ -416,22 +425,22 @@ const styles = StyleSheet.create({
     color: PALETTE.textSecondary,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: PALETTE.textInk,
   },
   divider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: PALETTE.border,
     marginVertical: 10,
   },
   serverNoticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: PALETTE.serverNoticeBg,
-    borderRadius: 14,
+    backgroundColor: '#EAF5EE',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.serverNoticeBorder,
+    borderColor: '#A7F3D0',
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
@@ -440,10 +449,10 @@ const styles = StyleSheet.create({
   },
   serverNoticeText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '500',
-    color: PALETTE.serverNoticeText,
-    lineHeight: 17,
+    color: '#065F46',
+    lineHeight: 16.5,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -457,27 +466,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: PALETTE.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: 12,
+    height: 48,
     gap: 8,
   },
   viewInvoiceBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
   },
   newSaleBtn: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: PALETTE.primary,
-    paddingVertical: 13,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   newSaleBtnText: {
-    color: '#8B420F',
+    color: PALETTE.primary,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

@@ -12,13 +12,14 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 const PALETTE = {
   primary: '#F0562A',
-  pageBg: '#F7F5F0',
+  primaryDark: '#7A2E14',
+  pageBg: '#F3EFE9',
   cardBg: '#FFFFFF',
-  textInk: '#1E1612',
-  textSecondary: '#7A726C',
-  border: '#EBE5DC',
-  redBadgeBg: '#FEE2E2',
-  redBadgeText: '#991B1B',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  border: '#EEDCD3',
+  redBadgeBg: '#FCEBEB',
+  redBadgeText: '#E24B4A',
 };
 
 function ArrowBackIcon({ size = 22, color = '#FFFFFF' }) {
@@ -114,7 +115,20 @@ export function SubWarehouseOperationalIssuesScreen({
           })}
         </View>
 
-        {/* Issue Card */}
+        {/* Issue Card 1: ISS-0029 */}
+        <TouchableOpacity style={styles.issueCard} onPress={onViewIssueDetail} activeOpacity={0.7}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardId}>ISS-0029</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>Open</Text>
+            </View>
+          </View>
+          <Text style={styles.cardSub}>Orders Fulfillment · ORD-1018</Text>
+          <Text style={styles.cardTitle}>Quality / Quantity issue reported</Text>
+          <Text style={styles.cardDate}>Today · Just now</Text>
+        </TouchableOpacity>
+
+        {/* Issue Card 2: ISS-0028 */}
         <TouchableOpacity style={styles.issueCard} onPress={onViewIssueDetail} activeOpacity={0.7}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardId}>ISS-0028</Text>
@@ -177,19 +191,22 @@ const styles = StyleSheet.create({
 
   filtersRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: PALETTE.cardBg, borderWidth: 1, borderColor: PALETTE.border },
-  filterPillActive: { backgroundColor: '#E88B5A', borderColor: '#E88B5A' },
-  filterText: { fontSize: 13, fontWeight: '600', color: PALETTE.textSecondary },
+  filterPillActive: { backgroundColor: PALETTE.primary, borderColor: PALETTE.primary },
+  filterText: { fontSize: 13, fontWeight: '700', color: PALETTE.textSecondary },
   filterTextActive: { color: '#FFFFFF' },
 
   issueCard: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    borderLeftWidth: 4,
-    borderLeftColor: '#B45309',
     padding: 16,
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   cardId: { fontSize: 14, fontWeight: '800', color: PALETTE.textInk },
@@ -210,13 +227,18 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primaryBtn: {
-    backgroundColor: '#E88B5A',
-    borderRadius: 12,
+    backgroundColor: PALETTE.primary,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     gap: 10,
+    shadowColor: PALETTE.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
   primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });

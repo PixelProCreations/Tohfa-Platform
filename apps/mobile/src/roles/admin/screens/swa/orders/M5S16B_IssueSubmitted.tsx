@@ -7,13 +7,14 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWA_TYPOGRAPHY } from '../constants';
+import { ORDERS_THEME } from './theme';
 
 interface M5S16BProps {
   orderId?: string;
   issueId?: string;
   onNavigate: (screen: string, params?: any) => void;
   onBack: () => void;
+  onViewIssue?: () => void;
 }
 
 function BackArrowWhiteIcon() {
@@ -33,10 +34,10 @@ function BackArrowWhiteIcon() {
 function BigGreenCheckSuccessIcon() {
   return (
     <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#10B981" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={ORDERS_THEME.success} strokeWidth="2" />
       <Path
         d="M8 12l2.5 2.5L16 9.5"
-        stroke="#10B981"
+        stroke={ORDERS_THEME.success}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -45,15 +46,31 @@ function BigGreenCheckSuccessIcon() {
   );
 }
 
+function EyeWhiteIcon({ color = '#FFFFFF' }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
 export const M5S16B_IssueSubmitted: React.FC<M5S16BProps> = ({
-  issueId = 'ISS-0028',
+  issueId = 'ISS-0029',
   onNavigate,
   onBack,
+  onViewIssue,
 }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header matching Image 4 Left */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -90,14 +107,21 @@ export const M5S16B_IssueSubmitted: React.FC<M5S16BProps> = ({
           </View>
         </View>
 
-        {/* Bottom Fixed Action Button: Clean "Continue" navigating to Orders */}
+        {/* Bottom Fixed Action Button: Matched View Issue with Eye Icon */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.submitBtn}
+            style={styles.viewIssueBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M5S01')}
+            onPress={() => {
+              if (onViewIssue) {
+                onViewIssue();
+              } else {
+                onNavigate('M4S09', { issueId });
+              }
+            }}
           >
-            <Text style={styles.submitBtnText}>Continue</Text>
+            <EyeWhiteIcon />
+            <Text style={styles.viewIssueBtnText}>View Issue</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -108,28 +132,31 @@ export const M5S16B_IssueSubmitted: React.FC<M5S16BProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
   },
   header: {
-    backgroundColor: '#E85226',
+    backgroundColor: ORDERS_THEME.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
-    marginRight: 14,
-    padding: 2,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   contentPacked: {
@@ -145,24 +172,29 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E8F8F0',
+    backgroundColor: ORDERS_THEME.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   heroTitle: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1D2420',
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: ORDERS_THEME.textInk,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: ORDERS_THEME.cardBg,
+    borderRadius: ORDERS_THEME.radiusLG,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: ORDERS_THEME.border,
     paddingHorizontal: 20,
     paddingVertical: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   twoColRow: {
     flexDirection: 'row',
@@ -172,34 +204,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 11.5,
     fontWeight: '500',
-    color: '#78716C',
+    color: ORDERS_THEME.textSecondary,
     marginBottom: 4,
   },
   fieldValue: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+    fontFamily: 'Poppins',
     fontSize: 14,
     fontWeight: '700',
-    color: '#1D2420',
+    color: ORDERS_THEME.textInk,
   },
   bottomBar: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: ORDERS_THEME.pageBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
+    borderTopColor: ORDERS_THEME.border,
   },
-  submitBtn: {
-    backgroundColor: '#E85226',
-    borderRadius: 12,
+  viewIssueBtn: {
+    backgroundColor: ORDERS_THEME.primary,
+    borderRadius: ORDERS_THEME.radiusLG,
     height: 50,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    shadowColor: ORDERS_THEME.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  submitBtnText: {
-    fontFamily: SWA_TYPOGRAPHY.fontFamily,
+  viewIssueBtnText: {
+    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',

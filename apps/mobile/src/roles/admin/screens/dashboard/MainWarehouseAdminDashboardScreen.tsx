@@ -1413,6 +1413,11 @@ export function MainWarehouseAdminDashboardScreen({
         {activeTab === 'More' && whSubView === 'overview' && (
           <MainWarehouseMoreScreen
             onBack={() => setActiveTab('Home')}
+            onNavigateToDashboard={() => {
+              setActiveTab('Home');
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
             onLogout={onSignOut}
             onTabChange={(tab) => {
               setActiveTab(tab as any);

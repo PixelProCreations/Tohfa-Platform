@@ -10,6 +10,8 @@
   "error.PRICE_ABOVE_CEILING": "இந்த விலை வரம்பை விட அதிகம்.",
   "error.STOCK_UNAVAILABLE": "மன்னிக்கவும், அந்த அளவு தீர்ந்துவிட்டது.",
   "error.UNAUTHORIZED": "தவறான கைபேசி எண் அல்லது கடவுச்சொல்.",
+  "error.UNAUTHENTICATED": "தவறான கைபேசி எண் அல்லது கடவுச்சொல்.",
+  "error.INTERNAL": "பிழை ஏற்பட்டது. மீண்டும் முயல்க.",
   "error.WALLET_INSUFFICIENT": "இருப்பு குறைவாக உள்ளது.",
   "$comment": "TODO(STORY-MOB-04): full Tamil translation with a native reviewer. Untranslated keys fall back to English at runtime -- that is a bug to be closed, not the intended end state. (Originally customer-only; now covers the merged farmer+customer+shared-error catalogue.)"
 }
