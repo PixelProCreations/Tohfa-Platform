@@ -6,9 +6,10 @@
  *   2. correlationId   so every later log line and problem carries a traceId
  *   3. cors            preflight must be answered before body parsing
  *   4. json/urlencoded bounded body size
- *   5. routes
- *   6. notFoundHandler turns an unmatched path into a NOT_FOUND AppError
- *   7. errorHandler    the single place that writes problem+json
+ *   5. rejectNulBytes  U+0000 in body/query/path is a 422 before any router sees it
+ *   6. routes
+ *   7. notFoundHandler turns an unmatched path into a NOT_FOUND AppError
+ *   8. errorHandler    the single place that writes problem+json
  *
  * `createApp()` returns the app WITHOUT listening, so tests can drive it with
  * supertest and `server.ts` owns the socket.
@@ -18,6 +19,7 @@ import express, { type Express, type RequestHandler, type Router } from 'express
 import helmet from 'helmet';
 import { config } from './config.js';
 import { errorHandler, notFoundHandler } from './http/errorHandler.js';
+import { rejectNulBytes } from './http/rejectNulBytes.js';
 import { logger, newTraceId, runWithContext } from './logger.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { warehousesRouter } from './modules/_example/warehouses.routes.js';
@@ -239,6 +241,8 @@ export function createApp(): Express {
   app.use('/v1/webhooks/razorpay', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+  // U+0000 anywhere in a body, query or path is a 422 here, not a Postgres 500 later.
+  app.use(rejectNulBytes);
 
   // Probes are unversioned: orchestrators should not care about the API version.
   app.use(healthRouter);

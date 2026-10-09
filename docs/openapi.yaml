@@ -10005,7 +10005,7 @@ components:
             code: INVALID_STATE_TRANSITION
             traceId: 01J9F1B2C3D4E5F6G7H8J9KF
     UnprocessableEntity:
-      description: Well-formed but semantically invalid — field validation or a business rule.
+      description: Well-formed but semantically invalid — field validation or a business rule. Any string in a body, query or path that contains a NUL (U+0000) character is refused here too, with the field path in `errors` (database text cannot hold it).
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

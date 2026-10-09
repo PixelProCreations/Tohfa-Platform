@@ -1340,8 +1340,8 @@ describeIfDatabase('Farmer backend M1-M10: real-database HTTP smoke', () => {
       expect(failures, `probes answered 5xx:\n${failures.join('\n')}`).toEqual([]);
     }
 
-    // Platform-wide issue (NUL byte in any free-text body/query field returns 500, also in older modules such as POST /v1/farms and GET /v1/notifications?cursor=%00); needs one shared fix in the request validation layer, tracked as a follow-up outside this PR.
-    it.skip('NUL bytes in free text are refused (Postgres text cannot hold 0x00)', async () => {
+    // Fixed once, for the whole platform, by rejectNulBytes (mounted in createApp, see http/rejectNulBytes.ts): a NUL is a 422 before any router runs.
+    dbIt('NUL bytes in free text are refused (Postgres text cannot hold 0x00)', async () => {
       const farmCrop = { farmCropId };
       // An OPEN ticket: the shared one is CLOSED by now, and a closed ticket answers 409 before it reads the text.
       const open = await call('POST', '/v1/farmers/me/support-tickets', { token: farmerA.token, body: { categoryCode: 'ACCOUNT', subject: 'probe', description: 'probe' } });
