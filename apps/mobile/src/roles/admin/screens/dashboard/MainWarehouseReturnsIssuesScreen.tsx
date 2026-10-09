@@ -11,6 +11,7 @@ import {
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
 import { MainWarehouseRmaDetailScreen } from './MainWarehouseRmaDetailScreen';
+import type { PermissionCheck, WarehouseScope } from '../warehouse/finance-expenses';
 
 const PALETTE = {
   primary: '#F0562A',
@@ -82,16 +83,18 @@ function FilterIcon({ color = '#999', size = 18 }) {
 }
 
 export interface MainWarehouseReturnsIssuesScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
   onBack?: () => void;
 }
 
-export function MainWarehouseReturnsIssuesScreen({ onBack }: MainWarehouseReturnsIssuesScreenProps) {
+export function MainWarehouseReturnsIssuesScreen({ scope, can, onBack }: MainWarehouseReturnsIssuesScreenProps) {
   const [selectedRma, setSelectedRma] = useState<boolean>(false);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [tempWarehouse, setTempWarehouse] = useState<'all' | 'coonoor'>('all');
 
   if (selectedRma) {
-    return <MainWarehouseRmaDetailScreen onBack={() => setSelectedRma(false)} />;
+    return <MainWarehouseRmaDetailScreen scope={scope} can={can} onBack={() => setSelectedRma(false)} />;
   }
 
   return (

@@ -11,6 +11,7 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { MainWarehouseInspectProductScreen } from './MainWarehouseInspectProductScreen';
 import { MainWarehouseReviewReturnRequestScreen } from './MainWarehouseReviewReturnRequestScreen';
+import type { PermissionCheck, WarehouseScope } from '../warehouse/finance-expenses';
 
 const PALETTE = {
   primary: '#F0562A',
@@ -47,16 +48,22 @@ function ClipboardIcon({ size = 18, color = '#FFF' }) {
   );
 }
 
-export function MainWarehouseRmaDetailScreen({ onBack }: { onBack: () => void }) {
+export interface MainWarehouseRmaDetailScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+}
+
+export function MainWarehouseRmaDetailScreen({ scope, can, onBack }: MainWarehouseRmaDetailScreenProps) {
   const [inspecting, setInspecting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
   if (reviewing) {
-    return <MainWarehouseReviewReturnRequestScreen onBack={() => setReviewing(false)} />;
+    return <MainWarehouseReviewReturnRequestScreen scope={scope} can={can} onBack={() => setReviewing(false)} />;
   }
 
   if (inspecting) {
-    return <MainWarehouseInspectProductScreen onBack={() => setInspecting(false)} onSaved={() => { setInspecting(false); setReviewing(true); }} />;
+    return <MainWarehouseInspectProductScreen scope={scope} can={can} onBack={() => setInspecting(false)} onSaved={() => { setInspecting(false); setReviewing(true); }} />;
   }
 
   return (

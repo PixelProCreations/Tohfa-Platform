@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import type { InvoiceTransactionRecord } from '../../admin/screens/warehouse/billing-invoices/types';
 
 // ─── Design Tokens (#F0562A Brand + Inspect Element Tokens) ─────────────────
 const PALETTE = {
@@ -29,15 +30,8 @@ const PALETTE = {
   selectBtnText: '#F0562A',
 };
 
-export interface TransactionRecord {
-  id: string;
-  customerName: string;
-  amount: string;
-  status: 'Completed' | 'Invoice Exists';
-  saleType: string;
-}
 
-const TRANSACTIONS: TransactionRecord[] = [
+const TRANSACTIONS: InvoiceTransactionRecord[] = [
   {
     id: 'ORD-002154',
     customerName: 'Ravi Kumar',
@@ -90,7 +84,7 @@ import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScre
 
 export interface SubWarehouseGenerateInvoiceScreenProps {
   onBack?: () => void;
-  onSelectTransaction?: (transaction: TransactionRecord) => void;
+  onSelectTransaction?: (transaction: InvoiceTransactionRecord) => void;
   onNavigateToGSTInvoice?: () => void;
 }
 
@@ -100,7 +94,7 @@ export function SubWarehouseGenerateInvoiceScreen({
   onNavigateToGSTInvoice,
 }: SubWarehouseGenerateInvoiceScreenProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
+  const [selectedTx, setSelectedTx] = useState<InvoiceTransactionRecord | null>(null);
 
   const filtered = TRANSACTIONS.filter((tx) => {
     if (!searchQuery.trim()) return true;
@@ -111,7 +105,7 @@ export function SubWarehouseGenerateInvoiceScreen({
     );
   });
 
-  const handleSelect = (tx: TransactionRecord) => {
+  const handleSelect = (tx: InvoiceTransactionRecord) => {
     if (tx.saleType.includes('B2B') && onNavigateToGSTInvoice) {
       onNavigateToGSTInvoice();
       return;

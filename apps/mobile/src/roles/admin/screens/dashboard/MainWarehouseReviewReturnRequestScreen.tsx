@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
-import { MainWarehouseReturnApprovedScreen } from './MainWarehouseReturnApprovedScreen';
+import { ReturnResultScreen } from '../warehouse/returns-rma';
+import type { PermissionCheck, WarehouseScope } from '../warehouse/finance-expenses';
 import { MainWarehouseRejectReturnRequestScreen } from './MainWarehouseRejectReturnRequestScreen';
 import { MainWarehouseRefundStatusScreen } from './MainWarehouseRefundStatusScreen';
 import { MainWarehouseRequestRejectedScreen } from './MainWarehouseRequestRejectedScreen';
@@ -41,7 +42,13 @@ function ArrowBackIcon({ size = 20, color = '#FFFFFF' }) {
   );
 }
 
-export function MainWarehouseReviewReturnRequestScreen({ onBack }: { onBack: () => void }) {
+export interface MainWarehouseReviewReturnRequestScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+}
+
+export function MainWarehouseReviewReturnRequestScreen({ scope, can, onBack }: MainWarehouseReviewReturnRequestScreenProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [approved, setApproved] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -53,7 +60,15 @@ export function MainWarehouseReviewReturnRequestScreen({ onBack }: { onBack: () 
   }
 
   if (approved) {
-    return <MainWarehouseReturnApprovedScreen onStatus={() => setShowRefundStatus(true)} />;
+    return (
+      <ReturnResultScreen
+        variant="RETURN_APPROVED"
+        scope={scope}
+        can={can}
+        onBack={() => onBack()}
+        onPrimary={() => setShowRefundStatus(true)}
+      />
+    );
   }
 
   if (requestRejected) {

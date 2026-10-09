@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
-import { MainWarehouseInspectionSavedScreen } from './MainWarehouseInspectionSavedScreen';
+import { ReturnResultScreen } from '../warehouse/returns-rma';
+import type { PermissionCheck, WarehouseScope } from '../warehouse/finance-expenses';
 
 const PALETTE = {
   primary: '#F0562A',
@@ -52,12 +53,20 @@ function RadioSelected({ color = '#8A5A30', size = 20 }) {
   );
 }
 
-export function MainWarehouseInspectProductScreen({ onBack, onSaved }: { onBack: () => void, onSaved: () => void }) {
+export interface MainWarehouseInspectProductScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+  onSaved: () => void;
+}
+
+export function MainWarehouseInspectProductScreen({ scope, can, onBack, onSaved }: MainWarehouseInspectProductScreenProps) {
   const [condition, setCondition] = useState<'Good' | 'Damaged' | 'Spoiled'>('Damaged');
   const [saved, setSaved] = useState(false);
 
   if (saved) {
-    return <MainWarehouseInspectionSavedScreen onContinue={onSaved} />;
+    // Back leaves the saved inspection for the RMA detail; the CTA continues to review.
+    return <ReturnResultScreen variant="INSPECTION_SAVED" scope={scope} can={can} onBack={onBack} onPrimary={onSaved} />;
   }
 
   return (

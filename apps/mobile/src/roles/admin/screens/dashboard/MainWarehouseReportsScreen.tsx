@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { MainWarehouseReturnsReportScreen } from './MainWarehouseReturnsReportScreen';
 import { MainWarehouseSummaryReportScreen } from './MainWarehouseSummaryReportScreen';
-import { MainWarehouseSalesReportScreen } from './MainWarehouseSalesReportScreen';
+import { ReportSummaryScreen } from '../warehouse/reports';
+import type { PermissionCheck, WarehouseScope } from '../warehouse/finance-expenses';
 import { MainWarehouseExportReportScreen } from './MainWarehouseExportReportScreen';
 
 const PALETTE = {
@@ -70,7 +70,13 @@ function ReportsIcon({ color = '#FFF', size = 20 }) {
   );
 }
 
-export function MainWarehouseReportsScreen({ onBack }: { onBack: () => void }) {
+export interface MainWarehouseReportsScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+}
+
+export function MainWarehouseReportsScreen({ scope, can, onBack }: MainWarehouseReportsScreenProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [tempWarehouse, setTempWarehouse] = useState<'all' | 'coonoor'>('all');
   
@@ -79,9 +85,13 @@ export function MainWarehouseReportsScreen({ onBack }: { onBack: () => void }) {
   const [viewSalesReport, setViewSalesReport] = useState(false);
   const [viewExportReport, setViewExportReport] = useState(false);
 
-  if (viewReturnsReport) return <MainWarehouseReturnsReportScreen onBack={() => setViewReturnsReport(false)} />;
+  if (viewReturnsReport) {
+    return <ReportSummaryScreen kind="RETURNS" scope={scope} can={can} onBack={() => setViewReturnsReport(false)} />;
+  }
   if (viewSummaryReport) return <MainWarehouseSummaryReportScreen onBack={() => setViewSummaryReport(false)} />;
-  if (viewSalesReport) return <MainWarehouseSalesReportScreen onBack={() => setViewSalesReport(false)} />;
+  if (viewSalesReport) {
+    return <ReportSummaryScreen kind="SALES" scope={scope} can={can} onBack={() => setViewSalesReport(false)} />;
+  }
   if (viewExportReport) return <MainWarehouseExportReportScreen onBack={() => setViewExportReport(false)} />;
 
   const sections = [

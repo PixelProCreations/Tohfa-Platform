@@ -1464,9 +1464,9 @@ export function MainWarehouseAdminDashboardScreen({
               }}
             />
           ) : moreSubScreen === 'reports' ? (
-            <MainWarehouseReportsScreen onBack={() => setMoreSubScreen(null)} />
+            <MainWarehouseReportsScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={() => setMoreSubScreen(null)} />
           ) : moreSubScreen === 'returns' ? (
-            <MainWarehouseReturnsIssuesScreen onBack={() => setMoreSubScreen(null)} />
+            <MainWarehouseReturnsIssuesScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={() => setMoreSubScreen(null)} />
           ) : moreSubScreen === 'staff' ? (
             <MainWarehouseStaffScreen onBack={() => setMoreSubScreen(null)} />
           ) : (

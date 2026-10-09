@@ -98,3 +98,15 @@ export {
   type ChannelSalesScreenProps,
   type SalesChannel,
 } from './sales-direct';
+
+// Main Warehouse report / RMA-result screens, W3b (`kind` / `variant` props).
+export {
+  ReportDetailScreen,
+  ReportSummaryScreen,
+  type ReportDetailScreenProps,
+  type ReportKind,
+  type ReportKpi,
+  type ReportRecord,
+  type ReportSummaryScreenProps,
+} from './reports';
+export { ReturnResultScreen, type ReturnResultScreenProps, type ReturnResultVariant } from './returns-rma';

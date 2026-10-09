@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import type { WizardTransactionRecord } from '../../admin/screens/warehouse/billing-invoices/types';
 
 // ─── DESIGN TOKENS ─────────────────────────────────────────────────────────
 const PALETTE = {
@@ -74,18 +75,9 @@ function InfoIcon({ size = 18, color = PALETTE.infoText }) {
 }
 
 // ─── PROPS & TYPES ──────────────────────────────────────────────────────────
-export interface TransactionRecord {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  amount: string;
-  saleType: string;
-  status: string;
-  date: string;
-}
 
 export interface SubWarehouseInvoiceWizardScreenProps {
-  transaction: TransactionRecord;
+  transaction: WizardTransactionRecord;
   onBack: () => void;
   onSuccess: () => void;
 }
