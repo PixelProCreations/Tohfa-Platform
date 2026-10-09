@@ -67,7 +67,7 @@ export class ListingsService {
     body: CreateListingBody,
     idempotencyKey?: string,
   ): Promise<ListingRow> {
-    // BR-61: a missing key is refused before anything else runs, and a replay
+    // BR-68: a missing key is refused before anything else runs, and a replay
     // returns the original listing before the gates below are re-evaluated (a
     // retry after the certificate expired must not turn a created listing into
     // an error).
@@ -308,7 +308,7 @@ export class ListingsService {
   ): Promise<ListingRow> {
     const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (client) => {
-      // BR-61: a replay returns the original body, not LISTING_NOT_PENDING.
+      // BR-68: a replay returns the original body, not LISTING_NOT_PENDING.
       const idem = await beginIdempotent<ListingRow>(this.idempotency, client, {
         actorUserId: actor.userId,
         key,

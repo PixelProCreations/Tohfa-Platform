@@ -1,6 +1,6 @@
 /**
  * Idempotency-Key handling for non-repeatable POSTs (docs/openapi.yaml
- * `IdempotencyKeyHeader`; BR-61 for the listing writes).
+ * `IdempotencyKeyHeader`; BR-68 for the listing writes).
  *
  * The contract, from the spec text: replaying a key with an identical request
  * returns the original response; replaying it with a different request is 409

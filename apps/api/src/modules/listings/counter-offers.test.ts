@@ -336,7 +336,7 @@ function buildRepo(store: Store) {
   };
 }
 
-/** A fresh Idempotency-Key per call: the farmer responses require one (BR-61). */
+/** A fresh Idempotency-Key per call: the farmer responses require one (BR-68). */
 const anyKey = (): string => randomUUID();
 
 /** Wrap the in-memory repo in the exact deps the service was built to receive. */
@@ -682,10 +682,10 @@ describe('S-22 counter-offer state machine', () => {
 
 
 // ---------------------------------------------------------------------------
-// BR-61: the three farmer responses are idempotent. The database half (real
+// BR-68: the three farmer responses are idempotent. The database half (real
 // rollback, parallel requests, HTTP) is in listing-idempotency.test.ts.
 // ---------------------------------------------------------------------------
-describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () => {
+describe('farmer counter-offer responses and the Idempotency-Key (BR-68)', () => {
   // A replay is read back from JSON, so compare what a client would see.
   const wire = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
   const counterBody = { pricePerKg: '85.00', quantityKg: '100.000' } as never;
@@ -693,7 +693,7 @@ describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () =>
     store.audits.filter((a) => a.actionCode === 'listing.counter_offer.respond').length;
 
   it.each(['accept', 'reject', 'counter'] as const)(
-    'BR-61a: %s without an Idempotency-Key is 422 VALIDATION_FAILED and changes nothing',
+    'BR-68a: %s without an Idempotency-Key is 422 VALIDATION_FAILED and changes nothing',
     async (verb) => {
       const store = freshStore();
       const opening = await adminCounter(store);
@@ -712,7 +712,7 @@ describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () =>
     },
   );
 
-  it('BR-61b: replaying an accept returns the original listing, with no second audit row', async () => {
+  it('BR-68b: replaying an accept returns the original listing, with no second audit row', async () => {
     const store = freshStore();
     const opening = await adminCounter(store);
     const svc = createService(store);
@@ -722,7 +722,7 @@ describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () =>
     expect(respondAudits(store)).toBe(1);
   });
 
-  it('BR-61b: replaying a reject returns the original offer, with no second audit row', async () => {
+  it('BR-68b: replaying a reject returns the original offer, with no second audit row', async () => {
     const store = freshStore();
     const opening = await adminCounter(store);
     const svc = createService(store);
@@ -732,7 +732,7 @@ describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () =>
     expect(respondAudits(store)).toBe(1);
   });
 
-  it('BR-61b: replaying a counter opens one new round only', async () => {
+  it('BR-68b: replaying a counter opens one new round only', async () => {
     const store = freshStore();
     const opening = await adminCounter(store);
     const svc = createService(store);
@@ -743,7 +743,7 @@ describe('farmer counter-offer responses and the Idempotency-Key (BR-61)', () =>
     expect(respondAudits(store)).toBe(1);
   });
 
-  it('BR-61c: the same key with a different counter body, or on a different offer action, is 409 IDEMPOTENCY_KEY_REUSED', async () => {
+  it('BR-68c: the same key with a different counter body, or on a different offer action, is 409 IDEMPOTENCY_KEY_REUSED', async () => {
     const store = freshStore();
     const opening = await adminCounter(store);
     const svc = createService(store);

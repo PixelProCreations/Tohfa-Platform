@@ -17,7 +17,7 @@ import {
 } from './listings.repo.js';
 import { getTodayKolkata, ListingsService } from './listings.service.js';
 
-/** A fresh Idempotency-Key per call: createListing and withdrawListing require one (BR-61). */
+/** A fresh Idempotency-Key per call: createListing and withdrawListing require one (BR-68). */
 const anyKey = (): string => randomUUID();
 
 describe('ListingsService (Unit & Business Rules)', () => {

@@ -1,5 +1,5 @@
 /**
- * BR-61: farmer-facing listing writes are idempotent (Idempotency-Key).
+ * BR-68: farmer-facing listing writes are idempotent (Idempotency-Key).
  *
  * Two halves:
  *   1. Unit tests: ListingsService against a mocked repo + in-memory key store.
@@ -140,25 +140,25 @@ describe('listing idempotency (unit)', () => {
     ['missing', undefined],
     ['empty', ''],
     ['blank', '   '],
-  ])('BR-61a: createListing with a %s Idempotency-Key is 422 VALIDATION_FAILED and inserts nothing', async (_n, key) => {
+  ])('BR-68a: createListing with a %s Idempotency-Key is 422 VALIDATION_FAILED and inserts nothing', async (_n, key) => {
     const { service, calls } = unitService();
     await rejectsWith(service.createListing(actor, scope, body, key), 'VALIDATION_FAILED', 422);
     expect(calls.insertListing).toBe(0);
   });
 
-  it('BR-61a: the 422 for a missing key names the header and never echoes a value', async () => {
+  it('BR-68a: the 422 for a missing key names the header and never echoes a value', async () => {
     const { service } = unitService();
     const err = (await service.createListing(actor, scope, body, undefined).catch((e: unknown) => e)) as AppError;
     expect(err.errors).toEqual({ 'header.Idempotency-Key': [expect.any(String)] });
   });
 
-  it('BR-61a: withdrawListing without a key is 422 and does not withdraw', async () => {
+  it('BR-68a: withdrawListing without a key is 422 and does not withdraw', async () => {
     const { service, calls } = unitService();
     await rejectsWith(service.withdrawListing(actor, scope, LISTING_ID, 1, undefined), 'VALIDATION_FAILED', 422);
     expect(calls.withdrawListing).toBe(0);
   });
 
-  it('BR-61b: replaying the same key with the same body returns the original listing and inserts once', async () => {
+  it('BR-68b: replaying the same key with the same body returns the original listing and inserts once', async () => {
     const { service, calls } = unitService();
     const first = await service.createListing(actor, scope, body, 'key-1');
     const second = await service.createListing(actor, scope, { ...body }, 'key-1');
@@ -166,7 +166,7 @@ describe('listing idempotency (unit)', () => {
     expect(calls.insertListing).toBe(1);
   });
 
-  it('BR-61b: replaying a withdraw returns the original result instead of LISTING_NOT_PENDING', async () => {
+  it('BR-68b: replaying a withdraw returns the original result instead of LISTING_NOT_PENDING', async () => {
     const { service, calls } = unitService();
     const first = await service.withdrawListing(actor, scope, LISTING_ID, 1, 'w-1');
     const second = await service.withdrawListing(actor, scope, LISTING_ID, 1, 'w-1');
@@ -174,7 +174,7 @@ describe('listing idempotency (unit)', () => {
     expect(calls.withdrawListing).toBe(1);
   });
 
-  it('BR-61c: the same key with a different body is 409 IDEMPOTENCY_KEY_REUSED and inserts nothing more', async () => {
+  it('BR-68c: the same key with a different body is 409 IDEMPOTENCY_KEY_REUSED and inserts nothing more', async () => {
     const { service, calls } = unitService();
     await service.createListing(actor, scope, body, 'key-2');
     await rejectsWith(
@@ -185,14 +185,14 @@ describe('listing idempotency (unit)', () => {
     expect(calls.insertListing).toBe(1);
   });
 
-  it('BR-61c: the same key on a different operation is 409 IDEMPOTENCY_KEY_REUSED', async () => {
+  it('BR-68c: the same key on a different operation is 409 IDEMPOTENCY_KEY_REUSED', async () => {
     const { service, calls } = unitService();
     await service.createListing(actor, scope, body, 'key-3');
     await rejectsWith(service.withdrawListing(actor, scope, LISTING_ID, 1, 'key-3'), 'IDEMPOTENCY_KEY_REUSED', 409);
     expect(calls.withdrawListing).toBe(0);
   });
 
-  it('BR-61e: two farmers using the same key string do not collide', async () => {
+  it('BR-68e: two farmers using the same key string do not collide', async () => {
     const { service, calls } = unitService();
     const other: Actor = { ...actor, userId: '00000000-0000-0000-0000-000000000002' };
     const otherScope: ResolvedScope = { ...scope, userId: other.userId };
@@ -306,7 +306,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
 
   const listingBody = () => ({ cropId, grade: 'GRADE_1' as const, quantityKg: '100.000', askingPricePerKg: '50.00' });
 
-  it('BR-61a: a missing or blank key creates no listing and no key row', async () => {
+  it('BR-68a: a missing or blank key creates no listing and no key row', async () => {
     const f = await makeFarmer();
     for (const key of [undefined, '', '   ']) {
       await rejectsWith(service.createListing(f.actor, f.scope, listingBody(), key), 'VALIDATION_FAILED', 422);
@@ -315,7 +315,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await keyRows(f.userId)).toBe(0);
   });
 
-  it('BR-61b: the first call creates; a replay returns the same listing and creates no second row', async () => {
+  it('BR-68b: the first call creates; a replay returns the same listing and creates no second row', async () => {
     const f = await makeFarmer();
     const key = newId();
     const first = await service.createListing(f.actor, f.scope, listingBody(), key);
@@ -325,7 +325,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await keyRows(f.userId)).toBe(1);
   });
 
-  it('BR-61c: the same key with a different payload is 409 IDEMPOTENCY_KEY_REUSED and creates nothing', async () => {
+  it('BR-68c: the same key with a different payload is 409 IDEMPOTENCY_KEY_REUSED and creates nothing', async () => {
     const f = await makeFarmer();
     const key = newId();
     await service.createListing(f.actor, f.scope, listingBody(), key);
@@ -337,7 +337,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await listingCount(f.farmerId)).toBe(1);
   });
 
-  it('BR-61d: five parallel requests with one key create exactly one listing and all return it', async () => {
+  it('BR-68d: five parallel requests with one key create exactly one listing and all return it', async () => {
     const f = await makeFarmer();
     const key = newId();
     await warmPool();
@@ -349,7 +349,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await keyRows(f.userId)).toBe(1);
   });
 
-  it('BR-61e: different farmers using the same key string each get their own listing', async () => {
+  it('BR-68e: different farmers using the same key string each get their own listing', async () => {
     const a = await makeFarmer();
     const b = await makeFarmer();
     const key = newId();
@@ -362,7 +362,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await listingCount(b.farmerId)).toBe(1);
   });
 
-  it('BR-61f: a refused attempt is not recorded; the same key works once the cause is fixed', async () => {
+  it('BR-68f: a refused attempt is not recorded; the same key works once the cause is fixed', async () => {
     const f = await makeFarmer();
     const key = newId();
     await rejectsWith(
@@ -376,7 +376,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await listingCount(f.farmerId)).toBe(1);
   });
 
-  it('BR-61g: a key older than 24 hours is released and can be used for a new request', async () => {
+  it('BR-68g: a key older than 24 hours is released and can be used for a new request', async () => {
     const f = await makeFarmer();
     const key = newId();
     const first = await service.createListing(f.actor, f.scope, listingBody(), key);
@@ -386,7 +386,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await listingCount(f.farmerId)).toBe(2);
   });
 
-  it('BR-61b: a withdraw replay returns the original body even though the listing is no longer pending', async () => {
+  it('BR-68b: a withdraw replay returns the original body even though the listing is no longer pending', async () => {
     const f = await makeFarmer();
     const created = await service.createListing(f.actor, f.scope, listingBody(), newId());
     const key = newId();
@@ -398,7 +398,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     await rejectsWith(service.withdrawListing(f.actor, f.scope, created.id, undefined, newId()), 'LISTING_NOT_PENDING', 409);
   });
 
-  it('BR-61d: five parallel withdraws with one key all succeed with the same body', async () => {
+  it('BR-68d: five parallel withdraws with one key all succeed with the same body', async () => {
     const f = await makeFarmer();
     const created = await service.createListing(f.actor, f.scope, listingBody(), newId());
     const key = newId();
@@ -437,7 +437,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
       ).rows[0]!.n,
     );
 
-  it('BR-61b: an accept replay returns the original listing and writes no second audit row', async () => {
+  it('BR-68b: an accept replay returns the original listing and writes no second audit row', async () => {
     const f = await makeFarmer();
     const { listingId, offerId } = await listingWithAdminOffer(f);
     const key = newId();
@@ -447,7 +447,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await respondAudits(offerId)).toBe(1);
   });
 
-  it('BR-61d: five parallel accepts with one key write exactly one audit row and all return the listing', async () => {
+  it('BR-68d: five parallel accepts with one key write exactly one audit row and all return the listing', async () => {
     const f = await makeFarmer();
     const { listingId, offerId } = await listingWithAdminOffer(f);
     const key = newId();
@@ -459,7 +459,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await respondAudits(offerId)).toBe(1);
   });
 
-  it('BR-61b: a counter replay opens exactly one new round and returns it again', async () => {
+  it('BR-68b: a counter replay opens exactly one new round and returns it again', async () => {
     const f = await makeFarmer();
     const { listingId, offerId } = await listingWithAdminOffer(f);
     const key = newId();
@@ -476,7 +476,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     );
   });
 
-  it('BR-61b: a reject replay returns the original offer and writes no second audit row', async () => {
+  it('BR-68b: a reject replay returns the original offer and writes no second audit row', async () => {
     const f = await makeFarmer();
     const { listingId, offerId } = await listingWithAdminOffer(f);
     const key = newId();
@@ -488,7 +488,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
 
   // ---- through the real router -------------------------------------------
 
-  it('BR-61a: POST /v1/listings without the header is 422 problem+json naming the header', async () => {
+  it('BR-68a: POST /v1/listings without the header is 422 problem+json naming the header', async () => {
     const f = await makeFarmer();
     const res = await request(app).post('/v1/listings').set('Authorization', `Bearer ${f.token}`).send(listingBody());
     expect(res.status).toBe(422);
@@ -498,7 +498,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await listingCount(f.farmerId)).toBe(0);
   });
 
-  it('BR-61b/61c: over HTTP a replay is the same 201 body, and a changed body under the key is 409', async () => {
+  it('BR-68b/68c: over HTTP a replay is the same 201 body, and a changed body under the key is 409', async () => {
     const f = await makeFarmer();
     const key = newId();
     const post = (b: object) =>
@@ -514,7 +514,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     expect(await listingCount(f.farmerId)).toBe(1);
   });
 
-  it('BR-61a/61b: over HTTP the withdraw and the three counter-offer responses require the header and replay', async () => {
+  it('BR-68a/68b: over HTTP the withdraw and the three counter-offer responses require the header and replay', async () => {
     const f = await makeFarmer();
     const auth = { Authorization: `Bearer ${f.token}` };
     const created = await request(app).post('/v1/listings').set(auth).set('Idempotency-Key', newId()).send(listingBody());

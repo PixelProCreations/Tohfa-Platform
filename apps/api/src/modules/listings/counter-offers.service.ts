@@ -521,7 +521,7 @@ export class CounterOffersService {
     offerId: string,
     idempotencyKey?: string,
   ): Promise<AdminListingView> {
-    // BR-61: the key is required, and a replay returns the original result
+    // BR-68: the key is required, and a replay returns the original result
     // before any state check (a second accept would be LISTING_NOT_PENDING).
     const key = requireIdempotencyKey(idempotencyKey);
     return this.runTx(async (tx) => {

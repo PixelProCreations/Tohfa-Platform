@@ -1,5 +1,5 @@
 -- 0045_listing_idempotency.sql
--- Idempotency-Key store for the farmer-facing listing writes (BR-61): create a
+-- Idempotency-Key store for the farmer-facing listing writes (BR-68): create a
 -- listing, withdraw it, and accept / reject / counter an admin counter-offer.
 --
 -- WHY A TABLE AND NOT A COLUMN (the 0007 wallet_transactions / 0026 worker_payouts
@@ -42,7 +42,7 @@ CREATE TABLE idempotency_keys (
 CREATE INDEX idx_idempotency_keys_created_at ON idempotency_keys (created_at);
 
 COMMENT ON TABLE idempotency_keys IS
-    'Idempotency-Key claims and the response they returned (BR-61). Written in the same transaction as the operation it guards; scoped per user; retained 24 hours.';
+    'Idempotency-Key claims and the response they returned (BR-68). Written in the same transaction as the operation it guards; scoped per user; retained 24 hours.';
 
 -- +migrate Down
 

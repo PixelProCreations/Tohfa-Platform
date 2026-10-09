@@ -1347,7 +1347,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
-### BR-61 — Farmer listing writes are idempotent (Idempotency-Key)
+### BR-68 — Farmer listing writes are idempotent (Idempotency-Key)
 | | |
 |---|---|
 | **Source** | `docs/openapi.yaml` `IdempotencyKeyHeader` (required on these POSTs); root `CLAUDE.md` §2.4. Specification gap closed 2026-10-09: the header was declared but ignored. |
@@ -1360,13 +1360,13 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 **Failure mode if unenforced.** A mobile retry after a dropped response creates a duplicate listing or counter round, or turns a successful withdraw/accept into a spurious 409 the farmer reads as failure.
 
 **Test contract.** (`apps/api/src/modules/listings/listing-idempotency.test.ts`, `counter-offers.test.ts`)
-- `BR-61a` Missing, empty or blank key on each of the five operations → 422 `VALIDATION_FAILED` naming `header.Idempotency-Key`; nothing is written.
-- `BR-61b` A replay returns the original body with no second row, audit row or round; a replayed withdraw is not `LISTING_NOT_PENDING`.
-- `BR-61c` The same key with a different body or on a different operation → 409 `IDEMPOTENCY_KEY_REUSED`; nothing more is written.
-- `BR-61d` Five parallel requests with one key run the operation exactly once and all return its result.
-- `BR-61e` Different users using the same key string do not collide.
-- `BR-61f` A refused attempt is not remembered; the key works once the cause is fixed.
-- `BR-61g` A key older than 24 hours is released for a new request.
+- `BR-68a` Missing, empty or blank key on each of the five operations → 422 `VALIDATION_FAILED` naming `header.Idempotency-Key`; nothing is written.
+- `BR-68b` A replay returns the original body with no second row, audit row or round; a replayed withdraw is not `LISTING_NOT_PENDING`.
+- `BR-68c` The same key with a different body or on a different operation → 409 `IDEMPOTENCY_KEY_REUSED`; nothing more is written.
+- `BR-68d` Five parallel requests with one key run the operation exactly once and all return its result.
+- `BR-68e` Different users using the same key string do not collide.
+- `BR-68f` A refused attempt is not remembered; the key works once the cause is fixed.
+- `BR-68g` A key older than 24 hours is released for a new request.
 
 ---
 
