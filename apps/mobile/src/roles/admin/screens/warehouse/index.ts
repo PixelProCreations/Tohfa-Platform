@@ -16,7 +16,6 @@ export * from './IncomingShipmentsScreen';
 export * from './ReceivingSearchFiltersScreen';
 export * from './WarehouseCityDetailScreen';
 export * from './IncomingGoodsOperationsScreen';
-export * from './OrderFulfilmentOperationsScreen';
 export * from './QualityIssuesOperationsScreen';
 export * from './ActivityTimelineOperationsScreen';
 export * from './ShipmentDetailScreen';

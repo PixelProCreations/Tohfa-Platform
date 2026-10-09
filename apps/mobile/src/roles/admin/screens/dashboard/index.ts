@@ -2,7 +2,6 @@ export * from './SuperAdminDashboardScreen';
 export * from './TohfaAdminDashboardScreen';
 export * from './FarmerAdminDashboardScreen';
 export * from './MainWarehouseAdminDashboardScreen';
-export * from './MainWarehouseCustomerOrdersScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAdminDashboardScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseProfileScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOverviewScreen';

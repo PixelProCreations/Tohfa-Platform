@@ -26,7 +26,7 @@ import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
-import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
+import { OrdersFlow } from '../warehouse/orders';
 import {
   WarehouseOverviewScreen,
   StockLedgerScreen,
@@ -64,7 +64,6 @@ import {
   ReceivingSearchFiltersScreen,
   WarehouseCityDetailScreen,
   IncomingGoodsOperationsScreen,
-  OrderFulfilmentOperationsScreen,
   QualityIssuesOperationsScreen,
   ActivityTimelineOperationsScreen,
   ShipmentDetailScreen,
@@ -1844,9 +1843,16 @@ export function MainWarehouseAdminDashboardScreen({
                 }}
               />
             ) : whSubView === 'order_fulfilment_ops' ? (
-              <OrderFulfilmentOperationsScreen
+              <OrdersFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
                 onBack={goBackWh}
-                onNavigateOrders={() => navigateWh('customers_list')}
+                onViewIssue={() => navigateWh('operational_issues')}
+                onTabChange={(tab) => {
+                  setActiveTab(tab);
+                  setWhSubView('overview');
+                  setWhHistory([]);
+                }}
               />
             ) : whSubView === 'quality_issues_ops' ? (
               <QualityIssuesOperationsScreen
@@ -1891,18 +1897,15 @@ export function MainWarehouseAdminDashboardScreen({
                 onNavigateSupport={() => navigateWh('support_history')}
               />
             ) : whSubView === 'customer_orders' ? (
-              <MainWarehouseCustomerOrdersScreen
+              <OrdersFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
                 onBack={goBackWh}
+                onViewIssue={() => navigateWh('operational_issues')}
                 onTabChange={(tab) => {
-                  if (tab === 'Home') {
-                    setActiveTab('Home');
-                    setWhSubView('overview');
-                    setWhHistory([]);
-                  } else {
-                    setActiveTab(tab as any);
-                    setWhSubView('overview');
-                    setWhHistory([]);
-                  }
+                  setActiveTab(tab);
+                  setWhSubView('overview');
+                  setWhHistory([]);
                 }}
               />
             ) : whSubView === 'purchase_history' ? (
