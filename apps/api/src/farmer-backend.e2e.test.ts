@@ -30,7 +30,8 @@
  * run it against a throwaway / CI database, never a shared one.
  *
  * Authentication is real: every actor logs in through POST /v1/auth/login. The
- * admins are the seeded users from db/seed/003_dev_users.sql.
+ * admins are the seeded users from db/seed/003_dev_users.sql, which `pnpm db:seed`
+ * only creates when SEED_DEV_USERS=true (CI sets it; set it yourself on a throwaway DB).
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

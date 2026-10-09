@@ -1,6 +1,11 @@
 -- =============================================================================
 -- 003_dev_users.sql — Seed administrative and test users for local development
 --
+-- DEV ONLY. `pnpm db:seed` skips this file unless SEED_DEV_USERS=true and
+-- always refuses it when NODE_ENV=production (SEED_KINDS in
+-- apps/api/src/db/runner.ts). NEVER run it against a shared or real database:
+-- these are SUPER_ADMIN / admin accounts with a publicly known password.
+--
 -- All accounts have password: Password@123
 -- Hash: $2b$12$IxUFcyqODhx.hqBaTL7uy.JWfoY2BFP2sKst6BCBYv5gV6qLE5pbi
 -- =============================================================================

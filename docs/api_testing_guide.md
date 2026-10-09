@@ -30,6 +30,8 @@
 
 ## 2. Seeded Test Credentials (All Passwords: `Password@123`)
 
+> These accounts exist only after `SEED_DEV_USERS=true pnpm db:seed` (the demo dataset also needs `SEED_DEMO=true`). A plain `pnpm db:seed` does not create them, and they must never be created on a shared or production database.
+
 | Role | Mobile | Email / Name | Scopes & Permissions | Test Purpose |
 |---|---|---|---|---|
 | **SUPER_ADMIN** | `+919800000001` | Super Administrator | System-wide access (`*`) | Fair price ceiling changes, global overrides, PO approvals |

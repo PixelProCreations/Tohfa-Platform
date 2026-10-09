@@ -26,13 +26,13 @@ Before starting the presentation:
 2. Ensure the Admin Web is open: `http://localhost:4200`.
 3. Verify demo data is populated:
    ```bash
-   SEED_DEMO=true pnpm db:seed
+   SEED_DEV_USERS=true SEED_DEMO=true pnpm db:seed
    ```
 
 ### 2. Fast Recovery Reset Command (< 60s)
 If a demo step gets botched or you need a clean slate during a live rehearsal:
 ```bash
-pnpm db:reset && SEED_DEMO=true pnpm db:seed
+pnpm db:reset && SEED_DEV_USERS=true SEED_DEMO=true pnpm db:seed
 ```
 
 ---

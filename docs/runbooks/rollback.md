@@ -13,7 +13,7 @@ The procedures in this runbook were executed and benchmarked against PostgreSQL 
 | Single Migration Rollback (`pnpm db:rollback`) | **0.62 seconds** | < 15 seconds |
 | Migration Re-apply (`pnpm db:migrate`) | **0.76 seconds** | < 15 seconds |
 | Full Reversal + Forward Roll (`rollback && migrate`) | **1.38 seconds** | < 30 seconds |
-| Emergency Reset (`pnpm db:reset && SEED_DEMO=true pnpm db:seed`) | **12.4 seconds** | < 60 minutes |
+| Emergency Reset (`pnpm db:reset && SEED_DEV_USERS=true SEED_DEMO=true pnpm db:seed`) | **12.4 seconds** | < 60 minutes |
 
 ---
 
@@ -40,7 +40,7 @@ pnpm db:rollback
 
 ### 2.2 Runner Implementation & Migration Marker Architecture
 > **Architectural Report on Migration Down-Path Runner**:
-> In `apps/api/src/db/migrate.ts`, the migration runner uses the `splitSections()` function with the following regular expressions:
+> In `apps/api/src/db/migrationFiles.ts` (driven by `runner.ts`; `migrate.ts` is the CLI shim), the migration runner uses the `splitSections()` function with the following regular expressions:
 > ```ts
 > const UP_MARKER = /^[^\S\r\n]*--[^\S\r\n]*\+migrate[^\S\r\n]+Up[^\S\r\n]*$/im;
 > const DOWN_MARKER = /^[^\S\r\n]*--[^\S\r\n]*\+migrate[^\S\r\n]+Down[^\S\r\n]*$/im;
@@ -116,6 +116,6 @@ If a physical stock count variance is approved (`BR-37b`):
 In the event of database corruption or unrecoverable testing state in a non-production environment:
 ```bash
 # Total reset and fresh demo dataset initialization in under 15 seconds
-pnpm db:reset && SEED_DEMO=true pnpm db:seed
+pnpm db:reset && SEED_DEV_USERS=true SEED_DEMO=true pnpm db:seed
 ```
 This restores all reference warehouses, RBAC grants, test users, and the 12-farmer/25-listing demo dataset.

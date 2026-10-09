@@ -2,7 +2,9 @@
 // =============================================================================
 // 004_demo.js — Demo dataset for client walkthroughs & Track 1 validation
 //
-// GATED: Only runs when SEED_DEMO=true. Never loads in production.
+// GATED: Only runs when SEED_DEMO=true (and, through `pnpm db:seed`, only when
+// SEED_DEV_USERS=true too — see SEED_KINDS in apps/api/src/db/runner.ts).
+// Refuses to run when NODE_ENV=production even if invoked directly.
 // IDEMPOTENT: Uses deterministic UUIDs and ON CONFLICT handling so re-running
 // does not duplicate records.
 // =============================================================================
@@ -12,6 +14,11 @@ import pg from 'pg';
 if (process.env.SEED_DEMO !== 'true') {
   console.log('SEED_DEMO is not "true" — skipping demo dataset seed.');
   process.exit(0);
+}
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Refusing to seed the demo dataset when NODE_ENV=production.');
+  process.exit(1);
 }
 
 const DATABASE_URL = process.env.DATABASE_URL;

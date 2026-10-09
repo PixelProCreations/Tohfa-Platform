@@ -9,20 +9,53 @@ customer ordering, wallets and farmer payouts.
 
 - Node 20.11+ (see `engines`)
 - pnpm 9 (`corepack enable && corepack prepare pnpm@9 --activate`)
-- Docker + Docker Compose (Postgres 16 + PostGIS, Redis 7)
+- Docker + Docker Compose: **required for Redis** (the `redis` service in
+  `docker-compose.yml`; `pnpm dev` starts it). Docker is **optional for
+  Postgres** when `DATABASE_URL` points at the shared Dev database.
+- A PostgreSQL 16 database with the PostGIS, pgcrypto and btree_gist
+  extensions, reachable through `DATABASE_URL`: either the shared Dev database
+  (Supabase) or the local container from `pnpm infra:up`.
 
 ## Quick start
 
+### A. Shared Dev database (Supabase)
+
 ```bash
-cp .env.example .env
+cp .env.example .env   # then set DATABASE_URL (+ DATABASE_SSL) to the shared Dev values
 pnpm i
-docker compose up -d
-pnpm db:reset          # rollback --all + migrate + seed
-pnpm dev               # API on :3000, admin web on :4200
+pnpm dev               # starts the Redis container, then API on :3000 and admin web on :4200
 ```
+
+Do **not** run `db:migrate`, `db:rollback`, `db:reset` or `db:seed` against the
+shared database from a feature branch: only code merged into Dev migrates it.
+See [`docs/dev-database.md`](docs/dev-database.md).
+
+### B. Fully local (Docker Postgres + Redis)
+
+```bash
+cp .env.example .env   # defaults already point at the local containers
+pnpm i
+pnpm infra:up          # docker compose up -d --wait postgres redis
+pnpm db:reset          # rollback --all + migrate + seed (reference data + permissions)
+pnpm dev
+```
+
+`pnpm infra:down` stops the containers (data volumes are kept).
+
+`pnpm db:seed` loads reference data and permissions only (`db/seed/001`,
+`002`). There are currently no seeded users: the old dev-user/demo seeds are
+retired and a fresh seed will be written. Tests that log in as seeded admins
+need those users (see `docs/dev-database.md`).
+
+Redis: the app expects `REDIS_URL=redis://localhost:6379`. The compose Redis
+runs with append-only persistence; BullMQ also wants
+`maxmemory-policy noeviction`, which the compose file does not set (see
+`docs/dev-database.md`).
 
 Other entry points: `pnpm dev:worker` (BullMQ worker), `pnpm test`,
 `pnpm typecheck`, `pnpm lint`, `pnpm spec:lint`, `pnpm rbac:check`.
+Tests commit rows: run them only against a throwaway database, never the shared
+one.
 
 ## Folder map
 
@@ -38,7 +71,7 @@ packages/
   design-tokens/    Brand colours, type scale, spacing. Single source of truth.
 db/
   migrations/       Numbered .sql files, applied in order by `pnpm db:migrate`.
-  seed/             Reference + demo data.
+  seed/             Reference data + permissions (001, 002).
 docs/
   openapi.yaml      API contract. Lint with `pnpm spec:lint`.
   rbac.json         Authorization ground truth. Loaded at runtime by the API.
@@ -61,5 +94,6 @@ scripts/
 ## Further reading
 
 - `docs/` — OpenAPI contract, RBAC matrix, business rules.
-- `AI_BUILD_MANUAL.md` — the build order, story IDs and conventions that every
-  agent (human or otherwise) must follow when adding to this repo.
+- `CLAUDE.md` and `apps/*/CLAUDE.md` — the conventions every contributor (human or
+  agent) must follow when adding to this repo.
+- `docs/dev-database.md` — how the shared Dev database is used and who may migrate it.
