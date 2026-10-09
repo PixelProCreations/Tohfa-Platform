@@ -12,6 +12,8 @@ import type {
   CalendarQuery,
   CalendarResponse,
   CreatePlatformEventBody,
+  ListPlatformEventsQuery,
+  ListPlatformEventsResponse,
   PlatformEventResponse,
   UpdatePlatformEventBody,
 } from './calendar.schema.js';
@@ -31,9 +33,18 @@ function ownFarmerId(scope: ResolvedScope): string {
   return scope.farmerId;
 }
 
+function failValidation(errors: Record<string, string[]>): never {
+  throw new AppError('VALIDATION_FAILED', {
+    detail: 'One or more fields are invalid.',
+    errors,
+  });
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 export interface CalendarService {
   getFarmerCalendar(scope: ResolvedScope, query: CalendarQuery): Promise<CalendarResponse>;
-  listPlatformEvents(scope: ResolvedScope): Promise<PlatformEventResponse[]>;
+  listPlatformEvents(scope: ResolvedScope, query: ListPlatformEventsQuery): Promise<ListPlatformEventsResponse>;
   getPlatformEvent(scope: ResolvedScope, id: string): Promise<PlatformEventResponse>;
   createPlatformEvent(scope: ResolvedScope, body: CreatePlatformEventBody): Promise<PlatformEventResponse>;
   updatePlatformEvent(scope: ResolvedScope, id: string, body: UpdatePlatformEventBody): Promise<PlatformEventResponse>;
@@ -50,6 +61,17 @@ export function createCalendarService(deps: CalendarServiceDeps = {
   return {
     async getFarmerCalendar(scope, query) {
       const farmerId = ownFarmerId(scope);
+
+      // BR-58a: both are real dates (schema), so the subtraction is exact.
+      const maxRangeDays = await repo.getCalendarMaxRangeDays(db);
+      const spanDays =
+        (new Date(`${query.to}T00:00:00Z`).getTime() - new Date(`${query.from}T00:00:00Z`).getTime()) /
+        MS_PER_DAY;
+      if (spanDays > maxRangeDays) {
+        failValidation({
+          'query.to': [`Date range cannot exceed ${maxRangeDays} days.`],
+        });
+      }
 
       const [platformEvents, audits, certificates, cropHarvests] = await Promise.all([
         repo.listPlatformEventsForFarmer(db, query.from, query.to),
@@ -97,7 +119,7 @@ export function createCalendarService(deps: CalendarServiceDeps = {
         items.push({
           id: `cert-${cert.id}`,
           category: 'CERTIFICATE_EXPIRY' as CalendarItemCategory,
-          title: `Certificate Expiry: ${cert.certType}`,
+          title: `Certificate Expiry: ${cert.customTypeName ?? cert.certType}`,
           description: `Certification ${cert.certNumber ? `(${cert.certNumber}) ` : ''}expires`,
           date: cert.expiresOn,
           metadata: {
@@ -132,8 +154,9 @@ export function createCalendarService(deps: CalendarServiceDeps = {
       };
     },
 
-    async listPlatformEvents(_scope) {
-      return repo.listAllPlatformEvents(db);
+    async listPlatformEvents(_scope, query) {
+      const { rows, total } = await repo.listAllPlatformEvents(db, query);
+      return { items: rows, total, page: query.page, limit: query.limit };
     },
 
     async getPlatformEvent(_scope, id) {
@@ -150,7 +173,7 @@ export function createCalendarService(deps: CalendarServiceDeps = {
 
         await writeAuditLog(tx, {
           actorId: scope.userId,
-          actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+          actorRole: scope.roleCode,
           actionCode: 'platform_event.create',
           entityType: 'platform_event',
           entityId: created.id,
@@ -168,6 +191,16 @@ export function createCalendarService(deps: CalendarServiceDeps = {
           throw new AppError('NOT_FOUND', { detail: `Platform event with id "${id}" not found.` });
         }
 
+        // A patch that moves only one of the two times is checked against the
+        // stored other one; both-in-patch is already checked by the schema.
+        if ('startTime' in body || 'endTime' in body) {
+          const startTime = 'startTime' in body ? body.startTime : before.startTime;
+          const endTime = 'endTime' in body ? body.endTime : before.endTime;
+          if (startTime != null && endTime != null && endTime <= startTime) {
+            failValidation({ 'body.endTime': ['endTime must be later than startTime'] });
+          }
+        }
+
         const updated = await repo.updatePlatformEvent(tx, id, body);
         if (!updated) {
           throw new AppError('NOT_FOUND', { detail: `Platform event with id "${id}" not found.` });
@@ -175,7 +208,7 @@ export function createCalendarService(deps: CalendarServiceDeps = {
 
         await writeAuditLog(tx, {
           actorId: scope.userId,
-          actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+          actorRole: scope.roleCode,
           actionCode: 'platform_event.update',
           entityType: 'platform_event',
           entityId: id,
@@ -202,7 +235,7 @@ export function createCalendarService(deps: CalendarServiceDeps = {
 
         await writeAuditLog(tx, {
           actorId: scope.userId,
-          actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+          actorRole: scope.roleCode,
           actionCode: 'platform_event.delete',
           entityType: 'platform_event',
           entityId: id,

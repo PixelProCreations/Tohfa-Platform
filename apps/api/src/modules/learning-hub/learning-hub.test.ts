@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
-import type { Executor } from '../../db/pool.js';
-import { AppError } from '../../http/problem.js';
+import { createApp } from '../../app.js';
+import { signAccessToken } from '../../auth/jwt.js';
+import { pool, type Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { aScope, IDS, newId } from '../../test/factories.js';
+import { loadRbac } from '../../rbac/loadRbac.js';
+import { aScope, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import type {
   ArticleRow,
+  ArticleSummaryRow,
   EnrollmentRow,
   GroupRow,
   LearningHubRepo,
@@ -13,14 +17,21 @@ import type {
   TrainingRow,
   VideoRow,
 } from './learning-hub.repo.js';
-import { createLearningHubService } from './learning-hub.service.js';
+import { createLearningHubService, learningHubService } from './learning-hub.service.js';
 
 const FARMER_A = IDS.farmer;
 const FARMER_B = '30000000-0000-4000-8000-000000000002';
 
-function farmerScope(farmerId: string, permission = 'farmer.learning.view'): ResolvedScope {
+/** The level docs/rbac.json really grants a FARMER for `permission` (own for participate_own). */
+function farmerGrant(permission: string): Exclude<ScopeLevel, 'none'> {
+  const level = loadRbac().permission(permission).grants[RoleCode.FARMER];
+  if (level === undefined || level === ScopeLevel.NONE) throw new Error(`FARMER has no grant for ${permission}`);
+  return level;
+}
+
+function farmerScope(farmerId: string, permission = 'farmer.learning.participate_own'): ResolvedScope {
   return aScope({
-    level: ScopeLevel.ALL,
+    level: farmerGrant(permission),
     farmerId,
     userId: newId(),
     roleCode: RoleCode.FARMER,
@@ -56,7 +67,8 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       if (tag) list = list.filter((a) => a.tag === tag);
       const total = list.length;
       const offset = (page - 1) * limit;
-      return { rows: list.slice(offset, offset + limit), total };
+      const rows = list.slice(offset, offset + limit).map(({ content: _content, ...summary }): ArticleSummaryRow => summary);
+      return { rows, total };
     },
 
     async findArticleById(_db, id, publishedOnly = true) {
@@ -236,16 +248,17 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       return Array.from(state.enrollments.values()).filter((e) => e.training_id === trainingId).length;
     },
 
-    async isFarmerEnrolled(_db, trainingId, farmerId) {
-      return Array.from(state.enrollments.values()).some(
-        (e) => e.training_id === trainingId && e.farmer_id === farmerId,
-      );
+    async lockTraining(_db, trainingId) {
+      const t = state.trainings.get(trainingId);
+      return t ? { id: t.id, capacity: t.capacity, is_published: t.is_published } : null;
+    },
+
+    async findEnrollment(_db, trainingId, farmerId) {
+      return state.enrollments.get(`${trainingId}:${farmerId}`) ?? null;
     },
 
     async enrollFarmerInTraining(_db, trainingId, farmerId) {
       const key = `${trainingId}:${farmerId}`;
-      const existing = state.enrollments.get(key);
-      if (existing) return existing;
       const row: EnrollmentRow = {
         id: newId(),
         training_id: trainingId,
@@ -320,16 +333,10 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       return state.groups.delete(id);
     },
 
-    async isFarmerInGroup(_db, groupId, farmerId) {
-      return Array.from(state.memberships.values()).some(
-        (m) => m.group_id === groupId && m.farmer_id === farmerId,
-      );
-    },
-
     async joinGroup(_db, groupId, farmerId) {
       const key = `${groupId}:${farmerId}`;
       const existing = state.memberships.get(key);
-      if (existing) return existing;
+      if (existing) return { membership: existing, created: false };
       const row: MembershipRow = {
         id: newId(),
         group_id: groupId,
@@ -337,7 +344,7 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
         joined_at: new Date().toISOString(),
       };
       state.memberships.set(key, row);
-      return row;
+      return { membership: row, created: true };
     },
 
     async leaveGroup(_db, groupId, farmerId) {
@@ -358,17 +365,10 @@ function createTestContext() {
     auditLogs: [],
   };
   const repo = createFakeRepo(state);
+  // Everything the service sends straight to the executor is an audit INSERT:
+  // all other SQL lives in the repo, which is faked above.
   const fakeTx: Executor = {
-    query: async (sql: string, params?: unknown[]) => {
-      // Row lock mock for training capacity
-      if (sql.includes('SELECT id, capacity, is_published FROM learning_trainings')) {
-        const trainingId = params?.[0] as string;
-        const t = state.trainings.get(trainingId);
-        return {
-          rows: t ? [{ id: t.id, capacity: t.capacity, is_published: t.is_published }] : [],
-          rowCount: t ? 1 : 0,
-        } as never;
-      }
+    query: async (_sql: string, params?: unknown[]) => {
       state.auditLogs.push(params ?? []);
       return { rows: [{ id: newId() }], rowCount: 1 } as never;
     },
@@ -383,11 +383,26 @@ function createTestContext() {
   return { state, repo, service, audits: state.auditLogs };
 }
 
+const NOT_FOUND = { status: 404, code: 'NOT_FOUND' };
+
+const baseTraining = {
+  title: 'Terrace Drip Workshop',
+  description: 'Hands on maintenance',
+  trainingDate: '2026-10-25',
+  startTime: '10:00 AM',
+  endTime: '01:00 PM',
+  mode: 'IN_FIELD' as const,
+  location: 'Ooty Model Farm',
+  instructor: 'Engineering Team',
+  capacity: 1 as number | null,
+  language: 'en' as const,
+  isPublished: true,
+};
+
 describe('Learning Hub (BR-59)', () => {
-  it('BR-59a allows farmers to browse published articles and videos with language filtering', async () => {
+  it('BR-59a: allows farmers to browse published articles and videos with language filtering', async () => {
     const { service, state } = createTestContext();
 
-    // Populate mock articles
     const artEn = await service.createArticle(adminScope(), {
       title: 'Organic Compost Techniques',
       content: 'Step by step guide to aerated compost...',
@@ -418,68 +433,54 @@ describe('Learning Hub (BR-59)', () => {
       isPublished: false,
     });
 
-    // Farmer lists English articles
     const enArticles = await service.listArticles({ page: 1, limit: 10, language: 'en' });
     expect(enArticles.items).toHaveLength(1);
     expect(enArticles.items[0]?.title).toBe('Organic Compost Techniques');
 
-    // Farmer lists Tamil articles
     const taArticles = await service.listArticles({ page: 1, limit: 10, language: 'ta' });
     expect(taArticles.items).toHaveLength(1);
     expect(taArticles.items[0]?.title).toBe('இயற்கை உரம் தயாரிப்பு');
 
-    // Get article by id
     const fetched = await service.getArticle(artEn.id);
     expect(fetched.content).toBe('Step by step guide to aerated compost...');
 
-    // Unpublished article returns 404
     const draftId = Array.from(state.articles.values()).find((a) => !a.is_published)!.id;
-    await expect(service.getArticle(draftId)).rejects.toThrow(AppError);
+    await expect(service.getArticle(draftId)).rejects.toMatchObject(NOT_FOUND);
+    await expect(service.getArticle(newId())).rejects.toMatchObject(NOT_FOUND);
   });
 
-  it('BR-59b enforces training capacity limits and handles enrollment/unenrollment', async () => {
+  it('BR-59b: enforces training capacity limits and handles enrollment/unenrollment', async () => {
     const { service } = createTestContext();
+    const training = await service.createTraining(adminScope(), baseTraining);
 
-    // Create a training workshop with capacity 1
-    const training = await service.createTraining(adminScope(), {
-      title: 'Terrace Drip Workshop',
-      description: 'Hands on maintenance',
-      trainingDate: '2026-10-25',
-      startTime: '10:00 AM',
-      endTime: '01:00 PM',
-      mode: 'IN_FIELD',
-      location: 'Ooty Model Farm',
-      instructor: 'Engineering Team',
-      capacity: 1,
-      language: 'en',
-      isPublished: true,
-    });
+    const scopeFarmerA = farmerScope(FARMER_A);
+    const scopeFarmerB = farmerScope(FARMER_B);
 
-    const scopeFarmerA = farmerScope(FARMER_A, 'farmer.learning.participate_own');
-    const scopeFarmerB = farmerScope(FARMER_B, 'farmer.learning.participate_own');
-
-    // Farmer A enrolls successfully
     const enrA = await service.enrollTraining(scopeFarmerA, training.id);
     expect(enrA.trainingId).toBe(training.id);
     expect(enrA.farmerId).toBe(FARMER_A);
 
-    // Farmer B attempts to enroll -> capacity 1 is full, throws 409 TRAINING_FULL
-    await expect(service.enrollTraining(scopeFarmerB, training.id)).rejects.toThrow(
-      expect.objectContaining({
-        status: 409,
-        code: 'TRAINING_FULL',
-      }),
-    );
+    await expect(service.enrollTraining(scopeFarmerB, training.id)).rejects.toMatchObject({
+      status: 409,
+      code: 'TRAINING_FULL',
+    });
 
-    // Farmer A unenrolls
     await service.unenrollTraining(scopeFarmerA, training.id);
 
-    // Now Farmer B can enroll successfully
     const enrB = await service.enrollTraining(scopeFarmerB, training.id);
     expect(enrB.farmerId).toBe(FARMER_B);
   });
 
-  it('BR-59c allows joining and leaving community groups', async () => {
+  it('BR-59b: enrolling in an unpublished or unknown training is 404 NOT_FOUND', async () => {
+    const { service, state } = createTestContext();
+    const draft = await service.createTraining(adminScope(), { ...baseTraining, isPublished: false });
+    expect(state.trainings.get(draft.id)?.is_published).toBe(false);
+
+    await expect(service.enrollTraining(farmerScope(FARMER_A), draft.id)).rejects.toMatchObject(NOT_FOUND);
+    await expect(service.enrollTraining(farmerScope(FARMER_A), newId())).rejects.toMatchObject(NOT_FOUND);
+  });
+
+  it('BR-59c: allows joining and leaving community groups', async () => {
     const { service } = createTestContext();
 
     const group = await service.createGroup(adminScope(), {
@@ -488,32 +489,29 @@ describe('Learning Hub (BR-59)', () => {
       category: 'Root Vegetables',
     });
 
-    const scope = farmerScope(FARMER_A, 'farmer.learning.participate_own');
+    const scope = farmerScope(FARMER_A);
 
-    // Farmer joins group
     const joined = await service.joinGroup(scope, group.id);
     expect(joined.groupId).toBe(group.id);
     expect(joined.farmerId).toBe(FARMER_A);
 
-    // List groups shows isJoined = true, memberCount = 1
     const listAfterJoin = await service.listGroups({ page: 1, limit: 10 }, FARMER_A);
     expect(listAfterJoin.items[0]?.isJoined).toBe(true);
     expect(listAfterJoin.items[0]?.memberCount).toBe(1);
 
-    // Farmer leaves group
     await service.leaveGroup(scope, group.id);
 
-    // List groups shows isJoined = false, memberCount = 0
     const listAfterLeave = await service.listGroups({ page: 1, limit: 10 }, FARMER_A);
     expect(listAfterLeave.items[0]?.isJoined).toBe(false);
     expect(listAfterLeave.items[0]?.memberCount).toBe(0);
+
+    await expect(service.joinGroup(scope, newId())).rejects.toMatchObject(NOT_FOUND);
   });
 
-  it('BR-59d admin content mutations write audit logs', async () => {
+  it('BR-59d: admin content mutations write audit logs', async () => {
     const { service, audits } = createTestContext();
     const admin = adminScope();
 
-    // 1. Create Article
     const art = await service.createArticle(admin, {
       title: 'Neem Oil Spray Dilution',
       content: 'Correct ratio for pest control',
@@ -525,16 +523,14 @@ describe('Learning Hub (BR-59)', () => {
     });
     expect(audits.some((a) => a.includes('learning.article.create'))).toBe(true);
 
-    // 2. Update Article
     await service.updateArticle(admin, art.id, { title: 'Neem Oil Spray - Updated' });
     expect(audits.some((a) => a.includes('learning.article.update'))).toBe(true);
 
-    // 3. Delete Article
     await service.deleteArticle(admin, art.id);
     expect(audits.some((a) => a.includes('learning.article.delete'))).toBe(true);
   });
 
-  it('BR-59e non-farmer actors cannot enroll in trainings or join groups', async () => {
+  it('BR-59e: non-farmer actors cannot enroll in trainings or join groups', async () => {
     const { service } = createTestContext();
     const nonFarmerScope = aScope({
       level: ScopeLevel.ALL,
@@ -543,12 +539,334 @@ describe('Learning Hub (BR-59)', () => {
       permission: 'farmer.learning.participate_own',
     });
 
-    await expect(service.enrollTraining(nonFarmerScope, newId())).rejects.toThrow(
-      expect.objectContaining({ status: 403 }),
-    );
+    await expect(service.enrollTraining(nonFarmerScope, newId())).rejects.toMatchObject({ status: 403 });
+    await expect(service.joinGroup(nonFarmerScope, newId())).rejects.toMatchObject({ status: 403 });
+  });
 
-    await expect(service.joinGroup(nonFarmerScope, newId())).rejects.toThrow(
-      expect.objectContaining({ status: 403 }),
+  it('BR-59f: the article list returns the snippet and never the full content', async () => {
+    const { service } = createTestContext();
+    await service.createArticle(adminScope(), {
+      title: 'Mulching',
+      content: 'LONG BODY '.repeat(50),
+      snippet: 'Short teaser',
+      readTime: '2 min read',
+      author: 'Dr. Anand',
+      tag: 'Soil Health',
+      language: 'en',
+      isPublished: true,
+    });
+
+    const list = await service.listArticles({ page: 1, limit: 10 });
+    expect(list.items[0]).toMatchObject({ title: 'Mulching', snippet: 'Short teaser' });
+    expect(list.items[0]).not.toHaveProperty('content');
+  });
+
+  it('BR-59h: lowering capacity below the enrolled count is refused with 409; equal is allowed', async () => {
+    const { service } = createTestContext();
+    const admin = adminScope();
+    const training = await service.createTraining(admin, { ...baseTraining, capacity: 3 });
+    await service.enrollTraining(farmerScope(FARMER_A), training.id);
+    await service.enrollTraining(farmerScope(FARMER_B), training.id);
+
+    await expect(service.updateTraining(admin, training.id, { capacity: 1 })).rejects.toMatchObject({
+      status: 409,
+      code: 'CONFLICT',
+    });
+    await expect(service.updateTraining(admin, newId(), { capacity: 1 })).rejects.toMatchObject(NOT_FOUND);
+
+    const same = await service.updateTraining(admin, training.id, { capacity: 2 });
+    expect(same.capacity).toBe(2);
+    const unlimited = await service.updateTraining(admin, training.id, { capacity: null });
+    expect(unlimited.capacity).toBeNull();
+  });
+
+  it('BR-59i: replaying enroll, join, unenroll and leave writes no extra audit row', async () => {
+    const { service, audits } = createTestContext();
+    const admin = adminScope();
+    const training = await service.createTraining(admin, { ...baseTraining, capacity: 5 });
+    const group = await service.createGroup(admin, { name: 'Tea Growers', category: 'Tea' });
+    const farmer = farmerScope(FARMER_A);
+    const count = (code: string): number => audits.filter((a) => a.includes(code)).length;
+
+    const first = await service.enrollTraining(farmer, training.id);
+    const replay = await service.enrollTraining(farmer, training.id);
+    expect(replay).toEqual(first);
+    expect(count('learning.training.enroll')).toBe(1);
+
+    const joined = await service.joinGroup(farmer, group.id);
+    expect(await service.joinGroup(farmer, group.id)).toEqual(joined);
+    expect(count('learning.group.join')).toBe(1);
+
+    await service.unenrollTraining(farmer, training.id);
+    await service.unenrollTraining(farmer, training.id);
+    expect(count('learning.training.unenroll')).toBe(1);
+
+    await service.leaveGroup(farmer, group.id);
+    await service.leaveGroup(farmer, group.id);
+    expect(count('learning.group.leave')).toBe(1);
+  });
+
+  it('BR-59i: a replayed enroll on a FULL training still returns the existing enrollment', async () => {
+    const { service } = createTestContext();
+    const training = await service.createTraining(adminScope(), baseTraining);
+    const farmer = farmerScope(FARMER_A);
+    const first = await service.enrollTraining(farmer, training.id);
+    await expect(service.enrollTraining(farmer, training.id)).resolves.toEqual(first);
+  });
+});
+
+// ── Request validation (real routes, no database) ────────────────────────────
+describe('Learning Hub request validation (BR-59j)', () => {
+  const app = createApp();
+  const admin = signAccessToken({
+    sub: IDS.userSuperAdmin,
+    roles: [{ code: 'SUPER_ADMIN' }] as never,
+    farmerId: null,
+    customerId: null,
+  });
+  const id = newId();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const validVideo = { title: 'Drip', videoUrl: 'https://youtu.be/abc', duration: '4:30', author: 'Anand' };
+
+  it.each(['javascript:alert(1)', 'file:///etc/passwd', 'http://example.com/v.mp4', 'data:text/html,<b>x</b>', 'not a url'])(
+    'BR-59j: videoUrl %s is rejected with 422 on create and update',
+    async (videoUrl) => {
+      const create = vi.spyOn(learningHubService, 'createVideo');
+      const update = vi.spyOn(learningHubService, 'updateVideo');
+
+      const created = await request(app)
+        .post('/v1/admin/learning/videos')
+        .set('Authorization', `Bearer ${admin}`)
+        .send({ ...validVideo, videoUrl });
+      expect(created.status).toBe(422);
+      expect(created.body.code).toBe('VALIDATION_FAILED');
+
+      const updated = await request(app)
+        .patch(`/v1/admin/learning/videos/${id}`)
+        .set('Authorization', `Bearer ${admin}`)
+        .send({ videoUrl });
+      expect(updated.status).toBe(422);
+
+      expect(create).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('BR-59j: an https videoUrl reaches the service', async () => {
+    const create = vi.spyOn(learningHubService, 'createVideo').mockResolvedValue({ id } as never);
+    const res = await request(app)
+      .post('/v1/admin/learning/videos')
+      .set('Authorization', `Bearer ${admin}`)
+      .send(validVideo);
+    expect(res.status).toBe(201);
+    expect(create).toHaveBeenCalledOnce();
+  });
+
+  it.each(['2026-02-30', '2026-13-01', '2026-1-5', '25-10-2026'])(
+    'BR-59j: trainingDate %s is rejected with 422 on create and update',
+    async (trainingDate) => {
+      const created = await request(app)
+        .post('/v1/admin/learning/trainings')
+        .set('Authorization', `Bearer ${admin}`)
+        .send({ ...baseTraining, trainingDate });
+      expect(created.status).toBe(422);
+      const updated = await request(app)
+        .patch(`/v1/admin/learning/trainings/${id}`)
+        .set('Authorization', `Bearer ${admin}`)
+        .send({ trainingDate });
+      expect(updated.status).toBe(422);
+    },
+  );
+
+  it('BR-59j: over-long free text is rejected with 422 on every create route', async () => {
+    const post = (path: string, body: object) =>
+      request(app).post(path).set('Authorization', `Bearer ${admin}`).send(body);
+    const article = { title: 'T', content: 'C', readTime: '1 min', author: 'A', tag: 'G' };
+
+    expect((await post('/v1/admin/learning/articles', { ...article, title: 'x'.repeat(201) })).status).toBe(422);
+    expect((await post('/v1/admin/learning/articles', { ...article, content: 'x'.repeat(20_001) })).status).toBe(422);
+    expect((await post('/v1/admin/learning/articles', { ...article, snippet: 'x'.repeat(301) })).status).toBe(422);
+    expect((await post('/v1/admin/learning/videos', { ...validVideo, description: 'x'.repeat(2001) })).status).toBe(422);
+    expect(
+      (await post('/v1/admin/learning/videos', { ...validVideo, videoUrl: `https://a.example/${'x'.repeat(2048)}` })).status,
+    ).toBe(422);
+    expect((await post('/v1/admin/learning/trainings', { ...baseTraining, location: 'x'.repeat(201) })).status).toBe(422);
+    expect((await post('/v1/admin/learning/trainings', { ...baseTraining, capacity: 2_147_483_648 })).status).toBe(422);
+    expect((await post('/v1/admin/learning/groups', { name: 'x'.repeat(121), category: 'c' })).status).toBe(422);
+    expect((await post('/v1/admin/learning/groups', { name: 'n', category: 'x'.repeat(81) })).status).toBe(422);
+  });
+});
+
+// ── Real PostgreSQL ──────────────────────────────────────────────────────────
+describeIfDatabase('Learning Hub (integration, real SQL)', () => {
+  let ready = false;
+  const ts = Date.now();
+  const service = learningHubService;
+  const userIds: string[] = [];
+  const farmerIds: string[] = [];
+  const articleIds: string[] = [];
+  const trainingIds: string[] = [];
+  const groupIds: string[] = [];
+  let admin: ResolvedScope;
+  let farmers: ResolvedScope[] = [];
+
+  beforeAll(async () => {
+    ready = await databaseReady('learning_trainings');
+    if (!ready) return;
+    const adminUser = newId();
+    userIds.push(adminUser);
+    await pool.query(
+      `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'LH Admin', 'ADMIN', 'ACTIVE')`,
+      [adminUser, `+9175${String(ts).slice(-8)}`],
     );
+    admin = aScope({
+      level: ScopeLevel.ALL,
+      permission: 'learning.admin.manage',
+      roleCode: RoleCode.SUPER_ADMIN,
+      userId: adminUser,
+    });
+    for (let i = 0; i < 3; i += 1) {
+      const userId = newId();
+      userIds.push(userId);
+      await pool.query(
+        `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, $3, 'FARMER', 'ACTIVE')`,
+        [userId, `+9174${String(ts).slice(-7)}${i}`, `LH Farmer ${i}`],
+      );
+      const farmerId = (
+        await pool.query<{ id: string }>(
+          `INSERT INTO farmers (user_id, tohfa_farmer_id, application_status, approved_by, approved_at)
+           VALUES ($1, $2, 'APPROVED', $3, now()) RETURNING id`,
+          [userId, `TF-LH-${i}-${ts}`, adminUser],
+        )
+      ).rows[0]!.id;
+      farmerIds.push(farmerId);
+      farmers.push({
+        ...farmerScope(farmerId),
+        userId,
+      });
+    }
+  });
+
+  afterAll(async () => {
+    if (!ready) return;
+    // Enrolments/memberships cascade. Users stay: audit_log.actor_id references them
+    // and audit_log is append-only.
+    await pool.query(`DELETE FROM learning_articles WHERE id = ANY($1::uuid[])`, [articleIds]);
+    await pool.query(`DELETE FROM learning_trainings WHERE id = ANY($1::uuid[])`, [trainingIds]);
+    await pool.query(`DELETE FROM learning_groups WHERE id = ANY($1::uuid[])`, [groupIds]);
+    await pool.query(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, [farmerIds]);
+    farmers = [];
+    const { closePool } = await import('../../db/pool.js');
+    await closePool();
+  });
+
+  const makeTraining = async (overrides: Partial<typeof baseTraining> = {}) => {
+    const t = await service.createTraining(admin, { ...baseTraining, ...overrides });
+    trainingIds.push(t.id);
+    return t;
+  };
+
+  it('BR-59g: two farmers racing for the last seat -> exactly one 200, the other 409 TRAINING_FULL, never a 500', async () => {
+    if (!ready) return;
+    for (let trial = 0; trial < 5; trial += 1) {
+      const t = await makeTraining({ capacity: 1 });
+      const results = await Promise.allSettled([
+        service.enrollTraining(farmers[0]!, t.id),
+        service.enrollTraining(farmers[1]!, t.id),
+      ]);
+      const ok = results.filter((r) => r.status === 'fulfilled');
+      const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      expect(ok).toHaveLength(1);
+      expect(failed).toHaveLength(1);
+      expect(failed[0]!.reason).toMatchObject({ status: 409, code: 'TRAINING_FULL' });
+      const { rows } = await pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM learning_training_enrollments WHERE training_id = $1`,
+        [t.id],
+      );
+      expect(rows[0]!.n).toBe(1);
+    }
+  });
+
+  it('BR-59h: lowering capacity below the enrolled count is refused by the real SQL path; equal is allowed', async () => {
+    if (!ready) return;
+    const t = await makeTraining({ capacity: 3 });
+    await service.enrollTraining(farmers[0]!, t.id);
+    await service.enrollTraining(farmers[1]!, t.id);
+    await expect(service.updateTraining(admin, t.id, { capacity: 1 })).rejects.toMatchObject({ status: 409 });
+    const ok = await service.updateTraining(admin, t.id, { capacity: 2 });
+    expect(ok).toMatchObject({ capacity: 2, enrolledCount: 2 });
+  });
+
+  it('BR-59i: replaying enroll twice writes exactly one audit row; replaying unenroll twice writes one', async () => {
+    if (!ready) return;
+    const t = await makeTraining({ capacity: 5 });
+    const farmer = farmers[2]!;
+    const first = await service.enrollTraining(farmer, t.id);
+    const second = await service.enrollTraining(farmer, t.id);
+    expect(second).toEqual(first);
+
+    const auditCount = async (action: string): Promise<number> =>
+      (
+        await pool.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM audit_log
+            WHERE action_code = $1 AND actor_id = $2
+              AND COALESCE(after->>'training_id', before->>'trainingId') = $3`,
+          [action, farmer.userId, t.id],
+        )
+      ).rows[0]!.n;
+    expect(await auditCount('learning.training.enroll')).toBe(1);
+
+    await service.unenrollTraining(farmer, t.id);
+    await service.unenrollTraining(farmer, t.id);
+    expect(await auditCount('learning.training.unenroll')).toBe(1);
+  });
+
+  it('BR-59k: unpublished articles and trainings are invisible to farmers (404 / absent) via the real SQL', async () => {
+    if (!ready) return;
+    const article = await service.createArticle(admin, {
+      title: `LH hidden ${ts}`,
+      content: 'draft body',
+      readTime: '1 min',
+      author: 'Editor',
+      tag: `hidden-${ts}`,
+      language: 'en',
+      isPublished: false,
+    });
+    articleIds.push(article.id);
+    const training = await makeTraining({ isPublished: false, capacity: null });
+
+    await expect(service.getArticle(article.id)).rejects.toMatchObject(NOT_FOUND);
+    const list = await service.listArticles({ page: 1, limit: 100, tag: `hidden-${ts}` });
+    expect(list.items).toEqual([]);
+    expect(list.total).toBe(0);
+
+    await expect(service.enrollTraining(farmers[0]!, training.id)).rejects.toMatchObject(NOT_FOUND);
+    const trainings = await service.listTrainings({ page: 1, limit: 100 }, farmerIds[0]);
+    expect(trainings.items.some((i) => i.id === training.id)).toBe(false);
+
+    await service.updateArticle(admin, article.id, { isPublished: true });
+    const published = await service.listArticles({ page: 1, limit: 100, tag: `hidden-${ts}` });
+    expect(published.items).toHaveLength(1);
+    expect(published.items[0]).not.toHaveProperty('content');
+    expect((await service.getArticle(article.id)).content).toBe('draft body');
+  });
+
+  it('BR-59i: a replayed join writes one audit row and keeps one membership', async () => {
+    if (!ready) return;
+    const group = await service.createGroup(admin, { name: `LH group ${ts}`, category: 'Tea' });
+    groupIds.push(group.id);
+    const farmer = farmers[0]!;
+    const a = await service.joinGroup(farmer, group.id);
+    const b = await service.joinGroup(farmer, group.id);
+    expect(b).toEqual(a);
+    const audits = await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_log WHERE action_code = 'learning.group.join' AND after->>'group_id' = $1`,
+      [group.id],
+    );
+    expect(audits.rows[0]!.n).toBe(1);
   });
 });

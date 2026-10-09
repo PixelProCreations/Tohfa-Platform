@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { isCalendarDate } from '../certifications/certifications.schema.js';
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date in YYYY-MM-DD format');
+// A real calendar date: the regex alone let 2026-02-30 through to Postgres, which answered 500.
+const isoDate = z.string().refine(isCalendarDate, { message: 'Must be a real calendar date in YYYY-MM-DD format' });
 
 export const treePlantingIdParams = z
   .object({
@@ -14,7 +16,7 @@ export const createTreePlantingBody = z
     farmId: z.string().uuid('farmId must be a UUID').optional(),
     plotId: z.string().uuid('plotId must be a UUID').optional(),
     speciesName: z.string().trim().min(1, 'speciesName is required').max(200),
-    treeCount: z.number().int('treeCount must be an integer').min(1, 'treeCount must be greater than 0'),
+    treeCount: z.number().int('treeCount must be an integer').min(1, 'treeCount must be greater than 0').max(2147483647, 'treeCount must be at most 2147483647'),
     plantedOn: isoDate.optional(),
     zoneName: z.string().trim().max(200).optional(),
     purpose: z.string().trim().max(500).optional(),
@@ -28,7 +30,7 @@ export const updateTreePlantingBody = z
     farmId: z.string().uuid('farmId must be a UUID').nullable().optional(),
     plotId: z.string().uuid('plotId must be a UUID').nullable().optional(),
     speciesName: z.string().trim().min(1).max(200).optional(),
-    treeCount: z.number().int('treeCount must be an integer').min(1, 'treeCount must be greater than 0').optional(),
+    treeCount: z.number().int('treeCount must be an integer').min(1, 'treeCount must be greater than 0').max(2147483647, 'treeCount must be at most 2147483647').optional(),
     plantedOn: isoDate.nullable().optional(),
     zoneName: z.string().trim().max(200).nullable().optional(),
     purpose: z.string().trim().max(500).nullable().optional(),

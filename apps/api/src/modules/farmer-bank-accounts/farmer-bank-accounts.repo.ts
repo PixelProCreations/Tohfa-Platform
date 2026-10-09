@@ -1,5 +1,4 @@
 import type { Executor } from '../../db/pool.js';
-import type { FarmerBankAccountResponse, FarmerUpiResponse } from './farmer-bank-accounts.schema.js';
 
 export interface BankAccountRow {
   id: string;
@@ -8,7 +7,7 @@ export interface BankAccountRow {
   accountNumberLast4: string | null;
   accountNumberToken: string | null;
   ifsc: string | null;
-  bankName: string;
+  bankName: string | null;
   branchName: string | null;
   upiVpa: string | null;
   isVerified: boolean;
@@ -24,39 +23,59 @@ export interface InsertBankAccountParams {
   farmerId: string;
   accountHolderName: string;
   accountNumberLast4: string;
-  accountNumberToken: string;
   ifsc: string;
   bankName: string;
-  branchName?: string | null | undefined;
-  upiVpa?: string | null | undefined;
-  isDefault?: boolean | undefined;
+  branchName?: string | undefined;
+  isDefault: boolean;
+}
+
+export interface InsertUpiParams {
+  farmerId: string;
+  accountHolderName: string;
+  upiVpa: string;
+  isDefault: boolean;
 }
 
 export interface UpdateBankAccountParams {
   accountHolderName?: string | undefined;
   accountNumberLast4?: string | undefined;
-  accountNumberToken?: string | undefined;
+  /** Only ever NULL: the full number is never stored, so there is nothing to token. */
+  accountNumberToken?: null | undefined;
   ifsc?: string | undefined;
   bankName?: string | undefined;
   branchName?: string | null | undefined;
+  upiVpa?: string | undefined;
   isVerified?: boolean | undefined;
   isDefault?: boolean | undefined;
 }
 
-function mapRow(row: any): FarmerBankAccountResponse {
-  return {
-    id: row.id,
-    accountHolderName: row.account_holder_name,
-    accountNumberLast4: row.account_number_last4,
-    ifsc: row.ifsc,
-    bankName: row.bank_name,
-    branchName: row.branch_name,
-    upiVpa: row.upi_vpa,
-    isVerified: row.is_verified,
-    isDefault: row.is_default,
-    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-  };
-}
+/**
+ * Which kind of payout destination a lookup is for. The table holds both bank
+ * accounts and UPI ids; a UPI row must never be reachable through a bank
+ * endpoint (and vice versa), so every lookup names its kind.
+ */
+export type DestinationKind = 'BANK' | 'UPI' | 'ANY';
+
+/**
+ * Payout statuses that are still in flight. PAID, FAILED and REVERSED are the
+ * settled states: no code path moves a payout out of them, so a destination
+ * referenced only by those may be soft-deleted without disturbing a payout.
+ */
+const IN_FLIGHT_PAYOUT_STATUSES = ['REQUESTED', 'PENDING_APPROVAL', 'APPROVED', 'PROCESSING'];
+
+const ROW_COLUMNS = `
+  id, farmer_id AS "farmerId", account_holder_name AS "accountHolderName",
+  account_number_last4 AS "accountNumberLast4", account_number_token AS "accountNumberToken",
+  ifsc, bank_name AS "bankName", branch_name AS "branchName", upi_vpa AS "upiVpa",
+  is_verified AS "isVerified", verified_by AS "verifiedBy", verified_at AS "verifiedAt",
+  is_default AS "isDefault", created_at AS "createdAt", updated_at AS "updatedAt",
+  deleted_at AS "deletedAt"`;
+
+const KIND_PREDICATE: Record<DestinationKind, string> = {
+  BANK: 'AND account_number_last4 IS NOT NULL AND upi_vpa IS NULL',
+  UPI: 'AND upi_vpa IS NOT NULL',
+  ANY: '',
+};
 
 export const farmerBankAccountsRepo = {
   async findFarmerByUserId(db: Executor, userId: string): Promise<{ id: string } | null> {
@@ -70,61 +89,76 @@ export const farmerBankAccountsRepo = {
     return res.rows[0] ?? null;
   },
 
+  /** The farmer's real name (users.full_name), the same source payouts uses. */
+  async getFarmerName(db: Executor, farmerId: string): Promise<string | null> {
+    const res = await db.query<{ full_name: string }>(
+      `SELECT u.full_name FROM farmers f JOIN users u ON u.id = f.user_id WHERE f.id = $1`,
+      [farmerId],
+    );
+    return res.rows[0]?.full_name ?? null;
+  },
+
+  /**
+   * Serialises every default-flag mutation for one farmer. Without it two
+   * concurrent "make this the default" writes race past clearDefaults and the
+   * loser hits uq_farmer_bank_accounts_default as a 500.
+   */
   async lockFarmer(db: Executor, farmerId: string): Promise<void> {
     await db.query(`SELECT id FROM farmers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [farmerId]);
   },
 
-  async listByFarmerId(db: Executor, farmerId: string): Promise<FarmerBankAccountResponse[]> {
-    const res = await db.query(
-      `SELECT id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at
+  async listBankAccounts(db: Executor, farmerId: string): Promise<BankAccountRow[]> {
+    const res = await db.query<BankAccountRow>(
+      `SELECT ${ROW_COLUMNS}
        FROM farmer_bank_accounts
-       WHERE farmer_id = $1 AND deleted_at IS NULL
+       WHERE farmer_id = $1 AND deleted_at IS NULL ${KIND_PREDICATE.BANK}
        ORDER BY is_default DESC, created_at DESC`,
       [farmerId],
     );
-    return res.rows.map(mapRow);
+    return res.rows;
   },
 
-  async findById(db: Executor, id: string, forUpdate = false, farmerId?: string): Promise<BankAccountRow | null> {
-    const whereClauses = ['id = $1', 'deleted_at IS NULL'];
-    const params: unknown[] = [id];
-    if (farmerId) {
-      params.push(farmerId);
-      whereClauses.push(`farmer_id = $${params.length}`);
-    }
-
-    const res = await db.query<any>(
-      `SELECT id, farmer_id AS "farmerId", account_holder_name AS "accountHolderName",
-              account_number_last4 AS "accountNumberLast4", account_number_token AS "accountNumberToken",
-              ifsc, bank_name AS "bankName", branch_name AS "branchName", upi_vpa AS "upiVpa",
-              is_verified AS "isVerified", verified_by AS "verifiedBy", verified_at AS "verifiedAt",
-              is_default AS "isDefault", created_at AS "createdAt", updated_at AS "updatedAt",
-              deleted_at AS "deletedAt"
+  async findById(
+    db: Executor,
+    id: string,
+    farmerId: string,
+    kind: DestinationKind,
+    forUpdate = false,
+  ): Promise<BankAccountRow | null> {
+    const res = await db.query<BankAccountRow>(
+      `SELECT ${ROW_COLUMNS}
        FROM farmer_bank_accounts
-       WHERE ${whereClauses.join(' AND ')}
+       WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL ${KIND_PREDICATE[kind]}
        LIMIT 1
        ${forUpdate ? 'FOR UPDATE' : ''}`,
-      params,
+      [id, farmerId],
     );
     return res.rows[0] ?? null;
   },
 
-  async findUpiByFarmerId(db: Executor, farmerId: string): Promise<FarmerUpiResponse | null> {
-    const res = await db.query<any>(
-      `SELECT id, upi_vpa AS "upiVpa", is_verified AS "isVerified", is_default AS "isDefault"
+  async findUpiByFarmerId(db: Executor, farmerId: string): Promise<BankAccountRow | null> {
+    const res = await db.query<BankAccountRow>(
+      `SELECT ${ROW_COLUMNS}
        FROM farmer_bank_accounts
-       WHERE farmer_id = $1 AND upi_vpa IS NOT NULL AND deleted_at IS NULL
+       WHERE farmer_id = $1 AND deleted_at IS NULL ${KIND_PREDICATE.UPI}
        ORDER BY is_default DESC, created_at DESC
        LIMIT 1`,
       [farmerId],
     );
-    if (!res.rows[0]) return null;
-    return {
-      id: res.rows[0].id,
-      upiVpa: res.rows[0].upiVpa,
-      isVerified: res.rows[0].isVerified,
-      isDefault: res.rows[0].isDefault,
-    };
+    return res.rows[0] ?? null;
+  },
+
+  /** The most recently created active destination of either kind, or null. */
+  async findNewestActiveDestination(db: Executor, farmerId: string): Promise<BankAccountRow | null> {
+    const res = await db.query<BankAccountRow>(
+      `SELECT ${ROW_COLUMNS}
+       FROM farmer_bank_accounts
+       WHERE farmer_id = $1 AND deleted_at IS NULL
+       ORDER BY created_at DESC, id DESC
+       LIMIT 1`,
+      [farmerId],
+    );
+    return res.rows[0] ?? null;
   },
 
   async clearDefaults(db: Executor, farmerId: string): Promise<void> {
@@ -136,7 +170,8 @@ export const farmerBankAccountsRepo = {
     );
   },
 
-  async countActiveAccounts(db: Executor, farmerId: string): Promise<number> {
+  /** Active payout destinations of BOTH kinds: a UPI id is a destination too. */
+  async countActiveDestinations(db: Executor, farmerId: string): Promise<number> {
     const res = await db.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count
        FROM farmer_bank_accounts
@@ -146,158 +181,96 @@ export const farmerBankAccountsRepo = {
     return Number(res.rows[0]?.count ?? '0');
   },
 
-  async insert(db: Executor, params: InsertBankAccountParams): Promise<FarmerBankAccountResponse> {
-    const res = await db.query(
+  async insert(db: Executor, params: InsertBankAccountParams): Promise<BankAccountRow> {
+    const res = await db.query<BankAccountRow>(
       `INSERT INTO farmer_bank_accounts
          (farmer_id, account_holder_name, account_number_last4, account_number_token,
-          ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9, now())
-       RETURNING id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at`,
+          ifsc, bank_name, branch_name, is_verified, is_default, created_at)
+       VALUES ($1, $2, $3, NULL, $4, $5, $6, false, $7, now())
+       RETURNING ${ROW_COLUMNS}`,
       [
         params.farmerId,
         params.accountHolderName,
         params.accountNumberLast4,
-        params.accountNumberToken,
         params.ifsc,
         params.bankName,
         params.branchName ?? null,
-        params.upiVpa ?? null,
-        params.isDefault ?? false,
+        params.isDefault,
       ],
     );
-    return mapRow(res.rows[0]);
+    return res.rows[0] as BankAccountRow;
   },
 
-  async upsertUpi(
-    db: Executor,
-    params: { farmerId: string; accountHolderName: string; upiVpa: string; isDefault: boolean },
-  ): Promise<FarmerUpiResponse> {
-    const existing = await this.findUpiByFarmerId(db, params.farmerId);
-    if (existing && existing.id) {
-      const res = await db.query<any>(
-        `UPDATE farmer_bank_accounts
-         SET upi_vpa = $1, is_verified = false, is_default = $2, updated_at = now()
-         WHERE id = $3 AND farmer_id = $4 AND deleted_at IS NULL
-         RETURNING id, upi_vpa AS "upiVpa", is_verified AS "isVerified", is_default AS "isDefault"`,
-        [params.upiVpa, params.isDefault, existing.id, params.farmerId],
-      );
-      return {
-        id: res.rows[0].id,
-        upiVpa: res.rows[0].upiVpa,
-        isVerified: res.rows[0].isVerified,
-        isDefault: res.rows[0].isDefault,
-      };
-    }
-
-    const res = await db.query<any>(
+  /** bank_name stays NULL: a UPI id is not a bank, and we do not make one up. */
+  async insertUpi(db: Executor, params: InsertUpiParams): Promise<BankAccountRow> {
+    const res = await db.query<BankAccountRow>(
       `INSERT INTO farmer_bank_accounts
-         (farmer_id, account_holder_name, upi_vpa, bank_name, is_verified, is_default, created_at)
-       VALUES ($1, $2, $3, 'UPI', false, $4, now())
-       RETURNING id, upi_vpa AS "upiVpa", is_verified AS "isVerified", is_default AS "isDefault"`,
+         (farmer_id, account_holder_name, upi_vpa, is_verified, is_default, created_at)
+       VALUES ($1, $2, $3, false, $4, now())
+       RETURNING ${ROW_COLUMNS}`,
       [params.farmerId, params.accountHolderName, params.upiVpa, params.isDefault],
     );
-    return {
-      id: res.rows[0].id,
-      upiVpa: res.rows[0].upiVpa,
-      isVerified: res.rows[0].isVerified,
-      isDefault: res.rows[0].isDefault,
-    };
+    return res.rows[0] as BankAccountRow;
   },
 
   async update(
     db: Executor,
     id: string,
+    farmerId: string,
     params: UpdateBankAccountParams,
-    farmerId?: string,
-  ): Promise<FarmerBankAccountResponse> {
-    const updates: string[] = ['updated_at = now()'];
-    const values: any[] = [id];
-    let where = 'WHERE id = $1 AND deleted_at IS NULL';
-    if (farmerId) {
-      values.push(farmerId);
-      where = 'WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL';
-    }
-    let idx = values.length + 1;
+  ): Promise<BankAccountRow | null> {
+    const assignments: string[] = ['updated_at = now()'];
+    const values: unknown[] = [id, farmerId];
+    const assign = (column: string, value: unknown): void => {
+      values.push(value);
+      assignments.push(`${column} = $${values.length}`);
+    };
 
-    if (params.accountHolderName !== undefined) {
-      updates.push(`account_holder_name = $${idx++}`);
-      values.push(params.accountHolderName);
-    }
-    if (params.accountNumberLast4 !== undefined) {
-      updates.push(`account_number_last4 = $${idx++}`);
-      values.push(params.accountNumberLast4);
-    }
-    if (params.accountNumberToken !== undefined) {
-      updates.push(`account_number_token = $${idx++}`);
-      values.push(params.accountNumberToken);
-    }
-    if (params.ifsc !== undefined) {
-      updates.push(`ifsc = $${idx++}`);
-      values.push(params.ifsc);
-    }
-    if (params.bankName !== undefined) {
-      updates.push(`bank_name = $${idx++}`);
-      values.push(params.bankName);
-    }
-    if (params.branchName !== undefined) {
-      updates.push(`branch_name = $${idx++}`);
-      values.push(params.branchName);
-    }
-    if (params.isVerified !== undefined) {
-      updates.push(`is_verified = $${idx++}`);
-      values.push(params.isVerified);
-    }
-    if (params.isDefault !== undefined) {
-      updates.push(`is_default = $${idx++}`);
-      values.push(params.isDefault);
-    }
+    if (params.accountHolderName !== undefined) assign('account_holder_name', params.accountHolderName);
+    if (params.accountNumberLast4 !== undefined) assign('account_number_last4', params.accountNumberLast4);
+    if (params.accountNumberToken !== undefined) assign('account_number_token', params.accountNumberToken);
+    if (params.ifsc !== undefined) assign('ifsc', params.ifsc);
+    if (params.bankName !== undefined) assign('bank_name', params.bankName);
+    if (params.branchName !== undefined) assign('branch_name', params.branchName);
+    if (params.upiVpa !== undefined) assign('upi_vpa', params.upiVpa);
+    if (params.isVerified !== undefined) assign('is_verified', params.isVerified);
+    if (params.isDefault !== undefined) assign('is_default', params.isDefault);
 
-    const res = await db.query(
+    const res = await db.query<BankAccountRow>(
       `UPDATE farmer_bank_accounts
-       SET ${updates.join(', ')}
-       ${where}
-       RETURNING id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at`,
+       SET ${assignments.join(', ')}
+       WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL
+       RETURNING ${ROW_COLUMNS}`,
       values,
     );
-    return mapRow(res.rows[0]);
+    return res.rows[0] ?? null;
   },
 
-  async setDefault(db: Executor, id: string, farmerId?: string): Promise<FarmerBankAccountResponse> {
-    const values: any[] = [id];
-    let where = 'WHERE id = $1 AND deleted_at IS NULL';
-    if (farmerId) {
-      values.push(farmerId);
-      where = 'WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL';
-    }
-    const res = await db.query(
+  async setDefault(db: Executor, id: string, farmerId: string): Promise<BankAccountRow | null> {
+    const res = await db.query<BankAccountRow>(
       `UPDATE farmer_bank_accounts
        SET is_default = true, updated_at = now()
-       ${where}
-       RETURNING id, account_holder_name, account_number_last4, ifsc, bank_name, branch_name, upi_vpa, is_verified, is_default, created_at`,
-      values,
+       WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL
+       RETURNING ${ROW_COLUMNS}`,
+      [id, farmerId],
     );
-    return mapRow(res.rows[0]);
+    return res.rows[0] ?? null;
   },
 
-  async softDelete(db: Executor, id: string, farmerId?: string): Promise<void> {
-    const values: any[] = [id];
-    let where = 'WHERE id = $1';
-    if (farmerId) {
-      values.push(farmerId);
-      where = 'WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL';
-    }
+  async softDelete(db: Executor, id: string, farmerId: string): Promise<void> {
     await db.query(
       `UPDATE farmer_bank_accounts
        SET deleted_at = now(), is_default = false, updated_at = now()
-       ${where}`,
-      values,
+       WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL`,
+      [id, farmerId],
     );
   },
 
-  async hasPayoutReferences(db: Executor, id: string): Promise<boolean> {
+  /** True while a payout that has not settled still points at this destination. */
+  async hasInFlightPayoutReferences(db: Executor, id: string): Promise<boolean> {
     const res = await db.query(
-      `SELECT 1 FROM payouts WHERE bank_account_id = $1 LIMIT 1`,
-      [id],
+      `SELECT 1 FROM payouts WHERE bank_account_id = $1 AND status = ANY($2::payout_status[]) LIMIT 1`,
+      [id, IN_FLIGHT_PAYOUT_STATUSES],
     );
     return (res.rowCount ?? 0) > 0;
   },

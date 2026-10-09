@@ -1,6 +1,10 @@
 import { z } from 'zod';
+import { isCalendarDate } from '../certifications/certifications.schema.js';
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date in YYYY-MM-DD format');
+// Real calendar dates only: the regex alone let 2026-02-30 through to Postgres, which answered 500.
+const isoDate = z
+  .string()
+  .refine(isCalendarDate, { message: 'Must be a real calendar date in YYYY-MM-DD format' });
 
 export const milestoneStatusEnum = z.enum(['PENDING', 'COMPLETED', 'SKIPPED']);
 export type MilestoneStatus = z.infer<typeof milestoneStatusEnum>;

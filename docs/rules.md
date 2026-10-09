@@ -1097,17 +1097,17 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 ### BR-53 — Farmer bank accounts and UPI payout destinations are own-data, masked, and server-validated; verification cannot be self-asserted
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.3, FR-F02; Mobile payment screens `BankAccountScreen.tsx`, `UpiIdScreen.tsx`; Table `farmer_bank_accounts` (`0007_money.sql`); Owner defaults 2026-10-08 |
-| **Status** | LOCKED |
-| **Layer** | Server-side, `GET/POST/PATCH/DELETE /farmers/me/bank-accounts`, `GET/PUT/DELETE /farmers/me/upi`; `farmer.bank_account.manage_own` (FARMER = own); `farmer_bank_accounts` table + partial index `uq_farmer_bank_accounts_default` |
+| **Source** | Owner brief 2026-10-08; mobile payment screens `BankAccountScreen.tsx`, `UpiIdScreen.tsx`; table `farmer_bank_accounts` (`db/migrations/0007_money.sql`, `0033_farmer_bank_accounts_branch.sql`); module `apps/api/src/modules/farmer-bank-accounts/` |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `GET/POST/PATCH/DELETE /farmers/me/bank-accounts`, `POST /farmers/me/bank-accounts/{id}/default`, `GET/PUT/DELETE /farmers/me/upi`; `farmer.bank_account.manage_own` (FARMER = own); `farmer_bank_accounts` table + partial index `uq_farmer_bank_accounts_default` |
 | **Scope** | Track 1 |
 
 **Rule.** A farmer manages payout destinations under `/farmers/me/bank-accounts` and `/farmers/me/upi`.
-1. **Masked responses:** The full account number is NEVER returned in any API response body (only `accountNumberLast4`, 4 digits, exactly as Aadhaar under BR-33b).
-2. **Server-side IFSC & Account format:** IFSC code must match `^[A-Z]{4}0[A-Z0-9]{6}$`. Account number must be 9–18 digits. UPI ID must be a valid VPA (`^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$`).
+1. **Masked responses:** The full account number is NEVER returned in any API response body (only `accountNumberLast4`, 4 digits, exactly as Aadhaar under BR-33b). Only the last 4 digits are kept at all, and NO account-number token is stored: `account_number_token` is written NULL. The `0007_money.sql` table comment about an opaque provider token describes a future integration. Until then these accounts are display-only and cannot be used as a payout destination. Payout tokenisation or encrypted storage of the full number is an OPEN OWNER DECISION.
+2. **Server-side IFSC & Account format:** IFSC code must match `^[A-Z]{4}0[A-Z0-9]{6}$`; it is case-insensitive on input and stored uppercase. Account number must be 9–18 digits. UPI ID must be a valid VPA (`^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$`).
 3. **No self-asserted verification:** When created or edited by the farmer, `isVerified` is always false; verification status can be modified only by an admin action.
-4. **Single primary account:** Exactly one default account per farmer (`is_default = true`, enforced by partial unique index `uq_farmer_bank_accounts_default`). Setting an account as default clears default from any existing active account for that farmer.
-5. **Soft delete only:** Deleting a bank account or UPI destination sets `deleted_at = now()`. If an account is referenced by any payout in `payouts`, hard deletion is prevented; soft deletion preserves auditability.
+4. **Single primary destination:** Exactly one default destination per farmer (`is_default = true`, enforced by partial unique index `uq_farmer_bank_accounts_default`). Setting a destination as default clears default from any existing active destination of that farmer. The first destination of either kind becomes the default; an omitted `isDefault` on a UPI update keeps the existing flag; deleting the default promotes the newest remaining active destination; and a delete is refused with 409 `INVALID_STATE_TRANSITION` while a payout in `REQUESTED`, `PENDING_APPROVAL`, `APPROVED` or `PROCESSING` references the destination. A UPI id is a destination separate from bank accounts: a UPI id on a bank endpoint is 404 and a bank account on a UPI endpoint is 404.
+5. **Soft delete only:** Deleting a bank account or UPI destination sets `deleted_at = now()`; rows are never hard-deleted, so settled payouts keep their destination. Deletion is refused with 409 while an unsettled payout references it (item 4).
 6. **Audit logging:** Creating, updating, setting default, or soft-deleting writes an `audit_log` row in the same transaction.
 
 **Failure mode if unenforced.** Account number exposure leaks sensitive financial data; farmers self-verifying invalid IFSC or accounts creates payout failures during bank transfers; multiple default accounts cause ambiguous automated payout dispatching.
@@ -1117,90 +1117,101 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-53b` Invalid IFSC format or account number length is rejected with 422 `VALIDATION_FAILED`.
 - `BR-53c` Farmer cannot self-assert `isVerified: true` on create or update; it is always false.
 - `BR-53d` Setting an account as default unsets default on the farmer's previous account.
-- `BR-53e` Bank account referenced by payouts cannot be hard-deleted; soft deletion sets `deleted_at`.
+- `BR-53e` A destination is soft-deleted, never hard-deleted; refused with 409 `INVALID_STATE_TRANSITION` while an unsettled payout references it (bank and UPI).
 - `BR-53f` Cross-farmer access returns 404 (BR-36).
-- `BR-53g` Mutations write `audit_log` rows with actor and before/after images (BR-35).
+- `BR-53g` Mutations write `audit_log` rows with actor and masked before/after images (BR-35).
+- `BR-53h` UPI is separate from bank accounts: a UPI id on a bank route (and the reverse) is 404; the UPI holder name is the farmer's real name (422 when the farmer has none) and no bank name is fabricated.
+- `BR-53i` Default semantics: first destination becomes default, omitted `isDefault` on UPI keeps the flag, deleting the default promotes the newest remaining destination, every mutation takes the per-farmer lock first, and concurrent creates with `isDefault: true` never fail (never 500) and leave exactly one default.
 
 ---
 
 ### BR-54 — Profile Documents are own-data only with masked Aadhaar and short-lived signed read URLs
 | | |
 |---|---|
-| **Source** | FR-F02, Mobile ProfileScreen documents modal |
-| **Status** | LOCKED |
+| **Source** | Owner brief 2026-10-08; mobile `ProfileScreen.tsx` documents modal; module `apps/api/src/modules/farmer-documents/` (reads `farmer_documents` and the farmer application) |
+| **Status** | DERIVED |
 | **Layer** | Server-side, `apps/api/src/modules/farmer-documents/` |
 | **Scope** | Track 1 (farmer-facing read-only) |
 
 **Rule.** A farmer may inspect their uploaded registration and profile documents (Aadhaar Card, Land Patta / FMB Map, PGS Scope Certificate, Soil & Water Health Card) via `GET /farmers/me/documents`.
 1. **Own data only:** Authenticated FARMER can only see documents from their own farmer profile and application (BR-36).
-2. **Aadhaar privacy:** The full Aadhaar number is NEVER exposed in the API response. Only the last 4 digits (`aadhaarLast4`) may be returned.
-3. **Signed read URLs:** Any document file URL is returned as a short-lived (15-minute) signed read URL, generated server-side.
+2. **Aadhaar privacy:** The full Aadhaar number is NEVER exposed in the API response. Only the last 4 digits (`documentNumberLast4`) may be returned.
+3. **Signed read URLs:** Any document file URL is returned as a short-lived (15-minute) signed read URL, generated server-side. Only files recorded against the farmer's own application or their own `farmer_documents` rows are signed; any other URL (another farmer's key, an external URL, a `/storage/` path on another host) yields `readUrl` null (`BR-54g`).
 4. **EXIF/GPS stripping:** Any image uploads follow BR-16 privacy sanitization.
-5. **Read-only post-approval:** Replacing or uploading documents after application approval is locked (BR-33); mutations on this endpoint are rejected.
+5. **Read-only endpoint:** `GET /farmers/me/documents` has no mutating verb, so a "mutations are rejected" clause is not applicable and has no test; uploading or replacing documents is outside this endpoint (BR-33).
+6. **Status is evidence-based:** A document is `VERIFIED` only when a verified record exists for that file; an application or KYC status alone never makes a document verified. File names are real stored values or null, never invented (`BR-54f`).
+
+**Known limitations (not defects of this rule).** The soil-card slot is not yet uploadable, so it is always `ACTION_NEEDED`. Aadhaar and patta stay `UPLOADED` because approval does not copy the step-4 uploads into `farmer_documents` (open item in farmer-applications).
 
 **Failure mode if unenforced.** Leaking full Aadhaar numbers violates Indian privacy regulations; long-lived public file URLs allow unauthorized access to sensitive KYC land and identity documents.
 
 **Test contract.** (`apps/api/src/modules/farmer-documents/farmer-documents.test.ts`)
 - `BR-54a` `GET /farmers/me/documents` returns documents with docType, displayName, uploadStatus, and signed readUrl.
-- `BR-54b` Aadhaar number is never returned in full; only `aadhaarLast4` (4 digits) is visible.
-- `BR-54c` Signed read URL expires in short duration and includes signed/expiry token.
-- `BR-54d` Cross-farmer access returns 404 (BR-36).
-- `BR-54e` Non-farmer roles cannot access `GET /farmers/me/documents` (403 FORBIDDEN).
+- `BR-54b` Aadhaar number is never returned in full; only `documentNumberLast4` (4 digits) is visible.
+- `BR-54c` Signed read URL expires in short duration and includes signed/expiry token; the stored URL is never returned.
+- `BR-54d` A user without a farmer profile gets 404 `NOT_FOUND`; each farmer only ever sees their own documents (BR-36).
+- `BR-54e` Non-farmer roles cannot access `GET /farmers/me/documents` (403 FORBIDDEN; no token 401).
+- `BR-54f` A document is `VERIFIED` only when a verified record exists for the file; file names are never invented.
+- `BR-54g` Only files recorded against the farmer's own application or `farmer_documents` rows are signed; unrecognised URLs give `readUrl` null.
 
 ---
 
 ### BR-55 — Tree and perennial plantings are own-data, positive-count validated, and audit-logged
 | | |
 |---|---|
-| **Source** | FR-F04 / FR-F05, Agroforestry and perennial tree planting tracking; mobile TreePlantingScreen |
-| **Status** | LOCKED |
+| **Source** | Owner brief 2026-10-08; mobile `AddPlantingScreen.tsx`, `EditPlantingScreen.tsx`, `TreesListScreen.tsx`; table `tree_plantings` (`db/migrations/0034_tree_plantings.sql`); module `apps/api/src/modules/tree-plantings/` |
+| **Status** | DERIVED |
 | **Layer** | Server-side, `apps/api/src/modules/tree-plantings/`; `tree_plantings` table (`0034_tree_plantings.sql`) |
 | **Scope** | Track 1 (farmer-facing CRUD) |
 
 **Rule.** A farmer manages tree and perennial plantings under `/farmers/me/tree-plantings`.
 1. **Positive count:** `treeCount` must be an integer greater than 0 (`BR-55a`).
-2. **Planting date validation:** `plantedOn` cannot be a future date relative to today in Asia/Kolkata (`BR-55b`).
+2. **Planting date validation:** `plantedOn` must be a real calendar date (2026-02-30 is 422) and not after today in Asia/Kolkata (`BR-55b`).
 3. **Own data only:** Authenticated farmer can only list, view, create, update, or delete plantings belonging to their own farmer profile. Attempting to access another farmer's planting returns 404 (BR-36, `BR-55c`).
 4. **Soft delete:** Deleting a tree planting sets `deleted_at = now()`. Soft-deleted plantings are excluded from lists and queries (`BR-55d`).
 5. **Audit logging & Row locking:** Creating, updating, or deleting a tree planting locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-55e`).
+6. **Farm and plot ownership:** The `farmId` and `plotId` given on create or update must belong to the caller, and the plot must belong to the given farm; otherwise 404 `NOT_FOUND`, never 403 (`BR-55f`).
+7. **Stable pagination:** The list uses cursor pagination that never skips or repeats rows: the cursor carries the microsecond timestamp with an id tie-break, and a cursor this endpoint did not issue is 422 (`BR-55g`).
 
 **Failure mode if unenforced.** Zero or negative tree counts corrupt agroforestry metrics and tree cover reporting; future dates create inconsistent plantation timelines; cross-farmer access leaks confidential land usage.
 
 **Test contract.** (`apps/api/src/modules/tree-plantings/tree-plantings.test.ts`)
 - `BR-55a` Rejects `treeCount <= 0` or non-integer with 422 `VALIDATION_FAILED`.
-- `BR-55b` Rejects `plantedOn` in the future relative to Asia/Kolkata with 422 `VALIDATION_FAILED`.
+- `BR-55b` Rejects a non-calendar `plantedOn` or one after today (Asia/Kolkata) with 422 `VALIDATION_FAILED`; today and the past are accepted.
 - `BR-55c` Cross-farmer access returns 404 `NOT_FOUND` (BR-36).
 - `BR-55d` Soft-delete sets `deleted_at` and removes record from list and get queries.
 - `BR-55e` Mutations lock the farmer row and write audit log records (BR-35).
+- `BR-55f` A farm or plot that is not the caller's, or a plot that is not on the given farm, is 404 on create and update.
+- `BR-55g` Cursor pagination never skips or repeats rows, including rows created within the same millisecond.
 
 ---
 
 ### BR-56 — Crop input applications are own-data, positive-quantity validated, and track nutrient contribution
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.1, FR-F04 / FR-F06; Table `crop_inputs` (`0035_crop_inputs.sql`); Mobile CropInputLogScreen |
-| **Status** | LOCKED |
+| **Source** | Owner brief 2026-10-08; mobile `AddInputAppliedScreen.tsx`, `CropInputsAppliedScreen.tsx`, `CropNPKContributionScreen.tsx`; table `crop_inputs` (`db/migrations/0035_crop_inputs.sql`); module `apps/api/src/modules/crop-inputs/` |
+| **Status** | DERIVED |
 | **Layer** | Server-side, `apps/api/src/modules/crop-inputs/`; `crop_inputs` table |
 | **Scope** | Track 1 (farmer-facing CRUD) |
 
 **Rule.** A farmer records and tracks agricultural inputs (fertilizer, manure, bio-inputs, pesticides) applied to specific crops under `/farmers/me/crops/:farmCropId/inputs`.
-1. **Positive quantity:** `quantity` must be greater than 0 (`BR-56a`).
-2. **Application date validation:** `appliedOn` cannot be a future date relative to today in Asia/Kolkata (`BR-56b`).
-3. **Nutrient range validation:** `nitrogenPct`, `phosphorusPct`, and `potassiumPct` (NPK), if provided, must each be between 0 and 100 inclusive (`BR-56c`).
+1. **Positive quantity:** `quantity` must be greater than 0 (`BR-56a`), and `quantity` and `costInr` above 99,999,999.99 are 422 at the schema, never a 500 from the database.
+2. **Application date validation:** `appliedOn` must be a real calendar date and cannot be in the future relative to today in Asia/Kolkata (`BR-56b`).
+3. **Nutrient range validation:** `nitrogenPct`, `phosphorusPct`, and `potassiumPct` (NPK), if provided, must each be between 0 and 100 inclusive, and N+P+K must not exceed 100 (`BR-56c`).
 4. **Own data only:** Authenticated farmer can only list, view, create, update, or delete inputs for crops they own. Attempting to access inputs of another farmer's crop returns 404 (BR-36, `BR-56d`).
 5. **Soft delete:** Deleting a crop input sets `deleted_at = now()`. Soft-deleted inputs are excluded from lists, gets, and NPK calculations (`BR-56e`).
-6. **Nutrient contribution calculation:** `GET /farmers/me/crops/:farmCropId/npk-contribution` computes cumulative N, P, and K nutrient mass (in kg) applied to that crop across all active inputs (`BR-56f`).
+6. **Nutrient contribution calculation:** `GET /farmers/me/crops/:farmCropId/npk-contribution` computes cumulative N, P, and K nutrient mass (in kg) applied to that crop across all active inputs (`BR-56f`). The cost is a decimal string with at most 2 decimals (never a JSON number) and `totalCostInr` is an exact 2dp sum computed in integer paise. The unit-to-kg conversions (BAG = 50, ML and GRAM = 0.001, LITRE = 1, OTHER = 1, TONNE = 1000) are UNAPPROVED DEFAULTS pending an owner decision.
 7. **Audit logging & Row locking:** Creating, updating, or deleting a crop input locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-56g`).
 
 **Failure mode if unenforced.** Negative or zero quantities corrupt farm input expense accounting; future application dates misrepresent cultivation timelines; invalid NPK percentages corrupt nutrient balance analytics; cross-farmer access leaks agronomic practices.
 
 **Test contract.** (`apps/api/src/modules/crop-inputs/crop-inputs.test.ts`)
-- `BR-56a` Rejects `quantity <= 0` with 422 `VALIDATION_FAILED`.
-- `BR-56b` Rejects `appliedOn` in the future relative to Asia/Kolkata with 422 `VALIDATION_FAILED`.
-- `BR-56c` Rejects NPK percentages out of 0-100 range with 422 `VALIDATION_FAILED`.
-- `BR-56d` Cross-farmer access returns 404 `NOT_FOUND` (BR-36).
+- `BR-56a` Rejects `quantity <= 0`, and a quantity above the column limit, with 422 `VALIDATION_FAILED`.
+- `BR-56b` Rejects `appliedOn` in the future relative to Asia/Kolkata, or a non-calendar date, with 422 `VALIDATION_FAILED`.
+- `BR-56c` Rejects NPK percentages out of 0-100 range, or N+P+K above 100 (on create and update), with 422 `VALIDATION_FAILED`.
+- `BR-56d` Cross-farmer access returns 404 `NOT_FOUND` on every operation (BR-36).
 - `BR-56e` Soft-delete sets `deleted_at` and removes record from lists and GET endpoints.
-- `BR-56f` Accurately computes cumulative NPK nutrient contribution.
+- `BR-56f` Accurately computes cumulative NPK nutrient contribution; `totalCostInr` is summed in integer paise with no drift; a cost is a 2dp decimal string, never a JSON number.
 - `BR-56g` Mutations lock farmer row and write audit logs (BR-35).
 
 ---
@@ -1208,102 +1219,131 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 ### BR-57 — Crop growth milestones are template-driven, strictly sequenced, and progression-tracked
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.1, FR-F04; Table `farm_crop_milestones` (`0036_crop_milestones.sql`); Mobile CropMilestoneScreen |
-| **Status** | LOCKED |
+| **Source** | Owner brief 2026-10-08; mobile `CropMilestonesScreen.tsx`; tables `farm_crop_milestones`, `crop_milestone_templates` (`db/migrations/0036_crop_milestones.sql`, `0041_crop_milestone_template_unique.sql`); module `apps/api/src/modules/crop-milestones/` |
+| **Status** | DERIVED |
 | **Layer** | Server-side, `apps/api/src/modules/crop-milestones/`; `farm_crop_milestones` table |
 | **Scope** | Track 1 (farmer-facing CRUD) |
 
 **Rule.** A farmer tracks phenological growth stages and milestone progress on an active crop under `/farmers/me/crops/:farmCropId/milestones`.
-1. **Completion date validation:** `completedOn` cannot be a future date relative to today in Asia/Kolkata (`BR-57a`).
-2. **Template-driven auto-initialization:** If a crop has no initialized milestones, accessing the endpoint auto-populates standard stages from `crop_milestone_templates` based on crop type or universal templates, initializing progress to 0% (`BR-57b`).
-3. **Valid lifecycle transitions:** Milestone status transitions between `PENDING`, `COMPLETED`, and `SKIPPED`. Marking `COMPLETED` records completion timestamp and updates overall crop progress percentage (`BR-57c`).
-4. **Own data only:** Authenticated farmer can only view, initialize, or update milestones on crops they own. Attempting to access another farmer's crop returns 404 (BR-36, `BR-57d`).
-5. **Audit logging & Row locking:** Initializing or updating a milestone locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-57e`).
+1. **Completion date validation (57a):** `completedOn` is rejected when it is in the future relative to today in Asia/Kolkata, regardless of status; `completedOn` and `targetDate` must be real calendar dates (2026-02-30 is 422).
+2. **Template-driven auto-initialization (57b):** If a crop has no initialized milestones, accessing the endpoint auto-populates standard stages from `crop_milestone_templates`, initializing progress to 0%. Crop-specific templates win over universal ones: a crop with its own templates gets only those, and universal templates are the fallback. The database allows one universal template per `stage_code`.
+3. **Valid lifecycle transitions (57c):** Milestone status moves between `PENDING`, `COMPLETED`, and `SKIPPED`. Marking `COMPLETED` records the completion date and updates overall crop progress; only `COMPLETED` counts toward progress.
+4. **Own data only (57d):** Authenticated farmer can only view, initialize, or update milestones on crops they own. Attempting to access another farmer's crop returns 404 on list, initialize and update (BR-36).
+5. **Audit logging & row locking (57e):** Initializing or updating a milestone locks the farmer row and writes an append-only `audit_log` row (BR-35). The auto-initialising GET takes the owner lock and writes one audit row only when rows were inserted (a repeat GET writes none). Explicit initialize answers 201 when it inserted rows and 200 otherwise (no audit row then). The audit image is masked: crop and stage codes only.
+
+**Open items awaiting an owner decision (not stated by this rule).** (i) Whether `completedOn` should be accepted only with status `COMPLETED`, whether it must not precede the planting date, and whether it should be cleared on `COMPLETED` -> `PENDING` (the code currently does none of these; this rule is silent). (ii) The seeded template content (six universal stages at 7/30/50/75/90/105 days) is not the client's per-crop map.
 
 **Failure mode if unenforced.** Future completion dates invalidate agronomic reporting; missing milestones leave crop progress unquantified; cross-farmer access leaks confidential crop monitoring data.
 
 **Test contract.** (`apps/api/src/modules/crop-milestones/crop-milestones.test.ts`)
-- `BR-57a` Rejects `completedOn` in the future relative to Asia/Kolkata with 422 `VALIDATION_FAILED`.
-- `BR-57b` Auto-initializes milestones from templates with 0% progress on first query.
-- `BR-57c` Marking milestone as `COMPLETED` updates progress percentage and completed timestamp.
-- `BR-57d` Cross-farmer access returns 404 `NOT_FOUND` (BR-36).
-- `BR-57e` Mutations lock farmer row and write audit log records (BR-35).
+- `BR-57a` Rejects `completedOn` in the future relative to Asia/Kolkata, and non-calendar `completedOn` / `targetDate`, with 422 `VALIDATION_FAILED`.
+- `BR-57b` Auto-initializes milestones from templates with 0% progress on first list; crop-specific templates win over universal ones; one universal template per `stage_code` (database).
+- `BR-57c` Marking milestone as `COMPLETED` updates progress percentage and completion date; moves between `PENDING`, `COMPLETED` and `SKIPPED`, only `COMPLETED` counts toward progress.
+- `BR-57d` Cross-farmer access returns 404 `NOT_FOUND` on list, initialize and update (BR-36).
+- `BR-57e` Mutations lock farmer row and write audit log records (BR-35); the auto-initialising GET writes one masked audit row when it inserts and none on a repeat; explicit initialize reports created (201) only when rows were inserted.
 
 ---
 
 ### BR-58 — Tohfa Calendar aggregates multi-domain schedules and platform notices within bounded date ranges
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.1, FR-F04 / FR-F06; Mobile CalendarScreen; Table `platform_events` (`0037_platform_events.sql`) |
-| **Status** | LOCKED |
+| **Source** | Owner brief 2026-10-08; mobile `TohfaCalendarScreen.tsx`; table `platform_events` (`db/migrations/0037_platform_events.sql`), range cap config (`db/migrations/0040_calendar_range_config.sql`); module `apps/api/src/modules/calendar/` |
+| **Status** | DERIVED |
 | **Layer** | Server-side, `apps/api/src/modules/calendar/`; `platform_events` table |
 | **Scope** | Track 1 (farmer-facing read aggregator + admin platform events) |
 
 **Rule.** A farmer accesses a consolidated calendar of scheduled events, compliance expiries, and agricultural activities via `GET /farmers/me/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD`.
-1. **Bounded date range:** `from` and `to` query parameters are required, valid ISO dates, with `from <= to`, and the range cannot exceed 366 days (1 year) (`BR-58a`).
-2. **Multi-domain aggregation:** Consolidates scheduled audits (from `audits`), certificate expiries (from `certifications`), expected crop harvests (from `farm_crops`), and published platform notices (from `platform_events`) into a unified chronological timeline (`BR-58b`).
-3. **Own data & Target audience scoping:** Farmer receives operational records belonging exclusively to their own farmer profile (BR-36), and platform events targeted to `ALL` or `FARMER` (`BR-58c`).
-4. **Platform event lifecycle:** Admins manage platform events (workshops, trainings, community meets) with audit logging on all mutations (BR-35) and soft deletion (`deleted_at = now()`) (`BR-58d`).
+1. **Bounded date range:** `from` and `to` query parameters are required, real calendar dates (`YYYY-MM-DD`), with `from <= to`, and the span cannot exceed `system_config.calendar_max_range_days` (seeded 366, read at request time). The 422 names `query.to` (`BR-58a`). Platform-event `eventDate` is a real calendar date too (`BR-58h`).
+2. **Multi-domain aggregation:** Consolidates scheduled audits (from `audits`), certificate expiries (from `certifications`), expected crop harvests (from `farm_crops`), and published platform notices (from `platform_events`) into a unified chronological timeline (`BR-58b`). A certificate of type `OTHER` is titled with its custom type name. Audit days are Asia/Kolkata calendar days (`BR-58f`).
+3. **Own data & Target audience scoping:** Farmer receives operational records belonging exclusively to their own farmer profile (BR-36), and platform events targeted to `ALL` or `FARMER`. Other farmers' rows, `CUSTOMER`-audience events, unpublished events and deleted events never appear (`BR-58c`).
+4. **Platform event lifecycle:** Admins manage platform events (workshops, trainings, community meets) with audit logging on all mutations (BR-35) and soft deletion (`deleted_at = now()`) (`BR-58d`, `BR-58e`). Event times are `HH:MM` (24h) and the end must be later than the start, including when an update moves only one of them (`BR-58h`). `GET /admin/platform-events` is paged (default page 1, 20 per page, max 100) and reports the total of live rows (`BR-58i`).
+
+**Open owner items.** Events carry no `source` field (the client cannot tell an audit from a certificate expiry except by type), and the English titles ("Farm Audit (Q.. FY ..)", "Certificate Expiry: ..", "Expected Harvest: ..") are built in the service rather than the i18n catalogue.
 
 **Failure mode if unenforced.** Unbounded queries cause heavy multi-table scans; cross-farmer leak reveals scheduled compliance audit dates and crop harvest timelines.
 
 **Test contract.** (`apps/api/src/modules/calendar/calendar.test.ts`)
-- `BR-58a` Rejects invalid date ordering or range exceeding 366 days with 422 `VALIDATION_FAILED`.
-- `BR-58b` Aggregates multi-domain events chronologically.
-- `BR-58c` Strictly scopes farmer calendar events to caller farmer profile (BR-36).
+- `BR-58a` Rejects `from > to`, impossible or non-ISO dates, and a span over `calendar_max_range_days` (default 366; boundary follows `system_config`) with 422 `VALIDATION_FAILED` on `query.to`.
+- `BR-58b` Aggregates multi-domain events chronologically; a type `OTHER` certificate carries its custom type name.
+- `BR-58c` Strictly scopes farmer calendar events to caller farmer profile (BR-36); `CUSTOMER`-audience, unpublished and deleted platform events never reach the farmer calendar.
 - `BR-58d` Non-farmer roles cannot access farmer calendar (403 FORBIDDEN).
 - `BR-58e` Admin platform event mutations write audit logs and soft delete (BR-35).
+- `BR-58f` Audit days are Asia/Kolkata calendar days (20:00 UTC on the 9th is the 10th).
+- `BR-58h` Platform event dates are real calendar dates; times are `HH:MM` 24h with end later than start, also when an update moves only `endTime`.
+- `BR-58i` `GET /admin/platform-events` is paged (default 1/20, max 100), in a stable order, and reports the total of live rows.
 
 ---
 
 ### BR-59 — Learning Hub delivers curated agricultural knowledge and lightweight community participation
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.1, FR-F06; Mobile LearningHubScreen, GroupsScreen, GroupDetailScreen; Table `learning_*` (`0038_learning_hub.sql`) |
-| **Status** | LOCKED |
+| **Source** | Owner brief 2026-10-08; mobile `LearningHubScreen.tsx`, `ContentDetailScreen.tsx`, `GroupsScreen.tsx`, `GroupDetailScreen.tsx`; tables `learning_*` (`db/migrations/0038_learning_hub.sql`); module `apps/api/src/modules/learning-hub/` |
+| **Status** | DERIVED |
 | **Layer** | Server-side, `apps/api/src/modules/learning-hub/`; `learning_*` tables |
 | **Scope** | Track 1 (farmer-facing read + enroll/membership, admin content CRUD) |
 
 **Rule.** A farmer browses published articles, videos, training workshops, and community groups. Farmers can enroll/unenroll in trainings and join/leave community groups.
-1. **Public/Farmer Content Browsing:** Published articles, videos, and trainings are accessible to all authenticated farmers with optional language filter (`en` / `ta`) and pagination (`BR-59a`).
-2. **Training Capacity & Enrollment:** Farmers can enroll in published training sessions. If training has a capacity limit, enrollments cannot exceed capacity (409 `TRAINING_FULL`). Farmers can cancel their enrollment (`BR-59b`).
-3. **Community Group Membership:** Farmers can join and leave community groups. Duplicate membership requests are idempotent or rejected (`BR-59c`). No in-app chat or messaging in v1.
-4. **Admin Content Management:** Only authorized administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`) can create, update, or remove articles, videos, trainings, and community groups, with full audit logging (BR-35) (`BR-59d`).
+1. **Public/Farmer Content Browsing:** Published articles, videos, and trainings are accessible to all authenticated farmers with optional language filter (`en` / `ta`) and pagination (`BR-59a`). The article list returns the snippet, never the full content (`BR-59f`). Unpublished articles and trainings are invisible to farmers: 404 on a direct read or enrolment, absent from lists (`BR-59k`, `BR-59b`).
+2. **Training Capacity & Enrollment:** Farmers can enroll in published training sessions. If training has a capacity limit, enrollments cannot exceed capacity (409 `TRAINING_FULL`), including under concurrent enrolments for the last seat: exactly one succeeds, the other is 409, never 500 (`BR-59g`). Farmers can cancel their enrollment (`BR-59b`). An admin cannot lower the capacity below the enrolled count: 409 `CONFLICT` (equal is allowed) (`BR-59h`).
+3. **Community Group Membership:** Farmers can join and leave community groups. Duplicate membership requests are idempotent (`BR-59c`). Replayed enrol, join, unenrol and leave are idempotent: they return the existing state and are not audited again (`BR-59i`). No in-app chat or messaging in v1.
+4. **Admin Content Management:** Only authorized administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`, via `learning.admin.manage`) can create, update, or remove articles, videos, trainings, and community groups, with full audit logging (BR-35) (`BR-59d`). Authorization of the admin routes is covered by `apps/api/src/rbac/rbac.test.ts`.
+5. **Participation is farmer-only:** A non-farmer actor cannot enrol in a training or join a group (403) (`BR-59e`).
+6. **Request validation:** `videoUrl` must be `https`, `trainingDate` a real calendar date, and free-text fields are length-bounded; violations are 422 (`BR-59j`).
+
+**Open owner items.** Admin deletes are hard deletes; enrolment in a training whose date has passed is not refused; there are no admin read endpoints for learning content.
 
 **Failure mode if unenforced.** Overbooking beyond field workshop capacity; unauthenticated or cross-tenant modification of educational materials.
 
 **Test contract.** (`apps/api/src/modules/learning-hub/learning-hub.test.ts`)
 - `BR-59a` Allows farmers to view published articles, videos, trainings, and groups with language filtering.
-- `BR-59b` Enforces training capacity limits and handles enrollment/unenrollment.
+- `BR-59b` Enforces training capacity limits and handles enrollment/unenrollment; enrolling in an unpublished or unknown training is 404.
 - `BR-59c` Allows joining and leaving community groups.
-- `BR-59d` Enforces admin RBAC on content creation/updates and verifies audit logging.
-- `BR-59e` Non-admin users cannot mutate learning hub content (403 FORBIDDEN).
+- `BR-59d` Admin content mutations write audit logs (admin-route RBAC is covered by `rbac.test.ts`).
+- `BR-59e` A non-farmer actor cannot enrol in trainings or join groups (403).
+- `BR-59f` The article list returns the snippet and never the full content.
+- `BR-59g` Two farmers racing for the last seat: exactly one 200, the other 409 `TRAINING_FULL`, never a 500.
+- `BR-59h` Lowering capacity below the enrolled count is 409 `CONFLICT`; equal is allowed.
+- `BR-59i` Replayed enrol, join, unenrol and leave return the existing state and write no extra audit row (also on a FULL training).
+- `BR-59j` Non-https `videoUrl`, non-calendar `trainingDate` and over-long free text are 422 on create and update.
+- `BR-59k` Unpublished articles and trainings are invisible to farmers (404 / absent) through the real SQL.
 
 ---
 
 ### BR-60 — Support tickets enforce strictly scoped lifecycles, immutable message threads, and state transition integrity
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.1, FR-C05, Role Matrix §6; Mobile AboutSupportScreen; Table `support_tickets` (`0039_support_tickets.sql`) |
-| **Status** | LOCKED |
-| **Layer** | Server-side, `apps/api/src/modules/support-tickets/`; `support_tickets`, `support_ticket_messages` |
+| **Source** | Owner brief 2026-10-08; mobile `AboutSupportScreen.tsx`; tables `farmer_support_tickets`, `support_ticket_messages`, `support_ticket_status_history` (`db/migrations/0039_support_tickets.sql`; the original `support_tickets` table from `0008_platform.sql` remains for customer order issues and is untouched); module `apps/api/src/modules/support-tickets/` |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/support-tickets/`; `farmer_support_tickets`, `support_ticket_messages`, `support_ticket_status_history` (`0039_support_tickets.sql`); `farmer.support_ticket.manage_own` (FARMER = own), `support.ticket.manage_any` (SUPER_ADMIN, TOHFA_ADMIN = all) |
 | **Scope** | Track 1 (farmer-facing tickets + admin triage & lifecycle) |
 
 **Rule.** Farmers raise support inquiries categorized under generic account, payment, listing, or app topics.
 1. **Creation & Scoping:** A farmer creates support tickets scoped exclusively to their own farmer profile (BR-36). Cross-farmer access returns 404 `NOT_FOUND` (`BR-60a`).
-2. **Lifecycle & State Machine:** Ticket status transitions follow `OPEN` -> `IN_PROGRESS` -> `RESOLVED` -> `CLOSED`. Illegal state transitions reject with 409 `INVALID_STATE_TRANSITION` (`BR-60b`).
-3. **Closing Tickets:** A farmer may close their own ticket from any non-closed state. Once `CLOSED`, a ticket is in a terminal state and cannot transition further (`BR-60c`).
-4. **Append-Only Messages:** Messages posted to tickets are append-only (`app_make_append_only`). No messages may be posted to a `CLOSED` ticket (409 `INVALID_STATE_TRANSITION`) (`BR-60d`).
-5. **Admin Management & Audit:** Administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`) list, assign, reply to, and change status on any ticket with full audit logging (BR-35) (`BR-60e`).
+2. **Lifecycle & State Machine:** The transition matrix AS SHIPPED (`LEGAL_TRANSITIONS` in `support-tickets.service.ts`) is `OPEN` -> `IN_PROGRESS`, `CLOSED`; `IN_PROGRESS` -> `RESOLVED`, `CLOSED`, `OPEN`; `RESOLVED` -> `CLOSED`, `IN_PROGRESS`; `CLOSED` -> nothing. Any other transition, including one to the ticket's current status, rejects with 409 `INVALID_STATE_TRANSITION` (`BR-60b`). This matrix allows `OPEN` -> `CLOSED`, `IN_PROGRESS` -> `OPEN` and `RESOLVED` -> `IN_PROGRESS`, which differs from the original brief (`OPEN` -> `IN_PROGRESS` -> `RESOLVED` -> `CLOSED`) and awaits an owner decision. Creation is recorded in `support_ticket_status_history` as NULL -> `OPEN`; `resolved_at` is stamped on entering `RESOLVED`, cleared on leaving it, and kept when a `RESOLVED` ticket is closed.
+3. **Closing Tickets:** A farmer may close their own ticket from any non-closed state. Once `CLOSED`, a ticket is in a terminal state and cannot transition further; two parallel closes are serialised (one 200, one 409, never 500) (`BR-60c`).
+4. **Append-Only Messages:** Messages posted to tickets are append-only (`app_make_append_only`), as is the status history. No messages may be posted to a `CLOSED` ticket (409 `INVALID_STATE_TRANSITION`), including a message that was waiting on the row lock while the ticket closed. A new message bumps the ticket's `updated_at` (`BR-60d`).
+5. **Admin Management & Audit:** Administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`) list, assign, reply to, and change status on any ticket with full audit logging (BR-35) (`BR-60e`). An assignee must be an active admin holding `support.ticket.manage_any` (else 422); assignment on a `CLOSED` ticket is 409 and on a missing ticket 404 (`BR-60h`).
+6. **Triage fields (60f):** A farmer cannot set `priority`; the farmer create body is strict, so extra fields are 422, and a created ticket is `NORMAL`.
+7. **Staff anonymity (60g):** The farmer view hides staff identity: message senders appear only as `SUPPORT` or `FARMER`, and no assignee id or sender user id is returned. Admin responses keep the full fields.
+8. **Audit content (60i):** Audit images hold ids, statuses and lengths, never ticket or message text.
+9. **Free-text limits (60j):** Description, message, reason and category code have maximum lengths; over-length input is 422.
+
+**Open owner items.** `attachmentUrl` is a free string (it should reference an upload from the upload service); whether a farmer may reply on a `RESOLVED` ticket; the older permissions `support.ticket.create_own`, `support.ticket.view_all` and `support.ticket.respond` are unused by this module.
 
 **Failure mode if unenforced.** Leaked support tickets expose farmer financial/compliance disputes; illegal status mutations allow ghost replies on closed cases; message modifications falsify support dispute audit trails.
 
 **Test contract.** (`apps/api/src/modules/support-tickets/support-tickets.test.ts`)
+- `BR-60` (database-gated) Migration 0039 created the farmer ticket tables, sequence and triggers and left the 0008 `support_tickets` table alone.
 - `BR-60a` Scopes farmer tickets to own profile; returns 404 for cross-farmer ticket access.
-- `BR-60b` Enforces ticket lifecycle state machine and rejects illegal transitions with 409 INVALID_STATE_TRANSITION.
-- `BR-60c` Permits farmers to close their own tickets; prevents mutations once closed.
-- `BR-60d` Enforces append-only message thread and blocks replies on closed tickets.
+- `BR-60b` Enforces the ticket lifecycle state machine as shipped and rejects illegal transitions, including a transition to the current status (and `CLOSED` -> `CLOSED`), with 409 INVALID_STATE_TRANSITION and no history row; creation is history NULL -> `OPEN`; `resolved_at` is cleared on leaving `RESOLVED` and kept on closing.
+- `BR-60c` Permits farmers to close their own tickets; prevents mutations once closed; parallel closes are serialised.
+- `BR-60d` Enforces append-only message thread and status history, blocks replies on closed tickets (also when racing a close), and a message bumps `updated_at` for farmer and admin replies, with a stable thread order.
 - `BR-60e` Admin mutations record audit log entries and track status history.
+- `BR-60f` A farmer cannot set triage priority at creation (strict body, 422); a created ticket is `NORMAL`.
+- `BR-60g` Farmer responses hide staff identity (`SUPPORT` / `FARMER` sender labels, no assignee or sender ids); admin responses keep the full fields.
+- `BR-60h` Assignee must be an active admin holding `support.ticket.manage_any` (farmer, disabled admin, unknown id: 422); a closed ticket is 409 and a missing ticket 404, without touching the ticket.
+- `BR-60i` Audit rows carry ids, statuses and lengths, never ticket or message text.
+- `BR-60j` Maximum lengths on description, message, reason and category code (422).
 
 ---
 

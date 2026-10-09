@@ -5,6 +5,8 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import {
   learningHubRepo,
   type ArticleRow,
+  type ArticleSummaryRow,
+  type EnrollmentRow,
   type GroupRow,
   type LearningHubRepo,
   type TrainingRow,
@@ -16,6 +18,7 @@ import type {
   CreateTrainingBody,
   CreateVideoBody,
   LearningArticleResponse,
+  LearningArticleSummaryResponse,
   LearningGroupResponse,
   LearningTrainingResponse,
   LearningVideoResponse,
@@ -42,6 +45,21 @@ function mapArticle(row: ArticleRow): LearningArticleResponse {
     id: row.id,
     title: row.title,
     content: row.content,
+    snippet: row.snippet,
+    readTime: row.read_time,
+    author: row.author,
+    tag: row.tag,
+    language: row.language,
+    isPublished: row.is_published,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapArticleSummary(row: ArticleSummaryRow): LearningArticleSummaryResponse {
+  return {
+    id: row.id,
+    title: row.title,
     snippet: row.snippet,
     readTime: row.read_time,
     author: row.author,
@@ -90,6 +108,10 @@ function mapTraining(row: TrainingRow): LearningTrainingResponse {
   };
 }
 
+function toEnrollmentResponse(row: EnrollmentRow) {
+  return { trainingId: row.training_id, farmerId: row.farmer_id, enrolledAt: row.enrolled_at };
+}
+
 function mapGroup(row: GroupRow): LearningGroupResponse {
   return {
     id: row.id,
@@ -113,7 +135,7 @@ export class LearningHubService {
       publishedOnly: true,
     });
     return {
-      items: rows.map(mapArticle),
+      items: rows.map(mapArticleSummary),
       total,
       page: query.page,
       limit: query.limit,
@@ -133,7 +155,7 @@ export class LearningHubService {
       const created = await this.deps.repo.createArticle(tx, body);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.article.create',
         entityType: 'learning_article',
         entityId: created.id,
@@ -155,7 +177,7 @@ export class LearningHubService {
       }
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.article.update',
         entityType: 'learning_article',
         entityId: updated.id,
@@ -176,7 +198,7 @@ export class LearningHubService {
       await this.deps.repo.deleteArticle(tx, id);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.article.delete',
         entityType: 'learning_article',
         entityId: id,
@@ -204,7 +226,7 @@ export class LearningHubService {
       const created = await this.deps.repo.createVideo(tx, body);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.video.create',
         entityType: 'learning_video',
         entityId: created.id,
@@ -226,7 +248,7 @@ export class LearningHubService {
       }
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.video.update',
         entityType: 'learning_video',
         entityId: updated.id,
@@ -247,7 +269,7 @@ export class LearningHubService {
       await this.deps.repo.deleteVideo(tx, id);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.video.delete',
         entityType: 'learning_video',
         entityId: id,
@@ -276,7 +298,7 @@ export class LearningHubService {
       const created = await this.deps.repo.createTraining(tx, body);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.training.create',
         entityType: 'learning_training',
         entityId: created.id,
@@ -288,9 +310,23 @@ export class LearningHubService {
 
   async updateTraining(scope: ResolvedScope, id: string, patch: UpdateTrainingBody) {
     return this.deps.runTx(async (tx) => {
+      // Same lock enrolment takes: an enrolment cannot slip in between the
+      // headcount check below and the capacity UPDATE.
+      const locked = await this.deps.repo.lockTraining(tx, id);
+      if (!locked) {
+        throw new AppError('NOT_FOUND', { detail: 'Learning training not found' });
+      }
       const before = await this.deps.repo.findTrainingById(tx, id);
       if (!before) {
         throw new AppError('NOT_FOUND', { detail: 'Learning training not found' });
+      }
+      if (typeof patch.capacity === 'number') {
+        const enrolled = await this.deps.repo.countTrainingEnrollments(tx, id);
+        if (patch.capacity < enrolled) {
+          throw new AppError('CONFLICT', {
+            detail: `Capacity cannot be lowered to ${patch.capacity}: ${enrolled} farmers are already enrolled`,
+          });
+        }
       }
       const updated = await this.deps.repo.updateTraining(tx, id, patch);
       if (!updated) {
@@ -298,7 +334,7 @@ export class LearningHubService {
       }
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.training.update',
         entityType: 'learning_training',
         entityId: updated.id,
@@ -319,7 +355,7 @@ export class LearningHubService {
       await this.deps.repo.deleteTraining(tx, id);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.training.delete',
         entityType: 'learning_training',
         entityId: id,
@@ -335,17 +371,17 @@ export class LearningHubService {
     }
 
     return this.deps.runTx(async (tx) => {
-      const lockRes = await tx.query<{ id: string; capacity: number | null; is_published: boolean }>(
-        `SELECT id, capacity, is_published FROM learning_trainings WHERE id = $1 FOR UPDATE`,
-        [trainingId],
-      );
-      const training = lockRes.rows[0];
+      const training = await this.deps.repo.lockTraining(tx, trainingId);
       if (!training || !training.is_published) {
         throw new AppError('NOT_FOUND', { detail: 'Training workshop not found' });
       }
 
-      const alreadyEnrolled = await this.deps.repo.isFarmerEnrolled(tx, trainingId, farmerId);
-      if (!alreadyEnrolled && training.capacity !== null) {
+      // A replay returns the original enrolment and writes nothing: no new row,
+      // no audit entry, and no capacity check (the seat is already theirs).
+      const existing = await this.deps.repo.findEnrollment(tx, trainingId, farmerId);
+      if (existing) return toEnrollmentResponse(existing);
+
+      if (training.capacity !== null) {
         const count = await this.deps.repo.countTrainingEnrollments(tx, trainingId);
         if (count >= training.capacity) {
           throw new AppError('TRAINING_FULL', { detail: 'Training has reached full capacity' });
@@ -355,18 +391,14 @@ export class LearningHubService {
       const enrollment = await this.deps.repo.enrollFarmerInTraining(tx, trainingId, farmerId);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
+        actorRole: scope.roleCode,
         actionCode: 'learning.training.enroll',
         entityType: 'learning_training_enrollment',
         entityId: enrollment.id,
         after: enrollment,
       });
 
-      return {
-        trainingId: enrollment.training_id,
-        farmerId: enrollment.farmer_id,
-        enrolledAt: enrollment.enrolled_at,
-      };
+      return toEnrollmentResponse(enrollment);
     });
   }
 
@@ -382,10 +414,12 @@ export class LearningHubService {
         throw new AppError('NOT_FOUND', { detail: 'Training workshop not found' });
       }
 
-      await this.deps.repo.unenrollFarmerFromTraining(tx, trainingId, farmerId);
+      // Only a real removal is audited; leaving a training you are not in is a no-op.
+      const removed = await this.deps.repo.unenrollFarmerFromTraining(tx, trainingId, farmerId);
+      if (!removed) return;
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
+        actorRole: scope.roleCode,
         actionCode: 'learning.training.unenroll',
         entityType: 'learning_training_enrollment',
         entityId: null,
@@ -413,7 +447,7 @@ export class LearningHubService {
       const created = await this.deps.repo.createGroup(tx, body);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.group.create',
         entityType: 'learning_group',
         entityId: created.id,
@@ -435,7 +469,7 @@ export class LearningHubService {
       }
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.group.update',
         entityType: 'learning_group',
         entityId: updated.id,
@@ -456,7 +490,7 @@ export class LearningHubService {
       await this.deps.repo.deleteGroup(tx, id);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'learning.group.delete',
         entityType: 'learning_group',
         entityId: id,
@@ -477,15 +511,18 @@ export class LearningHubService {
         throw new AppError('NOT_FOUND', { detail: 'Community group not found' });
       }
 
-      const membership = await this.deps.repo.joinGroup(tx, groupId, farmerId);
-      await writeAuditLog(tx, {
-        actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
-        actionCode: 'learning.group.join',
-        entityType: 'learning_group_membership',
-        entityId: membership.id,
-        after: membership,
-      });
+      const { membership, created } = await this.deps.repo.joinGroup(tx, groupId, farmerId);
+      // A replayed join returns the existing membership and is not audited.
+      if (created) {
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'learning.group.join',
+          entityType: 'learning_group_membership',
+          entityId: membership.id,
+          after: membership,
+        });
+      }
 
       return {
         groupId: membership.group_id,
@@ -507,10 +544,11 @@ export class LearningHubService {
         throw new AppError('NOT_FOUND', { detail: 'Community group not found' });
       }
 
-      await this.deps.repo.leaveGroup(tx, groupId, farmerId);
+      const removed = await this.deps.repo.leaveGroup(tx, groupId, farmerId);
+      if (!removed) return;
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
+        actorRole: scope.roleCode,
         actionCode: 'learning.group.leave',
         entityType: 'learning_group_membership',
         entityId: null,

@@ -2,7 +2,6 @@ import type { Executor } from '../../db/pool.js';
 import type {
   CreatePlatformEventBody,
   EventType,
-  PlatformEventResponse,
   TargetAudience,
   UpdatePlatformEventBody,
 } from './calendar.schema.js';
@@ -35,6 +34,8 @@ export interface CalendarAuditItem {
 export interface CalendarCertificateItem {
   id: string;
   certType: string;
+  /** Set exactly when certType is OTHER (certifications_custom_type_name_chk). */
+  customTypeName: string | null;
   certNumber: string | null;
   expiresOn: string;
 }
@@ -79,12 +80,24 @@ function mapEventRow(row: PlatformEventRow): CalendarPlatformEventRecord {
   };
 }
 
+/**
+ * BR-58a: calendar_max_range_days, seeded as 366 by migration 0040. Same
+ * read-and-fall-back shape as the certifications day-count keys; the fallback
+ * matches the seeded value, and a fractional or negative value has no meaning as
+ * a count of days so it also falls back.
+ */
+const DEFAULT_CALENDAR_MAX_RANGE_DAYS = 366;
+
 export interface CalendarRepo {
+  getCalendarMaxRangeDays(db: Executor): Promise<number>;
   listPlatformEventsForFarmer(db: Executor, from: string, to: string): Promise<CalendarPlatformEventRecord[]>;
   listAuditsForFarmer(db: Executor, farmerId: string, from: string, to: string): Promise<CalendarAuditItem[]>;
   listCertificateExpiriesForFarmer(db: Executor, farmerId: string, from: string, to: string): Promise<CalendarCertificateItem[]>;
   listCropHarvestsForFarmer(db: Executor, farmerId: string, from: string, to: string): Promise<CalendarCropHarvestItem[]>;
-  listAllPlatformEvents(db: Executor): Promise<PlatformEventResponse[]>;
+  listAllPlatformEvents(
+    db: Executor,
+    args: { page: number; limit: number },
+  ): Promise<{ rows: CalendarPlatformEventRecord[]; total: number }>;
   findPlatformEventById(db: Executor, id: string): Promise<CalendarPlatformEventRecord | null>;
   createPlatformEvent(db: Executor, data: CreatePlatformEventBody): Promise<CalendarPlatformEventRecord>;
   updatePlatformEvent(db: Executor, id: string, patch: UpdatePlatformEventBody): Promise<CalendarPlatformEventRecord | null>;
@@ -92,6 +105,16 @@ export interface CalendarRepo {
 }
 
 export const calendarRepo: CalendarRepo = {
+  async getCalendarMaxRangeDays(db) {
+    const res = await db.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'calendar_max_range_days' LIMIT 1`,
+    );
+    const val = res.rows[0]?.value;
+    const parsed =
+      typeof val === 'number' ? val : typeof val === 'string' && val.trim() !== '' ? Number(val) : NaN;
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_CALENDAR_MAX_RANGE_DAYS;
+  },
+
   async listPlatformEventsForFarmer(db, from, to) {
     const result = await db.query<PlatformEventRow>(
       `SELECT id, title, description, event_type, event_date::text,
@@ -118,13 +141,20 @@ export const calendarRepo: CalendarRepo = {
       quarter: number;
       fiscal_year: string;
     }>(
-      `SELECT id, audit_type, scheduled_for::date::text AS scheduled_for, status,
-              farm_id, quarter, fiscal_year
-         FROM audits
-        WHERE farmer_id = $1
-          AND scheduled_for::date >= $2::date AND scheduled_for::date <= $3::date
-          AND status != 'CANCELLED'
-     ORDER BY scheduled_for ASC`,
+      // scheduled_for is a timestamptz: a bare ::date uses the session time zone
+      // (UTC), which puts an audit at 01:30 IST on the 10th onto the 9th. The
+      // calendar is the farmer's Asia/Kolkata calendar, so every comparison and
+      // the selected day use that zone. ORDER BY is qualified so it sorts by the
+      // instant, not by the aliased output date.
+      `SELECT a.id, a.audit_type,
+              (a.scheduled_for AT TIME ZONE 'Asia/Kolkata')::date::text AS scheduled_for,
+              a.status, a.farm_id, a.quarter, a.fiscal_year
+         FROM audits a
+        WHERE a.farmer_id = $1
+          AND (a.scheduled_for AT TIME ZONE 'Asia/Kolkata')::date >= $2::date
+          AND (a.scheduled_for AT TIME ZONE 'Asia/Kolkata')::date <= $3::date
+          AND a.status != 'CANCELLED'
+     ORDER BY a.scheduled_for ASC`,
       [farmerId, from, to],
     );
     return result.rows.map((r) => ({
@@ -142,10 +172,11 @@ export const calendarRepo: CalendarRepo = {
     const result = await db.query<{
       id: string;
       cert_type: string;
+      custom_type_name: string | null;
       cert_number: string | null;
       expires_on: string;
     }>(
-      `SELECT id, cert_type, cert_number, expires_on::text
+      `SELECT id, cert_type, custom_type_name, cert_number, expires_on::text
          FROM certifications
         WHERE farmer_id = $1
           AND expires_on >= $2::date AND expires_on <= $3::date
@@ -156,6 +187,7 @@ export const calendarRepo: CalendarRepo = {
     return result.rows.map((r) => ({
       id: r.id,
       certType: r.cert_type,
+      customTypeName: r.custom_type_name,
       certNumber: r.cert_number,
       expiresOn: String(r.expires_on).slice(0, 10),
     }));
@@ -193,16 +225,23 @@ export const calendarRepo: CalendarRepo = {
     }));
   },
 
-  async listAllPlatformEvents(db) {
+  async listAllPlatformEvents(db, { page, limit }) {
+    const count = await db.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM platform_events WHERE deleted_at IS NULL`,
+    );
+    // id is the final tie-break so two events at the same date and time never
+    // swap places between pages.
     const result = await db.query<PlatformEventRow>(
       `SELECT id, title, description, event_type, event_date::text,
               start_time, end_time, location_name, target_audience, is_published,
               created_at, updated_at
          FROM platform_events
         WHERE deleted_at IS NULL
-     ORDER BY event_date DESC, start_time DESC`,
+     ORDER BY event_date DESC, start_time DESC, id ASC
+        LIMIT $1 OFFSET $2`,
+      [limit, (page - 1) * limit],
     );
-    return result.rows.map(mapEventRow);
+    return { rows: result.rows.map(mapEventRow), total: count.rows[0]?.total ?? 0 };
   },
 
   async findPlatformEventById(db, id) {

@@ -28,11 +28,11 @@ The mobile `CropPlanningInsightScreen` (`apps/mobile/src/roles/farmer/screens/da
 | Displayed Metric / Feature | Derivable from Existing Tables? | Source Table(s) / Query | Spec Gap Status |
 |---|---|---|---|
 | **Active Crops & Plots** | **YES** | `farm_crops` JOIN `plots` JOIN `farms` (where `status IN ('PLANNED', 'GROWING')` and `farms.farmer_id = $farmerId`) | Fully implemented in read-only aggregator. |
-| **Total Acreage per Crop** | **YES** | `SUM(plots.size_acres)` for active plantings | Fully implemented in read-only aggregator. |
+| **Total Acreage per Crop** | **YES** | `SUM(plots.area_acres)` over the distinct plots of the active plantings | Fully implemented in read-only aggregator. |
 | **Expected Yield (kg)** | **YES** | `SUM(farm_crops.expected_yield_kg)` for active plantings | Fully implemented in read-only aggregator. |
 | **In-Season Status** | **YES** | `crop_master.season_months` vs current month in `Asia/Kolkata` (1–12) | Fully implemented in read-only aggregator. |
 | **Past Harvests Count & Recency** | **YES** | `farm_crops` (where `status = 'HARVESTED'`, `MAX(actual_harvest_on)`) | Fully implemented in read-only aggregator. |
-| **Consecutive Planting Signal** | **YES** | Consecutive `farm_crops` on the same plot having identical `crop_master_id` | Fully implemented in read-only aggregator. |
+| **Consecutive Planting Signal** | **YES** | Consecutive `farm_crops` on the same plot having identical `crop_id` (`farm_crops.crop_id` -> `crop_master.id`) | Fully implemented in read-only aggregator. |
 | **Market Supply vs Demand** | **NO** | Deferred. Requires platform-wide demand aggregation and warehouse intake projections. | **SPEC GAP 1**: Requires owner decision on market projection algorithm. |
 | **"Plant More" / "Switch Crop" Advice** | **NO** | Prohibited under BR-38 (no invented agronomy rules or automated advisory). | **SPEC GAP 2**: Requires owner to define certified agronomist advisory rules. |
 | **Target Ceiling Price Forecasting** | **NO** | Not available. Ceiling prices are static admin entries under BR-08, not future market forecasts. | **SPEC GAP 3**: Requires owner to define pricing trends model. |
@@ -63,14 +63,11 @@ The mobile `CropPlanningInsightScreen` (`apps/mobile/src/roles/farmer/screens/da
       "hasConsecutivePlanting": false,
       "consecutivePlotNames": []
     }
-  ],
-  "specGaps": [
-    "Market supply vs customer demand indicator is deferred (owner decision required).",
-    "Automated crop-switching recommendations are deferred per BR-38.",
-    "Dynamic fair price forecast models are not in scope."
   ]
 }
 ```
+
+The response carries derived facts only. The deferred features in section 2 (spec gaps 1-3) are documented here and are deliberately NOT repeated as strings in the API response, so no English text is sent to the app. Every field above is always present; `inSeason`, `expectedYieldKg` and `lastHarvestedOn` are `null` when there is no data (no `season_months`, no yield entered, no harvest yet).
 
 ---
 

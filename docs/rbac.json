@@ -433,7 +433,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 + reqs FR-F02 (BR-53)"
+      "source": "specification gap — farmer-bank-accounts module (BR-53); owner brief 2026-10-08"
     },
     {
       "code": "farmer.bank_account.view",
@@ -448,7 +448,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2"
+      "source": "specification gap — admin read of farmer payout destinations (BR-53); no route uses it yet, kept pending owner decision"
     },
     {
       "code": "farmer.documents.view_own",
@@ -463,7 +463,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 + reqs FR-F02 (BR-54)"
+      "source": "specification gap — farmer-documents module (BR-54); owner brief 2026-10-08"
     },
     {
       "code": "farmer.account.disable",

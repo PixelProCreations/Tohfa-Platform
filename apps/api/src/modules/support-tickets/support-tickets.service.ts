@@ -1,3 +1,4 @@
+import { RoleCode } from '@tohfa/shared-types';
 import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -13,6 +14,8 @@ import {
 import type {
   AssignTicketBody,
   CreateSupportTicketBody,
+  FarmerSupportTicketMessageResponse,
+  FarmerSupportTicketSummaryResponse,
   ListAdminTicketsQuery,
   ListMyTicketsQuery,
   SendTicketMessageBody,
@@ -32,6 +35,9 @@ export interface SupportTicketsServiceDeps {
   runTx: TransactionRunner;
 }
 
+/** The admin permission an assignee must hold (docs/rbac.json). */
+const ADMIN_TICKET_PERMISSION = 'support.ticket.manage_any';
+
 function mapCategory(row: CategoryRow): SupportTicketCategoryResponse {
   return {
     id: row.id,
@@ -42,6 +48,7 @@ function mapCategory(row: CategoryRow): SupportTicketCategoryResponse {
   };
 }
 
+// ── Admin mappers: full fields ───────────────────────────────────────────────
 function mapTicket(row: TicketRow): SupportTicketSummaryResponse {
   return {
     id: row.id,
@@ -86,12 +93,80 @@ function mapStatusHistory(row: StatusHistoryRow): SupportTicketStatusHistoryResp
   };
 }
 
+// ── Farmer mappers: no staff identity ────────────────────────────────────────
+function mapFarmerTicket(row: TicketRow): FarmerSupportTicketSummaryResponse {
+  const { assignedToUserId: _assignedToUserId, ...rest } = mapTicket(row);
+  return rest;
+}
+
+function mapFarmerMessage(row: MessageRow): FarmerSupportTicketMessageResponse {
+  const { senderUserId: _senderUserId, senderRole, ...rest } = mapMessage(row);
+  return { ...rest, senderRole: senderRole === RoleCode.FARMER ? 'FARMER' : 'SUPPORT' };
+}
+
+// ── Audit images ─────────────────────────────────────────────────────────────
+// Ids, statuses and lengths only. The audit log is read by staff who may not be entitled to a farmer's
+// free text, and it is append-only, so text written here could never be removed again.
+type TicketAuditImage = {
+  id: string;
+  ticketNumber: string;
+  categoryCode: string;
+  status: TicketStatus;
+  priority: string;
+  assignedToUserId: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  subjectLength: number;
+  descriptionLength: number;
+  hasAttachment: boolean;
+};
+
+function ticketAuditImage(row: TicketRow): TicketAuditImage {
+  return {
+    id: row.id,
+    ticketNumber: row.ticket_number,
+    categoryCode: row.category_code,
+    status: row.status,
+    priority: row.priority,
+    assignedToUserId: row.assigned_to_user_id,
+    resolvedAt: row.resolved_at,
+    closedAt: row.closed_at,
+    subjectLength: row.subject.length,
+    descriptionLength: row.description.length,
+    hasAttachment: row.attachment_url !== null,
+  };
+}
+
+function messageAuditImage(row: MessageRow) {
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    senderRole: row.sender_role,
+    messageLength: row.message.length,
+    hasAttachment: row.attachment_url !== null,
+  };
+}
+
+// Shipped behaviour, NOT an owner decision: it allows OPEN->CLOSED, IN_PROGRESS->OPEN and RESOLVED->IN_PROGRESS,
+// which differs from the original brief (OPEN->IN_PROGRESS->RESOLVED->CLOSED); awaiting an owner decision
+// (see BR-60). A transition to the ticket's current status is never legal: CLOSED has no outgoing edge and the
+// other states do not list themselves.
 const LEGAL_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   OPEN: ['IN_PROGRESS', 'CLOSED'],
   IN_PROGRESS: ['RESOLVED', 'CLOSED', 'OPEN'],
   RESOLVED: ['CLOSED', 'IN_PROGRESS'],
   CLOSED: [],
 };
+
+function ticketNotFound(): AppError {
+  return new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+}
+
+function ticketClosed(): AppError {
+  return new AppError('INVALID_STATE_TRANSITION', {
+    detail: 'Cannot send messages to a closed support ticket',
+  });
+}
 
 export class SupportTicketsService {
   constructor(private readonly deps: SupportTicketsServiceDeps) {}
@@ -111,7 +186,7 @@ export class SupportTicketsService {
 
     const { rows, total } = await this.deps.repo.findTicketsByFarmer(this.deps.db, farmerId, query);
     return {
-      items: rows.map(mapTicket),
+      items: rows.map(mapFarmerTicket),
       total,
       page: query.page,
       limit: query.limit,
@@ -135,7 +210,7 @@ export class SupportTicketsService {
       const created = await this.deps.repo.createTicket(tx, farmerId, body);
       await this.deps.repo.addStatusHistory(tx, {
         ticketId: created.id,
-        fromStatus: 'OPEN',
+        fromStatus: null,
         toStatus: 'OPEN',
         changedByUserId: scope.userId,
         reason: 'Ticket created',
@@ -143,15 +218,15 @@ export class SupportTicketsService {
 
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
+        actorRole: scope.roleCode,
         actionCode: 'support_ticket.create',
         entityType: 'support_ticket',
         entityId: created.id,
-        after: created,
+        after: ticketAuditImage(created),
       });
 
       return {
-        ticket: mapTicket(created),
+        ticket: mapFarmerTicket(created),
         messages: [],
       };
     });
@@ -165,13 +240,13 @@ export class SupportTicketsService {
 
     const ticket = await this.deps.repo.findTicketByIdAndFarmer(this.deps.db, id, farmerId);
     if (!ticket) {
-      throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+      throw ticketNotFound();
     }
 
     const messages = await this.deps.repo.findMessagesByTicket(this.deps.db, id);
     return {
-      ticket: mapTicket(ticket),
-      messages: messages.map(mapMessage),
+      ticket: mapFarmerTicket(ticket),
+      messages: messages.map(mapFarmerMessage),
     };
   }
 
@@ -182,39 +257,36 @@ export class SupportTicketsService {
     }
 
     return this.deps.runTx(async (tx) => {
-      const lockRes = await tx.query<TicketRow>(
-        `SELECT id, status, farmer_id FROM support_tickets WHERE id = $1 AND farmer_id = $2 FOR UPDATE`,
-        [ticketId, farmerId],
-      );
-      const ticket = lockRes.rows[0];
+      // The row lock serialises this against a concurrent close: whichever transaction takes the lock
+      // first wins, and the other re-reads the committed status.
+      const ticket = await this.deps.repo.lockTicketForFarmer(tx, ticketId, farmerId);
       if (!ticket) {
-        throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+        throw ticketNotFound();
       }
 
       if (ticket.status === 'CLOSED') {
-        throw new AppError('INVALID_STATE_TRANSITION', {
-          detail: 'Cannot send messages to a closed support ticket',
-        });
+        throw ticketClosed();
       }
 
       const msg = await this.deps.repo.addMessage(tx, {
         ticketId,
         senderUserId: scope.userId,
-        senderRole: 'FARMER',
+        senderRole: scope.roleCode,
         message: body.message,
         attachmentUrl: body.attachmentUrl,
       });
+      await this.deps.repo.touchTicket(tx, ticketId);
 
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
+        actorRole: scope.roleCode,
         actionCode: 'support_ticket.message_add',
         entityType: 'support_ticket_message',
         entityId: msg.id,
-        after: msg,
+        after: messageAuditImage(msg),
       });
 
-      return mapMessage(msg);
+      return mapFarmerMessage(msg);
     });
   }
 
@@ -225,13 +297,9 @@ export class SupportTicketsService {
     }
 
     return this.deps.runTx(async (tx) => {
-      const lockRes = await tx.query<TicketRow>(
-        `SELECT * FROM support_tickets WHERE id = $1 AND farmer_id = $2 FOR UPDATE`,
-        [id, farmerId],
-      );
-      const ticket = lockRes.rows[0];
+      const ticket = await this.deps.repo.lockTicketForFarmer(tx, id, farmerId);
       if (!ticket) {
-        throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+        throw ticketNotFound();
       }
 
       if (ticket.status === 'CLOSED') {
@@ -240,14 +308,16 @@ export class SupportTicketsService {
         });
       }
 
-      const closedAt = new Date().toISOString();
       const updated = await this.deps.repo.updateTicketStatus(
         tx,
         id,
         'CLOSED',
         ticket.resolved_at,
-        closedAt,
+        new Date().toISOString(),
       );
+      if (!updated) {
+        throw ticketNotFound();
+      }
 
       await this.deps.repo.addStatusHistory(tx, {
         ticketId: id,
@@ -257,21 +327,23 @@ export class SupportTicketsService {
         reason: 'Closed by farmer',
       });
 
+      const before = ticketAuditImage(ticket);
+      const after = ticketAuditImage(updated);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'FARMER',
+        actorRole: scope.roleCode,
         actionCode: 'support_ticket.close',
         entityType: 'support_ticket',
         entityId: id,
-        before: ticket,
-        after: updated,
-        changedFields: changedFields(ticket as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+        before,
+        after,
+        changedFields: changedFields(before, after),
       });
 
       const messages = await this.deps.repo.findMessagesByTicket(tx, id);
       return {
-        ticket: mapTicket(updated!),
-        messages: messages.map(mapMessage),
+        ticket: mapFarmerTicket(updated),
+        messages: messages.map(mapFarmerMessage),
       };
     });
   }
@@ -290,7 +362,7 @@ export class SupportTicketsService {
   async getAdminTicket(_scope: ResolvedScope, id: string) {
     const ticket = await this.deps.repo.findTicketById(this.deps.db, id);
     if (!ticket) {
-      throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+      throw ticketNotFound();
     }
 
     const messages = await this.deps.repo.findMessagesByTicket(this.deps.db, id);
@@ -305,36 +377,31 @@ export class SupportTicketsService {
 
   async addAdminMessage(scope: ResolvedScope, ticketId: string, body: SendTicketMessageBody) {
     return this.deps.runTx(async (tx) => {
-      const lockRes = await tx.query<TicketRow>(
-        `SELECT id, status FROM support_tickets WHERE id = $1 FOR UPDATE`,
-        [ticketId],
-      );
-      const ticket = lockRes.rows[0];
+      const ticket = await this.deps.repo.lockTicketById(tx, ticketId);
       if (!ticket) {
-        throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+        throw ticketNotFound();
       }
 
       if (ticket.status === 'CLOSED') {
-        throw new AppError('INVALID_STATE_TRANSITION', {
-          detail: 'Cannot send messages to a closed support ticket',
-        });
+        throw ticketClosed();
       }
 
       const msg = await this.deps.repo.addMessage(tx, {
         ticketId,
         senderUserId: scope.userId,
-        senderRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        senderRole: scope.roleCode,
         message: body.message,
         attachmentUrl: body.attachmentUrl,
       });
+      await this.deps.repo.touchTicket(tx, ticketId);
 
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'support_ticket.message_add',
         entityType: 'support_ticket_message',
         entityId: msg.id,
-        after: msg,
+        after: messageAuditImage(msg),
       });
 
       return mapMessage(msg);
@@ -343,42 +410,29 @@ export class SupportTicketsService {
 
   async transitionStatus(scope: ResolvedScope, id: string, body: TransitionTicketStatusBody) {
     return this.deps.runTx(async (tx) => {
-      const lockRes = await tx.query<TicketRow>(
-        `SELECT * FROM support_tickets WHERE id = $1 FOR UPDATE`,
-        [id],
-      );
-      const ticket = lockRes.rows[0];
+      const ticket = await this.deps.repo.lockTicketById(tx, id);
       if (!ticket) {
-        throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+        throw ticketNotFound();
       }
 
-      if (ticket.status === body.status) {
-        const messages = await this.deps.repo.findMessagesByTicket(tx, id);
-        const statusHistory = await this.deps.repo.findStatusHistoryByTicket(tx, id);
-        return {
-          ticket: mapTicket(ticket),
-          messages: messages.map(mapMessage),
-          statusHistory: statusHistory.map(mapStatusHistory),
-        };
-      }
-
-      const allowed = LEGAL_TRANSITIONS[ticket.status] ?? [];
-      if (!allowed.includes(body.status)) {
+      if (!LEGAL_TRANSITIONS[ticket.status].includes(body.status)) {
         throw new AppError('INVALID_STATE_TRANSITION', {
           detail: `Cannot transition support ticket from "${ticket.status}" to "${body.status}"`,
         });
       }
 
-      const resolvedAt = body.status === 'RESOLVED' ? new Date().toISOString() : ticket.resolved_at;
-      const closedAt = body.status === 'CLOSED' ? new Date().toISOString() : ticket.closed_at;
+      // resolved_at describes the ticket's CURRENT resolution: stamped on entering RESOLVED, kept when
+      // a resolved ticket is closed, cleared when it is re-opened for work.
+      const now = new Date().toISOString();
+      let resolvedAt: string | null = null;
+      if (body.status === 'RESOLVED') resolvedAt = now;
+      else if (body.status === 'CLOSED') resolvedAt = ticket.resolved_at;
+      const closedAt = body.status === 'CLOSED' ? now : ticket.closed_at;
 
-      const updated = await this.deps.repo.updateTicketStatus(
-        tx,
-        id,
-        body.status,
-        resolvedAt,
-        closedAt,
-      );
+      const updated = await this.deps.repo.updateTicketStatus(tx, id, body.status, resolvedAt, closedAt);
+      if (!updated) {
+        throw ticketNotFound();
+      }
 
       await this.deps.repo.addStatusHistory(tx, {
         ticketId: id,
@@ -388,22 +442,24 @@ export class SupportTicketsService {
         reason: body.reason ?? null,
       });
 
+      const before = ticketAuditImage(ticket);
+      const after = ticketAuditImage(updated);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'support_ticket.status_change',
         entityType: 'support_ticket',
         entityId: id,
-        before: ticket,
-        after: updated,
-        changedFields: changedFields(ticket as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+        before,
+        after,
+        changedFields: changedFields(before, after),
       });
 
       const messages = await this.deps.repo.findMessagesByTicket(tx, id);
       const statusHistory = await this.deps.repo.findStatusHistoryByTicket(tx, id);
 
       return {
-        ticket: mapTicket(updated!),
+        ticket: mapTicket(updated),
         messages: messages.map(mapMessage),
         statusHistory: statusHistory.map(mapStatusHistory),
       };
@@ -411,26 +467,48 @@ export class SupportTicketsService {
   }
 
   async assignTicket(scope: ResolvedScope, id: string, body: AssignTicketBody) {
+    const assigneeId = body.assignedToUserId ?? null;
+
     return this.deps.runTx(async (tx) => {
-      const before = await this.deps.repo.findTicketById(tx, id);
-      if (!before) {
-        throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+      // Lock first so the CLOSED check and the write see the same row (a concurrent close cannot slip in).
+      const ticket = await this.deps.repo.lockTicketById(tx, id);
+      if (!ticket) {
+        throw ticketNotFound();
       }
 
-      const updated = await this.deps.repo.updateTicketAssignment(tx, id, body.assignedToUserId);
+      if (ticket.status === 'CLOSED') {
+        throw new AppError('INVALID_STATE_TRANSITION', {
+          detail: 'Cannot change the assignee of a closed support ticket',
+        });
+      }
+
+      // null un-assigns. A non-null assignee must be a live admin who can actually work the queue;
+      // checked here so a bad id is a clear 422 rather than a foreign-key 500.
+      if (
+        assigneeId !== null &&
+        !(await this.deps.repo.userHoldsPermission(tx, assigneeId, ADMIN_TICKET_PERMISSION))
+      ) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'assignedToUserId must be an active admin user who can manage support tickets',
+        });
+      }
+
+      const updated = await this.deps.repo.updateTicketAssignment(tx, id, assigneeId);
       if (!updated) {
-        throw new AppError('NOT_FOUND', { detail: 'Support ticket not found' });
+        throw ticketNotFound();
       }
 
+      const before = ticketAuditImage(ticket);
+      const after = ticketAuditImage(updated);
       await writeAuditLog(tx, {
         actorId: scope.userId,
-        actorRole: scope.roleCode ?? 'TOHFA_ADMIN',
+        actorRole: scope.roleCode,
         actionCode: 'support_ticket.assign',
         entityType: 'support_ticket',
         entityId: id,
         before,
-        after: updated,
-        changedFields: changedFields(before as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+        after,
+        changedFields: changedFields(before, after),
       });
 
       const messages = await this.deps.repo.findMessagesByTicket(tx, id);

@@ -19,6 +19,5 @@ export type CropPlanningInsightItem = z.infer<typeof cropPlanningInsightItem>;
 export const cropPlanningInsightResponse = z.object({
   generatedAt: z.string(),
   crops: z.array(cropPlanningInsightItem),
-  specGaps: z.array(z.string()),
 });
 export type CropPlanningInsightResponse = z.infer<typeof cropPlanningInsightResponse>;
