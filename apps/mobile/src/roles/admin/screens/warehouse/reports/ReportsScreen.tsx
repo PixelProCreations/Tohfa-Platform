@@ -706,6 +706,15 @@ export function ReportsScreen({
             ) : null}
           </View>
 
+          {isMain ? (
+            // Ported from the W3b ReportDetailScreen (Main sales/returns record detail).
+            <View style={[styles.orangeInfoBox, styles.pickerGroupGap]}>
+              <Text style={styles.orangeInfoText}>
+                Deep-links to the owning module for the actual record — never a duplicate workflow.
+              </Text>
+            </View>
+          ) : null}
+
           <View style={{ height: 28 }} />
         </ScrollView>
 
@@ -4139,6 +4148,15 @@ export function ReportsScreen({
               ))}
             </View>
           </View>
+
+          {isMain ? (
+            // Ported from the W3b ReportDetailScreen (Main sales/returns record detail).
+            <View style={[styles.orangeInfoBox, styles.pickerGroupGap]}>
+              <Text style={styles.orangeInfoText}>
+                Deep-links to the owning module for the actual record — never a duplicate workflow.
+              </Text>
+            </View>
+          ) : null}
 
           <View style={{ height: 28 }} />
         </ScrollView>

@@ -6,23 +6,6 @@
  * Main (all-warehouses selector), and `can` decides which report cards render.
  */
 
-/** Which inline report a screen is showing. */
-export type ReportKind = 'RETURNS' | 'SALES';
-
-/** One KPI tile on a report summary. `value` is display text (mock today). */
-export interface ReportKpi {
-  label: string;
-  value: string;
-}
-
-/** One report record (mock data today; the real report returns the same shape). */
-export interface ReportRecord {
-  id: string;
-  dateText: string;
-  /** Warehouse the record belongs to. Falls back to the viewer's scope when absent. */
-  warehouseName?: string | undefined;
-}
-
 /** The hub's report cards, one per inline report view. */
 export type ReportCode =
   | 'SALES_REPORT'

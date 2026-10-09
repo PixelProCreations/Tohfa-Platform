@@ -110,17 +110,7 @@ export {
 } from './sales-direct';
 
 // Shared warehouse reports hub + inline reports (W4, M12).
-export {
-  ReportsScreen,
-  ReportDetailScreen,
-  ReportSummaryScreen,
-  type ReportsScreenProps,
-  type ReportDetailScreenProps,
-  type ReportKind,
-  type ReportKpi,
-  type ReportRecord,
-  type ReportSummaryScreenProps,
-} from './reports';
+export { ReportsScreen, type ReportsScreenProps } from './reports';
 // Shared returns (RMA) navigator (W4); the screens themselves are imported from './returns-rma'.
 export { ReturnsFlow, type ReturnsRoute } from './returns-rma';
 // Shared inventory navigator (W4); the screens themselves are imported from './inventory'.

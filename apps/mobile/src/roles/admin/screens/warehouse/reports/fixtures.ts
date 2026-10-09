@@ -7,7 +7,7 @@
  */
 import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
-import type { ReportCard, ReportKind, ReportKpi, ReportRecord, ReportSection } from './types';
+import type { ReportCard, ReportSection } from './types';
 
 /**
  * docs/rbac.json codes the reports area checks. rbac.json has no report-view
@@ -103,40 +103,3 @@ export const EXPORT_REPORT_OPTIONS: readonly { label: string; cardTitle: string 
   { label: 'Returns Report', cardTitle: 'Returns Report' },
   { label: 'Daily/Monthly Summary', cardTitle: 'Daily / Monthly Summary' },
 ];
-
-export interface ReportCopy {
-  title: string;
-  /** Four KPI tiles, rendered two per row. */
-  kpis: readonly [ReportKpi, ReportKpi, ReportKpi, ReportKpi];
-}
-
-export const REPORT_COPY: Record<ReportKind, ReportCopy> = {
-  RETURNS: {
-    title: 'Returns Report',
-    kpis: [
-      { label: 'Total Returns', value: '22' },
-      { label: 'Pending', value: '5' },
-      { label: 'Completed', value: '15' },
-      { label: 'Refunded', value: '14' },
-    ],
-  },
-  SALES: {
-    title: 'Sales Report',
-    kpis: [
-      { label: 'Total Sales', value: '₹5,84,200' },
-      { label: 'Today', value: '₹24,850' },
-      { label: 'Transactions', value: '284' },
-      { label: 'Avg Sale', value: '₹2,057' },
-    ],
-  },
-};
-
-/**
- * The single sample record both twins showed. The twins hard-coded its
- * warehouse as a literal name; it is left unset so the screen falls back to
- * the viewer's scope instead.
- */
-export const SAMPLE_REPORT_RECORD: ReportRecord = {
-  id: '001245',
-  dateText: '25 Sep 2026',
-};
