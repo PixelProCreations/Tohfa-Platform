@@ -105,5 +105,7 @@ export {
   type ReportSummaryScreenProps,
 } from './reports';
 export { ReturnResultScreen, type ReturnResultScreenProps, type ReturnResultVariant } from './returns-rma';
+// Shared returns (RMA) navigator (W4); the screens themselves are imported from './returns-rma'.
+export { ReturnsFlow, type ReturnsRoute } from './returns-rma';
 // Shared inventory navigator (W4); the screens themselves are imported from './inventory'.
 export { InventoryFlow } from './inventory';

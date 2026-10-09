@@ -197,22 +197,6 @@ import {
   SubWarehouseGoodsReceiptDetailScreen,
   SubWarehouseSystemMessagesScreen,
   SubWarehouseMessageHistoryScreen,
-  SubWarehouseReturnsIssuesScreen,
-  INITIAL_RMA_ITEMS,
-  type RmaRecord,
-  SubWarehouseRmaDetailScreen,
-  SubWarehouseImageViewerScreen,
-  SubWarehouseInspectProductScreen,
-  SubWarehouseReviewReturnRequestScreen,
-  SubWarehouseRejectReturnRequestScreen,
-  SubWarehouseRequestRejectedScreen,
-  SubWarehouseApproveReturnScreen,
-  SubWarehouseReturnApprovedScreen,
-  SubWarehouseRefundStatusScreen,
-  SubWarehouseRefundFailedScreen,
-  SubWarehouseRefundCompletedScreen,
-  SubWarehouseReturnHistoryScreen,
-  SubWarehouseReturnHistoryDetailScreen,
   SubWarehouseStaffScreen,
   SubWarehouseStaffDetailScreen,
   SubWarehouseEditStaffProfileScreen,
@@ -306,6 +290,8 @@ import {
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
   InventoryFlow,
+  ReturnsFlow,
+  type ReturnsRoute,
 } from '../admin/screens';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -380,7 +366,6 @@ export type ScreenName =
   | 'SubWarehouseWalletAttention'
   | 'SubWarehouseReturnsIssues'
   | 'SubWarehouseRmaDetail'
-  | 'SubWarehouseImageViewer'
   | 'SubWarehouseInspectProduct'
   | 'SubWarehouseReviewReturnRequest'
   | 'SubWarehouseRejectReturnRequest'
@@ -655,7 +640,6 @@ export type ScreenName =
   | 'SubWarehouseAddMaterial'
   | 'SubWarehouseReturnsIssues'
   | 'SubWarehouseRmaDetail'
-  | 'SubWarehouseImageViewer'
   | 'SubWarehouseInspectProduct'
   | 'SubWarehouseReviewReturnRequest'
   | 'SubWarehouseRejectReturnRequest'
@@ -745,6 +729,22 @@ const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseN
 /** Main Warehouse view: no warehouseId = all warehouses. */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 /** Legacy Main inventory route keys -> shared InventoryFlow design ids (W4). */
+/** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST #106). */
+const RETURNS_ROUTE_ENTRY: Partial<Record<ScreenName, ReturnsRoute>> = {
+  SubWarehouseReturnsIssues: 'ReturnsIssues',
+  SubWarehouseRmaDetail: 'RmaDetail',
+  SubWarehouseInspectProduct: 'InspectProduct',
+  SubWarehouseReviewReturnRequest: 'ReviewReturnRequest',
+  SubWarehouseApproveReturn: 'ApproveReturn',
+  SubWarehouseRejectReturnRequest: 'RejectReturnRequest',
+  SubWarehouseRequestRejected: 'RequestRejected',
+  SubWarehouseReturnApproved: 'ReturnApproved',
+  SubWarehouseRefundStatus: 'RefundStatus',
+  SubWarehouseRefundFailed: 'RefundFailed',
+  SubWarehouseRefundCompleted: 'RefundCompleted',
+  SubWarehouseReturnHistory: 'ReturnHistory',
+  SubWarehouseReturnHistoryDetail: 'ReturnHistoryDetail',
+};
 const INVENTORY_ROUTE_ENTRY: Record<string, string> = {
   StockLedger: 'M3S06',
   VerifyStock: 'M3S11',
@@ -2266,134 +2266,22 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
           />
-        ) : screen === 'SubWarehouseReturnsIssues' ? (
-          <SubWarehouseReturnsIssuesScreen
-            warehouseName="Coonoor Warehouse"
+        ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
+          // The RMA screens live in the shared warehouse/returns-rma area (W4);
+          // each old 'SubWarehouseXxx' key opens ReturnsFlow on the matching route.
+          <ReturnsFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={RETURNS_ROUTE_ENTRY[screen]}
+            initialParams={params}
             onBack={goBack}
-            onSelectRma={(rma) => navigate('SubWarehouseRmaDetail', { rma: rma as any })}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('WarehouseMore');
             }}
-            onNavigateToHistory={() => navigate('SubWarehouseReturnHistory')}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : screen === 'SubWarehouseRmaDetail' ? (
-          <SubWarehouseRmaDetailScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onBack={goBack}
-            onInspectProduct={(rma) => navigate('SubWarehouseInspectProduct', { rma: rma as any })}
-            onViewImage={(photoIndex) =>
-              navigate('SubWarehouseImageViewer', {
-                rma: params['rma'] as any,
-                photoIndex,
-              })
-            }
-          />
-        ) : screen === 'SubWarehouseImageViewer' ? (
-          <SubWarehouseImageViewerScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            photoIndex={(params['photoIndex'] as number) || 1}
-            onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseInspectProduct' ? (
-          <SubWarehouseInspectProductScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onBack={goBack}
-            onContinueToReview={(inspectionData) => {
-              navigate('SubWarehouseReviewReturnRequest', {
-                rma: inspectionData.rma as any,
-                inspectedQty: inspectionData.receivedQty,
-                notes: inspectionData.notes,
-              });
-            }}
-          />
-        ) : screen === 'SubWarehouseReviewReturnRequest' ? (
-          <SubWarehouseReviewReturnRequestScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            inspectedQty={typeof params['inspectedQty'] === 'string' ? params['inspectedQty'] : '1.8 KG'}
-            inspectionNotes={typeof params['notes'] === 'string' ? params['notes'] : 'Product partially damaged...'}
-            onBack={goBack}
-            onApprove={(rma) => {
-              navigate('SubWarehouseApproveReturn', { rma: rma as any });
-            }}
-            onReject={(rma) => {
-              navigate('SubWarehouseRejectReturnRequest', { rma: rma as any });
-            }}
-          />
-        ) : screen === 'SubWarehouseApproveReturn' ? (
-          <SubWarehouseApproveReturnScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onBack={goBack}
-            onConfirmApprove={(rma) => {
-              navigate('SubWarehouseReturnApproved', { rma: rma as any });
-            }}
-          />
-        ) : screen === 'SubWarehouseRejectReturnRequest' ? (
-          <SubWarehouseRejectReturnRequestScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onBack={goBack}
-            onRejectSuccess={(data) => {
-              navigate('SubWarehouseRequestRejected', { rma: data.rma as any, reason: data.reason });
-            }}
-          />
-        ) : screen === 'SubWarehouseRequestRejected' ? (
-          <SubWarehouseRequestRejectedScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onDone={() => navigate('SubWarehouseReturnsIssues')}
-          />
-        ) : screen === 'SubWarehouseReturnApproved' ? (
-          <SubWarehouseReturnApprovedScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onBack={goBack}
-            onGoToRefundStatus={(rma) => {
-              navigate('SubWarehouseRefundStatus', { rma: rma as any });
-            }}
-          />
-        ) : screen === 'SubWarehouseRefundStatus' ? (
-          <SubWarehouseRefundStatusScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            refundAmount="₹200.00"
-            onBack={goBack}
-            onConfirmSuccess={(data) => {
-              navigate('SubWarehouseRefundCompleted', {
-                rma: data.rma as any,
-                refundAmount: data.refundAmount,
-              });
-            }}
-            onSimulateFailure={(rma) => {
-              navigate('SubWarehouseRefundFailed', { rma: rma as any });
-            }}
-          />
-        ) : screen === 'SubWarehouseRefundCompleted' ? (
-          <SubWarehouseRefundCompletedScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            refundAmount={typeof params['refundAmount'] === 'string' ? params['refundAmount'] : '₹200'}
-            transactionId="REF-2026-001245"
-            onBack={() => navigate('SubWarehouseReturnsIssues')}
-          />
-        ) : screen === 'SubWarehouseReturnHistory' ? (
-          <SubWarehouseReturnHistoryScreen
-            onBack={goBack}
-            onSelectRecord={(rec) => navigate('SubWarehouseReturnHistoryDetail', { record: rec as any })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseReturnsIssues');
-            }}
-          />
-        ) : screen === 'SubWarehouseReturnHistoryDetail' ? (
-          <SubWarehouseReturnHistoryDetailScreen
-            record={params['record'] as any}
-            onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseRefundFailed' ? (
-          <SubWarehouseRefundFailedScreen
-            rma={(params['rma'] as unknown as RmaRecord) || INITIAL_RMA_ITEMS[0]}
-            onBack={goBack}
           />
         ) : screen === 'SubWarehouseStaff' ? (
           <SubWarehouseStaffScreen

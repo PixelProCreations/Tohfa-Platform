@@ -74,26 +74,6 @@ import { SubWarehouseGoodsReceiptDetailScreen } from './SubWarehouseGoodsReceipt
 import { SubWarehouseSystemMessagesScreen } from './SubWarehouseSystemMessagesScreen';
 import { SubWarehouseMessageHistoryScreen } from './SubWarehouseMessageHistoryScreen';
 import {
-  SubWarehouseReturnsIssuesScreen,
-  INITIAL_RMA_ITEMS,
-  type RmaRecord,
-} from './SubWarehouseReturnsIssuesScreen';
-import { SubWarehouseRmaDetailScreen } from './SubWarehouseRmaDetailScreen';
-import { SubWarehouseInspectProductScreen } from './SubWarehouseInspectProductScreen';
-import { SubWarehouseReviewReturnRequestScreen } from './SubWarehouseReviewReturnRequestScreen';
-import { SubWarehouseRejectReturnRequestScreen } from './SubWarehouseRejectReturnRequestScreen';
-import { SubWarehouseRequestRejectedScreen } from './SubWarehouseRequestRejectedScreen';
-import { SubWarehouseApproveReturnScreen } from './SubWarehouseApproveReturnScreen';
-import { SubWarehouseReturnApprovedScreen } from './SubWarehouseReturnApprovedScreen';
-import { SubWarehouseRefundStatusScreen } from './SubWarehouseRefundStatusScreen';
-import { SubWarehouseRefundFailedScreen } from './SubWarehouseRefundFailedScreen';
-import { SubWarehouseRefundCompletedScreen } from './SubWarehouseRefundCompletedScreen';
-import {
-  SubWarehouseReturnHistoryScreen,
-  type ReturnHistoryRecord,
-} from './SubWarehouseReturnHistoryScreen';
-import { SubWarehouseReturnHistoryDetailScreen } from './SubWarehouseReturnHistoryDetailScreen';
-import {
   SubWarehouseStaffScreen,
   type StaffMember,
 } from './SubWarehouseStaffScreen';
@@ -123,6 +103,13 @@ import type { PermissionCheck, WarehouseScope } from '../../admin/screens/wareho
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
 import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
 import { OrdersFlow } from '../../admin/screens/warehouse/orders';
+import {
+  ReturnsFlow,
+  type ReturnsRoute,
+  type ReturnsRouteParams,
+  type ReturnsStackEntry,
+  type RmaRecord,
+} from '../../admin/screens/warehouse/returns-rma';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -1149,23 +1136,17 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('INV-2026-001245');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showWalletOperations, setShowWalletOperations] = useState(false);
-  const [showReturnsIssues, setShowReturnsIssues] = useState(false);
-  const [selectedRma, setSelectedRma] = useState<RmaRecord | null>(null);
-  const [inspectingRma, setInspectingRma] = useState<RmaRecord | null>(null);
-  const [reviewingRma, setReviewingRma] = useState<{
-    rma: RmaRecord;
-    inspectedQty: string;
-    notes: string;
+  // The open returns (RMA) module: ReturnsFlow owns the stack from here on.
+  const [returnsEntry, setReturnsEntry] = useState<{
+    screen: ReturnsRoute;
+    params?: ReturnsRouteParams | undefined;
+    backStack?: ReturnsStackEntry[] | undefined;
   } | null>(null);
-  const [showRefundStatusRma, setShowRefundStatusRma] = useState<RmaRecord | null>(null);
-  const [showRefundFailedRma, setShowRefundFailedRma] = useState<RmaRecord | null>(null);
-  const [refundCompletedRma, setRefundCompletedRma] = useState<{ rma: RmaRecord; refundAmount: string } | null>(null);
-  const [rejectingRma, setRejectingRma] = useState<RmaRecord | null>(null);
-  const [rejectedRma, setRejectedRma] = useState<{ rma: RmaRecord; reason: string } | null>(null);
-  const [approvingRma, setApprovingRma] = useState<RmaRecord | null>(null);
-  const [returnApprovedRma, setReturnApprovedRma] = useState<RmaRecord | null>(null);
-  const [showReturnHistory, setShowReturnHistory] = useState(false);
-  const [selectedReturnHistoryRecord, setSelectedReturnHistoryRecord] = useState<ReturnHistoryRecord | null>(null);
+  const openReturns = (
+    screen: ReturnsRoute = 'ReturnsIssues',
+    params?: ReturnsRouteParams,
+    backStack?: ReturnsStackEntry[],
+  ) => setReturnsEntry({ screen, params, backStack });
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [selectedStaffMember, setSelectedStaffMember] = useState<StaffMember | null>(null);
   const [showEditStaffProfileScreen, setShowEditStaffProfileScreen] = useState(false);
@@ -1630,7 +1611,7 @@ export function SubWarehouseAdminDashboardScreen({
           } else if (item?.actionLabel?.includes('Wallet') || item?.actionLabel?.includes('Top-Up') || item?.type === 'wallet') {
             setShowWalletOperations(true);
           } else if (item?.actionLabel?.includes('Return') || item?.type === 'returns') {
-            setShowReturnsIssues(true);
+            openReturns('ReturnsIssues');
           } else if (item?.type === 'system') {
             setShowSystemMessages(true);
           }
@@ -1699,7 +1680,7 @@ export function SubWarehouseAdminDashboardScreen({
           } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
             setShowWalletOperations(true);
           } else if (actionLabel.includes('Return') || item?.type === 'returns') {
-            setShowReturnsIssues(true);
+            openReturns('ReturnsIssues');
           } else if (item?.type === 'system') {
             setShowSystemMessages(true);
           }
@@ -2435,7 +2416,7 @@ export function SubWarehouseAdminDashboardScreen({
         issue={selectedCustomerIssue}
         onBack={() => setShowCustomerIssueDetail(false)}
         onViewRma={() => {
-          setSelectedRma({
+          const rma: RmaRecord = {
             id: 'rma-00231',
             rmaId: 'RMA-00231',
             orderId: selectedCustomerIssue?.orderNo || 'ORD-00251',
@@ -2458,10 +2439,11 @@ export function SubWarehouseAdminDashboardScreen({
             requestedQuantity: '2 KG',
             requestedResolution: 'Replacement / Refund',
             status: 'Under Review',
-          });
+          };
           setShowCustomerIssueDetail(false);
           setShowCustomerIssues(false);
-          setShowReturnsIssues(true);
+          // Opens the RMA on its detail, with the RMA list beneath it (as before).
+          openReturns('RmaDetail', { rma }, [{ screen: 'ReturnsIssues' }]);
         }}
       />
     );
@@ -2814,198 +2796,29 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (selectedReturnHistoryRecord) {
+  if (returnsEntry) {
+    // The RMA screens and their navigator live in admin/screens/warehouse/returns-rma
+    // (shared with the Main shell); this only passes the Sub scope through.
     return (
-      <SubWarehouseReturnHistoryDetailScreen
-        record={selectedReturnHistoryRecord}
-        onBack={() => setSelectedReturnHistoryRecord(null)}
-      />
-    );
-  }
-
-  if (showReturnHistory) {
-    return (
-      <SubWarehouseReturnHistoryScreen
-        onBack={() => setShowReturnHistory(false)}
-        onSelectRecord={(rec) => setSelectedReturnHistoryRecord(rec)}
-        onTabChange={(tab) => {
-          setShowReturnHistory(false);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (refundCompletedRma) {
-    return (
-      <SubWarehouseRefundCompletedScreen
-        rma={refundCompletedRma.rma}
-        refundAmount={refundCompletedRma.refundAmount}
-        transactionId="REF-2026-001245"
+      <ReturnsFlow
+        scope={scope}
+        can={can}
+        initialScreen={returnsEntry.screen}
+        initialParams={returnsEntry.params}
+        initialBackStack={returnsEntry.backStack}
         onBack={() => {
-          setRefundCompletedRma(null);
-          setShowRefundStatusRma(null);
-          setReturnApprovedRma(null);
-          setApprovingRma(null);
-          setReviewingRma(null);
-          setInspectingRma(null);
-          setSelectedRma(null);
-          setShowReturnsIssues(true);
-        }}
-      />
-    );
-  }
-
-  if (rejectedRma) {
-    return (
-      <SubWarehouseRequestRejectedScreen
-        rma={rejectedRma.rma}
-        onDone={() => {
-          setRejectedRma(null);
-          setRejectingRma(null);
-          setReviewingRma(null);
-          setInspectingRma(null);
-          setSelectedRma(null);
-          setShowReturnsIssues(true);
-        }}
-      />
-    );
-  }
-
-  if (rejectingRma) {
-    return (
-      <SubWarehouseRejectReturnRequestScreen
-        rma={rejectingRma}
-        onBack={() => setRejectingRma(null)}
-        onRejectSuccess={(data) => {
-          setRejectedRma(data);
-          setRejectingRma(null);
-        }}
-      />
-    );
-  }
-
-  if (returnApprovedRma) {
-    return (
-      <SubWarehouseReturnApprovedScreen
-        rma={returnApprovedRma}
-        onBack={() => setReturnApprovedRma(null)}
-        onGoToRefundStatus={(rma) => {
-          setReturnApprovedRma(null);
-          setShowRefundStatusRma(rma);
-        }}
-      />
-    );
-  }
-
-  if (showRefundFailedRma) {
-    return (
-      <SubWarehouseRefundFailedScreen
-        rma={showRefundFailedRma}
-        onBack={() => setShowRefundFailedRma(null)}
-      />
-    );
-  }
-
-  if (showRefundStatusRma) {
-    return (
-      <SubWarehouseRefundStatusScreen
-        rma={showRefundStatusRma}
-        refundAmount="₹200.00"
-        onBack={() => setShowRefundStatusRma(null)}
-        onConfirmSuccess={(data) => {
-          setShowRefundStatusRma(null);
-          setRefundCompletedRma(data);
-        }}
-        onSimulateFailure={(rma) => {
-          setShowRefundFailedRma(rma);
-        }}
-      />
-    );
-  }
-
-  if (approvingRma) {
-    return (
-      <SubWarehouseApproveReturnScreen
-        rma={approvingRma}
-        onBack={() => setApprovingRma(null)}
-        onConfirmApprove={(rma) => {
-          setApprovingRma(null);
-          setReturnApprovedRma(rma);
-        }}
-      />
-    );
-  }
-
-  if (reviewingRma) {
-    return (
-      <SubWarehouseReviewReturnRequestScreen
-        rma={reviewingRma.rma}
-        inspectedQty={reviewingRma.inspectedQty}
-        inspectionNotes={reviewingRma.notes}
-        onBack={() => setReviewingRma(null)}
-        onApprove={(rma) => {
-          setApprovingRma(rma);
-        }}
-        onReject={(rma) => {
-          setRejectingRma(rma);
-        }}
-        onDecision={(decision) => {
-          if (decision.status === 'Approved') {
-            setApprovingRma(reviewingRma.rma);
-          } else {
-            setRejectingRma(reviewingRma.rma);
-          }
-        }}
-      />
-    );
-  }
-
-  if (inspectingRma) {
-    return (
-      <SubWarehouseInspectProductScreen
-        rma={inspectingRma}
-        onBack={() => setInspectingRma(null)}
-        onContinueToReview={(inspectionData) => {
-          setReviewingRma({
-            rma: inspectionData.rma,
-            inspectedQty: inspectionData.receivedQty,
-            notes: inspectionData.notes,
-          });
-        }}
-      />
-    );
-  }
-
-  if (selectedRma) {
-    return (
-      <SubWarehouseRmaDetailScreen
-        rma={selectedRma}
-        onBack={() => setSelectedRma(null)}
-        onInspectProduct={(rma) => setInspectingRma(rma)}
-      />
-    );
-  }
-
-  if (showReturnsIssues) {
-    return (
-      <SubWarehouseReturnsIssuesScreen
-        warehouseName="Coonoor Warehouse"
-        onBack={() => {
-          setShowReturnsIssues(false);
+          setReturnsEntry(null);
           if (returnToNotificationsOnBack) {
             setReturnToNotificationsOnBack(false);
             setShowNotifications(true);
           }
         }}
-        onSelectRma={(rma) => setSelectedRma(rma)}
-        onNavigateToHistory={() => setShowReturnHistory(true)}
         onTabChange={(tab) => {
-          setShowReturnsIssues(false);
+          setReturnsEntry(null);
           setActiveTab(tab);
         }}
         onNavigateToNotifications={() => {
-          setShowReturnsIssues(false);
+          setReturnsEntry(null);
           if (onNavigate) {
             onNavigate('SubWarehouseNotifications');
           } else {
@@ -4977,11 +4790,11 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToReturns={() => {
               if (onNavigate) onNavigate('SubWarehouseReturnsIssues');
-              else setShowReturnsIssues(true);
+              else openReturns('ReturnsIssues');
             }}
             onNavigateToReturnHistory={() => {
               if (onNavigate) onNavigate('SubWarehouseReturnHistory');
-              else setShowReturnHistory(true);
+              else openReturns('ReturnHistory');
             }}
             onNavigateToCustomers={() => {
               if (onNavigate) onNavigate('SubWarehouseCustomerList');
