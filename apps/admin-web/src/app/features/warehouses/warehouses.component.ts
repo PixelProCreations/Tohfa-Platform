@@ -538,7 +538,7 @@ export class WarehousesComponent implements OnInit {
   }
 
   totalCapacityKg(): number {
-    return this.warehouses().reduce((sum, w) => sum + Number(w.capacityKg ?? 0), 0);
+    return this.warehouses().reduce((sum, w) => sum + (w.capacityKg || 0), 0);
   }
 
   filteredWarehouses(): WarehouseItem[] {
