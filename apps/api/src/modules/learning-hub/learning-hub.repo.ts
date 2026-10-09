@@ -42,6 +42,9 @@ export interface VideoRow {
   updated_at: string;
 }
 
+/** An article as listed: everything but the (potentially long) body. */
+export type ArticleSummaryRow = Omit<ArticleRow, 'content'>;
+
 export interface TrainingRow {
   id: string;
   title: string;
@@ -72,6 +75,13 @@ export interface GroupRow {
   is_joined?: boolean;
 }
 
+/** The columns the enrolment/capacity decision needs, read under a row lock. */
+export interface TrainingLockRow {
+  id: string;
+  capacity: number | null;
+  is_published: boolean;
+}
+
 export interface EnrollmentRow {
   id: string;
   training_id: string;
@@ -91,7 +101,7 @@ export interface LearningHubRepo {
   findArticles(
     db: Executor,
     params: ListArticlesQuery & { publishedOnly?: boolean },
-  ): Promise<{ rows: ArticleRow[]; total: number }>;
+  ): Promise<{ rows: ArticleSummaryRow[]; total: number }>;
   findArticleById(db: Executor, id: string, publishedOnly?: boolean): Promise<ArticleRow | null>;
   createArticle(db: Executor, body: CreateArticleBody): Promise<ArticleRow>;
   updateArticle(db: Executor, id: string, patch: UpdateArticleBody): Promise<ArticleRow | null>;
@@ -116,8 +126,14 @@ export interface LearningHubRepo {
   createTraining(db: Executor, body: CreateTrainingBody): Promise<TrainingRow>;
   updateTraining(db: Executor, id: string, patch: UpdateTrainingBody): Promise<TrainingRow | null>;
   deleteTraining(db: Executor, id: string): Promise<boolean>;
+  /**
+   * `SELECT ... FOR UPDATE` on the training row. Enrolment and capacity edits
+   * both take this lock before counting, so "count, then insert" and "count,
+   * then lower capacity" are serialised per training. Must run in a transaction.
+   */
+  lockTraining(db: Executor, trainingId: string): Promise<TrainingLockRow | null>;
   countTrainingEnrollments(db: Executor, trainingId: string): Promise<number>;
-  isFarmerEnrolled(db: Executor, trainingId: string, farmerId: string): Promise<boolean>;
+  findEnrollment(db: Executor, trainingId: string, farmerId: string): Promise<EnrollmentRow | null>;
   enrollFarmerInTraining(db: Executor, trainingId: string, farmerId: string): Promise<EnrollmentRow>;
   unenrollFarmerFromTraining(db: Executor, trainingId: string, farmerId: string): Promise<boolean>;
 
@@ -130,8 +146,12 @@ export interface LearningHubRepo {
   createGroup(db: Executor, body: CreateGroupBody): Promise<GroupRow>;
   updateGroup(db: Executor, id: string, patch: UpdateGroupBody): Promise<GroupRow | null>;
   deleteGroup(db: Executor, id: string): Promise<boolean>;
-  isFarmerInGroup(db: Executor, groupId: string, farmerId: string): Promise<boolean>;
-  joinGroup(db: Executor, groupId: string, farmerId: string): Promise<MembershipRow>;
+  /** `created` is false when the farmer was already a member (a replay). */
+  joinGroup(
+    db: Executor,
+    groupId: string,
+    farmerId: string,
+  ): Promise<{ membership: MembershipRow; created: boolean }>;
   leaveGroup(db: Executor, groupId: string, farmerId: string): Promise<boolean>;
 }
 
@@ -161,7 +181,7 @@ export const learningHubRepo: LearningHubRepo = {
 
     const offset = (page - 1) * limit;
     const querySql = `
-      SELECT id, title, content, snippet, read_time, author, tag, language,
+      SELECT id, title, snippet, read_time, author, tag, language,
              is_published, created_at, updated_at
       FROM learning_articles
       ${whereClause}
@@ -169,7 +189,7 @@ export const learningHubRepo: LearningHubRepo = {
       LIMIT $${idx++} OFFSET $${idx++}
     `;
     params.push(limit, offset);
-    const res = await db.query<ArticleRow>(querySql, params);
+    const res = await db.query<ArticleSummaryRow>(querySql, params);
     return { rows: res.rows, total };
   },
 
@@ -553,19 +573,29 @@ export const learningHubRepo: LearningHubRepo = {
     return res.rows[0]?.count ?? 0;
   },
 
-  async isFarmerEnrolled(db, trainingId, farmerId) {
-    const res = await db.query(
-      `SELECT 1 FROM learning_training_enrollments WHERE training_id = $1 AND farmer_id = $2`,
-      [trainingId, farmerId],
+  async lockTraining(db, trainingId) {
+    const res = await db.query<TrainingLockRow>(
+      `SELECT id, capacity, is_published FROM learning_trainings WHERE id = $1 FOR UPDATE`,
+      [trainingId],
     );
-    return (res.rowCount ?? 0) > 0;
+    return res.rows[0] ?? null;
   },
 
+  async findEnrollment(db, trainingId, farmerId) {
+    const res = await db.query<EnrollmentRow>(
+      `SELECT id, training_id, farmer_id, enrolled_at
+       FROM learning_training_enrollments WHERE training_id = $1 AND farmer_id = $2`,
+      [trainingId, farmerId],
+    );
+    return res.rows[0] ?? null;
+  },
+
+  // Plain INSERT: the caller holds the training row lock, so the unique
+  // (training_id, farmer_id) constraint is only a backstop here.
   async enrollFarmerInTraining(db, trainingId, farmerId) {
     const res = await db.query<EnrollmentRow>(
       `INSERT INTO learning_training_enrollments (training_id, farmer_id)
        VALUES ($1, $2)
-       ON CONFLICT (training_id, farmer_id) DO UPDATE SET enrolled_at = learning_training_enrollments.enrolled_at
        RETURNING id, training_id, farmer_id, enrolled_at`,
       [trainingId, farmerId],
     );
@@ -689,23 +719,24 @@ export const learningHubRepo: LearningHubRepo = {
     return (res.rowCount ?? 0) > 0;
   },
 
-  async isFarmerInGroup(db, groupId, farmerId) {
-    const res = await db.query(
-      `SELECT 1 FROM learning_group_memberships WHERE group_id = $1 AND farmer_id = $2`,
-      [groupId, farmerId],
-    );
-    return (res.rowCount ?? 0) > 0;
-  },
-
+  // DO NOTHING returns no row on a conflict, which is how a replay (or a
+  // double-tap racing itself) is told apart from a real join.
   async joinGroup(db, groupId, farmerId) {
-    const res = await db.query<MembershipRow>(
+    const inserted = await db.query<MembershipRow>(
       `INSERT INTO learning_group_memberships (group_id, farmer_id)
        VALUES ($1, $2)
-       ON CONFLICT (group_id, farmer_id) DO UPDATE SET joined_at = learning_group_memberships.joined_at
+       ON CONFLICT (group_id, farmer_id) DO NOTHING
        RETURNING id, group_id, farmer_id, joined_at`,
       [groupId, farmerId],
     );
-    return res.rows[0]!;
+    if (inserted.rows[0] !== undefined) return { membership: inserted.rows[0], created: true };
+
+    const existing = await db.query<MembershipRow>(
+      `SELECT id, group_id, farmer_id, joined_at
+       FROM learning_group_memberships WHERE group_id = $1 AND farmer_id = $2`,
+      [groupId, farmerId],
+    );
+    return { membership: existing.rows[0]!, created: false };
   },
 
   async leaveGroup(db, groupId, farmerId) {
