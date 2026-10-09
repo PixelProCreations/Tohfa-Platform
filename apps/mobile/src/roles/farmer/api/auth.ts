@@ -389,16 +389,10 @@ export async function resetPassword(body: {
 }
 
 export async function fetchMe(): Promise<UserMe> {
-  try {
-    return (await apiFetchCurrentUser()) as unknown as UserMe;
-  } catch {
-    return {
-      id: 'usr_admin',
-      fullName: 'Administrator',
-      roles: [{ code: 'SUPER_ADMIN' as RoleCodeWithColor }],
-      permissions: ['*'],
-    };
-  }
+  // No fallback identity: a failed /me must surface as an error. A fabricated
+  // SUPER_ADMIN with ['*'] here would hand every permission to an unauthenticated
+  // client; the server is the only source of roles and permissions.
+  return (await apiFetchCurrentUser()) as unknown as UserMe;
 }
 
 export async function fetchApplicationStatus(
