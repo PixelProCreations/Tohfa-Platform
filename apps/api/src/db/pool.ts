@@ -9,6 +9,7 @@
 import pg from 'pg';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
+import { buildPoolConfig, parseDatabaseSsl } from './poolConfig.js';
 
 const { Pool, types } = pg;
 
@@ -20,13 +21,13 @@ const { Pool, types } = pg;
 types.setTypeParser(1700, (value: string) => value); // NUMERIC / DECIMAL
 types.setTypeParser(20, (value: string) => value); // BIGINT — may exceed 2^53
 
-export const pool = new Pool({
-  connectionString: config.DATABASE_URL,
-  max: config.isTest ? 4 : 10,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-  application_name: 'tohfa-api',
-});
+export const pool = new Pool(
+  buildPoolConfig({
+    databaseUrl: config.DATABASE_URL,
+    ssl: parseDatabaseSsl(config.DATABASE_SSL),
+    max: config.isTest ? 4 : 10,
+  }),
+);
 
 pool.on('error', (error: Error) => {
   logger.error({ err: error }, 'idle postgres client errored');

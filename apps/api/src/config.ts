@@ -9,6 +9,7 @@
 import { config as loadDotenv } from 'dotenv';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { parseDatabaseSsl } from './db/poolConfig.js';
 import { REPO_ROOT } from './paths.js';
 
 loadDotenv({ path: join(REPO_ROOT, '.env') });
@@ -30,6 +31,22 @@ const envSchema = z.object({
   PORT: intFromEnv(1, 65535).default(3000),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  // TLS for the Postgres connection: false (default) | true | no-verify.
+  // Semantics and the pg `sslmode=require` caveat live in db/poolConfig.ts.
+  DATABASE_SSL: z
+    .string()
+    .default('false')
+    .refine(
+      (value) => {
+        try {
+          parseDatabaseSsl(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      'DATABASE_SSL must be one of: false, true, no-verify',
+    ),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
