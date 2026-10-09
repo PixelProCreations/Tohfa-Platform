@@ -146,3 +146,5 @@ export {
   type NotificationsRouteParams,
   type NotificationTarget,
 } from './notifications';
+// Shared account (profile & settings) navigator (W4); the screens themselves are imported from './profile-settings'.
+export { ProfileFlow, type ProfileFlowProps, type ProfileRoute } from './profile-settings';

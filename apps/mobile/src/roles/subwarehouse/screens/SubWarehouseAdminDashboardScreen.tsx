@@ -84,7 +84,7 @@ import {
   type PermissionCheck,
   type WarehouseScope,
 } from '../../admin/screens/warehouse/finance-expenses';
-import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
+import { ProfileFlow } from '../../admin/screens/warehouse/profile-settings';
 import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
 import { OrdersFlow } from '../../admin/screens/warehouse/orders';
 import {
@@ -2400,7 +2400,10 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showSettingsScreen) {
     return (
-      <SubWarehouseSettingsScreen
+      <ProfileFlow
+        scope={scope}
+        can={can}
+        initialScreen="Settings"
         onBack={() => {
           setShowSettingsScreen(false);
           setActiveTab('More');

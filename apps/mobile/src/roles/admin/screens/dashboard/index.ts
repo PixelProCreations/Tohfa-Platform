@@ -37,12 +37,10 @@ export * from '../../../subwarehouse/screens/SubWarehouseCapacityScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssuesScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReportIssueScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAttendanceHistoryScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseSettingsScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseGoodsReceiptDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReportsScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
 export * from './AdminProfileScreen';
 
 // Market & Pricing screens

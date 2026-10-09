@@ -186,8 +186,8 @@ import {
   SubWarehouseStaffAndAttendanceScreen,
   SubWarehouseAttendanceDetailScreen,
   SubWarehouseReportsScreen,
-  SubWarehouseSettingsScreen,
-  SubWarehouseHelpSupportScreen,
+  ProfileFlow,
+  type ProfileRoute,
   type StaffMember,
   AuditCalendarScreen,
   type AuditEntry,
@@ -790,6 +790,16 @@ const NOTIFICATIONS_ROUTE_ENTRY: Partial<Record<ScreenName, NotificationsRoute>>
   SubWarehouseApprovalAlerts: 'ApprovalAlerts',
   SubWarehouseSystemMessages: 'Notifications',
   SubWarehouseMessageHistory: 'Notifications',
+};
+/**
+ * Legacy account route keys -> shared ProfileFlow routes (W4). Settings opens the
+ * hub (Profile, Notification Settings, Security, Change Password, Session &
+ * Security, Help & Support, About and Logout are reached from it); Help & Support
+ * keeps its own key for the More menu.
+ */
+const PROFILE_ROUTE_ENTRY: Partial<Record<ScreenName, ProfileRoute>> = {
+  SubWarehouseSettings: 'Settings',
+  SubWarehouseHelpSupport: 'HelpSupport',
 };
 /** NotificationsFlow params for a legacy key (detail carries `notification`). */
 function notificationsParamsFor(screen: ScreenName, params: Record<string, unknown>): NotificationsRouteParams {
@@ -1621,10 +1631,18 @@ export default function App(): React.JSX.Element {
             onNavigate={(nextScreen) => navigate(nextScreen as ScreenName)}
             onBack={goBack}
           />
-        ) : screen === 'SubWarehouseHelpSupport' ? (
-          <SubWarehouseHelpSupportScreen
-            warehouseName="Coonoor Warehouse"
+        ) : PROFILE_ROUTE_ENTRY[screen] !== undefined ? (
+          // The account screens live in the shared warehouse/profile-settings area
+          // (W4); 'SubWarehouseSettings' opens the hub, 'SubWarehouseHelpSupport'
+          // the help centre. Report an issue is offered by the screen only with
+          // support.ticket.create_own (none for warehouse admins today).
+          <ProfileFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={PROFILE_ROUTE_ENTRY[screen]}
             onBack={goBack}
+            onLogout={() => navigate('Login')}
+            onReportIssue={() => navigate('SubWarehouseReportIssue')}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
@@ -2075,11 +2093,6 @@ export default function App(): React.JSX.Element {
             onSelectReport={(reportKey) => {
               Alert.alert('Report Selected', `Viewing analytics for: ${reportKey}`);
             }}
-          />
-        ) : screen === 'SubWarehouseSettings' ? (
-          <SubWarehouseSettingsScreen
-            onBack={goBack}
-            onLogout={() => navigate('Login')}
           />
         ) : screen === 'WarehouseOverview' ? (
           <WarehouseOverviewScreen

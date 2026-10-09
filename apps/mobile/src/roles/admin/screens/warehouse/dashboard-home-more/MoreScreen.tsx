@@ -21,10 +21,9 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SubWarehouseSettingsScreen } from '../../../../subwarehouse/screens/SubWarehouseSettingsScreen';
 import { SubWarehouseReportsScreen } from '../../../../subwarehouse/screens/SubWarehouseReportsScreen';
 import { FinanceFlow } from '../finance-expenses/FinanceFlow';
-import { SubWarehouseHelpSupportScreen } from '../../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
+import { ProfileFlow } from '../profile-settings';
 import { SubWarehouseWarehouseOperationsScreen } from '../../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
 import { CustomersFlow } from '../customers';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
@@ -154,7 +153,7 @@ const OPTION_GROUPS: OptionGroup[] = [
   },
 ];
 
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ SVG Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -771,9 +770,13 @@ export function MoreScreen({
 
   if (showSettingsScreen) {
     return (
-      <SubWarehouseSettingsScreen
+      <ProfileFlow
+        scope={scope}
+        can={can}
+        initialScreen="Settings"
         onBack={() => setShowSettingsScreen(false)}
         onLogout={onLogout}
+        onTabChange={onTabChange}
       />
     );
   }
@@ -811,9 +814,12 @@ export function MoreScreen({
 
   if (showHelpSupportScreen) {
     return (
-      <SubWarehouseHelpSupportScreen
-        warehouseName={warehouseLabel}
+      <ProfileFlow
+        scope={scope}
+        can={can}
+        initialScreen="HelpSupport"
         onBack={() => setShowHelpSupportScreen(false)}
+        onLogout={onLogout}
         onTabChange={onTabChange}
       />
     );
@@ -881,7 +887,7 @@ export function MoreScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner ─── */}
+      {/* â”€â”€â”€ Top Brand Header Banner â”€â”€â”€ */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -900,13 +906,13 @@ export function MoreScreen({
         </View>
       </View>
 
-      {/* ─── Main Content Scroll ─── */}
+      {/* â”€â”€â”€ Main Content Scroll â”€â”€â”€ */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Profile Card ─── */}
+        {/* â”€â”€â”€ Profile Card â”€â”€â”€ */}
         {(() => {
           const profileContent = (
             <>
@@ -940,7 +946,7 @@ export function MoreScreen({
           );
         })()}
 
-        {/* ─── Grouped Section Cards ─── */}
+        {/* â”€â”€â”€ Grouped Section Cards â”€â”€â”€ */}
         {visibleGroups.map((group) => {
           return (
             <View key={group.id} style={styles.groupContainer}>
@@ -984,7 +990,7 @@ export function MoreScreen({
           );
         })}
 
-        {/* ─── Logout Standalone Card ─── */}
+        {/* â”€â”€â”€ Logout Standalone Card â”€â”€â”€ */}
         <TouchableOpacity
           style={styles.logoutCard}
           onPress={handleLogoutPress}
@@ -1002,7 +1008,7 @@ export function MoreScreen({
         <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
+      {/* â”€â”€â”€ Bottom Navigation Bar â”€â”€â”€ */}
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
@@ -1090,7 +1096,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
-  // ─── Profile Card ───
+  // â”€â”€â”€ Profile Card â”€â”€â”€
   profileCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
@@ -1156,7 +1162,7 @@ const styles = StyleSheet.create({
     color: adminColors.success.text,
   },
 
-  // ─── Group Container ───
+  // â”€â”€â”€ Group Container â”€â”€â”€
   groupContainer: {
     marginBottom: adminSpacing.lg,
   },
@@ -1213,7 +1219,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
   },
 
-  // ─── Logout Card ───
+  // â”€â”€â”€ Logout Card â”€â”€â”€
   logoutCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
@@ -1239,7 +1245,7 @@ const styles = StyleSheet.create({
     color: adminColors.danger.text,
   },
 
-  // ─── Bottom Navigation ───
+  // â”€â”€â”€ Bottom Navigation â”€â”€â”€
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: adminColors.card,

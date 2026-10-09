@@ -14,8 +14,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { AdminProfileScreen } from './AdminProfileScreen';
 import { MoreScreen } from '../warehouse/dashboard-home-more';
+import { ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
@@ -574,7 +574,7 @@ const INVENTORY_ENTRY = {
  * MainWarehouseMoreScreen rendered these itself as local fallbacks; the shared
  * MoreScreen is role-neutral, so this shell supplies them via onNavigateTo*.
  */
-type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin';
+type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings';
 
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
@@ -1502,6 +1502,17 @@ export function MainWarehouseAdminDashboardScreen({
             />
           ) : moreSubScreen === 'staff' ? (
             <MainWarehouseStaffScreen onBack={() => setMoreSubScreen(null)} />
+          ) : moreSubScreen === 'settings' ? (
+            // Shared account hub (W4): Profile, Notification Settings, Security,
+            // Change Password, Session & Security, Help & Support, About, Logout.
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Settings"
+              onBack={() => setMoreSubScreen(null)}
+              onLogout={onSignOut}
+              onTabChange={handleMoreTabChange}
+            />
           ) : (
             <MainWarehouseAdminScreen onBack={() => setMoreSubScreen(null)} />
           )
@@ -1532,20 +1543,24 @@ export function MainWarehouseAdminDashboardScreen({
             onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
             onNavigateToProfile={() => navigateWh('profile')}
             onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-            onNavigateToSettings={() => navigateWh('warehouse_settings')}
+            // The More row is the account hub ("Manage account and application settings",
+            // FINAL_LIST #84); warehouse settings stay reachable from Warehouse Overview.
+            onNavigateToSettings={() => setMoreSubScreen('settings')}
           />
         )}
 
         {/* ─── Sub Views for Interactive Navigation (shared across all tabs) ─── */}
         {whSubView !== 'overview' && (
           whSubView === 'profile' ? (
-            <AdminProfileScreen
-              role="MAIN_WH_ADMIN"
-              onSignOut={onSignOut}
+            // The admin's own profile is the shared UserProfileScreen (W4, absorbs
+            // MainWarehouseProfileScreen); Main sees the all-warehouses account.
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="UserProfile"
               onBack={goBackWh}
-              onNavigateWarehouseOperations={() => navigateWh('warehouse_operations')}
-              onNavigateCustomers={() => navigateWh('customers_list')}
-              onNavigateBillingInvoices={() => navigateWh('billing_invoices')}
+              onLogout={onSignOut}
+              onTabChange={handleMoreTabChange}
             />
           ) : (whSubView === 'dashboard_operations' || whSubView === 'todays_operations') ? (
               <TodaysOperationsMonitoringScreen
