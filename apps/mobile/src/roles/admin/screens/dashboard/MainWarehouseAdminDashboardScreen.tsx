@@ -21,13 +21,13 @@ import { GSTInvoiceScreen } from '../warehouse/billing-invoices';
 import { WalletOperationsScreen } from '../warehouse/wallet-cashtopup';
 import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
 import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
-import { MainWarehouseReturnsIssuesScreen } from './MainWarehouseReturnsIssuesScreen';
 import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
 import { InventoryFlow } from '../warehouse/inventory';
+import { ReturnsFlow } from '../warehouse/returns-rma';
 import {
   WarehouseOverviewScreen,
   WarehouseSettingsScreen,
@@ -1466,7 +1466,13 @@ export function MainWarehouseAdminDashboardScreen({
           ) : moreSubScreen === 'reports' ? (
             <MainWarehouseReportsScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={() => setMoreSubScreen(null)} />
           ) : moreSubScreen === 'returns' ? (
-            <MainWarehouseReturnsIssuesScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={() => setMoreSubScreen(null)} />
+            // Shared RMA flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
+            <ReturnsFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={() => setMoreSubScreen(null)}
+              onTabChange={handleMoreTabChange}
+            />
           ) : moreSubScreen === 'staff' ? (
             <MainWarehouseStaffScreen onBack={() => setMoreSubScreen(null)} />
           ) : (

@@ -11,9 +11,9 @@
  * (SubWarehouseReturnsIssuesScreen / SubWarehouseReturnHistoryDetailScreen) and
  * imported sideways by every other RMA screen; they live here now.
  *
- * Folded designs:
+ * Folded designs (W3b's ReturnResultScreen and its `variant` prop are gone):
  *   - The Main "Inspection Saved" page (MainWarehouseInspectionSavedScreen, then
- *     W3b's ReturnResultScreen variant 'INSPECTION_SAVED') is InspectProductScreen
+ *     ReturnResultScreen variant 'INSPECTION_SAVED') is InspectProductScreen
  *     step 'saved'.
  *   - The Main "Return Approved" page (MainWarehouseReturnApprovedScreen, then
  *     ReturnResultScreen variant 'RETURN_APPROVED') is ReturnApprovedScreen.
@@ -94,9 +94,6 @@ export interface ReturnHistoryRecord {
   timeline?: ReturnTimelineItem[] | undefined;
   warehouseId?: string | undefined;
 }
-
-/** W3b ReturnResultScreen variants (removed once the Main shell uses ReturnsFlow). */
-export type ReturnResultVariant = 'INSPECTION_SAVED' | 'RETURN_APPROVED';
 
 /** Product condition picked on the inspection form. */
 export type InspectionCondition = 'Acceptable' | 'Damaged' | 'Spoiled';

@@ -14,14 +14,12 @@ export { ReturnsIssuesScreen, type ReturnsIssuesScreenProps } from './ReturnsIss
 export { ReviewReturnRequestScreen, type ReviewReturnRequestScreenProps } from './ReviewReturnRequestScreen';
 export { RmaDetailScreen, type RmaDetailScreenProps } from './RmaDetailScreen';
 export { ReturnsFlow, type ReturnsFlowProps, type ReturnsStackEntry } from './ReturnsFlow';
-export { ReturnResultScreen, type ReturnResultScreenProps } from './ReturnResultScreen';
 export { INITIAL_RETURN_HISTORY, INITIAL_RMA_ITEMS } from './fixtures';
 export type {
   InspectionCondition,
   InspectionResultData,
   InspectStep,
   ReturnHistoryRecord,
-  ReturnResultVariant,
   ReturnsRoute,
   ReturnsRouteParams,
   ReturnTimelineItem,

@@ -94,7 +94,7 @@ export {
   type SalesChannel,
 } from './sales-direct';
 
-// Main Warehouse report / RMA-result screens, W3b (`kind` / `variant` props).
+// Main Warehouse report screens, W3b (`kind` prop).
 export {
   ReportDetailScreen,
   ReportSummaryScreen,
@@ -104,7 +104,6 @@ export {
   type ReportRecord,
   type ReportSummaryScreenProps,
 } from './reports';
-export { ReturnResultScreen, type ReturnResultScreenProps, type ReturnResultVariant } from './returns-rma';
 // Shared returns (RMA) navigator (W4); the screens themselves are imported from './returns-rma'.
 export { ReturnsFlow, type ReturnsRoute } from './returns-rma';
 // Shared inventory navigator (W4); the screens themselves are imported from './inventory'.
