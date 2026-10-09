@@ -2,6 +2,7 @@ import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { getTodayKolkata } from '../certifications/certifications.service.js';
 import {
   treePlantingsRepo,
   type TreePlantingCursor,
@@ -31,13 +32,15 @@ function ownFarmerId(scope: ResolvedScope): string {
   return scope.farmerId;
 }
 
-function getTodayKolkata(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
+/** BR-55b: a planting date after today (Asia/Kolkata) is refused. */
+function assertNotInFuture(plantedOn: string | null | undefined): void {
+  if (plantedOn === undefined || plantedOn === null) return;
+  const today = getTodayKolkata();
+  if (plantedOn > today) {
+    throw new AppError('VALIDATION_FAILED', {
+      detail: `plantedOn cannot be in the future (today is ${today} in Asia/Kolkata).`,
+    });
+  }
 }
 
 function encodeCursor(cursor: TreePlantingCursor): string {
@@ -78,6 +81,25 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
 }): TreePlantingsService {
   const { repo, db, runTx } = deps;
 
+  /**
+   * BR-36: the farm must be the caller's, and the plot must be on one of the
+   * caller's farms -- on `farmId` itself when one is set. 404 either way, so a
+   * caller cannot tell another farmer's row from a missing one.
+   */
+  async function assertFarmAndPlotAreOwn(
+    tx: Executor,
+    farmerId: string,
+    farmId: string | null,
+    plotId: string | null,
+  ): Promise<void> {
+    if (farmId !== null && !(await repo.checkFarmBelongsToFarmer(tx, farmerId, farmId))) {
+      throw new AppError('NOT_FOUND', { detail: `Farm not found: ${farmId}` });
+    }
+    if (plotId !== null && !(await repo.checkPlotBelongsToFarmer(tx, farmerId, plotId, farmId))) {
+      throw new AppError('NOT_FOUND', { detail: `Plot not found: ${plotId}` });
+    }
+  }
+
   return {
     async listTreePlantings(scope, query) {
       const farmerId = ownFarmerId(scope);
@@ -105,44 +127,20 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
     async createTreePlanting(scope, body) {
       const farmerId = ownFarmerId(scope);
 
-      // BR-55a
-      if (body.treeCount <= 0 || !Number.isInteger(body.treeCount)) {
-        throw new AppError('VALIDATION_FAILED', { detail: 'treeCount must be a positive integer.' });
-      }
-
       // BR-55b
-      if (body.plantedOn) {
-        const today = getTodayKolkata();
-        if (body.plantedOn > today) {
-          throw new AppError('VALIDATION_FAILED', {
-            detail: `plantedOn cannot be in the future (today is ${today} in Asia/Kolkata).`,
-          });
-        }
-      }
+      assertNotInFuture(body.plantedOn);
 
       return runTx(async (tx) => {
         await repo.lockFarmer(tx, farmerId);
 
-        // Ownership check for farmId and plotId (BR-36)
-        if (body.farmId) {
-          const farmExists = await repo.checkFarmBelongsToFarmer(tx, farmerId, body.farmId);
-          if (!farmExists) {
-            throw new AppError('NOT_FOUND', { detail: `Farm not found: ${body.farmId}` });
-          }
-        }
-        if (body.plotId) {
-          const plotExists = await repo.checkPlotBelongsToFarmer(tx, farmerId, body.plotId);
-          if (!plotExists) {
-            throw new AppError('NOT_FOUND', { detail: `Plot not found: ${body.plotId}` });
-          }
-        }
+        await assertFarmAndPlotAreOwn(tx, farmerId, body.farmId ?? null, body.plotId ?? null);
 
         const created = await repo.createTreePlanting(tx, farmerId, body);
 
         // BR-55e, BR-35
         await writeAuditLog(tx, {
           actorId: scope.userId,
-          actorRole: scope.roleCode ?? 'FARMER',
+          actorRole: scope.roleCode,
           actionCode: 'tree_planting.create',
           entityType: 'tree_planting',
           entityId: created.id,
@@ -156,20 +154,8 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
     async updateTreePlanting(scope, id, body) {
       const farmerId = ownFarmerId(scope);
 
-      // BR-55a
-      if (body.treeCount !== undefined && (body.treeCount <= 0 || !Number.isInteger(body.treeCount))) {
-        throw new AppError('VALIDATION_FAILED', { detail: 'treeCount must be a positive integer.' });
-      }
-
       // BR-55b
-      if (body.plantedOn) {
-        const today = getTodayKolkata();
-        if (body.plantedOn > today) {
-          throw new AppError('VALIDATION_FAILED', {
-            detail: `plantedOn cannot be in the future (today is ${today} in Asia/Kolkata).`,
-          });
-        }
-      }
+      assertNotInFuture(body.plantedOn);
 
       return runTx(async (tx) => {
         await repo.lockFarmer(tx, farmerId);
@@ -179,17 +165,14 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
           throw new AppError('NOT_FOUND', { detail: `Tree planting with id "${id}" not found.` });
         }
 
-        if (body.farmId) {
-          const farmExists = await repo.checkFarmBelongsToFarmer(tx, farmerId, body.farmId);
-          if (!farmExists) {
-            throw new AppError('NOT_FOUND', { detail: `Farm not found: ${body.farmId}` });
-          }
-        }
-        if (body.plotId) {
-          const plotExists = await repo.checkPlotBelongsToFarmer(tx, farmerId, body.plotId);
-          if (!plotExists) {
-            throw new AppError('NOT_FOUND', { detail: `Plot not found: ${body.plotId}` });
-          }
+        // The farm and plot as they will be once the patch is applied.
+        if (body.farmId !== undefined || body.plotId !== undefined) {
+          await assertFarmAndPlotAreOwn(
+            tx,
+            farmerId,
+            body.farmId !== undefined ? body.farmId : before.farmId,
+            body.plotId !== undefined ? body.plotId : before.plotId,
+          );
         }
 
         const patch: UpdateTreePlantingPatch = { ...body };
@@ -201,7 +184,7 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
         // BR-55e, BR-35
         await writeAuditLog(tx, {
           actorId: scope.userId,
-          actorRole: scope.roleCode ?? 'FARMER',
+          actorRole: scope.roleCode,
           actionCode: 'tree_planting.update',
           entityType: 'tree_planting',
           entityId: id,
@@ -233,7 +216,7 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
         // BR-55e, BR-35
         await writeAuditLog(tx, {
           actorId: scope.userId,
-          actorRole: scope.roleCode ?? 'FARMER',
+          actorRole: scope.roleCode,
           actionCode: 'tree_planting.delete',
           entityType: 'tree_planting',
           entityId: id,

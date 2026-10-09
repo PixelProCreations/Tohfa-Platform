@@ -1,3 +1,4 @@
+import { posix } from 'node:path';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { Executor } from '../../db/pool.js';
 import { pool } from '../../db/pool.js';
@@ -5,12 +6,44 @@ import { AppError } from '../../http/problem.js';
 import { defaultBlobStorage, type BlobStorage } from '../../storage/blobStorage.js';
 import {
   farmerDocumentsRepo,
+  type ApplicationUploadRecord,
   type FarmerDocumentsRepo,
 } from './farmer-documents.repo.js';
-import type {
-  FarmerDocumentItem,
-  FarmerProfileDocumentsResponse,
+import {
+  aadhaarLast4Schema,
+  storedApplicationDocumentSchema,
+  type FarmerDocumentItem,
+  type FarmerProfileDocumentsResponse,
+  type StoredApplicationDocument,
 } from './farmer-documents.schema.js';
+
+/** BR-54c: a signed read URL lives for this long. */
+const READ_URL_TTL_MINUTES = 15;
+
+/** The only place a user-facing document label lives. */
+const DOCUMENT_LABELS = {
+  ID_PROOF: 'Aadhaar Card',
+  LAND_PATTA: 'Land Patta / FMB Map',
+  CERTIFICATE: 'PGS Scope Certificate',
+  SOIL_CARD: 'Annual Soil & Water Health Card',
+  OTHER: 'Other Document',
+} as const;
+
+/** What a standard slot shows once its file has been located and proven to be the farmer's. */
+interface LocatedFile {
+  storageKey: string;
+  fileName: string | null;
+  docSubType: string | null;
+  uploadedAt: Date;
+  verifiedAt: Date | null;
+  /** True only when a human-verified record exists for this exact file. */
+  verified: boolean;
+}
+
+/** A step4 application document whose file is proven to be one of this application's uploads. */
+interface ApplicationFile extends LocatedFile {
+  docType: string;
+}
 
 export interface FarmerDocumentsServiceDeps {
   repo?: FarmerDocumentsRepo;
@@ -18,34 +51,68 @@ export interface FarmerDocumentsServiceDeps {
   storage?: BlobStorage;
 }
 
+function withoutQueryOrFragment(url: string): string {
+  return url.split(/[?#]/)[0] ?? url;
+}
+
+/**
+ * step4_documents is unvalidated client JSON, so a file URL in it proves
+ * nothing. A document is accepted only when its URL is the public URL of a file
+ * in the uploads table recorded against THIS farmer's application, and the key
+ * that gets signed is the one from that uploads row, never one parsed out of
+ * the supplied URL. Anything else is dropped.
+ */
+function locateApplicationFiles(
+  step4Documents: Record<string, unknown> | null,
+  uploads: ApplicationUploadRecord[],
+  storage: BlobStorage,
+): ApplicationFile[] {
+  const listed: unknown = step4Documents?.['documents'];
+  if (!Array.isArray(listed)) return [];
+
+  const uploadByPublicUrl = new Map(uploads.map((u) => [storage.getPublicUrl(u.storageKey), u]));
+  const files: ApplicationFile[] = [];
+  for (const entry of listed) {
+    const parsed = storedApplicationDocumentSchema.safeParse(entry);
+    if (!parsed.success) continue;
+    const doc: StoredApplicationDocument = parsed.data;
+    const upload = uploadByPublicUrl.get(withoutQueryOrFragment(doc.fileUrl));
+    if (upload === undefined) continue;
+    files.push({
+      docType: doc.docType,
+      storageKey: upload.storageKey,
+      fileName: doc.fileName ?? null,
+      docSubType: doc.docSubType ?? null,
+      uploadedAt: upload.createdAt,
+      verifiedAt: null,
+      verified: false,
+    });
+  }
+  return files;
+}
+
 export function createFarmerDocumentsService(deps: FarmerDocumentsServiceDeps = {}) {
   const repo = deps.repo ?? farmerDocumentsRepo;
   const db = deps.db ?? pool;
   const storage = deps.storage ?? defaultBlobStorage;
 
-  async function resolveReadUrl(fileUrlOrKey: string | null | undefined): Promise<string | null> {
-    if (!fileUrlOrKey) return null;
-
-    // If it's a storage key (no URI protocol)
-    if (!fileUrlOrKey.startsWith('http://') && !fileUrlOrKey.startsWith('https://')) {
-      return storage.generateReadUrl(fileUrlOrKey, 15);
-    }
-
-    // If it's a URL pointing to /storage/<key>
-    const storageMatch = fileUrlOrKey.match(/\/storage\/(.+)$/);
-    if (storageMatch && storageMatch[1]) {
-      const key = storageMatch[1].split('?')[0];
-      if (key) return storage.generateReadUrl(key, 15);
-    }
-
-    // If it's a URL pointing to /mock/<key>
-    const mockMatch = fileUrlOrKey.match(/\/mock\/(.+)$/);
-    if (mockMatch && mockMatch[1]) {
-      const key = mockMatch[1].split('?')[0];
-      if (key) return storage.generateReadUrl(key, 15);
-    }
-
-    return fileUrlOrKey;
+  async function toItem(
+    docType: string,
+    displayName: string,
+    file: LocatedFile | null,
+    extras: { documentNumberLast4?: string | null } = {},
+  ): Promise<FarmerDocumentItem> {
+    return {
+      docType,
+      displayName,
+      uploadStatus: file === null ? 'PENDING' : file.verified ? 'VERIFIED' : 'UPLOADED',
+      readUrl: file === null ? null : await storage.generateReadUrl(file.storageKey, READ_URL_TTL_MINUTES),
+      fileName: file?.fileName ?? null,
+      docSubType: file?.docSubType ?? null,
+      uploadedAt: file?.uploadedAt.toISOString() ?? null,
+      verifiedAt: file?.verified === true ? (file.verifiedAt?.toISOString() ?? null) : null,
+      ...extras,
+    };
   }
 
   return {
@@ -55,171 +122,92 @@ export function createFarmerDocumentsService(deps: FarmerDocumentsServiceDeps = 
         throw new AppError('NOT_FOUND', { detail: 'Farmer profile not found' });
       }
 
-      const [app, docRows, certRows] = await Promise.all([
-        repo.findLatestApplicationByFarmerIdOrUserId(db, farmer.id, actor.userId),
-        repo.findFarmerDocuments(db, farmer.id),
-        repo.findCertifications(db, farmer.id),
-      ]);
-
-      const appDocs: Array<{
-        docType: string;
-        fileUrl: string;
-        fileName?: string;
-        docSubType?: string;
-      }> = Array.isArray((app?.step4Documents as any)?.documents)
-        ? (app?.step4Documents as any).documents
+      // Sequential on purpose: `db` may be a single transaction client, which
+      // must not run overlapping queries.
+      const application = await repo.findLatestApplicationByFarmerIdOrUserId(db, farmer.id, actor.userId);
+      const documentRows = await repo.findFarmerDocuments(db, farmer.id);
+      const certifications = await repo.findCertifications(db, farmer.id);
+      const uploads = application ? await repo.findApplicationUploads(db, application.id) : [];
+      const applicationFiles = application
+        ? locateApplicationFiles(application.step4Documents, uploads, storage)
         : [];
 
-      // Extract Aadhaar last 4 digits only (BR-54b)
-      let aadhaarLast4: string | null = farmer.aadhaarLast4 ?? null;
-      if (!aadhaarLast4 && app?.step1Personal) {
-        const rawAadhaar =
-          (app.step1Personal as any).aadhaarNumber ??
-          (app.step1Personal as any).aadhaar;
-        if (typeof rawAadhaar === 'string' && rawAadhaar.length >= 4) {
-          aadhaarLast4 = rawAadhaar.slice(-4);
-        }
-      }
+      // BR-54b: the profile value wins; the application's masked value is the
+      // fallback. A full number is never read, so it cannot be returned.
+      const profileLast4 = aadhaarLast4Schema.safeParse(farmer.aadhaarLast4);
+      const applicationLast4 = aadhaarLast4Schema.safeParse(application?.step1Personal?.['aadhaarLast4']);
+      const aadhaarLast4 = profileLast4.success
+        ? profileLast4.data
+        : applicationLast4.success
+          ? applicationLast4.data
+          : null;
 
-      const documents: FarmerDocumentItem[] = [];
+      // A farmer_documents row is the only place a file's verification lives,
+      // so it is preferred over the unverified application upload of the same type.
+      const fromRow = (docType: string): LocatedFile | null => {
+        const row = documentRows.filter((r) => r.docType === docType).at(-1);
+        if (row === undefined) return null;
+        return {
+          storageKey: row.storageKey,
+          fileName: posix.basename(row.storageKey),
+          docSubType: null,
+          uploadedAt: row.createdAt,
+          verifiedAt: row.verifiedAt,
+          verified: row.verificationStatus === 'VERIFIED',
+        };
+      };
 
-      // 1. Aadhaar Card (ID_PROOF)
-      const aadhaarAppDoc = appDocs.find(
-        (d) =>
-          d.docType === 'ID_PROOF' ||
-          d.docSubType?.toLowerCase().includes('aadhaar') ||
-          d.fileName?.toLowerCase().includes('aadhaar'),
-      );
-      const aadhaarRowDoc = docRows.find((d) => d.docType === 'ID_PROOF');
-      const aadhaarKeyOrUrl = aadhaarRowDoc?.storageKey ?? aadhaarAppDoc?.fileUrl ?? null;
-      const aadhaarReadUrl = await resolveReadUrl(aadhaarKeyOrUrl);
+      const claimed = new Set<ApplicationFile>();
+      const slotFile = (docType: string): LocatedFile | null => {
+        const applicationFile = applicationFiles.find((f) => f.docType === docType);
+        if (applicationFile !== undefined) claimed.add(applicationFile);
+        return fromRow(docType) ?? applicationFile ?? null;
+      };
 
-      documents.push({
-        docType: 'ID_PROOF',
-        displayName: 'Aadhaar Card',
-        uploadStatus:
-          farmer.kycStatus === 'VERIFIED' || aadhaarRowDoc?.verificationStatus === 'VERIFIED'
-            ? 'VERIFIED'
-            : aadhaarKeyOrUrl
-              ? 'UPLOADED'
-              : 'PENDING',
-        readUrl: aadhaarReadUrl,
-        fileName: aadhaarAppDoc?.fileName ?? (aadhaarRowDoc ? 'aadhaar.pdf' : null),
-        docSubType: 'Aadhaar Card',
-        documentNumberLast4: aadhaarLast4,
-        uploadedAt: aadhaarRowDoc?.createdAt.toISOString() ?? app?.createdAt.toISOString() ?? null,
-        verifiedAt: aadhaarRowDoc?.verifiedAt?.toISOString() ?? null,
-      });
+      const idProof = slotFile('ID_PROOF');
+      const farmDocument = slotFile('FARM_DOC');
 
-      // 2. Land Patta / FMB Map (LAND_PATTA or FARM_DOC)
-      const pattaAppDoc = appDocs.find(
-        (d) =>
-          d.docType === 'FARM_DOC' ||
-          d.docSubType?.toLowerCase().includes('patta') ||
-          d.fileName?.toLowerCase().includes('patta') ||
-          d.fileName?.toLowerCase().includes('fmb'),
-      );
-      const pattaRowDoc = docRows.find((d) => d.docType === 'FARM_DOC');
-      const pattaKeyOrUrl = pattaRowDoc?.storageKey ?? pattaAppDoc?.fileUrl ?? null;
-      const pattaReadUrl = await resolveReadUrl(pattaKeyOrUrl);
+      // The certificate slot shows the first certificate (oldest first) and its
+      // own file; it is VERIFIED only through that certificate's verification.
+      const certificate = certifications[0];
+      const certificateApplicationFile = applicationFiles.find((f) => f.docType === 'CERTIFICATE');
+      if (certificateApplicationFile !== undefined) claimed.add(certificateApplicationFile);
+      const certificateKey = certificate?.documentStorageKey ?? null;
+      const certificateFile: LocatedFile | null =
+        certificate !== undefined && certificateKey !== null && certificate.documentUploadedAt !== null
+          ? {
+              storageKey: certificateKey,
+              fileName: posix.basename(certificateKey),
+              docSubType: certificate.certType,
+              uploadedAt: certificate.documentUploadedAt,
+              verifiedAt: certificate.verifiedAt,
+              verified: certificate.verificationStatus === 'VERIFIED',
+            }
+          : (certificateApplicationFile ?? null);
 
-      documents.push({
-        docType: 'LAND_PATTA',
-        displayName: 'Land Patta / FMB Map',
-        uploadStatus:
-          pattaRowDoc?.verificationStatus === 'VERIFIED' || app?.status === 'APPROVED'
-            ? 'VERIFIED'
-            : pattaKeyOrUrl
-              ? 'UPLOADED'
-              : 'PENDING',
-        readUrl: pattaReadUrl,
-        fileName: pattaAppDoc?.fileName ?? (pattaRowDoc ? 'land_patta.pdf' : null),
-        docSubType: 'Land Patta / FMB Map',
-        uploadedAt: pattaRowDoc?.createdAt.toISOString() ?? app?.createdAt.toISOString() ?? null,
-        verifiedAt: pattaRowDoc?.verifiedAt?.toISOString() ?? null,
-      });
+      const documents: FarmerDocumentItem[] = [
+        await toItem('ID_PROOF', DOCUMENT_LABELS.ID_PROOF, idProof, { documentNumberLast4: aadhaarLast4 }),
+        await toItem('LAND_PATTA', DOCUMENT_LABELS.LAND_PATTA, farmDocument),
+        await toItem('CERTIFICATE', certificate?.customTypeName ?? DOCUMENT_LABELS.CERTIFICATE, certificateFile),
+        // No document type or upload purpose in farmer_documents or in the
+        // application's documents identifies a soil card, so nothing can prove
+        // one has been uploaded. The slot stays a call to action.
+        {
+          docType: 'SOIL_CARD',
+          displayName: DOCUMENT_LABELS.SOIL_CARD,
+          uploadStatus: 'ACTION_NEEDED',
+          readUrl: null,
+          fileName: null,
+          docSubType: null,
+          uploadedAt: null,
+          verifiedAt: null,
+        },
+      ];
 
-      // 3. PGS Scope Certificate (CERTIFICATE)
-      const certAppDoc = appDocs.find(
-        (d) =>
-          d.docType === 'CERTIFICATE' ||
-          d.docSubType?.toLowerCase().includes('pgs') ||
-          d.fileName?.toLowerCase().includes('pgs'),
-      );
-      const certRow = certRows[0];
-      const certRowDoc = docRows.find((d) => d.docType === 'CERTIFICATE');
-      const certKeyOrUrl =
-        certRow?.documentUrl ?? certRowDoc?.storageKey ?? certAppDoc?.fileUrl ?? null;
-      const certReadUrl = await resolveReadUrl(certKeyOrUrl);
-
-      documents.push({
-        docType: 'CERTIFICATE',
-        displayName: certRow?.customTypeName ?? 'PGS Scope Certificate',
-        uploadStatus:
-          certRow?.isVerified || certRowDoc?.verificationStatus === 'VERIFIED'
-            ? 'VERIFIED'
-            : certKeyOrUrl
-              ? 'UPLOADED'
-              : 'PENDING',
-        readUrl: certReadUrl,
-        fileName: certAppDoc?.fileName ?? (certKeyOrUrl ? 'certificate.pdf' : null),
-        docSubType: certRow?.certType ?? 'PGS Scope Certificate',
-        uploadedAt:
-          certRow?.createdAt.toISOString() ??
-          certRowDoc?.createdAt.toISOString() ??
-          app?.createdAt.toISOString() ??
-          null,
-        verifiedAt:
-          certRow?.verifiedAt?.toISOString() ?? certRowDoc?.verifiedAt?.toISOString() ?? null,
-      });
-
-      // 4. Annual Soil & Water Health Card (SOIL_CARD)
-      const soilAppDoc = appDocs.find(
-        (d) =>
-          d.docSubType?.toLowerCase().includes('soil') ||
-          d.fileName?.toLowerCase().includes('soil'),
-      );
-      const soilRowDoc = docRows.find(
-        (d) => d.docType === 'FARM_DOC' && d.storageKey.includes('soil'),
-      );
-      const soilKeyOrUrl = soilRowDoc?.storageKey ?? soilAppDoc?.fileUrl ?? null;
-      const soilReadUrl = await resolveReadUrl(soilKeyOrUrl);
-
-      documents.push({
-        docType: 'SOIL_CARD',
-        displayName: 'Annual Soil & Water Health Card',
-        uploadStatus: soilRowDoc?.verificationStatus === 'VERIFIED'
-          ? 'VERIFIED'
-          : soilKeyOrUrl
-            ? 'UPLOADED'
-            : 'ACTION_NEEDED',
-        readUrl: soilReadUrl,
-        fileName: soilAppDoc?.fileName ?? (soilRowDoc ? 'soil_card.pdf' : null),
-        docSubType: 'Annual Soil & Water Health Card',
-        uploadedAt: soilRowDoc?.createdAt.toISOString() ?? null,
-        verifiedAt: soilRowDoc?.verifiedAt?.toISOString() ?? null,
-      });
-
-      // 5. Append any other documents uploaded in appDocs that don't match the 4 standard slots
-      for (const otherDoc of appDocs) {
-        if (
-          otherDoc === aadhaarAppDoc ||
-          otherDoc === pattaAppDoc ||
-          otherDoc === certAppDoc ||
-          otherDoc === soilAppDoc
-        ) {
-          continue;
-        }
-        const readUrl = await resolveReadUrl(otherDoc.fileUrl);
-        documents.push({
-          docType: otherDoc.docType ?? 'OTHER',
-          displayName: otherDoc.docSubType ?? otherDoc.fileName ?? 'Other Document',
-          uploadStatus: app?.status === 'APPROVED' ? 'VERIFIED' : 'UPLOADED',
-          readUrl,
-          fileName: otherDoc.fileName ?? null,
-          docSubType: otherDoc.docSubType ?? null,
-          uploadedAt: app?.createdAt.toISOString() ?? null,
-        });
+      // Every other recognised application upload is listed, never dropped.
+      for (const file of applicationFiles) {
+        if (claimed.has(file)) continue;
+        documents.push(await toItem(file.docType, file.docSubType ?? file.fileName ?? DOCUMENT_LABELS.OTHER, file));
       }
 
       return { documents };
