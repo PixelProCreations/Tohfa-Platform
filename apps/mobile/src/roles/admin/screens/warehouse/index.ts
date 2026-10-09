@@ -5,7 +5,6 @@ export * from './InitiateNewTransferScreen';
 export * from './TransferDetailScreen';
 export * from './TodaysOperationsOverviewScreen';
 export * from './StockAndTransferOverviewScreen';
-export * from './AlertsAndActionCenterScreen';
 export * from './QuickActionsOverviewScreen';
 export * from './ReceivingDashboardScreen';
 export * from './IncomingShipmentsScreen';
@@ -40,7 +39,6 @@ export * from './StaffAndAttendanceScreen';
 export * from './OperationsHistoryScreen';
 export * from './ReportOperationalIssueScreen';
 export * from './TodaysOperationsMonitoringScreen';
-export * from './WarehouseNotificationsScreen';
 export * from './WarehousePerformanceScreen';
 export * from './ManageWarehousesScreen';
 export * from './ReceivingHistoryDetailScreen';
@@ -139,3 +137,12 @@ export { ReturnsFlow, type ReturnsRoute } from './returns-rma';
 export { InventoryFlow } from './inventory';
 // Shared billing & invoice navigator (W4); the screens themselves are imported from './billing-invoices'.
 export { BillingFlow, type BillingRoute, type BillingRouteParams } from './billing-invoices';
+// Shared notifications & alerts navigator (W4); the screens themselves are imported from './notifications'.
+export {
+  NotificationsFlow,
+  type ApprovalAlertItem,
+  type NotificationItem,
+  type NotificationsRoute,
+  type NotificationsRouteParams,
+  type NotificationTarget,
+} from './notifications';

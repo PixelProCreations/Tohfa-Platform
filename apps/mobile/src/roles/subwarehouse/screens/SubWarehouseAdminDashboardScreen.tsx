@@ -16,7 +16,13 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
 import { AdminProfileScreen } from '../../admin/screens/dashboard/AdminProfileScreen';
 import { GoodsReceivingWizard, type ReceivingWizardStep } from '../../admin/screens/warehouse/GoodsReceivingWizard';
-import { WarehouseNotificationsScreen, type WarehouseNotification } from '../../admin/screens/warehouse/WarehouseNotificationsScreen';
+import {
+  NotificationsFlow,
+  SUB_NOTIFICATIONS,
+  type NotificationItem,
+  type NotificationsRoute,
+  type NotificationsRouteParams,
+} from '../../admin/screens/warehouse/notifications';
 import {
   IncomingShipmentsScreen,
   StartReceivingScreen,
@@ -30,8 +36,6 @@ import {
 import { SubWarehouseProfileScreen } from './SubWarehouseProfileScreen';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
-import { SubWarehouseNotificationsScreen } from './SubWarehouseNotificationsScreen';
-import { SubWarehouseNotificationDetailScreen } from './SubWarehouseNotificationDetailScreen';
 import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceivingScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
@@ -48,10 +52,7 @@ import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
-import { SubWarehouseApprovalAlertsScreen } from './SubWarehouseApprovalAlertsScreen';
 import { SubWarehouseGoodsReceiptDetailScreen } from './SubWarehouseGoodsReceiptDetailScreen';
-import { SubWarehouseSystemMessagesScreen } from './SubWarehouseSystemMessagesScreen';
-import { SubWarehouseMessageHistoryScreen } from './SubWarehouseMessageHistoryScreen';
 import {
   SubWarehouseStaffScreen,
   type StaffMember,
@@ -878,47 +879,6 @@ const RECEIVING_HISTORY_ITEMS: ReceivingHistoryItem[] = [
   },
 ];
 
-export const INITIAL_NOTIFICATIONS: WarehouseNotification[] = [
-  {
-    id: 'n1',
-    type: 'quality',
-    title: 'GR-1024 Arrived — Pending QC',
-    message: 'Tomato · Grade 1 (145 KG) arrived at intake bay. Inspection pending.',
-    timestamp: '10m ago',
-    isRead: false,
-    tag: 'Awaiting QC',
-    shipmentCode: 'GR-1024',
-  },
-  {
-    id: 'n2',
-    type: 'shipment',
-    title: 'New Expected Shipment Today',
-    message: 'GR-1025: Carrot · Grade 1 (120 KG) scheduled for arrival from Main Warehouse.',
-    timestamp: '35m ago',
-    isRead: false,
-    tag: 'Expected',
-    shipmentCode: 'GR-1025',
-  },
-  {
-    id: 'n3',
-    type: 'inventory',
-    title: 'Low Stock Alert — Tomato Grade 1',
-    message: 'Current inventory is 18 KG, falling below the safe threshold of 25 KG.',
-    timestamp: '1h ago',
-    isRead: false,
-    tag: 'Low Stock',
-  },
-  {
-    id: 'n4',
-    type: 'mismatch',
-    title: 'Handling Record Pending',
-    message: '5 KG of damaged goods rejected on GR-1022 requires recorded disposal.',
-    timestamp: '3h ago',
-    isRead: true,
-    tag: 'Handling Action',
-  },
-];
-
 interface SubWarehouseAdminDashboardScreenProps {
   /** Warehouse this Sub Warehouse admin is assigned to; handed to shared warehouse screens. */
   scope: WarehouseScope;
@@ -1116,9 +1076,17 @@ export function SubWarehouseAdminDashboardScreen({
   const [filterProduct, setFilterProduct] = useState<string>('');
   const [selectedReceivingCard, setSelectedReceivingCard] = useState<string | null>(null);
   const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
+  // The open notifications module: NotificationsFlow (list, detail, approval
+  // alerts; system messages + message history are list filters) owns its stack
+  // from here on (W4). `showNotifications` / `setShowNotifications` keep the
+  // shell's many bell entries and back paths unchanged.
+  const [notificationsEntry, setNotificationsEntry] = useState<{
+    screen: NotificationsRoute;
+    params?: NotificationsRouteParams | undefined;
+  } | null>(null);
+  const showNotifications = notificationsEntry !== null;
+  const setShowNotifications = (open: boolean) => setNotificationsEntry(open ? { screen: 'Notifications' } : null);
   const [returnToNotificationsOnBack, setReturnToNotificationsOnBack] = useState(false);
-  const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
@@ -1151,11 +1119,8 @@ export function SubWarehouseAdminDashboardScreen({
   const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(undefined);
-  const [showAlerts, setShowAlerts] = useState(false);
   const [showExpenseRecord, setShowExpenseRecord] = useState(false);
   const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
-  const [showSystemMessages, setShowSystemMessages] = useState(false);
-  const [showMessageHistory, setShowMessageHistory] = useState(false);
 
 
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -1218,7 +1183,7 @@ export function SubWarehouseAdminDashboardScreen({
     }
   }, [initialTab, initialReceivingSubView, initialInventoryScreen]);
   const [user, setUser] = useState<UserMe | null>(null);
-  const [notifications, setNotifications] = useState<WarehouseNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<readonly NotificationItem[]>(SUB_NOTIFICATIONS);
 
   const unreadNotifCount = notifications.filter(n => !n.isRead).length;
 
@@ -1234,45 +1199,6 @@ export function SubWarehouseAdminDashboardScreen({
 
   const handleClearAll = () => {
     setNotifications([]);
-  };
-
-  const handleIncomingNotification = () => {
-    const samples: Omit<WarehouseNotification, 'id' | 'timestamp' | 'isRead'>[] = [
-      {
-        type: 'shipment',
-        title: 'Incoming Truck at Gate 1',
-        message: 'GR-1029: Potato · Grade 1 (200 KG) has entered the warehouse dock.',
-        tag: 'Gate Arrival',
-      },
-      {
-        type: 'quality',
-        title: 'QC Inspection Urgent',
-        message: 'GR-1026 batch sample is ready for moisture & pest checks.',
-        tag: 'Urgent QC',
-      },
-      {
-        type: 'mismatch',
-        title: 'Discrepancy Reported',
-        message: 'Shortage of 15 KG flagged on intake weighing scale for GR-1028.',
-        tag: 'Weight Shortage',
-      },
-      {
-        type: 'success',
-        title: 'Goods Receipt Completed',
-        message: 'GR-1023: 140 KG successfully stored in Section B cold storage.',
-        tag: 'Received',
-      },
-    ];
-
-    const randomSample = samples[Math.floor(Math.random() * samples.length)]!;
-    const newNotif: WarehouseNotification = {
-      id: 'n_' + Date.now(),
-      ...randomSample,
-      timestamp: 'Just now',
-      isRead: false,
-    };
-
-    setNotifications(prev => [newNotif, ...prev]);
   };
 
   interface NavHistoryItem {
@@ -1422,34 +1348,6 @@ export function SubWarehouseAdminDashboardScreen({
     return () => sub.remove();
   }, [history, receivingWizardStep, activeTab, receivingSubView, showNotifications, showOrdersModule]);
 
-  if (selectedNotification) {
-    return (
-      <SubWarehouseNotificationDetailScreen
-        onBack={() => setSelectedNotification(null)}
-        notificationData={selectedNotification}
-        onActionPress={() => {
-          const item = selectedNotification;
-          setSelectedNotification(null);
-          setShowNotifications(false);
-          setReturnToNotificationsOnBack(true);
-          if (!item) return;
-          const t = item.type;
-          if (t === 'wallet') setShowWalletOperations(true);
-          else if (t === 'inventory' || item?.actionLabel?.includes('Stock') || item?.title?.toLowerCase().includes('stock')) {
-            setInventoryInitialScreen('M3S02');
-            setInventoryInitialParams(null);
-            setActiveTab('Inventory');
-          } else if (t === 'order' || item?.actionLabel?.includes('Order') || item?.title?.toLowerCase().includes('order')) {
-            setOrdersInitialScreen('M5S01');
-            setShowOrdersModule(true);
-          } else if (t === 'returns') setShowOrdersModule(true);
-          else if (t === 'quality') setShowReviewReceiving(true);
-          else navigateTo('Receiving', 'overview');
-        }}
-      />
-    );
-  }
-
   useEffect(() => {
     fetchMe()
       .then((me) => setUser(me))
@@ -1457,14 +1355,6 @@ export function SubWarehouseAdminDashboardScreen({
   }, []);
 
   const userName = user?.fullName?.split(' ')[0] ?? 'Suresh';
-
-  if (showMessageHistory) {
-    return (
-      <SubWarehouseMessageHistoryScreen
-        onBack={() => setShowMessageHistory(false)}
-      />
-    );
-  }
 
   if (showTaskDetail) {
     return (
@@ -1540,45 +1430,6 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showAlerts) {
-    return (
-      <SubWarehouseApprovalAlertsScreen
-        onBack={() => setShowAlerts(false)}
-        onNavigateToExpenseRecord={() => setShowExpenseRecord(true)}
-        onNavigateToGoodsReceiptDetail={() => setShowGoodsReceiptDetail(true)}
-        onOpenRecord={(alertId) => {
-          if (alertId === 'GR-00245') {
-            setShowGoodsReceiptDetail(true);
-          } else {
-            setShowExpenseRecord(true);
-          }
-        }}
-      />
-    );
-  }
-
-  if (showSystemMessages) {
-    return (
-      <SubWarehouseSystemMessagesScreen
-        onBack={() => {
-          setShowSystemMessages(false);
-          if (returnToNotificationsOnBack) {
-            setReturnToNotificationsOnBack(false);
-            setShowNotifications(true);
-          }
-        }}
-        onTabChange={(tab) => {
-          setShowSystemMessages(false);
-          setActiveTab(tab);
-        }}
-        onNavigateToHistory={() => {
-          if (onNavigate) onNavigate('SubWarehouseMessageHistory');
-          else setShowMessageHistory(true);
-        }}
-      />
-    );
-  }
-
   if (receivingWizardStep !== null) {
     return (
       <GoodsReceivingWizard
@@ -1603,48 +1454,20 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (selectedNotification) {
+  if (notificationsEntry !== null) {
     return (
-      <SubWarehouseNotificationDetailScreen
-        onBack={() => setSelectedNotification(null)}
-        notificationData={{
-          type: selectedNotification.type === 'wallet' ? 'wallet' : (selectedNotification.type === 'order' ? 'order' : 'goods'),
-          title: selectedNotification.title,
-          message: selectedNotification.subtitle,
-          reference: selectedNotification.type === 'quality' ? 'GR-1024' : (selectedNotification.type === 'order' ? 'ORD-10245' : 'TOP-002845'),
-        }}
-        onActionPress={() => {
-          const item = selectedNotification;
-          setSelectedNotification(null);
-          setShowNotifications(false);
-          setReturnToNotificationsOnBack(true);
-          if (item?.actionLabel?.includes('Review') || item?.type === 'quality') {
-            setShowReviewReceiving(true);
-          } else if (item?.actionLabel?.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
-            setInventoryInitialScreen('M3S02');
-            setInventoryInitialParams(null);
-            setActiveTab('Inventory');
-          } else if (item?.actionLabel?.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
-            setOrdersInitialScreen('M5S01');
-            setShowOrdersModule(true);
-          } else if (item?.actionLabel?.includes('Wallet') || item?.actionLabel?.includes('Top-Up') || item?.type === 'wallet') {
-            setShowWalletOperations(true);
-          } else if (item?.actionLabel?.includes('Return') || item?.type === 'returns') {
-            openReturns('ReturnsIssues');
-          } else if (item?.type === 'system') {
-            setShowSystemMessages(true);
-          }
-        }}
-      />
-    );
-  }
-
-  if (showNotifications) {
-    return (
-      <SubWarehouseNotificationsScreen
-        onBack={() => setShowNotifications(false)}
+      <NotificationsFlow
+        scope={scope}
+        can={can}
+        initialScreen={notificationsEntry.screen}
+        initialParams={notificationsEntry.params}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onClearAll={handleClearAll}
+        onBack={() => setNotificationsEntry(null)}
         onTabChange={(tab) => {
-          setShowNotifications(false);
+          setNotificationsEntry(null);
           if (tab === 'Receiving') {
             setActiveTab('Receiving');
             navigateTo('Receiving', 'overview');
@@ -1656,52 +1479,40 @@ export function SubWarehouseAdminDashboardScreen({
             setActiveTab(tab);
           }
         }}
-        onNavigateToTasks={() => {
-          if (onNavigate) onNavigate('SubWarehouseTaskActionCenter');
-          else setShowTasks(true);
-        }}
-        onNavigateToAlerts={() => {
-          if (onNavigate) onNavigate('SubWarehouseApprovalAlerts');
-          else setShowAlerts(true);
-        }}
-        onNavigateToSystemMessages={() => {
-          if (onNavigate) onNavigate('SubWarehouseSystemMessages');
-          else setShowSystemMessages(true);
-        }}
-        onSelectNotification={(item) => {
-          if (item?.type === 'order' || item?.title?.toLowerCase().includes('order') || item?.actionLabel?.toLowerCase().includes('order')) {
-            setShowNotifications(false);
-            setReturnToNotificationsOnBack(true);
-            setOrdersInitialScreen('M5S01');
-            setShowOrdersModule(true);
-          } else if (item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock') || item?.actionLabel?.toLowerCase().includes('stock')) {
-            setShowNotifications(false);
-            setReturnToNotificationsOnBack(true);
+        onOpenTarget={(target) => {
+          setNotificationsEntry(null);
+          setReturnToNotificationsOnBack(true);
+          if (target === 'ReviewReceiving') {
+            setShowReviewReceiving(true);
+          } else if (target === 'Receiving') {
+            navigateTo('Receiving', 'overview');
+          } else if (target === 'Stock') {
             setInventoryInitialScreen('M3S02');
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
+          } else if (target === 'Orders') {
+            setOrdersInitialScreen('M5S01');
+            setShowOrdersModule(true);
+          } else if (target === 'Wallet') {
+            setShowWalletOperations(true);
           } else {
-            setSelectedNotification(item);
+            openReturns('ReturnsIssues');
           }
         }}
-        onNavigateToAction={(actionLabel, item) => {
-          setShowNotifications(false);
-          setReturnToNotificationsOnBack(true);
-          if (actionLabel.includes('Review') || item?.type === 'quality') {
-            setShowReviewReceiving(true);
-          } else if (actionLabel.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
-            setInventoryInitialScreen('M3S02');
+        onOpenAlertRecord={(alert) => {
+          // Coming back from the record reopens the alerts, not the list.
+          setNotificationsEntry({ screen: 'ApprovalAlerts' });
+          if (alert.record === 'ExpenseRecord') {
+            setShowExpenseRecord(true);
+          } else if (alert.record === 'GoodsReceipt') {
+            setShowGoodsReceiptDetail(true);
+          } else if (alert.record === 'LowStock') {
+            setNotificationsEntry(null);
+            setInventoryInitialScreen('M3S09');
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
-          } else if (actionLabel.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
-            setOrdersInitialScreen('M5S01');
-            setShowOrdersModule(true);
-          } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
-            setShowWalletOperations(true);
-          } else if (actionLabel.includes('Return') || item?.type === 'returns') {
-            openReturns('ReturnsIssues');
-          } else if (item?.type === 'system') {
-            setShowSystemMessages(true);
+          } else if (alert.record === 'Transfer') {
+            onNavigate?.('InterWarehouseTransfer');
           }
         }}
       />
@@ -2127,14 +1938,20 @@ export function SubWarehouseAdminDashboardScreen({
           } else if (category === 'Cash') {
             setShowCashTopUp(true);
           } else if (category === 'QC') {
-            setSelectedNotification({
-              id: 'qc-1',
-              type: 'quality',
-              title: 'QC Required',
-              subtitle: 'Tomato batch GR-1024 is waiting for quality inspection.',
-              timestamp: '10 minutes ago',
-              isUnread: false,
-              actionLabel: 'View Receiving',
+            setNotificationsEntry({
+              screen: 'NotificationDetail',
+              params: {
+                notification: {
+                  id: 'qc-1',
+                  category: 'quality',
+                  title: 'QC Required',
+                  message: 'Tomato batch GR-1024 is waiting for quality inspection.',
+                  timestamp: '10 minutes ago',
+                  isRead: false,
+                  reference: 'GR-1024',
+                  target: 'ReviewReceiving',
+                },
+              },
             });
           }
         }}

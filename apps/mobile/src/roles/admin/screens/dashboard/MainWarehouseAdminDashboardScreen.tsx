@@ -54,7 +54,6 @@ import {
   TodaysOperationsOverviewScreen,
   TodaysOperationsMonitoringScreen,
   StockAndTransferOverviewScreen,
-  AlertsAndActionCenterScreen,
   QuickActionsOverviewScreen,
   ReceivingDashboardScreen,
   IncomingShipmentsScreen,
@@ -89,11 +88,15 @@ import {
   StaffAndAttendanceScreen,
   OperationsHistoryScreen,
   ReportOperationalIssueScreen,
-  WarehouseNotificationsScreen,
-  type WarehouseNotification,
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
+import {
+  MAIN_NOTIFICATIONS,
+  NotificationsFlow,
+  type NotificationItem,
+  type NotificationsRoute,
+} from '../warehouse/notifications';
 
 export type ReceivingSubView =
   | 'dashboard'
@@ -608,11 +611,8 @@ export function MainWarehouseAdminDashboardScreen({
   // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
   // or if it fails, makeCan fails closed and gated controls stay hidden.
   const can = useMemo(() => makeCan(user?.permissions), [user]);
-  const [whNotifications, setWhNotifications] = useState<WarehouseNotification[]>([
-    { id: '1', type: 'shipment', title: 'New Shipment Arrived', message: 'Truck KA-04-1234 arrived at Bay 2 with 500 crates', timestamp: '10m ago', isRead: false, shipmentCode: 'SHP-2026-098' },
-    { id: '2', type: 'quality', title: 'Quality Alert', message: 'Batch B-104 tomato inspection flagged 8% damage', timestamp: '45m ago', isRead: false },
-    { id: '3', type: 'inventory', title: 'Low Stock Threshold', message: 'Rack B-04 Carrot stock below safety reorder level', timestamp: '2h ago', isRead: true },
-  ]);
+  const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
+  const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
 
   const WAREHOUSE_OPTIONS = ['All Warehouses', 'Ooty', 'Coonoor', 'Kotagiri', 'Gudalur'];
 
@@ -656,6 +656,44 @@ export function MainWarehouseAdminDashboardScreen({
 
   const displayName = 'Suresh';
 
+  /** Leave the sub-views for a tab (notification targets that live on a tab). */
+  const openTab = (tab: MainWHTab, more?: MainMoreSubScreen) => {
+    setActiveTab(tab);
+    setWhSubView('overview');
+    setWhHistory([]);
+    if (tab === 'Receiving') setReceivingSubView('dashboard');
+    if (more !== undefined) setMoreSubScreen(more);
+  };
+
+  // Shared notifications flow (W4): the bell opens the list, Home's alerts /
+  // escalations open the approval / exception alerts. MAIN_WAREHOUSE_SCOPE =
+  // all four warehouses; targets are opened only when their code passes.
+  const renderNotificationsFlow = (initialScreen: NotificationsRoute) => (
+    <NotificationsFlow
+      scope={MAIN_WAREHOUSE_SCOPE}
+      can={can}
+      initialScreen={initialScreen}
+      notifications={whNotifications}
+      onMarkAsRead={(id) => setWhNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))}
+      onMarkAllAsRead={() => setWhNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+      onClearAll={() => setWhNotifications([])}
+      onBack={goBackWh}
+      onOpenTarget={(target) => {
+        if (target === 'ReviewReceiving' || target === 'Receiving') openTab('Receiving');
+        else if (target === 'Stock') navigateWh('low_stock_alerts');
+        else if (target === 'Orders') navigateWh('customer_orders');
+        else if (target === 'Wallet') openTab('More', 'wallet');
+        else openTab('More', 'returns');
+      }}
+      onOpenAlertRecord={(alert) => {
+        if (alert.record === 'LowStock') navigateWh('low_stock_alerts');
+        else if (alert.record === 'Transfer') navigateWh('inter_warehouse_transfer');
+        else if (alert.record === 'GoodsReceipt') openTab('Receiving');
+        else if (alert.record === 'ExpenseRecord') openTab('More', 'finance');
+      }}
+    />
+  );
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
@@ -686,9 +724,11 @@ export function MainWarehouseAdminDashboardScreen({
                   activeOpacity={0.8}
                 >
                   <BellOutlineIcon size={20} color="#1E1612" />
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>6</Text>
-                  </View>
+                  {unreadNotifCount > 0 && (
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -1575,14 +1615,7 @@ export function MainWarehouseAdminDashboardScreen({
                 onBack={goBackWh}
               />
             ) : whSubView === 'warehouse_notifications' ? (
-              <WarehouseNotificationsScreen
-                notifications={whNotifications}
-                onMarkAsRead={(id) => setWhNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))}
-                onMarkAllAsRead={() => setWhNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
-                onClearAll={() => setWhNotifications([])}
-                onAddNotification={() => { }}
-                onBack={goBackWh}
-              />
+              renderNotificationsFlow('Notifications')
             ) : whSubView === 'storage_locations' ? (
               <StorageLocationsScreen
                 onBack={() => navigateWh('warehouse_operations')}
@@ -1694,10 +1727,7 @@ export function MainWarehouseAdminDashboardScreen({
                 onViewTransfers={() => navigateWh('inter_warehouse_transfer')}
               />
             ) : whSubView === 'alerts_action_center' ? (
-              <AlertsAndActionCenterScreen
-                onBack={goBackWh}
-                onSelectAlert={() => navigateWh('low_stock_alerts')}
-              />
+              renderNotificationsFlow('ApprovalAlerts')
             ) : whSubView === 'quick_actions_overview' ? (
               <QuickActionsOverviewScreen
                 onBack={goBackWh}

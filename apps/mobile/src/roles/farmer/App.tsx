@@ -131,9 +131,7 @@ import {
   SubWarehouseOperatingInfoScreen,
   SubWarehouseContactScreen,
   SubWarehouseDocumentsScreen,
-  SubWarehouseNotificationsScreen,
   SubWarehouseTodayOverviewScreen,
-  SubWarehouseNotificationDetailScreen,
   SubWarehouseReviewReceivingScreen,
   SubWarehouseSalesScreen,
   SubWarehouseNewSaleScreen,
@@ -157,10 +155,7 @@ import {
   MoreScreen,
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
-  SubWarehouseApprovalAlertsScreen,
   SubWarehouseGoodsReceiptDetailScreen,
-  SubWarehouseSystemMessagesScreen,
-  SubWarehouseMessageHistoryScreen,
   SubWarehouseStaffScreen,
   SubWarehouseStaffDetailScreen,
   SubWarehouseEditStaffProfileScreen,
@@ -170,6 +165,10 @@ import {
   type WarehouseScope,
   FinanceFlow,
   type FinanceRoute,
+  NotificationsFlow,
+  type NotificationItem,
+  type NotificationsRoute,
+  type NotificationsRouteParams,
   type FinanceRouteParams,
   SubWarehouseWarehouseOperationsScreen,
   SubWarehouseWarehouseActivityScreen,
@@ -780,6 +779,25 @@ const FINANCE_ROUTE_ENTRY: Partial<Record<ScreenName, FinanceRoute>> = {
   SubWarehouseVouchers: 'Vouchers',
   SubWarehouseVoucherDetail: 'VoucherDetail',
 };
+/**
+ * Legacy notification route keys -> shared NotificationsFlow routes (W4). Every
+ * key still works: System Messages and Message History were absorbed into the
+ * list (same row shape) and open it on the 'System' / 'Messages' filter tab.
+ */
+const NOTIFICATIONS_ROUTE_ENTRY: Partial<Record<ScreenName, NotificationsRoute>> = {
+  SubWarehouseNotifications: 'Notifications',
+  SubWarehouseNotificationDetail: 'NotificationDetail',
+  SubWarehouseApprovalAlerts: 'ApprovalAlerts',
+  SubWarehouseSystemMessages: 'Notifications',
+  SubWarehouseMessageHistory: 'Notifications',
+};
+/** NotificationsFlow params for a legacy key (detail carries `notification`). */
+function notificationsParamsFor(screen: ScreenName, params: Record<string, unknown>): NotificationsRouteParams {
+  if (screen === 'SubWarehouseSystemMessages') return { filter: 'System' };
+  if (screen === 'SubWarehouseMessageHistory') return { filter: 'Messages' };
+  const notification = params['notification'] as NotificationItem | undefined;
+  return notification !== undefined ? { notification } : {};
+}
 /** A route param as a string, or undefined. */
 function stringParam(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -1289,16 +1307,17 @@ export default function App(): React.JSX.Element {
               } else if (category === 'Cash') {
                 navigate('SubWarehouseCashTopUp');
               } else if (category === 'QC') {
-                navigate('SubWarehouseNotificationDetail', {
-                  notification: {
-                    id: 'qc-1',
-                    type: 'quality',
-                    title: 'QC Required',
-                    subtitle: 'Tomato batch GR-1024 is waiting for quality inspection.',
-                    timestamp: '10 minutes ago',
-                    actionLabel: 'View Receiving',
-                  },
-                });
+                const notification: NotificationItem = {
+                  id: 'qc-1',
+                  category: 'quality',
+                  title: 'QC Required',
+                  message: 'Tomato batch GR-1024 is waiting for quality inspection.',
+                  timestamp: '10 minutes ago',
+                  isRead: false,
+                  reference: 'GR-1024',
+                  target: 'ReviewReceiving',
+                };
+                navigate('SubWarehouseNotificationDetail', { notification });
               }
             }}
           />
@@ -1344,8 +1363,15 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
-        ) : screen === 'SubWarehouseNotifications' ? (
-          <SubWarehouseNotificationsScreen
+        ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
+          // The notification screens live in the shared warehouse/notifications area
+          // (W4); each old notification key opens NotificationsFlow on the matching
+          // route. System Messages / Message History are filter tabs of the list.
+          <NotificationsFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={NOTIFICATIONS_ROUTE_ENTRY[screen]}
+            initialParams={notificationsParamsFor(screen, params)}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -1353,72 +1379,19 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
               else if (tab === 'More') navigate('WarehouseMore');
             }}
-            onNavigateToTasks={() => navigate('SubWarehouseTaskActionCenter')}
-            onNavigateToAlerts={() => navigate('SubWarehouseApprovalAlerts')}
-            onNavigateToSystemMessages={() => navigate('SubWarehouseSystemMessages')}
-            onSelectNotification={(item) => {
-              if (item?.type === 'order' || item?.title?.toLowerCase().includes('order') || item?.actionLabel?.toLowerCase().includes('order')) {
-                navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              } else if (item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock') || item?.actionLabel?.toLowerCase().includes('stock')) {
-                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
-              } else {
-                navigate('SubWarehouseNotificationDetail', { notification: item });
-              }
+            onOpenTarget={(target) => {
+              if (target === 'ReviewReceiving') navigate('SubWarehouseReviewReceiving');
+              else if (target === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+              else if (target === 'Stock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
+              else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+              else if (target === 'Wallet') navigate('WarehouseWalletOperations');
+              else navigate('SubWarehouseReturnsIssues');
             }}
-            onNavigateToAction={(actionLabel, item) => {
-              if (actionLabel.includes('Review') || item?.type === 'quality') {
-                navigate('SubWarehouseReviewReceiving');
-              } else if (actionLabel.includes('Stock') || item?.type === 'inventory' || item?.title?.toLowerCase().includes('stock')) {
-                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
-              } else if (actionLabel.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
-                navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
-                navigate('WarehouseWalletOperations');
-              } else if (actionLabel.includes('Return') || item?.type === 'returns') {
-                navigate('SubWarehouseReturnsIssues');
-              } else if (item?.type === 'system') {
-                navigate('SubWarehouseSystemMessages');
-              }
-            }}
-          />
-        ) : screen === 'SubWarehouseNotificationDetail' ? (
-          <SubWarehouseNotificationDetailScreen
-            onBack={goBack}
-            notificationData={
-              params['notification']
-                ? {
-                  type:
-                    (params['notification'] as any).type === 'wallet'
-                      ? 'wallet'
-                      : (params['notification'] as any).type === 'order'
-                        ? 'order'
-                        : 'goods',
-                  title: (params['notification'] as any).title,
-                  message: (params['notification'] as any).subtitle,
-                  reference:
-                    (params['notification'] as any).type === 'quality'
-                      ? 'GR-1024'
-                      : (params['notification'] as any).type === 'order'
-                        ? 'ORD-10245'
-                        : 'TOP-002845',
-                }
-                : undefined
-            }
-            onActionPress={() => {
-              const notif = params['notification'] as any;
-              if (notif?.actionLabel?.includes('Review') || notif?.type === 'quality') {
-                navigate('SubWarehouseReviewReceiving');
-              } else if (notif?.actionLabel?.includes('Stock') || notif?.type === 'inventory' || notif?.title?.toLowerCase().includes('stock')) {
-                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
-              } else if (notif?.actionLabel?.includes('Order') || notif?.type === 'order' || notif?.title?.toLowerCase().includes('order')) {
-                navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              } else if (notif?.actionLabel?.includes('Wallet') || notif?.type === 'wallet') {
-                navigate('WarehouseWalletOperations');
-              } else if (notif?.actionLabel?.includes('Return') || notif?.type === 'returns') {
-                navigate('SubWarehouseReturnsIssues');
-              } else {
-                navigate('SubWarehouseReviewReceiving');
-              }
+            onOpenAlertRecord={(alert) => {
+              if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
+              else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
+              else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
+              else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer');
             }}
           />
         ) : screen === 'SubWarehouseReviewReceiving' ? (
@@ -1873,19 +1846,6 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
-        ) : screen === 'SubWarehouseApprovalAlerts' ? (
-          <SubWarehouseApprovalAlertsScreen
-            onBack={goBack}
-            onNavigateToExpenseRecord={() => navigate('SubWarehouseExpenseRecord')}
-            onNavigateToGoodsReceiptDetail={() => navigate('SubWarehouseGoodsReceiptDetail')}
-            onOpenRecord={(alertId) => {
-              if (alertId === 'GR-00245') {
-                navigate('SubWarehouseGoodsReceiptDetail');
-              } else {
-                navigate('SubWarehouseExpenseRecord');
-              }
-            }}
-          />
         ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
           <SubWarehouseGoodsReceiptDetailScreen
             onBack={goBack}
@@ -1893,24 +1853,6 @@ export default function App(): React.JSX.Element {
               Alert.alert('Action Taken', 'Variance reconciliation initiated.');
               goBack();
             }}
-          />
-        ) : screen === 'SubWarehouseSystemMessages' ? (
-          <SubWarehouseSystemMessagesScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToHistory={() => navigate('SubWarehouseMessageHistory')}
-          />
-        ) : screen === 'SubWarehouseMessageHistory' ? (
-          <SubWarehouseMessageHistoryScreen
-            onBack={goBack}
-            onNavigateToReturns={() => navigate('SubWarehouseReturnsIssues')}
-            onNavigateToStaff={() => navigate('SubWarehouseStaff')}
-            onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
           />
         ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
           // The RMA screens live in the shared warehouse/returns-rma area (W4);
