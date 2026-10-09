@@ -1,24 +1,23 @@
+// Design id: M3S07
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../components';
+import { SWAHeader, SWABottomNav } from '../../swa/components';
 
-interface M3S07Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
-}
+export interface StockAllocationDashboardScreenProps extends InventoryScreenBaseProps {}
 
 function LockSmallIcon() {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke="#8B4513" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#8B4513" strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={adminColors.brandDeep} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.brandDeep} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
+function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -32,7 +31,7 @@ function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function LedgerTabIcon({ color = '#3B4856' }: { color?: string }) {
+function LedgerTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -47,7 +46,7 @@ function LedgerTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
+function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -61,7 +60,7 @@ function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function VerifyTabIcon({ color = '#3B4856' }: { color?: string }) {
+function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -74,12 +73,12 @@ function VerifyTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, onBack, onTabChange }) => {
+export function StockAllocationDashboardScreen({ scope, can, onNavigate, onBack, onTabChange }: StockAllocationDashboardScreenProps) {
   const allocations = [
     {
       channel: 'ONLINE',
-      titleColor: '#8B4513',
-      borderColor: '#F0562A',
+      titleColor: adminColors.brandDeep,
+      borderColor: adminColors.brand,
       allocated: '420 KG',
       consumed: '180 KG',
       reserved: '120 KG',
@@ -87,8 +86,8 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
     },
     {
       channel: 'LIVE MARKET',
-      titleColor: '#0D6E4F',
-      borderColor: '#0D6E4F',
+      titleColor: adminColors.success.text,
+      borderColor: adminColors.success.text,
       allocated: '120 KG',
       consumed: '40 KG',
       reserved: '30 KG',
@@ -96,8 +95,8 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
     },
     {
       channel: 'RESERVE',
-      titleColor: '#8B4513',
-      borderColor: '#2563EB',
+      titleColor: adminColors.brandDeep,
+      borderColor: adminColors.info.text,
       allocated: '80 KG',
       consumed: '20 KG',
       reserved: '20 KG',
@@ -105,8 +104,8 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
     },
     {
       channel: 'BUFFER',
-      titleColor: '#8B4513',
-      borderColor: '#D97706',
+      titleColor: adminColors.brandDeep,
+      borderColor: adminColors.warning.text,
       allocated: '60 KG',
       consumed: '10 KG',
       reserved: '10 KG',
@@ -117,10 +116,11 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Stock Allocation"
           onBack={onBack}
           showWarehouse={true}
+          warehouseName={scope.warehouseName}
         />
 
         {/* 4 Rounded Tab Cards */}
@@ -128,20 +128,20 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
           {/* Stock Tab */}
           <TouchableOpacity 
             style={styles.tabCard}
-            onPress={() => onNavigate('M3S02')}
+            onPress={() => onNavigate?.('M3S02')}
             activeOpacity={0.7}
           >
-            <StockTabBoxIcon color="#3B4856" />
+            <StockTabBoxIcon color={adminColors.ink} />
             <Text style={styles.tabCardText}>Stock</Text>
           </TouchableOpacity>
 
           {/* Ledger Tab */}
           <TouchableOpacity 
             style={styles.tabCard}
-            onPress={() => onNavigate('M3S06')}
+            onPress={() => onNavigate?.('M3S06')}
             activeOpacity={0.7}
           >
-            <LedgerTabIcon color="#3B4856" />
+            <LedgerTabIcon color={adminColors.ink} />
             <Text style={styles.tabCardText}>Ledger</Text>
           </TouchableOpacity>
 
@@ -150,17 +150,17 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
             style={[styles.tabCard, styles.activeTabCard]}
             activeOpacity={0.85}
           >
-            <AllocationTabIcon color="#FFFFFF" />
+            <AllocationTabIcon color={adminColors.onBrand} />
             <Text style={[styles.tabCardText, styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
           {/* Verify Tab */}
           <TouchableOpacity 
             style={styles.tabCard}
-            onPress={() => onNavigate('M3S10')}
+            onPress={() => onNavigate?.('M3S10')}
             activeOpacity={0.7}
           >
-            <VerifyTabIcon color="#3B4856" />
+            <VerifyTabIcon color={adminColors.ink} />
             <Text style={styles.tabCardText}>Verify</Text>
           </TouchableOpacity>
         </View>
@@ -174,10 +174,10 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
 
           {/* Multi-color Split Bar matching Reference Design */}
           <View style={styles.multiSplitBar}>
-            <View style={[styles.splitSegment, { flex: 420, backgroundColor: '#F0562A' }]} />
-            <View style={[styles.splitSegment, { flex: 120, backgroundColor: '#0D6E4F' }]} />
-            <View style={[styles.splitSegment, { flex: 80, backgroundColor: '#2563EB' }]} />
-            <View style={[styles.splitSegment, { flex: 60, backgroundColor: '#D97706' }]} />
+            <View style={[styles.splitSegment, { flex: 420, backgroundColor: adminColors.brand }]} />
+            <View style={[styles.splitSegment, { flex: 120, backgroundColor: adminColors.success.text }]} />
+            <View style={[styles.splitSegment, { flex: 80, backgroundColor: adminColors.info.text }]} />
+            <View style={[styles.splitSegment, { flex: 60, backgroundColor: adminColors.warning.text }]} />
           </View>
 
           {/* 4 Allocation Cards with curved left colored accent */}
@@ -220,16 +220,16 @@ export const M3S07_AllocationDashboard: React.FC<M3S07Props> = ({ onNavigate, on
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   warehousePillRow: {
     paddingHorizontal: 16,
@@ -239,9 +239,9 @@ const styles = StyleSheet.create({
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF5ED',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     borderRadius: 8,
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -249,10 +249,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehousePillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   tabCardsRow: {
     flexDirection: 'row',
@@ -263,27 +261,25 @@ const styles = StyleSheet.create({
   },
   tabCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
   },
   activeTabCard: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   tabCardText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3B4856',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activeTabCardText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   content: {
@@ -299,16 +295,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   sectionSubtitle: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   multiSplitBar: {
     height: 16,
@@ -321,11 +313,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   allocationCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -344,9 +336,7 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
   channelName: {
-    fontSize: 14,
-    fontWeight: '800',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
     marginBottom: 12,
   },
   statsBoxRow: {
@@ -355,7 +345,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: '#F8F6F2',
+    backgroundColor: adminColors.canvas,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 2,
@@ -363,17 +353,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 8.5,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.4,
   },
 });

@@ -1,27 +1,26 @@
+// Design id: M3S03
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../components';
+import { SWAHeader, SWABottomNav } from '../../swa/components';
 
-interface M3S03Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
-}
+export interface ProductStockDetailScreenProps extends InventoryScreenBaseProps {}
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 
-function ActionBatchesIcon({ color = '#F0562A' }: { color?: string }) {
+function ActionBatchesIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M6 4h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke={color} strokeWidth="1.8" />
-      <Path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" fill="#FFFFFF" />
+      <Path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" fill={adminColors.card} />
       <Path d="M8 10h8M8 14h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function ActionLedgerIcon({ color = '#F0562A' }: { color?: string }) {
+function ActionLedgerIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" stroke={color} strokeWidth="1.8" />
@@ -30,7 +29,7 @@ function ActionLedgerIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function ActionPinIcon({ color = '#F0562A' }: { color?: string }) {
+function ActionPinIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke={color} strokeWidth="1.8" />
@@ -39,21 +38,21 @@ function ActionPinIcon({ color = '#F0562A' }: { color?: string }) {
   );
 }
 
-function ActionVerifyIcon({ color = '#F0562A' }: { color?: string }) {
+function ActionVerifyIcon({ color = adminColors.brand }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-12A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
-      <Path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" fill="#FFFFFF" />
+      <Path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" fill={adminColors.card} />
       <Path d="M8.5 12.5l2.5 2.5 4.5-4.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onBack, onTabChange }) => {
+export function ProductStockDetailScreen({ scope, can, onNavigate, onBack, onTabChange }: ProductStockDetailScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Tomato"
           subtitle="Grade 1"
           onBack={onBack}
@@ -138,37 +137,37 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
             
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate('M3S04')}
+              onPress={() => onNavigate?.('M3S04')}
               activeOpacity={0.7}
             >
-              <ActionBatchesIcon color="#8B4513" />
+              <ActionBatchesIcon color={adminColors.brandDeep} />
               <Text style={styles.actionButtonText}>View Batches</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate('M3S06')}
+              onPress={() => onNavigate?.('M3S06')}
               activeOpacity={0.7}
             >
-              <ActionLedgerIcon color="#8B4513" />
+              <ActionLedgerIcon color={adminColors.brandDeep} />
               <Text style={styles.actionButtonText}>View Ledger</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate('M3S08')}
+              onPress={() => onNavigate?.('M3S08')}
               activeOpacity={0.7}
             >
-              <ActionPinIcon color="#8B4513" />
+              <ActionPinIcon color={adminColors.brandDeep} />
               <Text style={styles.actionButtonText}>View Storage Locations</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate('M3S10')}
+              onPress={() => onNavigate?.('M3S10')}
               activeOpacity={0.7}
             >
-              <ActionVerifyIcon color="#8B4513" />
+              <ActionVerifyIcon color={adminColors.brandDeep} />
               <Text style={styles.actionButtonText}>Verify Stock</Text>
             </TouchableOpacity>
           </View>
@@ -176,42 +175,38 @@ export const M3S03_ProductStockDetail: React.FC<M3S03Props> = ({ onNavigate, onB
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
     paddingTop: 10,
   },
   availableBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   availableBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   section: {
     paddingHorizontal: 16,
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 10,
   },
   // 3 Summary Cards
@@ -221,34 +216,30 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingVertical: 14,
     paddingHorizontal: 6,
     borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   summaryValue: {
-    fontSize: 17.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   summaryLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.8,
   },
   // Single Allocation Card
   allocationSingleCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     padding: 16,
   },
   allocationRow: {
@@ -259,25 +250,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   allocationLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.6,
     marginBottom: 4,
   },
   allocationValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   // Batches & Storage Card
   batchesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     padding: 16,
   },
   infoRowTop: {
@@ -288,44 +275,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   infoValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   primaryStorageRow: {
     marginTop: 2,
   },
   primaryStorageValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   // Action Buttons (Centered, Orange Border, Brown Text)
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     height: 48,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
   },
   actionButtonText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
     marginLeft: 10,
   },
 });

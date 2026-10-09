@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
-import { SWA_COLORS, SWA_TYPOGRAPHY } from '../constants';
 
 type TabName = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
@@ -11,7 +11,7 @@ interface SWABottomNavProps {
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? SWA_COLORS.primaryOrange : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -26,7 +26,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? SWA_COLORS.primaryOrange : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -41,7 +41,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? SWA_COLORS.primaryOrange : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -56,7 +56,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? SWA_COLORS.primaryOrange : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       {/* 9-dot grid rendered via Path */}
@@ -91,7 +91,7 @@ export function SWABottomNav({ activeTab, onTabChange }: SWABottomNavProps) {
             <Text
               style={[
                 styles.label,
-                { color: isActive ? SWA_COLORS.primaryOrange : '#7A726C' },
+                { color: isActive ? adminColors.brand : adminColors.muted },
               ]}
             >
               {tab.label}
@@ -106,9 +106,9 @@ export function SWABottomNav({ activeTab, onTabChange }: SWABottomNavProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#E7E2D6',
+    borderTopColor: adminColors.border,
     paddingTop: 8,
     paddingBottom: 10,
     paddingHorizontal: 4,
@@ -120,10 +120,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   label: {
+    ...adminType.caption,
     marginTop: 4,
-    fontSize: 10,
-    fontWeight: '600',
-    fontFamily: 'Poppins',
   },
 });
 

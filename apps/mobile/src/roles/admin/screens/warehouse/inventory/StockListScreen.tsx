@@ -1,18 +1,18 @@
+// Design id: M3S02
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../components';
+import { SWAHeader, SWABottomNav } from '../../swa/components';
 
-interface M3S02Props {
-  onNavigate: (screen: string, params?: any) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
+export interface StockListScreenProps extends InventoryScreenBaseProps {
   initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
 }
 
 // ─── Custom Icons matching Design Mockup (Pure Path - zero Hermes/SVG errors) ─
 
-function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
+function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       {/* Top lid */}
@@ -38,7 +38,7 @@ function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function LedgerTabIcon({ color = '#3B4856' }: { color?: string }) {
+function LedgerTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -53,7 +53,7 @@ function LedgerTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
+function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -67,7 +67,7 @@ function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function VerifyTabIcon({ color = '#3B4856' }: { color?: string }) {
+function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       {/* Outer rounded card */}
@@ -99,7 +99,7 @@ function VerifyTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function SearchIcon({ color = '#8A7E75' }: { color?: string }) {
+function SearchIcon({ color = adminColors.muted }: { color?: string }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
@@ -113,7 +113,7 @@ function SearchIcon({ color = '#8A7E75' }: { color?: string }) {
   );
 }
 
-export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTabChange, initialTab = 'Stock' }) => {
+export function StockListScreen({ scope, can, onNavigate, onBack, onTabChange, initialTab = 'Stock' }: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -155,11 +155,11 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Stock List"
           onBack={onBack}
           showFilter={true}
-          onFilterPress={() => onNavigate('M3S16')}
+          onFilterPress={() => onNavigate?.('M3S16')}
         />
 
         {/* 4 Rounded Tab Cards (positioned UP, directly below header matching reference) */}
@@ -170,7 +170,7 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
             onPress={() => setActiveTab('Stock')}
             activeOpacity={0.7}
           >
-            <StockTabBoxIcon color={activeTab === 'Stock' ? '#FFFFFF' : '#3B4856'} />
+            <StockTabBoxIcon color={activeTab === 'Stock' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>Stock</Text>
           </TouchableOpacity>
 
@@ -179,11 +179,11 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
             style={[styles.tabCard, activeTab === 'Ledger' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Ledger');
-              onNavigate('M3S06');
+              onNavigate?.('M3S06');
             }}
             activeOpacity={0.7}
           >
-            <LedgerTabIcon color={activeTab === 'Ledger' ? '#FFFFFF' : '#3B4856'} />
+            <LedgerTabIcon color={activeTab === 'Ledger' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>Ledger</Text>
           </TouchableOpacity>
 
@@ -192,11 +192,11 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
             style={[styles.tabCard, activeTab === 'Allocation' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Allocation');
-              onNavigate('M3S07');
+              onNavigate?.('M3S07');
             }}
             activeOpacity={0.7}
           >
-            <AllocationTabIcon color={activeTab === 'Allocation' ? '#FFFFFF' : '#3B4856'} />
+            <AllocationTabIcon color={activeTab === 'Allocation' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
@@ -205,11 +205,11 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Verify');
-              onNavigate('M3S10');
+              onNavigate?.('M3S10');
             }}
             activeOpacity={0.7}
           >
-            <VerifyTabIcon color={activeTab === 'Verify' ? '#FFFFFF' : '#3B4856'} />
+            <VerifyTabIcon color={activeTab === 'Verify' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>Verify</Text>
           </TouchableOpacity>
         </View>
@@ -217,11 +217,11 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <SearchIcon color="#8A7E75" />
+            <SearchIcon color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search product, crop or batch"
-              placeholderTextColor="#9E9690"
+              placeholderTextColor={adminColors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -234,7 +234,7 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
               <TouchableOpacity
                 key={index}
                 style={styles.stockCard}
-                onPress={() => onNavigate('M3S03', { product: item })}
+                onPress={() => onNavigate?.('M3S03', { product: item })}
                 activeOpacity={0.7}
               >
                 <View style={styles.stockHeader}>
@@ -278,16 +278,16 @@ export const M3S02_StockList: React.FC<M3S02Props> = ({ onNavigate, onBack, onTa
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   tabCardsRow: {
     flexDirection: 'row',
@@ -298,32 +298,26 @@ const styles = StyleSheet.create({
   },
   tabCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   activeTabCard: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   tabCardText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3B4856',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activeTabCardText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   content: {
@@ -332,7 +326,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 12,
@@ -340,23 +334,22 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   searchInput: {
+    ...adminType.body,
     flex: 1,
     marginLeft: 10,
-    fontSize: 13.5,
-    fontFamily: 'Poppins',
-    color: '#1D2420',
+    color: adminColors.ink,
   },
   stockCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginHorizontal: 16,
     marginBottom: 12,
     padding: 16,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   stockHeader: {
     flexDirection: 'row',
@@ -368,16 +361,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stockName: {
-    fontSize: 17.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   stockGrade: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: '#5C6B63',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 2,
   },
   statusBadge: {
@@ -386,21 +375,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
   },
   healthyBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: adminColors.success.bg,
   },
   healthyBadgeText: {
-    color: '#1E8E5A',
+    color: adminColors.success.text,
   },
   alertBadge: {
-    backgroundColor: '#FCE9E9',
+    backgroundColor: adminColors.danger.bg,
   },
   alertBadgeText: {
-    color: '#DC2626',
+    color: adminColors.danger.text,
   },
   stockBottomRow: {
     flexDirection: 'row',
@@ -416,17 +403,13 @@ const styles = StyleSheet.create({
     minWidth: 54,
   },
   stockStatLabel: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#5C6B63',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   stockStatValue: {
-    fontSize: 16.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   viewLinkRow: {
     flexDirection: 'row',
@@ -435,15 +418,12 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   viewLink: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F0562A',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brand,
   },
   viewChevron: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F0562A',
+    ...adminType.sectionHead,
+    color: adminColors.brand,
     marginTop: -1,
   },
 });

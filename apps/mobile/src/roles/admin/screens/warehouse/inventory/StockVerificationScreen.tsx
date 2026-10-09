@@ -1,3 +1,4 @@
+// Design id: M3S10
 import React from 'react';
 import {
   View,
@@ -9,17 +10,15 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 
-interface M3S10Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
-}
+export interface StockVerificationScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons matching Reference Exactly ────────────────────────────────────
 
-function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -33,7 +32,7 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -46,7 +45,7 @@ function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
+function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -64,7 +63,7 @@ function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function LedgerTabIcon({ color = '#3B4856' }: { color?: string }) {
+function LedgerTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -78,7 +77,7 @@ function LedgerTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
+function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z" stroke={color} strokeWidth="1.8" />
@@ -88,7 +87,7 @@ function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function VerifyTabIcon({ color = '#FFFFFF' }: { color?: string }) {
+function VerifyTabIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -107,7 +106,7 @@ function VerifyTabIcon({ color = '#FFFFFF' }: { color?: string }) {
   );
 }
 
-function ChevronDownIcon({ color = '#3B4856', size = 20 }: { color?: string; size?: number }) {
+function ChevronDownIcon({ color = adminColors.ink, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -115,7 +114,7 @@ function ChevronDownIcon({ color = '#3B4856', size = 20 }: { color?: string; siz
   );
 }
 
-function HourglassIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function HourglassIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M5 3h14M5 21h14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -139,10 +138,10 @@ function HourglassIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBack }) => {
+export function StockVerificationScreen({ scope, can, onNavigate, onBack }: StockVerificationScreenProps) {
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Top SafeArea for Caramel Header */}
       <SafeAreaView style={styles.topSafeArea}>
@@ -156,15 +155,15 @@ export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBa
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityLabel="Back"
             >
-              <BackArrowIcon size={22} color="#FFFFFF" />
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Stock Verification</Text>
           </View>
 
           {/* Warehouse Pill Row inside Header */}
           <View style={styles.warehousePill}>
-            <LockSmallIcon size={13} color="#FFFFFF" />
-            <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
+            <LockSmallIcon size={13} color={adminColors.onBrand} />
+            <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'All Warehouses'}</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -181,30 +180,30 @@ export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBa
             {/* Stock Tab */}
             <TouchableOpacity
               style={styles.tabCard}
-              onPress={() => onNavigate('M3S02')}
+              onPress={() => onNavigate?.('M3S02')}
               activeOpacity={0.7}
             >
-              <StockTabBoxIcon color="#3B4856" />
+              <StockTabBoxIcon color={adminColors.ink} />
               <Text style={styles.tabCardText}>Stock</Text>
             </TouchableOpacity>
 
             {/* Ledger Tab */}
             <TouchableOpacity
               style={styles.tabCard}
-              onPress={() => onNavigate('M3S06')}
+              onPress={() => onNavigate?.('M3S06')}
               activeOpacity={0.7}
             >
-              <LedgerTabIcon color="#3B4856" />
+              <LedgerTabIcon color={adminColors.ink} />
               <Text style={styles.tabCardText}>Ledger</Text>
             </TouchableOpacity>
 
             {/* Allocation Tab */}
             <TouchableOpacity
               style={styles.tabCard}
-              onPress={() => onNavigate('M3S07')}
+              onPress={() => onNavigate?.('M3S07')}
               activeOpacity={0.7}
             >
-              <AllocationTabIcon color="#3B4856" />
+              <AllocationTabIcon color={adminColors.ink} />
               <Text style={styles.tabCardText}>Allocation</Text>
             </TouchableOpacity>
 
@@ -213,7 +212,7 @@ export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBa
               style={[styles.tabCard, styles.activeTabCard]}
               activeOpacity={0.85}
             >
-              <VerifyTabIcon color="#FFFFFF" />
+              <VerifyTabIcon color={adminColors.onBrand} />
               <Text style={[styles.tabCardText, styles.activeTabCardText]}>Verify</Text>
             </TouchableOpacity>
           </View>
@@ -224,7 +223,7 @@ export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBa
               <Text style={styles.selectorLabel}>PRODUCT</Text>
               <Text style={styles.selectorText}>Tomato · Grade 1</Text>
             </View>
-            <ChevronDownIcon color="#3B4856" size={20} />
+            <ChevronDownIcon color={adminColors.ink} size={20} />
           </TouchableOpacity>
 
           {/* System Quantity */}
@@ -289,10 +288,10 @@ export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBa
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.startButton}
-              onPress={() => onNavigate('M3S11')}
+              onPress={() => onNavigate?.('M3S11')}
               activeOpacity={0.85}
             >
-              <HourglassIcon size={22} color="#FFFFFF" />
+              <HourglassIcon size={22} color={adminColors.onBrand} />
               <Text style={styles.startButtonText}>Start Physical Count</Text>
             </TouchableOpacity>
           </View>
@@ -300,18 +299,18 @@ export const M3S10_StockVerification: React.FC<M3S10Props> = ({ onNavigate, onBa
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   topSafeArea: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -327,18 +326,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: adminColors.brandDeep,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -346,14 +343,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehousePillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   body: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
@@ -372,35 +367,33 @@ const styles = StyleSheet.create({
   tabCard: {
     flex: 1,
     height: 72,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E5DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   activeTabCard: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   tabCardText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#3B4856',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.ink,
   },
   activeTabCardText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   selectorCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 16,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -409,33 +402,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectorLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
     letterSpacing: 0.6,
   },
   selectorText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   sectionHeader: {
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   quantityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 22,
     paddingHorizontal: 16,
     alignItems: 'center',
@@ -443,26 +430,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   quantityValue: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.brandDeep,
     marginBottom: 4,
   },
   quantityLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 1,
   },
   historyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     padding: 14,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
   },
   historyHeader: {
     flexDirection: 'row',
@@ -470,71 +453,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   historyDate: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#4A5568',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   pendingBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   pendingBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B45309',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.warning.text,
   },
   matchedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   matchedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#15803D',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   completedBadge: {
-    backgroundColor: '#CCFBF1',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   completedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0F766E',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   historyProduct: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginTop: 6,
     marginBottom: 4,
   },
   historyDetails: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   varianceBold: {
     fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    color: adminColors.ink,
   },
   bottomSafeArea: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   bottomBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'android' ? 16 : 12,
@@ -543,15 +513,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     height: 54,
     borderRadius: 16,
     gap: 10,
   },
   startButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

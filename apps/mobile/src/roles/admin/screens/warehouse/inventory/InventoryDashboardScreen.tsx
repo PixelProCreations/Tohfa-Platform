@@ -1,19 +1,17 @@
-import React from 'react';
+// Design id: M3S01
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
-import { SWAGradient } from '../components/SWAGradient';
-import { SWABottomNav } from '../components/SWABottomNav';
-import { SWA_COLORS } from '../constants';
+import { SWABottomNav } from '../../swa/components';
+import type { InventoryScreenBaseProps } from './types';
+import { WarehouseSelector } from './WarehouseSelector';
 
-interface M3S01Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
-}
+export type InventoryDashboardScreenProps = InventoryScreenBaseProps;
 
 // ─── Pixel-Perfect Custom SVGs matching Design Mockup ─────────────────────────
 
-function HeaderBoxIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function HeaderBoxIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M5.5 4A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4h-13z" stroke={color} strokeWidth="2.2" />
@@ -23,7 +21,7 @@ function HeaderBoxIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -37,7 +35,7 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function BellIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BellIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -58,7 +56,7 @@ function BellIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: str
   );
 }
 
-function LockBadgeIcon({ size = 12, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function LockBadgeIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
@@ -68,7 +66,7 @@ function LockBadgeIcon({ size = 12, color = '#FFFFFF' }: { size?: number; color?
 }
 
 // Stat Card 1: Available (Clipboard with checkmark)
-function StatAvailableIcon({ size = 22, color = '#8B4513' }: { size?: number; color?: string }) {
+function StatAvailableIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.8" />
@@ -79,19 +77,19 @@ function StatAvailableIcon({ size = 22, color = '#8B4513' }: { size?: number; co
 }
 
 // Stat Card 2: Reserved (Padlock with mini-clock dial on bottom right)
-function StatReservedIcon({ size = 22, color = '#8B4513' }: { size?: number; color?: string }) {
+function StatReservedIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 10h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="1.8" />
       <Path d="M7 10V6.5a3 3 0 0 1 6 0V10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M17.5 12.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z" fill="#FFFFFF" stroke={color} strokeWidth="1.8" />
+      <Path d="M17.5 12.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z" fill={adminColors.card} stroke={color} strokeWidth="1.8" />
       <Path d="M17.5 15v2l1.2 1" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
 }
 
 // Stat Card 3: Allocated (Circle divided into pie sections)
-function StatAllocatedIcon({ size = 22, color = '#8B4513' }: { size?: number; color?: string }) {
+function StatAllocatedIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z" stroke={color} strokeWidth="1.8" />
@@ -102,7 +100,7 @@ function StatAllocatedIcon({ size = 22, color = '#8B4513' }: { size?: number; co
 }
 
 // Stat Card 4: Low Stock (Diagonal downward zig-zag arrow with arrowhead, BROWN outline)
-function StatLowStockIcon({ size = 22, color = '#8B4513' }: { size?: number; color?: string }) {
+function StatLowStockIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 8l6 6 4-4 7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -112,7 +110,7 @@ function StatLowStockIcon({ size = 22, color = '#8B4513' }: { size?: number; col
 }
 
 // Stat Card 5: Verification Pending (Checklist box with checkmark and lines)
-function StatVerificationPendingIcon({ size = 22, color = '#8B4513' }: { size?: number; color?: string }) {
+function StatVerificationPendingIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
@@ -123,7 +121,7 @@ function StatVerificationPendingIcon({ size = 22, color = '#8B4513' }: { size?: 
 }
 
 // Stat Card 6: Stock Ledger (Receipt ticket with serrated/jagged zigzag top edge)
-function StatStockLedgerIcon({ size = 22, color = '#8B4513' }: { size?: number; color?: string }) {
+function StatStockLedgerIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -138,12 +136,23 @@ function StatStockLedgerIcon({ size = 22, color = '#8B4513' }: { size?: number; 
   );
 }
 
-export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onBack, onTabChange }) => {
+export function InventoryDashboardScreen({
+  scope,
+  can,
+  onBack,
+  onNavigate,
+  onTabChange,
+  warehouseOptions,
+}: InventoryDashboardScreenProps) {
+  // Main (no warehouseId) gets the all-warehouses selector; Sub is locked to its own.
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
+  // The ledger tile needs at least the own-warehouse ledger grant (rbac: MAIN all, SUB own).
+  const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {/* Custom Header matching Design Mockup Exactly */}
-        <SWAGradient colors={['#F0562A', '#F0562A']}>
+        <View style={styles.headerBand}>
           <View style={styles.header}>
             {/* Top Row: Back Button + Box Icon + "Inventory & Stock" (Left) and Notification Bell (Right) */}
             <View style={styles.headerTopRow}>
@@ -156,10 +165,10 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     accessibilityLabel="Back to Dashboard"
                   >
-                    <BackArrowIcon size={22} color="#FFFFFF" />
+                    <BackArrowIcon size={22} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 )}
-                <HeaderBoxIcon size={24} color="#FFFFFF" />
+                <HeaderBoxIcon size={24} color={adminColors.onBrand} />
                 <Text style={styles.headerTitle}>Inventory & Stock</Text>
               </View>
               <TouchableOpacity 
@@ -167,17 +176,26 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <BellIcon size={19} color="#FFFFFF" />
+                <BellIcon size={19} color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
 
-            {/* Bottom Row: Left-Aligned Pill Capsule for Warehouse */}
-            <View style={styles.warehousePill}>
-              <LockBadgeIcon size={12} color="#FFFFFF" />
-              <Text style={styles.warehouseText}>Coonoor Warehouse</Text>
-            </View>
+            {/* Bottom Row: locked warehouse pill (Sub) or all-warehouses selector (Main) */}
+            {scope.warehouseId !== undefined ? (
+              <View style={styles.warehousePill}>
+                <LockBadgeIcon size={12} color={adminColors.onBrand} />
+                <Text style={styles.warehouseText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+              </View>
+            ) : (
+              <WarehouseSelector
+                scope={scope}
+                options={warehouseOptions}
+                selectedId={selectedWarehouseId}
+                onSelect={setSelectedWarehouseId}
+              />
+            )}
           </View>
-        </SWAGradient>
+        </View>
         
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Total Available Stock - White Card with Brown Text */}
@@ -191,10 +209,10 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Row 1 Left: Available */}
             <TouchableOpacity 
               style={styles.statCard}
-              onPress={() => onNavigate('M3S02')}
+              onPress={() => onNavigate?.('M3S02')}
               activeOpacity={0.7}
             >
-              <StatAvailableIcon size={22} color="#8B4513" />
+              <StatAvailableIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>1,245 KG</Text>
               <Text style={styles.statLabel}>Available</Text>
             </TouchableOpacity>
@@ -202,10 +220,10 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Row 1 Right: Reserved */}
             <TouchableOpacity 
               style={styles.statCard}
-              onPress={() => onNavigate('M3S02')}
+              onPress={() => onNavigate?.('M3S02')}
               activeOpacity={0.7}
             >
-              <StatReservedIcon size={22} color="#8B4513" />
+              <StatReservedIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>320 KG</Text>
               <Text style={styles.statLabel}>Reserved</Text>
             </TouchableOpacity>
@@ -213,10 +231,10 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Row 2 Left: Allocated */}
             <TouchableOpacity 
               style={styles.statCard}
-              onPress={() => onNavigate('M3S07')}
+              onPress={() => onNavigate?.('M3S07')}
               activeOpacity={0.7}
             >
-              <StatAllocatedIcon size={22} color="#8B4513" />
+              <StatAllocatedIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>580 KG</Text>
               <Text style={styles.statLabel}>Allocated</Text>
             </TouchableOpacity>
@@ -224,10 +242,10 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Row 2 Right: Low Stock */}
             <TouchableOpacity 
               style={styles.statCard}
-              onPress={() => onNavigate('M3S09')}
+              onPress={() => onNavigate?.('M3S09')}
               activeOpacity={0.7}
             >
-              <StatLowStockIcon size={22} color="#8B4513" />
+              <StatLowStockIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.lowStockValue}>05</Text>
               <Text style={styles.statLabel}>Low Stock</Text>
             </TouchableOpacity>
@@ -235,31 +253,33 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Row 3 Left: Verification Pending */}
             <TouchableOpacity 
               style={styles.statCard}
-              onPress={() => onNavigate('M3S10')}
+              onPress={() => onNavigate?.('M3S10')}
               activeOpacity={0.7}
             >
-              <StatVerificationPendingIcon size={22} color="#8B4513" />
+              <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>02</Text>
               <Text style={styles.statLabel}>Verification Pending</Text>
             </TouchableOpacity>
 
-            {/* Row 3 Right: View Stock Ledger */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate('M3S06')}
-              activeOpacity={0.7}
-            >
-              <StatStockLedgerIcon size={22} color="#8B4513" />
-              <Text style={styles.statValue}>View</Text>
-              <Text style={styles.statLabel}>Stock Ledger</Text>
-            </TouchableOpacity>
+            {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
+            {canViewLedger ? (
+              <TouchableOpacity
+                style={styles.statCard}
+                onPress={() => onNavigate?.('M3S06')}
+                activeOpacity={0.7}
+              >
+                <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />
+                <Text style={styles.statValue}>View</Text>
+                <Text style={styles.statLabel}>Stock Ledger</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Top Stock Products Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Top Stock Products</Text>
-              <TouchableOpacity onPress={() => onNavigate('M3S02')} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
                 <Text style={styles.viewAllLink}>View All Stock</Text>
               </TouchableOpacity>
             </View>
@@ -267,7 +287,7 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Tomato - Available */}
             <TouchableOpacity 
               style={styles.productCard}
-              onPress={() => onNavigate('M3S03')}
+              onPress={() => onNavigate?.('M3S03')}
               activeOpacity={0.7}
             >
               <View style={styles.productHeader}>
@@ -298,7 +318,7 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Carrot - Available */}
             <TouchableOpacity 
               style={styles.productCard}
-              onPress={() => onNavigate('M3S03')}
+              onPress={() => onNavigate?.('M3S03')}
               activeOpacity={0.7}
             >
               <View style={styles.productHeader}>
@@ -329,7 +349,7 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
             {/* Beans - Low Stock */}
             <TouchableOpacity 
               style={styles.productCard}
-              onPress={() => onNavigate('M3S09')}
+              onPress={() => onNavigate?.('M3S09')}
               activeOpacity={0.7}
             >
               <View style={styles.productHeader}>
@@ -363,18 +383,21 @@ export const M3S01_InventoryDashboard: React.FC<M3S01Props> = ({ onNavigate, onB
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   // Dashboard Header matching Design Mockup
+  headerBand: {
+    backgroundColor: adminColors.brand,
+  },
   header: {
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingHorizontal: 16,
@@ -396,16 +419,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   notificationButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -413,9 +434,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: adminColors.brandDeep,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -423,17 +444,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehouseText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   content: {
     flex: 1,
   },
   // Total Stock Card - WHITE background with BROWN text, 20px radius
   totalStockCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginHorizontal: 16,
     marginTop: 14,
     marginBottom: 12,
@@ -442,20 +461,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   totalStockValue: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.brandDeep,
     marginBottom: 4,
   },
   totalStockLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 1.4,
   },
   // Stats Grid - 2 columns x 3 rows - WHITE background with subtle borders, LEFT-ALIGNED
@@ -468,7 +483,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderRadius: 16,
@@ -476,30 +491,24 @@ const styles = StyleSheet.create({
     minHeight: 104,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     marginBottom: 10,
   },
   statValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
     marginTop: 4,
     marginBottom: 2,
   },
   lowStockValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#DC2626',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.danger.text,
     marginTop: 4,
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#5C6B63',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   // Section
   section: {
@@ -514,25 +523,21 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   viewAllLink: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   // Product Cards
   productCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     padding: 16,
     borderRadius: 20,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   productHeader: {
     flexDirection: 'row',
@@ -540,41 +545,33 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   productName: {
-    fontSize: 17.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   productGrade: {
-    fontSize: 12.5,
-    fontWeight: '400',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 2,
   },
   availableBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   availableBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   lowStockBadge: {
-    backgroundColor: '#FCE9E9',
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   lowStockBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
   productStats: {
     flexDirection: 'row',
@@ -585,16 +582,12 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   productStatLabel: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   productStatValue: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
 });

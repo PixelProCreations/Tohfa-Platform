@@ -1,13 +1,13 @@
+// Design id: M3S04
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
-import { SWAHeader } from '../components';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S04Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-}
+export interface BatchListScreenProps extends InventoryScreenBaseProps {}
 
-export const M3S04_BatchList: React.FC<M3S04Props> = ({ onNavigate, onBack }) => {
+export function BatchListScreen({ scope, can, onNavigate, onBack }: BatchListScreenProps) {
   const batches = [
     {
       id: 'BAT-2026-00124',
@@ -41,7 +41,7 @@ export const M3S04_BatchList: React.FC<M3S04Props> = ({ onNavigate, onBack }) =>
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Batches"
           subtitle="Tomato · Grade 1 · 5 Active Batches"
           onBack={onBack}
@@ -52,7 +52,7 @@ export const M3S04_BatchList: React.FC<M3S04Props> = ({ onNavigate, onBack }) =>
           <TouchableOpacity
             key={index}
             style={styles.batchCard}
-            onPress={() => onNavigate('M3S05')}
+            onPress={() => onNavigate?.('M3S05')}
             activeOpacity={0.7}
           >
             <View style={styles.batchHeader}>
@@ -81,16 +81,16 @@ export const M3S04_BatchList: React.FC<M3S04Props> = ({ onNavigate, onBack }) =>
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
@@ -98,13 +98,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   batchCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   batchHeader: {
     flexDirection: 'row',
@@ -113,28 +113,22 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   batchId: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   activeBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
   },
   activeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   batchProduct: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 14,
   },
   batchStatsRow: {
@@ -145,31 +139,23 @@ const styles = StyleSheet.create({
     width: '42%',
   },
   batchStatLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   batchStatValueAvailable: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   batchStatValueStorage: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   batchDate: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#8B4513',
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     textAlign: 'right',
-    fontFamily: 'Poppins',
     marginTop: 4,
   },
 });

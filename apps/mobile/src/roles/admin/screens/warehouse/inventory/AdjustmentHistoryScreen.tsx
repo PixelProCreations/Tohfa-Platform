@@ -1,3 +1,4 @@
+// Design id: M3S14
 import React, { useState } from 'react';
 import {
   View,
@@ -8,19 +9,18 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 
-interface M3S14Props {
-  onNavigate: (screen: string, params?: any) => void;
-  onBack: () => void;
-}
+export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function BackArrowWhiteIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -28,8 +28,8 @@ function BackArrowWhiteIcon() {
 function LockSmallWhiteIcon() {
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke="#FFFFFF" strokeWidth="2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -55,7 +55,7 @@ const ADJUSTMENTS = [
   },
 ];
 
-export const M3S14_AdjustmentHistory: React.FC<M3S14Props> = ({ onNavigate, onBack }) => {
+export function AdjustmentHistoryScreen({ scope, can, onNavigate, onBack }: AdjustmentHistoryScreenProps) {
   const [activeTab, setActiveTab] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
 
   const filteredAdjustments = ADJUSTMENTS.filter((item) => {
@@ -83,7 +83,7 @@ export const M3S14_AdjustmentHistory: React.FC<M3S14Props> = ({ onNavigate, onBa
           {/* Coonoor Warehouse Pill Badge */}
           <View style={styles.warehousePill}>
             <LockSmallWhiteIcon />
-            <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
+            <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'All Warehouses'}</Text>
           </View>
         </View>
 
@@ -118,7 +118,7 @@ export const M3S14_AdjustmentHistory: React.FC<M3S14Props> = ({ onNavigate, onBa
                 key={item.id}
                 style={styles.card}
                 activeOpacity={0.7}
-                onPress={() => onNavigate('M3S17')}
+                onPress={() => onNavigate?.('M3S17')}
               >
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardId}>{item.id}</Text>
@@ -153,19 +153,19 @@ export const M3S14_AdjustmentHistory: React.FC<M3S14Props> = ({ onNavigate, onBa
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 16,
     paddingHorizontal: 16,
@@ -181,16 +181,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   warehousePill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: adminColors.brandDeep,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -200,10 +198,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehousePillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   content: {
     flex: 1,
@@ -217,31 +213,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tabPill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 7,
   },
   tabPillActive: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   tabText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 12,
   },
@@ -252,10 +246,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardId: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -263,31 +255,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgePending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   statusTextPending: {
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   badgeApproved: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
   },
   statusTextApproved: {
-    color: '#166534',
+    color: adminColors.success.text,
   },
   badgeRejected: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
   },
   statusTextRejected: {
-    color: '#991B1B',
+    color: adminColors.danger.text,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
   },
   cardSubtext: {
-    fontSize: 12,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
 });

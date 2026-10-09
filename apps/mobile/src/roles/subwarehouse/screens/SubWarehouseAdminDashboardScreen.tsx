@@ -121,26 +121,7 @@ import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailSc
 import { SubWarehouseFinanceScreen } from './SubWarehouseFinanceScreen';
 import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
 import { SubWarehouseSettingsScreen } from './SubWarehouseSettingsScreen';
-import {
-  M3S01_InventoryDashboard,
-  M3S02_StockList,
-  M3S03_ProductStockDetail,
-  M3S04_BatchList,
-  M3S05_BatchDetail,
-  M3S06_StockLedger,
-  M3S07_AllocationDashboard,
-  M3S08_StorageLocationStock,
-  M3S09_LowStock,
-  M3S10_StockVerification,
-  M3S11_PhysicalCount,
-  M3S12_VarianceReview,
-  M3S13_StockAdjustmentRequest,
-  M3S14_AdjustmentHistory,
-  M3S15_StockMovementDetail,
-  M3S16_InventoryFilters,
-  M3S17_AdjustmentDetail,
-  M3S18_StockMovementOptions,
-} from '../../admin/screens/swa/inventory';
+import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
 import { OrdersFlow } from '../../admin/screens/warehouse/orders';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
@@ -982,93 +963,34 @@ interface SubWarehouseAdminDashboardScreenProps {
   initialInventoryScreen?: string;
 }
 
-// ─── Inventory Module Navigation Component ───────────────────────────────────
+// ─── Inventory Module ────────────────────────────────────────────────────────
+// The inventory screens and their navigator live in admin/screens/warehouse/inventory
+// (shared with the Main shell). This wrapper only passes the Sub scope through.
 function InventoryModule({
+  scope,
+  can,
   onBack,
   onTabChange,
   initialScreen = 'M3S01',
   initialParams = null,
 }: {
+  scope: WarehouseScope;
+  can: PermissionCheck;
   onBack: () => void;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
   initialScreen?: string | undefined;
   initialParams?: any | undefined;
 }) {
-  const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
-  const [screenParams, setScreenParams] = useState<any>(initialParams);
-  const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
-
-  useEffect(() => {
-    if (initialScreen) {
-      setCurrentScreen(initialScreen);
-      setNavigationStack([initialScreen]);
-      setScreenParams(initialParams);
-    }
-  }, [initialScreen, initialParams]);
-
-  const handleNavigate = (screen: string, params?: any) => {
-    setNavigationStack(prev => [...prev, screen]);
-    setCurrentScreen(screen);
-    setScreenParams(params || null);
-  };
-
-  const handleBack = () => {
-    if (navigationStack.length > 1) {
-      const newStack = [...navigationStack];
-      newStack.pop(); // Remove current screen
-      const previousScreen = newStack[newStack.length - 1];
-      setNavigationStack(newStack);
-      if (previousScreen) {
-        setCurrentScreen(previousScreen);
-      }
-      setScreenParams(null);
-    } else {
-      // At root (M3S01), exit to main dashboard
-      onBack();
-    }
-  };
-
-  // Render the appropriate screen based on currentScreen state
-  switch (currentScreen) {
-    case 'M3S01':
-      return <M3S01_InventoryDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
-    case 'M3S02':
-      return <M3S02_StockList onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} initialTab={screenParams?.initialTab} />;
-    case 'M3S03':
-      return <M3S03_ProductStockDetail onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
-    case 'M3S04':
-      return <M3S04_BatchList onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S05':
-      return <M3S05_BatchDetail onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
-    case 'M3S06':
-      return <M3S06_StockLedger onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
-    case 'M3S07':
-      return <M3S07_AllocationDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
-    case 'M3S08':
-      return <M3S08_StorageLocationStock onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S09':
-      return <M3S09_LowStock onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S10':
-      return <M3S10_StockVerification onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S11':
-      return <M3S11_PhysicalCount onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S12':
-      return <M3S12_VarianceReview onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S13':
-      return <M3S13_StockAdjustmentRequest onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S14':
-      return <M3S14_AdjustmentHistory onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S15':
-      return <M3S15_StockMovementDetail onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S16':
-      return <M3S16_InventoryFilters onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S17':
-      return <M3S17_AdjustmentDetail onNavigate={handleNavigate} onBack={handleBack} />;
-    case 'M3S18':
-      return <M3S18_StockMovementOptions onNavigate={handleNavigate} onBack={handleBack} />;
-    default:
-      return <M3S01_InventoryDashboard onNavigate={handleNavigate} onBack={handleBack} onTabChange={onTabChange} />;
-  }
+  return (
+    <InventoryFlow
+      scope={scope}
+      can={can}
+      initialScreen={initialScreen}
+      initialParams={initialParams}
+      onBack={onBack}
+      onTabChange={onTabChange}
+    />
+  );
 }
 
 // ─── Orders Module ───────────────────────────────────────────────────────────
@@ -4965,6 +4887,8 @@ export function SubWarehouseAdminDashboardScreen({
         {/* ─── Inventory Tab ─── */}
         {activeTab === 'Inventory' && !showOrdersModule && (
           <InventoryModule
+            scope={scope}
+            can={can}
             initialScreen={inventoryInitialScreen}
             initialParams={inventoryInitialParams}
             onBack={() => {

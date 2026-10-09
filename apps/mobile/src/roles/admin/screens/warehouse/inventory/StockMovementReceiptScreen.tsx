@@ -1,3 +1,4 @@
+// Design id: M3S18
 import React, { useState } from 'react';
 import {
   View,
@@ -8,21 +9,20 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { SWAHeader } from '../components/SWAHeader';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S18Props {
-  onNavigate: (screen: string, params?: any) => void;
-  onBack: () => void;
-}
+export interface StockMovementReceiptScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function CheckCircleGreenIcon() {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" fill="#DCFCE7" stroke="#166534" strokeWidth="1.8" />
-      <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke="#166534" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="10" fill={adminColors.success.bg} stroke={adminColors.success.text} strokeWidth="1.8" />
+      <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke={adminColors.success.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -30,7 +30,7 @@ function CheckCircleGreenIcon() {
 function ShareIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -38,12 +38,12 @@ function ShareIcon() {
 function QrVoucherIcon() {
   return (
     <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke="#F0562A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, onBack }) => {
+export function StockMovementReceiptScreen({ scope, can, onNavigate, onBack }: StockMovementReceiptScreenProps) {
   const handlePrint = () => {
     Alert.alert('Movement Voucher', 'Movement Voucher MOV-000248 sent to printer / share sheet.');
   };
@@ -51,7 +51,7 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']}
+        <SWAHeader
           title="Movement Receipt"
           onBack={onBack}
         />
@@ -83,7 +83,7 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Movement Quantity</Text>
-                <Text style={[styles.detailValue, { color: '#F0562A' }]}>+140 KG</Text>
+                <Text style={[styles.detailValue, { color: adminColors.brand }]}>+140 KG</Text>
               </View>
             </View>
 
@@ -129,11 +129,11 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
               </View>
               <View style={styles.auditRow}>
                 <Text style={styles.auditKey}>Recorded Inward:</Text>
-                <Text style={[styles.auditVal, { color: '#166534' }]}>+140 KG</Text>
+                <Text style={[styles.auditVal, { color: adminColors.success.text }]}>+140 KG</Text>
               </View>
-              <View style={[styles.auditRow, { borderTopWidth: 1, borderTopColor: '#FED7AA', paddingTop: 6, marginTop: 4 }]}>
+              <View style={[styles.auditRow, { borderTopWidth: 1, borderTopColor: adminColors.border, paddingTop: 6, marginTop: 4 }]}>
                 <Text style={[styles.auditKey, { fontWeight: '700' }]}>Closing Available Balance:</Text>
-                <Text style={[styles.auditVal, { fontWeight: '800', color: '#F0562A' }]}>140 KG</Text>
+                <Text style={[styles.auditVal, { fontWeight: '800', color: adminColors.brand }]}>140 KG</Text>
               </View>
             </View>
           </View>
@@ -163,16 +163,16 @@ export const M3S18_StockMovementOptions: React.FC<M3S18Props> = ({ onNavigate, o
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
@@ -180,16 +180,12 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   voucherCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     padding: 18,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    ...adminShadow.sm,
     marginBottom: 16,
   },
   voucherHeaderRow: {
@@ -198,7 +194,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusPill: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -206,38 +202,33 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   statusPillText: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    fontWeight: '800',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.onBrand,
     letterSpacing: 0.5,
   },
   voucherIdText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   voucherDateText: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   qrContainer: {
     width: 54,
     height: 54,
     borderRadius: 12,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   voucherDashedLine: {
     height: 1,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     borderStyle: 'dashed',
     marginVertical: 14,
   },
@@ -249,51 +240,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
-    fontWeight: '500',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   detailValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   qcVerifiedBox: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: adminColors.success.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: adminColors.success.bg,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
   },
   qcTitleText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#166534',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   qcSubText: {
-    fontSize: 11,
-    color: '#15803D',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.success.text,
   },
   auditBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     padding: 12,
   },
   auditTitle: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#C2410C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.brand,
     letterSpacing: 0.5,
     marginBottom: 8,
   },
@@ -304,52 +286,41 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   auditKey: {
-    fontSize: 11.5,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   auditVal: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   actionsContainer: {
     gap: 10,
   },
   primaryActionBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...adminShadow.sm,
   },
   primaryActionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   secondaryActionBtn: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryActionBtnText: {
-    color: '#F0562A',
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brand,
   },
 });

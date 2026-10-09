@@ -1,3 +1,4 @@
+// Design id: M3S13
 import React, { useState } from 'react';
 import {
   View,
@@ -8,20 +9,19 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWAHeader } from '../components/SWAHeader';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S13Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-}
+export interface StockAdjustmentRequestScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function DownArrowRedIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#E52E2E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke={adminColors.danger.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -29,8 +29,8 @@ function DownArrowRedIcon() {
 function RadioSelectedIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#C86A2B" strokeWidth="2.2" fill="#FFFFFF" />
-      <Circle cx="12" cy="12" r="4.5" fill="#C86A2B" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.brand} strokeWidth="2.2" fill={adminColors.card} />
+      <Circle cx="12" cy="12" r="4.5" fill={adminColors.brand} />
     </Svg>
   );
 }
@@ -38,7 +38,7 @@ function RadioSelectedIcon() {
 function RadioUnselectedIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#CBD5E1" strokeWidth="1.8" fill="#FFFFFF" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.placeholder} strokeWidth="1.8" fill={adminColors.card} />
     </Svg>
   );
 }
@@ -48,15 +48,15 @@ function CameraAddIcon() {
     <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
       <Path
         d="M19 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l1.5-2.5h4"
-        stroke="#736B66"
+        stroke={adminColors.muted}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="11" cy="14" r="3.5" stroke="#736B66" strokeWidth="1.8" />
+      <Circle cx="11" cy="14" r="3.5" stroke={adminColors.muted} strokeWidth="1.8" />
       <Path
         d="M18 4v5M15.5 6.5h5"
-        stroke="#736B66"
+        stroke={adminColors.muted}
         strokeWidth="1.8"
         strokeLinecap="round"
       />
@@ -69,14 +69,14 @@ function SendPlaneWhiteIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 4l19 8-19 8 5-8-5-8z"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M8 12h14"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -93,14 +93,14 @@ const REASONS = [
   'Other (configured reason)',
 ];
 
-export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate, onBack }) => {
+export function StockAdjustmentRequestScreen({ scope, can, onNavigate, onBack }: StockAdjustmentRequestScreenProps) {
   const [selectedReason, setSelectedReason] = useState('Physical Counting Error');
   const [notes, setNotes] = useState('');
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']}
+        <SWAHeader
           title="Stock Adjustment Request"
           onBack={onBack}
         />
@@ -163,7 +163,7 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
               multiline
               numberOfLines={4}
               placeholder="Add additional notes about this adjustment..."
-              placeholderTextColor="#9A928C"
+              placeholderTextColor={adminColors.muted}
               value={notes}
               onChangeText={setNotes}
             />
@@ -185,7 +185,7 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
           <TouchableOpacity
             style={styles.submitBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M3S17')}
+            onPress={() => onNavigate?.('M3S17')}
           >
             <SendPlaneWhiteIcon />
             <Text style={styles.submitBtnText}>Submit Adjustment Request</Text>
@@ -194,16 +194,16 @@ export const M3S13_StockAdjustmentRequest: React.FC<M3S13Props> = ({ onNavigate,
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
@@ -217,52 +217,42 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
   },
   summaryLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginTop: 2,
   },
   summaryValueRed: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#E24B4A',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.danger.text,
   },
   summaryLabelRed: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#E24B4A',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.danger.text,
     letterSpacing: 0.5,
     marginTop: 2,
   },
   sectionHeader: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
     marginTop: 6,
   },
   adjustmentBadge: {
-    backgroundColor: '#FDE8E8',
+    backgroundColor: adminColors.danger.bg,
     borderRadius: 999,
     paddingHorizontal: 20,
     paddingVertical: 9,
@@ -273,10 +263,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   adjustmentBadgeText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#E52E2E',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.danger.text,
     letterSpacing: 0.3,
   },
   reasonHeaderRow: {
@@ -286,16 +274,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   requiredText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   reasonsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     overflow: 'hidden',
     marginBottom: 14,
   },
@@ -308,28 +294,25 @@ const styles = StyleSheet.create({
   },
   reasonBorderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F4F1EA',
+    borderBottomColor: adminColors.canvas,
   },
   reasonText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   notesBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     height: 84,
     padding: 12,
     marginBottom: 14,
   },
   notesInput: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 13,
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    color: adminColors.ink,
     textAlignVertical: 'top',
     padding: 0,
   },
@@ -339,43 +322,35 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#BAC7D5',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.placeholder,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   evidenceText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#736B66',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 5,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   submitBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...adminShadow.sm,
   },
   submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

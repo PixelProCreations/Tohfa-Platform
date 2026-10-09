@@ -1,30 +1,30 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { SWAGradient } from './SWAGradient';
-import { SWA_COLORS } from '../constants';
 
 interface SWAHeaderProps {
   title: string;
-  subtitle?: string;
-  icon?: string;
-  onBack?: () => void;
-  onNotification?: () => void;
-  showNotification?: boolean;
-  showWarehouse?: boolean;
-  warehouseLocked?: boolean;
-  warehouseName?: string;
-  rightAction?: React.ReactNode;
-  showFilter?: boolean;
-  onFilterPress?: () => void;
-  badge?: React.ReactNode;
-  colors?: [string, string];
-  bottomContent?: React.ReactNode;
-  paddingTop?: number;
+  subtitle?: string | undefined;
+  icon?: string | undefined;
+  onBack?: (() => void) | undefined;
+  onNotification?: (() => void) | undefined;
+  showNotification?: boolean | undefined;
+  showWarehouse?: boolean | undefined;
+  warehouseLocked?: boolean | undefined;
+  warehouseName?: string | undefined;
+  rightAction?: React.ReactNode | undefined;
+  showFilter?: boolean | undefined;
+  onFilterPress?: (() => void) | undefined;
+  badge?: React.ReactNode | undefined;
+  colors?: [string, string] | undefined;
+  bottomContent?: React.ReactNode | undefined;
+  paddingTop?: number | undefined;
 }
 
-function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -38,7 +38,7 @@ function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function LockSmallIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,7 +51,7 @@ function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function FilterSlidersIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -74,7 +74,7 @@ export function SWAHeader({
   showNotification = false,
   showWarehouse = false,
   warehouseLocked = false,
-  warehouseName = 'Coonoor Warehouse',
+  warehouseName,
   rightAction,
   showFilter = false,
   onFilterPress,
@@ -87,7 +87,7 @@ export function SWAHeader({
 
   return (
     <SWAGradient
-      colors={colors || ['#F0562A', '#F0562A']}
+      colors={colors || [adminColors.brand, adminColors.brand]}
     >
       <View style={[styles.container, paddingTop !== undefined && { paddingTop }]}>
         <View style={styles.topRow}>
@@ -100,7 +100,7 @@ export function SWAHeader({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 accessibilityLabel="Back"
               >
-                <BackArrowIcon size={22} color="#FFFFFF" />
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
             )}
 
@@ -108,7 +108,7 @@ export function SWAHeader({
               <Icon
                 name={icon}
                 size={20}
-                color={SWA_COLORS.textWhite}
+                color={adminColors.onBrand}
                 style={styles.titleIcon}
               />
             )}
@@ -131,7 +131,7 @@ export function SWAHeader({
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <FilterSlidersIcon size={18} color="#FFFFFF" />
+                <FilterSlidersIcon size={18} color={adminColors.onBrand} />
               </TouchableOpacity>
             ) : rightAction ? (
               <View style={styles.rightAction}>{rightAction}</View>
@@ -142,18 +142,19 @@ export function SWAHeader({
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Icon name="notifications" size={20} color={SWA_COLORS.textWhite} />
+                <Icon name="notifications" size={20} color={adminColors.onBrand} />
               </TouchableOpacity>
             ) : null}
           </View>
         </View>
 
-        {(showWarehouse || warehouseLocked) && (
+        {/* The warehouse comes from the caller's scope; no name (Main, all warehouses) = no pill. */}
+        {(showWarehouse || warehouseLocked) && warehouseName ? (
           <View style={styles.warehousePill}>
-            <LockSmallIcon size={13} color="#FFFFFF" />
+            <LockSmallIcon size={13} color={adminColors.onBrand} />
             <Text style={styles.warehousePillText}>{warehouseName}</Text>
           </View>
-        )}
+        ) : null}
 
         {bottomContent}
       </View>
@@ -191,16 +192,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   subtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.onBrand,
     marginTop: 2,
   },
   rightActions: {
@@ -213,7 +210,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -233,9 +230,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: adminColors.brandDeep,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -243,9 +240,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehousePillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 });

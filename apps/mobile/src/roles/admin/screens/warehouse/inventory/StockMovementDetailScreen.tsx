@@ -1,12 +1,12 @@
+// Design id: M3S15
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader } from '../components';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S15Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-}
+export interface StockMovementDetailScreenProps extends InventoryScreenBaseProps {}
 
 const TIMELINE_EVENTS = [
   { label: 'Movement Created', time: '10:40 AM' },
@@ -20,7 +20,7 @@ function MoreDotsIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
-        fill="#FFFFFF"
+        fill={adminColors.card}
       />
     </Svg>
   );
@@ -29,10 +29,10 @@ function MoreDotsIcon() {
 function PhotoThumbnailIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke="#F0562A" strokeWidth="1.8" />
-      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke="#F0562A" strokeWidth="1.5" />
-      <Path d="M21 15l-5-5-8 8" stroke="#F0562A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 14l2-2 5 5" stroke="#F0562A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={adminColors.brand} strokeWidth="1.8" />
+      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke={adminColors.brand} strokeWidth="1.5" />
+      <Path d="M21 15l-5-5-8 8" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 14l2-2 5 5" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -40,8 +40,8 @@ function PhotoThumbnailIcon() {
 function TimelineGreenDot() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="#1E8E5A" strokeWidth="2.5" fill="#FFFFFF" />
-      <Path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z" fill="#1E8E5A" />
+      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke={adminColors.success.text} strokeWidth="2.5" fill={adminColors.card} />
+      <Path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z" fill={adminColors.success.text} />
     </Svg>
   );
 }
@@ -49,13 +49,13 @@ function TimelineGreenDot() {
 function InfoCircleIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke="#1C5B96" strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#1C5B96" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke={adminColors.info.text} strokeWidth="1.8" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function QrIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
+function QrIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h-2v3zm4 0h2v-3h-2v3zm-4 4h2v-2h-2v2zm4 0h2v-2h-2v2zm0-4h2v-2h-2v2z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -63,7 +63,7 @@ function QrIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: numbe
   );
 }
 
-function DocumentReferenceIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
+function DocumentReferenceIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -72,7 +72,7 @@ function DocumentReferenceIcon({ color = '#F0562A', size = 18 }: { color?: strin
   );
 }
 
-function HistoryLedgerIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
+function HistoryLedgerIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -81,7 +81,7 @@ function HistoryLedgerIcon({ color = '#F0562A', size = 18 }: { color?: string; s
   );
 }
 
-function LockNoticeIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
+function LockNoticeIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2" />
@@ -90,18 +90,18 @@ function LockNoticeIcon({ color = '#F0562A', size = 18 }: { color?: string; size
   );
 }
 
-export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, onBack }) => {
+export function StockMovementDetailScreen({ scope, can, onNavigate, onBack }: StockMovementDetailScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Stock Movement"
           onBack={onBack}
           rightAction={
             <TouchableOpacity 
               style={styles.moreButton} 
               activeOpacity={0.7}
-              onPress={() => onNavigate('M3S18')}
+              onPress={() => onNavigate?.('M3S18')}
             >
               <MoreDotsIcon />
             </TouchableOpacity>
@@ -325,35 +325,35 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
             <Text style={styles.sectionTitle}>Actions</Text>
             <TouchableOpacity
               style={styles.actionOutlineBtn}
-              onPress={() => onNavigate('M3S04')}
+              onPress={() => onNavigate?.('M3S04')}
               activeOpacity={0.7}
             >
-              <QrIcon color="#F0562A" size={18} />
+              <QrIcon color={adminColors.brand} size={18} />
               <Text style={styles.actionBtnText}>View Batch</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.actionOutlineBtn}
-              onPress={() => onNavigate('M3S06')}
+              onPress={() => onNavigate?.('M3S06')}
               activeOpacity={0.7}
             >
-              <DocumentReferenceIcon color="#F0562A" size={18} />
+              <DocumentReferenceIcon color={adminColors.brand} size={18} />
               <Text style={styles.actionBtnText}>View Reference</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.actionOutlineBtn}
-              onPress={() => onNavigate('M3S06')}
+              onPress={() => onNavigate?.('M3S06')}
               activeOpacity={0.7}
             >
-              <HistoryLedgerIcon color="#F0562A" size={18} />
+              <HistoryLedgerIcon color={adminColors.brand} size={18} />
               <Text style={styles.actionBtnText}>View Ledger History</Text>
             </TouchableOpacity>
           </View>
 
           {/* Disclaimer Banner */}
           <View style={styles.disclaimerBox}>
-            <LockNoticeIcon color="#F0562A" size={18} />
+            <LockNoticeIcon color={adminColors.brand} size={18} />
             <Text style={styles.disclaimerText}>
               No Edit Balance action exists on this screen. Stock changes only ever happen through a new ledger movement — never a direct edit here.
             </Text>
@@ -364,22 +364,22 @@ export const M3S15_StockMovementDetail: React.FC<M3S15Props> = ({ onNavigate, on
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   moreButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -389,49 +389,43 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   heroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 14,
   },
   receiptBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 6,
   },
   receiptBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   movementIdBig: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   section: {
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 16,
   },
   twoColRow: {
@@ -444,40 +438,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   colValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   quantityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 10,
   },
   quantityCardLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.success.text,
     letterSpacing: 0.8,
   },
   quantityBigValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.success.text,
     marginVertical: 6,
   },
   flowRow: {
@@ -492,60 +478,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   flowStepValue: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   flowStepLabel: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
   flowStepValueGreen: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   flowStepLabelGreen: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.success.text,
     marginTop: 2,
   },
   flowArrow: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#8A7E75',
+    ...adminType.title,
+    color: adminColors.muted,
     marginBottom: 10,
   },
   blueNoticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#EDF4FC',
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#B8D5F2',
+    borderColor: adminColors.info.bg,
     borderRadius: 10,
     padding: 12,
     gap: 8,
   },
   blueNoticeText: {
+    ...adminType.rowMeta,
     flex: 1,
-    fontSize: 11.5,
     lineHeight: 16,
-    color: '#1C5B96',
-    fontWeight: '500',
-    fontFamily: 'Poppins',
+    color: adminColors.info.text,
   },
   notesText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginTop: 2,
     marginBottom: 12,
   },
@@ -557,17 +530,17 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1.2,
-    borderColor: '#FDBA74',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timelineCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 16,
   },
   timelineStepRow: {
@@ -582,7 +555,7 @@ const styles = StyleSheet.create({
   timelineVerticalLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#1E8E5A',
+    backgroundColor: adminColors.success.text,
     marginVertical: 3,
   },
   timelineTextCol: {
@@ -590,45 +563,36 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   timelineStepTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   timelineStepTime: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   actionOutlineBtn: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     marginBottom: 10,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   actionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#F0562A',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brand,
   },
   disclaimerBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 14,
     borderWidth: 1.2,
-    borderColor: '#FDBA74',
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -637,11 +601,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   disclaimerText: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#9A3412',
+    color: adminColors.brandDeep,
     lineHeight: 18,
-    fontFamily: 'Poppins',
   },
 });

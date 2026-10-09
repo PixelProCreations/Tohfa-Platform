@@ -1,15 +1,15 @@
+// Design id: M3S16
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
-import { SWAHeader } from '../components';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S16Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-}
+export interface InventoryFiltersScreenProps extends InventoryScreenBaseProps {}
 
-function WarehouseIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function WarehouseIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 21V9l9-6 9 6v12H3z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -18,7 +18,7 @@ function WarehouseIcon({ size = 16, color = '#1D2420' }: { size?: number; color?
   );
 }
 
-function CropIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function CropIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9 9 9 0 0 1-9-9v-1a9 9 0 0 1 9-9z" stroke={color} strokeWidth="1.8" />
@@ -27,7 +27,7 @@ function CropIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: str
   );
 }
 
-function StarIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function StarIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -41,7 +41,7 @@ function StarIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: str
   );
 }
 
-function FlagIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function FlagIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v18" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -49,7 +49,7 @@ function FlagIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: str
   );
 }
 
-function QrIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function QrIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.8" />
@@ -60,7 +60,7 @@ function QrIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: strin
   );
 }
 
-function PinIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function PinIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke={color} strokeWidth="1.8" />
@@ -69,7 +69,7 @@ function PinIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: stri
   );
 }
 
-function ArrowsUpDownIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function ArrowsUpDownIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M7 16V4M7 4l-4 4M7 4l4 4M17 8v12M17 20l-4-4M17 20l4-4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -77,7 +77,7 @@ function ArrowsUpDownIcon({ size = 16, color = '#1D2420' }: { size?: number; col
   );
 }
 
-function CalendarIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke={color} strokeWidth="1.8" />
@@ -86,7 +86,7 @@ function CalendarIcon({ size = 16, color = '#1D2420' }: { size?: number; color?:
   );
 }
 
-function FunnelFilterIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FunnelFilterIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -100,7 +100,7 @@ function FunnelFilterIcon({ size = 18, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBack }) => {
+export function InventoryFiltersScreen({ scope, can, onNavigate, onBack }: InventoryFiltersScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('All Grades');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -111,7 +111,7 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Inventory Filters"
           onBack={onBack}
           rightAction={
@@ -124,11 +124,11 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <Icon name="search" size={18} color="#7A726C" />
+            <Icon name="search" size={18} color={adminColors.muted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Product, Batch ID..."
-              placeholderTextColor="#7A726C"
+              placeholderTextColor={adminColors.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -137,19 +137,19 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
           {/* Product / Crop */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <CropIcon size={16} color="#1D2420" />
+              <CropIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Product / Crop</Text>
             </View>
             <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
               <Text style={styles.dropdownPlaceholder}>Select Product</Text>
-              <Icon name="expand_more" size={20} color="#7A726C" />
+              <Icon name="expand_more" size={20} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
 
           {/* Grade */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <StarIcon size={16} color="#1D2420" />
+              <StarIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Grade</Text>
             </View>
             <View style={styles.chipGroup}>
@@ -172,31 +172,31 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
           {/* Batch */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <QrIcon size={16} color="#1D2420" />
+              <QrIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Batch</Text>
             </View>
             <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
               <Text style={styles.dropdownPlaceholder}>Search / Select Batch</Text>
-              <Icon name="expand_more" size={20} color="#7A726C" />
+              <Icon name="expand_more" size={20} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
 
           {/* Storage Location */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <PinIcon size={16} color="#1D2420" />
+              <PinIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Storage Location</Text>
             </View>
             <TouchableOpacity style={styles.dropdown} activeOpacity={0.7}>
               <Text style={styles.dropdownPlaceholder}>Select Location</Text>
-              <Icon name="expand_more" size={20} color="#7A726C" />
+              <Icon name="expand_more" size={20} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
 
           {/* Stock Status */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <FlagIcon size={16} color="#1D2420" />
+              <FlagIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Stock Status</Text>
             </View>
             <View style={styles.chipGroup}>
@@ -219,7 +219,7 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
           {/* Movement Type For Stock Ledger */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <ArrowsUpDownIcon size={16} color="#1D2420" />
+              <ArrowsUpDownIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Movement Type <Text style={{fontWeight: '700'}}>For Stock Ledger</Text></Text>
             </View>
             <View style={styles.chipGroup}>
@@ -242,7 +242,7 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
           {/* Date Range */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
-              <CalendarIcon size={16} color="#1D2420" />
+              <CalendarIcon size={16} color={adminColors.ink} />
               <Text style={styles.sectionTitle}>Date Range</Text>
             </View>
             <View style={styles.chipGroup}>
@@ -315,8 +315,8 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
             <View style={styles.resultCard}>
               <View style={styles.resultCardTop}>
                 <Text style={styles.resultItemName}>Carrot</Text>
-                <View style={[styles.receiptBadge, { backgroundColor: '#EFF6FF' }]}>
-                  <Text style={[styles.receiptBadgeText, { color: '#2563EB' }]}>TRANSFER</Text>
+                <View style={[styles.receiptBadge, { backgroundColor: adminColors.info.bg }]}>
+                  <Text style={[styles.receiptBadgeText, { color: adminColors.info.text }]}>TRANSFER</Text>
                 </View>
               </View>
 
@@ -357,10 +357,10 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
         <View style={styles.footer}>
           <TouchableOpacity 
             style={styles.applyButton}
-            onPress={() => onNavigate('M3S02')}
+            onPress={() => onNavigate?.('M3S02')}
             activeOpacity={0.8}
           >
-            <FunnelFilterIcon size={18} color="#FFFFFF" />
+            <FunnelFilterIcon size={18} color={adminColors.onBrand} />
             <Text style={styles.applyButtonText}>Apply Filters</Text>
           </TouchableOpacity>
 
@@ -382,31 +382,29 @@ export const M3S16_InventoryFilters: React.FC<M3S16Props> = ({ onNavigate, onBac
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
     paddingTop: 8,
   },
   headerClearAll: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 16,
@@ -414,14 +412,13 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
   },
   searchInput: {
+    ...adminType.body,
     flex: 1,
     marginLeft: 8,
-    fontSize: 13,
-    fontFamily: 'Poppins',
-    color: '#1D2420',
+    color: adminColors.ink,
   },
   filterSection: {
     marginBottom: 16,
@@ -433,17 +430,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginLeft: 6,
   },
   // Warehouse Box - soft peach tint with orange border
   warehouseBox: {
-    backgroundColor: '#FFF8F2',
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
-    borderColor: '#E87D4D',
+    borderColor: adminColors.brand,
     borderRadius: 10,
     padding: 12,
     flexDirection: 'row',
@@ -454,19 +449,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   warehouseText: {
+    ...adminType.rowMeta,
     flex: 1,
-    fontSize: 11.5,
     lineHeight: 16,
-    color: '#8B3A18',
-    fontWeight: '500',
-    fontFamily: 'Poppins',
+    color: adminColors.brandDeep,
   },
   warehouseTextBold: {
     fontWeight: '700',
-    color: '#8B3A18',
+    color: adminColors.brandDeep,
   },
   dropdown: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -474,13 +467,11 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
   },
   dropdownPlaceholder: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   chipGroup: {
     flexDirection: 'row',
@@ -488,49 +479,43 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D8D2C6',
+    borderColor: adminColors.border,
   },
   activeChip: {
-    backgroundColor: '#FFF8F2',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
     borderWidth: 1.5,
   },
   chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5C6B63',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   activeChipText: {
-    color: '#F0562A',
+    color: adminColors.brand,
     fontWeight: '700',
   },
   dateLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
   },
   dateInput: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     height: 48,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     justifyContent: 'center',
     paddingHorizontal: 14,
   },
   dateInputValue: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.ink,
   },
   resultsHeader: {
     flexDirection: 'row',
@@ -541,23 +526,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   resultsText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   resultsCount: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   resultCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EFECE6',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 12,
   },
@@ -568,29 +549,23 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   resultItemName: {
-    fontFamily: 'Poppins',
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1D2420',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   receiptBadge: {
-    backgroundColor: '#E6F5ED',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
   },
   receiptBadgeText: {
-    fontFamily: 'Poppins',
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#059669',
+    ...adminType.caption,
+    color: adminColors.success.text,
     letterSpacing: 0.5,
   },
   resultItemSubtitle: {
-    fontFamily: 'Poppins',
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#78716C',
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 14,
   },
   resultStatsRow: {
@@ -600,33 +575,25 @@ const styles = StyleSheet.create({
   },
   resultStatCol: {},
   resultStatLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#8C7A6B',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   resultStatQuantity: {
-    fontFamily: 'Poppins',
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: '#16A34A',
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   resultStatRef: {
-    fontFamily: 'Poppins',
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1D2420',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   resultTimeRow: {
     alignItems: 'flex-end',
     marginTop: 2,
   },
   resultTimeText: {
-    fontFamily: 'Poppins',
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#8B4513',
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
   },
   loadMoreBtn: {
     alignSelf: 'center',
@@ -635,22 +602,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   loadMoreText: {
-    fontFamily: 'Poppins',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8B4513',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   footer: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#EAE6DF',
+    borderTopColor: adminColors.border,
     gap: 10,
   },
   applyButton: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -659,25 +624,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   applyButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
   clearButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     height: 48,
     borderRadius: 12,
   },
   clearButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#F0562A',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brand,
   },
 });
 

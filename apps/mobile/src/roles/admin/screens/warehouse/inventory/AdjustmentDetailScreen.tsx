@@ -1,3 +1,4 @@
+// Design id: M3S17
 import React from 'react';
 import {
   View,
@@ -8,19 +9,18 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-interface M3S17Props {
-  onNavigate: (screen: string, params?: any) => void;
-  onBack: () => void;
-}
+export interface AdjustmentDetailScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function BackArrowWhiteIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -28,7 +28,7 @@ function BackArrowWhiteIcon() {
 function DownArrowGreyIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#7A726C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke={adminColors.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -36,12 +36,12 @@ function DownArrowGreyIcon() {
 function DownArrowRedIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#E52E2E" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke={adminColors.danger.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function OutlinedImageIcon({ size = 22, color = '#1D2420' }: { size?: number; color?: string }) {
+function OutlinedImageIcon({ size = 22, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="18" height="18" rx="3.5" stroke={color} strokeWidth="1.8" />
@@ -52,7 +52,7 @@ function OutlinedImageIcon({ size = 22, color = '#1D2420' }: { size?: number; co
   );
 }
 
-function PhotoIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: number }) {
+function PhotoIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={color} strokeWidth="1.8" />
@@ -63,7 +63,7 @@ function PhotoIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: nu
   );
 }
 
-function LedgerHistoryIcon({ color = '#F0562A', size = 18 }: { color?: string; size?: number }) {
+function LedgerHistoryIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -75,13 +75,13 @@ function LedgerHistoryIcon({ color = '#F0562A', size = 18 }: { color?: string; s
 function ProhibitedRedIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#E24B4A" strokeWidth="2" />
-      <Path d="M4.93 4.93l14.14 14.14" stroke="#E24B4A" strokeWidth="2" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.danger.text} strokeWidth="2" />
+      <Path d="M4.93 4.93l14.14 14.14" stroke={adminColors.danger.text} strokeWidth="2" />
     </Svg>
   );
 }
 
-function LedgerIcon({ color = '#8B4513', size = 18 }: { color?: string; size?: number }) {
+function LedgerIcon({ color = adminColors.brandDeep, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -99,8 +99,8 @@ function LedgerIcon({ color = '#8B4513', size = 18 }: { color?: string; size?: n
 function TimelineCheckDot() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9.5" stroke="#2E7D32" strokeWidth="1.8" fill="#FFFFFF" />
-      <Circle cx="12" cy="12" r="5" fill="#2E7D32" />
+      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.success.text} strokeWidth="1.8" fill={adminColors.card} />
+      <Circle cx="12" cy="12" r="5" fill={adminColors.success.text} />
     </Svg>
   );
 }
@@ -108,12 +108,12 @@ function TimelineCheckDot() {
 function TimelinePendingDot() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9.5" stroke="#D1D5DB" strokeWidth="1.8" fill="#FFFFFF" />
+      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.placeholder} strokeWidth="1.8" fill={adminColors.card} />
     </Svg>
   );
 }
 
-export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBack }) => {
+export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack }: AdjustmentDetailScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -276,8 +276,8 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
                 <View style={styles.timelineLineShort} />
               </View>
               <View style={styles.timelineTextCol}>
-                <Text style={[styles.timelineTitle, { color: '#7A726C' }]}>Awaiting Approval</Text>
-                <Text style={[styles.timelineTime, { color: '#A19A94' }]}>Pending</Text>
+                <Text style={[styles.timelineTitle, { color: adminColors.muted }]}>Awaiting Approval</Text>
+                <Text style={[styles.timelineTime, { color: adminColors.muted }]}>Pending</Text>
               </View>
             </View>
           </View>
@@ -311,16 +311,16 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
           {/* Section 10: Actions */}
           <Text style={styles.sectionHeader}>Actions</Text>
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <OutlinedImageIcon size={18} color="#8B4513" />
+            <OutlinedImageIcon size={18} color={adminColors.brandDeep} />
             <Text style={styles.actionBtnText}>View Evidence</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionBtn}
             activeOpacity={0.7}
-            onPress={() => onNavigate('M3S06')}
+            onPress={() => onNavigate?.('M3S06')}
           >
-            <LedgerIcon color="#8B4513" size={18} />
+            <LedgerIcon color={adminColors.brandDeep} size={18} />
             <Text style={styles.actionBtnText}>View Ledger History</Text>
           </TouchableOpacity>
 
@@ -337,19 +337,19 @@ export const M3S17_AdjustmentDetail: React.FC<M3S17Props> = ({ onNavigate, onBac
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 16,
     paddingHorizontal: 16,
@@ -368,31 +368,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.onBrand,
     marginTop: 2,
   },
   pendingBadge: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
   },
   pendingBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#C2410C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.brand,
   },
   content: {
     flex: 1,
@@ -400,18 +394,16 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   sectionHeader: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
     marginTop: 8,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 10,
   },
@@ -423,39 +415,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
-    fontWeight: '500',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   colValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   flowCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 24,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 10,
   },
   flowNumber: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   flowLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.8,
     marginTop: 4,
   },
@@ -463,21 +447,17 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   flowVarianceNumber: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#E52E2E',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.danger.text,
   },
   flowVarianceLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.8,
     marginTop: 4,
   },
   adjustmentBadge: {
-    backgroundColor: '#FDE8E8',
+    backgroundColor: adminColors.danger.bg,
     borderRadius: 999,
     paddingHorizontal: 20,
     paddingVertical: 9,
@@ -488,10 +468,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   adjustmentBadgeText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#E52E2E',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.danger.text,
     letterSpacing: 0.3,
   },
   evidenceThumbnailsRow: {
@@ -500,9 +478,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   notesText: {
-    fontSize: 13,
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.ink,
     lineHeight: 19,
   },
   timelineContainer: {
@@ -526,36 +503,32 @@ const styles = StyleSheet.create({
   timelineLine: {
     width: 1.5,
     flex: 1,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: adminColors.placeholder,
     marginVertical: 2,
   },
   timelineLineShort: {
     width: 1.5,
     height: 12,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: adminColors.placeholder,
     marginTop: 2,
   },
   timelineTextCol: {
     flex: 1,
   },
   timelineTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   timelineTime: {
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   actionBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#8B4513',
+    borderColor: adminColors.brandDeep,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
@@ -564,16 +537,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   actionBtnText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   disclaimerBox: {
-    backgroundColor: '#FFF1F2',
+    backgroundColor: adminColors.danger.bg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: adminColors.danger.bg,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -582,11 +553,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   disclaimerText: {
+    ...adminType.rowMeta,
     flex: 1,
-    fontSize: 11.5,
-    fontWeight: '500',
-    color: '#BE123C',
+    color: adminColors.danger.text,
     lineHeight: 17,
-    fontFamily: 'Poppins',
   },
 });

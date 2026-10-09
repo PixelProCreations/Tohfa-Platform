@@ -1,17 +1,16 @@
+// Design id: M3S06
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader, SWABottomNav } from '../components';
+import { SWAHeader, SWABottomNav } from '../../swa/components';
 
-interface M3S06Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
-}
+export interface StockLedgerScreenProps extends InventoryScreenBaseProps {}
 
 // ─── Custom Icons matching Design Mockup ─────────────────────────────────────
 
-function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
+function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -34,7 +33,7 @@ function StockTabBoxIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function LedgerTabIcon({ color = '#FFFFFF' }: { color?: string }) {
+function LedgerTabIcon({ color = adminColors.onBrand }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -49,7 +48,7 @@ function LedgerTabIcon({ color = '#FFFFFF' }: { color?: string }) {
   );
 }
 
-function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
+function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -63,7 +62,7 @@ function AllocationTabIcon({ color = '#3B4856' }: { color?: string }) {
   );
 }
 
-function VerifyTabIcon({ color = '#3B4856' }: { color?: string }) {
+function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -84,7 +83,7 @@ function VerifyTabIcon({ color = '#3B4856' }: { color?: string }) {
 function DownArrowGreenIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke="#1E8E5A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 4v16M5 13l7 7 7-7" stroke={adminColors.success.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -92,7 +91,7 @@ function DownArrowGreenIcon() {
 function UpArrowRedIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 20V4M5 11l7-7 7 7" stroke="#DC2626" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 20V4M5 11l7-7 7 7" stroke={adminColors.danger.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -100,12 +99,12 @@ function UpArrowRedIcon() {
 function BranchArrowIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3v12a3 3 0 0 0 3 3h12M17 14l4 4-4 4" stroke="#8B4513" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 3v12a3 3 0 0 0 3 3h12M17 14l4 4-4 4" stroke={adminColors.brandDeep} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function LockSmallIcon({ color = '#8B4513' }: { color?: string }) {
+function LockSmallIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
       <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
@@ -114,19 +113,20 @@ function LockSmallIcon({ color = '#8B4513' }: { color?: string }) {
   );
 }
 
-export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, onTabChange }) => {
+export function StockLedgerScreen({ scope, can, onNavigate, onBack, onTabChange }: StockLedgerScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Ledger');
 
   return (
     <View style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']} 
+        <SWAHeader 
           title="Stock Ledger"
           onBack={onBack}
           showFilter={true}
-          onFilterPress={() => onNavigate('M3S16')}
+          onFilterPress={() => onNavigate?.('M3S16')}
           showWarehouse={true}
+          warehouseName={scope.warehouseName}
         />
 
         {/* 4 Tab Cards matching reference */}
@@ -135,11 +135,11 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
             style={[styles.tabCard, activeTab === 'Stock' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Stock');
-              onNavigate('M3S02');
+              onNavigate?.('M3S02');
             }}
             activeOpacity={0.7}
           >
-            <StockTabBoxIcon color={activeTab === 'Stock' ? '#FFFFFF' : '#3B4856'} />
+            <StockTabBoxIcon color={activeTab === 'Stock' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>Stock</Text>
           </TouchableOpacity>
 
@@ -148,7 +148,7 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
             onPress={() => setActiveTab('Ledger')}
             activeOpacity={0.7}
           >
-            <LedgerTabIcon color={activeTab === 'Ledger' ? '#FFFFFF' : '#3B4856'} />
+            <LedgerTabIcon color={activeTab === 'Ledger' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>Ledger</Text>
           </TouchableOpacity>
 
@@ -156,11 +156,11 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
             style={[styles.tabCard, activeTab === 'Allocation' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Allocation');
-              onNavigate('M3S07');
+              onNavigate?.('M3S07');
             }}
             activeOpacity={0.7}
           >
-            <AllocationTabIcon color={activeTab === 'Allocation' ? '#FFFFFF' : '#3B4856'} />
+            <AllocationTabIcon color={activeTab === 'Allocation' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
@@ -168,11 +168,11 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Verify');
-              onNavigate('M3S10');
+              onNavigate?.('M3S10');
             }}
             activeOpacity={0.7}
           >
-            <VerifyTabIcon color={activeTab === 'Verify' ? '#FFFFFF' : '#3B4856'} />
+            <VerifyTabIcon color={activeTab === 'Verify' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>Verify</Text>
           </TouchableOpacity>
         </View>
@@ -181,7 +181,7 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
           {/* Card 1: RECEIPT */}
           <TouchableOpacity
             style={styles.ledgerCard}
-            onPress={() => onNavigate('M3S15')}
+            onPress={() => onNavigate?.('M3S15')}
             activeOpacity={0.7}
           >
             <View style={styles.cardTopRow}>
@@ -208,7 +208,7 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
           {/* Card 2: DISPATCH */}
           <TouchableOpacity
             style={styles.ledgerCard}
-            onPress={() => onNavigate('M3S15')}
+            onPress={() => onNavigate?.('M3S15')}
             activeOpacity={0.7}
           >
             <View style={styles.cardTopRow}>
@@ -234,7 +234,7 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
           {/* Card 3: ALLOCATION_ONLINE */}
           <TouchableOpacity
             style={styles.ledgerCard}
-            onPress={() => onNavigate('M3S15')}
+            onPress={() => onNavigate?.('M3S15')}
             activeOpacity={0.7}
           >
             <View style={styles.cardTopRow}>
@@ -255,7 +255,7 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
           {/* Card 4: RESERVATION_HOLD */}
           <TouchableOpacity
             style={styles.ledgerCard}
-            onPress={() => onNavigate('M3S15')}
+            onPress={() => onNavigate?.('M3S15')}
             activeOpacity={0.7}
           >
             <View style={styles.cardTopRow}>
@@ -282,16 +282,16 @@ export const M3S06_StockLedger: React.FC<M3S06Props> = ({ onNavigate, onBack, on
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A', // status bar blends with header
+    backgroundColor: adminColors.brand, // status bar blends with header
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   warehousePillRow: {
     paddingTop: 10,
@@ -300,9 +300,9 @@ const styles = StyleSheet.create({
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: adminColors.brandDeep,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.65)',
+    borderColor: adminColors.onBrand,
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -310,10 +310,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehousePillText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
   tabCardsRow: {
     flexDirection: 'row',
@@ -324,27 +322,25 @@ const styles = StyleSheet.create({
   },
   tabCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
   },
   activeTabCard: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   tabCardText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3B4856',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   activeTabCardText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   content: {
@@ -353,12 +349,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   ledgerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     padding: 16,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -372,46 +368,32 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   receiptTypeText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   receiptQuantityText: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   dispatchTypeText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#DC2626',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
   dispatchQuantityText: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#DC2626',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.danger.text,
   },
   allocationTypeText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   neutralQuantityText: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   productTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
   },
   metaRow: {
@@ -421,20 +403,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metaLabelText: {
-    fontSize: 11.5,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   metaValueText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.ink,
   },
   timeText: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   loadMoreRow: {
     alignItems: 'center',
@@ -443,9 +421,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   loadMoreText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
 });

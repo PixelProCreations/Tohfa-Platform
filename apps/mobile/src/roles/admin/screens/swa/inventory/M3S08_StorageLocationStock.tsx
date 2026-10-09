@@ -7,6 +7,8 @@ interface M3S08Props {
   onNavigate: (screen: string) => void;
   onBack: () => void;
   onTabChange?: ((tab: any) => void) | undefined;
+  /** Name for the header pill; from the caller's WarehouseScope (the header no longer defaults to one). */
+  warehouseName?: string | undefined;
 }
 
 function LockSmallIcon() {
@@ -48,7 +50,7 @@ function InfoCircleIcon() {
   );
 }
 
-export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, onBack, onTabChange }) => {
+export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, onBack, onTabChange, warehouseName }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -56,6 +58,7 @@ export const M3S08_StorageLocationStock: React.FC<M3S08Props> = ({ onNavigate, o
           title="Storage Locations"
           onBack={onBack}
           showWarehouse={true}
+          warehouseName={warehouseName}
         />
 
         <ScrollView

@@ -1,3 +1,4 @@
+// Design id: M3S12
 import React from 'react';
 import {
   View,
@@ -7,20 +8,19 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWAHeader } from '../components/SWAHeader';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S12Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-}
+export interface VarianceReviewScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function DownArrowGreyIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke="#7A726C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 4v16M5 13l7 7 7-7" stroke={adminColors.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -30,12 +30,12 @@ function WarningTriangleIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke="#D97706"
+        stroke={adminColors.warning.text}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M12 9v4M12 17h.01" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 9v4M12 17h.01" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -43,8 +43,8 @@ function WarningTriangleIcon() {
 function InfoCircleBlueIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#1C5B96" strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#1C5B96" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="1.8" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -52,16 +52,16 @@ function InfoCircleBlueIcon() {
 function ListEditLinesIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 6h12M3 12h12M3 18h8M17 14l4 4M21 14l-4 4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 6h12M3 12h12M3 18h8M17 14l4 4M21 14l-4 4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export const M3S12_VarianceReview: React.FC<M3S12Props> = ({ onNavigate, onBack }) => {
+export function VarianceReviewScreen({ scope, can, onNavigate, onBack }: VarianceReviewScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader colors={['#F0562A', '#F0562A']}
+        <SWAHeader
           title="Variance Review"
           onBack={onBack}
         />
@@ -137,7 +137,7 @@ export const M3S12_VarianceReview: React.FC<M3S12Props> = ({ onNavigate, onBack 
           <TouchableOpacity
             style={styles.continueBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M3S13')}
+            onPress={() => onNavigate?.('M3S13')}
           >
             <ListEditLinesIcon />
             <Text style={styles.continueBtnText}>Continue to Adjustment Request</Text>
@@ -146,16 +146,16 @@ export const M3S12_VarianceReview: React.FC<M3S12Props> = ({ onNavigate, onBack 
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
@@ -163,10 +163,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   productCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 14,
   },
@@ -178,39 +178,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
-    fontWeight: '500',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   colValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   flowCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 22,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 14,
   },
   flowNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   flowLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginTop: 2,
   },
@@ -218,24 +210,20 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   flowVarianceNumber: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#E24B4A',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.danger.text,
   },
   flowVarianceLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#E24B4A',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.danger.text,
     letterSpacing: 0.5,
     marginTop: 2,
   },
   varianceWarningBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -243,18 +231,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   varianceWarningText: {
+    ...adminType.rowTitle,
     flex: 1,
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#9A3412',
-    fontFamily: 'Poppins',
+    color: adminColors.brandDeep,
     lineHeight: 18,
   },
   blueNoticeBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: adminColors.info.bg,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -262,37 +248,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   blueNoticeText: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1E40AF',
-    fontFamily: 'Poppins',
+    color: adminColors.info.text,
     lineHeight: 18,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   continueBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...adminShadow.sm,
   },
   continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

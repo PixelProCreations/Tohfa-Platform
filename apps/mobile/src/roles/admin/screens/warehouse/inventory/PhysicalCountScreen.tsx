@@ -1,3 +1,4 @@
+// Design id: M3S11
 import React, { useState } from 'react';
 import {
   View,
@@ -10,13 +11,12 @@ import {
   Platform,
   SafeAreaView,
 } from 'react-native';
+import { adminColors, adminShadow, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { SWAHeader } from '../components/SWAHeader';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S11Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-}
+export interface PhysicalCountScreenProps extends InventoryScreenBaseProps {}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -25,12 +25,12 @@ function WarningTriangleIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke="#D97706"
+        stroke={adminColors.warning.text}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M12 9v4M12 17h.01" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 9v4M12 17h.01" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -38,7 +38,7 @@ function WarningTriangleIcon() {
 function ArrowRightIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 12h14M12 5l7 7-7 7" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 12h14M12 5l7 7-7 7" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -46,8 +46,8 @@ function ArrowRightIcon() {
 function CheckedSquareIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect width="24" height="24" rx="6" fill="#1E8E5A" />
-      <Path d="M7 12.5l3.5 3.5 6.5-7" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect width="24" height="24" rx="6" fill={adminColors.success.text} />
+      <Path d="M7 12.5l3.5 3.5 6.5-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -55,12 +55,12 @@ function CheckedSquareIcon() {
 function UncheckedSquareIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="1" width="22" height="22" rx="5" stroke="#CBD5E1" strokeWidth="1.8" fill="#FFFFFF" />
+      <Rect x="1" y="1" width="22" height="22" rx="5" stroke={adminColors.placeholder} strokeWidth="1.8" fill={adminColors.card} />
     </Svg>
   );
 }
 
-export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }) => {
+export function PhysicalCountScreen({ scope, can, onNavigate, onBack }: PhysicalCountScreenProps) {
   const [physicalCount, setPhysicalCount] = useState('95.000');
   const [checklist, setChecklist] = useState<Record<number, boolean>>({
     0: true,
@@ -84,10 +84,9 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader
-          colors={['#F0562A', '#F0562A']}
           title="Physical Count"
           onBack={onBack}
         />
@@ -134,7 +133,7 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
               onChangeText={setPhysicalCount}
               keyboardType="decimal-pad"
               placeholder="0.000"
-              placeholderTextColor="#9A928C"
+              placeholderTextColor={adminColors.muted}
             />
             <Text style={styles.unitText}>KG</Text>
           </View>
@@ -178,7 +177,7 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
           <TouchableOpacity
             style={styles.continueBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate('M3S12')}
+            onPress={() => onNavigate?.('M3S12')}
           >
             <ArrowRightIcon />
             <Text style={styles.continueBtnText}>Continue to Variance Review</Text>
@@ -187,16 +186,16 @@ export const M3S11_PhysicalCount: React.FC<M3S11Props> = ({ onNavigate, onBack }
       </View>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A', // status bar blends with header
+    backgroundColor: adminColors.brand, // status bar blends with header
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
@@ -204,10 +203,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   productCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 14,
   },
@@ -219,55 +218,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    fontSize: 11,
-    color: '#7A726C',
-    fontFamily: 'Poppins',
-    fontWeight: '500',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   colValue: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   sectionHeader: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 8,
     marginTop: 6,
   },
   systemQuantityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
   },
   systemQuantityNumber: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   systemQuantitySub: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     letterSpacing: 0.6,
     marginTop: 4,
   },
   inputBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     height: 52,
     flexDirection: 'row',
     alignItems: 'center',
@@ -276,24 +265,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   textInput: {
+    ...adminType.title,
     flex: 1,
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   unitText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   varianceWarningBox: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.border,
     padding: 13,
     flexDirection: 'row',
     alignItems: 'center',
@@ -301,18 +286,16 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   varianceWarningText: {
+    ...adminType.rowTitle,
     flex: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#9A3412',
-    fontFamily: 'Poppins',
+    color: adminColors.brandDeep,
     lineHeight: 17,
   },
   checklistCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     overflow: 'hidden',
     marginBottom: 16,
   },
@@ -325,38 +308,30 @@ const styles = StyleSheet.create({
   },
   itemBorderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F4F1EA',
+    borderBottomColor: adminColors.canvas,
   },
   checklistText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
   },
   continueBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#F0562A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...adminShadow.sm,
   },
   continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '700',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

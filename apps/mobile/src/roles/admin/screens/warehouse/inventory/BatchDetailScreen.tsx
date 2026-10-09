@@ -1,15 +1,14 @@
+// Design id: M3S05
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
+import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { SWAHeader } from '../components';
+import { SWAHeader } from '../../swa/components';
 
-interface M3S05Props {
-  onNavigate: (screen: string) => void;
-  onBack: () => void;
-  onTabChange?: ((tab: any) => void) | undefined;
-}
+export interface BatchDetailScreenProps extends InventoryScreenBaseProps {}
 
-function LedgerIcon({ color = '#8B4513' }: { color?: string }) {
+function LedgerIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -24,7 +23,7 @@ function LedgerIcon({ color = '#8B4513' }: { color?: string }) {
   );
 }
 
-function VerifyIcon({ color = '#8B4513' }: { color?: string }) {
+function VerifyIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
@@ -34,14 +33,13 @@ function VerifyIcon({ color = '#8B4513' }: { color?: string }) {
   );
 }
 
-export const M3S05_BatchDetail: React.FC<M3S05Props> = ({ onNavigate, onBack }) => {
+export function BatchDetailScreen({ scope, can, onNavigate, onBack }: BatchDetailScreenProps) {
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Fixed Header */}
       <SWAHeader
-        colors={['#F0562A', '#F0562A']}
         title="BAT-2026-00124"
         subtitle="Tomato · Grade 1"
         onBack={onBack}
@@ -146,7 +144,7 @@ export const M3S05_BatchDetail: React.FC<M3S05Props> = ({ onNavigate, onBack }) 
           <Text style={styles.sectionTitle}>Actions</Text>
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate('M3S06'))}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S06'))}
             activeOpacity={0.7}
           >
             <LedgerIcon />
@@ -154,7 +152,7 @@ export const M3S05_BatchDetail: React.FC<M3S05Props> = ({ onNavigate, onBack }) 
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate('M3S10'))}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S10'))}
             activeOpacity={0.7}
           >
             <VerifyIcon />
@@ -165,18 +163,18 @@ export const M3S05_BatchDetail: React.FC<M3S05Props> = ({ onNavigate, onBack }) 
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F0562A', // status bar area blends with header
+    backgroundColor: adminColors.brand, // status bar area blends with header
   },
   // ── Header uses its own paddingTop:44 ──
   // ── Body fills the rest ──
   body: {
     flex: 1,
-    backgroundColor: '#F4F1EA',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 20,
@@ -192,25 +190,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 6,
   },
   sectionMuted: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#7A726C',
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
 
   // Card
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     padding: 12,
   },
   gridRow: {
@@ -221,18 +215,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.3,
     marginBottom: 2,
   },
   fieldValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
 
   // Movement cards
@@ -242,26 +232,22 @@ const styles = StyleSheet.create({
   },
   movementCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
   },
   movementValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   movementLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#7C6E65',
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
 
@@ -270,34 +256,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     height: 46,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     gap: 8,
   },
   actionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8B4513',
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
 
   // Active badge — white pill with border matching reference
   activeBadge: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.6)',
+    borderColor: adminColors.onBrand,
   },
   activeBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E8E5A',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
 });
