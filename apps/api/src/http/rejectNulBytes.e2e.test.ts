@@ -8,7 +8,7 @@
  * throwaway / CI database.
  */
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../app.js';
 import { signAccessToken } from '../auth/jwt.js';
