@@ -272,12 +272,6 @@ const GRANT_CASES: readonly GrantCase[] = [
   },
   {
     permission: 'warehouse.staff.list_view',
-    role: RoleCode.MAIN_WH_ADMIN,
-    expected: ScopeLevel.OWN,
-    because: 'Main Warehouse Admin views the driver/warehouse-staff roster of the warehouses it oversees.',
-  },
-  {
-    permission: 'warehouse.staff.list_view',
     role: RoleCode.SUB_WH_ADMIN,
     expected: ScopeLevel.OWN,
     because: 'Owner decision: Sub Warehouse Admin views the roster of its own warehouse only.',
@@ -293,6 +287,64 @@ const GRANT_CASES: readonly GrantCase[] = [
     role: RoleCode.SUB_WH_ADMIN,
     expected: ScopeLevel.NONE,
     because: 'The admin staff list is not widened; the warehouse roster has its own code.',
+  },
+
+  // --- Owner decision 2026-10-09: Main Warehouse Admin `own` meant all four warehouses. ---
+  // MAIN_WH_ADMIN has no scope dimension (it oversees every warehouse), so these
+  // grants are `all`; SUB_WH_ADMIN keeps `own` (its assigned warehouse only).
+  {
+    permission: 'customer.list.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Owner decision: Main Warehouse Admin sees customers across all four warehouses.',
+  },
+  {
+    permission: 'customer.list.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Sub Warehouse Admin sees customers of its own warehouse only.',
+  },
+  {
+    permission: 'finance.sales_income.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Owner decision: Main Warehouse Admin sees sales income across all four warehouses.',
+  },
+  {
+    permission: 'finance.sales_income.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Sub Warehouse Admin sees sales income of its own warehouse only.',
+  },
+  {
+    permission: 'sales.channel.manage',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Owner decision: Main Warehouse Admin manages sales channels across all four warehouses.',
+  },
+  {
+    permission: 'sales.channel.manage',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Sub Warehouse Admin manages sales channels of its own warehouse only.',
+  },
+  {
+    permission: 'admin.staff.list_view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Owner decision: Main Warehouse Admin views the admin staff list across all four warehouses.',
+  },
+  {
+    permission: 'warehouse.staff.list_view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'Owner decision: Main Warehouse Admin views the roster of all four warehouses.',
+  },
+  {
+    permission: 'auditlog.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'Unchanged by the 2026-10-09 decision: audit-log scope is its own open Ch.6-vs-matrix conflict.',
   },
 ];
 

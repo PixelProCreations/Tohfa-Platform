@@ -1,6 +1,6 @@
 {
   "$schema": "./rbac.schema.json",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "note": "Ground truth for all authorization. Source: Requirements v1.0 Ch.6 + Role & Feature Matrix v1.0. Where the two disagree, PRECEDENCE is stated in `conflicts` below.",
   "scopeLevels": {
     "all": "Unrestricted across the whole system",
@@ -1272,12 +1272,12 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3"
+      "source": "reqs 6.3; MAIN_WH_ADMIN all = owner decision 2026-10-09 (see conflicts)"
     },
     {
       "code": "customer.profile.edit",
@@ -1437,12 +1437,12 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 (matrix §6 is stricter — see conflicts)"
+      "source": "reqs 6.3 (matrix §6 is stricter — see conflicts); MAIN_WH_ADMIN all = owner decision 2026-10-09"
     },
     {
       "code": "order.warehouse.assign",
@@ -1872,12 +1872,12 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3"
+      "source": "reqs 6.3; MAIN_WH_ADMIN all = owner decision 2026-10-09 (see conflicts)"
     },
     {
       "code": "audit.schedule",
@@ -1978,12 +1978,12 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
         "SUB_WH_ADMIN": "none",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §10"
+      "source": "matrix §10; MAIN_WH_ADMIN all = owner decision 2026-10-09 (see conflicts)"
     },
     {
       "code": "warehouse.staff.list_view",
@@ -1993,7 +1993,7 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
@@ -2529,7 +2529,7 @@
       "reqsCh6": "MAIN_WH_ADMIN = own, SUB_WH_ADMIN = own",
       "roleMatrix": "Horeca MW=view/SW=none; B2B MW=view/SW=none; Online MW=own/SW=own; Live market MW=full/SW=own",
       "precedence": "Role Matrix (adds detail Ch.6 omits)",
-      "decision": "Generic `sales.channel.manage` keeps own/own per Ch.6; per-channel permissions carry the matrix values. MW/SW have no Horeca or B2B write path."
+      "decision": "Generic `sales.channel.manage` is MW all / SW own (Ch.6 stated own/own; MAIN widened to all by the owner decision 2026-10-09 on Main Warehouse Admin `own` grants, see below); per-channel permissions carry the matrix values. MW/SW have no Horeca or B2B write path."
     },
     {
       "topic": "Manage integration keys",
@@ -2585,7 +2585,14 @@
       "reqsCh6": "not stated",
       "roleMatrix": "§10 defines only `admin.staff.list_view` (the admin-account list); no warehouse driver/staff roster permission exists in either document",
       "precedence": "owner decision 2026-10-09 (spec gap filled)",
-      "decision": "New code `warehouse.staff.list_view`: SA/TA all, MAIN_WH_ADMIN own (all four warehouses it oversees, mirroring its admin.staff.list_view grant), SUB_WH_ADMIN own (its assigned warehouse), others none. `admin.staff.list_view` is NOT repurposed and SUB_WH_ADMIN stays none on it. Editing roster members, assigning deliveries and attendance remain ungated spec gaps with no code. Note the related driver-feature scope conflict above (Principle 9 vs Ch.2.3)."
+      "decision": "New code `warehouse.staff.list_view`: SA/TA all, MAIN_WH_ADMIN all (all four warehouses it oversees, mirroring its admin.staff.list_view grant; owner decision 2026-10-09 on Main Warehouse Admin `own` grants, see below), SUB_WH_ADMIN own (its assigned warehouse), others none. `admin.staff.list_view` is NOT repurposed and SUB_WH_ADMIN stays none on it. Editing roster members, assigning deliveries and attendance remain ungated spec gaps with no code. Note the related driver-feature scope conflict above (Principle 9 vs Ch.2.3)."
+    },
+    {
+      "topic": "Main Warehouse Admin `own` grants (no scope dimension)",
+      "reqsCh6": "MAIN_WH_ADMIN = own on customer list, sales income reports, manage sales channels",
+      "roleMatrix": "MAIN_WH_ADMIN = own on admin staff list (§10); warehouse roster is an owner-decision code",
+      "precedence": "owner decision 2026-10-09 (interprets a Ch.6 value; does not contradict it)",
+      "decision": "MAIN_WH_ADMIN has `scopeDimension: null` and oversees all four warehouses, so `own` for it meant all four warehouses. Set to `all` on exactly: customer.list.view, finance.sales_income.view, sales.channel.manage, admin.staff.list_view, warehouse.staff.list_view. SUB_WH_ADMIN grants are unchanged (`own` = its assigned warehouse; `none` on admin.staff.list_view). NOT changed: `auditlog.view` MAIN `own` (the separate, still-open audit-log conflict above, Ch.6 own vs matrix view (all), awaiting client confirmation; an audit-log row is scoped by actor, not by warehouse, so this decision does not reach it) and `report.export.file` MAIN `view`."
     }
   ],
   "conflictPrecedence": "Requirements Document Ch.6 is authoritative. The Role & Feature Matrix supplies additional features Ch.6 omits, but never overrides a value Ch.6 states."
