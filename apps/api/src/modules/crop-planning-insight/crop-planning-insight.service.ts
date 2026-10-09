@@ -1,6 +1,7 @@
 import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { getTodayKolkata } from '../certifications/certifications.service.js';
 import {
   cropPlanningInsightRepo,
   type CropPlanningInsightRepo,
@@ -10,12 +11,6 @@ import {
   type CropPlanningInsightItem,
   type CropPlanningInsightResponse,
 } from './crop-planning-insight.schema.js';
-
-export const DEFAULT_SPEC_GAPS: string[] = [
-  'Market supply vs customer demand indicator is deferred (owner decision required).',
-  'Automated crop-switching recommendations are deferred per BR-38.',
-  'Dynamic fair price forecast models are not in scope.',
-];
 
 export interface CropPlanningInsightServiceDeps {
   repo?: CropPlanningInsightRepo;
@@ -35,11 +30,8 @@ function ownFarmerId(scope: ResolvedScope): string {
 }
 
 function getCurrentMonthKolkata(): number {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kolkata',
-    month: 'numeric',
-  });
-  return Number(formatter.format(new Date()));
+  // 'YYYY-MM-DD' in Asia/Kolkata; the month is characters 5-6.
+  return Number(getTodayKolkata().slice(5, 7));
 }
 
 export function createCropPlanningInsightService(
@@ -126,7 +118,6 @@ export function createCropPlanningInsightService(
       const response: CropPlanningInsightResponse = {
         generatedAt: new Date().toISOString(),
         crops,
-        specGaps: DEFAULT_SPEC_GAPS,
       };
 
       return cropPlanningInsightResponse.parse(response);

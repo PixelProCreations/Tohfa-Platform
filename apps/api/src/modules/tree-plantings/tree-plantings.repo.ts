@@ -34,6 +34,11 @@ export interface UpdateTreePlantingPatch {
   notes?: string | null | undefined;
 }
 
+interface TreePlantingListRow extends TreePlantingRow {
+  /** created_at to the microsecond: a millisecond-precision cursor would skip or repeat rows. */
+  created_at_cursor: string;
+}
+
 interface TreePlantingRow {
   id: string;
   farmer_id: string;
@@ -83,7 +88,16 @@ export interface TreePlantingsRepo {
   ): Promise<TreePlantingRecord | null>;
   softDeleteTreePlanting(db: Executor, farmerId: string, id: string): Promise<boolean>;
   checkFarmBelongsToFarmer(db: Executor, farmerId: string, farmId: string): Promise<boolean>;
-  checkPlotBelongsToFarmer(db: Executor, farmerId: string, plotId: string): Promise<boolean>;
+  /**
+   * True when the plot sits on one of the farmer's farms and, when `farmId` is
+   * given, on that farm specifically.
+   */
+  checkPlotBelongsToFarmer(
+    db: Executor,
+    farmerId: string,
+    plotId: string,
+    farmId: string | null,
+  ): Promise<boolean>;
   lockFarmer(db: Executor, farmerId: string): Promise<void>;
 }
 
@@ -113,9 +127,10 @@ export const treePlantingsRepo: TreePlantingsRepo = {
       cursorClause = 'AND (created_at, id) < ($3::timestamptz, $4::uuid)';
     }
 
-    const result = await db.query<TreePlantingRow>(
+    const result = await db.query<TreePlantingListRow>(
       `SELECT id, farmer_id, farm_id, plot_id, species_name, tree_count,
-              planted_on::text, zone_name, purpose, notes, created_at, updated_at
+              planted_on::text, zone_name, purpose, notes, created_at, updated_at,
+              to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor
          FROM tree_plantings
         WHERE farmer_id = $1 AND deleted_at IS NULL
               ${cursorClause}
@@ -126,17 +141,11 @@ export const treePlantingsRepo: TreePlantingsRepo = {
 
     const hasMore = result.rows.length > limit;
     const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
-    const items = rows.map(mapRow);
+    const last = rows[rows.length - 1];
+    const next: TreePlantingCursor | null =
+      hasMore && last !== undefined ? { createdAt: last.created_at_cursor, id: last.id } : null;
 
-    let next: TreePlantingCursor | null = null;
-    if (hasMore && items.length > 0) {
-      const last = items[items.length - 1];
-      if (last) {
-        next = { createdAt: last.createdAt, id: last.id };
-      }
-    }
-
-    return { items, next };
+    return { items: rows.map(mapRow), next };
   },
 
   async createTreePlanting(db, farmerId, data) {
@@ -213,14 +222,15 @@ export const treePlantingsRepo: TreePlantingsRepo = {
     return result.rows[0]?.exists ?? false;
   },
 
-  async checkPlotBelongsToFarmer(db, farmerId, plotId) {
+  async checkPlotBelongsToFarmer(db, farmerId, plotId, farmId) {
     const result = await db.query<{ exists: boolean }>(
       `SELECT EXISTS(
          SELECT 1 FROM plots p
            JOIN farms f ON p.farm_id = f.id
-          WHERE p.id = $1 AND f.farmer_id = $2 AND p.deleted_at IS NULL AND f.deleted_at IS NULL
+          WHERE p.id = $1 AND f.farmer_id = $2 AND ($3::uuid IS NULL OR f.id = $3::uuid)
+            AND p.deleted_at IS NULL AND f.deleted_at IS NULL
         ) AS exists`,
-      [plotId, farmerId],
+      [plotId, farmerId, farmId],
     );
     return result.rows[0]?.exists ?? false;
   },

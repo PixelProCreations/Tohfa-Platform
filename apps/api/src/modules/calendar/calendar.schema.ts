@@ -1,6 +1,17 @@
 import { z } from 'zod';
+import { isCalendarDate } from '../certifications/certifications.schema.js';
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date in YYYY-MM-DD format');
+// BR-58: `2026-02-30` matched the old YYYY-MM-DD regex and reached Postgres as a 500.
+const isoDate = z
+  .string()
+  .refine(isCalendarDate, { message: 'Must be a real calendar date in YYYY-MM-DD format' });
+
+// 24-hour HH:MM, zero-padded, so a plain string comparison orders times correctly.
+const clockTime = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be a 24-hour time in HH:MM format');
+
+const endAfterStartMessage = 'endTime must be later than startTime';
 
 export const eventTypeEnum = z.enum(['WORKSHOP', 'TRAINING', 'COMMUNITY_MEET', 'MARKET_DAY', 'OTHER']);
 export type EventType = z.infer<typeof eventTypeEnum>;
@@ -17,17 +28,10 @@ export const calendarQuery = z
     to: isoDate,
   })
   .strict()
+  // The span cap is system_config.calendar_max_range_days, enforced by the service.
   .refine(
     (q) => q.from <= q.to,
     { message: '"from" date must be earlier than or equal to "to" date' },
-  )
-  .refine(
-    (q) => {
-      const diffMs = new Date(`${q.to}T00:00:00Z`).getTime() - new Date(`${q.from}T00:00:00Z`).getTime();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-      return diffDays <= 366;
-    },
-    { message: 'Date range cannot exceed 366 days (1 year)' },
   );
 export type CalendarQuery = z.infer<typeof calendarQuery>;
 
@@ -61,13 +65,17 @@ export const createPlatformEventBody = z
     description: z.string().trim().max(2000).optional(),
     eventType: eventTypeEnum,
     eventDate: isoDate,
-    startTime: z.string().trim().max(20).optional(),
-    endTime: z.string().trim().max(20).optional(),
+    startTime: clockTime.optional(),
+    endTime: clockTime.optional(),
     locationName: z.string().trim().max(200).optional(),
     targetAudience: targetAudienceEnum.default('ALL'),
     isPublished: z.boolean().default(true),
   })
-  .strict();
+  .strict()
+  .refine((b) => b.startTime === undefined || b.endTime === undefined || b.endTime > b.startTime, {
+    message: endAfterStartMessage,
+    path: ['endTime'],
+  });
 export type CreatePlatformEventBody = z.infer<typeof createPlatformEventBody>;
 
 export const updatePlatformEventBody = z
@@ -76,14 +84,25 @@ export const updatePlatformEventBody = z
     description: z.string().trim().max(2000).nullable().optional(),
     eventType: eventTypeEnum.optional(),
     eventDate: isoDate.optional(),
-    startTime: z.string().trim().max(20).nullable().optional(),
-    endTime: z.string().trim().max(20).nullable().optional(),
+    startTime: clockTime.nullable().optional(),
+    endTime: clockTime.nullable().optional(),
     locationName: z.string().trim().max(200).nullable().optional(),
     targetAudience: targetAudienceEnum.optional(),
     isPublished: z.boolean().optional(),
   })
   .strict()
-  .refine((b) => Object.keys(b).length > 0, { message: 'At least one field must be supplied' });
+  .refine((b) => Object.keys(b).length > 0, { message: 'At least one field must be supplied' })
+  // Both times in one patch can be checked here; a patch that moves only one is
+  // checked against the stored row by the service.
+  .refine(
+    (b) =>
+      b.startTime === undefined ||
+      b.startTime === null ||
+      b.endTime === undefined ||
+      b.endTime === null ||
+      b.endTime > b.startTime,
+    { message: endAfterStartMessage, path: ['endTime'] },
+  );
 export type UpdatePlatformEventBody = z.infer<typeof updatePlatformEventBody>;
 
 export const platformEventResponse = z.object({
@@ -102,7 +121,18 @@ export const platformEventResponse = z.object({
 });
 export type PlatformEventResponse = z.infer<typeof platformEventResponse>;
 
+export const listPlatformEventsQuery = z
+  .object({
+    page: z.coerce.number().int().min(1).max(10000).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type ListPlatformEventsQuery = z.infer<typeof listPlatformEventsQuery>;
+
 export const listPlatformEventsResponse = z.object({
   items: z.array(platformEventResponse),
+  total: z.number().int(),
+  page: z.number().int(),
+  limit: z.number().int(),
 });
 export type ListPlatformEventsResponse = z.infer<typeof listPlatformEventsResponse>;

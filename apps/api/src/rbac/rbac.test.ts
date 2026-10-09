@@ -231,10 +231,46 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not hold farmer bank accounts.',
   },
   {
+    permission: 'farmer.bank_account.manage_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Payout destinations are own-data (BR-53); admins read them through farmer.bank_account.view, not manage_own.',
+  },
+  {
+    permission: 'farmer.bank_account.manage_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Payout destinations are own-data (BR-53); admins read them through farmer.bank_account.view, not manage_own.',
+  },
+  {
     permission: 'farmer.bank_account.view',
     role: RoleCode.SUPER_ADMIN,
     expected: ScopeLevel.ALL,
     because: 'Super Admin can view farmer bank accounts for verification and payout review.',
+  },
+  {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'TOHFA Admin can view farmer bank accounts for verification and payout review.',
+  },
+  {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Farmer Admin has no access to payout bank details.',
+  },
+  {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no access to farmer payout bank details.',
+  },
+  {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no access to farmer payout bank details.',
   },
   {
     permission: 'farmer.bank_account.view',
@@ -243,10 +279,28 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Farmers access bank accounts through farmer.bank_account.manage_own, not admin-wide view.',
   },
   {
+    permission: 'farmer.bank_account.view',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers never see farmer bank details (BR-16).',
+  },
+  {
     permission: 'farmer.documents.view_own',
     role: RoleCode.FARMER,
     expected: ScopeLevel.OWN,
     because: 'Farmers view their own profile documents (BR-54).',
+  },
+  {
+    permission: 'farmer.documents.view_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'GET /farmers/me/documents is own-data (BR-54); admins have no grant on it.',
+  },
+  {
+    permission: 'farmer.documents.view_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'GET /farmers/me/documents is own-data (BR-54); admins have no grant on it.',
   },
   {
     permission: 'farmer.documents.view_own',
@@ -267,6 +321,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not plant trees (BR-16).',
   },
   {
+    permission: 'farmer.tree_planting.manage_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Tree plantings are own-data (BR-55); admins have no grant on the farmer routes.',
+  },
+  {
+    permission: 'farmer.tree_planting.manage_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Tree plantings are own-data (BR-55); admins have no grant on the farmer routes.',
+  },
+  {
     permission: 'farmer.crop_input.manage_own',
     role: RoleCode.FARMER,
     expected: ScopeLevel.OWN,
@@ -277,6 +343,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     role: RoleCode.CUSTOMER,
     expected: ScopeLevel.NONE,
     because: 'Customers do not log crop inputs (BR-16).',
+  },
+  {
+    permission: 'farmer.crop_input.manage_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Crop inputs are own-data (BR-56); admins have no grant on the farmer routes.',
+  },
+  {
+    permission: 'farmer.crop_input.manage_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Crop inputs are own-data (BR-56); admins have no grant on the farmer routes.',
   },
   {
     permission: 'farmer.crop_milestone.manage_own',
@@ -291,6 +369,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not track crop milestones (BR-16).',
   },
   {
+    permission: 'farmer.crop_milestone.manage_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Crop milestones are own-data (BR-57); admins have no grant on the farmer routes.',
+  },
+  {
+    permission: 'farmer.crop_milestone.manage_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Crop milestones are own-data (BR-57); admins have no grant on the farmer routes.',
+  },
+  {
     permission: 'farmer.calendar.view_own',
     role: RoleCode.FARMER,
     expected: ScopeLevel.OWN,
@@ -303,6 +393,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'Customers do not view farmer operational calendars (BR-16).',
   },
   {
+    permission: 'farmer.calendar.view_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'The farmer calendar is own-data (BR-58); admins manage platform events through platform.event.manage.',
+  },
+  {
+    permission: 'farmer.calendar.view_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'The farmer calendar is own-data (BR-58); admins manage platform events through platform.event.manage.',
+  },
+  {
     permission: 'platform.event.manage',
     role: RoleCode.SUPER_ADMIN,
     expected: ScopeLevel.ALL,
@@ -310,9 +412,39 @@ const GRANT_CASES: readonly GrantCase[] = [
   },
   {
     permission: 'platform.event.manage',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'TOHFA Admin manages platform calendar events and announcements (BR-58).',
+  },
+  {
+    permission: 'platform.event.manage',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Farmer Admin cannot create platform-wide calendar events (BR-58).',
+  },
+  {
+    permission: 'platform.event.manage',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins cannot create platform-wide calendar events (BR-58).',
+  },
+  {
+    permission: 'platform.event.manage',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins cannot create platform-wide calendar events (BR-58).',
+  },
+  {
+    permission: 'platform.event.manage',
     role: RoleCode.FARMER,
     expected: ScopeLevel.NONE,
     because: 'Farmers cannot create platform-wide calendar events (BR-58).',
+  },
+  {
+    permission: 'platform.event.manage',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers cannot create platform-wide calendar events (BR-58).',
   },
   {
     permission: 'notification.own.view',
@@ -486,10 +618,58 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'BR-59: Customers do not access the farmer learning hub.',
   },
   {
+    permission: 'farmer.learning.view',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-59: Super Admin may read the published learning content (shared read of published content, not own-data).',
+  },
+  {
+    permission: 'farmer.learning.view',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-59: TOHFA Admin may read the published learning content (shared read of published content, not own-data).',
+  },
+  {
+    permission: 'farmer.learning.view',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-59: Farmer Admin, an elected farmer, reads the same published learning content as farmers.',
+  },
+  {
+    permission: 'farmer.learning.view',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Warehouse admins do not use the farmer learning hub.',
+  },
+  {
+    permission: 'farmer.learning.view',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Warehouse admins do not use the farmer learning hub.',
+  },
+  {
     permission: 'farmer.learning.participate_own',
     role: RoleCode.FARMER,
     expected: ScopeLevel.OWN,
     because: 'BR-59: Farmers manage own enrollments and group memberships.',
+  },
+  {
+    permission: 'farmer.learning.participate_own',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Enrolment and membership are own-data; admins manage content through learning.admin.manage.',
+  },
+  {
+    permission: 'farmer.learning.participate_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Enrolment and membership are own-data; admins manage content through learning.admin.manage.',
+  },
+  {
+    permission: 'farmer.learning.participate_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Customers cannot enrol in farmer trainings or join farmer groups.',
   },
   {
     permission: 'learning.admin.manage',
@@ -499,9 +679,39 @@ const GRANT_CASES: readonly GrantCase[] = [
   },
   {
     permission: 'learning.admin.manage',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-59: TOHFA Admin manages learning hub content.',
+  },
+  {
+    permission: 'learning.admin.manage',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Farmer Admin cannot manage learning hub content.',
+  },
+  {
+    permission: 'learning.admin.manage',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Warehouse admins cannot manage learning hub content.',
+  },
+  {
+    permission: 'learning.admin.manage',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Warehouse admins cannot manage learning hub content.',
+  },
+  {
+    permission: 'learning.admin.manage',
     role: RoleCode.FARMER,
     expected: ScopeLevel.NONE,
     because: 'BR-59: Farmers cannot manage learning hub content.',
+  },
+  {
+    permission: 'learning.admin.manage',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-59: Customers cannot manage learning hub content.',
   },
   {
     permission: 'farmer.support_ticket.manage_own',
@@ -516,6 +726,18 @@ const GRANT_CASES: readonly GrantCase[] = [
     because: 'BR-60: Super Admin manages support tickets via support.ticket.manage_any, not own-scoped.',
   },
   {
+    permission: 'farmer.support_ticket.manage_own',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: TOHFA Admin manages support tickets via support.ticket.manage_any, not own-scoped.',
+  },
+  {
+    permission: 'farmer.support_ticket.manage_own',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Customers do not raise farmer help-desk tickets.',
+  },
+  {
     permission: 'support.ticket.manage_any',
     role: RoleCode.SUPER_ADMIN,
     expected: ScopeLevel.ALL,
@@ -523,9 +745,39 @@ const GRANT_CASES: readonly GrantCase[] = [
   },
   {
     permission: 'support.ticket.manage_any',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'BR-60: TOHFA Admin manages all support tickets.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Farmer Admin cannot triage tickets across the platform.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Warehouse admins cannot triage farmer tickets.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Warehouse admins cannot triage farmer tickets.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
     role: RoleCode.FARMER,
     expected: ScopeLevel.NONE,
     because: 'BR-60: Farmers cannot triage tickets across the platform.',
+  },
+  {
+    permission: 'support.ticket.manage_any',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'BR-60: Customers cannot triage farmer tickets.',
   },
 ];
 

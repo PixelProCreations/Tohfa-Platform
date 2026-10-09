@@ -1,3 +1,4 @@
+import { parseMoney, type Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type {
   CreateCropInputBody,
@@ -19,7 +20,8 @@ export interface CropInputRecord {
   phosphorusPct: number | null;
   potassiumPct: number | null;
   applicationMethod: string | null;
-  costInr: number | null;
+  /** 2dp decimal string from `cost_inr::text`, never a float (CLAUDE.md 2.2). */
+  costInr: Money | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string | null;
@@ -43,7 +45,7 @@ interface CropInputRow {
   phosphorus_pct: string | number | null;
   potassium_pct: string | number | null;
   application_method: string | null;
-  cost_inr: string | number | null;
+  cost_inr: string | null;
   notes: string | null;
   created_at: Date;
   updated_at: Date | null;
@@ -63,11 +65,16 @@ function mapRow(row: CropInputRow): CropInputRecord {
     phosphorusPct: row.phosphorus_pct !== null ? Number(row.phosphorus_pct) : null,
     potassiumPct: row.potassium_pct !== null ? Number(row.potassium_pct) : null,
     applicationMethod: row.application_method,
-    costInr: row.cost_inr !== null ? Number(row.cost_inr) : null,
+    costInr: row.cost_inr !== null ? parseMoney(row.cost_inr) : null,
     notes: row.notes,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at ? row.updated_at.toISOString() : null,
   };
+}
+
+/** Normalises a validated cost string to 2dp Money for the numeric(10,2) parameter; absent or null is SQL NULL. */
+function costParam(cost: string | null | undefined): Money | null {
+  return cost === undefined || cost === null ? null : parseMoney(cost);
 }
 
 export interface CropInputsRepo {
@@ -139,7 +146,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow>(
       `SELECT id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr, notes,
+              potassium_pct, application_method, cost_inr::text, notes,
               created_at, updated_at
          FROM crop_inputs
         WHERE id = $1 AND farmer_id = $2 AND farm_crop_id = $3 AND deleted_at IS NULL`,
@@ -161,7 +168,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow>(
       `SELECT id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr, notes,
+              potassium_pct, application_method, cost_inr::text, notes,
               created_at, updated_at
          FROM crop_inputs
         WHERE farmer_id = $1 AND farm_crop_id = $2 AND deleted_at IS NULL
@@ -195,7 +202,7 @@ export const cropInputsRepo: CropInputsRepo = {
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING id, farmer_id, farm_crop_id, input_type, input_name,
                  applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-                 potassium_pct, application_method, cost_inr, notes,
+                 potassium_pct, application_method, cost_inr::text, notes,
                  created_at, updated_at`,
       [
         farmerId,
@@ -209,7 +216,7 @@ export const cropInputsRepo: CropInputsRepo = {
         data.phosphorusPct ?? null,
         data.potassiumPct ?? null,
         data.applicationMethod ?? null,
-        data.costInr ?? null,
+        costParam(data.costInr),
         data.notes ?? null,
       ],
     );
@@ -236,7 +243,7 @@ export const cropInputsRepo: CropInputsRepo = {
     if ('phosphorusPct' in patch) addSet('phosphorus_pct', patch.phosphorusPct ?? null);
     if ('potassiumPct' in patch) addSet('potassium_pct', patch.potassiumPct ?? null);
     if ('applicationMethod' in patch) addSet('application_method', patch.applicationMethod ?? null);
-    if ('costInr' in patch) addSet('cost_inr', patch.costInr ?? null);
+    if ('costInr' in patch) addSet('cost_inr', costParam(patch.costInr));
     if ('notes' in patch) addSet('notes', patch.notes ?? null);
 
     const result = await db.query<CropInputRow>(
@@ -245,7 +252,7 @@ export const cropInputsRepo: CropInputsRepo = {
         WHERE id = $1 AND farmer_id = $2 AND farm_crop_id = $3 AND deleted_at IS NULL
     RETURNING id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr, notes,
+              potassium_pct, application_method, cost_inr::text, notes,
               created_at, updated_at`,
       params,
     );
@@ -267,7 +274,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow>(
       `SELECT id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr, notes,
+              potassium_pct, application_method, cost_inr::text, notes,
               created_at, updated_at
          FROM crop_inputs
         WHERE farmer_id = $1 AND farm_crop_id = $2 AND deleted_at IS NULL
