@@ -11,31 +11,32 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brand,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  noticeBg:      '#FEF1EC',
-  noticeBorder:  '#FCD9CE',
-  noticeText:    '#7A3E26',
+  noticeBg:      adminColors.brandTint,
+  noticeBorder:  adminColors.border,
+  noticeText:    adminColors.brandDeep,
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -49,7 +50,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2.2" />
@@ -58,7 +59,7 @@ function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: s
   );
 }
 
-function InfoCircleIcon({ size = 16, color = '#8B420F' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -67,7 +68,7 @@ function InfoCircleIcon({ size = 16, color = '#8B420F' }: { size?: number; color
   );
 }
 
-function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -81,7 +82,7 @@ function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color
   );
 }
 
-function UserOutlineIcon({ size = 18, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function UserOutlineIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -96,7 +97,7 @@ function UserOutlineIcon({ size = 18, color = '#8B5E3C' }: { size?: number; colo
   );
 }
 
-function CheckWhiteIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function CheckWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -113,10 +114,10 @@ function CheckWhiteIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color
 function CheckCircleGreenIcon({ size = 22 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#16A34A" strokeWidth="2" fill="#DCFCE7" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2" fill={adminColors.success.bg} />
       <Path
         d="M8 12l2.5 2.5L16 9.5"
-        stroke="#16A34A"
+        stroke={adminColors.success.text}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -264,11 +265,11 @@ export function SelectCustomerScreen({
       {/* ─── Search Bar ─── */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#9E9690" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search name, ID or mobile"
-            placeholderTextColor="#9E9690"
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
@@ -309,7 +310,7 @@ export function SelectCustomerScreen({
         {!isConfirmedSelected && isDetailView && (
           <View style={styles.detailCard}>
             <View style={styles.detailHeaderRow}>
-              <UserOutlineIcon size={18} color="#8B5E3C" />
+              <UserOutlineIcon size={18} color={adminColors.warning.text} />
               <Text style={styles.detailCustomerName}>{selectedCustomer.name}</Text>
             </View>
 
@@ -423,9 +424,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   searchBarContainer: {
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    ...adminType.body,
     color: PALETTE.textInk,
     paddingVertical: 0,
   },
@@ -470,18 +470,16 @@ const styles = StyleSheet.create({
   },
   customerCardSelected: {
     borderColor: PALETTE.primary,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
   },
   customerName: {
-    fontSize: 17,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 3,
   },
   customerSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
     marginBottom: 12,
   },
@@ -489,29 +487,23 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   ordersLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: PALETTE.textMuted,
   },
   ordersCount: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
 
   // ─── Detail Card (Image 2) ───
   detailCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: PALETTE.primary,
     padding: 16,
     marginBottom: 14,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   detailHeaderRow: {
     flexDirection: 'row',
@@ -520,8 +512,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   detailCustomerName: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   detailGridRow: {
@@ -533,29 +524,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
     marginBottom: 3,
   },
   detailValueCode: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   detailValuePhone: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   detailValueOrders: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   detailValueWallet: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   selectCustomerBtn: {
@@ -567,22 +553,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 8,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   selectCustomerBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.sectionHead,
   },
 
   // ─── Confirmed Selected Banner (Image 3) ───
   confirmedBannerCard: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#86EFAC',
+    backgroundColor: adminColors.success.bg,
+    borderColor: adminColors.success.border,
     borderWidth: 1.5,
     borderRadius: 14,
     paddingHorizontal: 16,
@@ -599,20 +580,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   confirmedLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#15803D',
+    ...adminType.caption,
+    color: adminColors.success.text,
     marginBottom: 2,
   },
   confirmedNameText: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   changeBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8B5E3C',
+    ...adminType.sectionHead,
+    color: adminColors.warning.text,
     paddingHorizontal: 6,
     paddingVertical: 4,
   },
@@ -633,8 +611,7 @@ const styles = StyleSheet.create({
   },
   noticeBannerText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.noticeText,
     lineHeight: 17,
   },
@@ -656,8 +633,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.title,
   },
 });

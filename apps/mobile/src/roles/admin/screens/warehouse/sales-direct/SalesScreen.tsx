@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 import { NewSaleScreen } from './NewSaleScreen';
 import { SalesHistoryScreen } from './SalesHistoryScreen';
@@ -21,31 +22,31 @@ import { SaleDetailScreen } from './SaleDetailScreen';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#7A2E14',
-  primaryLight:  '#FDF3F0',
-  primarySoft:   '#FDF3F0',
-  primaryBorder: '#EEDCD3',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brandDeep,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#F3EFE9',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1A1A1A',
-  textSecondary: '#5F5E5A',
-  textMuted:     '#5F5E5A',
-  border:        '#EEDCD3',
-  divider:       '#EEDCD3',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  amberText:     '#854F0B',
-  redText:       '#E24B4A',
-  tabInactive:   '#5F5E5A',
-  tabBorder:     '#EEDCD3',
+  amberText:     adminColors.warning.text,
+  redText:       adminColors.danger.text,
+  tabInactive:   adminColors.muted,
+  tabBorder:     adminColors.border,
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -59,7 +60,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function CashRegisterHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function CashRegisterHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -76,8 +77,8 @@ function CashRegisterHeaderIcon({ size = 22, color = '#FFFFFF' }: { size?: numbe
 function LockBadgeIcon() {
   return (
     <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke="#FFFFFF" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={adminColors.onBrand} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -87,7 +88,7 @@ function BellHeaderIcon() {
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
       <Path
         d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -96,7 +97,7 @@ function BellHeaderIcon() {
   );
 }
 
-function MoneyCardIcon({ color = '#8B5E3C' }: { color?: string }) {
+function MoneyCardIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
@@ -106,7 +107,7 @@ function MoneyCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   );
 }
 
-function StorefrontCardIcon({ color = '#8B5E3C' }: { color?: string }) {
+function StorefrontCardIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -122,7 +123,7 @@ function StorefrontCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   );
 }
 
-function CutleryCardIcon({ color = '#8B5E3C' }: { color?: string }) {
+function CutleryCardIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path d="M6 3v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M8 11v10M17 3v18M14 3v5a3 3 0 0 0 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -130,7 +131,7 @@ function CutleryCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   );
 }
 
-function BuildingCardIcon({ color = '#8B5E3C' }: { color?: string }) {
+function BuildingCardIcon({ color = adminColors.warning.text }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M15 10h4a2 2 0 0 1 2 2v9M9 7h2M9 11h2M9 15h2M18 14h1M18 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -138,7 +139,7 @@ function BuildingCardIcon({ color = '#8B5E3C' }: { color?: string }) {
   );
 }
 
-function ExclamationCircleCardIcon({ color = '#DC2626' }: { color?: string }) {
+function ExclamationCircleCardIcon({ color = adminColors.danger.text }: { color?: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -243,7 +244,7 @@ function BuildingActionIcon({ size = 24, color = PALETTE.primary }: { size?: num
   );
 }
 
-function WarningTriangleIcon({ size = 18, color = '#D97706' }: { size?: number; color?: string }) {
+function WarningTriangleIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -258,7 +259,7 @@ function WarningTriangleIcon({ size = 18, color = '#D97706' }: { size?: number; 
   );
 }
 
-function StockBoxIcon({ size = 20, color = '#DC2626' }: { size?: number; color?: string }) {
+function StockBoxIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -268,7 +269,7 @@ function StockBoxIcon({ size = 20, color = '#DC2626' }: { size?: number; color?:
   );
 }
 
-function InvoiceDocumentIcon({ size = 20, color = '#B45309' }: { size?: number; color?: string }) {
+function InvoiceDocumentIcon({ size = 20, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -283,7 +284,7 @@ function InvoiceDocumentIcon({ size = 20, color = '#B45309' }: { size?: number; 
   );
 }
 
-function ChevronRightIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -546,10 +547,10 @@ export function SalesScreen({
               activeOpacity={0.75}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <ArrowBackIcon size={22} color="#FFFFFF" />
+              <ArrowBackIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <View style={styles.headerTitleRow}>
-              <CashRegisterHeaderIcon size={24} color="#FFFFFF" />
+              <CashRegisterHeaderIcon size={24} color={adminColors.onBrand} />
               <Text style={styles.headerTitleText}>Sales</Text>
             </View>
           </View>
@@ -660,9 +661,9 @@ export function SalesScreen({
             activeOpacity={0.75}
           >
             <View style={styles.cardIconWrap}>
-              <ExclamationCircleCardIcon color="#DC2626" />
+              <ExclamationCircleCardIcon color={adminColors.danger.text} />
             </View>
-            <Text style={[styles.cardAmount, { color: '#DC2626' }]}>5</Text>
+            <Text style={[styles.cardAmount, { color: adminColors.danger.text }]}>5</Text>
             <Text style={styles.cardSubtitle}>Needs Attention</Text>
           </TouchableOpacity>
         </View>
@@ -818,9 +819,9 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('payment_pending')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#F59E0B' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.warning.text }]} />
             <View style={styles.alertIconBox}>
-              <MoneyCardIcon color="#D97706" />
+              <MoneyCardIcon color={adminColors.warning.text} />
             </View>
             <View style={styles.alertTextBox}>
               <Text style={styles.alertTitle}>Payment Pending</Text>
@@ -835,9 +836,9 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('stock_issue')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#E24B4A' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.danger.text }]} />
             <View style={styles.alertIconBox}>
-              <StockBoxIcon color="#E24B4A" />
+              <StockBoxIcon color={adminColors.danger.text} />
             </View>
             <View style={styles.alertTextBox}>
               <Text style={styles.alertTitle}>Stock Issue</Text>
@@ -852,9 +853,9 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('failed_sale')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#E24B4A' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.danger.text }]} />
             <View style={styles.alertIconBox}>
-              <ExclamationCircleCardIcon color="#E24B4A" />
+              <ExclamationCircleCardIcon color={adminColors.danger.text} />
             </View>
             <View style={styles.alertTextBox}>
               <Text style={styles.alertTitle}>Failed Sale</Text>
@@ -869,9 +870,9 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('invoice_issue')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#F59E0B' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.warning.text }]} />
             <View style={styles.alertIconBox}>
-              <InvoiceDocumentIcon color="#D97706" />
+              <InvoiceDocumentIcon color={adminColors.warning.text} />
             </View>
             <View style={styles.alertTextBox}>
               <Text style={styles.alertTitle}>Invoice Issue</Text>
@@ -917,7 +918,8 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -928,9 +930,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitleText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   warehouseBadgeRow: {
@@ -939,7 +940,8 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
@@ -947,15 +949,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehouseBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
   },
   headerBellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -967,7 +969,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   scroll: {
     flex: 1,
@@ -978,8 +980,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 12,
     marginTop: 6,
@@ -1000,24 +1001,18 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     minHeight: 96,
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   cardIconWrap: {
     marginBottom: 8,
   },
   cardAmount: {
-    fontSize: 19,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 3,
   },
   cardSubtitle: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: PALETTE.textSecondary,
   },
   quickActionsRow: {
@@ -1037,11 +1032,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 88,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   actionBtnHalf: {
     width: '48%',
@@ -1054,15 +1045,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 88,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   actionBtnLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...adminType.caption,
     color: PALETTE.textInk,
     textAlign: 'center',
     marginTop: 8,
@@ -1074,11 +1060,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     paddingHorizontal: 16,
     paddingVertical: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -1087,13 +1069,11 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   summaryLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   divider: {
@@ -1112,13 +1092,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   totalValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   sectionHeaderRow: {
@@ -1129,8 +1107,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAllText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.sectionHead,
     color: PALETTE.primary,
   },
   recentSaleCard: {
@@ -1141,11 +1118,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   recentSaleTopRow: {
     flexDirection: 'row',
@@ -1154,25 +1127,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   recentSaleId: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   paidBadge: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
   },
   paidBadgeText: {
-    color: '#137333',
-    fontSize: 12,
-    fontWeight: '700',
+    color: adminColors.success.text,
+    ...adminType.rowTitle,
   },
   recentSaleCustomer: {
-    fontSize: 13,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
     marginBottom: 10,
   },
   recentSaleBottomRow: {
@@ -1182,21 +1152,18 @@ const styles = StyleSheet.create({
     paddingRight: 80,
   },
   recentSaleType: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textMuted,
-    fontWeight: '500',
   },
   recentSaleTime: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textMuted,
-    fontWeight: '500',
   },
   recentSaleAmount: {
     position: 'absolute',
     right: 16,
     bottom: 14,
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   needsAttentionHeader: {
@@ -1222,11 +1189,7 @@ const styles = StyleSheet.create({
     paddingLeft: 18,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   alertAccentBar: {
     position: 'absolute',
@@ -1246,15 +1209,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginBottom: 2,
   },
   alertSub: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
   },
   bottomNav: {
     flexDirection: 'row',
@@ -1274,8 +1235,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   navLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...adminType.caption,
     color: PALETTE.tabInactive,
     marginTop: 3,
   },

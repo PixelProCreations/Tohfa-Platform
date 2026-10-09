@@ -11,33 +11,34 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 import { SaleDetailScreen } from './SaleDetailScreen';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brand,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  paidBg:        '#E6F4EA',
-  paidText:      '#137333',
-  pendingBg:     '#FEF3C7',
-  pendingText:   '#B45309',
-  amberText:     '#B45309',
+  paidBg:        adminColors.success.bg,
+  paidText:      adminColors.success.text,
+  pendingBg:     adminColors.warning.bg,
+  pendingText:   adminColors.warning.text,
+  amberText:     adminColors.warning.text,
 
-  tabInactive:   '#827A74',
-  tabBorder:     '#EAE4DB',
+  tabInactive:   adminColors.muted,
+  tabBorder:     adminColors.border,
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -158,7 +159,7 @@ const INITIAL_SALES_DATA: SaleHistoryItem[] = [
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -172,7 +173,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -186,7 +187,7 @@ function FilterSlidersIcon({ size = 20, color = '#FFFFFF' }: { size?: number; co
   );
 }
 
-function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -310,7 +311,7 @@ export function SalesHistoryScreen({
             activeOpacity={0.8}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowBackIcon size={24} color="#FFFFFF" />
+            <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Sales History</Text>
@@ -320,7 +321,7 @@ export function SalesHistoryScreen({
             onPress={() => Alert.alert('Filter Sales', 'Filter by Date range, Channel, or Payment Status.')}
             activeOpacity={0.8}
           >
-            <FilterSlidersIcon size={20} color="#FFFFFF" />
+            <FilterSlidersIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
       </View>
@@ -435,9 +436,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
     flex: 1,
     marginLeft: 8,
@@ -446,7 +446,8 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -469,9 +470,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 14,
+    ...adminType.body,
     color: PALETTE.textInk,
-    fontWeight: '500',
     padding: 0,
   },
   listContent: {
@@ -484,11 +484,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1.5,
+    ...adminShadow.sm,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -496,8 +492,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   saleIdText: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   statusPill: {
@@ -506,13 +501,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.rowTitle,
   },
   customerSubText: {
-    fontSize: 13,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
     marginTop: 4,
   },
   cardBottomRow: {
@@ -522,22 +515,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   channelText: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
   },
   rightInfoWrap: {
     alignItems: 'flex-end',
   },
   dateText: {
-    fontSize: 11,
+    ...adminType.rowMeta,
     color: PALETTE.textMuted,
-    fontWeight: '500',
     marginBottom: 2,
   },
   amountText: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   loadMoreWrap: {
@@ -546,8 +536,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   loadMoreText: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.amberText,
   },
   bottomNav: {
@@ -564,10 +553,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navLabel: {
-    fontSize: 11,
+    ...adminType.rowMeta,
     color: PALETTE.tabInactive,
     marginTop: 3,
-    fontWeight: '500',
   },
   navLabelActive: {
     color: PALETTE.primary,

@@ -10,34 +10,35 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType } from '../../../theme';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#7A2E14',
-  primaryLight:  '#FDF3F0',
-  primarySoft:   '#FDF3F0',
-  primaryBorder: '#EEDCD3',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brandDeep,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#F3EFE9',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1A1A1A',
-  textSecondary: '#5F5E5A',
-  textMuted:     '#5F5E5A',
-  border:        '#EEDCD3',
-  divider:       '#EEDCD3',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  infoBg:        '#E6F1FB',
-  infoBorder:    '#EEDCD3',
-  infoText:      '#0C447C',
+  infoBg:        adminColors.info.bg,
+  infoBorder:    adminColors.border,
+  infoText:      adminColors.info.text,
 
-  amberPillBg:   '#FEF3E2',
-  amberPillText: '#854F0B',
+  amberPillBg:   adminColors.warning.bg,
+  amberPillText: adminColors.warning.text,
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -60,7 +61,7 @@ function LockIcon({ size = 12, color = PALETTE.amberPillText }: { size?: number;
   );
 }
 
-function InfoCircleIcon({ size = 16, color = '#0284C7' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = adminColors.info.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -69,7 +70,7 @@ function InfoCircleIcon({ size = 16, color = '#0284C7' }: { size?: number; color
   );
 }
 
-function ChevronDownIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -77,7 +78,7 @@ function ChevronDownIcon({ size = 18, color = '#7A726C' }: { size?: number; colo
   );
 }
 
-function EmptyCartIcon({ size = 56, color = '#D1CBC4' }: { size?: number; color?: string }) {
+function EmptyCartIcon({ size = 56, color = adminColors.border }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="21" r="1.5" stroke={color} strokeWidth="1.6" />
@@ -87,7 +88,7 @@ function EmptyCartIcon({ size = 56, color = '#D1CBC4' }: { size?: number; color?
   );
 }
 
-function PlusIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function PlusIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -237,7 +238,7 @@ export function NewSaleScreen({
         {/* ─── 4. Products Empty State ─── */}
         <Text style={styles.sectionHeading}>Products</Text>
         <View style={styles.emptyProductsContainer}>
-          <EmptyCartIcon size={52} color="#D8D2CA" />
+          <EmptyCartIcon size={52} color={adminColors.border} />
           <Text style={styles.emptyProductsText}>No products added</Text>
         </View>
       </ScrollView>
@@ -280,9 +281,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   scroll: {
@@ -294,8 +294,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginTop: 14,
     marginBottom: 8,
@@ -313,8 +312,7 @@ const styles = StyleSheet.create({
   },
   warehousePillText: {
     color: PALETTE.amberPillText,
-    fontSize: 12,
-    fontWeight: '600',
+    ...adminType.rowTitle,
   },
   channelContainer: {
     backgroundColor: PALETTE.cardBg,
@@ -336,7 +334,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#D4CDC5',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -350,8 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.primary,
   },
   channelLabel: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   divider: {
@@ -372,8 +369,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.infoText,
     lineHeight: 17,
   },
@@ -389,15 +385,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   customerSubLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: PALETTE.textMuted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   customerValueText: {
-    fontSize: 15,
-    fontWeight: '600',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   emptyProductsContainer: {
@@ -406,8 +400,7 @@ const styles = StyleSheet.create({
     paddingVertical: 50,
   },
   emptyProductsText: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textMuted,
     marginTop: 12,
   },
@@ -427,8 +420,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   selectProductsBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.title,
   },
 });

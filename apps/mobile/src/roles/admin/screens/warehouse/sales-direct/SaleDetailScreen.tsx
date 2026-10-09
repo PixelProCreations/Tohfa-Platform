@@ -10,39 +10,40 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brand,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  completedPillBg:   '#E6F4EA',
-  completedPillText: '#0D9488',
-  timelineGreen:     '#10B981',
-  timelineLine:      '#D1D5DB',
+  completedPillBg:   adminColors.success.bg,
+  completedPillText: adminColors.success.text,
+  timelineGreen:     adminColors.success.text,
+  timelineLine:      adminColors.border,
 
-  tabInactive:   '#827A74',
-  tabBorder:     '#EAE4DB',
+  tabInactive:   adminColors.muted,
+  tabBorder:     adminColors.border,
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -56,7 +57,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function InvoiceReceiptIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function InvoiceReceiptIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -74,7 +75,7 @@ function InvoiceReceiptIcon({ size = 18, color = '#FFFFFF' }: { size?: number; c
 function TimelineCheckIcon({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="8.5" fill="#E6F4EA" stroke={PALETTE.timelineGreen} strokeWidth="1.8" />
+      <Circle cx="10" cy="10" r="8.5" fill={adminColors.success.bg} stroke={PALETTE.timelineGreen} strokeWidth="1.8" />
       <Circle cx="10" cy="10" r="3.5" fill={PALETTE.timelineGreen} />
     </Svg>
   );
@@ -244,7 +245,7 @@ export function SaleDetailScreen({
             activeOpacity={0.8}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowBackIcon size={24} color="#FFFFFF" />
+            <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Sale Details</Text>
@@ -337,7 +338,7 @@ export function SaleDetailScreen({
 
               <View style={{ marginTop: 10 }}>
                 <Text style={styles.fieldLabel}>Line Total</Text>
-                <Text style={[styles.fieldValueBold, { fontSize: 15 }]}>₹{item.lineTotal}</Text>
+                <Text style={[styles.fieldValueBold, { ...adminType.body }]}>₹{item.lineTotal}</Text>
               </View>
             </View>
           ))}
@@ -405,7 +406,7 @@ export function SaleDetailScreen({
             onPress={handleViewInvoice}
             activeOpacity={0.82}
           >
-            <InvoiceReceiptIcon size={20} color="#D4451B" />
+            <InvoiceReceiptIcon size={20} color={adminColors.brand} />
             <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
           </TouchableOpacity>
         )}
@@ -466,9 +467,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
     flex: 1,
     marginLeft: 8,
@@ -480,8 +480,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   completedPillText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: PALETTE.completedPillText,
   },
   scroll: {
@@ -493,8 +492,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginTop: 18,
     marginBottom: 8,
@@ -505,11 +503,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
@@ -519,19 +513,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
     marginBottom: 4,
   },
   fieldValueBold: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   itemTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.sectionHead,
     color: PALETTE.textSecondary,
     marginBottom: 4,
   },
@@ -541,13 +532,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   breakdownLabel: {
-    fontSize: 13,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
   },
   breakdownValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   breakdownDivider: {
@@ -556,13 +545,11 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   totalLabel: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   viewInvoiceBtn: {
@@ -578,27 +565,21 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   viewInvoiceBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.primaryDark,
   },
   downloadInvoiceTooltip: {
     alignSelf: 'center',
-    backgroundColor: '#1E252B',
+    backgroundColor: adminColors.ink,
     paddingVertical: 9,
     paddingHorizontal: 20,
     borderRadius: 20,
     marginTop: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    ...adminShadow.sm,
   },
   downloadInvoiceTooltipText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.sectionHead,
     letterSpacing: 0.2,
     textAlign: 'center',
   },
@@ -626,14 +607,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timelineStepTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   timelineStepTime: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
     marginTop: 2,
   },
   bottomNav: {
@@ -650,10 +629,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navLabel: {
-    fontSize: 11,
+    ...adminType.rowMeta,
     color: PALETTE.tabInactive,
     marginTop: 3,
-    fontWeight: '500',
   },
   navLabelActive: {
     color: PALETTE.primary,

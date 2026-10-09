@@ -11,32 +11,33 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brand,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  greenBadgeBg:  '#DCFCE7',
-  greenBadgeText:'#15803D',
-  redBadgeBg:    '#FEE2E2',
-  redBadgeText:  '#DC2626',
+  greenBadgeBg:  adminColors.success.bg,
+  greenBadgeText:adminColors.success.text,
+  redBadgeBg:    adminColors.danger.bg,
+  redBadgeText:  adminColors.danger.text,
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -50,7 +51,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2.2" />
@@ -59,7 +60,7 @@ function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: s
   );
 }
 
-function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -73,7 +74,7 @@ function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color
   );
 }
 
-function ProduceIcon({ size = 18, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function ProduceIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="14" r="7" stroke={color} strokeWidth="2" />
@@ -91,8 +92,8 @@ function ProduceIcon({ size = 18, color = '#8B5E3C' }: { size?: number; color?: 
 function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -273,11 +274,11 @@ export function SelectProductsScreen({
       <View style={styles.topControlContainer}>
         {/* Search Input */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#9E9690" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search product, crop, grade, batch"
-            placeholderTextColor="#9E9690"
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
@@ -336,7 +337,7 @@ export function SelectProductsScreen({
                   activeOpacity={0.7}
                   onPress={() => setExpandedProductId(null)}
                 >
-                  <ProduceIcon size={18} color="#8B5E3C" />
+                  <ProduceIcon size={18} color={adminColors.warning.text} />
                   <Text style={styles.expandedTitleText}>
                     {product.name} · {product.grade}
                   </Text>
@@ -506,9 +507,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   topControlContainer: {
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    ...adminType.body,
     color: PALETTE.textInk,
     paddingVertical: 0,
   },
@@ -552,8 +552,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.primary,
   },
   filterPillText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   filterPillTextSelected: {
@@ -583,14 +582,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   productName: {
-    fontSize: 17,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 3,
   },
   productGradePrice: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
   },
   statusBadge: {
@@ -605,8 +602,7 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.redBadgeBg,
   },
   statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
   },
   statusBadgeTextAvailable: {
     color: PALETTE.greenBadgeText,
@@ -620,14 +616,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   availableLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...adminType.rowMeta,
     color: PALETTE.textMuted,
     marginBottom: 2,
   },
   availableValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   addBtn: {
@@ -639,8 +633,7 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.primaryLight,
   },
   addBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.primary,
   },
   addBtnTextSelected: {
@@ -653,8 +646,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textMuted,
   },
   bottomBar: {
@@ -673,24 +665,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.title,
   },
 
   // ─── Expanded Product Card (Matching Reference Design) ───
   expandedProductCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E85226',
+    borderColor: adminColors.brand,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#E85226',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   expandedTitleRow: {
     flexDirection: 'row',
@@ -699,9 +686,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   expandedTitleText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   expandedGridRow: {
     flexDirection: 'row',
@@ -711,34 +697,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   expandedGridLabel: {
-    fontSize: 12,
-    color: '#7A726C',
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   expandedGridValuePrice: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   expandedGridValueAvail: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   expandedGridValueBatch: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E1612',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   expandedGridValueLoc: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E1612',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   traceabilityBanner: {
-    backgroundColor: '#EBF5FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: adminColors.info.bg,
+    borderColor: adminColors.info.border,
     borderWidth: 1,
     borderRadius: 10,
     padding: 10,
@@ -749,15 +730,13 @@ const styles = StyleSheet.create({
   },
   traceabilityText: {
     flex: 1,
-    fontSize: 11.5,
+    ...adminType.rowMeta,
     lineHeight: 16,
-    color: '#1E40AF',
-    fontWeight: '500',
+    color: adminColors.info.text,
   },
   quantitySectionHeader: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginTop: 16,
     marginBottom: 12,
   },
@@ -771,39 +750,32 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FDF0EB',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#8B5E3C',
+    ...adminType.title,
+    color: adminColors.warning.text,
     marginTop: -2,
   },
   stepperValueText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.title,
+    color: adminColors.ink,
     minWidth: 60,
     textAlign: 'center',
   },
   addToSaleBtn: {
-    backgroundColor: '#E85226',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 16,
-    shadowColor: '#E85226',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   addToSaleBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.sectionHead,
   },
 });

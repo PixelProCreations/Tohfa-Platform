@@ -10,43 +10,44 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brand,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  amberPillBg:   '#FEF3E9',
-  amberText:     '#8B5E3C',
-  activeGreenBg: '#E6F4EA',
-  activeGreenText: '#137333',
-  paidBg:        '#E6F4EA',
-  paidText:      '#137333',
+  amberPillBg:   adminColors.warning.bg,
+  amberText:     adminColors.warning.text,
+  activeGreenBg: adminColors.success.bg,
+  activeGreenText: adminColors.success.text,
+  paidBg:        adminColors.success.bg,
+  paidText:      adminColors.success.text,
 
-  infoBoxBg:     '#EFF6FF',
-  infoBoxBorder: '#BFDBFE',
-  infoBoxText:   '#1E40AF',
+  infoBoxBg:     adminColors.info.bg,
+  infoBoxBorder: adminColors.info.border,
+  infoBoxText:   adminColors.info.text,
 
-  tabInactive:   '#827A74',
-  tabBorder:     '#EAE4DB',
+  tabInactive:   adminColors.muted,
+  tabBorder:     adminColors.border,
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -60,7 +61,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function LockBadgeIcon({ size = 12, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function LockBadgeIcon({ size = 12, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2.2" />
@@ -94,7 +95,7 @@ function HistoryClockActionIcon({ size = 22, color = PALETTE.primary }: { size?:
   );
 }
 
-function InfoCircleIcon({ size = 16, color = '#1E40AF' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 16, color = adminColors.info.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -229,7 +230,7 @@ export function MarketDaySalesScreen({
             activeOpacity={0.8}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowBackIcon size={24} color="#FFFFFF" />
+            <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Market Day Sales</Text>
@@ -425,9 +426,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
     flex: 1,
     marginLeft: 8,
@@ -452,9 +452,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   warehousePillText: {
-    fontSize: 12,
+    ...adminType.rowTitle,
     color: PALETTE.amberText,
-    fontWeight: '600',
   },
   marketDayCard: {
     flexDirection: 'row',
@@ -467,15 +466,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   marketDayTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   activePill: {
@@ -488,25 +482,21 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   activePillDot: {
-    fontSize: 14,
+    ...adminType.sectionHead,
     color: PALETTE.activeGreenText,
-    fontWeight: '900',
   },
   activePillText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: PALETTE.activeGreenText,
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginTop: 14,
     marginBottom: 10,
   },
   sectionHeadingNoMargin: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   kpiRow: {
@@ -523,21 +513,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   kpiValue: {
-    fontSize: 17,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 4,
   },
   kpiLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...adminType.caption,
     color: PALETTE.textMuted,
     letterSpacing: 0.5,
   },
@@ -555,15 +539,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   actionCardLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   card: {
@@ -572,11 +551,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   productGridRow: {
     flexDirection: 'row',
@@ -586,14 +561,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productName: {
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
     marginBottom: 4,
   },
   productQty: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   txCard: {
@@ -603,11 +576,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 14,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   txCardTop: {
     flexDirection: 'row',
@@ -615,8 +584,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txSaleId: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   txPaidPill: {
@@ -626,8 +594,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   txPaidText: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: PALETTE.paidText,
   },
   txCardBottom: {
@@ -637,13 +604,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   txSubtitle: {
-    fontSize: 13,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
   },
   txAmount: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   summaryHeaderRow: {
@@ -654,8 +619,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   previousDaysLink: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: PALETTE.amberText,
   },
   summaryCard: {
@@ -664,11 +628,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -676,13 +636,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryLabel: {
-    fontSize: 13,
+    ...adminType.body,
     color: PALETTE.textSecondary,
-    fontWeight: '500',
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   summaryDivider: {
@@ -696,13 +654,11 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   summaryStrongLabel: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   summaryStrongValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   infoBanner: {
@@ -718,9 +674,8 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 12,
+    ...adminType.body,
     color: PALETTE.infoBoxText,
-    fontWeight: '500',
     lineHeight: 16,
   },
   bottomNav: {
@@ -737,10 +692,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navLabel: {
-    fontSize: 11,
+    ...adminType.rowMeta,
     color: PALETTE.tabInactive,
     marginTop: 3,
-    fontWeight: '500',
   },
   navLabelActive: {
     color: PALETTE.primary,

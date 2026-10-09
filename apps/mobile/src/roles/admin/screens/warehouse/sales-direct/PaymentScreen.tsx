@@ -12,32 +12,33 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
-  primary:       '#F0562A',
-  primaryDark:   '#D4451B',
-  primaryLight:  '#FFF0EB',
-  primarySoft:   '#FEF1EC',
-  primaryBorder: '#FCD9CE',
+  primary:       adminColors.brand,
+  primaryDark:   adminColors.brand,
+  primaryLight:  adminColors.brandTint,
+  primarySoft:   adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9E9690',
-  border:        '#EBE5DC',
-  divider:       '#F0EAE1',
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  textInk:       adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted:     adminColors.muted,
+  border:        adminColors.border,
+  divider:       adminColors.border,
 
-  greenText:     '#15803D',
-  amberNoticeBg: '#FEF1EC',
-  amberNoticeBorder: '#FCD9CE',
-  amberNoticeText: '#7A3E26',
+  greenText:     adminColors.success.text,
+  amberNoticeBg: adminColors.brandTint,
+  amberNoticeBorder: adminColors.border,
+  amberNoticeText: adminColors.brandDeep,
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,7 +52,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function CashIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function CashIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
@@ -61,7 +62,7 @@ function CashIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: str
   );
 }
 
-function UpiIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: string }) {
+function UpiIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="2" />
@@ -72,7 +73,7 @@ function UpiIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: stri
   );
 }
 
-function CardIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: string }) {
+function CardIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" />
@@ -81,7 +82,7 @@ function CardIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: str
   );
 }
 
-function WalletIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: string }) {
+function WalletIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -99,7 +100,7 @@ function LockIcon({ size = 14, color = PALETTE.amberNoticeText }: { size?: numbe
   );
 }
 
-function QuestionCircleIcon({ size = 20, color = '#7A3E26' }: { size?: number; color?: string }) {
+function QuestionCircleIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -114,7 +115,7 @@ function QuestionCircleIcon({ size = 20, color = '#7A3E26' }: { size?: number; c
   );
 }
 
-function CheckmarkOutlineIcon({ size = 18, color = '#10B981' }: { size?: number; color?: string }) {
+function CheckmarkOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -128,7 +129,7 @@ function CheckmarkOutlineIcon({ size = 18, color = '#10B981' }: { size?: number;
   );
 }
 
-function CancelCrossIcon({ size = 18, color = '#7A3E26' }: { size?: number; color?: string }) {
+function CancelCrossIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -262,7 +263,7 @@ export function PaymentScreen({
           >
             <CashIcon
               size={22}
-              color={selectedMethod === 'Cash' ? '#FFFFFF' : '#7A726C'}
+              color={selectedMethod === 'Cash' ? adminColors.onBrand : adminColors.muted}
             />
             <Text
               style={[
@@ -285,7 +286,7 @@ export function PaymentScreen({
           >
             <UpiIcon
               size={22}
-              color={selectedMethod === 'UPI' ? '#FFFFFF' : '#7A726C'}
+              color={selectedMethod === 'UPI' ? adminColors.onBrand : adminColors.muted}
             />
             <Text
               style={[
@@ -308,7 +309,7 @@ export function PaymentScreen({
           >
             <CardIcon
               size={22}
-              color={selectedMethod === 'Card' ? '#FFFFFF' : '#7A726C'}
+              color={selectedMethod === 'Card' ? adminColors.onBrand : adminColors.muted}
             />
             <Text
               style={[
@@ -331,7 +332,7 @@ export function PaymentScreen({
           >
             <WalletIcon
               size={22}
-              color={selectedMethod === 'Wallet' ? '#FFFFFF' : '#7A726C'}
+              color={selectedMethod === 'Wallet' ? adminColors.onBrand : adminColors.muted}
             />
             <Text
               style={[
@@ -357,7 +358,7 @@ export function PaymentScreen({
                 onChangeText={setReceivedAmount}
                 keyboardType="numeric"
                 placeholder="0"
-                placeholderTextColor="#9E9690"
+                placeholderTextColor={adminColors.placeholder}
               />
               <Text style={styles.currencySymbol}>₹</Text>
             </View>
@@ -441,7 +442,7 @@ export function PaymentScreen({
           onPress={handleConfirm}
           activeOpacity={0.85}
         >
-          <CashIcon size={20} color="#FFFFFF" />
+          <CashIcon size={20} color={adminColors.onBrand} />
           <Text style={styles.confirmBtnText}>Confirm Payment</Text>
         </TouchableOpacity>
       </View>
@@ -457,7 +458,7 @@ export function PaymentScreen({
           <View style={styles.popupCard}>
             {/* Header: (?) Confirm Payment? */}
             <View style={styles.popupHeader}>
-              <QuestionCircleIcon size={20} color="#7A3E26" />
+              <QuestionCircleIcon size={20} color={adminColors.brandDeep} />
               <Text style={styles.popupTitle}>Confirm Payment?</Text>
             </View>
 
@@ -479,7 +480,7 @@ export function PaymentScreen({
               onPress={handleFinalConfirm}
               activeOpacity={0.8}
             >
-              <CheckmarkOutlineIcon size={18} color="#10B981" />
+              <CheckmarkOutlineIcon size={18} color={adminColors.success.text} />
               <Text style={styles.popupConfirmBtnText}>Confirm Payment</Text>
             </TouchableOpacity>
 
@@ -489,7 +490,7 @@ export function PaymentScreen({
               onPress={() => setShowConfirmPopup(false)}
               activeOpacity={0.8}
             >
-              <CancelCrossIcon size={18} color="#7A3E26" />
+              <CancelCrossIcon size={18} color={adminColors.brandDeep} />
               <Text style={styles.popupCancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -522,9 +523,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   scroll: {
@@ -546,15 +546,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   amountDueValue: {
-    fontSize: 34,
-    fontWeight: '900',
+    ...adminType.title,
     color: PALETTE.textInk,
     letterSpacing: -0.5,
     marginBottom: 6,
   },
   amountDueLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...adminType.caption,
     color: PALETTE.textMuted,
     letterSpacing: 0.8,
   },
@@ -579,17 +577,15 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.primary,
   },
   methodBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...adminType.rowTitle,
     color: PALETTE.textSecondary,
   },
   methodBtnTextSelected: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginBottom: 8,
     marginTop: 4,
@@ -607,14 +603,12 @@ const styles = StyleSheet.create({
   },
   receivedInput: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
+    ...adminType.title,
     color: PALETTE.textInk,
     paddingVertical: 0,
   },
   currencySymbol: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...adminType.title,
     color: PALETTE.textMuted,
   },
   changeCard: {
@@ -627,14 +621,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   changeLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
     marginBottom: 4,
   },
   changeValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.greenText,
   },
   statusDetailCard: {
@@ -649,14 +641,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   detailLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...adminType.caption,
     color: PALETTE.textMuted,
     marginBottom: 4,
   },
   detailValue: {
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   walletDetailCard: {
@@ -683,9 +673,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   simulateBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8B420F',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   walletNoticeBanner: {
     flexDirection: 'row',
@@ -701,8 +690,7 @@ const styles = StyleSheet.create({
   },
   walletNoticeText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.amberNoticeText,
     lineHeight: 17,
   },
@@ -722,13 +710,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.title,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    // Was a translucent black scrim; no translucent token, so a solid canvas scrim (card raised by adminShadow.lg).
+    backgroundColor: adminColors.canvas,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -736,16 +724,12 @@ const styles = StyleSheet.create({
   popupCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     padding: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...adminShadow.lg,
   },
   popupHeader: {
     flexDirection: 'row',
@@ -753,34 +737,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   popupTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#7A3E26',
+    ...adminType.title,
+    color: adminColors.brandDeep,
   },
   popupSummaryBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginTop: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   popupSummaryCol: {
     flex: 1,
   },
   popupSummaryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#7A726C',
+    ...adminType.body,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   popupSummaryVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   popupConfirmBtn: {
     flexDirection: 'row',
@@ -788,16 +769,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1.5,
-    borderColor: '#10B981',
+    borderColor: adminColors.success.text,
     borderRadius: 10,
     paddingVertical: 12,
     marginTop: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   popupConfirmBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#10B981',
+    ...adminType.sectionHead,
+    color: adminColors.success.text,
   },
   popupCancelBtn: {
     flexDirection: 'row',
@@ -805,15 +785,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1.5,
-    borderColor: '#F0562A',
+    borderColor: adminColors.brand,
     borderRadius: 10,
     paddingVertical: 12,
     marginTop: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   popupCancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#7A3E26',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
 });

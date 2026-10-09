@@ -10,35 +10,36 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { adminColors, adminType } from '../../../theme';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
-  primary: '#F0562A',
-  primaryDark: '#7A2E14',
-  primaryLight: '#FDF3F0',
-  primarySoft: '#FDF3F0',
-  primaryBorder: '#EEDCD3',
+  primary: adminColors.brand,
+  primaryDark: adminColors.brandDeep,
+  primaryLight: adminColors.brandTint,
+  primarySoft: adminColors.brandTint,
+  primaryBorder: adminColors.border,
 
-  pageBg: '#F3EFE9',
-  cardBg: '#FFFFFF',
-  textInk: '#1A1A1A',
-  textSecondary: '#5F5E5A',
-  textMuted: '#5F5E5A',
-  border: '#EEDCD3',
-  divider: '#EEDCD3',
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textInk: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  border: adminColors.border,
+  divider: adminColors.border,
 
-  infoBg: '#E6F1FB',
-  infoBorder: '#EEDCD3',
-  infoText: '#0C447C',
+  infoBg: adminColors.info.bg,
+  infoBorder: adminColors.border,
+  infoText: adminColors.info.text,
 
-  stepperBg: '#FDF3F0',
-  stepperBtnBg: '#EEDCD3',
-  redText: '#E24B4A',
+  stepperBg: adminColors.brandTint,
+  stepperBtnBg: adminColors.border,
+  redText: adminColors.danger.text,
 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -52,7 +53,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function ShieldCheckIcon({ size = 16, color = '#0284C7' }: { size?: number; color?: string }) {
+function ShieldCheckIcon({ size = 16, color = adminColors.info.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -67,7 +68,7 @@ function ShieldCheckIcon({ size = 16, color = '#0284C7' }: { size?: number; colo
   );
 }
 
-function ArrowRightIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -261,7 +262,7 @@ export function SaleSummaryScreen({
 
           {cartItems.length === 0 && (
             <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: PALETTE.textMuted, fontSize: 14 }}>
+              <Text style={{ color: PALETTE.textMuted, ...adminType.body }}>
                 No items in cart
               </Text>
             </View>
@@ -333,9 +334,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
   scroll: {
@@ -347,8 +347,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginTop: 14,
     marginBottom: 8,
@@ -368,22 +367,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 2,
   },
   itemSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
   },
   itemRightCol: {
     alignItems: 'flex-end',
   },
   itemPrice: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
     marginBottom: 4,
   },
@@ -405,21 +401,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     marginTop: -1,
   },
   stepperValue: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     minWidth: 16,
     textAlign: 'center',
   },
   removeText: {
-    fontSize: 13,
-    fontWeight: '600',
+    ...adminType.sectionHead,
     color: PALETTE.redText,
   },
   divider: {
@@ -429,7 +422,7 @@ const styles = StyleSheet.create({
   },
   thickDivider: {
     height: 1.5,
-    backgroundColor: '#1E1612',
+    backgroundColor: adminColors.ink,
     marginVertical: 10,
   },
   breakdownRow: {
@@ -439,23 +432,19 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   breakdownLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
   },
   breakdownValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
   },
   totalLabel: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...adminType.title,
     color: PALETTE.textInk,
   },
   marketRow: {
@@ -463,14 +452,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   marketLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.textSecondary,
     marginBottom: 4,
   },
   marketValue: {
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: PALETTE.textInk,
     lineHeight: 19,
   },
@@ -489,8 +476,7 @@ const styles = StyleSheet.create({
   },
   infoBannerText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    ...adminType.body,
     color: PALETTE.infoText,
     lineHeight: 17,
   },
@@ -510,8 +496,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: adminColors.onBrand,
+    ...adminType.title,
   },
 });
