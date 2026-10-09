@@ -68,7 +68,6 @@ import { SubWarehouseOrderFiltersScreen, OrderFilterState } from './SubWarehouse
 import { SubWarehousePurchaseFiltersScreen, PurchaseFilterState } from './SubWarehousePurchaseFiltersScreen';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
-import { SubWarehouseOrderDetailScreen } from './SubWarehouseOrderDetailScreen';
 import { SubWarehouseApprovalAlertsScreen } from './SubWarehouseApprovalAlertsScreen';
 import { SubWarehouseExpenseRecordScreen } from './SubWarehouseExpenseRecordScreen';
 import { SubWarehouseGoodsReceiptDetailScreen } from './SubWarehouseGoodsReceiptDetailScreen';

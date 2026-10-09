@@ -194,7 +194,6 @@ import {
   type PurchaseFilterState,
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
-  SubWarehouseOrderDetailScreen,
   SubWarehouseApprovalAlertsScreen,
   SubWarehouseExpenseRecordScreen,
   SubWarehouseGoodsReceiptDetailScreen,

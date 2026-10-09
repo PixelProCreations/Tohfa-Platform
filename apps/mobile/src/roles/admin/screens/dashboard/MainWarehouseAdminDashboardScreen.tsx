@@ -94,7 +94,6 @@ import {
   CustomerListScreen,
   CustomerSearchScreen,
   CustomerDetailScreen,
-  CustomerOrdersScreen,
   PurchaseHistoryScreen,
   WalletSummaryScreen,
   CustomerIssuesScreen,

@@ -99,7 +99,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseOrderFiltersScreen';
 export * from '../../../subwarehouse/screens/SubWarehousePurchaseFiltersScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseOrderDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseApprovalAlertsScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseExpenseRecordScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseGoodsReceiptDetailScreen';
