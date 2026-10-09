@@ -3,13 +3,11 @@ import {
   Alert,
   BackHandler,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,60 +16,22 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   SubWarehouseCashTopUpScreen,
   type CashTopUpData,
-} from './SubWarehouseCashTopUpScreen';
-import {
-  SubWarehouseConfirmCashTopUpScreen,
-  type ConfirmTopUpDetails,
-} from './SubWarehouseConfirmCashTopUpScreen';
-import { SubWarehouseCustomerSearchScreen } from './SubWarehouseCustomerSearchScreen';
-import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
-import { SubWarehouseFiscalTagScreen } from './SubWarehouseFiscalTagScreen';
-import { SubWarehouseTopUpHistoryScreen } from './SubWarehouseTopUpHistoryScreen';
-import { SubWarehouseDailyCashSummaryScreen } from './SubWarehouseDailyCashSummaryScreen';
+} from '../../../../subwarehouse/screens/SubWarehouseCashTopUpScreen';
+import { SubWarehouseConfirmCashTopUpScreen } from '../../../../subwarehouse/screens/SubWarehouseConfirmCashTopUpScreen';
+import { SubWarehouseCustomerWalletScreen } from '../../../../subwarehouse/screens/SubWarehouseCustomerWalletScreen';
+import { SubWarehouseFiscalTagScreen } from '../../../../subwarehouse/screens/SubWarehouseFiscalTagScreen';
+import { SubWarehouseTopUpHistoryScreen } from '../../../../subwarehouse/screens/SubWarehouseTopUpHistoryScreen';
+import { SubWarehouseDailyCashSummaryScreen } from '../../../../subwarehouse/screens/SubWarehouseDailyCashSummaryScreen';
 import {
   SubWarehouseWalletAttentionScreen,
   type AttentionCategory,
-} from './SubWarehouseWalletAttentionScreen';
-
-// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
-const PALETTE = {
-  primary: '#F0562A',
-  primaryDark: '#7A2E14',
-  primaryLight: '#FDF3F0',
-  primarySoft: '#FDF3F0',
-  primaryBorder: '#EEDCD3',
-
-  pageBg: '#F3EFE9',
-  cardBg: '#FFFFFF',
-  textInk: '#1D2420',
-  textSecondary: '#7A726C',
-  textMuted: '#9E9690',
-  border: '#EAE6DF',
-  divider: '#F4EFE9',
-
-  // Reference brown accents
-  iconBrown: '#8B4513',
-  customerBrown: '#8B4513',
-
-  // Status & Badges
-  greenBadge: '#EAF3DE',
-  greenText: '#173404',
-  greenDot: '#173404',
-
-  amberBadge: '#FEF3E2',
-  amberText: '#854F0B',
-  amberAccent: '#854F0B',
-
-  redBadge: '#FCEBEB',
-  redText: '#E24B4A',
-  redAccent: '#E24B4A',
-
-  tabInactive: '#7A726C',
-  tabBorder: '#EAE6DF',
-};
+} from '../../../../subwarehouse/screens/SubWarehouseWalletAttentionScreen';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import type { WarehouseScreenBaseProps } from '../finance-expenses';
+import { CustomerSearchScreen } from '../customers/CustomerSearchScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -85,7 +45,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function WalletHeaderIcon({ size = 24, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function WalletHeaderIcon({ size = 24, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="5" width="20" height="14" rx="3" stroke={color} strokeWidth="2.2" />
@@ -95,7 +55,7 @@ function WalletHeaderIcon({ size = 24, color = '#FFFFFF' }: { size?: number; col
   );
 }
 
-function BellIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BellIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -109,7 +69,7 @@ function BellIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: str
   );
 }
 
-function LockBadgeIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function LockBadgeIcon({ size = 13, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="10" width="16" height="11" rx="2.5" stroke={color} strokeWidth="2" />
@@ -118,7 +78,7 @@ function LockBadgeIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function CalendarIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function CalendarIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -127,7 +87,7 @@ function CalendarIcon({ size = 20, color = '#8B4513' }: { size?: number; color?:
   );
 }
 
-function CashIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function CashIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
@@ -137,7 +97,7 @@ function CashIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: str
   );
 }
 
-function EllipsisPendingIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function EllipsisPendingIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -148,7 +108,7 @@ function EllipsisPendingIcon({ size = 20, color = '#8B4513' }: { size?: number; 
   );
 }
 
-function ExclamationFailedIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function ExclamationFailedIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -157,7 +117,7 @@ function ExclamationFailedIcon({ size = 20, color = '#8B4513' }: { size?: number
   );
 }
 
-function PlusIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function PlusIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -165,7 +125,7 @@ function PlusIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: str
   );
 }
 
-function UserSearchIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function UserSearchIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -176,7 +136,7 @@ function UserSearchIcon({ size = 20, color = '#F0562A' }: { size?: number; color
   );
 }
 
-function HistoryClockIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+function HistoryClockIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -185,7 +145,7 @@ function HistoryClockIcon({ size = 20, color = '#F0562A' }: { size?: number; col
   );
 }
 
-function ScalesIcon({ size = 22, color = '#F0562A' }: { size?: number; color?: string }) {
+function ScalesIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 3v18M6 7l6-3 6 3M6 7l-3 7h6l-3-7zM18 7l-3 7h6l-3-7zM4 21h16" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -193,7 +153,7 @@ function ScalesIcon({ size = 22, color = '#F0562A' }: { size?: number; color?: s
   );
 }
 
-function TagIcon({ size = 20, color = '#C98200' }: { size?: number; color?: string }) {
+function TagIcon({ size = 20, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -208,7 +168,7 @@ function TagIcon({ size = 20, color = '#C98200' }: { size?: number; color?: stri
   );
 }
 
-function ChevronRight({ size = 18, color = '#4B5563' }: { size?: number; color?: string }) {
+function ChevronRight({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -222,7 +182,7 @@ function ChevronRight({ size = 18, color = '#4B5563' }: { size?: number; color?:
   );
 }
 
-function AlertTriangleIcon({ size = 16, color = '#1D2420' }: { size?: number; color?: string }) {
+function AlertTriangleIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -238,7 +198,7 @@ function AlertTriangleIcon({ size = 16, color = '#1D2420' }: { size?: number; co
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -253,7 +213,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -268,7 +228,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -283,7 +243,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : '#7A726C';
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
@@ -294,11 +254,15 @@ function MoreTabIcon({ active }: { active: boolean }) {
   );
 }
 
+
 // ─── Interfaces ──────────────────────────────────────────────────────────────
-export interface SubWarehouseWalletOperationsScreenProps {
-  warehouseName?: string;
-  onBack?: () => void;
-  onTabChange?: (tab: 'Home' | 'Receiving' | 'Inventory' | 'More') => void;
+/**
+ * Wallet Operations hub, shared by Main and Sub Warehouse.
+ * `scope.warehouseId === undefined` is Main (all warehouses); otherwise the
+ * screen is locked to that warehouse. `can` only decides what is worth
+ * rendering; the server re-checks every permission (CLAUDE.md 2.1).
+ */
+export interface WalletOperationsScreenProps extends WarehouseScreenBaseProps {
   onNavigateToNotifications?: () => void;
   onNavigateToProfile?: () => void;
   onNavigateToCashTopUp?: () => void;
@@ -307,29 +271,27 @@ export interface SubWarehouseWalletOperationsScreenProps {
   onNavigateToDailySummary?: () => void;
 }
 
-export function SubWarehouseWalletOperationsScreen({
-  warehouseName = 'Coonoor Warehouse',
+export function WalletOperationsScreen({
+  scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
-  onNavigateToProfile,
   onNavigateToCashTopUp,
   onNavigateToCustomerSearch,
   onNavigateToTopUpHistory,
   onNavigateToDailySummary,
-}: SubWarehouseWalletOperationsScreenProps) {
+}: WalletOperationsScreenProps) {
   const [activeSubScreen, setActiveSubScreen] = useState<
     'operations' | 'customer_wallet' | 'cash_top_up' | 'fiscal_tag' | 'confirm_top_up' | 'customer_search' | 'top_up_history' | 'daily_summary' | 'needs_attention'
   >('operations');
   const [attentionCategory, setAttentionCategory] = useState<AttentionCategory>('all');
   const [currentFiscalTag, setCurrentFiscalTag] = useState<string>('FC-20260925-0012');
   const [topUpData, setTopUpData] = useState<CashTopUpData | null>(null);
+  // Today's counters: for scope.warehouseId when set (own warehouse), all
+  // warehouses otherwise. Mock values until the wallet-operations API exists.
   const [todayTopUpsCount, setTodayTopUpsCount] = useState<number>(24);
   const [cashCollectedTotal, setCashCollectedTotal] = useState<number>(18500);
-
-  // Cash Top-Up form state
-  const [custSearch, setCustSearch] = useState('');
-  const [topUpAmount, setTopUpAmount] = useState('2000');
   const [selectedCustomer, setSelectedCustomer] = useState({
     name: 'Ravi Kumar',
     code: 'CUS-001245',
@@ -337,9 +299,22 @@ export function SubWarehouseWalletOperationsScreen({
     currentBalance: '₹4,500',
   });
 
+  const isLockedToWarehouse = scope.warehouseId !== undefined;
+  const warehouseLabel = isLockedToWarehouse ? scope.warehouseName ?? '' : 'All Warehouses';
+
+  // BR-18: a cash top-up cannot complete without the fiscal cash tag, so the
+  // flow is only offered to admins who hold both permissions. Server re-checks.
+  const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
+  const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
+
+  // Single entry into the cash top-up sub-screen so no path can bypass the gate.
+  const startCashTopUp = () => {
+    if (!canCashTopUp) return;
+    setActiveSubScreen('cash_top_up');
+  };
+
   // Handle Android hardware back press
   useEffect(() => {
-    if (!onBack) return;
     const backAction = () => {
       if (activeSubScreen !== 'operations') {
         setActiveSubScreen('operations');
@@ -367,9 +342,7 @@ export function SubWarehouseWalletOperationsScreen({
           totalUsed: '₹20,500',
         }}
         onBack={() => setActiveSubScreen('customer_search')}
-        onNavigateToCashTopUp={() => {
-          setActiveSubScreen('cash_top_up');
-        }}
+        onNavigateToCashTopUp={startCashTopUp}
       />
     );
   }
@@ -378,7 +351,7 @@ export function SubWarehouseWalletOperationsScreen({
   if (activeSubScreen === 'cash_top_up') {
     return (
       <SubWarehouseCashTopUpScreen
-        warehouseName={warehouseName}
+        warehouseName={warehouseLabel}
         processedBy="SWA Name"
         initialCustomer={{
           name: selectedCustomer.name || 'Ravi Kumar',
@@ -404,7 +377,7 @@ export function SubWarehouseWalletOperationsScreen({
           currentBalance: topUpData?.currentBalance ?? 4500,
           topUpAmount: topUpData?.topUpAmount ?? 2000,
           fiscalCashTag: currentFiscalTag,
-          warehouseName: warehouseName,
+          warehouseName: warehouseLabel,
           processedBy: 'SWA – Suresh',
         }}
         onBack={() => setActiveSubScreen('cash_top_up')}
@@ -427,7 +400,7 @@ export function SubWarehouseWalletOperationsScreen({
           customerCode: topUpData?.customerCode || selectedCustomer.code || 'CUS-001245',
           currentBalance: topUpData?.currentBalance ?? 4500,
           topUpAmount: topUpData?.topUpAmount ?? 2000,
-          warehouseName: warehouseName,
+          warehouseName: warehouseLabel,
           processedBy: 'SWA – Suresh',
           fiscalCashTag: currentFiscalTag || 'FC-20260925-0012',
           dateStr: '25 Sep 2026',
@@ -446,7 +419,9 @@ export function SubWarehouseWalletOperationsScreen({
   // ─── Sub-Screen Redirection: Customer Search ───
   if (activeSubScreen === 'customer_search') {
     return (
-      <SubWarehouseCustomerSearchScreen
+      <CustomerSearchScreen
+        scope={scope}
+        can={can}
         onBack={() => setActiveSubScreen('operations')}
         onNavigateToWallet={(cust) => {
           setSelectedCustomer({
@@ -466,9 +441,7 @@ export function SubWarehouseWalletOperationsScreen({
           });
           setActiveSubScreen('customer_wallet');
         }}
-        onNavigateToCashTopUp={() => {
-          setActiveSubScreen('cash_top_up');
-        }}
+        onNavigateToCashTopUp={startCashTopUp}
       />
     );
   }
@@ -500,14 +473,14 @@ export function SubWarehouseWalletOperationsScreen({
       <SubWarehouseWalletAttentionScreen
         initialCategory={attentionCategory}
         onBack={() => setActiveSubScreen('operations')}
-        onNavigateToCashTopUp={() => setActiveSubScreen('cash_top_up')}
+        onNavigateToCashTopUp={startCashTopUp}
       />
     );
   }
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <ScrollView
         style={styles.scroll}
@@ -516,22 +489,20 @@ export function SubWarehouseWalletOperationsScreen({
         decelerationRate={0.985}
         bounces={true}
       >
-        {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+        {/* ─── Top Brand Header Banner ─── */}
         <View style={styles.headerBanner}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleGroup}>
-              {onBack && (
-                <TouchableOpacity
-                  style={styles.backBtn}
-                  onPress={onBack}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  accessibilityLabel="Go back"
-                >
-                  <ArrowBackIcon size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              )}
-              <WalletHeaderIcon size={24} color="#FFFFFF" />
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel="Go back"
+              >
+                <ArrowBackIcon size={24} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <WalletHeaderIcon size={24} color={adminColors.onBrand} />
               <Text style={styles.headerTitleText}>Wallet Operations</Text>
             </View>
 
@@ -545,14 +516,16 @@ export function SubWarehouseWalletOperationsScreen({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityLabel="Notifications"
             >
-              <BellIcon size={20} color="#FFFFFF" />
+              <BellIcon size={20} color={adminColors.onBrand} />
             </TouchableOpacity>
           </View>
 
-          {/* Locked Active Warehouse Pill */}
+          {/* Lock + "Active" only when the admin is pinned to one warehouse; Main sees all. */}
           <View style={styles.assignedWarehousePill}>
-            <LockBadgeIcon size={12} color="#FFFFFF" />
-            <Text style={styles.assignedWarehouseText}>{warehouseName} · Active</Text>
+            {isLockedToWarehouse && <LockBadgeIcon size={12} color={adminColors.onBrand} />}
+            <Text style={styles.assignedWarehouseText}>
+              {isLockedToWarehouse ? `${warehouseLabel} · Active` : warehouseLabel}
+            </Text>
           </View>
         </View>
 
@@ -570,7 +543,7 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <CalendarIcon size={20} color={PALETTE.iconBrown} />
+                <CalendarIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={styles.kpiValue}>{todayTopUpsCount}</Text>
               <Text style={styles.kpiLabel}>Today's Top-Ups</Text>
@@ -586,7 +559,7 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <CashIcon size={20} color={PALETTE.iconBrown} />
+                <CashIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={styles.kpiValue}>₹{cashCollectedTotal.toLocaleString('en-IN')}</Text>
               <Text style={styles.kpiLabel}>Cash Collected</Text>
@@ -602,7 +575,7 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <EllipsisPendingIcon size={20} color={PALETTE.iconBrown} />
+                <EllipsisPendingIcon size={20} color={adminColors.brandDeep} />
               </View>
               <Text style={styles.kpiValue}>2</Text>
               <Text style={styles.kpiLabel}>Pending</Text>
@@ -618,9 +591,9 @@ export function SubWarehouseWalletOperationsScreen({
               }}
             >
               <View style={styles.kpiIconWrap}>
-                <ExclamationFailedIcon size={20} color={PALETTE.iconBrown} />
+                <ExclamationFailedIcon size={20} color={adminColors.brandDeep} />
               </View>
-              <Text style={[styles.kpiValue, { color: PALETTE.redAccent }]}>1</Text>
+              <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>1</Text>
               <Text style={styles.kpiLabel}>Failed</Text>
             </TouchableOpacity>
           </View>
@@ -628,23 +601,25 @@ export function SubWarehouseWalletOperationsScreen({
           {/* 2. Quick Actions Section */}
           <Text style={styles.sectionHeading}>Quick Actions</Text>
           <View style={styles.quickActionsRow}>
-            {/* Cash Top-Up */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={() => {
-                if (onNavigateToCashTopUp) {
-                  onNavigateToCashTopUp();
-                } else {
-                  setActiveSubScreen('cash_top_up');
-                }
-              }}
-              activeOpacity={0.75}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <PlusIcon size={20} color={PALETTE.primary} />
-              </View>
-              <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
-            </TouchableOpacity>
+            {/* Cash Top-Up (hidden unless the admin may process + fiscal-tag) */}
+            {canCashTopUp && (
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => {
+                  if (onNavigateToCashTopUp) {
+                    onNavigateToCashTopUp();
+                  } else {
+                    startCashTopUp();
+                  }
+                }}
+                activeOpacity={0.75}
+              >
+                <View style={styles.quickActionIconWrap}>
+                  <PlusIcon size={20} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Find Customer */}
             <TouchableOpacity
@@ -656,7 +631,7 @@ export function SubWarehouseWalletOperationsScreen({
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
-                <UserSearchIcon size={20} color={PALETTE.primary} />
+                <UserSearchIcon size={20} color={adminColors.brand} />
               </View>
               <Text style={styles.quickActionLabel}>Find Customer</Text>
             </TouchableOpacity>
@@ -671,7 +646,7 @@ export function SubWarehouseWalletOperationsScreen({
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
-                <HistoryClockIcon size={20} color={PALETTE.primary} />
+                <HistoryClockIcon size={20} color={adminColors.brand} />
               </View>
               <Text style={styles.quickActionLabel}>Top-Up History</Text>
             </TouchableOpacity>
@@ -687,7 +662,7 @@ export function SubWarehouseWalletOperationsScreen({
             activeOpacity={0.75}
           >
             <View style={styles.dailySummaryIconWrap}>
-              <ScalesIcon size={22} color={PALETTE.primary} />
+              <ScalesIcon size={22} color={adminColors.brand} />
             </View>
             <Text style={styles.dailySummaryLabel}>Daily Summary</Text>
           </TouchableOpacity>
@@ -736,7 +711,7 @@ export function SubWarehouseWalletOperationsScreen({
             }}
             activeOpacity={0.7}
           >
-            <AlertTriangleIcon size={16} color={PALETTE.textInk} />
+            <AlertTriangleIcon size={16} color={adminColors.ink} />
             <Text style={styles.needsAttentionHeading}>Needs Attention</Text>
           </TouchableOpacity>
 
@@ -750,15 +725,15 @@ export function SubWarehouseWalletOperationsScreen({
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.attentionLeftStripe, { backgroundColor: '#C98200' }]} />
+              <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.warning.text }]} />
               <View style={styles.attentionLeftWrap}>
-                <EllipsisPendingIcon size={20} color="#C98200" />
+                <EllipsisPendingIcon size={20} color={adminColors.warning.text} />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Pending top-up</Text>
                   <Text style={styles.attentionSub}>1 transaction awaiting verification</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color="#4B5563" />
+              <ChevronRight size={18} color={adminColors.muted} />
             </TouchableOpacity>
 
             {/* 2. Failed transaction */}
@@ -770,36 +745,38 @@ export function SubWarehouseWalletOperationsScreen({
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.attentionLeftStripe, { backgroundColor: '#E04353' }]} />
+              <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.danger.text }]} />
               <View style={styles.attentionLeftWrap}>
-                <ExclamationFailedIcon size={20} color="#E04353" />
+                <ExclamationFailedIcon size={20} color={adminColors.danger.text} />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Failed transaction</Text>
                   <Text style={styles.attentionSub}>1 top-up did not complete</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color="#E04353" />
+              <ChevronRight size={18} color={adminColors.danger.text} />
             </TouchableOpacity>
 
             {/* 3. Missing fiscal tag */}
-            <TouchableOpacity
-              style={styles.attentionRowCard}
-              onPress={() => {
-                setAttentionCategory('fiscal');
-                setActiveSubScreen('needs_attention');
-              }}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.attentionLeftStripe, { backgroundColor: '#C98200' }]} />
-              <View style={styles.attentionLeftWrap}>
-                <TagIcon size={20} color="#C98200" />
-                <View style={styles.attentionTextWrap}>
-                  <Text style={styles.attentionTitle}>Missing fiscal tag</Text>
-                  <Text style={styles.attentionSub}>1 transaction needs review</Text>
+            {canFiscalTag && (
+              <TouchableOpacity
+                style={styles.attentionRowCard}
+                onPress={() => {
+                  setAttentionCategory('fiscal');
+                  setActiveSubScreen('needs_attention');
+                }}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.warning.text }]} />
+                <View style={styles.attentionLeftWrap}>
+                  <TagIcon size={20} color={adminColors.warning.text} />
+                  <View style={styles.attentionTextWrap}>
+                    <Text style={styles.attentionTitle}>Missing fiscal tag</Text>
+                    <Text style={styles.attentionSub}>1 transaction needs review</Text>
+                  </View>
                 </View>
-              </View>
-              <ChevronRight size={18} color="#4B5563" />
-            </TouchableOpacity>
+                <ChevronRight size={18} color={adminColors.muted} />
+              </TouchableOpacity>
+            )}
 
             {/* 4. Reconciliation discrepancy */}
             <TouchableOpacity
@@ -810,15 +787,15 @@ export function SubWarehouseWalletOperationsScreen({
               }}
               activeOpacity={0.75}
             >
-              <View style={[styles.attentionLeftStripe, { backgroundColor: '#C98200' }]} />
+              <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.warning.text }]} />
               <View style={styles.attentionLeftWrap}>
-                <ScalesIcon size={20} color="#C98200" />
+                <ScalesIcon size={20} color={adminColors.warning.text} />
                 <View style={styles.attentionTextWrap}>
                   <Text style={styles.attentionTitle}>Reconciliation discrepancy</Text>
                   <Text style={styles.attentionSub}>Yesterday's cash count</Text>
                 </View>
               </View>
-              <ChevronRight size={18} color="#4B5563" />
+              <ChevronRight size={18} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -830,7 +807,7 @@ export function SubWarehouseWalletOperationsScreen({
           style={styles.tabItem}
           onPress={() => {
             if (onTabChange) onTabChange('Home');
-            else if (onBack) onBack();
+            else onBack();
           }}
           activeOpacity={0.7}
           accessibilityRole="tab"
@@ -878,29 +855,28 @@ export function SubWarehouseWalletOperationsScreen({
     </SafeAreaView>
   );
 }
-
 // ─── Stylesheet ───────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   scroll: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: adminSpacing.xl,
   },
   mainContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
   },
 
-  // ─── Top Brand Header Banner (#F0562A) ──────────────────────────────────────
+  // ─── Top Brand Header Banner ────────────────────────────────────────────────
   headerBanner: {
-    backgroundColor: PALETTE.primary,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: Platform.OS === 'android' ? 14 : 10,
     paddingBottom: 20,
   },
@@ -912,27 +888,25 @@ const styles = StyleSheet.create({
   headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   backBtn: {
     marginRight: 2,
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
     paddingHorizontal: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleText: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
-    letterSpacing: -0.2,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   headerIconBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    // Was white at 20% over the orange header; no overlay token, so a solid darker brand disc.
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -940,20 +914,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.40)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5.5,
-    marginTop: 12,
+    // Was white 20% fill + white 40% border; solid brandDeep, no border.
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 6,
+    marginTop: adminSpacing.md,
     gap: 6,
   },
   assignedWarehouseText: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
   },
 
   // ─── KPI 2x2 Grid ──────────────────────────────────────────────────────────
@@ -961,43 +932,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: adminSpacing.md,
     marginBottom: 20,
   },
   kpiCard: {
     width: '48.2%',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   kpiIconWrap: {
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   kpiValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-    letterSpacing: -0.4,
-    marginBottom: 4,
-    fontFamily: 'Poppins',
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
   },
   kpiLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
 
   // ─── Section Headings ──────────────────────────────────────────────────────
   sectionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-    marginBottom: 12,
-    letterSpacing: -0.2,
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
   },
 
   // ─── Quick Actions ─────────────────────────────────────────────────────────
@@ -1009,52 +972,48 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     paddingVertical: 18,
-    paddingHorizontal: 4,
+    paddingHorizontal: adminSpacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
   },
   quickActionIconWrap: {
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   quickActionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     textAlign: 'center',
-    fontFamily: 'Poppins',
   },
   dailySummaryCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     marginBottom: 20,
   },
   dailySummaryIconWrap: {
     marginBottom: 6,
   },
   dailySummaryLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    fontFamily: 'Poppins',
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
 
   // ─── Recent Top-Ups ────────────────────────────────────────────────────────
   recentTopUpCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     marginBottom: 20,
   },
   recentTopUpTopRow: {
@@ -1063,66 +1022,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   recentCustomerName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: PALETTE.customerBrown,
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   completedBadge: {
-    backgroundColor: PALETTE.greenBadge,
-    borderRadius: 12,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: adminSpacing.xs,
   },
   completedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.greenText,
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
   recentCustCode: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
-    marginBottom: 12,
-    fontFamily: 'Poppins',
+    marginBottom: adminSpacing.md,
   },
   recentTagAndAmountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: adminSpacing.xs,
   },
   recentFiscalTag: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: '#4A5568',
-    fontFamily: 'Poppins',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   recentAmount: {
-    fontSize: 19,
-    fontWeight: '900',
-    color: PALETTE.textInk,
-    fontFamily: 'Poppins',
+    ...adminType.title,
+    color: adminColors.ink,
   },
   recentBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: adminSpacing.xs,
   },
   recentTypeAndDate: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   recentDateText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
-    fontFamily: 'Poppins',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
 
   // ─── Needs Attention ───────────────────────────────────────────────────────
@@ -1130,37 +1075,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   needsAttentionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1D2420',
-    letterSpacing: -0.2,
-    fontFamily: 'Poppins',
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
   },
   needsAttentionList: {
-    gap: 12,
+    gap: adminSpacing.md,
     marginBottom: 20,
   },
   attentionRowCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     paddingVertical: 14,
     paddingLeft: 18,
-    paddingRight: 16,
+    paddingRight: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#EAE6DF',
+    borderColor: adminColors.border,
     overflow: 'hidden',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   attentionLeftStripe: {
     position: 'absolute',
@@ -1168,8 +1106,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 5,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
+    borderTopLeftRadius: adminRadius.xl,
+    borderBottomLeftRadius: adminRadius.xl,
   },
   attentionLeftWrap: {
     flexDirection: 'row',
@@ -1181,30 +1119,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   attentionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1D2420',
-    fontFamily: 'Poppins',
-    lineHeight: 20,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   attentionSub: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#1D2420',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
-    fontFamily: 'Poppins',
-    lineHeight: 18,
   },
 
   // ─── Bottom Navigation Bar ──────────────────────────────────────────────────
   bottomTabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingTop: 8,
+    borderTopColor: adminColors.border,
+    paddingTop: adminSpacing.sm,
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingHorizontal: 4,
+    paddingHorizontal: adminSpacing.xs,
   },
   tabItem: {
     flex: 1,
@@ -1213,220 +1145,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   tabLabel: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
-    marginTop: 4,
-    fontFamily: 'Poppins',
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   tabLabelActive: {
-    color: PALETTE.primary,
-    fontWeight: '700',
-  },
-
-  // ─── Modal Styles ──────────────────────────────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 32,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  modalCloseText: {
-    fontSize: 18,
-    color: PALETTE.textSecondary,
-    padding: 4,
-  },
-  modalSub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    marginBottom: 14,
-  },
-  customerBox: {
-    backgroundColor: PALETTE.primaryLight,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  customerBoxName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  customerBoxSub: {
-    fontSize: 11,
-    color: PALETTE.textSecondary,
-    marginTop: 2,
-  },
-  balanceBadge: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  balanceBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.primary,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 8,
-  },
-  quickAmountRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  amtChip: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    alignItems: 'center',
-    backgroundColor: '#FAF7F2',
-  },
-  amtChipActive: {
-    borderColor: PALETTE.primary,
-    backgroundColor: PALETTE.primarySoft,
-  },
-  amtChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textSecondary,
-  },
-  amtChipTextActive: {
-    color: PALETTE.primary,
-    fontWeight: '800',
-  },
-  amountInput: {
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 16,
-  },
-  confirmBtn: {
-    backgroundColor: PALETTE.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  confirmBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  searchInput: {
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: PALETTE.textInk,
-  },
-  searchedCustRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: PALETTE.divider,
-  },
-  custRowName: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  custRowCode: {
-    fontSize: 11,
-    color: PALETTE.textSecondary,
-  },
-  custRowBal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.primary,
-  },
-  historyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: PALETTE.divider,
-  },
-  historyName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  historyTag: {
-    fontSize: 11,
-    color: PALETTE.textMuted,
-  },
-  historyAmt: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  historyStatus: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: PALETTE.greenText,
-  },
-  summaryBreakdown: {
-    backgroundColor: '#FAF7F2',
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
-    marginBottom: 14,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 12.5,
-    color: PALETTE.textSecondary,
-  },
-  summaryVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  attentionModalBody: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    lineHeight: 19,
-    marginVertical: 14,
+    color: adminColors.brand,
   },
 });

@@ -1,3 +1,13 @@
+/**
+ * MoreScreen: ONE shared "More" menu for Main Warehouse admins (scope = all
+ * warehouses, `scope.warehouseId === undefined`) and Sub Warehouse admins.
+ *
+ * The role difference is data, not a second file: the profile card and header
+ * are derived from `scope`, and the menu is built from `can()` against
+ * docs/rbac.json codes. `can` only decides what is worth rendering; the server
+ * re-checks every permission (CLAUDE.md 2.1).
+ */
+
 import React, { useState } from 'react';
 import {
   Alert,
@@ -11,80 +21,25 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SubWarehouseSettingsScreen } from '../../../subwarehouse/screens/SubWarehouseSettingsScreen';
-import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
-import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
-import type { PermissionCheck, WarehouseScope } from '../warehouse/finance-expenses';
-import { MainWarehouseVouchersScreen } from './MainWarehouseVouchersScreen';
-import { SubWarehouseHelpSupportScreen } from '../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
-import { SubWarehouseWarehouseOperationsScreen } from '../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
-import { MainWarehouseWalletOperationsScreen } from './MainWarehouseWalletOperationsScreen';
-import { MainWarehouseReturnsIssuesScreen } from './MainWarehouseReturnsIssuesScreen';
-import { MainWarehouseReturnHistoryScreen } from './MainWarehouseReturnHistoryScreen';
-import { MainWarehouseProfileScreen } from './MainWarehouseProfileScreen';
-import { MainWarehouseNotificationsScreen } from './MainWarehouseNotificationsScreen';
-import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
-import { MainWarehouseAttendanceScreen } from './MainWarehouseAttendanceScreen';
-import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
-import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
-import { SubWarehouseCustomersScreen } from '../../../subwarehouse/screens/SubWarehouseCustomersScreen';
+import { SubWarehouseSettingsScreen } from '../../../../subwarehouse/screens/SubWarehouseSettingsScreen';
+import { SubWarehouseReportsScreen } from '../../../../subwarehouse/screens/SubWarehouseReportsScreen';
+import { SubWarehouseFinanceScreen } from '../../../../subwarehouse/screens/SubWarehouseFinanceScreen';
+import { SubWarehouseVouchersScreen } from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
+import { SubWarehouseHelpSupportScreen } from '../../../../subwarehouse/screens/SubWarehouseHelpSupportScreen';
+import { SubWarehouseWarehouseOperationsScreen } from '../../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
+import { SubWarehouseCustomersScreen } from '../../../../subwarehouse/screens/SubWarehouseCustomersScreen';
+import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import type { MoreOptionItem, OptionGroup } from './types';
 
-// ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
-const PALETTE = {
-  primary: '#F0562A',
-  primaryDark: '#F0562A',
-  primaryLight: '#FFF0EB',
-  peachBg: '#FDF0EB',
-  iconColor: '#8B5E3C',
-
-  pageBg: '#FAF7F2',
-  cardBg: '#FFFFFF',
-  textDark: '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted: '#9CA3AF',
-  border: '#EBE5DC',
-  divider: '#F4EFE9',
-
-  activeGreen: '#059669',
-  logoutBg: '#FEE2E2',
-  logoutText: '#DC2626',
-  tabInactive: '#786F66',
-  tabBorder: '#EAE4DB',
+// Menu items whose visibility depends on a docs/rbac.json permission. Items not
+// listed here are shown to every warehouse admin. The server re-checks each of
+// these when the destination screen loads its data.
+const ITEM_PERMISSION: Readonly<Record<string, string>> = {
+  staff: 'admin.staff.list_view',
+  finance: 'finance.dashboard.view',
+  reports: 'report.export.file',
 };
-
-type MainWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
-
-export interface MoreOptionItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  iconType:
-  | 'orders'
-  | 'sales'
-  | 'customers'
-  | 'wallet'
-  | 'billing'
-  | 'returns'
-  | 'finance'
-  | 'reports'
-  | 'notifications'
-  | 'staff'
-  | 'attendance'
-  | 'profile'
-  | 'settings'
-  | 'warehouse_operations'
-  | 'help';
-  iconBg?: string;
-  iconColor?: string;
-  badge?: string;
-  badgeType?: 'alert' | 'success' | 'neutral' | string;
-}
-
-export interface OptionGroup {
-  id: string;
-  title: string;
-  items: MoreOptionItem[];
-}
 
 const OPTION_GROUPS: OptionGroup[] = [
   {
@@ -138,8 +93,6 @@ const OPTION_GROUPS: OptionGroup[] = [
         title: 'Warehouse Finance',
         subtitle: 'View warehouse financial activity',
         iconType: 'finance',
-        iconBg: '#FFF0EB',
-        iconColor: '#F0562A',
       },
       {
         id: 'reports',
@@ -187,45 +140,25 @@ const OPTION_GROUPS: OptionGroup[] = [
         id: 'orders',
         title: 'Customer Orders',
         subtitle: 'Fulfillment queue, packing slips & dispatch statuses',
-        badge: '8 Pending',
-        badgeType: 'alert',
         iconType: 'orders',
-        iconBg: '#FFF0EB',
-        iconColor: '#F0562A',
       },
       {
         id: 'sales',
         title: 'Direct / Market Sales',
         subtitle: 'Point-of-sale registers, stall batches & daily totals',
-        badge: '₹24,850 Today',
-        badgeType: 'success',
         iconType: 'sales',
-        iconBg: '#DCFCE7',
-        iconColor: '#15803D',
       },
     ],
   },
 ];
 
-function BackArrowWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 6L6 18M6 6l12 12"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -235,7 +168,7 @@ function CloseIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: st
   );
 }
 
-function ChevronRightIcon({ size = 16, color = '#8B5E3C' }: { size?: number; color?: string }) {
+function ChevronRightIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -249,7 +182,7 @@ function ChevronRightIcon({ size = 16, color = '#8B5E3C' }: { size?: number; col
   );
 }
 
-function WarehouseOutlineIcon({ color = '#8B5E3C', size = 22 }: { color?: string; size?: number }) {
+function WarehouseOutlineIcon({ color = adminColors.muted, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -276,7 +209,7 @@ function WarehouseOutlineIcon({ color = '#8B5E3C', size = 22 }: { color?: string
   );
 }
 
-function CustomerOrdersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function CustomerOrdersIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -292,7 +225,7 @@ function CustomerOrdersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; 
   );
 }
 
-function MarketSalesIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function MarketSalesIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -309,7 +242,7 @@ function MarketSalesIcon({ color = '#8B5E3C', size = 20 }: { color?: string; siz
   );
 }
 
-function CustomersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function CustomersIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -334,7 +267,7 @@ function CustomersIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?
   );
 }
 
-function WalletIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function WalletIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -356,7 +289,7 @@ function WalletIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: n
   );
 }
 
-function InvoicesIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function InvoicesIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -377,7 +310,7 @@ function InvoicesIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?:
   );
 }
 
-function ReturnsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function ReturnsIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="2" />
@@ -392,7 +325,7 @@ function ReturnsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: 
   );
 }
 
-function FinanceIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function FinanceIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -406,7 +339,7 @@ function FinanceIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: 
   );
 }
 
-function ReportsIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: number }) {
+function ReportsIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -421,7 +354,7 @@ function ReportsIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: 
   );
 }
 
-function NotificationsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function NotificationsIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -435,7 +368,7 @@ function NotificationsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; s
   );
 }
 
-function StaffIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function StaffIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="5" width="16" height="15" rx="2" stroke={color} strokeWidth="2" />
@@ -446,7 +379,7 @@ function StaffIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: nu
   );
 }
 
-function AttendanceIcon({ color = '#10B981' }: { color?: string }) {
+function AttendanceIcon({ color = adminColors.success.text }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
@@ -456,11 +389,11 @@ function AttendanceIcon({ color = '#10B981' }: { color?: string }) {
   );
 }
 
-function WarehouseProfileIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function WarehouseProfileIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return <WarehouseOutlineIcon color={color} size={size} />;
 }
 
-function SettingsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function SettingsIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
@@ -475,7 +408,7 @@ function SettingsIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?:
   );
 }
 
-function HelpSupportIcon({ color = '#8B5E3C', size = 20 }: { color?: string; size?: number }) {
+function HelpSupportIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -491,28 +424,7 @@ function HelpSupportIcon({ color = '#8B5E3C', size = 20 }: { color?: string; siz
   );
 }
 
-function OrdersIcon({ color = '#F0562A', size = 20 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M16 17l5-5-5-5M21 12H9"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: number }) {
+function LogoutIcon({ color = adminColors.danger.text, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -520,7 +432,7 @@ function LogoutIcon({ color = '#DC2626', size = 20 }: { color?: string; size?: n
   );
 }
 
-function WarehouseOperationsIcon({ color = '#4F46E5' }: { color?: string }) {
+function WarehouseOperationsIcon({ color = adminColors.muted }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -529,7 +441,7 @@ function WarehouseOperationsIcon({ color = '#4F46E5' }: { color?: string }) {
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
@@ -551,7 +463,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4" width="16" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -567,7 +479,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -577,7 +489,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -593,17 +505,14 @@ function MoreTabIcon({ active }: { active: boolean }) {
   );
 }
 
-export interface MainWarehouseMoreScreenProps {
-  /** Warehouse scope handed to shared warehouse screens (Main = all warehouses). */
-  scope: WarehouseScope;
-  /** docs/rbac.json permission check for the signed-in admin. */
-  can: PermissionCheck;
-  onBack?: (() => void) | undefined;
+export interface MoreScreenProps extends WarehouseScreenBaseProps {
+  /** Overrides the default `onBack` fallback chain for the header arrow. */
   onNavigateToDashboard?: (() => void) | undefined;
-  onTabChange?: ((tab: MainWHTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToProfile?: (() => void) | undefined;
   onSelectModule?: ((moduleId: string) => void) | undefined;
+  /** When set, the profile card is tappable (Main Warehouse opens its admin hub from here). */
+  onProfileCardPress?: (() => void) | undefined;
 
   // Specific module handlers
   onNavigateToOrders?: (() => void) | undefined;
@@ -620,10 +529,18 @@ export interface MainWarehouseMoreScreenProps {
   onNavigateToSettings?: (() => void) | undefined;
   onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
+  onNavigateToStorageLocations?: (() => void) | undefined;
+  onNavigateToCapacity?: (() => void) | undefined;
+  onNavigateToMaterialHandling?: (() => void) | undefined;
+  onNavigateToOperationalIssues?: (() => void) | undefined;
+  onNavigateToWarehouseActivity?: (() => void) | undefined;
+  onNavigateToTodayOperations?: (() => void) | undefined;
+  onNavigateToReceiveGoods?: (() => void) | undefined;
+  onNavigateToStockVerification?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
 }
 
-export function MainWarehouseMoreScreen({
+export function MoreScreen({
   scope,
   can,
   onBack,
@@ -632,6 +549,7 @@ export function MainWarehouseMoreScreen({
   onNavigateToNotifications,
   onNavigateToProfile,
   onSelectModule,
+  onProfileCardPress,
   onNavigateToOrders,
   onNavigateToSales,
   onNavigateToCustomers,
@@ -646,18 +564,37 @@ export function MainWarehouseMoreScreen({
   onNavigateToSettings,
   onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
+  onNavigateToStorageLocations,
+  onNavigateToCapacity,
+  onNavigateToMaterialHandling,
+  onNavigateToOperationalIssues,
+  onNavigateToWarehouseActivity,
+  onNavigateToTodayOperations,
+  onNavigateToReceiveGoods,
+  onNavigateToStockVerification,
   onLogout,
-}: MainWarehouseMoreScreenProps) {
+}: MoreScreenProps) {
+  const isMain = scope.warehouseId === undefined;
+  // Derived from scope, never hard-coded: Main spans every warehouse.
+  const warehouseLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? '';
+  const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
+
+  // Hide gated rows and any group left empty. Display only: the server enforces.
+  const visibleGroups: OptionGroup[] = OPTION_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      const code = ITEM_PERMISSION[item.id];
+      return code === undefined || can(code);
+    }),
+  })).filter((group) => group.items.length > 0);
+
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showHelpSupportScreen, setShowHelpSupportScreen] = useState(false);
   const [showWarehouseOperationsScreen, setShowWarehouseOperationsScreen] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
-  const [showWalletOperationsScreen, setShowWalletOperationsScreen] = useState(false);
-  const [showReturnsScreen, setShowReturnsScreen] = useState(false);
-  const [showReturnHistoryScreen, setShowReturnHistoryScreen] = useState(false);
-  const [showProfileScreen, setShowProfileScreen] = useState(false);
+  const [showCustomersScreen, setShowCustomersScreen] = useState(false);
 
   const handleBackToDashboard = () => {
     if (onNavigateToDashboard) {
@@ -668,15 +605,8 @@ export function MainWarehouseMoreScreen({
       onBack();
     }
   };
-  const [showNotificationsScreen, setShowNotificationsScreen] = useState(false);
-  const [showStaffScreen, setShowStaffScreen] = useState(false);
-  const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
-  const [showAdminScreen, setShowAdminScreen] = useState(false);
-  const [showCustomerOrdersScreen, setShowCustomerOrdersScreen] = useState(false);
-  const [showCustomersScreen, setShowCustomersScreen] = useState(false);
 
-
-  const handleTabPress = (tab: MainWHTab) => {
+  const handleTabPress = (tab: WarehouseTab) => {
     if (tab === 'More') return;
     if (onTabChange) {
       onTabChange(tab);
@@ -692,11 +622,8 @@ export function MainWarehouseMoreScreen({
 
     switch (item.id) {
       case 'orders':
-        if (onNavigateToOrders) {
-          onNavigateToOrders();
-        } else {
-          setShowCustomerOrdersScreen(true);
-        }
+        if (onNavigateToOrders) onNavigateToOrders();
+        else Alert.alert(item.title, 'Opening Customer Orders & Fulfillment...');
         break;
       case 'sales':
         if (onNavigateToSales) onNavigateToSales();
@@ -710,11 +637,8 @@ export function MainWarehouseMoreScreen({
         }
         break;
       case 'wallet':
-        if (onNavigateToWallet) {
-          onNavigateToWallet();
-        } else {
-          setShowWalletOperationsScreen(true);
-        }
+        if (onNavigateToWallet) onNavigateToWallet();
+        else Alert.alert(item.title, 'Opening Wallet & Cash Top-Up...');
         break;
       case 'billing':
         if (onNavigateToBilling) {
@@ -724,18 +648,12 @@ export function MainWarehouseMoreScreen({
         }
         break;
       case 'returns':
-        if (onNavigateToReturns) {
-          onNavigateToReturns();
-        } else {
-          setShowReturnsScreen(true);
-        }
+        if (onNavigateToReturns) onNavigateToReturns();
+        else Alert.alert(item.title, 'Opening Returns & Issues...');
         break;
       case 'return_history':
-        if (onNavigateToReturnHistory) {
-          onNavigateToReturnHistory();
-        } else {
-          setShowReturnHistoryScreen(true);
-        }
+        if (onNavigateToReturnHistory) onNavigateToReturnHistory();
+        else Alert.alert(item.title, 'Opening Return History...');
         break;
       case 'finance':
         if (onNavigateToFinance) {
@@ -752,33 +670,21 @@ export function MainWarehouseMoreScreen({
         }
         break;
       case 'notifications':
-        if (onNavigateToNotifications) {
-          onNavigateToNotifications();
-        } else {
-          setShowNotificationsScreen(true);
-        }
+        if (onNavigateToNotifications) onNavigateToNotifications();
+        else Alert.alert(item.title, 'Opening Notifications & Tasks...');
         break;
       case 'staff':
-        if (onNavigateToStaff) {
-          onNavigateToStaff();
-        } else {
-          setShowStaffScreen(true);
-        }
+        if (onNavigateToStaff) onNavigateToStaff();
+        else Alert.alert(item.title, 'Opening Warehouse Staff...');
         break;
       case 'attendance':
       case 'today_attendance':
-        if (onNavigateToAttendance) {
-          onNavigateToAttendance();
-        } else {
-          setShowAttendanceScreen(true);
-        }
+        if (onNavigateToAttendance) onNavigateToAttendance();
+        else Alert.alert(item.title, "Opening Today's Attendance...");
         break;
       case 'profile':
-        if (onNavigateToProfile) {
-          onNavigateToProfile();
-        } else {
-          setShowProfileScreen(true);
-        }
+        if (onNavigateToProfile) onNavigateToProfile();
+        else Alert.alert(item.title, 'Opening Warehouse Profile...');
         break;
       case 'settings':
         if (onNavigateToSettings) {
@@ -827,52 +733,39 @@ export function MainWarehouseMoreScreen({
   const renderOptionIcon = (type: MoreOptionItem['iconType']) => {
     switch (type) {
       case 'orders':
-        return <CustomerOrdersIcon color={PALETTE.iconColor} size={20} />;
+        return <CustomerOrdersIcon color={adminColors.muted} size={20} />;
       case 'sales':
-        return <MarketSalesIcon color={PALETTE.iconColor} size={20} />;
+        return <MarketSalesIcon color={adminColors.muted} size={20} />;
       case 'customers':
-        return <CustomersIcon color={PALETTE.iconColor} size={20} />;
+        return <CustomersIcon color={adminColors.muted} size={20} />;
       case 'wallet':
-        return <WalletIcon color={PALETTE.iconColor} size={20} />;
+        return <WalletIcon color={adminColors.muted} size={20} />;
       case 'billing':
-        return <InvoicesIcon color={PALETTE.iconColor} size={20} />;
+        return <InvoicesIcon color={adminColors.muted} size={20} />;
       case 'returns':
-        return <ReturnsIcon color={PALETTE.iconColor} size={20} />;
+        return <ReturnsIcon color={adminColors.muted} size={20} />;
       case 'finance':
-        return <FinanceIcon color={PALETTE.iconColor} size={20} />;
+        return <FinanceIcon color={adminColors.muted} size={20} />;
       case 'reports':
-        return <ReportsIcon color={PALETTE.iconColor} size={20} />;
+        return <ReportsIcon color={adminColors.muted} size={20} />;
       case 'notifications':
-        return <NotificationsIcon color={PALETTE.iconColor} size={20} />;
+        return <NotificationsIcon color={adminColors.muted} size={20} />;
       case 'staff':
-        return <StaffIcon color={PALETTE.iconColor} size={20} />;
+        return <StaffIcon color={adminColors.muted} size={20} />;
       case 'attendance':
-        return <AttendanceIcon color={PALETTE.iconColor} />;
+        return <AttendanceIcon color={adminColors.muted} />;
       case 'profile':
-        return <WarehouseProfileIcon color={PALETTE.iconColor} size={20} />;
+        return <WarehouseProfileIcon color={adminColors.muted} size={20} />;
       case 'settings':
-        return <SettingsIcon color={PALETTE.iconColor} size={20} />;
+        return <SettingsIcon color={adminColors.muted} size={20} />;
       case 'help':
-        return <HelpSupportIcon color={PALETTE.iconColor} size={20} />;
+        return <HelpSupportIcon color={adminColors.muted} size={20} />;
       case 'warehouse_operations':
-        return <WarehouseOperationsIcon color={PALETTE.iconColor} />;
+        return <WarehouseOperationsIcon color={adminColors.muted} />;
       default:
-        return <WarehouseOutlineIcon color={PALETTE.iconColor} size={20} />;
+        return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
     }
   };
-
-  if (showCustomerOrdersScreen) {
-    return (
-      <MainWarehouseCustomerOrdersScreen
-        onBack={() => setShowCustomerOrdersScreen(false)}
-        onTabChange={onTabChange}
-      />
-    );
-  }
-
-  if (showAdminScreen) {
-    return <MainWarehouseAdminScreen onBack={() => setShowAdminScreen(false)} />;
-  }
 
   if (showSettingsScreen) {
     return (
@@ -883,38 +776,29 @@ export function MainWarehouseMoreScreen({
     );
   }
 
-  if (showReturnsScreen) {
-    return <MainWarehouseReturnsIssuesScreen onBack={() => setShowReturnsScreen(false)} />;
-  }
-
-  if (showReturnHistoryScreen) {
-    return <MainWarehouseReturnHistoryScreen onBack={() => setShowReturnHistoryScreen(false)} />;
-  }
-
-  if (showProfileScreen) {
-    return <MainWarehouseProfileScreen onBack={() => setShowProfileScreen(false)} />;
-  }
-
   if (showReportsScreen) {
     return (
-      <MainWarehouseReportsScreen
+      <SubWarehouseReportsScreen
         onBack={() => setShowReportsScreen(false)}
+        onTabChange={onTabChange}
+        onNavigateToNotifications={onNavigateToNotifications}
       />
     );
   }
 
   if (showVouchersScreen) {
     return (
-      <MainWarehouseVouchersScreen
+      <SubWarehouseVouchersScreen
+        warehouseName={warehouseLabel}
         onBack={() => setShowVouchersScreen(false)}
-        onVoucherPress={(_id) => {}}
+        onTabChange={onTabChange}
       />
     );
   }
 
   if (showFinanceScreen) {
     return (
-      <MainWarehouseFinanceScreen
+      <SubWarehouseFinanceScreen
         scope={scope}
         can={can}
         onBack={() => setShowFinanceScreen(false)}
@@ -927,7 +811,7 @@ export function MainWarehouseMoreScreen({
   if (showHelpSupportScreen) {
     return (
       <SubWarehouseHelpSupportScreen
-        warehouseName="Coonoor Warehouse"
+        warehouseName={warehouseLabel}
         onBack={() => setShowHelpSupportScreen(false)}
         onTabChange={onTabChange}
       />
@@ -939,44 +823,62 @@ export function MainWarehouseMoreScreen({
       <SubWarehouseWarehouseOperationsScreen
         onBack={() => setShowWarehouseOperationsScreen(false)}
         onTabChange={onTabChange}
+        onNavigateToReceiveGoods={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToReceiveGoods) onNavigateToReceiveGoods();
+          else onTabChange?.('Receiving');
+        }}
+        onNavigateToStockVerification={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToStockVerification) onNavigateToStockVerification();
+          else onTabChange?.('Inventory');
+        }}
+        onNavigateToStaffAttendance={() => {
+          setShowWarehouseOperationsScreen(false);
+          if (onNavigateToAttendance) onNavigateToAttendance();
+        }}
+        onNavigateToStorageLocations={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToStorageLocations?.();
+        }}
+        onNavigateToCapacity={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToCapacity?.();
+        }}
+        onNavigateToMaterialHandling={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToMaterialHandling?.();
+        }}
+        onNavigateToOperationalIssues={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToOperationalIssues?.();
+        }}
+        onNavigateToWarehouseActivity={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToWarehouseActivity?.();
+        }}
+        onNavigateToTodayOperations={() => {
+          setShowWarehouseOperationsScreen(false);
+          onNavigateToTodayOperations?.();
+        }}
       />
     );
-  }
-
-  if (showWalletOperationsScreen) {
-    return (
-      <MainWarehouseWalletOperationsScreen
-        onBack={() => setShowWalletOperationsScreen(false)}
-        onTabChange={onTabChange as any}
-      />
-    );
-  }
-
-  if (showNotificationsScreen) {
-    return <MainWarehouseNotificationsScreen onBack={() => setShowNotificationsScreen(false)} />;
-  }
-
-  if (showStaffScreen) {
-    return <MainWarehouseStaffScreen onBack={() => setShowStaffScreen(false)} />;
-  }
-
-  if (showAttendanceScreen) {
-    return <MainWarehouseAttendanceScreen initialView="main" onBack={() => setShowAttendanceScreen(false)} />;
   }
 
   if (showCustomersScreen) {
     return (
       <SubWarehouseCustomersScreen
         onBack={() => setShowCustomersScreen(false)}
+        onTabChange={handleTabPress}
       />
     );
   }
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner (#F0562A) ─── */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -985,12 +887,12 @@ export function MainWarehouseMoreScreen({
             activeOpacity={0.75}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+            <ArrowBackIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>More</Text>
-            <Text style={styles.headerSubtitle}>Coonoor Warehouse</Text>
+            <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>
           </View>
         </View>
       </View>
@@ -1001,31 +903,42 @@ export function MainWarehouseMoreScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Profile / Main Warehouse Admin Card ─── */}
-        <TouchableOpacity style={styles.profileCard} onPress={() => setShowAdminScreen(true)} activeOpacity={0.8}>
-          <View style={styles.profileTopRow}>
-            <View style={styles.profileIconWrap}>
-              <WarehouseOutlineIcon color={PALETTE.iconColor} size={22} />
-            </View>
-            <View style={styles.profileInfoCol}>
-              <Text style={styles.profileRoleTitle}>Main Warehouse Admin</Text>
-              <Text style={styles.profileLocationText}>Coonoor Warehouse</Text>
-            </View>
-          </View>
+        {/* ─── Profile Card ─── */}
+        {(() => {
+          const profileContent = (
+            <>
+              <View style={styles.profileTopRow}>
+                <View style={styles.profileIconWrap}>
+                  <WarehouseOutlineIcon color={adminColors.muted} size={22} />
+                </View>
+                <View style={styles.profileInfoCol}>
+                  <Text style={styles.profileRoleTitle}>{roleTitle}</Text>
+                  <Text style={styles.profileLocationText}>{warehouseLabel}</Text>
+                </View>
+              </View>
 
-          <View style={styles.profileDivider} />
+              <View style={styles.profileDivider} />
 
-          <View style={styles.profileBottomRow}>
-            <Text style={styles.warehouseCodeText}>WH-CNR</Text>
-            <View style={styles.activeStatusRow}>
-              <View style={styles.activeDot} />
-              <Text style={styles.activeStatusText}>Active</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+              <View style={styles.profileBottomRow}>
+                {!isMain && <Text style={styles.warehouseCodeText}>{scope.warehouseId}</Text>}
+                <View style={styles.activeStatusRow}>
+                  <View style={styles.activeDot} />
+                  <Text style={styles.activeStatusText}>Active</Text>
+                </View>
+              </View>
+            </>
+          );
+          return onProfileCardPress ? (
+            <TouchableOpacity style={styles.profileCard} onPress={onProfileCardPress} activeOpacity={0.75}>
+              {profileContent}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.profileCard}>{profileContent}</View>
+          );
+        })()}
 
         {/* ─── Grouped Section Cards ─── */}
-        {OPTION_GROUPS.map((group) => {
+        {visibleGroups.map((group) => {
           return (
             <View key={group.id} style={styles.groupContainer}>
               <Text style={styles.groupTitle}>{group.title}</Text>
@@ -1055,7 +968,7 @@ export function MainWarehouseMoreScreen({
 
                         {/* Right Chevron */}
                         <View style={styles.chevronWrap}>
-                          <ChevronRightIcon size={16} color={PALETTE.iconColor} />
+                          <ChevronRightIcon size={16} color={adminColors.muted} />
                         </View>
                       </TouchableOpacity>
 
@@ -1075,7 +988,7 @@ export function MainWarehouseMoreScreen({
           activeOpacity={0.75}
         >
           <View style={styles.logoutIconWrap}>
-            <LogoutIcon color={PALETTE.logoutText} size={20} />
+            <LogoutIcon color={adminColors.danger.text} size={20} />
           </View>
           <View style={styles.itemInfo}>
             <Text style={styles.logoutTitle}>Logout</Text>
@@ -1083,14 +996,14 @@ export function MainWarehouseMoreScreen({
           </View>
         </TouchableOpacity>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
 
       {/* ─── Bottom Navigation Bar ─── */}
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => onTabChange && onTabChange('Home')}
+          onPress={() => handleTabPress('Home')}
           activeOpacity={0.75}
         >
           <HomeTabIcon active={false} />
@@ -1099,7 +1012,7 @@ export function MainWarehouseMoreScreen({
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => onTabChange && onTabChange('Receiving')}
+          onPress={() => handleTabPress('Receiving')}
           activeOpacity={0.75}
         >
           <ReceivingTabIcon active={false} />
@@ -1108,7 +1021,7 @@ export function MainWarehouseMoreScreen({
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => onTabChange && onTabChange('Inventory')}
+          onPress={() => handleTabPress('Inventory')}
           activeOpacity={0.75}
         >
           <InventoryTabIcon active={false} />
@@ -1130,66 +1043,60 @@ export function MainWarehouseMoreScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
-    paddingHorizontal: 20,
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: 10,
-    paddingBottom: 22,
+    paddingBottom: 20,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    // Replaces white at 22% on the orange header: no overlay token exists, so a darker solid disc.
+    backgroundColor: adminColors.brandDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTextCol: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.92)',
+    ...adminType.body,
+    color: adminColors.onBrand,
     marginTop: 2,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
   },
   scroll: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
     paddingBottom: 20,
   },
 
   // ─── Profile Card ───
   profileCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingHorizontal: 16,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: 14,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   profileTopRow: {
     flexDirection: 'row',
@@ -1198,8 +1105,8 @@ const styles = StyleSheet.create({
   profileIconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: PALETTE.peachBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -1208,20 +1115,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileRoleTitle: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: PALETTE.textDark,
+    ...adminType.title,
+    color: adminColors.ink,
   },
   profileLocationText: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
     marginTop: 2,
   },
   profileDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
-    marginVertical: 12,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
   },
   profileBottomRow: {
     flexDirection: 'row',
@@ -1229,9 +1134,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   warehouseCodeText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#5C544E',
+    ...adminType.rowTitle,
+    color: adminColors.muted,
   },
   activeStatusRow: {
     flexDirection: 'row',
@@ -1242,37 +1146,30 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: PALETTE.activeGreen,
+    backgroundColor: adminColors.success.text,
   },
   activeStatusText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: PALETTE.activeGreen,
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
 
   // ─── Group Container ───
   groupContainer: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   groupTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#5C544E',
-    letterSpacing: 0.6,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
     marginLeft: 2,
   },
   groupCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
     overflow: 'hidden',
   },
   itemRow: {
@@ -1284,25 +1181,23 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 42,
     height: 42,
-    borderRadius: 12,
-    backgroundColor: PALETTE.peachBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 13,
   },
   itemInfo: {
     flex: 1,
-    paddingRight: 8,
+    paddingRight: adminSpacing.sm,
   },
   itemTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: PALETTE.textDark,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   itemSubtitle: {
-    fontSize: 11.5,
-    color: PALETTE.textSecondary,
-    fontWeight: '400',
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 2,
   },
   chevronWrap: {
@@ -1311,50 +1206,45 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
     marginHorizontal: 14,
   },
 
   // ─── Logout Card ───
   logoutCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   logoutIconWrap: {
     width: 42,
     height: 42,
-    borderRadius: 12,
-    backgroundColor: PALETTE.logoutBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.danger.bg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 13,
   },
   logoutTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: PALETTE.logoutText,
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
   },
 
   // ─── Bottom Navigation ───
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 8,
+    borderTopColor: adminColors.border,
+    paddingVertical: adminSpacing.sm,
     paddingBottom: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.lg,
     justifyContent: 'space-around',
     alignItems: 'center',
   },
@@ -1365,13 +1255,11 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   navLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 3,
   },
   navLabelActive: {
-    color: PALETTE.primary,
-    fontWeight: '700',
+    color: adminColors.brand,
   },
 });

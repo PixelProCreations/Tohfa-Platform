@@ -73,3 +73,18 @@ export {
   type WarehouseScreenBaseProps,
   type WarehouseTab,
 } from './finance-expenses';
+
+// Shared Main/Sub warehouse screens, W2 batch B (scope + can props).
+export {
+  MoreScreen,
+  type MoreOptionItem,
+  type MoreScreenProps,
+  type OptionGroup,
+} from './dashboard-home-more';
+export {
+  CustomerSearchScreen,
+  type CustomerSearchItem,
+  type CustomerSearchScreenProps,
+} from './customers';
+export { GSTInvoiceScreen, type GSTInvoiceScreenProps } from './billing-invoices';
+export { WalletOperationsScreen, type WalletOperationsScreenProps } from './wallet-cashtopup';

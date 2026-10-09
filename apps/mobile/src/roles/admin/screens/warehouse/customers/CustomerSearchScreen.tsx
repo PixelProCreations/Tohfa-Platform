@@ -1,3 +1,11 @@
+/**
+ * Customer Search: find a customer to view their wallet or take a cash top-up.
+ *
+ * Serves both Main Warehouse admins (scope.warehouseId undefined = all
+ * warehouses) and Sub Warehouse admins (one warehouse). The whole screen is
+ * gated by 'customer.list.view'. This is presentation only; the server
+ * re-checks the code and the warehouse scope on every request (CLAUDE.md 2.1).
+ */
 import React, { useState } from 'react';
 import {
   Alert,
@@ -12,28 +20,12 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
+import { SubWarehouseCustomerWalletScreen } from '../../../../subwarehouse/screens/SubWarehouseCustomerWalletScreen';
+import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
+import type { WarehouseScreenBaseProps } from '../finance-expenses';
+import type { CustomerSearchItem } from './types';
 
-// ─── Design Tokens (#F0562A Existing Orange Palette) ─────────────────────────
-const PALETTE = {
-  primary:       '#F0562A',
-  pageBg:        '#FAF7F2',
-  cardBg:        '#FFFFFF',
-  textInk:       '#1E1612',
-  textSecondary: '#7A726C',
-  textMuted:     '#9CA3AF',
-  textBody:      '#374151',
-  border:        '#EBE5DC',
-  divider:       '#F4EFE9',
-  greenBadge:    '#E6F5ED',
-  greenText:     '#10B981',
-
-  orangeNoticeBg:     '#FFF5F2',
-  orangeNoticeBorder: '#FED7AA',
-  orangeNoticeText:   '#C2410C',
-};
-
-function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -47,7 +39,7 @@ function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-function SearchIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -67,7 +59,7 @@ function SearchIcon({ size = 18, color = '#7A726C' }: { size?: number; color?: s
   );
 }
 
-function QrScanIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: string }) {
+function QrScanIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -84,7 +76,7 @@ function QrScanIcon({ size = 20, color = '#7A726C' }: { size?: number; color?: s
   );
 }
 
-function InfoNoticeIcon({ size = 18, color = '#C2410C' }: { size?: number; color?: string }) {
+function InfoNoticeIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -93,17 +85,7 @@ function InfoNoticeIcon({ size = 18, color = '#C2410C' }: { size?: number; color
   );
 }
 
-export interface CustomerSearchItem {
-  name: string;
-  code: string;
-  id?: string;
-  phone: string;
-  balance: string;
-  status?: string;
-}
-
-export interface SubWarehouseCustomerSearchScreenProps {
-  onBack?: () => void;
+export interface CustomerSearchScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);
   onNavigateToWallet?: (customer: CustomerSearchItem) => void;
   onNavigateToCashTopUp?: ((customer?: CustomerSearchItem) => void) | undefined;
@@ -119,14 +101,32 @@ const SEARCH_DATABASE: CustomerSearchItem[] = [
   { name: 'Anand Kumar', code: 'CUS-00188', id: 'CUS-00188', phone: '+91 97123 67890', balance: '₹850', status: 'Active' },
 ];
 
-export function SubWarehouseCustomerSearchScreen({
+export function CustomerSearchScreen({
+  scope,
+  can,
   onBack,
   onSelectCustomer,
   onNavigateToWallet,
   onNavigateToCashTopUp,
-}: SubWarehouseCustomerSearchScreenProps) {
+}: CustomerSearchScreenProps) {
+  // Hooks stay unconditional and before every early return.
   const [query, setQuery] = useState('');
   const [selectedCustomerForWallet, setSelectedCustomerForWallet] = useState<CustomerSearchItem | null>(null);
+
+  // Declared before the internal-wallet branch below, which calls it.
+  const handleCustomerPress = (c: CustomerSearchItem) => {
+    if (onNavigateToWallet) {
+      onNavigateToWallet(c);
+    } else if (onSelectCustomer) {
+      if ((onSelectCustomer as any).length >= 2) {
+        (onSelectCustomer as any)(c.name, c.code);
+      } else {
+        (onSelectCustomer as any)(c);
+      }
+    } else {
+      setSelectedCustomerForWallet(c);
+    }
+  };
 
   // If a customer is opened internally without onNavigateToWallet, show customer wallet
   if (selectedCustomerForWallet) {
@@ -154,6 +154,32 @@ export function SubWarehouseCustomerSearchScreen({
     );
   }
 
+  // Hiding the screen is presentation only; the server re-checks
+  // 'customer.list.view' (and the warehouse scope) on every request.
+  if (!can('customer.list.view')) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Search Customers</Text>
+        </View>
+        <View style={styles.scrollContent}>
+          <View style={styles.deniedCard}>
+            <Text style={styles.deniedText}>Customer search is not available for your role.</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const trimmed = query.trim().toLowerCase();
   const searchResults = trimmed
     ? SEARCH_DATABASE.filter(
@@ -164,23 +190,9 @@ export function SubWarehouseCustomerSearchScreen({
       )
     : SEARCH_DATABASE;
 
-  const handleCustomerPress = (c: CustomerSearchItem) => {
-    if (onNavigateToWallet) {
-      onNavigateToWallet(c);
-    } else if (onSelectCustomer) {
-      if ((onSelectCustomer as any).length >= 2) {
-        (onSelectCustomer as any)(c.name, c.code);
-      } else {
-        (onSelectCustomer as any)(c);
-      }
-    } else {
-      setSelectedCustomerForWallet(c);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header (Orange Theme with Back Arrow) ─── */}
       <View style={styles.header}>
@@ -190,7 +202,7 @@ export function SubWarehouseCustomerSearchScreen({
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ArrowBackIcon size={22} color="#FFFFFF" />
+          <ArrowBackIcon size={22} color={adminColors.onBrand} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Search Customers</Text>
       </View>
@@ -203,11 +215,11 @@ export function SubWarehouseCustomerSearchScreen({
       >
         {/* ─── Search Bar ─── */}
         <View style={styles.searchBarContainer}>
-          <SearchIcon size={18} color={PALETTE.textSecondary} />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search Customer ID or mobile number"
-            placeholderTextColor={PALETTE.textMuted}
+            placeholderTextColor={adminColors.placeholder}
             value={query}
             onChangeText={setQuery}
             autoFocus={true}
@@ -217,14 +229,24 @@ export function SubWarehouseCustomerSearchScreen({
             onPress={() => Alert.alert('QR Scanner', 'Opening QR & Barcode scanner...')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <QrScanIcon size={20} color={PALETTE.textSecondary} />
+            <QrScanIcon size={20} color={adminColors.muted} />
           </TouchableOpacity>
         </View>
+
+        {/* Read-only scope indicator, not a toggle. Main Warehouse searches every
+            warehouse (the real search will omit the warehouseId filter; the mock
+            data has no warehouse field). A Sub Warehouse admin is limited to their
+            own warehouse server-side, so no pill is shown for them. */}
+        {scope.warehouseId === undefined && (
+          <View style={styles.scopePill}>
+            <Text style={styles.scopePillText}>All warehouses</Text>
+          </View>
+        )}
 
         {/* ─── Notice Info Banner ─── */}
         <View style={styles.noticeBanner}>
           <View style={styles.noticeIconWrap}>
-            <InfoNoticeIcon size={18} color={PALETTE.orangeNoticeText} />
+            <InfoNoticeIcon size={18} color={adminColors.brandDeep} />
           </View>
           <Text style={styles.noticeBannerText}>
             Select a customer to view wallet balance and perform authorized top-ups.
@@ -265,7 +287,7 @@ export function SubWarehouseCustomerSearchScreen({
 
         {/* ─── Quick Recent Tags (when not typing) ─── */}
         {!trimmed && (
-          <View style={[styles.sectionWrap, { marginTop: 10 }]}>
+          <View style={[styles.sectionWrap, { marginTop: adminSpacing.md }]}>
             <Text style={styles.resultsHeader}>Recent Searches</Text>
             <View style={styles.recentTagsWrap}>
               {RECENT_SEARCHES.map((item) => (
@@ -289,137 +311,158 @@ export function SubWarehouseCustomerSearchScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 12 : 8,
-    paddingBottom: 14,
-    gap: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: Platform.OS === 'android' ? adminSpacing.md : adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+    gap: adminSpacing.md,
   },
   backBtn: {
-    padding: 4,
+    padding: adminSpacing.xs,
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    ...adminType.title,
+    color: adminColors.onBrand,
   },
   scroll: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 28,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
+  },
+  deniedCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.xl,
+    alignItems: 'center',
+  },
+  deniedText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
   },
   searchBarContainer: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: adminSpacing.md,
+    gap: adminSpacing.sm,
   },
   searchInput: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 13,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
-  noticeBanner: {
-    backgroundColor: PALETTE.orangeNoticeBg,
+  scopePill: {
+    alignSelf: 'flex-start',
+    marginTop: adminSpacing.sm,
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: PALETTE.orangeNoticeBorder,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 12,
+    borderColor: adminColors.brandSoft.border,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+  },
+  scopePillText: {
+    ...adminType.caption,
+    color: adminColors.brandSoft.text,
+  },
+  // Old notice (pale orange bg, orange-200 border, orange-700 text) -> brandTint bg + border, brandDeep text.
+  noticeBanner: {
+    backgroundColor: adminColors.brandTint,
+    borderWidth: 1,
+    borderColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: adminSpacing.md,
   },
   noticeIconWrap: {
     marginTop: 1,
   },
   noticeBannerText: {
+    ...adminType.rowMeta,
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.orangeNoticeText,
-    lineHeight: 16,
+    color: adminColors.brandDeep,
   },
   sectionWrap: {
-    marginTop: 18,
+    marginTop: adminSpacing.lg,
   },
   resultsHeader: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
   customerResultCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 10,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
   },
   custResultName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   custResultSub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginTop: 3,
   },
   custBalancePill: {
-    backgroundColor: PALETTE.greenBadge,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.xs,
   },
   custBalanceText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.greenText,
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   emptyWrap: {
-    padding: 24,
+    padding: adminSpacing.xl,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
+    ...adminType.body,
+    color: adminColors.muted,
   },
   recentTagsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   recentTag: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
   recentTagText: {
-    fontSize: 12,
-    color: PALETTE.textBody,
+    ...adminType.rowMeta,
+    color: adminColors.ink,
   },
 });

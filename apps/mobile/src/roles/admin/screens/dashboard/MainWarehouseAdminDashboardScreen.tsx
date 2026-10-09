@@ -15,7 +15,15 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
-import { MainWarehouseMoreScreen } from './MainWarehouseMoreScreen';
+import { MoreScreen } from '../warehouse/dashboard-home-more';
+import { CustomerSearchScreen } from '../warehouse/customers';
+import { GSTInvoiceScreen } from '../warehouse/billing-invoices';
+import { WalletOperationsScreen } from '../warehouse/wallet-cashtopup';
+import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
+import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
+import { MainWarehouseReturnsIssuesScreen } from './MainWarehouseReturnsIssuesScreen';
+import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
+import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { MainWarehouseCustomerOrdersScreen } from './MainWarehouseCustomerOrdersScreen';
@@ -94,7 +102,6 @@ import {
 } from '../warehouse';
 import {
   CustomerListScreen,
-  CustomerSearchScreen,
   CustomerDetailScreen,
   PurchaseHistoryScreen,
   WalletSummaryScreen,
@@ -106,7 +113,6 @@ import {
   InvoiceListScreen,
   InvoiceDetailScreen,
   GenerateInvoiceScreen,
-  GSTInvoiceScreen,
   DownloadInvoiceScreen,
   InvoiceHistoryScreen,
 } from '../billing';
@@ -585,6 +591,13 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 /** The Main Warehouse admin sees every warehouse: no warehouseId (see finance-expenses/types.ts). */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 
+/**
+ * Main-only screens opened from the shared More menu. The old
+ * MainWarehouseMoreScreen rendered these itself as local fallbacks; the shared
+ * MoreScreen is role-neutral, so this shell supplies them via onNavigateTo*.
+ */
+type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin';
+
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string) => void;
@@ -599,6 +612,7 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedShipmentId, setSelectedShipmentId] = useState('SHP-000124');
   const [selectedGrnId, setSelectedGrnId] = useState('GRN-000842');
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
+  const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -647,6 +661,19 @@ export function MainWarehouseAdminDashboardScreen({
       setWhSubView('overview');
     }
   };
+
+  const handleMoreTabChange = (tab: MainWHTab) => {
+    setActiveTab(tab);
+    setWhSubView('overview');
+    setWhHistory([]);
+    setMoreSubScreen(null);
+  };
+
+  // The old MainWarehouseMoreScreen kept its sub-screen in local state, so it
+  // reset whenever the More tab unmounted. Keep that: leaving the tab closes it.
+  useEffect(() => {
+    if (activeTab !== 'More') setMoreSubScreen(null);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchMe()
@@ -1417,8 +1444,37 @@ export function MainWarehouseAdminDashboardScreen({
         )}
 
         {/* ─── More Tab ─── */}
-        {activeTab === 'More' && whSubView === 'overview' && (
-          <MainWarehouseMoreScreen
+        {activeTab === 'More' && whSubView === 'overview' && moreSubScreen !== null && (
+          moreSubScreen === 'wallet' ? (
+            <WalletOperationsScreen
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={() => setMoreSubScreen(null)}
+              onTabChange={handleMoreTabChange}
+            />
+          ) : moreSubScreen === 'finance' ? (
+            <MainWarehouseFinanceScreen
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              onBack={() => setMoreSubScreen(null)}
+              onTabChange={handleMoreTabChange}
+              onNavigateToNotifications={() => {
+                setMoreSubScreen(null);
+                navigateWh('warehouse_notifications');
+              }}
+            />
+          ) : moreSubScreen === 'reports' ? (
+            <MainWarehouseReportsScreen onBack={() => setMoreSubScreen(null)} />
+          ) : moreSubScreen === 'returns' ? (
+            <MainWarehouseReturnsIssuesScreen onBack={() => setMoreSubScreen(null)} />
+          ) : moreSubScreen === 'staff' ? (
+            <MainWarehouseStaffScreen onBack={() => setMoreSubScreen(null)} />
+          ) : (
+            <MainWarehouseAdminScreen onBack={() => setMoreSubScreen(null)} />
+          )
+        )}
+        {activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null && (
+          <MoreScreen
             scope={MAIN_WAREHOUSE_SCOPE}
             can={can}
             onBack={() => setActiveTab('Home')}
@@ -1428,11 +1484,14 @@ export function MainWarehouseAdminDashboardScreen({
               setWhHistory([]);
             }}
             onLogout={onSignOut}
-            onTabChange={(tab) => {
-              setActiveTab(tab as any);
-              setWhSubView('overview');
-              setWhHistory([]);
-            }}
+            onTabChange={handleMoreTabChange}
+            // The admin hub lists every warehouse (FINAL_LIST: warehouse.all.view).
+            onProfileCardPress={can('warehouse.all.view') ? () => setMoreSubScreen('admin') : undefined}
+            onNavigateToWallet={() => setMoreSubScreen('wallet')}
+            onNavigateToReturns={() => setMoreSubScreen('returns')}
+            onNavigateToFinance={() => setMoreSubScreen('finance')}
+            onNavigateToReports={() => setMoreSubScreen('reports')}
+            onNavigateToStaff={() => setMoreSubScreen('staff')}
             onNavigateToOrders={() => navigateWh('customer_orders')}
             onNavigateToSales={() => navigateWh('sales')}
             onNavigateToCustomers={() => navigateWh('customers_list')}
@@ -1817,6 +1876,8 @@ export function MainWarehouseAdminDashboardScreen({
               />
             ) : whSubView === 'customer_search' ? (
               <CustomerSearchScreen
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
                 onBack={goBackWh}
                 onSelectCustomer={() => navigateWh('customer_detail')}
               />
@@ -1896,6 +1957,8 @@ export function MainWarehouseAdminDashboardScreen({
               />
             ) : whSubView === 'gst_invoice' ? (
               <GSTInvoiceScreen
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
                 onBack={goBackWh}
                 onViewExisting={() => navigateWh('invoice_detail')}
                 onPreviewAuthorized={() => navigateWh('invoice_detail')}

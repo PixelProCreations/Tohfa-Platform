@@ -36,11 +36,11 @@ import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceiving
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
-import { SubWarehouseWalletOperationsScreen } from './SubWarehouseWalletOperationsScreen';
-import { SubWarehouseMoreScreen } from './SubWarehouseMoreScreen';
+import { WalletOperationsScreen } from '../../admin/screens/warehouse/wallet-cashtopup';
+import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
 import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
 import { SubWarehouseCustomersScreen } from './SubWarehouseCustomersScreen';
-import { SubWarehouseCustomerSearchScreen } from './SubWarehouseCustomerSearchScreen';
+import { CustomerSearchScreen } from '../../admin/screens/warehouse/customers';
 import { SubWarehouseCustomerDetailsScreen } from './SubWarehouseCustomerDetailsScreen';
 import { SubWarehousePurchaseHistoryScreen } from './SubWarehousePurchaseHistoryScreen';
 import { SubWarehouseCustomerOrdersScreen } from './SubWarehouseCustomerOrdersScreen';
@@ -58,7 +58,7 @@ import { SubWarehouseInvoiceDetailScreen } from './SubWarehouseInvoiceDetailScre
 import { SubWarehouseGenerateInvoiceScreen } from './SubWarehouseGenerateInvoiceScreen';
 import { SubWarehouseInvoiceWizardScreen } from './SubWarehouseInvoiceWizardScreen';
 import { SubWarehouseInvoiceGeneratedScreen } from './SubWarehouseInvoiceGeneratedScreen';
-import { SubWarehouseGSTInvoiceScreen } from './SubWarehouseGSTInvoiceScreen';
+import { GSTInvoiceScreen } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseInvoicePreviewScreen } from './SubWarehouseInvoicePreviewScreen';
 import { SubWarehouseInvoiceHistoryScreen } from './SubWarehouseInvoiceHistoryScreen';
 import { SubWarehouseInvoiceHistoryDetailScreen } from './SubWarehouseInvoiceHistoryDetailScreen';
@@ -2772,7 +2772,9 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showCustomerSearch) {
     return (
-      <SubWarehouseCustomerSearchScreen
+      <CustomerSearchScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowCustomerSearch(false)}
         onSelectCustomer={(name, id) => {
           setSelectedCustomer({ name, id: id || 'CUS-00291' });
@@ -2818,7 +2820,9 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showGSTInvoice) {
     return (
-      <SubWarehouseGSTInvoiceScreen
+      <GSTInvoiceScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowGSTInvoice(false)}
         onViewExisting={() => {
           setShowGSTInvoice(false);
@@ -3005,8 +3009,9 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showWalletOperations) {
     return (
-      <SubWarehouseWalletOperationsScreen
-        warehouseName="Coonoor Warehouse"
+      <WalletOperationsScreen
+        scope={scope}
+        can={can}
         onBack={() => {
           setShowWalletOperations(false);
           if (returnToNotificationsOnBack) {
@@ -3706,7 +3711,7 @@ export function SubWarehouseAdminDashboardScreen({
                   style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => {
                     if (onNavigate) {
-                      onNavigate('SubWarehouseWalletOperations');
+                      onNavigate('WarehouseWalletOperations');
                     } else {
                       setActiveTab('More');
                     }
@@ -3758,7 +3763,7 @@ export function SubWarehouseAdminDashboardScreen({
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => {
                     if (onNavigate) {
-                      onNavigate('SubWarehouseWalletOperations');
+                      onNavigate('WarehouseWalletOperations');
                     } else {
                       setActiveTab('More');
                     }
@@ -5166,7 +5171,7 @@ export function SubWarehouseAdminDashboardScreen({
 
         {/* ─── More Modules Directory Tab (Modules 5 to 16) ─── */}
         {activeTab === 'More' && !showOrdersModule && (
-          <SubWarehouseMoreScreen
+          <MoreScreen
             scope={scope}
             can={can}
             onBack={() => setActiveTab('Home')}
@@ -5184,7 +5189,7 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowProfile(true);
             }}
             onNavigateToWallet={() => {
-              if (onNavigate) onNavigate('SubWarehouseWalletOperations');
+              if (onNavigate) onNavigate('WarehouseWalletOperations');
               else setShowWalletOperations(true);
             }}
             onNavigateToOrders={() => {

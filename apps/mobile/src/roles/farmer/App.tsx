@@ -151,11 +151,11 @@ import {
   SubWarehouseB2BSalesScreen,
   SubWarehouseB2BDetailScreen,
   type B2BOrderItem,
-  SubWarehouseWalletOperationsScreen,
+  WalletOperationsScreen,
   SubWarehouseCashTopUpScreen,
   SubWarehouseFiscalTagScreen,
   SubWarehouseConfirmCashTopUpScreen,
-  SubWarehouseCustomerSearchScreen,
+  CustomerSearchScreen,
   SubWarehouseCustomerWalletScreen,
   SubWarehouseTopUpHistoryScreen,
   SubWarehouseDailyCashSummaryScreen,
@@ -164,7 +164,7 @@ import {
   SubWarehouseTopUpSuccessScreen,
   SubWarehouseNeedsAttentionScreen,
   SubWarehouseWalletAttentionScreen,
-  SubWarehouseMoreScreen,
+  MoreScreen,
   SubWarehouseCustomersScreen,
   SubWarehouseCustomerDetailsScreen,
   SubWarehouseCustomerActionsScreen,
@@ -181,7 +181,7 @@ import {
   SubWarehouseInvoiceWizardScreen,
   SubWarehouseInvoiceGeneratedScreen,
   SubWarehouseReviewInvoiceScreen,
-  SubWarehouseGSTInvoiceScreen,
+  GSTInvoiceScreen,
   SubWarehouseInvoicePreviewScreen,
   SubWarehouseInvoiceHistoryScreen,
   SubWarehouseInvoiceFiltersScreen,
@@ -372,10 +372,10 @@ export type ScreenName =
   | 'SubWarehouseB2BSales'
   | 'SubWarehouseB2BDetail'
   | 'SubWarehouseOrderStatusHistory'
-  | 'SubWarehouseWalletOperations'
+  | 'WarehouseWalletOperations'
   | 'SubWarehouseCashTopUp'
   | 'SubWarehouseConfirmCashTopUp'
-  | 'SubWarehouseCustomerSearch'
+  | 'WarehouseCustomerSearch'
   | 'SubWarehouseTopUpHistory'
   | 'SubWarehouseDailyCashSummary'
   | 'SubWarehouseTopUpDetails'
@@ -404,9 +404,9 @@ export type ScreenName =
   | 'SubWarehouseAttendance'
   | 'SubWarehouseTodayAttendance'
   | 'SubWarehouseAttendanceHistory'
-  | 'SubWarehouseMore'
+  | 'WarehouseMore'
   | 'SubWarehouseCustomerList'
-  | 'SubWarehouseCustomerSearch'
+  | 'WarehouseCustomerSearch'
   | 'SubWarehouseCustomerDetail'
   | 'SubWarehouseCustomerPurchases'
   | 'SubWarehousePurchaseHistory'
@@ -426,7 +426,7 @@ export type ScreenName =
   | 'SubWarehouseInvoiceWizard'
   | 'SubWarehouseInvoiceGenerated'
   | 'SubWarehouseReviewInvoice'
-  | 'SubWarehouseGSTInvoice'
+  | 'WarehouseGSTInvoice'
   | 'SubWarehouseInvoicePreview'
   | 'SubWarehouseInvoiceHistory'
   | 'SubWarehouseInvoiceHistoryFilters'
@@ -638,8 +638,8 @@ export type ScreenName =
   | 'SubWarehouseTodayOverview'
   | 'SubWarehouseReports'
   | 'SubWarehouseSales'
-  | 'SubWarehouseWalletOperations'
-  | 'SubWarehouseMore'
+  | 'WarehouseWalletOperations'
+  | 'WarehouseMore'
   | 'SubWarehouseHelpSupport'
   | 'SubWarehouseFinance'
   | 'WarehouseExpenses'
@@ -707,7 +707,7 @@ export type ScreenName =
   | 'SubWarehouseCashTopUp'
   | 'SubWarehouseFiscalTag'
   | 'SubWarehouseConfirmCashTopUp'
-  | 'SubWarehouseCustomerSearch'
+  | 'WarehouseCustomerSearch'
   | 'SubWarehouseCustomerWallet'
   | 'SubWarehouseTopUpHistory'
   | 'SubWarehouseDailyCashSummary'
@@ -1081,7 +1081,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
             onNavigateToInventory={() =>
               navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' })
@@ -1093,7 +1093,7 @@ export default function App(): React.JSX.Element {
               navigate('SubWarehouseAdminDashboard', { showOrders: true })
             }
             onNavigateToOperations={() =>
-              navigate('SubWarehouseWalletOperations')
+              navigate('WarehouseWalletOperations')
             }
           />
         ) : screen === 'SubWarehouseRecentActivity' ? (
@@ -1103,7 +1103,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
             onNavigateToCategory={(category) => {
               if (category === 'Inventory') {
@@ -1147,7 +1147,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseContact' ? (
@@ -1157,7 +1157,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseDocuments' ? (
@@ -1167,7 +1167,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseNotifications' ? (
@@ -1177,7 +1177,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToTasks={() => navigate('SubWarehouseTaskActionCenter')}
             onNavigateToAlerts={() => navigate('SubWarehouseApprovalAlerts')}
@@ -1199,7 +1199,7 @@ export default function App(): React.JSX.Element {
               } else if (actionLabel.includes('Order') || item?.type === 'order' || item?.title?.toLowerCase().includes('order')) {
                 navigate('SubWarehouseAdminDashboard', { showOrders: true });
               } else if (actionLabel.includes('Wallet') || actionLabel.includes('Top-Up') || item?.type === 'wallet') {
-                navigate('SubWarehouseWalletOperations');
+                navigate('WarehouseWalletOperations');
               } else if (actionLabel.includes('Return') || item?.type === 'returns') {
                 navigate('SubWarehouseReturnsIssues');
               } else if (item?.type === 'system') {
@@ -1239,7 +1239,7 @@ export default function App(): React.JSX.Element {
               } else if (notif?.actionLabel?.includes('Order') || notif?.type === 'order' || notif?.title?.toLowerCase().includes('order')) {
                 navigate('SubWarehouseAdminDashboard', { showOrders: true });
               } else if (notif?.actionLabel?.includes('Wallet') || notif?.type === 'wallet') {
-                navigate('SubWarehouseWalletOperations');
+                navigate('WarehouseWalletOperations');
               } else if (notif?.actionLabel?.includes('Return') || notif?.type === 'returns') {
                 navigate('SubWarehouseReturnsIssues');
               } else {
@@ -1265,14 +1265,14 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
             onNavigateToSection={(section) => {
               if (section === 'Receiving') navigate('SubWarehouseReviewReceiving');
               else if (section === 'Inventory') navigate('SubWarehouseAdminDashboard');
               else if (section === 'Orders') navigate('SubWarehouseCustomerOrders');
               else if (section === 'Sales') navigate('SubWarehouseSales');
-              else if (section === 'Cash Top-Up') navigate('SubWarehouseWalletOperations');
+              else if (section === 'Cash Top-Up') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseSales' ? (
@@ -1282,7 +1282,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToNewSale={() => navigate('SubWarehouseNewSale')}
@@ -1381,7 +1381,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseSaleDetail' ? (
@@ -1415,7 +1415,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseMarketDaySales' ? (
@@ -1433,7 +1433,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseHorecaSales' ? (
@@ -1447,7 +1447,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseHorecaDetail' ? (
@@ -1475,7 +1475,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseWalletOperations');
+              else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseB2BDetail' ? (
@@ -1506,11 +1506,11 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
-        ) : screen === 'SubWarehouseMore' ? (
-          <SubWarehouseMoreScreen
+        ) : screen === 'WarehouseMore' ? (
+          <MoreScreen
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
             onBack={goBack}
@@ -1519,7 +1519,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
@@ -1544,17 +1544,19 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SubWarehouseCustomerList' ? (
           <SubWarehouseCustomersScreen
             onBack={goBack}
-            onNavigateToSearch={() => navigate('SubWarehouseCustomerSearch')}
+            onNavigateToSearch={() => navigate('WarehouseCustomerSearch')}
             onSelectCustomer={(cust) => navigate('SubWarehouseCustomerDetail', { customerName: cust.name, customerId: cust.code })}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
-        ) : screen === 'SubWarehouseCustomerSearch' ? (
-          <SubWarehouseCustomerSearchScreen
+        ) : screen === 'WarehouseCustomerSearch' ? (
+          <CustomerSearchScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onNavigateToWallet={(cust) => {
               navigate('SubWarehouseCustomerWallet', {
@@ -1603,7 +1605,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToOrders={() =>
               navigate('SubWarehouseCustomerOrders', {
@@ -1885,7 +1887,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseCustomerPurchases' || screen === 'SubWarehousePurchaseHistory' ? (
@@ -1896,7 +1898,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onOpenFilters={() =>
               navigate('SubWarehousePurchaseFilters', {
@@ -1962,7 +1964,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
             onNavigateToInvoiceDetail={(id) =>
@@ -1978,7 +1980,7 @@ export default function App(): React.JSX.Element {
             onSelectTransaction={(tx) =>
               navigate('SubWarehouseInvoiceWizard', { transaction: tx })
             }
-            onNavigateToGSTInvoice={() => navigate('SubWarehouseGSTInvoice')}
+            onNavigateToGSTInvoice={() => navigate('WarehouseGSTInvoice')}
           />
         ) : screen === 'SubWarehouseInvoiceWizard' ? (
           <SubWarehouseInvoiceWizardScreen
@@ -2021,8 +2023,10 @@ export default function App(): React.JSX.Element {
               navigate('SubWarehouseInvoicePreview', { invoiceId: 'INV-2026-001245' })
             }
           />
-        ) : screen === 'SubWarehouseGSTInvoice' ? (
-          <SubWarehouseGSTInvoiceScreen
+        ) : screen === 'WarehouseGSTInvoice' ? (
+          <GSTInvoiceScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onViewExisting={() =>
               navigate('SubWarehouseInvoiceDetail', { invoiceId: 'INV-2026-001245' })
@@ -2112,7 +2116,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseApprovalAlerts' ? (
@@ -2151,7 +2155,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToHistory={() => navigate('SubWarehouseMessageHistory')}
           />
@@ -2162,19 +2166,20 @@ export default function App(): React.JSX.Element {
             onNavigateToStaff={() => navigate('SubWarehouseStaff')}
             onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
           />
-        ) : screen === 'SubWarehouseWalletOperations' ? (
-          <SubWarehouseWalletOperationsScreen
-            warehouseName="Coonoor Warehouse"
+        ) : screen === 'WarehouseWalletOperations' ? (
+          <WalletOperationsScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
             onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
-            onNavigateToCustomerSearch={() => navigate('SubWarehouseCustomerSearch')}
+            onNavigateToCustomerSearch={() => navigate('WarehouseCustomerSearch')}
             onNavigateToTopUpHistory={() => navigate('SubWarehouseTopUpHistory')}
             onNavigateToDailySummary={() => navigate('SubWarehouseDailyCashSummary')}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToProfile={() => navigate('SubWarehouseProfile')}
@@ -2220,7 +2225,7 @@ export default function App(): React.JSX.Element {
             }}
             onBack={goBack}
             onSuccess={() => {
-              navigate('SubWarehouseWalletOperations');
+              navigate('WarehouseWalletOperations');
             }}
           />
         ) : screen === 'SubWarehouseTopUpHistory' ? (
@@ -2230,7 +2235,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseDailyCashSummary' ? (
@@ -2242,7 +2247,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseTopUpDetails' ? (
@@ -2254,7 +2259,7 @@ export default function App(): React.JSX.Element {
           <SubWarehouseTopUpSuccessScreen
             data={params['topUpSuccess'] as any}
             onBack={goBack}
-            onDone={() => navigate('SubWarehouseWalletOperations')}
+            onDone={() => navigate('WarehouseWalletOperations')}
             onViewTransaction={(data) => {
               navigate('SubWarehouseTopUpDetails', {
                 topUpDetails: {
@@ -2290,7 +2295,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToHistory={() => navigate('SubWarehouseReturnHistory')}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
@@ -2420,7 +2425,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseStaffDetail' ? (
@@ -2448,7 +2453,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseTodayAttendance' ? (
@@ -2459,7 +2464,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseAttendanceHistory' ? (
@@ -2470,7 +2475,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseDailyCash' ? (
@@ -2481,7 +2486,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'SubWarehouseFinance' ? (
@@ -2493,7 +2498,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToReports={() => navigate('WarehouseFinanceReports')}
@@ -2514,7 +2519,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToDetail={(id) => navigate('SubWarehouseRevenueDetail')}
           />
@@ -2538,7 +2543,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onAddExpense={() => navigate('WarehouseAddExpense')}
           />
@@ -2589,7 +2594,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
 
             onEdit={() => navigate('WarehouseAddExpense', params)}
@@ -2603,7 +2608,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
         ) : screen === 'WarehouseFinanceHistory' ? (
@@ -2615,7 +2620,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onSelectItem={(item) => {
               if (item.type === 'Revenue') {
@@ -2644,7 +2649,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
 
             onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
@@ -2659,7 +2664,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onSelectVoucher={(voucher) => {
               Alert.alert('Voucher Record', `Voucher ${voucher.id} - Amount: ₹${voucher.amount}`);
@@ -2798,7 +2803,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onSelectReport={(reportKey) => {
@@ -2817,9 +2822,9 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
-            onNavigateToSearch={() => navigate('SubWarehouseCustomerSearch')}
+            onNavigateToSearch={() => navigate('WarehouseCustomerSearch')}
             onSelectCustomer={(cust) =>
               navigate('SubWarehouseCustomerDetail', {
                 customerName: cust.name,
@@ -2846,7 +2851,7 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('SubWarehouseMore');
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToOrders={() =>
               navigate('SubWarehouseCustomerOrders', {
