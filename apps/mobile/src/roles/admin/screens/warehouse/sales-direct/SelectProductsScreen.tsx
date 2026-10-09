@@ -164,17 +164,17 @@ const MOCK_PRODUCTS: ProductItem[] = [
 
 type FilterType = 'All' | 'Grade 1' | 'Available' | 'Low Stock';
 
-import { SubWarehouseSaleSummaryScreen } from './SubWarehouseSaleSummaryScreen';
+import { SaleSummaryScreen } from './SaleSummaryScreen';
 
-export interface SubWarehouseSelectProductsScreenProps {
+export interface SelectProductsScreenProps {
   onBack?: (() => void) | undefined;
   onContinue?: ((selectedItems: ProductItem[]) => void) | undefined;
 }
 
-export function SubWarehouseSelectProductsScreen({
+export function SelectProductsScreen({
   onBack,
   onContinue,
-}: SubWarehouseSelectProductsScreenProps) {
+}: SelectProductsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -241,7 +241,7 @@ export function SubWarehouseSelectProductsScreen({
 
   if (showSummaryScreen) {
     return (
-      <SubWarehouseSaleSummaryScreen
+      <SaleSummaryScreen
         onBack={() => setShowSummaryScreen(false)}
         onContinueToCustomer={() => {
           Alert.alert('Sale Completed', 'Order submitted successfully for Coonoor Hub.');

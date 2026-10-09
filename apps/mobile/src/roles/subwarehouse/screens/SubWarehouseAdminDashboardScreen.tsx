@@ -38,16 +38,14 @@ import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
-import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
+import { NewSaleScreen, SalesScreen } from '../../admin/screens/warehouse/sales-direct';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
-import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
 import {
   CustomersFlow,
   type CustomersRoute,
   type CustomersRouteParams,
 } from '../../admin/screens/warehouse/customers';
-import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
@@ -2016,7 +2014,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showSalesScreen) {
     return (
-      <SubWarehouseSalesScreen
+      <SalesScreen
         scope={scope}
         can={can}
         onBack={() => {
@@ -2112,7 +2110,7 @@ export function SubWarehouseAdminDashboardScreen({
             );
           }
           if (target === 'NewSale') {
-            return <SubWarehouseNewSaleScreen initialCustomerName={c?.name} onBack={nav.back} />;
+            return <NewSaleScreen scope={scope} can={can} initialCustomerName={c?.name} onBack={nav.back} />;
           }
           if (target === 'OrderDetail') {
             return (

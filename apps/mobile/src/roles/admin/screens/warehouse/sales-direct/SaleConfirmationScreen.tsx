@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { BillingFlow, type BillingRouteParams } from '../../admin/screens/warehouse/billing-invoices';
-import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
+import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
+import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -96,7 +96,7 @@ function ShieldCheckIcon({ size = 16, color = '#059669' }: { size?: number; colo
   );
 }
 
-export interface SubWarehouseSaleConfirmationScreenProps {
+export interface SaleConfirmationScreenProps {
   saleId?: string | undefined;
   customerName?: string | undefined;
   customerCode?: string | undefined;
@@ -114,7 +114,7 @@ export interface SubWarehouseSaleConfirmationScreenProps {
   can?: PermissionCheck | undefined;
 }
 
-export function SubWarehouseSaleConfirmationScreen({
+export function SaleConfirmationScreen({
   saleId = 'SALE-00251',
   customerName = 'Rajesh Kumar',
   customerCode = 'CUS-00291',
@@ -125,7 +125,7 @@ export function SubWarehouseSaleConfirmationScreen({
   onNewSale,
   scope,
   can,
-}: SubWarehouseSaleConfirmationScreenProps) {
+}: SaleConfirmationScreenProps) {
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
   const canShowInvoice = onViewInvoice !== undefined || (scope !== undefined && can !== undefined);
   // Post-sale entry of the invoice wizard: opens on its Review step (W4).

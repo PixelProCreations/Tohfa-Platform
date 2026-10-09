@@ -89,17 +89,17 @@ interface CartItem {
   pricePerKg: number;
 }
 
-import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
+import { SelectCustomerScreen } from './SelectCustomerScreen';
 
-export interface SubWarehouseSaleSummaryScreenProps {
+export interface SaleSummaryScreenProps {
   onBack?: (() => void) | undefined;
   onContinueToCustomer?: (() => void) | undefined;
 }
 
-export function SubWarehouseSaleSummaryScreen({
+export function SaleSummaryScreen({
   onBack,
   onContinueToCustomer,
-}: SubWarehouseSaleSummaryScreenProps) {
+}: SaleSummaryScreenProps) {
   const [showCustomerSelection, setShowCustomerSelection] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([
     {
@@ -152,7 +152,7 @@ export function SubWarehouseSaleSummaryScreen({
 
   if (showCustomerSelection) {
     return (
-      <SubWarehouseSelectCustomerScreen
+      <SelectCustomerScreen
         onBack={() => setShowCustomerSelection(false)}
         onContinueToPayment={() => {
           Alert.alert('Payment', 'Proceeding to payment terminal.');

@@ -142,21 +142,21 @@ function CancelCrossIcon({ size = 18, color = '#7A3E26' }: { size?: number; colo
   );
 }
 
-import { SubWarehouseSaleConfirmationScreen } from './SubWarehouseSaleConfirmationScreen';
+import { SaleConfirmationScreen } from './SaleConfirmationScreen';
 
 type PaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Wallet';
 
-export interface SubWarehousePaymentScreenProps {
+export interface PaymentScreenProps {
   amountDue?: number | undefined;
   onBack?: (() => void) | undefined;
   onPaymentConfirmed?: (() => void) | undefined;
 }
 
-export function SubWarehousePaymentScreen({
+export function PaymentScreen({
   amountDue = 320,
   onBack,
   onPaymentConfirmed,
-}: SubWarehousePaymentScreenProps) {
+}: PaymentScreenProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Cash');
   const [receivedAmount, setReceivedAmount] = useState<string>('500');
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -201,7 +201,7 @@ export function SubWarehousePaymentScreen({
 
   if (showConfirmation) {
     return (
-      <SubWarehouseSaleConfirmationScreen
+      <SaleConfirmationScreen
         saleId="SALE-00251"
         customerName="Rajesh Kumar"
         customerCode="CUS-00291"

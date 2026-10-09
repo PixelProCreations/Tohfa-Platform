@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { InvoiceDetailScreen } from '../../admin/screens/warehouse/billing-invoices';
-import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
+import { InvoiceDetailScreen } from '../billing-invoices';
+import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -129,7 +129,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-export interface SubWarehouseSaleDetailScreenProps {
+export interface SaleDetailScreenProps {
   sale?: {
     id: string;
     customerName: string;
@@ -161,7 +161,7 @@ export interface SubWarehouseSaleDetailScreenProps {
   can?: PermissionCheck | undefined;
 }
 
-export function SubWarehouseSaleDetailScreen({
+export function SaleDetailScreen({
   sale = {
     id: 'SALE-00251',
     customerName: 'Rajesh Kumar',
@@ -188,7 +188,7 @@ export function SubWarehouseSaleDetailScreen({
   onTabChange,
   scope,
   can,
-}: SubWarehouseSaleDetailScreenProps) {
+}: SaleDetailScreenProps) {
   const canShowInvoice = onViewInvoice !== undefined || (scope !== undefined && can !== undefined);
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);

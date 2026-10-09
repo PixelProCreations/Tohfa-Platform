@@ -152,7 +152,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-export interface SubWarehouseMarketDaySalesScreenProps {
+export interface MarketDaySalesScreenProps {
   warehouseName?: string | undefined;
   marketDate?: string | undefined;
   onBack?: (() => void) | undefined;
@@ -162,7 +162,7 @@ export interface SubWarehouseMarketDaySalesScreenProps {
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
 }
 
-export function SubWarehouseMarketDaySalesScreen({
+export function MarketDaySalesScreen({
   warehouseName = 'Coonoor Warehouse',
   marketDate = '24 Sep 2026',
   onBack,
@@ -170,7 +170,7 @@ export function SubWarehouseMarketDaySalesScreen({
   onNavigateToSalesHistory,
   onSelectTransaction,
   onTabChange,
-}: SubWarehouseMarketDaySalesScreenProps) {
+}: MarketDaySalesScreenProps) {
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
 
   const handleTabPress = (tab: SubWHTab) => {

@@ -95,20 +95,25 @@ function PlusIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: str
   );
 }
 
-import { SubWarehouseSelectProductsScreen } from './SubWarehouseSelectProductsScreen';
-import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
+import { SelectProductsScreen } from './SelectProductsScreen';
+import { SelectCustomerScreen } from './SelectCustomerScreen';
+import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 
-export interface SubWarehouseNewSaleScreenProps {
+export interface NewSaleScreenProps {
+  scope: WarehouseScope;
+  can: PermissionCheck;
   initialCustomerName?: string | undefined;
   onBack?: (() => void) | undefined;
   onSelectProducts?: (() => void) | undefined;
 }
 
-export function SubWarehouseNewSaleScreen({
+export function NewSaleScreen({
+  scope,
+  can,
   initialCustomerName,
   onBack,
   onSelectProducts,
-}: SubWarehouseNewSaleScreenProps) {
+}: NewSaleScreenProps) {
   const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket'>('Direct');
   const [selectedCustomer, setSelectedCustomer] = useState<string>(
     initialCustomerName || 'Select Customer / Walk-in'
@@ -130,7 +135,7 @@ export function SubWarehouseNewSaleScreen({
 
   if (showSelectCustomer) {
     return (
-      <SubWarehouseSelectCustomerScreen
+      <SelectCustomerScreen
         onBack={() => setShowSelectCustomer(false)}
         onContinueToPayment={(cust) => {
           setSelectedCustomer(`${cust.name} (${cust.code})`);
@@ -142,7 +147,7 @@ export function SubWarehouseNewSaleScreen({
 
   if (showSelectProducts) {
     return (
-      <SubWarehouseSelectProductsScreen
+      <SelectProductsScreen
         onBack={() => setShowSelectProducts(false)}
         onContinue={() => {
           setShowSelectProducts(false);

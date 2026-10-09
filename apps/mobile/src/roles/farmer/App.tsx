@@ -127,16 +127,6 @@ import {
   SubWarehouseOverviewScreen,
   SubWarehouseRecentActivityScreen,
   SubWarehouseTodayOverviewScreen,
-  SubWarehouseSalesScreen,
-  SubWarehouseNewSaleScreen,
-  SubWarehouseSelectProductsScreen,
-  SubWarehouseSaleSummaryScreen,
-  SubWarehouseSelectCustomerScreen,
-  SubWarehousePaymentScreen,
-  SubWarehouseSaleConfirmationScreen,
-  SubWarehouseSalesHistoryScreen,
-  SubWarehouseSaleDetailScreen,
-  SubWarehouseMarketDaySalesScreen,
   ChannelSalesScreen,
   ChannelOrderDetailScreen,
   type ChannelOrderItem,
@@ -250,6 +240,18 @@ import {
   type CustomersRoute,
   type CustomersRouteParams,
 } from '../admin/screens';
+import {
+  MarketDaySalesScreen,
+  NewSaleScreen,
+  PaymentScreen,
+  SaleConfirmationScreen,
+  SaleDetailScreen,
+  SaleSummaryScreen,
+  SalesHistoryScreen,
+  SalesScreen,
+  SelectCustomerScreen,
+  SelectProductsScreen,
+} from '../admin/screens/warehouse/sales-direct';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
 import { UpdateFairPriceScreen } from '../admin/screens/dashboard/UpdateFairPriceScreen';
@@ -1381,7 +1383,7 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseSales' ? (
-          <SubWarehouseSalesScreen
+          <SalesScreen
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
             onBack={goBack}
@@ -1415,34 +1417,36 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
           />
         ) : screen === 'SubWarehouseNewSale' ? (
-          <SubWarehouseNewSaleScreen
+          <NewSaleScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             initialCustomerName={(params['customerName'] as string) || 'Rajesh Kumar'}
             onBack={goBack}
             onSelectProducts={() => navigate('SubWarehouseSelectProducts')}
           />
         ) : screen === 'SubWarehouseSelectProducts' ? (
-          <SubWarehouseSelectProductsScreen
+          <SelectProductsScreen
             onBack={goBack}
             onContinue={(items) => {
               navigate('SubWarehouseSaleSummary');
             }}
           />
         ) : screen === 'SubWarehouseSaleSummary' ? (
-          <SubWarehouseSaleSummaryScreen
+          <SaleSummaryScreen
             onBack={goBack}
             onContinueToCustomer={() => {
               navigate('SubWarehouseSelectCustomer');
             }}
           />
         ) : screen === 'SubWarehouseSelectCustomer' ? (
-          <SubWarehouseSelectCustomerScreen
+          <SelectCustomerScreen
             onBack={goBack}
             onContinueToPayment={(cust: any) => {
               navigate('SubWarehousePayment', { customerName: cust.name, customerCode: cust.code });
             }}
           />
         ) : screen === 'SubWarehousePayment' ? (
-          <SubWarehousePaymentScreen
+          <PaymentScreen
             amountDue={320}
             onBack={goBack}
             onPaymentConfirmed={() => {
@@ -1456,7 +1460,7 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseSaleConfirmation' ? (
-          <SubWarehouseSaleConfirmationScreen
+          <SaleConfirmationScreen
             saleId={typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251'}
             customerName={typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar'}
             customerCode={typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291'}
@@ -1480,7 +1484,7 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseSalesHistory' ? (
-          <SubWarehouseSalesHistoryScreen
+          <SalesHistoryScreen
             onBack={goBack}
             onSelectSale={(sale) => {
               setSelectedSaleRecord(sale);
@@ -1494,7 +1498,7 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseSaleDetail' ? (
-          <SubWarehouseSaleDetailScreen
+          <SaleDetailScreen
             sale={selectedSaleRecord ?? {
               id: typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251',
               customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
@@ -1528,7 +1532,7 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseMarketDaySales' ? (
-          <SubWarehouseMarketDaySalesScreen
+          <MarketDaySalesScreen
             warehouseName="Coonoor Warehouse"
             marketDate="24 Sep 2026"
             onBack={goBack}

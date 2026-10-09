@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
+import { SaleDetailScreen } from './SaleDetailScreen';
 
 // ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
 const PALETTE = {
@@ -244,17 +244,17 @@ function MoreTabIcon({ active }: { active: boolean }) {
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-export interface SubWarehouseSalesHistoryScreenProps {
+export interface SalesHistoryScreenProps {
   onBack?: (() => void) | undefined;
   onSelectSale?: ((sale: SaleHistoryItem) => void) | undefined;
   onTabChange?: ((tab: SubWHTab) => void) | undefined;
 }
 
-export function SubWarehouseSalesHistoryScreen({
+export function SalesHistoryScreen({
   onBack,
   onSelectSale,
   onTabChange,
-}: SubWarehouseSalesHistoryScreenProps) {
+}: SalesHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
   const [selectedSaleDetail, setSelectedSaleDetail] = useState<SaleHistoryItem | null>(null);
@@ -289,7 +289,7 @@ export function SubWarehouseSalesHistoryScreen({
 
   if (selectedSaleDetail) {
     return (
-      <SubWarehouseSaleDetailScreen
+      <SaleDetailScreen
         sale={selectedSaleDetail}
         onBack={() => setSelectedSaleDetail(null)}
         onTabChange={handleTabPress}

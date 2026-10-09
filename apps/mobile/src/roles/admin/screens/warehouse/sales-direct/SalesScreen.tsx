@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
-import { SubWarehouseSalesHistoryScreen } from './SubWarehouseSalesHistoryScreen';
-import { SubWarehouseMarketDaySalesScreen } from './SubWarehouseMarketDaySalesScreen';
-import { ChannelSalesScreen, type SalesChannel } from '../../admin/screens/warehouse/sales-direct';
-import type { PermissionCheck, WarehouseScope } from '../../admin/screens/warehouse/finance-expenses';
-import { SubWarehouseNeedsAttentionScreen } from './SubWarehouseNeedsAttentionScreen';
-import { SubWarehouseSaleDetailScreen } from './SubWarehouseSaleDetailScreen';
+import { NewSaleScreen } from './NewSaleScreen';
+import { SalesHistoryScreen } from './SalesHistoryScreen';
+import { MarketDaySalesScreen } from './MarketDaySalesScreen';
+import { ChannelSalesScreen } from './ChannelSalesScreen';
+import type { SalesChannel } from './types';
+import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
+import { SaleDetailScreen } from './SaleDetailScreen';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -344,7 +344,7 @@ function MoreTabIcon({ active }: { active: boolean }) {
   );
 }
 
-export interface SubWarehouseSalesScreenProps {
+export interface SalesScreenProps {
   /** Warehouse the viewer is scoped to, handed to the shared channel sales screens. */
   scope: WarehouseScope;
   /** docs/rbac.json permission check for the signed-in admin (roles/admin/permissions/can.ts). */
@@ -361,7 +361,7 @@ export interface SubWarehouseSalesScreenProps {
   onNavigateToSaleDetail?: ((saleId?: string) => void) | undefined;
 }
 
-export function SubWarehouseSalesScreen({
+export function SalesScreen({
   scope,
   can,
   onBack,
@@ -374,15 +374,13 @@ export function SubWarehouseSalesScreen({
   onNavigateToB2BSales,
   onNavigateToNeedsAttention,
   onNavigateToSaleDetail,
-}: SubWarehouseSalesScreenProps) {
+}: SalesScreenProps) {
   const [activeTab, setActiveTab] = useState<SubWHTab>('More');
   const [showNewSaleScreen, setShowNewSaleScreen] = useState(false);
   const [showSalesHistoryScreen, setShowSalesHistoryScreen] = useState(false);
   const [showMarketDaySalesScreen, setShowMarketDaySalesScreen] = useState(false);
   const [channelSales, setChannelSales] = useState<SalesChannel | null>(null);
-  const [showNeedsAttentionScreen, setShowNeedsAttentionScreen] = useState(false);
   const [showSaleDetailScreen, setShowSaleDetailScreen] = useState(false);
-  const [attentionCategory, setAttentionCategory] = useState<'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue'>('all');
 
   const handleTabPress = (tab: SubWHTab) => {
     setActiveTab(tab);
@@ -434,12 +432,9 @@ export function SubWarehouseSalesScreen({
   };
 
   const handleOpenNeedsAttention = (cat: 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue' = 'all') => {
-    if (onNavigateToNeedsAttention) {
-      onNavigateToNeedsAttention(cat);
-    } else {
-      setAttentionCategory(cat);
-      setShowNeedsAttentionScreen(true);
-    }
+    // Needs Attention is a Sub warehouse screen (roles/subwarehouse) that has not
+    // moved to an area folder yet; the host opens it, this screen does not import it.
+    onNavigateToNeedsAttention?.(cat);
   };
 
   const handleOpenSaleDetail = (saleId: string = 'SALE-00251') => {
@@ -452,7 +447,7 @@ export function SubWarehouseSalesScreen({
 
   if (showSaleDetailScreen) {
     return (
-      <SubWarehouseSaleDetailScreen
+      <SaleDetailScreen
         scope={scope}
         can={can}
         sale={{
@@ -490,15 +485,6 @@ export function SubWarehouseSalesScreen({
     );
   }
 
-  if (showNeedsAttentionScreen) {
-    return (
-      <SubWarehouseNeedsAttentionScreen
-        initialCategory={attentionCategory}
-        onBack={() => setShowNeedsAttentionScreen(false)}
-      />
-    );
-  }
-
   if (channelSales) {
     return (
       <ChannelSalesScreen
@@ -512,7 +498,7 @@ export function SubWarehouseSalesScreen({
 
   if (showMarketDaySalesScreen) {
     return (
-      <SubWarehouseMarketDaySalesScreen
+      <MarketDaySalesScreen
         onBack={() => setShowMarketDaySalesScreen(false)}
         onNavigateToNewMarketSale={handleOpenNewSale}
         onNavigateToSalesHistory={handleOpenSalesHistory}
@@ -523,7 +509,7 @@ export function SubWarehouseSalesScreen({
 
   if (showSalesHistoryScreen) {
     return (
-      <SubWarehouseSalesHistoryScreen
+      <SalesHistoryScreen
         onBack={() => setShowSalesHistoryScreen(false)}
         onTabChange={handleTabPress}
       />
@@ -532,7 +518,9 @@ export function SubWarehouseSalesScreen({
 
   if (showNewSaleScreen) {
     return (
-      <SubWarehouseNewSaleScreen
+      <NewSaleScreen
+        scope={scope}
+        can={can}
         onBack={() => setShowNewSaleScreen(false)}
         onSelectProducts={() => {
           Alert.alert('Products', 'Select produce batches from Coonoor inventory.');

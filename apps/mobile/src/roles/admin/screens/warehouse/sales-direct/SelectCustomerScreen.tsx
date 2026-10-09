@@ -169,17 +169,17 @@ const MOCK_CUSTOMERS: CustomerRecord[] = [
   },
 ];
 
-import { SubWarehousePaymentScreen } from './SubWarehousePaymentScreen';
+import { PaymentScreen } from './PaymentScreen';
 
-export interface SubWarehouseSelectCustomerScreenProps {
+export interface SelectCustomerScreenProps {
   onBack?: (() => void) | undefined;
   onContinueToPayment?: ((customer: CustomerRecord) => void) | undefined;
 }
 
-export function SubWarehouseSelectCustomerScreen({
+export function SelectCustomerScreen({
   onBack,
   onContinueToPayment,
-}: SubWarehouseSelectCustomerScreenProps) {
+}: SelectCustomerScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('cus-1');
   const [isDetailView, setIsDetailView] = useState<boolean>(false);
@@ -225,7 +225,7 @@ export function SubWarehouseSelectCustomerScreen({
 
   if (showPaymentScreen) {
     return (
-      <SubWarehousePaymentScreen
+      <PaymentScreen
         amountDue={320}
         onBack={() => setShowPaymentScreen(false)}
         onPaymentConfirmed={() => {
