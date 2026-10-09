@@ -323,7 +323,7 @@ import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingAp
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
 import { ReportBuilderScreen } from '../admin/screens/reports';
 import { TohfaToast, makeCan, type ToastData } from '../admin';
-import { M5S15_OrderStatusHistory } from '../admin/screens/swa/orders/M5S15_OrderStatusHistory';
+import { OrderStatusHistoryScreen } from '../admin/screens/warehouse/orders';
 
 export type ScreenName =
   | 'Splash'
@@ -1467,7 +1467,9 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseOrderStatusHistory' ? (
-          <M5S15_OrderStatusHistory
+          <OrderStatusHistoryScreen
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             orderId={selectedStatusOrderId || (params?.orderId as string) || 'ORD-1024'}
             onNavigate={(nextScreen) => navigate(nextScreen as ScreenName)}
             onBack={goBack}
@@ -2080,6 +2082,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseOrderDetail' ? (
           <OrdersModule
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             initialScreen="M5S04"
             initialParams={{
               orderId: (params['orderNo'] as string) || 'ORD-00251',

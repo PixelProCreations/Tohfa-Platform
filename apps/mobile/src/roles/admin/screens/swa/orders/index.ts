@@ -1,23 +1,4 @@
-// Module 5: Customer Orders - All 18 Screens
-export { M5S01_OrdersDashboard } from './M5S01_OrdersDashboard';
-export { M5S02_OrdersList } from './M5S02_OrdersList';
+// Module 5: Customer Orders. The surviving order screens moved to
+// roles/admin/screens/warehouse/orders (W4). M5S03 stays here until the
+// customers wave folds it into OrderFilters.
 export { M5S03_SearchFilters } from './M5S03_SearchFilters';
-export { M5S04_OrderDetail } from './M5S04_OrderDetail';
-export { M5S05_StockCheck } from './M5S05_StockCheck';
-export { M5S06_StockShortage } from './M5S06_StockShortage';
-export { M5S07_Packing } from './M5S07_Packing';
-export { M5S08_ConfirmPacking } from './M5S08_ConfirmPacking';
-export { M5S09_ReadyForPickup } from './M5S09_ReadyForPickup';
-export { M5S10_PickupVerification } from './M5S10_PickupVerification';
-export { M5S11_PickupOTP } from './M5S11_PickupOTP';
-export { M5S12_ConfirmHandover } from './M5S12_ConfirmHandover';
-export { M5S13_DeliveryPreparation } from './M5S13_DeliveryPreparation';
-export { M5S14_Dispatch } from './M5S14_Dispatch';
-export { M5S14B_ConfirmDispatch } from './M5S14B_ConfirmDispatch';
-export { M5S14C_OrderDispatched } from './M5S14C_OrderDispatched';
-export { M5S15_OrderStatusHistory } from './M5S15_OrderStatusHistory';
-export { M5S15B_EventDetail } from './M5S15B_EventDetail';
-export { M5S16_OrderIssue } from './M5S16_OrderIssue';
-export { M5S16B_IssueSubmitted } from './M5S16B_IssueSubmitted';
-export { M5S17_CancelOrder } from './M5S17_CancelOrder';
-export { M5S18_OrderInvoice } from './M5S18_OrderInvoice';

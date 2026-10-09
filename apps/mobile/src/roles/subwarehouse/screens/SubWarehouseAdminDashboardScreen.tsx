@@ -141,30 +141,7 @@ import {
   M3S17_AdjustmentDetail,
   M3S18_StockMovementOptions,
 } from '../../admin/screens/swa/inventory';
-import {
-  M5S01_OrdersDashboard,
-  M5S02_OrdersList,
-  M5S03_SearchFilters,
-  M5S04_OrderDetail,
-  M5S05_StockCheck,
-  M5S06_StockShortage,
-  M5S07_Packing,
-  M5S08_ConfirmPacking,
-  M5S09_ReadyForPickup,
-  M5S10_PickupVerification,
-  M5S11_PickupOTP,
-  M5S12_ConfirmHandover,
-  M5S13_DeliveryPreparation,
-  M5S14_Dispatch,
-  M5S14B_ConfirmDispatch,
-  M5S14C_OrderDispatched,
-  M5S15_OrderStatusHistory,
-  M5S15B_EventDetail,
-  M5S16_OrderIssue,
-  M5S16B_IssueSubmitted,
-  M5S17_CancelOrder,
-  M5S18_OrderInvoice,
-} from '../../admin/screens/swa/orders';
+import { OrdersFlow } from '../../admin/screens/warehouse/orders';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -1094,194 +1071,60 @@ function InventoryModule({
   }
 }
 
-// ─── Orders Module Navigation Component ──────────────────────────────────────
+// ─── Orders Module ───────────────────────────────────────────────────────────
+// The order screens and their navigator live in admin/screens/warehouse/orders
+// (shared with the Main shell). This wrapper only adds what the Sub shell owns:
+// its operational-issues screens ('M4S09') and its tab handling.
 export function OrdersModule({
+  scope,
+  can,
   initialScreen = 'M5S01',
   initialParams = null,
   onBack,
   onTabChange,
   onNavigateToOperationalIssues,
 }: {
+  scope: WarehouseScope;
+  can: PermissionCheck;
   initialScreen?: string;
   initialParams?: any;
   onBack: () => void;
   onTabChange?: (tab: SubWHTab) => void;
   onNavigateToOperationalIssues?: () => void;
 }) {
-  const [currentScreen, setCurrentScreen] = useState<string>(initialScreen);
-  const [screenParams, setScreenParams] = useState<any>(initialParams);
-  const [navigationStack, setNavigationStack] = useState<string[]>([initialScreen]);
-
-  const handleNavigate = (screen: string, params?: any) => {
-    setNavigationStack(prev => [...prev, screen]);
-    setCurrentScreen(screen);
-    setScreenParams(params || null);
-  };
-
-  const handleBack = () => {
-    if (navigationStack.length > 1) {
-      const newStack = [...navigationStack];
-      newStack.pop(); // Remove current screen
-      const previousScreen = newStack[newStack.length - 1];
-      setNavigationStack(newStack);
-      if (previousScreen) {
-        setCurrentScreen(previousScreen);
-      }
-      setScreenParams(null);
-    } else {
-      // At root, exit to main dashboard
-      onBack();
-    }
-  };
-
-  // Render the appropriate screen based on currentScreen state
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'M5S01':
-      case 'M5S01_OrdersDashboard':
-        return (
-          <M5S01_OrdersDashboard
-            onNavigate={handleNavigate}
-            onBack={handleBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') {
-                onBack();
-              } else if (onTabChange) {
-                onBack();
-                onTabChange(tab as SubWHTab);
-              }
-            }}
-          />
-        );
-      case 'M5S02':
-      case 'M5S02_OrdersList':
-        return <M5S02_OrdersList onNavigate={handleNavigate} onBack={handleBack} routeParams={screenParams} />;
-      case 'M5S03':
-      case 'M5S03_SearchFilters':
-        return <M5S03_SearchFilters onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S04':
-      case 'M5S04_OrderDetail':
-        return (
-          <M5S04_OrderDetail
-            orderId={screenParams?.orderId}
-            customerName={screenParams?.customerName}
-            onNavigate={handleNavigate}
-            onBack={handleBack}
-          />
-        );
-      case 'M5S05':
-      case 'M5S05_StockCheck':
-        return <M5S05_StockCheck orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S06':
-      case 'M5S06_StockShortage':
-        return <M5S06_StockShortage orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S07':
-      case 'M5S07_Packing':
-        return <M5S07_Packing orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S08':
-      case 'M5S08_ConfirmPacking':
-        return <M5S08_ConfirmPacking orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S09':
-      case 'M5S09_ReadyForPickup':
-        return <M5S09_ReadyForPickup onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S10':
-      case 'M5S10_PickupVerification':
-        return <M5S10_PickupVerification orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S11':
-      case 'M5S11_PickupOTP':
-        return <M5S11_PickupOTP orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S12':
-      case 'M5S12_ConfirmHandover':
-        return <M5S12_ConfirmHandover orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S13':
-      case 'M5S13_DeliveryPreparation':
-        return <M5S13_DeliveryPreparation orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S14':
-      case 'M5S14_Dispatch':
-        return <M5S14_Dispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S14B':
-      case 'M5S14B_ConfirmDispatch':
-        return <M5S14B_ConfirmDispatch orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S14C':
-      case 'M5S14C_OrderDispatched':
-        return <M5S14C_OrderDispatched orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S15':
-      case 'M5S15_OrderStatusHistory':
-        return <M5S15_OrderStatusHistory orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S15B':
-      case 'M5S15B_EventDetail':
-        return (
-          <M5S15B_EventDetail
-            orderId={screenParams?.orderId}
-            eventName={screenParams?.eventName}
-            eventTime={screenParams?.eventTime}
-            eventDate={screenParams?.eventDate}
-            performedBy={screenParams?.performedBy}
-            onNavigate={handleNavigate}
-            onBack={handleBack}
-          />
-        );
-      case 'M5S16':
-      case 'M5S16_OrderIssue':
-        return <M5S16_OrderIssue orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S16B':
-      case 'M5S16B_IssueSubmitted':
-        return (
-          <M5S16B_IssueSubmitted
-            orderId={screenParams?.orderId}
-            issueId={screenParams?.issueId}
-            onNavigate={(screen, params) => {
-              if (screen === 'M4S09' || screen === 'OperationalIssues') {
-                if (onNavigateToOperationalIssues) {
-                  onNavigateToOperationalIssues();
-                } else {
-                  handleNavigate('M4S09', params);
-                }
-              } else {
-                handleNavigate(screen, params);
-              }
-            }}
-            onViewIssue={() => {
-              if (onNavigateToOperationalIssues) {
-                onNavigateToOperationalIssues();
-              } else {
-                handleNavigate('M4S09', screenParams);
-              }
-            }}
-            onBack={handleBack}
-          />
-        );
-      case 'M4S09':
-      case 'OperationalIssues':
-        return (
-          <SubWarehouseOperationalIssuesScreen
-            onBack={handleBack}
-            onNavigateToReport={() => handleNavigate('M5S16')}
-            onViewIssueDetail={() => handleNavigate('OperationalIssueDetail')}
-          />
-        );
-      case 'OperationalIssueDetail':
-        return (
-          <SubWarehouseOperationalIssueDetailScreen
-            onBack={handleBack}
-          />
-        );
-      case 'M5S17':
-      case 'M5S17_CancelOrder':
-        return <M5S17_CancelOrder orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      case 'M5S18':
-      case 'M5S18_OrderInvoice':
-        return <M5S18_OrderInvoice orderId={screenParams?.orderId} onNavigate={handleNavigate} onBack={handleBack} />;
-      default:
-        return <M5S01_OrdersDashboard onNavigate={handleNavigate} onBack={handleBack} />;
-    }
-  };
-
   return (
-    <View style={{ flex: 1, backgroundColor: '#F0562A' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
-      {renderScreen()}
-    </View>
+    <OrdersFlow
+      scope={scope}
+      can={can}
+      initialScreen={initialScreen}
+      initialParams={initialParams}
+      onBack={onBack}
+      onTabChange={(tab) => {
+        // Home closes the module; any other tab closes it and switches tab.
+        onBack();
+        if (tab !== 'Home') onTabChange?.(tab);
+      }}
+      onViewIssue={onNavigateToOperationalIssues}
+      renderExternalScreen={(screen, _params, nav) => {
+        switch (screen) {
+          case 'M4S09':
+          case 'OperationalIssues':
+            // Reached only when the host gave no onNavigateToOperationalIssues
+            // (OrderIssueScreen's View Issue prefers onViewIssue).
+            return (
+              <SubWarehouseOperationalIssuesScreen
+                onBack={nav.back}
+                onNavigateToReport={() => nav.navigate('M5S16')}
+                onViewIssueDetail={() => nav.navigate('OperationalIssueDetail')}
+              />
+            );
+          case 'OperationalIssueDetail':
+            return <SubWarehouseOperationalIssueDetailScreen onBack={nav.back} />;
+          default:
+            return null;
+        }
+      }}
+    />
   );
 }
 
@@ -1711,6 +1554,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (showOrderDetail) {
     return (
       <OrdersModule
+        scope={scope}
+        can={can}
         initialScreen="M5S04"
         initialParams={{
           orderId: selectedOrder?.orderNo || 'ORD-00251',
@@ -5144,6 +4989,8 @@ export function SubWarehouseAdminDashboardScreen({
         {/* ─── Orders Module ─── */}
         {showOrdersModule && (
           <OrdersModule
+            scope={scope}
+            can={can}
             initialScreen={ordersInitialScreen}
             initialParams={ordersInitialParams}
             onBack={() => {

@@ -9,7 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { ORDERS_THEME } from './theme';
+import { adminColors, adminRadius, adminShadow } from '../../../theme';
 
 interface M5S03Props {
   onNavigate: (screen: string, params?: any) => void;
@@ -21,7 +21,7 @@ interface M5S03Props {
 function BackArrowWhiteIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -29,8 +29,8 @@ function BackArrowWhiteIcon() {
 function SearchIconGrey() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke={ORDERS_THEME.textSecondary} strokeWidth="2" />
-      <Path d="M16 16l4.5 4.5" stroke={ORDERS_THEME.textSecondary} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="11" cy="11" r="7" stroke={adminColors.muted} strokeWidth="2" />
+      <Path d="M16 16l4.5 4.5" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -38,7 +38,7 @@ function SearchIconGrey() {
 function FlagIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7" stroke={ORDERS_THEME.textInk} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -46,9 +46,9 @@ function FlagIcon() {
 function TruckIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M1 3h14v13H1zM15 8h4l3 3v5h-7V8z" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
+      <Path d="M1 3h14v13H1zM15 8h4l3 3v5h-7V8z" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={adminColors.ink} strokeWidth="1.8" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={adminColors.ink} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -56,7 +56,7 @@ function TruckIcon() {
 function StoreChannelIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l1-6h16l1 6M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4 12v9h16v-9" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 9l1-6h16l1 6M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M4 12v9h16v-9" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -64,8 +64,8 @@ function StoreChannelIcon() {
 function CalendarDateIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={adminColors.ink} strokeWidth="1.8" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -73,9 +73,9 @@ function CalendarDateIcon() {
 function PaymentCashIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
-      <Circle cx="12" cy="12" r="3" stroke={ORDERS_THEME.textInk} strokeWidth="1.8" />
-      <Path d="M6 12h.01M18 12h.01" stroke={ORDERS_THEME.textInk} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={adminColors.ink} strokeWidth="1.8" />
+      <Circle cx="12" cy="12" r="3" stroke={adminColors.ink} strokeWidth="1.8" />
+      <Path d="M6 12h.01M18 12h.01" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -83,8 +83,8 @@ function PaymentCashIcon() {
 function LockNoticeIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={ORDERS_THEME.orangeDeep} strokeWidth="2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={ORDERS_THEME.orangeDeep} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={adminColors.brandDeep} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.brandDeep} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -92,7 +92,7 @@ function LockNoticeIcon() {
 function FilterFunnelWhiteIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -148,7 +148,7 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
             <TextInput
               style={styles.searchInput}
               placeholder="Search by order ID, customer name, phone"
-              placeholderTextColor={ORDERS_THEME.textSecondary}
+              placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -273,7 +273,7 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
           <View style={styles.warehouseNoticeBox}>
             <LockNoticeIcon />
             <Text style={styles.warehouseNoticeText}>
-              Locked to Coonoor Warehouse. Orders from other warehouses are not visible.
+              Locked to your assigned warehouse. Orders from other warehouses are not visible.
             </Text>
           </View>
 
@@ -299,14 +299,14 @@ export const M5S03_SearchFilters: React.FC<M5S03Props> = ({ onNavigate, onBack }
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: ORDERS_THEME.primary,
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: ORDERS_THEME.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: ORDERS_THEME.primary,
+    backgroundColor: adminColors.brand,
     paddingTop: 14,
     paddingBottom: 16,
     paddingHorizontal: 16,
@@ -328,14 +328,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    color: adminColors.onBrand,
   },
   clearAllText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins',
+    color: adminColors.onBrand,
     textDecorationLine: 'underline',
   },
   content: {
@@ -344,27 +342,22 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   searchBox: {
-    backgroundColor: ORDERS_THEME.cardBg,
-    borderRadius: ORDERS_THEME.radiusMD,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: ORDERS_THEME.border,
+    borderColor: adminColors.border,
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     gap: 10,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: ORDERS_THEME.textInk,
-    fontFamily: 'Poppins',
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   sectionHeaderRow: {
@@ -377,8 +370,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: ORDERS_THEME.textInk,
-    fontFamily: 'Poppins',
+    color: adminColors.ink,
   },
   pillsWrap: {
     flexDirection: 'row',
@@ -387,33 +379,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pillBtn: {
-    backgroundColor: ORDERS_THEME.cardBg,
-    borderRadius: ORDERS_THEME.radiusFull,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: ORDERS_THEME.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 7,
   },
   pillBtnSelected: {
-    backgroundColor: ORDERS_THEME.orangeTint,
-    borderColor: ORDERS_THEME.primary,
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
     borderWidth: 1.5,
   },
   pillText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: ORDERS_THEME.textInk,
-    fontFamily: 'Poppins',
+    color: adminColors.ink,
   },
   pillTextSelected: {
-    color: ORDERS_THEME.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
   warehouseNoticeBox: {
-    backgroundColor: ORDERS_THEME.orangeTint,
-    borderRadius: ORDERS_THEME.radiusLG,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: ORDERS_THEME.border,
+    borderColor: adminColors.border,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -425,34 +416,29 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: ORDERS_THEME.orangeDeep,
-    fontFamily: 'Poppins',
+    color: adminColors.brandDeep,
     lineHeight: 17,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: 8,
-    backgroundColor: ORDERS_THEME.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   applyBtn: {
-    backgroundColor: ORDERS_THEME.primary,
-    borderRadius: ORDERS_THEME.radiusLG,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: ORDERS_THEME.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    // Was an orange-tinted glow; the admin theme has only neutral shadows.
+    ...adminShadow.md,
   },
   applyBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 14.5,
     fontWeight: '700',
-    fontFamily: 'Poppins',
   },
 });

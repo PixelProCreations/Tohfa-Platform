@@ -24,7 +24,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { SubWarehouseInvoiceDetailScreen } from '../../../../subwarehouse/screens/SubWarehouseInvoiceDetailScreen';
-import { M5S15_OrderStatusHistory } from '../../swa/orders/M5S15_OrderStatusHistory';
+import { OrderStatusHistoryScreen } from '../orders';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import { CHANNEL_COPY, CHANNEL_FALLBACK_ORDER, invoiceIdForOrder } from './fixtures';
@@ -140,7 +140,9 @@ export function ChannelOrderDetailScreen({
 
   if (currentSubView === 'status') {
     return (
-      <M5S15_OrderStatusHistory
+      <OrderStatusHistoryScreen
+        scope={scope}
+        can={can}
         orderId={displayOrder.id}
         onNavigate={(screen, params) => onNavigate?.(screen, params)}
         onBack={() => setCurrentSubView('detail')}
