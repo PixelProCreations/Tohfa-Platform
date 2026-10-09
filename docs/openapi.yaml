@@ -1569,7 +1569,8 @@ paths:
       summary: List own bank accounts
       description: |
         Returns the farmer's active bank accounts. Account numbers are always masked to the
-        last 4 digits (BR-53a).
+        last 4 digits (BR-53a). UPI ids are not bank accounts and are never listed here; they
+        live under `/farmers/me/upi`.
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       responses:
@@ -1589,7 +1590,9 @@ paths:
       summary: Add bank account
       description: |
         Adds a new bank account destination for payouts. IFSC and account number format are validated
-        server-side (BR-53b). Verification status is initialized to UNVERIFIED (BR-53c).
+        server-side (BR-53b). Verification status is initialized to UNVERIFIED (BR-53c). Only the last
+        4 digits of the account number are stored; no token is stored for it. The farmer's first payout
+        destination, of either kind (bank account or UPI), becomes the default automatically.
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       requestBody:
@@ -1619,6 +1622,8 @@ paths:
       summary: Update bank account
       description: |
         Updates bank account fields. If account number or IFSC changes, verification status resets to UNVERIFIED (BR-53c).
+        Only bank accounts are addressable here: the id of a UPI destination, or of another farmer's
+        account, returns 404 (BR-36, BR-53f).
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       requestBody:
@@ -1642,7 +1647,10 @@ paths:
       operationId: deleteMyBankAccount
       summary: Delete bank account
       description: |
-        Soft-deletes the bank account. Accounts referenced by payouts are soft-deleted to preserve payout audit history (BR-53e).
+        Soft-deletes the bank account; the row is never hard-deleted, so settled payouts keep their
+        history (BR-53e). Refused with 409 `INVALID_STATE_TRANSITION` while a payout that has not
+        settled (REQUESTED, PENDING_APPROVAL, APPROVED or PROCESSING) references it. Deleting the
+        default destination promotes the most recently created remaining destination (bank account or UPI).
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       responses:
@@ -1650,6 +1658,7 @@ paths:
           description: Bank account deleted.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me/bank-accounts/{id}/default:
@@ -1663,7 +1672,9 @@ paths:
       operationId: setDefaultBankAccount
       summary: Set primary bank account
       description: |
-        Sets the specified bank account as the primary default payout destination (BR-53d).
+        Sets the specified payout destination as the primary default (BR-53d). Accepts either kind
+        of the farmer's own destinations, a bank account or the UPI id; for a UPI id `bankName`,
+        `ifsc` and `accountNumberLast4` are null.
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       responses:
@@ -1682,7 +1693,7 @@ paths:
       operationId: getMyUpiPreference
       summary: Get UPI payout destination
       description: |
-        Retrieves the farmer's registered UPI ID payout destination (BR-53).
+        Retrieves the farmer's registered UPI ID payout destination (BR-53). 404 when none is registered.
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       responses:
@@ -1700,7 +1711,11 @@ paths:
       operationId: setMyUpiPreference
       summary: Register or update UPI payout destination
       description: |
-        Registers or updates the farmer's UPI ID. VPA format is validated (BR-53b).
+        Registers or updates the farmer's UPI ID. VPA format is validated (BR-53b); a changed id is
+        UNVERIFIED (BR-53c). The account holder is the farmer's own name; 422 `VALIDATION_FAILED` if the
+        farmer has none on file. `isDefault` is only applied when sent: the first payout destination of
+        either kind becomes the default automatically, and updating an existing UPI id without
+        `isDefault` keeps its current default flag.
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       requestBody:
@@ -1723,7 +1738,8 @@ paths:
       operationId: deleteMyUpiPreference
       summary: Remove UPI payout destination
       description: |
-        Soft-deletes the registered UPI destination (BR-53).
+        Soft-deletes the registered UPI destination (BR-53). 404 when none is registered. Same
+        409 `INVALID_STATE_TRANSITION` guard and default promotion as deleting a bank account.
       x-permission: farmer.bank_account.manage_own
       x-business-rules: [BR-53]
       responses:
@@ -1731,6 +1747,7 @@ paths:
           description: UPI destination removed.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farms:
@@ -5581,7 +5598,9 @@ paths:
       operationId: listMyCropMilestones
       summary: List growth milestones for a crop
       description: |
-        Returns ordered growth milestones and completion progress for a crop. Auto-initializes from templates if uninitialized (BR-57).
+        Returns ordered growth milestones and completion progress for a crop. Auto-initializes from templates if uninitialized (BR-57b):
+        the crop's own templates if it has any, otherwise the universal ones. That first call is the only GET that writes; it takes the
+        farmer lock and writes one `crop_milestone.initialize` audit row, and later calls write nothing (BR-57e).
       x-permission: farmer.crop_milestone.manage_own
       x-business-rules: [BR-57, BR-36]
       parameters:
@@ -5605,9 +5624,11 @@ paths:
     post:
       tags: [Crops]
       operationId: initializeMyCropMilestones
-      summary: Initialize or reset crop milestones from templates
+      summary: Initialize crop milestones from templates
       description: |
-        Explicitly populates or resets growth milestones for a crop from reference templates (BR-57).
+        Explicitly populates the growth milestones a crop is missing from reference templates (BR-57b). It never
+        resets or overwrites an existing milestone. Answers 201 and writes one `crop_milestone.initialize` audit
+        row only when it inserted milestones; when every stage already exists it answers 200 and writes nothing (BR-57e).
       x-permission: farmer.crop_milestone.manage_own
       x-business-rules: [BR-57, BR-36, BR-35]
       parameters:
@@ -5616,6 +5637,12 @@ paths:
           required: true
           schema: { type: string, format: uuid }
       responses:
+        '200':
+          description: Nothing to initialize; the existing milestones are returned unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CropMilestonesListResponse'
         '201':
           description: Milestones initialized.
           content:
@@ -5633,7 +5660,8 @@ paths:
       operationId: updateMyCropMilestone
       summary: Update status or notes for a crop milestone
       description: |
-        Marks a milestone as COMPLETED or SKIPPED, recording completion timestamp and notes (BR-57).
+        Marks a milestone as COMPLETED or SKIPPED, recording completion date and notes (BR-57c). A `completedOn` in the
+        future (Asia/Kolkata) is 422 `VALIDATION_FAILED` whatever the status (BR-57a); both dates must be real calendar dates.
       x-permission: farmer.crop_milestone.manage_own
       x-business-rules: [BR-57, BR-36, BR-35]
       parameters:
@@ -5670,7 +5698,8 @@ paths:
       operationId: listCropMilestoneTemplates
       summary: List reference milestone templates
       description: |
-        Returns available growth milestone templates, optionally filtered by crop type (BR-57).
+        Returns available growth milestone templates (BR-57b). With `cropMasterId`, the crop's own templates if it has any,
+        otherwise the universal ones (never a mix of both); without it, the universal templates.
       x-permission: farmer.crop_milestone.manage_own
       x-business-rules: [BR-57]
       parameters:
@@ -5698,6 +5727,11 @@ paths:
       description: |
         Returns chronological events across audits, certificate expiries, crop harvests,
         and published platform events within the specified date range (BR-58).
+
+        `from` and `to` are real calendar dates (`2026-02-30` is 422), `from <= to`, and
+        `to` may be at most `system_config.calendar_max_range_days` (seeded 366) days after
+        `from`; a wider span is 422 `VALIDATION_FAILED` on `query.to`. Audit days are
+        Asia/Kolkata days: an audit at 20:00 UTC on the 9th appears on the 10th.
       x-permission: farmer.calendar.view_own
       x-business-rules: [BR-58, BR-36]
       parameters:
@@ -5726,9 +5760,16 @@ paths:
       tags: [Calendar & Events]
       operationId: listPlatformEvents
       summary: List all platform events
-      description: Returns all platform announcements and calendar events (BR-58).
+      description: Returns a page of platform announcements and calendar events, newest `eventDate` first (BR-58).
       x-permission: platform.event.manage
       x-business-rules: [BR-58]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         '200':
           description: Platform events list.
@@ -5738,6 +5779,7 @@ paths:
                 $ref: '#/components/schemas/PlatformEventsListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Calendar & Events]
@@ -5843,13 +5885,13 @@ paths:
       tags: [Learning Hub]
       operationId: listLearningArticles
       summary: List published learning articles
-      description: Returns paginated published learning articles with optional language and tag filters (BR-59a).
+      description: Returns paginated published learning articles with optional language and tag filters (BR-59a). Rows carry the snippet only, never the full content (BR-59f); fetch the detail endpoint for the body.
       x-permission: farmer.learning.view
       x-business-rules: [BR-59]
       parameters:
         - name: page
           in: query
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -5906,7 +5948,7 @@ paths:
       parameters:
         - name: page
           in: query
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -5935,7 +5977,7 @@ paths:
       parameters:
         - name: page
           in: query
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -5958,7 +6000,7 @@ paths:
       tags: [Learning Hub]
       operationId: enrollLearningTraining
       summary: Enroll in a training workshop
-      description: Enrolls the caller farmer in a training workshop if capacity permits (BR-59b).
+      description: Enrolls the caller farmer in a training workshop if capacity permits (BR-59b). Idempotent (BR-59i) - a replay returns the original enrolment, is not audited again and is not refused when the training is full.
       x-permission: farmer.learning.participate_own
       x-business-rules: [BR-59]
       parameters:
@@ -6009,7 +6051,7 @@ paths:
       parameters:
         - name: page
           in: query
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -6258,7 +6300,7 @@ paths:
       tags: [Learning Hub]
       operationId: updateLearningTraining
       summary: Update a training workshop
-      description: Updates training workshop schedule, capacity or location (BR-59d).
+      description: Updates training workshop schedule, capacity or location (BR-59d). Lowering capacity below the number of farmers already enrolled is refused with 409 CONFLICT (BR-59h).
       x-permission: learning.admin.manage
       x-business-rules: [BR-59, BR-35]
       parameters:
@@ -6282,6 +6324,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
     delete:
@@ -6411,7 +6454,7 @@ paths:
       parameters:
         - name: page
           in: query
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -6420,11 +6463,11 @@ paths:
           schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
       responses:
         '200':
-          description: Paginated support tickets.
+          description: Paginated support tickets (farmer view - no assignee).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SupportTicketsListResponse'
+                $ref: '#/components/schemas/FarmerSupportTicketsListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -6432,7 +6475,10 @@ paths:
       tags: [Support Tickets]
       operationId: createSupportTicket
       summary: Create a support ticket
-      description: Creates a new support ticket under caller farmer profile (BR-60, BR-36).
+      description: >-
+        Creates a new support ticket under caller farmer profile (BR-60, BR-36). The ticket starts OPEN with
+        NORMAL priority; priority is triage and is not a farmer input (a `priority` field is rejected with 422).
+        The first status-history row is NULL -> OPEN.
       x-permission: farmer.support_ticket.manage_own
       x-business-rules: [BR-60, BR-36]
       requestBody:
@@ -6447,7 +6493,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SupportTicketDetailResponse'
+                $ref: '#/components/schemas/FarmerSupportTicketDetailResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -6468,11 +6514,11 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Ticket details.
+          description: Ticket details (farmer view - no assignee, staff senders shown as SUPPORT).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SupportTicketDetailResponse'
+                $ref: '#/components/schemas/FarmerSupportTicketDetailResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -6503,7 +6549,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SupportTicketMessage'
+                $ref: '#/components/schemas/FarmerSupportTicketMessage'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -6516,7 +6562,9 @@ paths:
       tags: [Support Tickets]
       operationId: closeMySupportTicket
       summary: Close own support ticket
-      description: Farmers may close their own support ticket from any active state (BR-60, BR-36).
+      description: >-
+        Farmers may close their own support ticket from any active state (BR-60, BR-36). Closing a ticket that
+        is already CLOSED returns 409 INVALID_STATE_TRANSITION.
       x-permission: farmer.support_ticket.manage_own
       x-business-rules: [BR-60, BR-36]
       parameters:
@@ -6530,7 +6578,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SupportTicketDetailResponse'
+                $ref: '#/components/schemas/FarmerSupportTicketDetailResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -6542,13 +6590,13 @@ paths:
       tags: [Support Tickets]
       operationId: listAllSupportTickets
       summary: List and filter all support tickets
-      description: Returns support tickets across all farmers with triage filters (BR-60).
+      description: Returns support tickets across all farmers with triage filters (BR-60). Admin view - includes the assignee and sender ids.
       x-permission: support.ticket.manage_any
       x-business-rules: [BR-60]
       parameters:
         - name: page
           in: query
-          schema: { type: integer, minimum: 1, default: 1 }
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -6557,7 +6605,7 @@ paths:
           schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
         - name: categoryCode
           in: query
-          schema: { type: string }
+          schema: { type: string, maxLength: 64 }
         - name: priority
           in: query
           schema: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
@@ -6638,7 +6686,11 @@ paths:
       tags: [Support Tickets]
       operationId: transitionSupportTicketStatus
       summary: Update support ticket status
-      description: Transitions support ticket state and records history log (BR-60, BR-35).
+      description: >-
+        Transitions support ticket state and records history log (BR-60, BR-35). A transition to the ticket's
+        current status (including CLOSED -> CLOSED) is rejected with 409 INVALID_STATE_TRANSITION, as is any
+        edge outside the allowed matrix. Entering RESOLVED stamps resolvedAt; leaving RESOLVED for IN_PROGRESS
+        clears it; RESOLVED -> CLOSED keeps it.
       x-permission: support.ticket.manage_any
       x-business-rules: [BR-60, BR-35]
       parameters:
@@ -6671,7 +6723,11 @@ paths:
       tags: [Support Tickets]
       operationId: assignSupportTicket
       summary: Assign support ticket to an admin user
-      description: Updates assigned staff member on ticket (BR-60, BR-35).
+      description: >-
+        Updates assigned staff member on ticket (BR-60, BR-35). `assignedToUserId` must be an ACTIVE user who
+        holds a current role granting `support.ticket.manage_any` (422 VALIDATION_FAILED otherwise); null
+        un-assigns. The ticket row is locked for the change, and a CLOSED ticket cannot be re-assigned (409
+        INVALID_STATE_TRANSITION).
       x-permission: support.ticket.manage_any
       x-business-rules: [BR-60, BR-35]
       parameters:
@@ -6695,6 +6751,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -6795,13 +6852,16 @@ paths:
                 $ref: '#/components/schemas/TreePlantingsListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Tree Plantings]
       operationId: createMyTreePlanting
       summary: Record a new tree or perennial planting
       description: |
-        Creates a new tree planting record. Validates that treeCount > 0 and plantedOn <= today in Asia/Kolkata (BR-55).
+        Creates a new tree planting record. Validates that treeCount > 0 and that plantedOn is a real
+        calendar date no later than today in Asia/Kolkata (BR-55). `farmId` must be one of the caller's
+        farms and `plotId` a plot of the caller's, on `farmId` when both are sent; otherwise 404.
       x-permission: farmer.tree_planting.manage_own
       x-business-rules: [BR-55, BR-36, BR-35]
       requestBody:
@@ -6853,7 +6913,9 @@ paths:
       operationId: updateMyTreePlanting
       summary: Update a tree planting record
       description: |
-        Updates fields of an own tree planting (BR-55).
+        Updates fields of an own tree planting (BR-55). The same date rules apply to `plantedOn`, and the
+        resulting `farmId` / `plotId` pair must still be the caller's own with the plot on that farm;
+        otherwise 404.
       x-permission: farmer.tree_planting.manage_own
       x-business-rules: [BR-55, BR-36, BR-35]
       parameters:
@@ -10663,7 +10725,9 @@ components:
         ifsc:
           type: [string, 'null']
           pattern: '^[A-Z]{4}0[A-Z0-9]{6}$'
-        bankName: { type: string }
+        bankName:
+          type: [string, 'null']
+          description: Null for a UPI destination, which is not a bank account.
         branchName: { type: [string, 'null'] }
         upiVpa: { type: [string, 'null'] }
         isVerified: { type: boolean }
@@ -10679,10 +10743,12 @@ components:
           type: string
           minLength: 9
           maxLength: 18
-          description: Full account number submitted for storage. Masked immediately upon return.
+          pattern: '^[0-9]{9,18}$'
+          description: Digits only. Only the last 4 are kept; the full number is never stored or returned.
         ifsc:
           type: string
-          pattern: '^[A-Z]{4}0[A-Z0-9]{6}$'
+          pattern: '^[A-Za-z]{4}0[A-Za-z0-9]{6}$'
+          description: Case-insensitive; stored and returned upper-case.
         bankName: { type: string, minLength: 2, maxLength: 120 }
         branchName: { type: string, maxLength: 120 }
         isDefault: { type: boolean, default: false }
@@ -10691,15 +10757,18 @@ components:
       type: object
       properties:
         accountHolderName: { type: string, minLength: 2, maxLength: 120 }
-        accountNumber: { type: string, minLength: 9, maxLength: 18 }
-        ifsc: { type: string, pattern: '^[A-Z]{4}0[A-Z0-9]{6}$' }
+        accountNumber: { type: string, minLength: 9, maxLength: 18, pattern: '^[0-9]{9,18}$' }
+        ifsc:
+          type: string
+          pattern: '^[A-Za-z]{4}0[A-Za-z0-9]{6}$'
+          description: Case-insensitive; stored and returned upper-case.
         bankName: { type: string, minLength: 2, maxLength: 120 }
         branchName: { type: [string, 'null'], maxLength: 120 }
         isDefault: { type: boolean }
 
     FarmerUpiPreference:
       type: object
-      required: [upiVpa, isVerified, isDefault]
+      required: [id, upiVpa, isVerified, isDefault]
       properties:
         id: { type: string, format: uuid }
         upiVpa: { type: string }
@@ -10713,42 +10782,53 @@ components:
         upiVpa:
           type: string
           pattern: '^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$'
-        isDefault: { type: boolean, default: false }
+        isDefault:
+          type: boolean
+          description: Applied only when sent. Omitted keeps the current default flag.
     FarmerDocumentItem:
       type: object
       required:
         - docType
         - displayName
         - uploadStatus
+        - readUrl
       properties:
         docType:
           type: string
-          description: Standard document category or proof type (e.g. ID_PROOF, LAND_PATTA, CERTIFICATE, SOIL_CARD, OTHER).
+          description: |
+            Standard slot (ID_PROOF, LAND_PATTA, CERTIFICATE, SOIL_CARD) or, for any further
+            recognised application upload, that upload's own docType.
           example: ID_PROOF
         displayName:
           type: string
-          description: Human-readable localized title of the document.
+          description: Human-readable title of the document.
           example: Aadhaar Card
         uploadStatus:
           type: string
-          description: Current verification or upload status (e.g. VERIFIED, UPLOADED, PENDING, ACTION_NEEDED).
-          example: VERIFIED
+          enum: [VERIFIED, UPLOADED, PENDING, ACTION_NEEDED]
+          description: |
+            VERIFIED only when a verified record exists for the uploaded file itself (a verified
+            farmer_documents row, or a verified certificate with its file). UPLOADED when a file is on
+            record but not verified. PENDING when no file is on record. ACTION_NEEDED for the soil card
+            slot, which no upload flow can fill yet.
+          example: UPLOADED
         readUrl:
           type: [string, 'null']
           format: uri
-          description: Short-lived pre-signed read URL for fetching or previewing the document.
-          example: https://storage.tohfa.in/storage/id_proof/aadhaar.pdf?expires=1760000000
+          description: |
+            Short-lived (15 minute) signed read URL, or null when there is no file. Only files
+            recorded as this farmer's own are ever signed.
         fileName:
           type: [string, 'null']
-          description: Stored or original filename.
-          example: aadhaar.pdf
+          description: The stored file's name, or the name the applicant supplied; null when unknown.
         docSubType:
           type: [string, 'null']
-          description: Granular subtype or tag (e.g. Aadhaar Card, Land Patta).
+          description: Sub-type recorded with the document (e.g. Patta, or the certificate type); null when none is recorded.
           example: Aadhaar Card
         documentNumberLast4:
           type: [string, 'null']
-          description: Masked document number (last 4 digits only, e.g. for Aadhaar).
+          pattern: '^[0-9]{4}$'
+          description: Masked document number (last 4 digits only, Aadhaar slot).
           example: '4821'
         uploadedAt:
           type: [string, 'null']
@@ -10783,7 +10863,7 @@ components:
         farmId: { type: [string, 'null'], format: uuid }
         plotId: { type: [string, 'null'], format: uuid }
         speciesName: { type: string, maxLength: 200 }
-        treeCount: { type: integer, minimum: 1 }
+        treeCount: { type: integer, minimum: 1, maximum: 2147483647 }
         plantedOn: { type: [string, 'null'], format: date }
         zoneName: { type: [string, 'null'], maxLength: 200 }
         purpose: { type: [string, 'null'], maxLength: 500 }
@@ -10800,7 +10880,7 @@ components:
         farmId: { type: string, format: uuid }
         plotId: { type: string, format: uuid }
         speciesName: { type: string, minLength: 1, maxLength: 200 }
-        treeCount: { type: integer, minimum: 1 }
+        treeCount: { type: integer, minimum: 1, maximum: 2147483647 }
         plantedOn: { type: string, format: date }
         zoneName: { type: string, maxLength: 200 }
         purpose: { type: string, maxLength: 500 }
@@ -10812,7 +10892,7 @@ components:
         farmId: { type: [string, 'null'], format: uuid }
         plotId: { type: [string, 'null'], format: uuid }
         speciesName: { type: string, minLength: 1, maxLength: 200 }
-        treeCount: { type: integer, minimum: 1 }
+        treeCount: { type: integer, minimum: 1, maximum: 2147483647 }
         plantedOn: { type: [string, 'null'], format: date }
         zoneName: { type: [string, 'null'], maxLength: 200 }
         purpose: { type: [string, 'null'], maxLength: 500 }
@@ -10853,8 +10933,11 @@ components:
           type: string
           enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
         inputName: { type: string, maxLength: 200 }
-        appliedOn: { type: string, format: date }
-        quantity: { type: number, exclusiveMinimum: 0 }
+        appliedOn:
+          type: string
+          format: date
+          description: A real calendar date (2026-02-30 is rejected), not in the future in Asia/Kolkata (BR-56b).
+        quantity: { type: number, exclusiveMinimum: 0, maximum: 99999999.99 }
         unit:
           type: string
           enum: [KG, LITRE, GRAM, ML, BAG, TONNE, OTHER]
@@ -10862,10 +10945,21 @@ components:
         phosphorusPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
         potassiumPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
         applicationMethod: { type: [string, 'null'], maxLength: 100 }
-        costInr: { type: [number, 'null'], minimum: 0 }
+        costInr:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
+
+    CropInputCost:
+      type: string
+      pattern: '^[0-9]{1,8}(\.[0-9]{1,2})?$'
+      description: |
+        Cost of one input application in INR as a decimal string, e.g. `"1200.50"`. Never a JSON
+        number (see `Money`). Non-negative, at most 2 decimals and at most 8 integer digits because
+        the column is numeric(10,2).
 
     CreateCropInputRequest:
       type: object
@@ -10880,16 +10974,23 @@ components:
           type: string
           enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
-        appliedOn: { type: string, format: date }
-        quantity: { type: number, exclusiveMinimum: 0 }
+        appliedOn:
+          type: string
+          format: date
+          description: A real calendar date (2026-02-30 is rejected), not in the future in Asia/Kolkata (BR-56b).
+        quantity: { type: number, exclusiveMinimum: 0, maximum: 99999999.99 }
         unit:
           type: string
           enum: [KG, LITRE, GRAM, ML, BAG, TONNE, OTHER]
-        nitrogenPct: { type: number, minimum: 0, maximum: 100 }
+        nitrogenPct:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Nitrogen, phosphorus and potassium percentages together must not exceed 100 (422 VALIDATION_FAILED).
         phosphorusPct: { type: number, minimum: 0, maximum: 100 }
         potassiumPct: { type: number, minimum: 0, maximum: 100 }
         applicationMethod: { type: string, maxLength: 100 }
-        costInr: { type: number, minimum: 0 }
+        costInr: { $ref: '#/components/schemas/CropInputCost' }
         notes: { type: string, maxLength: 2000 }
 
     UpdateCropInputRequest:
@@ -10899,8 +11000,11 @@ components:
           type: string
           enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
-        appliedOn: { type: string, format: date }
-        quantity: { type: number, exclusiveMinimum: 0 }
+        appliedOn:
+          type: string
+          format: date
+          description: A real calendar date (2026-02-30 is rejected), not in the future in Asia/Kolkata (BR-56b).
+        quantity: { type: number, exclusiveMinimum: 0, maximum: 99999999.99 }
         unit:
           type: string
           enum: [KG, LITRE, GRAM, ML, BAG, TONNE, OTHER]
@@ -10908,7 +11012,10 @@ components:
         phosphorusPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
         potassiumPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
         applicationMethod: { type: [string, 'null'], maxLength: 100 }
-        costInr: { type: [number, 'null'], minimum: 0 }
+        costInr:
+          oneOf:
+            - $ref: '#/components/schemas/CropInputCost'
+            - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
 
     CropInputsListResponse:
@@ -10943,7 +11050,7 @@ components:
         totalNitrogenKg: { type: number, minimum: 0 }
         totalPhosphorusKg: { type: number, minimum: 0 }
         totalPotassiumKg: { type: number, minimum: 0 }
-        totalCostInr: { type: number, minimum: 0 }
+        totalCostInr: { $ref: '#/components/schemas/Money' }
 
     CropMilestone:
       type: object
@@ -11021,6 +11128,7 @@ components:
         - id
         - category
         - title
+        - description
         - date
       properties:
         id: { type: string }
@@ -11051,11 +11159,16 @@ components:
       required:
         - id
         - title
+        - description
         - eventType
         - eventDate
+        - startTime
+        - endTime
+        - locationName
         - targetAudience
         - isPublished
         - createdAt
+        - updatedAt
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -11064,8 +11177,8 @@ components:
           type: string
           enum: [WORKSHOP, TRAINING, COMMUNITY_MEET, MARKET_DAY, OTHER]
         eventDate: { type: string, format: date }
-        startTime: { type: [string, 'null'] }
-        endTime: { type: [string, 'null'] }
+        startTime: { type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM, 24-hour.' }
+        endTime: { type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM, 24-hour; later than startTime when both are set.' }
         locationName: { type: [string, 'null'] }
         targetAudience:
           type: string
@@ -11086,9 +11199,9 @@ components:
         eventType:
           type: string
           enum: [WORKSHOP, TRAINING, COMMUNITY_MEET, MARKET_DAY, OTHER]
-        eventDate: { type: string, format: date }
-        startTime: { type: string, maxLength: 20 }
-        endTime: { type: string, maxLength: 20 }
+        eventDate: { type: string, format: date, description: A real calendar date. }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM, 24-hour.' }
+        endTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM, 24-hour; must be later than startTime when both are given.' }
         locationName: { type: string, maxLength: 200 }
         targetAudience:
           type: string
@@ -11105,8 +11218,8 @@ components:
           type: string
           enum: [WORKSHOP, TRAINING, COMMUNITY_MEET, MARKET_DAY, OTHER]
         eventDate: { type: string, format: date }
-        startTime: { type: [string, 'null'], maxLength: 20 }
-        endTime: { type: [string, 'null'], maxLength: 20 }
+        startTime: { type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM, 24-hour.' }
+        endTime: { type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'HH:MM, 24-hour; must be later than startTime (the stored one when only endTime is sent) or 422 on body.endTime.' }
         locationName: { type: [string, 'null'], maxLength: 200 }
         targetAudience:
           type: string
@@ -11115,13 +11228,15 @@ components:
 
     PlatformEventsListResponse:
       type: object
-      required:
-        - items
+      required: [items, total, page, limit]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/PlatformEvent'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
 
 
 
@@ -14186,11 +14301,27 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
+    LearningArticleSummary:
+      type: object
+      description: A list row. Carries the snippet only; the full body is returned by the detail endpoint.
+      required: [id, title, readTime, author, tag, language, isPublished, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        snippet: { type: [string, 'null'] }
+        readTime: { type: string }
+        author: { type: string }
+        tag: { type: string }
+        language: { type: string, enum: [en, ta] }
+        isPublished: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
     LearningArticlesListResponse:
       type: object
       required: [items, total, page, limit]
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/LearningArticle' } }
+        items: { type: array, items: { $ref: '#/components/schemas/LearningArticleSummary' } }
         total: { type: integer }
         page: { type: integer }
         limit: { type: integer }
@@ -14199,24 +14330,24 @@ components:
       type: object
       required: [title, content, readTime, author, tag]
       properties:
-        title: { type: string, minLength: 1 }
-        content: { type: string, minLength: 1 }
-        snippet: { type: string }
-        readTime: { type: string, minLength: 1 }
-        author: { type: string, minLength: 1 }
-        tag: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, minLength: 1, maxLength: 20000 }
+        snippet: { type: [string, 'null'], maxLength: 300 }
+        readTime: { type: string, minLength: 1, maxLength: 20 }
+        author: { type: string, minLength: 1, maxLength: 120 }
+        tag: { type: string, minLength: 1, maxLength: 80 }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
 
     UpdateLearningArticleRequest:
       type: object
       properties:
-        title: { type: string, minLength: 1 }
-        content: { type: string, minLength: 1 }
-        snippet: { type: [string, 'null'] }
-        readTime: { type: string, minLength: 1 }
-        author: { type: string, minLength: 1 }
-        tag: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, minLength: 1, maxLength: 20000 }
+        snippet: { type: [string, 'null'], maxLength: 300 }
+        readTime: { type: string, minLength: 1, maxLength: 20 }
+        author: { type: string, minLength: 1, maxLength: 120 }
+        tag: { type: string, minLength: 1, maxLength: 80 }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
 
@@ -14249,11 +14380,16 @@ components:
       type: object
       required: [title, videoUrl, duration, author]
       properties:
-        title: { type: string, minLength: 1 }
-        description: { type: string }
-        videoUrl: { type: string, minLength: 1 }
-        duration: { type: string, minLength: 1 }
-        author: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        videoUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          pattern: '^[Hh][Tt][Tt][Pp][Ss]://'
+          description: Must be an absolute https:// URL. http, javascript, data and file schemes are rejected with 422.
+        duration: { type: string, minLength: 1, maxLength: 20 }
+        author: { type: string, minLength: 1, maxLength: 120 }
         language: { type: string, enum: [en, ta] }
         isFeatured: { type: boolean }
         isPublished: { type: boolean }
@@ -14261,11 +14397,16 @@ components:
     UpdateLearningVideoRequest:
       type: object
       properties:
-        title: { type: string, minLength: 1 }
-        description: { type: [string, 'null'] }
-        videoUrl: { type: string, minLength: 1 }
-        duration: { type: string, minLength: 1 }
-        author: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        videoUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          pattern: '^[Hh][Tt][Tt][Pp][Ss]://'
+          description: Must be an absolute https:// URL. http, javascript, data and file schemes are rejected with 422.
+        duration: { type: string, minLength: 1, maxLength: 20 }
+        author: { type: string, minLength: 1, maxLength: 120 }
         language: { type: string, enum: [en, ta] }
         isFeatured: { type: boolean }
         isPublished: { type: boolean }
@@ -14304,30 +14445,34 @@ components:
       type: object
       required: [title, trainingDate, startTime, mode, location, instructor]
       properties:
-        title: { type: string, minLength: 1 }
-        description: { type: string }
-        trainingDate: { type: string, format: date }
-        startTime: { type: string, minLength: 1 }
-        endTime: { type: string }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        trainingDate: { type: string, format: date, description: A real calendar date, YYYY-MM-DD. }
+        startTime: { type: string, minLength: 1, maxLength: 20 }
+        endTime: { type: [string, 'null'], maxLength: 20 }
         mode: { type: string, enum: [IN_FIELD, ONLINE_WEBINAR] }
-        location: { type: string, minLength: 1 }
-        instructor: { type: string, minLength: 1 }
-        capacity: { type: integer, minimum: 1 }
+        location: { type: string, minLength: 1, maxLength: 200 }
+        instructor: { type: string, minLength: 1, maxLength: 120 }
+        capacity: { type: [integer, 'null'], minimum: 1, maximum: 2147483647 }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
 
     UpdateLearningTrainingRequest:
       type: object
       properties:
-        title: { type: string, minLength: 1 }
-        description: { type: [string, 'null'] }
-        trainingDate: { type: string, format: date }
-        startTime: { type: string, minLength: 1 }
-        endTime: { type: [string, 'null'] }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        trainingDate: { type: string, format: date, description: A real calendar date, YYYY-MM-DD. }
+        startTime: { type: string, minLength: 1, maxLength: 20 }
+        endTime: { type: [string, 'null'], maxLength: 20 }
         mode: { type: string, enum: [IN_FIELD, ONLINE_WEBINAR] }
-        location: { type: string, minLength: 1 }
-        instructor: { type: string, minLength: 1 }
-        capacity: { type: [integer, 'null'], minimum: 1 }
+        location: { type: string, minLength: 1, maxLength: 200 }
+        instructor: { type: string, minLength: 1, maxLength: 120 }
+        capacity:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 2147483647
+          description: Cannot be lowered below the number of farmers already enrolled (409 CONFLICT). null removes the limit.
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
 
@@ -14365,16 +14510,16 @@ components:
       type: object
       required: [name, category]
       properties:
-        name: { type: string, minLength: 1 }
-        description: { type: string }
-        category: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        category: { type: string, minLength: 1, maxLength: 80 }
 
     UpdateLearningGroupRequest:
       type: object
       properties:
-        name: { type: string, minLength: 1 }
-        description: { type: [string, 'null'] }
-        category: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        category: { type: string, minLength: 1, maxLength: 80 }
 
     GroupMembershipResponse:
       type: object
@@ -14401,6 +14546,7 @@ components:
         items: { type: array, items: { $ref: '#/components/schemas/SupportTicketCategory' } }
 
     SupportTicketSummary:
+      description: Admin view of a ticket (includes the assignee).
       type: object
       required: [id, ticketNumber, farmerId, categoryCode, subject, status, priority, messageCount, createdAt, updatedAt]
       properties:
@@ -14431,15 +14577,16 @@ components:
 
     CreateSupportTicketRequest:
       type: object
+      additionalProperties: false
       required: [categoryCode, subject, description]
       properties:
-        categoryCode: { type: string, minLength: 1 }
+        categoryCode: { type: string, minLength: 1, maxLength: 64 }
         subject: { type: string, minLength: 1, maxLength: 250 }
-        description: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1, maxLength: 2000 }
         attachmentUrl: { type: string }
-        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
 
     SupportTicketMessage:
+      description: Admin view of a message (includes the sender id and the raw sender role code).
       type: object
       required: [id, ticketId, senderUserId, senderRole, message, createdAt]
       properties:
@@ -14455,7 +14602,7 @@ components:
       type: object
       required: [message]
       properties:
-        message: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1, maxLength: 2000 }
         attachmentUrl: { type: string }
 
     SupportTicketStatusHistory:
@@ -14464,18 +14611,61 @@ components:
       properties:
         id: { type: string, format: uuid }
         ticketId: { type: string, format: uuid }
-        fromStatus: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        fromStatus: { type: [string, 'null'], enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED, null], description: 'NULL on the first row (ticket creation: NULL -> OPEN).' }
         toStatus: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
         changedByUserId: { type: string, format: uuid }
         reason: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
 
-    SupportTicketDetailResponse:
+    FarmerSupportTicketSummary:
+      description: Farmer view of a ticket - the admin view without `assignedToUserId`.
+      type: object
+      required: [id, ticketNumber, farmerId, categoryCode, subject, status, priority, messageCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketNumber: { type: string }
+        farmerId: { type: string, format: uuid }
+        categoryCode: { type: string }
+        subject: { type: string }
+        description: { type: string }
+        attachmentUrl: { type: [string, 'null'] }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        messageCount: { type: integer }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    FarmerSupportTicketsListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/FarmerSupportTicketSummary' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    FarmerSupportTicketMessage:
+      description: >-
+        Farmer view of a message. No `senderUserId`; `senderRole` is `FARMER` for the caller's own messages and
+        `SUPPORT` for every staff message, whatever the staff member's role.
+      type: object
+      required: [id, ticketId, senderRole, message, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: string, format: uuid }
+        senderRole: { type: string, enum: [FARMER, SUPPORT] }
+        message: { type: string }
+        attachmentUrl: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    FarmerSupportTicketDetailResponse:
       type: object
       required: [ticket, messages]
       properties:
-        ticket: { $ref: '#/components/schemas/SupportTicketSummary' }
-        messages: { type: array, items: { $ref: '#/components/schemas/SupportTicketMessage' } }
+        ticket: { $ref: '#/components/schemas/FarmerSupportTicketSummary' }
+        messages: { type: array, items: { $ref: '#/components/schemas/FarmerSupportTicketMessage' } }
 
     AdminSupportTicketDetailResponse:
       type: object
@@ -14490,7 +14680,7 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
-        reason: { type: string }
+        reason: { type: string, maxLength: 500 }
 
     AssignTicketRequest:
       type: object
@@ -14499,7 +14689,7 @@ components:
 
     CropPlanningInsightItem:
       type: object
-      required: [cropMasterId, cropName, category, youGrow, inSeason, activePlots, totalAcreageGrown, pastHarvestCount, hasConsecutivePlanting, consecutivePlotNames]
+      required: [cropMasterId, cropName, category, youGrow, inSeason, activePlots, totalAcreageGrown, expectedYieldKg, pastHarvestCount, lastHarvestedOn, hasConsecutivePlanting, consecutivePlotNames]
       properties:
         cropMasterId: { type: string, format: uuid }
         cropName: { type: string }
@@ -14516,11 +14706,10 @@ components:
 
     CropPlanningInsightResponse:
       type: object
-      required: [generatedAt, crops, specGaps]
+      required: [generatedAt, crops]
       properties:
         generatedAt: { type: string, format: date-time }
         crops: { type: array, items: { $ref: '#/components/schemas/CropPlanningInsightItem' } }
-        specGaps: { type: array, items: { type: string } }
 
     Readiness:
       type: object
