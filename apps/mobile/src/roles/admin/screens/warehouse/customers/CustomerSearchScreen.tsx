@@ -20,7 +20,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { SubWarehouseCustomerWalletScreen } from '../../../../subwarehouse/screens/SubWarehouseCustomerWalletScreen';
+import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import type { CustomerSearchItem } from './types';
@@ -131,7 +131,9 @@ export function CustomerSearchScreen({
   // If a customer is opened internally without onNavigateToWallet, show customer wallet
   if (selectedCustomerForWallet) {
     return (
-      <SubWarehouseCustomerWalletScreen
+      <CustomerWalletScreen
+        scope={scope}
+        can={can}
         customer={{
           name: selectedCustomerForWallet.name,
           id: selectedCustomerForWallet.code,
@@ -143,7 +145,7 @@ export function CustomerSearchScreen({
           totalUsed: '₹20,500',
         }}
         onBack={() => setSelectedCustomerForWallet(null)}
-        onNavigateToCashTopUp={() => {
+        onCashTopUp={() => {
           if (onNavigateToCashTopUp) {
             onNavigateToCashTopUp(selectedCustomerForWallet);
           } else if (onSelectCustomer) {

@@ -1,34 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Alert,
-  BackHandler,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+// Design id: M8-S01
+import React from 'react';
+import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import {
-  SubWarehouseCashTopUpScreen,
-  type CashTopUpData,
-} from '../../../../subwarehouse/screens/SubWarehouseCashTopUpScreen';
-import { SubWarehouseConfirmCashTopUpScreen } from '../../../../subwarehouse/screens/SubWarehouseConfirmCashTopUpScreen';
-import { SubWarehouseCustomerWalletScreen } from '../../../../subwarehouse/screens/SubWarehouseCustomerWalletScreen';
-import { SubWarehouseFiscalTagScreen } from '../../../../subwarehouse/screens/SubWarehouseFiscalTagScreen';
-import { SubWarehouseTopUpHistoryScreen } from '../../../../subwarehouse/screens/SubWarehouseTopUpHistoryScreen';
-import { SubWarehouseDailyCashSummaryScreen } from '../../../../subwarehouse/screens/SubWarehouseDailyCashSummaryScreen';
-import {
-  SubWarehouseWalletAttentionScreen,
-  type AttentionCategory,
-} from '../../../../subwarehouse/screens/SubWarehouseWalletAttentionScreen';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import type { WarehouseScreenBaseProps } from '../finance-expenses';
-import { CustomerSearchScreen } from '../customers/CustomerSearchScreen';
+import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
+import type { AttentionCategory, WalletCustomer, WarehouseScreenBaseProps } from './types';
+import { WarehouseTabBar } from './WalletParts';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -197,78 +175,31 @@ function AlertTriangleIcon({ size = 16, color = adminColors.ink }: { size?: numb
   );
 }
 
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"
-        stroke={color}
-        strokeWidth="1.8"
-      />
-      <Path d="M12 7v7.5M8.5 11.5L12 15l3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 18h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5.5 4A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4h-13z"
-        stroke={color}
-        strokeWidth="1.8"
-      />
-      <Path d="M3 9.5h18" stroke={color} strokeWidth="1.8" />
-      <Path d="M10 13.5h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
-        fill={color}
-      />
-    </Svg>
-  );
-}
-
-
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 /**
  * Wallet Operations hub, shared by Main and Sub Warehouse.
  * `scope.warehouseId === undefined` is Main (all warehouses); otherwise the
  * screen is locked to that warehouse. `can` only decides what is worth
  * rendering; the server re-checks every permission (CLAUDE.md 2.1).
+ *
+ * W4: the hub is a plain screen now. The sub-screen state machine it carried
+ * (customer search -> wallet -> cash top-up -> fiscal tag -> confirm, history,
+ * daily summary, needs attention) is WalletFlow, which also adds the steps W2b
+ * skipped (Top-Up Successful -> Top-Up Details after confirm).
  */
 export interface WalletOperationsScreenProps extends WarehouseScreenBaseProps {
-  onNavigateToNotifications?: () => void;
-  onNavigateToProfile?: () => void;
-  onNavigateToCashTopUp?: () => void;
-  onNavigateToCustomerSearch?: () => void;
-  onNavigateToTopUpHistory?: () => void;
-  onNavigateToDailySummary?: () => void;
+  onNavigateToNotifications?: (() => void) | undefined;
+  onNavigateToProfile?: (() => void) | undefined;
+  onNavigateToCashTopUp: () => void;
+  onNavigateToCustomerSearch: () => void;
+  onNavigateToTopUpHistory: () => void;
+  onNavigateToDailySummary: () => void;
+  onNavigateToAttention: (category: AttentionCategory) => void;
+  /** Open the wallet of a recent top-up's customer. */
+  onOpenCustomerWallet: (customer: WalletCustomer) => void;
+  /** Today's counters (mock until the wallet-operations API exists). */
+  todayTopUpsCount?: number | undefined;
+  cashCollectedTotal?: number | undefined;
 }
 
 export function WalletOperationsScreen({
@@ -281,24 +212,11 @@ export function WalletOperationsScreen({
   onNavigateToCustomerSearch,
   onNavigateToTopUpHistory,
   onNavigateToDailySummary,
+  onNavigateToAttention,
+  onOpenCustomerWallet,
+  todayTopUpsCount = 24,
+  cashCollectedTotal = 18500,
 }: WalletOperationsScreenProps) {
-  const [activeSubScreen, setActiveSubScreen] = useState<
-    'operations' | 'customer_wallet' | 'cash_top_up' | 'fiscal_tag' | 'confirm_top_up' | 'customer_search' | 'top_up_history' | 'daily_summary' | 'needs_attention'
-  >('operations');
-  const [attentionCategory, setAttentionCategory] = useState<AttentionCategory>('all');
-  const [currentFiscalTag, setCurrentFiscalTag] = useState<string>('FC-20260925-0012');
-  const [topUpData, setTopUpData] = useState<CashTopUpData | null>(null);
-  // Today's counters: for scope.warehouseId when set (own warehouse), all
-  // warehouses otherwise. Mock values until the wallet-operations API exists.
-  const [todayTopUpsCount, setTodayTopUpsCount] = useState<number>(24);
-  const [cashCollectedTotal, setCashCollectedTotal] = useState<number>(18500);
-  const [selectedCustomer, setSelectedCustomer] = useState({
-    name: 'Ravi Kumar',
-    code: 'CUS-001245',
-    phone: '+91 98765 43210',
-    currentBalance: '₹4,500',
-  });
-
   const isLockedToWarehouse = scope.warehouseId !== undefined;
   const warehouseLabel = isLockedToWarehouse ? scope.warehouseName ?? '' : 'All Warehouses';
 
@@ -306,177 +224,6 @@ export function WalletOperationsScreen({
   // flow is only offered to admins who hold both permissions. Server re-checks.
   const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
   const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
-
-  // Single entry into the cash top-up sub-screen so no path can bypass the gate.
-  const startCashTopUp = () => {
-    if (!canCashTopUp) return;
-    setActiveSubScreen('cash_top_up');
-  };
-
-  // Handle Android hardware back press
-  useEffect(() => {
-    const backAction = () => {
-      if (activeSubScreen !== 'operations') {
-        setActiveSubScreen('operations');
-        return true;
-      }
-      onBack();
-      return true;
-    };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
-  }, [onBack, activeSubScreen]);
-
-  // ─── Sub-Screen Redirection: Customer Wallet (Screenshots 1 & 2) ───
-  if (activeSubScreen === 'customer_wallet') {
-    return (
-      <SubWarehouseCustomerWalletScreen
-        customer={{
-          name: selectedCustomer.name,
-          id: selectedCustomer.code,
-          mobile: selectedCustomer.phone,
-          balance: selectedCustomer.currentBalance.includes('.00')
-            ? selectedCustomer.currentBalance
-            : `${selectedCustomer.currentBalance}.00`,
-          totalCredited: '₹25,000',
-          totalUsed: '₹20,500',
-        }}
-        onBack={() => setActiveSubScreen('customer_search')}
-        onNavigateToCashTopUp={startCashTopUp}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Cash Top-Up ───
-  if (activeSubScreen === 'cash_top_up') {
-    return (
-      <SubWarehouseCashTopUpScreen
-        warehouseName={warehouseLabel}
-        processedBy="SWA Name"
-        initialCustomer={{
-          name: selectedCustomer.name || 'Ravi Kumar',
-          code: selectedCustomer.code || 'CUS-001245',
-          currentBalance: 4500,
-        }}
-        onBack={() => setActiveSubScreen(selectedCustomer ? 'customer_wallet' : 'operations')}
-        onContinue={(data) => {
-          setTopUpData(data);
-          setActiveSubScreen('fiscal_tag');
-        }}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Fiscal Cash Tag (Screenshot 4 - in between Cash Top-Up and Confirm) ───
-  if (activeSubScreen === 'fiscal_tag') {
-    return (
-      <SubWarehouseFiscalTagScreen
-        initialData={{
-          customerName: topUpData?.customerName || selectedCustomer.name,
-          customerId: topUpData?.customerCode || selectedCustomer.code,
-          currentBalance: topUpData?.currentBalance ?? 4500,
-          topUpAmount: topUpData?.topUpAmount ?? 2000,
-          fiscalCashTag: currentFiscalTag,
-          warehouseName: warehouseLabel,
-          processedBy: 'SWA – Suresh',
-        }}
-        onBack={() => setActiveSubScreen('cash_top_up')}
-        onReviewTopUp={(tagData) => {
-          if (tagData.fiscalCashTag) {
-            setCurrentFiscalTag(tagData.fiscalCashTag);
-          }
-          setActiveSubScreen('confirm_top_up');
-        }}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Confirm Cash Top-Up (Screenshot 3) ───
-  if (activeSubScreen === 'confirm_top_up') {
-    return (
-      <SubWarehouseConfirmCashTopUpScreen
-        details={{
-          customerName: topUpData?.customerName || selectedCustomer.name || 'Ravi Kumar',
-          customerCode: topUpData?.customerCode || selectedCustomer.code || 'CUS-001245',
-          currentBalance: topUpData?.currentBalance ?? 4500,
-          topUpAmount: topUpData?.topUpAmount ?? 2000,
-          warehouseName: warehouseLabel,
-          processedBy: 'SWA – Suresh',
-          fiscalCashTag: currentFiscalTag || 'FC-20260925-0012',
-          dateStr: '25 Sep 2026',
-          timeStr: '10:42 AM',
-        }}
-        onBack={() => setActiveSubScreen('fiscal_tag')}
-        onSuccess={(confirmed) => {
-          setTodayTopUpsCount((prev) => prev + 1);
-          setCashCollectedTotal((prev) => prev + (confirmed.topUpAmount || 2000));
-          setActiveSubScreen('operations');
-        }}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Customer Search ───
-  if (activeSubScreen === 'customer_search') {
-    return (
-      <CustomerSearchScreen
-        scope={scope}
-        can={can}
-        onBack={() => setActiveSubScreen('operations')}
-        onNavigateToWallet={(cust) => {
-          setSelectedCustomer({
-            name: cust.name,
-            code: cust.code,
-            phone: cust.phone || '+91 98765 43210',
-            currentBalance: cust.balance,
-          });
-          setActiveSubScreen('customer_wallet');
-        }}
-        onSelectCustomer={(cust: any) => {
-          setSelectedCustomer({
-            name: cust.name,
-            code: cust.code,
-            phone: cust.phone || '+91 98765 43210',
-            currentBalance: cust.balance,
-          });
-          setActiveSubScreen('customer_wallet');
-        }}
-        onNavigateToCashTopUp={startCashTopUp}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Top-Up History (Screenshot 2) ───
-  if (activeSubScreen === 'top_up_history') {
-    return (
-      <SubWarehouseTopUpHistoryScreen
-        onBack={() => setActiveSubScreen('operations')}
-        {...(onTabChange ? { onTabChange } : {})}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Daily Cash Summary (Screenshots 3 & 4) ───
-  if (activeSubScreen === 'daily_summary') {
-    return (
-      <SubWarehouseDailyCashSummaryScreen
-        onBack={() => setActiveSubScreen('operations')}
-        onViewTopUpHistory={() => setActiveSubScreen('top_up_history')}
-        {...(onTabChange ? { onTabChange } : {})}
-      />
-    );
-  }
-
-  // ─── Sub-Screen Redirection: Needs Attention (Full Screen) ───
-  if (activeSubScreen === 'needs_attention') {
-    return (
-      <SubWarehouseWalletAttentionScreen
-        initialCategory={attentionCategory}
-        onBack={() => setActiveSubScreen('operations')}
-        onNavigateToCashTopUp={startCashTopUp}
-      />
-    );
-  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -537,10 +284,7 @@ export function WalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => {
-                if (onNavigateToTopUpHistory) onNavigateToTopUpHistory();
-                else setActiveSubScreen('top_up_history');
-              }}
+              onPress={onNavigateToTopUpHistory}
             >
               <View style={styles.kpiIconWrap}>
                 <CalendarIcon size={20} color={adminColors.brandDeep} />
@@ -553,10 +297,7 @@ export function WalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => {
-                if (onNavigateToDailySummary) onNavigateToDailySummary();
-                else setActiveSubScreen('daily_summary');
-              }}
+              onPress={onNavigateToDailySummary}
             >
               <View style={styles.kpiIconWrap}>
                 <CashIcon size={20} color={adminColors.brandDeep} />
@@ -569,10 +310,7 @@ export function WalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => {
-                setAttentionCategory('pending');
-                setActiveSubScreen('needs_attention');
-              }}
+              onPress={() => onNavigateToAttention('pending')}
             >
               <View style={styles.kpiIconWrap}>
                 <EllipsisPendingIcon size={20} color={adminColors.brandDeep} />
@@ -585,10 +323,7 @@ export function WalletOperationsScreen({
             <TouchableOpacity
               style={styles.kpiCard}
               activeOpacity={0.8}
-              onPress={() => {
-                setAttentionCategory('failed');
-                setActiveSubScreen('needs_attention');
-              }}
+              onPress={() => onNavigateToAttention('failed')}
             >
               <View style={styles.kpiIconWrap}>
                 <ExclamationFailedIcon size={20} color={adminColors.brandDeep} />
@@ -605,13 +340,7 @@ export function WalletOperationsScreen({
             {canCashTopUp && (
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => {
-                  if (onNavigateToCashTopUp) {
-                    onNavigateToCashTopUp();
-                  } else {
-                    startCashTopUp();
-                  }
-                }}
+                onPress={onNavigateToCashTopUp}
                 activeOpacity={0.75}
               >
                 <View style={styles.quickActionIconWrap}>
@@ -624,10 +353,7 @@ export function WalletOperationsScreen({
             {/* Find Customer */}
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => {
-                if (onNavigateToCustomerSearch) onNavigateToCustomerSearch();
-                else setActiveSubScreen('customer_search');
-              }}
+              onPress={onNavigateToCustomerSearch}
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
@@ -639,10 +365,7 @@ export function WalletOperationsScreen({
             {/* Top-Up History */}
             <TouchableOpacity
               style={styles.quickActionCard}
-              onPress={() => {
-                if (onNavigateToTopUpHistory) onNavigateToTopUpHistory();
-                else setActiveSubScreen('top_up_history');
-              }}
+              onPress={onNavigateToTopUpHistory}
               activeOpacity={0.75}
             >
               <View style={styles.quickActionIconWrap}>
@@ -655,10 +378,7 @@ export function WalletOperationsScreen({
           {/* Full Width Action: Daily Summary */}
           <TouchableOpacity
             style={styles.dailySummaryCard}
-            onPress={() => {
-              if (onNavigateToDailySummary) onNavigateToDailySummary();
-              else setActiveSubScreen('daily_summary');
-            }}
+            onPress={onNavigateToDailySummary}
             activeOpacity={0.75}
           >
             <View style={styles.dailySummaryIconWrap}>
@@ -671,15 +391,7 @@ export function WalletOperationsScreen({
           <Text style={styles.sectionHeading}>Recent Top-Ups</Text>
           <TouchableOpacity
             style={styles.recentTopUpCard}
-            onPress={() => {
-              setSelectedCustomer({
-                name: 'Ravi Kumar',
-                code: 'CUS-001245',
-                phone: '+91 98765 43210',
-                currentBalance: '₹4,500',
-              });
-              setActiveSubScreen('customer_wallet');
-            }}
+            onPress={() => onOpenCustomerWallet(SAMPLE_WALLET_CUSTOMER)}
             activeOpacity={0.8}
           >
             <View style={styles.recentTopUpTopRow}>
@@ -692,7 +404,7 @@ export function WalletOperationsScreen({
             <Text style={styles.recentCustCode}>CUS-001245</Text>
 
             <View style={styles.recentTagAndAmountRow}>
-              <Text style={styles.recentFiscalTag}>Fiscal Tag: FC-20260925-0012</Text>
+              <Text style={styles.recentFiscalTag}>Fiscal Tag: {SAMPLE_FISCAL_TAG}</Text>
               <Text style={styles.recentAmount}>₹2,000</Text>
             </View>
 
@@ -705,10 +417,7 @@ export function WalletOperationsScreen({
           {/* 4. Needs Attention Section */}
           <TouchableOpacity
             style={styles.needsAttentionHeadingRow}
-            onPress={() => {
-              setAttentionCategory('all');
-              setActiveSubScreen('needs_attention');
-            }}
+            onPress={() => onNavigateToAttention('all')}
             activeOpacity={0.7}
           >
             <AlertTriangleIcon size={16} color={adminColors.ink} />
@@ -719,10 +428,7 @@ export function WalletOperationsScreen({
             {/* 1. Pending top-up */}
             <TouchableOpacity
               style={styles.attentionRowCard}
-              onPress={() => {
-                setAttentionCategory('pending');
-                setActiveSubScreen('needs_attention');
-              }}
+              onPress={() => onNavigateToAttention('pending')}
               activeOpacity={0.75}
             >
               <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.warning.text }]} />
@@ -739,10 +445,7 @@ export function WalletOperationsScreen({
             {/* 2. Failed transaction */}
             <TouchableOpacity
               style={styles.attentionRowCard}
-              onPress={() => {
-                setAttentionCategory('failed');
-                setActiveSubScreen('needs_attention');
-              }}
+              onPress={() => onNavigateToAttention('failed')}
               activeOpacity={0.75}
             >
               <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.danger.text }]} />
@@ -760,10 +463,7 @@ export function WalletOperationsScreen({
             {canFiscalTag && (
               <TouchableOpacity
                 style={styles.attentionRowCard}
-                onPress={() => {
-                  setAttentionCategory('fiscal');
-                  setActiveSubScreen('needs_attention');
-                }}
+                onPress={() => onNavigateToAttention('fiscal')}
                 activeOpacity={0.75}
               >
                 <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.warning.text }]} />
@@ -781,10 +481,7 @@ export function WalletOperationsScreen({
             {/* 4. Reconciliation discrepancy */}
             <TouchableOpacity
               style={styles.attentionRowCard}
-              onPress={() => {
-                setAttentionCategory('reconciliation');
-                setActiveSubScreen('needs_attention');
-              }}
+              onPress={() => onNavigateToAttention('reconciliation')}
               activeOpacity={0.75}
             >
               <View style={[styles.attentionLeftStripe, { backgroundColor: adminColors.warning.text }]} />
@@ -801,57 +498,7 @@ export function WalletOperationsScreen({
         </View>
       </ScrollView>
 
-      {/* ─── Bottom Navigation Bar ─── */}
-      <View style={styles.bottomTabBar}>
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Home');
-            else onBack();
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="tab"
-        >
-          <HomeTabIcon active={false} />
-          <Text style={styles.tabLabel}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Receiving');
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="tab"
-        >
-          <ReceivingTabIcon active={false} />
-          <Text style={styles.tabLabel}>Receiving</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('Inventory');
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="tab"
-        >
-          <InventoryTabIcon active={false} />
-          <Text style={styles.tabLabel}>Inventory</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            if (onTabChange) onTabChange('More');
-          }}
-          activeOpacity={0.7}
-          accessibilityRole="tab"
-        >
-          <MoreTabIcon active={true} />
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
-        </TouchableOpacity>
-      </View>
+      <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />
     </SafeAreaView>
   );
 }
@@ -1126,30 +773,5 @@ const styles = StyleSheet.create({
     ...adminType.rowMeta,
     color: adminColors.muted,
     marginTop: 2,
-  },
-
-  // ─── Bottom Navigation Bar ──────────────────────────────────────────────────
-  bottomTabBar: {
-    flexDirection: 'row',
-    backgroundColor: adminColors.card,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingHorizontal: adminSpacing.xs,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  tabLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginTop: adminSpacing.xs,
-  },
-  tabLabelActive: {
-    color: adminColors.brand,
   },
 });

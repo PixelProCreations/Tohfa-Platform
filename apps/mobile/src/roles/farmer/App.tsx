@@ -149,19 +149,11 @@ import {
   ChannelOrderDetailScreen,
   type ChannelOrderItem,
   type SalesChannel,
-  WalletOperationsScreen,
-  SubWarehouseCashTopUpScreen,
-  SubWarehouseFiscalTagScreen,
-  SubWarehouseConfirmCashTopUpScreen,
+  WalletFlow,
+  type WalletRoute,
+  type WalletRouteParams,
   CustomerSearchScreen,
-  SubWarehouseCustomerWalletScreen,
-  SubWarehouseTopUpHistoryScreen,
-  SubWarehouseDailyCashSummaryScreen,
-  SubWarehouseTopUpDetailsScreen,
-  SubWarehouseTransactionDetailScreen,
-  SubWarehouseTopUpSuccessScreen,
   SubWarehouseNeedsAttentionScreen,
-  SubWarehouseWalletAttentionScreen,
   MoreScreen,
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
@@ -176,7 +168,6 @@ import {
   SubWarehouseAttendanceScreen,
   SubWarehouseTodayAttendanceScreen,
   SubWarehouseAttendanceHistoryScreen,
-  SubWarehouseDailyCashScreen,
   SubWarehouseFinanceScreen,
   SubWarehouseRevenueScreen,
   SubWarehouseRevenueDetailScreen,
@@ -758,6 +749,26 @@ const CUSTOMERS_ROUTE_ENTRY: Partial<Record<ScreenName, CustomersRoute>> = {
   SubWarehouseSupportHistory: 'SupportHistory',
   SubWarehouseCustomerSupportDetail: 'SupportDetail',
 };
+/**
+ * Legacy wallet route keys -> shared WalletFlow routes (W4). Every key still
+ * works; SubWarehouseTransactionDetail is TopUpDetails' 'transaction' variant
+ * (SubWarehouseTransactionDetailScreen was absorbed) and SubWarehouseDailyCash
+ * is the daily cash ledger reached from the finance hub and the daily summary.
+ */
+const WALLET_ROUTE_ENTRY: Partial<Record<ScreenName, WalletRoute>> = {
+  WarehouseWalletOperations: 'WalletOperations',
+  SubWarehouseCustomerWallet: 'CustomerWallet',
+  SubWarehouseCashTopUp: 'CashTopUp',
+  SubWarehouseFiscalTag: 'FiscalTag',
+  SubWarehouseConfirmCashTopUp: 'ConfirmCashTopUp',
+  SubWarehouseTopUpSuccess: 'TopUpSuccess',
+  SubWarehouseTopUpDetails: 'TopUpDetails',
+  SubWarehouseTransactionDetail: 'TransactionDetail',
+  SubWarehouseTopUpHistory: 'TopUpHistory',
+  SubWarehouseDailyCashSummary: 'DailyCashSummary',
+  SubWarehouseDailyCash: 'DailyCash',
+  SubWarehouseWalletAttention: 'WalletAttention',
+};
 /** A route param as a string, or undefined. */
 function stringParam(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -876,6 +887,27 @@ export default function App(): React.JSX.Element {
             } as CustomersRouteParams['ticket'])
           : undefined,
       defaultFilter: stringParam(params['defaultFilter']),
+    };
+  }, [params]);
+
+  // Params for a WalletFlow entry, memoised so the flow does not restart its
+  // stack on every App render. Deep links carry flat customer fields
+  // (customerName / name, customerCode / customerId / id, mobile, balance).
+  const walletParams = useMemo<WalletRouteParams>(() => {
+    const customerName = stringParam(params['customerName']) ?? stringParam(params['name']);
+    const customerId =
+      stringParam(params['customerCode']) ?? stringParam(params['customerId']) ?? stringParam(params['id']);
+    const balance = stringParam(params['balance']) ?? stringParam(params['currentBalance']);
+    const category = stringParam(params['category']);
+    return {
+      customer:
+        customerName !== undefined || customerId !== undefined
+          ? { name: customerName, id: customerId, mobile: stringParam(params['mobile']), balance }
+          : undefined,
+      category:
+        category === 'pending' || category === 'failed' || category === 'fiscal' || category === 'reconciliation'
+          ? category
+          : undefined,
     };
   }, [params]);
 
@@ -1687,56 +1719,23 @@ export default function App(): React.JSX.Element {
               } : undefined)
             }
           />
-        ) : screen === 'SubWarehouseCustomerWallet' ? (
-          <SubWarehouseCustomerWalletScreen
-            customerName={(params['customerName'] as string) || (params['name'] as string) || 'Rajesh Kumar'}
-            customer={{
-              name: (params['name'] as string) || (params['customerName'] as string) || 'Ravi Kumar',
-              id: (params['id'] as string) || (params['customerId'] as string) || 'CUS-001245',
-              mobile: (params['mobile'] as string) || '+91 XXXXX XXXXX',
-              balance: typeof params['balance'] === 'string'
-                ? (params['balance'].includes('.00') ? params['balance'] : `${params['balance']}.00`)
-                : '₹4,500.00',
-              totalCredited: '₹25,000',
-              totalUsed: '₹20,500',
-            }}
+        ) : WALLET_ROUTE_ENTRY[screen] !== undefined ? (
+          // The wallet & cash top-up screens live in the shared warehouse/wallet-cashtopup
+          // area (W4); each old wallet key opens WalletFlow on the matching route.
+          <WalletFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={WALLET_ROUTE_ENTRY[screen]}
+            initialParams={walletParams}
             onBack={goBack}
-            onCashTopUp={(cust) =>
-              navigate('SubWarehouseCashTopUp', {
-                customerName: cust?.name || (params['customerName'] as string) || (params['name'] as string) || 'Rajesh Kumar',
-                customerCode: cust?.id || (params['customerId'] as string) || (params['id'] as string) || 'CUS-001245',
-                currentBalance: cust?.balance || (params['balance'] as string) || '₹4,500.00',
-              })
-            }
-            onNavigateToCashTopUp={(cust) =>
-              navigate('SubWarehouseCashTopUp', {
-                customerName: cust?.name || (params['customerName'] as string) || (params['name'] as string) || 'Rajesh Kumar',
-                customerCode: cust?.id || (params['customerId'] as string) || (params['id'] as string) || 'CUS-001245',
-                currentBalance: cust?.balance || (params['balance'] as string) || '₹4,500.00',
-              })
-            }
-            onNavigateToTransactionDetail={(tx) => navigate('SubWarehouseTransactionDetail', tx as any)}
-          />
-        ) : screen === 'SubWarehouseCashTopUp' ? (
-          <SubWarehouseCashTopUpScreen
-            customerName={(params['customerName'] as string) || (params['name'] as string) || 'Rajesh Kumar'}
-            customerCode={(params['customerCode'] as string) || (params['id'] as string) || (params['customerId'] as string) || 'CUS-00291'}
-            currentBalance={typeof params['currentBalance'] === 'number' ? params['currentBalance'] : (params['currentBalance'] as string) || (params['balance'] as string) || '₹1,250'}
-            warehouseName={(params['warehouseName'] as string) || 'Coonoor Warehouse'}
-            processedBy={(params['processedBy'] as string) || 'SWA Name'}
-            onBack={goBack}
-            onSuccess={() => goBack()}
-            onContinue={(data) => {
-              navigate('SubWarehouseFiscalTag', {
-                customerName: data.customerName,
-                customerCode: data.customerCode,
-                currentBalance: data.currentBalance,
-                topUpAmount: data.topUpAmount,
-                warehouseName: data.warehouseName,
-                processedBy: data.processedBy,
-                fiscalCashTag: 'FC-20260925-0012',
-              });
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
+              else if (tab === 'More') navigate('WarehouseMore');
             }}
+            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
           />
         ) : BILLING_ROUTE_ENTRY[screen] !== undefined ? (
           // The billing & invoice screens live in the shared warehouse/billing-invoices
@@ -1840,126 +1839,6 @@ export default function App(): React.JSX.Element {
             onNavigateToStaff={() => navigate('SubWarehouseStaff')}
             onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
           />
-        ) : screen === 'WarehouseWalletOperations' ? (
-          <WalletOperationsScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
-            onNavigateToCustomerSearch={() => navigate('WarehouseCustomerSearch')}
-            onNavigateToTopUpHistory={() => navigate('SubWarehouseTopUpHistory')}
-            onNavigateToDailySummary={() => navigate('SubWarehouseDailyCashSummary')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
-          />
-        ) : screen === 'SubWarehouseTransactionDetail' ? (
-          <SubWarehouseTransactionDetailScreen
-            details={params as any}
-            onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseFiscalTag' ? (
-          <SubWarehouseFiscalTagScreen
-            initialData={{
-              customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Ravi Kumar',
-              customerId: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-001245',
-              currentBalance: typeof params['currentBalance'] === 'number' ? params['currentBalance'] : 4500,
-              topUpAmount: typeof params['topUpAmount'] === 'number' ? params['topUpAmount'] : 2000,
-              warehouseName: typeof params['warehouseName'] === 'string' ? params['warehouseName'] : 'Coonoor Warehouse',
-              processedBy: typeof params['processedBy'] === 'string' ? params['processedBy'] : 'SWA – Suresh',
-              fiscalCashTag: typeof params['fiscalCashTag'] === 'string' ? params['fiscalCashTag'] : 'FC-20260925-0012',
-            }}
-            onBack={goBack}
-            onReviewTopUp={(tagData) => {
-              navigate('SubWarehouseConfirmCashTopUp', {
-                ...params,
-                fiscalCashTag: tagData.fiscalCashTag || 'FC-20260925-0012',
-                dateStr: '25 Sep 2026',
-                timeStr: '10:42 AM',
-              });
-            }}
-          />
-        ) : screen === 'SubWarehouseConfirmCashTopUp' ? (
-          <SubWarehouseConfirmCashTopUpScreen
-            details={{
-              customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Ravi Kumar',
-              customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-001245',
-              currentBalance: typeof params['currentBalance'] === 'number' ? params['currentBalance'] : 4500,
-              topUpAmount: typeof params['topUpAmount'] === 'number' ? params['topUpAmount'] : 2000,
-              warehouseName: typeof params['warehouseName'] === 'string' ? params['warehouseName'] : 'Coonoor Warehouse',
-              processedBy: typeof params['processedBy'] === 'string' ? params['processedBy'] : 'SWA – Suresh',
-              fiscalCashTag: typeof params['fiscalCashTag'] === 'string' ? params['fiscalCashTag'] : 'FC-20260925-0012',
-              dateStr: typeof params['dateStr'] === 'string' ? params['dateStr'] : '25 Sep 2026',
-              timeStr: typeof params['timeStr'] === 'string' ? params['timeStr'] : '10:42 AM',
-            }}
-            onBack={goBack}
-            onSuccess={() => {
-              navigate('WarehouseWalletOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseTopUpHistory' ? (
-          <SubWarehouseTopUpHistoryScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseDailyCashSummary' ? (
-          <SubWarehouseDailyCashSummaryScreen
-            onBack={goBack}
-            onViewTopUpHistory={() => navigate('SubWarehouseTopUpHistory')}
-            onNavigateToDailyCash={() => navigate('SubWarehouseDailyCash')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseTopUpDetails' ? (
-          <SubWarehouseTopUpDetailsScreen
-            details={params['topUpDetails'] as any}
-            onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseTopUpSuccess' ? (
-          <SubWarehouseTopUpSuccessScreen
-            data={params['topUpSuccess'] as any}
-            onBack={goBack}
-            onDone={() => navigate('WarehouseWalletOperations')}
-            onViewTransaction={(data) => {
-              navigate('SubWarehouseTopUpDetails', {
-                topUpDetails: {
-                  customerName: data.customerName,
-                  customerId: 'CUS-001245',
-                  previousBalance: '₹4,500',
-                  topUpAmount: data.topUpAmount,
-                  newBalance: data.walletBalance,
-                  transactionId: data.transactionId,
-                  status: 'Completed',
-                  type: 'Cash Top-Up',
-                  fiscalCashTag: data.fiscalCashTag,
-                  dateTime: data.dateTime,
-                  createdBy: 'SWA – Suresh',
-                  createdAt: data.dateTime,
-                  warehouse: 'Coonoor',
-                } as any,
-              });
-            }}
-          />
-        ) : screen === 'SubWarehouseWalletAttention' ? (
-          <SubWarehouseWalletAttentionScreen
-            initialCategory={(params['category'] as any) || 'all'}
-            onBack={goBack}
-            onNavigateToCashTopUp={() => navigate('SubWarehouseCashTopUp')}
-          />
         ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
           // The RMA screens live in the shared warehouse/returns-rma area (W4);
           // each old 'SubWarehouseXxx' key opens ReturnsFlow on the matching route.
@@ -2033,17 +1912,6 @@ export default function App(): React.JSX.Element {
           <SubWarehouseAttendanceHistoryScreen
             onBack={goBack}
             onNavigateToToday={() => navigate('SubWarehouseTodayAttendance')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseDailyCash' ? (
-          <SubWarehouseDailyCashScreen
-            warehouseName="Coonoor Warehouse"
-            onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);

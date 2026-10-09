@@ -36,7 +36,7 @@ import { SubWarehouseReviewReceivingScreen } from './SubWarehouseReviewReceiving
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { SubWarehouseReportsScreen } from './SubWarehouseReportsScreen';
 import { SubWarehouseSalesScreen } from './SubWarehouseSalesScreen';
-import { WalletOperationsScreen } from '../../admin/screens/warehouse/wallet-cashtopup';
+import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
 import { SubWarehouseSelectCustomerScreen } from './SubWarehouseSelectCustomerScreen';
 import {
@@ -44,8 +44,6 @@ import {
   type CustomersRoute,
   type CustomersRouteParams,
 } from '../../admin/screens/warehouse/customers';
-import { SubWarehouseCustomerWalletScreen } from './SubWarehouseCustomerWalletScreen';
-import { SubWarehouseCashTopUpScreen } from './SubWarehouseCashTopUpScreen';
 import { SubWarehouseNewSaleScreen } from './SubWarehouseNewSaleScreen';
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
@@ -2242,13 +2240,20 @@ export function SubWarehouseAdminDashboardScreen({
   }
 
   if (showCashTopUp) {
+    // Cash top-up wizard of the shared wallet flow (admin/screens/warehouse/wallet-cashtopup).
     return (
-      <SubWarehouseCashTopUpScreen
-        customerName={selectedCustomer?.name || 'Rajesh Kumar'}
-        customerCode={selectedCustomer?.code || 'CUS-00291'}
-        currentBalance="₹1,250"
+      <WalletFlow
+        scope={scope}
+        can={can}
+        initialScreen="CashTopUp"
+        initialParams={walletParamsForCustomer(
+          selectedCustomer ? { name: selectedCustomer.name, code: selectedCustomer.code } : undefined,
+        )}
         onBack={() => setShowCashTopUp(false)}
-        onSuccess={() => setShowCashTopUp(false)}
+        onTabChange={(tab) => {
+          setShowCashTopUp(false);
+          setActiveTab(tab);
+        }}
       />
     );
   }
@@ -2284,24 +2289,20 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         renderExternalScreen={(target, p, nav) => {
           const c = p.customer;
-          if (target === 'CustomerWallet') {
+          if (target === 'CustomerWallet' || target === 'CashTopUp') {
+            // The shared wallet flow, opened on the customer's wallet or cash
+            // top-up; back from its first screen returns to the customer screen.
             return (
-              <SubWarehouseCustomerWalletScreen
-                {...(c?.name !== undefined ? { customerName: c.name } : {})}
+              <WalletFlow
+                scope={scope}
+                can={can}
+                initialScreen={target}
+                initialParams={walletParamsForCustomer(c)}
                 onBack={nav.back}
-                onCashTopUp={() => nav.open('CashTopUp', p)}
-              />
-            );
-          }
-          if (target === 'CashTopUp') {
-            return (
-              <SubWarehouseCashTopUpScreen
-                {...(c?.name !== undefined ? { customerName: c.name } : {})}
-                {...(c?.code !== undefined ? { customerCode: c.code } : {})}
-                {...(c?.walletBalance !== undefined ? { currentBalance: c.walletBalance } : {})}
-                {...(scope.warehouseName !== undefined ? { warehouseName: scope.warehouseName } : {})}
-                onBack={nav.back}
-                onSuccess={nav.back}
+                onTabChange={(tab) => {
+                  setCustomersEntry(null);
+                  setActiveTab(tab);
+                }}
               />
             );
           }
@@ -2371,8 +2372,10 @@ export function SubWarehouseAdminDashboardScreen({
   }
 
   if (showWalletOperations) {
+    // The wallet hub and every wallet / cash top-up screen behind it are the
+    // shared WalletFlow (admin/screens/warehouse/wallet-cashtopup).
     return (
-      <WalletOperationsScreen
+      <WalletFlow
         scope={scope}
         can={can}
         onBack={() => {

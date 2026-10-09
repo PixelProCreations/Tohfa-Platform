@@ -13,7 +13,6 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { MainWarehouseRevenueScreen } from './MainWarehouseRevenueScreen';
 import { MainWarehouseVouchersScreen } from './MainWarehouseVouchersScreen';
-import { MainWarehouseDailyCashScreen } from './MainWarehouseDailyCashScreen';
 import { MainWarehouseExpenseCategoriesScreen } from './MainWarehouseExpenseCategoriesScreen';
 import { MainWarehouseRevenueDetailScreen } from './MainWarehouseRevenueDetailScreen';
 import { MainWarehouseVoucherDetailScreen } from './MainWarehouseVoucherDetailScreen';
@@ -26,6 +25,7 @@ import {
   type PermissionCheck,
   type WarehouseScope,
 } from '../warehouse/finance-expenses';
+import { DailyCashScreen } from '../warehouse/wallet-cashtopup';
 
 // ─── Design Tokens (#F0562A Brand Palette) ──────────────────────────────────
 const PALETTE = {
@@ -522,8 +522,9 @@ export function MainWarehouseFinanceScreen({
 
   if (showDailyCashScreen) {
     return (
-      <MainWarehouseDailyCashScreen
-        warehouseName="Coonoor Warehouse"
+      <DailyCashScreen
+        scope={scope}
+        can={can}
         date="25 Sep 2026"
         onBack={() => setShowDailyCashScreen(false)}
         onTabChange={onTabChange}

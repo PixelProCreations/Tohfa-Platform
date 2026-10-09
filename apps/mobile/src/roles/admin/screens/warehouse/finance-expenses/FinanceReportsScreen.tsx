@@ -23,7 +23,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { SubWarehouseRevenueScreen } from '../../../../subwarehouse/screens/SubWarehouseRevenueScreen';
-import { SubWarehouseDailyCashScreen } from '../../../../subwarehouse/screens/SubWarehouseDailyCashScreen';
+import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
 import { SubWarehouseExpenseCategoriesScreen } from '../../../../subwarehouse/screens/SubWarehouseExpenseCategoriesScreen';
 import { SubWarehouseVouchersScreen } from '../../../../subwarehouse/screens/SubWarehouseVouchersScreen';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
@@ -346,8 +346,9 @@ export function FinanceReportsScreen({
 
   if (activeSubScreen === 'daily') {
     return (
-      <SubWarehouseDailyCashScreen
-        warehouseName={warehouseLabel}
+      <DailyCashScreen
+        scope={scope}
+        can={can}
         date="25 Sep 2026"
         onBack={closeSubScreen}
         onTabChange={onTabChange}

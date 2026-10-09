@@ -14,7 +14,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SubWarehouseRevenueScreen } from './SubWarehouseRevenueScreen';
 import { SubWarehouseRevenueDetailScreen } from './SubWarehouseRevenueDetailScreen';
 import { SubWarehouseVouchersScreen } from './SubWarehouseVouchersScreen';
-import { SubWarehouseDailyCashScreen } from './SubWarehouseDailyCashScreen';
+import { DailyCashScreen } from '../../admin/screens/warehouse/wallet-cashtopup';
 import { SubWarehouseExpenseCategoriesScreen } from './SubWarehouseExpenseCategoriesScreen';
 import {
   ExpenseDetailScreen,
@@ -490,8 +490,9 @@ export function SubWarehouseFinanceScreen({
 
   if (showDailyCashScreen) {
     return (
-      <SubWarehouseDailyCashScreen
-        warehouseName={scope.warehouseName}
+      <DailyCashScreen
+        scope={scope}
+        can={can}
         date="25 Sep 2026"
         onBack={() => setShowDailyCashScreen(false)}
         onTabChange={onTabChange}

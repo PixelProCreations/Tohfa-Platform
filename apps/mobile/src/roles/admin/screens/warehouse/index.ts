@@ -85,7 +85,15 @@ export {
   type CustomersRouteParams,
   type CustomersExternalRoute,
 } from './customers';
-export { WalletOperationsScreen, type WalletOperationsScreenProps } from './wallet-cashtopup';
+// Shared wallet & cash top-up navigator (W4); the screens themselves are imported from './wallet-cashtopup'.
+export {
+  WalletFlow,
+  WalletOperationsScreen,
+  walletParamsForCustomer,
+  type WalletOperationsScreenProps,
+  type WalletRoute,
+  type WalletRouteParams,
+} from './wallet-cashtopup';
 export {
   ChannelOrderDetailScreen,
   ChannelSalesScreen,

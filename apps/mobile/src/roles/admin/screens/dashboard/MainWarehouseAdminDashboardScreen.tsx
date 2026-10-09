@@ -18,7 +18,7 @@ import { AdminProfileScreen } from './AdminProfileScreen';
 import { MoreScreen } from '../warehouse/dashboard-home-more';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
-import { WalletOperationsScreen } from '../warehouse/wallet-cashtopup';
+import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import { MainWarehouseFinanceScreen } from './MainWarehouseFinanceScreen';
 import { MainWarehouseReportsScreen } from './MainWarehouseReportsScreen';
 import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
@@ -94,7 +94,6 @@ import {
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
-import { WalletSummaryScreen } from '../customers';
 
 export type ReceivingSubView =
   | 'dashboard'
@@ -1420,11 +1419,15 @@ export function MainWarehouseAdminDashboardScreen({
         {/* ─── More Tab ─── */}
         {activeTab === 'More' && whSubView === 'overview' && moreSubScreen !== null && (
           moreSubScreen === 'wallet' ? (
-            <WalletOperationsScreen
+            <WalletFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
+              onNavigateToNotifications={() => {
+                setMoreSubScreen(null);
+                navigateWh('warehouse_notifications');
+              }}
             />
           ) : moreSubScreen === 'finance' ? (
             <MainWarehouseFinanceScreen
@@ -1845,17 +1848,18 @@ export function MainWarehouseAdminDashboardScreen({
                   if (target === 'NewSale') navigateWh('direct_sale_new');
                 }}
                 renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
-                  if (target === 'CustomerWallet') {
+                  if (target === 'CustomerWallet' || target === 'CashTopUp') {
+                    // The shared wallet flow opened on this customer's wallet or
+                    // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
                     return (
-                      <WalletSummaryScreen
-                        {...(p.customer?.name !== undefined ? { customerName: p.customer.name } : {})}
+                      <WalletFlow
+                        scope={MAIN_WAREHOUSE_SCOPE}
+                        can={can}
+                        initialScreen={target}
+                        initialParams={walletParamsForCustomer(p.customer)}
                         onBack={nav.back}
-                        {...(can('wallet.cash_topup.process') ? { onCashTopUp: () => nav.open('CashTopUp', p) } : {})}
                       />
                     );
-                  }
-                  if (target === 'CashTopUp') {
-                    return <WalletOperationsScreen scope={MAIN_WAREHOUSE_SCOPE} can={can} onBack={nav.back} />;
                   }
                   if (target === 'OrderDetail') {
                     return (
