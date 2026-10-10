@@ -14,7 +14,14 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
-import { HomeFlow, MoreScreen, type AttentionFilter, type HomeTarget } from '../warehouse/dashboard-home-more';
+import {
+  HOME_CODES,
+  HomeFlow,
+  MoreScreen,
+  type AttentionFilter,
+  type HomeTarget,
+} from '../warehouse/dashboard-home-more';
+import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
@@ -550,10 +557,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
   // or if it fails, makeCan fails closed and gated controls stay hidden.
   const can = useMemo(() => makeCan(user?.permissions), [user]);
+  const canAllView = can(HOME_CODES.allView);
   const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
   const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
 
-  const WAREHOUSE_OPTIONS = ['All Warehouses', 'Ooty', 'Coonoor', 'Kotagiri', 'Gudalur'];
+  // Filter options from the seeded warehouses (not a written-in list): 'Ooty', ..., 'Gudalur Market'.
+  const WAREHOUSE_OPTIONS = [
+    'All Warehouses',
+    ...PROFILE_WAREHOUSES.map((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '')),
+  ];
 
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
@@ -678,7 +690,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
       <View style={{ flex: 1 }}>
         {/* ─── Main Dashboard View (Module 1 - Main Dashboard) ─── */}
-        {activeTab === 'Home' && whSubView === 'overview' && (
+        {/* FINAL_LIST 20: the multi-warehouse Home needs warehouse.all.view (MAIN all, SUB none);
+            without it (or until /auth/me resolves: makeCan fails closed) a note renders instead. */}
+        {activeTab === 'Home' && whSubView === 'overview' && !canAllView && (
+          <View style={styles.scroll}>
+            <EmptyState
+              title="Multi-warehouse view not available"
+              subtitle="The Main Warehouse dashboard needs warehouse.all.view."
+            />
+          </View>
+        )}
+        {activeTab === 'Home' && whSubView === 'overview' && canAllView && (
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollPad}
@@ -1011,15 +1033,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 </TouchableOpacity>
               </View>
               <View style={styles.quickActionsGrid}>
-                {/* 1. Transfer Stock */}
-                <TouchableOpacity
-                  style={styles.quickActionCard}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.8}
-                >
-                  <TransferArrowsIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Transfer Stock</Text>
-                </TouchableOpacity>
+                {/* 1. Transfer Stock: transfer.inter_warehouse.initiate (FINAL_LIST 20) */}
+                {can(HOME_CODES.transferInitiate) ? (
+                  <TouchableOpacity
+                    style={styles.quickActionCard}
+                    onPress={() => navigateWh('inter_warehouse_transfer')}
+                    activeOpacity={0.8}
+                  >
+                    <TransferArrowsIcon size={26} color={PALETTE.primary} />
+                    <Text style={styles.quickActionLabel}>Transfer Stock</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 {/* 2. Review Receiving */}
                 <TouchableOpacity
@@ -1046,17 +1070,21 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   <Text style={styles.quickActionLabel}>View Warehouses</Text>
                 </TouchableOpacity>
 
-                {/* 4. Manage SWAs */}
-                <TouchableOpacity
-                  style={styles.quickActionCard}
-                  onPress={() => {
-                    navigateWh('staff_attendance');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <ManageSwasBadgeIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Manage SWAs</Text>
-                </TouchableOpacity>
+                {/* 4. Manage SWAs (the Home's Create SWA entry): admin.sub_wh_admin.create (FINAL_LIST 20).
+                    It opens Manage Sub Warehouse Admins (list + Create SWA wizard, W4 warehouse-admin);
+                    it used to open the attendance overview, which stays reachable from the operations hub. */}
+                {can(HOME_CODES.swaCreate) ? (
+                  <TouchableOpacity
+                    style={styles.quickActionCard}
+                    onPress={() => {
+                      navigateWh('manage_swas');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <ManageSwasBadgeIcon size={26} color={PALETTE.primary} />
+                    <Text style={styles.quickActionLabel}>Manage SWAs</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
               {/* Disclaimer Notice */}
