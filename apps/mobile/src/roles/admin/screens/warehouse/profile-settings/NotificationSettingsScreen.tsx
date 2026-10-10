@@ -3,16 +3,18 @@
  * for Main and Sub.
  *
  * Was SubWarehouseNotificationSettingsScreen (fourteen separate useState
- * switches). Gate: can('notification.own.view') (`all` for both roles; it
- * covers the admin's own preferences). There is no preferences endpoint or
+ * switches). Gate: none on the client. It covers the admin's own preferences
+ * under notification.own.view, which is `all` for every role in
+ * docs/rbac.json, so a client check only denied the screen while /auth/me had
+ * not loaded; the server enforces the code. There is no preferences endpoint or
  * write code yet (SPEC_GAPS W4l-4), so Save only confirms locally.
  */
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { Card, PermissionNote, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { MenuCard, PROFILE_CODES, profileLayout, SaveIcon, StatusRow } from './ProfileParts';
+import { Card, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { MenuCard, profileLayout, SaveIcon, StatusRow } from './ProfileParts';
 import type { WarehouseScreenBaseProps } from './types';
 
 type PreferenceKey =
@@ -73,19 +75,9 @@ function defaultPreferences(): Record<PreferenceKey, boolean> {
 
 export type NotificationSettingsScreenProps = WarehouseScreenBaseProps;
 
-export function NotificationSettingsScreen({ can, onBack }: NotificationSettingsScreenProps) {
+export function NotificationSettingsScreen({ onBack }: NotificationSettingsScreenProps) {
   const [inApp, setInApp] = useState(true);
   const [prefs, setPrefs] = useState<Record<PreferenceKey, boolean>>(defaultPreferences);
-
-  if (!can(PROFILE_CODES.notificationView)) {
-    return (
-      <WalletScreen title="Notification Settings" onBack={onBack}>
-        <View style={profileLayout.scrollContent}>
-          <PermissionNote>Your role cannot view notification settings.</PermissionNote>
-        </View>
-      </WalletScreen>
-    );
-  }
 
   const resetDefaults = () => {
     setInApp(true);

@@ -31,6 +31,28 @@ export function isWarehouseAdminScreen(screen: string): boolean {
   );
 }
 
+/** Admin roles whose AdminMain shell takes its `can` from App.tsx's warehouse permissions. */
+const WAREHOUSE_SHELL_ROLES: readonly string[] = ['SUB_WH_ADMIN'];
+
+/**
+ * True when App.tsx must GET /auth/me for the warehouse permissions
+ * (`warehouseCan`). That is every warehouse route AND the Sub warehouse shell,
+ * which is rendered under 'AdminMain' with params.adminRole 'SUB_WH_ADMIN' and
+ * gets `can={warehouseCan}`. Without the shell case the permissions were never
+ * fetched while the admin stayed inside it, so `can` denied everything (bell
+ * -> Notifications showed "not available"). The Main shell builds its own
+ * `can` from its own fetchMe, so it is not listed. A failed fetch still leaves
+ * `can` denying everything; nothing is granted on the client.
+ */
+export function shouldLoadWarehousePermissions(
+  screen: string,
+  params?: Readonly<Record<string, unknown>> | null,
+): boolean {
+  if (isWarehouseAdminScreen(screen)) return true;
+  const role = params?.['adminRole'];
+  return screen === 'AdminMain' && typeof role === 'string' && WAREHOUSE_SHELL_ROLES.includes(role);
+}
+
 /**
  * True when a failed token refresh must NOT bounce the user to 'Welcome'.
  *

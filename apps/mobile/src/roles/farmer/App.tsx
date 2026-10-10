@@ -4,7 +4,12 @@ import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, logout } from './api/auth';
-import { emptyHistoryBackTarget, keepsScreenOnAuthFailure, resetsHistoryOn } from './utils/navigationSession';
+import {
+  emptyHistoryBackTarget,
+  keepsScreenOnAuthFailure,
+  resetsHistoryOn,
+  shouldLoadWarehousePermissions,
+} from './utils/navigationSession';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -1003,8 +1008,9 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     if (warehousePermissionsRequested.current) return;
-    const transferScreen = screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer';
-    if (!screen.startsWith('SubWarehouse') && !screen.startsWith('Warehouse') && !transferScreen) return;
+    // Includes the Sub shell (AdminMain + SUB_WH_ADMIN), which renders with
+    // can={warehouseCan}; see shouldLoadWarehousePermissions.
+    if (!shouldLoadWarehousePermissions(screen, params)) return;
     warehousePermissionsRequested.current = true;
     fetchMe()
       .then((me) => setWarehousePermissions(me.permissions ?? []))
@@ -1012,7 +1018,7 @@ export default function App(): React.JSX.Element {
         // Leave undefined (deny all) and allow a retry on the next screen change.
         warehousePermissionsRequested.current = false;
       });
-  }, [screen]);
+  }, [screen, params]);
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, any> = {}) => {

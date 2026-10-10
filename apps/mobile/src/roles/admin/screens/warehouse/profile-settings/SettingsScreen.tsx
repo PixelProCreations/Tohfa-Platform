@@ -14,8 +14,8 @@
  *     MainWarehouseSignOutConfirmScreen and MainWarehouseSignedOutScreen.
  *
  * Gate: none beyond login (auth.principal.view_own and auth.password.change_own
- * are `all` for both roles). Notification Settings is listed only with
- * notification.own.view. Main differs only in the header label ("Main
+ * are `all` for both roles). Notification Settings is listed too:
+ * notification.own.view is `all` for every role. Main differs only in the header label ("Main
  * Warehouse Admin · All Warehouses").
  */
 import React, { useState } from 'react';
@@ -35,7 +35,6 @@ import {
   MenuCard,
   MenuRow,
   PASSWORD_MIN_LENGTH,
-  PROFILE_CODES,
   profileLayout,
   ShieldIcon,
   SignedOutView,
@@ -61,7 +60,7 @@ export interface SettingsScreenProps extends WarehouseScreenBaseProps {
 
 type SettingsView = 'hub' | 'changePassword' | 'signedOut';
 
-export function SettingsScreen({ scope, can, onBack, initialView = 'hub', onOpen, onLogout }: SettingsScreenProps) {
+export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onLogout }: SettingsScreenProps) {
   const [view, setView] = useState<SettingsView>(initialView);
   const [showLogout, setShowLogout] = useState(false);
   const [currentPass, setCurrentPass] = useState('');
@@ -165,7 +164,8 @@ export function SettingsScreen({ scope, can, onBack, initialView = 'hub', onOpen
           {onOpen ? (
             <MenuRow icon={<UserIcon />} title="Profile" subtitle="Personal account information" onPress={() => onOpen('UserProfile')} />
           ) : null}
-          {onOpen && can(PROFILE_CODES.notificationView) ? (
+          {/* notification.own.view is `all` for every role (docs/rbac.json): no client gate. */}
+          {onOpen ? (
             <MenuRow
               icon={<BellIcon />}
               title="Notification Settings"

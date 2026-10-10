@@ -14,7 +14,10 @@
  * (All / Unread / Resolved) and priority (All Priority / Critical) chips and a
  * per-card warehouse label. The server applies the real filter (CLAUDE.md 2.1).
  *
- * Gates (FINAL_LIST #23, NO CODE spec gap): shown with notification.own.view.
+ * Gates (FINAL_LIST #23, NO CODE spec gap): was shown with
+ * notification.own.view, which is `all` for every role in docs/rbac.json, so
+ * the client check carried no information and only denied the screen while
+ * /auth/me had not loaded; it is dropped (the server filters the alerts).
  * Approve / Review, Snooze and Dismiss have no rbac code (there is no
  * expense-approve code), so the screen is read-only: those buttons are not
  * rendered (SPEC_GAPS W4k-2). "Open record" only navigates, and only when the
@@ -24,7 +27,6 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { FinanceNotAvailable } from '../finance-expenses/FinanceParts';
 import {
   ChipGroup,
   EmptyState,
@@ -37,7 +39,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { APPROVAL_ALERTS, NOTIFICATION_WAREHOUSES } from './fixtures';
-import { AlertTriangleIcon, NOTIFICATION_CODES, canOpenAlertRecord } from './NotificationParts';
+import { AlertTriangleIcon, canOpenAlertRecord } from './NotificationParts';
 import type { ApprovalAlertItem, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 type KindFilter = 'All' | 'Approvals' | 'Exceptions';
@@ -96,16 +98,6 @@ export function ApprovalAlertsScreen({
       (!isMain || matchesStatus(a, status)) &&
       (!isMain || priority === 'All Priority' || a.critical),
   );
-
-  if (!can(NOTIFICATION_CODES.view)) {
-    return (
-      <FinanceNotAvailable
-        title="Approval / Exception Alerts"
-        message="Your role does not include viewing alerts."
-        onBack={onBack}
-      />
-    );
-  }
 
   const openRecord = (alert: ApprovalAlertItem) => {
     if (onOpenRecord !== undefined && canOpenAlertRecord(can, alert.record)) onOpenRecord(alert);

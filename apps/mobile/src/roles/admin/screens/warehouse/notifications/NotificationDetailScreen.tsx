@@ -9,7 +9,10 @@
  * content from a three- or four-value `type`; it now comes from the
  * NotificationItem itself, so every category has a detail.
  *
- * Gates (FINAL_LIST #61): the screen needs notification.own.view. The action
+ * Gates (FINAL_LIST #61): no client gate on the screen itself:
+ * notification.own.view is `all` for every role in docs/rbac.json, so the
+ * check only denied the screen while /auth/me had not loaded; the server
+ * enforces the code and own-data. The action
  * button renders only when the target screen's own code passes (e.g.
  * wallet.cash_topup.process for the wallet report, canOpenTarget). The Main
  * header's settings icon had no handler and was not ported.
@@ -18,7 +21,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { FinanceNotAvailable, scopeLabel } from '../finance-expenses/FinanceParts';
+import { scopeLabel } from '../finance-expenses/FinanceParts';
 import {
   Card,
   EmptyState,
@@ -29,7 +32,7 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { CategoryBadge, NOTIFICATION_CODES, TARGET_DETAIL_LABEL, canOpenTarget } from './NotificationParts';
+import { CategoryBadge, TARGET_DETAIL_LABEL, canOpenTarget } from './NotificationParts';
 import type { NotificationItem, NotificationTarget, WarehouseScreenBaseProps } from './types';
 
 export interface NotificationDetailScreenProps extends WarehouseScreenBaseProps {
@@ -40,16 +43,6 @@ export interface NotificationDetailScreenProps extends WarehouseScreenBaseProps 
 }
 
 export function NotificationDetailScreen({ scope, can, onBack, notification, onOpenTarget }: NotificationDetailScreenProps) {
-  if (!can(NOTIFICATION_CODES.view)) {
-    return (
-      <FinanceNotAvailable
-        title="Notification Detail"
-        message="Your role does not include viewing notifications."
-        onBack={onBack}
-      />
-    );
-  }
-
   const target = notification?.target;
   const showAction = notification !== undefined && target !== undefined && onOpenTarget !== undefined && canOpenTarget(can, target);
 

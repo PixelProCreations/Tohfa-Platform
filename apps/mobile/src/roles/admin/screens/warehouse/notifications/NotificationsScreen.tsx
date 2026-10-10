@@ -11,16 +11,19 @@
  * Message History, whose rows had the same shape: they are the 'System' and
  * 'Messages' filter tabs here, with the search box they carried.
  *
- * Gates (FINAL_LIST #62): the list needs notification.own.view; Read All and
- * per-item Mark read need notification.own.mark_read; an action button needs
- * the code of the screen it opens (canOpenTarget). Own notifications have no
- * warehouse selector; the header names the viewer's scope.
+ * Gates (FINAL_LIST #62): the list and Read All / Mark read are NOT gated on
+ * the client: notification.own.view and notification.own.mark_read are `all`
+ * for every role in docs/rbac.json, so a client check carries no information
+ * and only denied the list while /auth/me had not loaded. The server still
+ * enforces both codes and own-data. An action button still needs the code of
+ * the screen it opens (canOpenTarget). Own notifications have no warehouse
+ * selector; the header names the viewer's scope.
  */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { FinanceNotAvailable, scopeLabel } from '../finance-expenses/FinanceParts';
+import { scopeLabel } from '../finance-expenses/FinanceParts';
 import {
   EmptyState,
   HeaderIconButton,
@@ -38,7 +41,6 @@ import {
   ConfirmDialog,
   DoubleCheckIcon,
   FilterTabs,
-  NOTIFICATION_CODES,
   NOTIFICATION_FILTERS,
   TARGET_ROW_LABEL,
   canOpenTarget,
@@ -85,7 +87,6 @@ export function NotificationsScreen({
   const [query, setQuery] = useState('');
   const [confirmingMarkAll, setConfirmingMarkAll] = useState(false);
 
-  const canMarkRead = can(NOTIFICATION_CODES.markRead);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   // Category tabs with nothing in them are hidden (All / Unread / the open tab stay).
@@ -110,18 +111,8 @@ export function NotificationsScreen({
     });
   }, [notifications, filter, query]);
 
-  if (!can(NOTIFICATION_CODES.view)) {
-    return (
-      <FinanceNotAvailable
-        title="Notifications"
-        message="Your role does not include viewing notifications."
-        onBack={onBack}
-      />
-    );
-  }
-
   const openItem = (item: NotificationItem) => {
-    if (!item.isRead && canMarkRead) onMarkAsRead(item.id);
+    if (!item.isRead) onMarkAsRead(item.id);
     onSelectNotification(item);
   };
 
@@ -131,7 +122,7 @@ export function NotificationsScreen({
       subtitle={`${scopeLabel(scope)} · ${unreadCount} new ${unreadCount === 1 ? 'alert' : 'alerts'}`}
       onBack={onBack}
       headerRight={
-        canMarkRead && unreadCount > 0 ? (
+        unreadCount > 0 ? (
           <HeaderIconButton onPress={() => setConfirmingMarkAll(true)} accessibilityLabel="Mark all as read">
             <DoubleCheckIcon />
           </HeaderIconButton>
@@ -191,7 +182,7 @@ export function NotificationsScreen({
                   </Text>
                   <View style={styles.cardFooterRow}>
                     {item.tag ? <StatusBadge label={item.tag} tone={CATEGORY_TONE[item.category]} /> : <View />}
-                    {!item.isRead && canMarkRead ? (
+                    {!item.isRead ? (
                       <TouchableOpacity
                         style={styles.unreadRow}
                         onPress={() => onMarkAsRead(item.id)}
@@ -207,7 +198,7 @@ export function NotificationsScreen({
                     <TouchableOpacity
                       style={styles.actionLink}
                       onPress={() => {
-                        if (!item.isRead && canMarkRead) onMarkAsRead(item.id);
+                        if (!item.isRead) onMarkAsRead(item.id);
                         if (item.target !== undefined) onOpenTarget?.(item.target, item);
                       }}
                       accessibilityRole="button"
@@ -221,7 +212,7 @@ export function NotificationsScreen({
           })
         )}
 
-        {onClearAll && canMarkRead && notifications.length > 0 ? (
+        {onClearAll && notifications.length > 0 ? (
           <View style={styles.clearWrap}>
             <WalletButton label="Clear all" variant="neutral" onPress={onClearAll} />
           </View>

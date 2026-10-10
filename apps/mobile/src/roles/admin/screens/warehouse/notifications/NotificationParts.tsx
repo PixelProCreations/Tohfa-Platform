@@ -28,9 +28,12 @@ import type {
 
 /** docs/rbac.json codes the notification screens check (each one exists there). */
 export const NOTIFICATION_CODES = {
-  /** List, detail and alerts. `all` for MAIN_WH_ADMIN and SUB_WH_ADMIN (own notifications). */
+  /**
+   * List, detail and alerts. `all` for EVERY role (own notifications), so the
+   * screens no longer gate on it client-side; kept for hosts and the API docs.
+   */
   view: 'notification.own.view',
-  /** Mark one / all read (and clear). `all` for both warehouse roles. */
+  /** Mark one / all read (and clear). `all` for every role; not gated client-side either. */
   markRead: 'notification.own.mark_read',
 } as const;
 
