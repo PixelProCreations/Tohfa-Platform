@@ -17,7 +17,6 @@ export * from './ReceivingHistoryScreen';
 export * from './TransferReceivingScreen';
 export * from './TransferReceivingInspectionScreen';
 export * from './WarehouseOperationsHubScreen';
-export * from './WarehouseCapacityScreen';
 export * from './WarehouseActivityScreen';
 export * from './OperationalIssuesScreen';
 export * from './OperationsHistoryScreen';

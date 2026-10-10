@@ -53,7 +53,6 @@ import {
   TransferReceivingScreen,
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
-  WarehouseCapacityScreen,
   WarehouseActivityScreen,
   OperationalIssuesScreen,
   OperationsHistoryScreen,
@@ -1616,11 +1615,16 @@ export function MainWarehouseAdminDashboardScreen({
                 onViewActivity={() => navigateWh('warehouse_activity')}
               />
             ) : whSubView === 'warehouse_capacity' ? (
-              <WarehouseCapacityScreen
+              // Shared storage-ops capacity (W4, M4-S07): view-only for everyone; the
+              // comparison card shows for the all-warehouses scope and Manage Capacity
+              // Limits (warehouse.capacity.set) opens Warehouse Settings.
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="Capacity"
                 onBack={() => navigateWh('warehouse_operations')}
-                onViewHistory={() => {
-                  navigateWh('warehouse_activity');
-                }}
+                onViewActivity={() => navigateWh('warehouse_activity')}
+                onManageCapacity={() => navigateWh('warehouse_settings')}
               />
             ) : whSubView === 'warehouse_activity' ? (
               <WarehouseActivityScreen

@@ -162,7 +162,6 @@ import {
   SubWarehouseWarehouseActivityScreen,
   SubWarehouseTodayOperationsScreen,
   SubWarehouseActivityDetailScreen,
-  SubWarehouseCapacityScreen,
   SubWarehouseOperationalIssuesScreen,
   SubWarehouseReportIssueScreen,
   SubWarehouseIssueSubmittedScreen,
@@ -745,6 +744,7 @@ const STORAGE_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StorageRoute; bac
   SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseStorageLocationDetail: { route: 'StorageLocationDetail', back: 'SubWarehouseStorageInfo' },
+  SubWarehouseCapacity: { route: 'Capacity', back: 'SubWarehouseWarehouseOperations' },
 };
 /**
  * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
@@ -1857,16 +1857,6 @@ export default function App(): React.JSX.Element {
             onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseCapacity' ? (
-          <SubWarehouseCapacityScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
               else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });

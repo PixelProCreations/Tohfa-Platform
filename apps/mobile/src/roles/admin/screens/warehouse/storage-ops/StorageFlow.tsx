@@ -6,6 +6,7 @@
  *                     -> Add Material (Add Material / Receive)
  *   Storage Location (detail)            (host: View Stock, product rows)
  *   Storage Location Assignment          (host: confirmed location)
+ *   Warehouse Capacity                   (host: history, Manage Capacity Limits)
  *
  * The screens used to be stitched three times (App.tsx keys, the Sub shell's
  * show* flags and Main's whSubView branches), none of which passed `scope` /
@@ -28,6 +29,7 @@ import { MaterialHandlingScreen } from './MaterialHandlingScreen';
 import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { STORAGE_CODES } from './StorageParts';
+import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
 import type { PermissionCheck, StorageRoute, StorageRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StorageStackEntry {
@@ -54,7 +56,7 @@ export interface StorageFlowProps {
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
-  /** Material movement history (warehouse activity, storage-ops part B). */
+  /** Material movement / capacity history (warehouse activity, storage-ops part B). */
   onViewActivity?: (() => void) | undefined;
   /** Storage location View Stock: Inventory & Stock (inventory.batch.view). */
   onViewStock?: (() => void) | undefined;
@@ -62,6 +64,8 @@ export interface StorageFlowProps {
   onViewProductDetail?: ((product: string) => void) | undefined;
   /** Storage Location Assignment confirmed (inventory.batch.assign); the host finishes receiving. */
   onConfirmAssignment?: ((locationId: string) => void) | undefined;
+  /** Capacity "Manage Capacity Limits" (Warehouse Settings); the screen also needs warehouse.capacity.set. */
+  onManageCapacity?: (() => void) | undefined;
 }
 
 export function StorageFlow({
@@ -75,6 +79,7 @@ export function StorageFlow({
   onViewStock,
   onViewProductDetail,
   onConfirmAssignment,
+  onManageCapacity,
 }: StorageFlowProps) {
   const [stack, setStack] = useState<StorageStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -156,6 +161,8 @@ export function StorageFlow({
           onConfirmAssignment={onConfirmAssignment}
         />
       );
+    case 'Capacity':
+      return <WarehouseCapacityScreen {...common} onViewHistory={onViewActivity} onManageCapacity={onManageCapacity} />;
     default:
       return null;
   }

@@ -52,7 +52,6 @@ import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
 import { StorageFlow, type StorageRoute, type StorageRouteParams } from '../../admin/screens/warehouse/storage-ops';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
-import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
 import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
 import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
 import { SubWarehouseIssueSubmittedScreen } from './SubWarehouseIssueSubmittedScreen';
@@ -1081,7 +1080,6 @@ export function SubWarehouseAdminDashboardScreen({
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   // The open storage-ops module (W4, M4 part A): StorageFlow owns the stack from here on.
   const [storageEntry, setStorageEntry] = useState<{ screen: StorageRoute; params?: StorageRouteParams | undefined } | null>(null);
-  const [showWarehouseCapacity, setShowWarehouseCapacity] = useState(false);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
   // The open customer module: CustomersFlow (list, search, details, orders,
@@ -1739,7 +1737,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToCapacity={() => {
           setShowWarehouseOperations(false);
-          setShowWarehouseCapacity(true);
+          setStorageEntry({ screen: 'Capacity' });
         }}
         onNavigateToMaterialHandling={() => {
           setShowWarehouseOperations(false);
@@ -1782,7 +1780,8 @@ export function SubWarehouseAdminDashboardScreen({
   if (storageEntry) {
     return (
       // Shared storage-ops flow (W4, M4 part A), scope-locked to this warehouse.
-      // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own).
+      // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own);
+      // capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
       <StorageFlow
         scope={scope}
         can={can}
@@ -1799,21 +1798,6 @@ export function SubWarehouseAdminDashboardScreen({
         onTabChange={(tab) => {
           setStorageEntry(null);
           setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showWarehouseCapacity) {
-    return (
-      <SubWarehouseCapacityScreen
-        onBack={() => {
-          setShowWarehouseCapacity(false);
-          setShowWarehouseOperations(true);
-        }}
-        onTabChange={(tab) => {
-          setShowWarehouseCapacity(false);
-          setActiveTab(tab as SubWHTab);
         }}
       />
     );
@@ -4093,7 +4077,7 @@ export function SubWarehouseAdminDashboardScreen({
               setShowStorageInfo(true);
             }}
             onNavigateToCapacity={() => {
-              setShowWarehouseCapacity(true);
+              setStorageEntry({ screen: 'Capacity' });
             }}
             onNavigateToMaterialHandling={() => {
               setStorageEntry({ screen: 'MaterialHandling' });
