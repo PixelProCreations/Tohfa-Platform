@@ -21,7 +21,6 @@ import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import { FinanceFlow } from '../warehouse/finance-expenses';
 import { ReportsScreen } from '../warehouse/reports';
-import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
@@ -31,15 +30,13 @@ import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
+import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
 import {
-  WarehouseOverviewScreen,
-  ManageWarehousesScreen,
   StockAndTransferOverviewScreen,
   QuickActionsOverviewScreen,
   ReceivingDashboardScreen,
   IncomingShipmentsScreen,
   ReceivingSearchFiltersScreen,
-  WarehouseCityDetailScreen,
   IncomingGoodsOperationsScreen,
   QualityIssuesOperationsScreen,
   ShipmentDetailScreen,
@@ -145,6 +142,7 @@ type WarehouseSubView =
   | 'todays_operations_overview'
   | 'warehouse_performance'
   | 'manage_warehouses'
+  | 'manage_swas'
   | 'storage_locations'
   | 'location_detail'
   | 'material_handling'
@@ -534,6 +532,19 @@ const TRANSFER_ENTRY: Partial<Record<WarehouseSubView, TransferRoute>> = {
   initiate_new_transfer: 'InitiateNewTransfer',
 };
 
+/**
+ * Old warehouse-admin sub-views -> WarehouseAdminFlow entry routes (W4).
+ * ManageWarehousesScreen was absorbed into Warehouse Overview, so
+ * 'manage_warehouses' opens the overview; 'manage_swas' is the Create SWA
+ * quick action (it used to open the Sub roster key 'SubWarehouseStaff').
+ */
+const WAREHOUSE_ADMIN_ENTRY: Partial<Record<WarehouseSubView, WarehouseAdminRoute>> = {
+  warehouse_overview: 'WarehouseOverview',
+  manage_warehouses: 'WarehouseOverview',
+  warehouse_city_detail: 'WarehouseCityDetail',
+  manage_swas: 'ManageSubWarehouseAdmins',
+};
+
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
 const INVENTORY_ENTRY = {
   stock_ledger: 'M3S06',
@@ -551,13 +562,11 @@ type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' 
 
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
+  /** Kept for hosts (App.tsx passes it); the shell no longer leaves to an App key (Create SWA is in-shell, W4). */
   onNavigate?: (screen: string) => void;
 }
 
-export function MainWarehouseAdminDashboardScreen({
-  onSignOut,
-  onNavigate,
-}: MainWarehouseAdminDashboardScreenProps) {
+export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<MainWHTab>('Home');
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
   const [selectedShipmentId, setSelectedShipmentId] = useState('SHP-000124');
@@ -1475,7 +1484,18 @@ export function MainWarehouseAdminDashboardScreen({
               onTabChange={handleMoreTabChange}
             />
           ) : (
-            <MainWarehouseAdminScreen onBack={() => setMoreSubScreen(null)} />
+            // The old Warehouse Management hub (MainWarehouseAdminScreen) was absorbed into the
+            // shared Warehouse Overview (W4 warehouse-admin); its Add Warehouse action was dropped (BR-23).
+            <WarehouseAdminFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="WarehouseOverview"
+              onBack={() => setMoreSubScreen(null)}
+              onNavigateComparison={() => {
+                setMoreSubScreen(null);
+                navigateWh('stock_and_transfer');
+              }}
+            />
           )
         )}
         {activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null && (
@@ -1550,28 +1570,20 @@ export function MainWarehouseAdminDashboardScreen({
                 }}
                 onManageCapacity={() => navigateWh('warehouse_settings')}
               />
-            ) : whSubView === 'warehouse_overview' ? (
-              <WarehouseOverviewScreen
+            ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
+              // Main warehouse-admin flow (W4): Warehouse Overview (absorbs Manage
+              // Warehouses, the Warehouse Management hub and Warehouse List) ->
+              // City Detail -> Settings / Capacity / Documents; Performance and
+              // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
+              <WarehouseAdminFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
+                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
                 onBack={goBackWh}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
-                onViewLowStock={() => {
-                  navigateWh('alerts_action_center');
-                }}
-                onOpenSettings={() => {
-                  navigateWh('warehouse_settings');
-                }}
                 onNavigateComparison={() => navigateWh('stock_and_transfer')}
-                onNavigatePerformance={() => navigateWh('warehouse_performance')}
-                onNavigateCapacitySummary={() => navigateWh('warehouse_capacity')}
-                onNavigateManageWarehouses={() => navigateWh('manage_warehouses')}
-              />
-            ) : whSubView === 'warehouse_city_detail' ? (
-              <WarehouseCityDetailScreen
-                cityName={selectedWHName}
-                onBack={goBackWh}
+                onViewOperationsHistory={() => navigateWh('operations_history')}
+                onViewStaffAttendance={() => navigateWh('staff_attendance')}
               />
             ) : whSubView === 'warehouse_notifications' ? (
               renderNotificationsFlow('Notifications')
@@ -1685,10 +1697,9 @@ export function MainWarehouseAdminDashboardScreen({
                   setActiveTab('Inventory');
                   setWhSubView('overview');
                 }}
-                onCreateSwa={() => {
-                  if (onNavigate) onNavigate('SubWarehouseStaff');
-                  else navigateWh('warehouse_settings');
-                }}
+                // Create SWA opens Manage Sub Warehouse Admins (W4 warehouse-admin), only with
+                // admin.sub_wh_admin.create; it used to open the Sub roster key 'SubWarehouseStaff'.
+                {...(can('admin.sub_wh_admin.create') ? { onCreateSwa: () => navigateWh('manage_swas') } : {})}
                 onViewReports={() => navigateWh('dashboard_operations')}
                 onWarehouseTargets={() => navigateWh('warehouse_settings')}
                 onReviewEscalations={() => navigateWh('alerts_action_center')}
@@ -1746,19 +1757,6 @@ export function MainWarehouseAdminDashboardScreen({
                 }}
                 onViewOperationsHistory={() => navigateWh('operations_history')}
                 onViewStaffAttendance={() => navigateWh('staff_attendance')}
-              />
-            ) : whSubView === 'manage_warehouses' ? (
-              <ManageWarehousesScreen
-                onBack={goBackWh}
-                onConfigureSettings={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_settings');
-                }}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
-                onNavigateCapacity={() => navigateWh('warehouse_capacity')}
               />
             ) : whSubView === 'incoming_goods_ops' ? (
               <IncomingGoodsOperationsScreen

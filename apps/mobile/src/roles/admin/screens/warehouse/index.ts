@@ -1,15 +1,20 @@
-export * from './WarehouseOverviewScreen';
 export * from './StockAndTransferOverviewScreen';
 export * from './QuickActionsOverviewScreen';
 export * from './ReceivingDashboardScreen';
 export * from './IncomingShipmentsScreen';
 export * from './ReceivingSearchFiltersScreen';
-export * from './WarehouseCityDetailScreen';
 export * from './IncomingGoodsOperationsScreen';
 export * from './QualityIssuesOperationsScreen';
 export * from './ShipmentDetailScreen';
 export * from './ReceivingHistoryScreen';
-export * from './ManageWarehousesScreen';
+
+// Main warehouse-admin navigator (W4); the screens themselves are imported from './warehouse-admin'.
+export {
+  WarehouseAdminFlow,
+  type WarehouseAdminFlowProps,
+  type WarehouseAdminRoute,
+  type WarehouseAdminRouteParams,
+} from './warehouse-admin';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
 export {

@@ -212,7 +212,7 @@ import {
   SalesReturnsRefundsScreen,
   type OnlineOrderItem,
   type B2BAccount,
-  WarehouseOverviewScreen,
+  WarehouseAdminFlow,
   TransfersFlow,
   InventoryFlow,
   ReturnsFlow,
@@ -1844,11 +1844,15 @@ export default function App(): React.JSX.Element {
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
         ) : screen === 'WarehouseOverview' ? (
-          <WarehouseOverviewScreen
+          // Main-only warehouse-admin flow (W4): overview -> city detail ->
+          // settings / capacity / performance / documents, overview -> manage SWAs.
+          // Route-guarded on warehouse.all.view (Manage SWAs: admin.sub_wh_admin.create).
+          // Comparison opens the consolidated stock ledger, as the old tile fallback did.
+          <WarehouseAdminFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={warehouseCan}
             onBack={goBack}
-            onSelectWarehouse={(wh) => navigate('StockLedger', { warehouseName: wh })}
-            onViewLowStock={() => navigate('LowStockAlerts')}
-            onOpenSettings={() => navigate('WarehouseSettings')}
+            onNavigateComparison={() => navigate('StockLedger')}
           />
         ) : screen === 'StockLedger' ||
           screen === 'VerifyStock' ||
