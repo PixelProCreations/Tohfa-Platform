@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, logout } from './api/auth';
+import { emptyHistoryBackTarget, keepsScreenOnAuthFailure, resetsHistoryOn } from './utils/navigationSession';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -1020,9 +1021,9 @@ export default function App(): React.JSX.Element {
         return;
       }
 
-      if (nextScreen === 'Splash' || nextScreen === 'Welcome') {
-        setHistory([]);
-      } else if (nextScreen === 'MainTabs') {
+      // Sign-in ('AdminMain') and sign-out ('Login') also start a fresh stack, so
+      // back from the Sub warehouse dashboard never pops to the Login screen.
+      if (resetsHistoryOn(nextScreen)) {
         setHistory([]);
       } else {
         setHistory((prev) => [...prev, { screen, params, tab: currentTab }]);
@@ -1102,21 +1103,11 @@ export default function App(): React.JSX.Element {
           setParams({});
           return;
         }
-        const authScreens: ScreenName[] = [
-          'Login',
-          'RoleSelection',
-          'Register',
-          'Otp',
-          'ForgotPassword',
-          'ResetPassword',
-          'PasswordChangedSuccess',
-          'ApplicationStatus',
-        ];
-        if (authScreens.includes(screen)) {
-          setScreen('Welcome');
-          setParams({});
-        } else if (screen !== 'MainTabs' && screen !== 'Splash' && screen !== 'Welcome') {
-          setScreen('MainTabs');
+        // Auth screens go to Welcome; a warehouse screen goes to its dashboard
+        // (not the farmer tabs); a root screen stays put.
+        const target = emptyHistoryBackTarget(screen) as ScreenName | null;
+        if (target !== null) {
+          setScreen(target);
           setParams({});
         }
       }
@@ -1136,6 +1127,11 @@ export default function App(): React.JSX.Element {
         }
         return false;
       }
+      // A root screen with nothing behind it (e.g. the admin dashboard right
+      // after sign-in): let Android leave the app instead of swallowing the press.
+      if (history.length === 0 && emptyHistoryBackTarget(screen) === null) {
+        return false;
+      }
       goBack();
       return true;
     };
@@ -1151,14 +1147,11 @@ export default function App(): React.JSX.Element {
     configureTokenStorage(tokenStorage);
     setOnAuthFailure(() => {
       setScreen((prev) => {
-        if (
-          prev === 'AdminMain' ||
-          prev === 'SuperAdminDashboard' ||
-          prev === 'TohfaAdminDashboard' ||
-          prev === 'FarmerAdminDashboard' ||
-          prev === 'MainWarehouseAdminDashboard' ||
-          prev === 'SubWarehouseAdminDashboard'
-        ) {
+        // Admin dashboards and every warehouse-admin route stay put: a 401 on
+        // the /auth/me permission fetch a Sub More destination fires on mount
+        // used to bounce the admin to Welcome (the Login page). See
+        // utils/navigationSession.ts.
+        if (keepsScreenOnAuthFailure(prev)) {
           return prev;
         }
         setHistory([]);
