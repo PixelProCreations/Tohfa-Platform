@@ -44,3 +44,37 @@ export function validateTopUpAmount(
 export function formatCashTopUpCap(capPaise: Paise = CASH_TOPUP_CAP_PAISE): string {
   return format(fromPaise(capPaise)).replace(/\.00$/, '');
 }
+
+/**
+ * BR-26 / `transfer.high_value.approve` (SUPER_ADMIN only): quantity in kg at
+ * or above which an inter-warehouse transfer needs Super Admin sign-off before
+ * it dispatches.
+ *
+ * SPEC GAP (SPEC_GAPS W4w-1): the threshold is UNDEFINED in system_config.
+ * rbac.json says "threshold undefined", docs/rules.md BR-26 defines none and
+ * db/seed/001_reference.sql has no key for it, so this is NOT a mirrored
+ * business value: it is the old screen literal (InitiateNewTransferScreen
+ * `qty >= 1000`) moved here so no component holds it. The unit (kg vs rupee
+ * value) is unconfirmed too. businessThresholds.test.ts fails once a seed key
+ * appears, so it gets replaced by the seeded value. UX only: there is no
+ * transfer endpoint yet (BR-26 scope: deferred); the server must decide.
+ */
+export const HIGH_VALUE_TRANSFER_THRESHOLD_KG = 1_000;
+
+/**
+ * True when a transfer of `quantityKg` must be routed to Super Admin approval:
+ * it reaches the threshold and the initiator does not hold
+ * `transfer.high_value.approve` (a Super Admin dispatches directly).
+ */
+export function transferNeedsApproval(
+  quantityKg: number,
+  canApproveHighValue: boolean,
+  thresholdKg: number = HIGH_VALUE_TRANSFER_THRESHOLD_KG,
+): boolean {
+  return quantityKg >= thresholdKg && !canApproveHighValue;
+}
+
+/** The transfer threshold for display, e.g. "1,000 kg". */
+export function formatTransferThreshold(thresholdKg: number = HIGH_VALUE_TRANSFER_THRESHOLD_KG): string {
+  return `${thresholdKg.toLocaleString('en-IN')} kg`;
+}

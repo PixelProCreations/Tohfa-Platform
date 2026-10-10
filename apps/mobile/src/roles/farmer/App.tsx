@@ -213,8 +213,7 @@ import {
   type OnlineOrderItem,
   type B2BAccount,
   WarehouseOverviewScreen,
-  InterWarehouseTransferScreen,
-  InitiateNewTransferScreen,
+  TransfersFlow,
   InventoryFlow,
   ReturnsFlow,
   type ReturnsRoute,
@@ -1104,7 +1103,8 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     if (warehousePermissionsRequested.current) return;
-    if (!screen.startsWith('SubWarehouse') && !screen.startsWith('Warehouse')) return;
+    const transferScreen = screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer';
+    if (!screen.startsWith('SubWarehouse') && !screen.startsWith('Warehouse') && !transferScreen) return;
     warehousePermissionsRequested.current = true;
     fetchMe()
       .then((me) => setWarehousePermissions(me.permissions ?? []))
@@ -1445,7 +1445,7 @@ export default function App(): React.JSX.Element {
               if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
               else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
               else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
-              else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer');
+              else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer', { transferScope: 'sub' });
             }}
           />
         ) : screen === 'SubWarehouseReviewReceiving' ? (
@@ -1864,15 +1864,16 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onInitiateTransfer={() => navigate('InterWarehouseTransfer')}
           />
-        ) : screen === 'InterWarehouseTransfer' ? (
-          <InterWarehouseTransferScreen
+        ) : screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer' ? (
+          // Shared transfers flow (W4). The key is reached from the Main
+          // inventory flow and from a Sub transfer alert; the Sub entries pass
+          // { transferScope: 'sub' } so the list shows only incoming transfers.
+          // Initiate is refused by the flow without transfer.inter_warehouse.initiate.
+          <TransfersFlow
+            scope={params['transferScope'] === 'sub' ? SUB_WAREHOUSE_SCOPE : MAIN_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={screen === 'InitiateNewTransfer' ? 'InitiateNewTransfer' : 'Transfers'}
             onBack={goBack}
-            onNewTransfer={() => navigate('InitiateNewTransfer')}
-          />
-        ) : screen === 'InitiateNewTransfer' ? (
-          <InitiateNewTransferScreen
-            onBack={goBack}
-            onSubmitTransfer={() => navigate('InterWarehouseTransfer')}
           />
         ) : screen === 'WarehouseSettings' ? (
           // Main-only warehouse settings now live in the shared profile-settings

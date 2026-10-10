@@ -30,12 +30,10 @@ import { ReturnsFlow } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
+import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import {
   WarehouseOverviewScreen,
   ManageWarehousesScreen,
-  InterWarehouseTransferScreen,
-  InitiateNewTransferScreen,
-  TransferDetailScreen,
   StockAndTransferOverviewScreen,
   QuickActionsOverviewScreen,
   ReceivingDashboardScreen,
@@ -46,10 +44,6 @@ import {
   QualityIssuesOperationsScreen,
   ShipmentDetailScreen,
   ReceivingHistoryScreen,
-  TransferReceivingScreen,
-  TransferReceivingInspectionScreen,
-  type InterWarehouseTransferItem,
-  INITIAL_TRANSFERS,
 } from '../warehouse';
 import {
   DEMO_SHIPMENT,
@@ -529,6 +523,17 @@ function warehouseIdForName(name: string): string | undefined {
   return PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').toLowerCase().startsWith(key))?.warehouseId;
 }
 
+/**
+ * Old transfer sub-views -> shared TransfersFlow entry routes (W4). The detail
+ * was only ever opened from the list, which now lives inside the flow, so the
+ * old 'transfer_detail' key opens the list.
+ */
+const TRANSFER_ENTRY: Partial<Record<WarehouseSubView, TransferRoute>> = {
+  inter_warehouse_transfer: 'Transfers',
+  transfer_detail: 'Transfers',
+  initiate_new_transfer: 'InitiateNewTransfer',
+};
+
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
 const INVENTORY_ENTRY = {
   stock_ledger: 'M3S06',
@@ -569,8 +574,6 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
-  const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
-  const [selectedTransfer, setSelectedTransfer] = useState<InterWarehouseTransferItem>(INITIAL_TRANSFERS[0]!);
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
   // Only the old Warehouse Activity / Operations History rows set this (now inside
   // StorageFlow, W4 storage-ops part B); the 'material_detail' sub-view keeps its default.
@@ -1178,15 +1181,15 @@ export function MainWarehouseAdminDashboardScreen({
               onNavigateBatch={() => openReceivingWizard('batch_assignment', 'receiving_history_detail')}
               onNavigateShipment={() => setReceivingSubView('shipment_detail')}
             />
-          ) : receivingSubView === 'transfer_receiving' ? (
-            <TransferReceivingScreen
+          ) : receivingSubView === 'transfer_receiving' || receivingSubView === 'transfer_receiving_inspection' ? (
+            // Shared transfers flow (W4): arrivals for all warehouses; the
+            // inspection step opens inside the flow for the tapped transfer
+            // (Start Inspection / Complete need transfer.inter_warehouse.receive).
+            <TransfersFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="TransferReceiving"
               onBack={() => setReceivingSubView('dashboard')}
-              onStartTransferInspection={() => setReceivingSubView('transfer_receiving_inspection')}
-            />
-          ) : receivingSubView === 'transfer_receiving_inspection' ? (
-            <TransferReceivingInspectionScreen
-              onBack={() => setReceivingSubView('transfer_receiving')}
-              onCompleteTransfer={() => setReceivingSubView('receiving_history')}
             />
           ) : null
         )}
@@ -1709,33 +1712,15 @@ export function MainWarehouseAdminDashboardScreen({
                   setWhHistory([]);
                 }}
               />
-            ) : whSubView === 'inter_warehouse_transfer' ? (
-              <InterWarehouseTransferScreen
-                transfers={transferList}
+            ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
+              // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
+              // list -> initiate. The flow owns the (mock) transfer list; Initiate
+              // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
+              <TransfersFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen={TRANSFER_ENTRY[whSubView]}
                 onBack={goBackWh}
-                onNewTransfer={() => navigateWh('initiate_new_transfer')}
-                onSelectTransfer={(item) => {
-                  setSelectedTransfer(item);
-                  navigateWh('transfer_detail');
-                }}
-              />
-            ) : whSubView === 'transfer_detail' ? (
-              <TransferDetailScreen
-                transfer={selectedTransfer}
-                onBack={goBackWh}
-                onBackToTransfers={() => navigateWh('inter_warehouse_transfer')}
-                onTrackReceiving={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('transfer_receiving');
-                }}
-              />
-            ) : whSubView === 'initiate_new_transfer' ? (
-              <InitiateNewTransferScreen
-                onBack={goBackWh}
-                onSubmitTransfer={(newTransfer) => {
-                  setTransferList((prev) => [newTransfer, ...prev]);
-                  goBackWh();
-                }}
               />
             ) : whSubView === 'warehouse_settings' ? (
               // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded

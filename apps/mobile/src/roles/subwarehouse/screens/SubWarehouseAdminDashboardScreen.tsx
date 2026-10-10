@@ -1466,7 +1466,8 @@ export function SubWarehouseAdminDashboardScreen({
             setInventoryInitialParams(null);
             setActiveTab('Inventory');
           } else if (alert.record === 'Transfer') {
-            onNavigate?.('InterWarehouseTransfer');
+            // App.tsx opens the shared TransfersFlow on the Sub scope (incoming only).
+            onNavigate?.('InterWarehouseTransfer', { transferScope: 'sub' });
           }
         }}
       />

@@ -1,7 +1,4 @@
 export * from './WarehouseOverviewScreen';
-export * from './InterWarehouseTransferScreen';
-export * from './InitiateNewTransferScreen';
-export * from './TransferDetailScreen';
 export * from './StockAndTransferOverviewScreen';
 export * from './QuickActionsOverviewScreen';
 export * from './ReceivingDashboardScreen';
@@ -12,8 +9,6 @@ export * from './IncomingGoodsOperationsScreen';
 export * from './QualityIssuesOperationsScreen';
 export * from './ShipmentDetailScreen';
 export * from './ReceivingHistoryScreen';
-export * from './TransferReceivingScreen';
-export * from './TransferReceivingInspectionScreen';
 export * from './ManageWarehousesScreen';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
@@ -144,6 +139,14 @@ export {
   type ReceivingWizardStep,
   type WizardShipmentData,
 } from './receiving-qc';
+// Shared inter-warehouse transfer navigator (W4); the screens themselves are imported from './transfers'.
+export {
+  TransfersFlow,
+  type TransferItem,
+  type TransferRoute,
+  type TransferRouteParams,
+  type TransfersFlowProps,
+} from './transfers';
 // Shared storage-ops navigator (W4, M4); the screens themselves are imported from './storage-ops'.
 export {
   StorageFlow,
