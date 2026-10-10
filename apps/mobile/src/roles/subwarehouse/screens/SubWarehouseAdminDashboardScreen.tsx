@@ -1224,9 +1224,9 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToNeedsAttention={
           onNavigate
-            ? () => {
+            ? (category) => {
                 setShowSalesScreen(false);
-                onNavigate('SubWarehouseNeedsAttention');
+                onNavigate('SubWarehouseNeedsAttention', category ? { category } : undefined);
               }
             : undefined
         }

@@ -281,7 +281,7 @@ export interface SalesScreenProps extends WarehouseScreenBaseProps {
   onNavigateToSalesHistory: () => void;
   onNavigateToMarketDaySales: () => void;
   onNavigateToChannelSales: (channel: SalesChannel) => void;
-  /** Needs Attention is a Sub screen not yet in an area folder; the host opens it. Card hidden without it. */
+  /** Needs Attention is the shared dashboard-home-more queue (HomeFlow); the host opens it. Card hidden without it. */
   onNavigateToNeedsAttention?: ((category?: AttentionCategory) => void) | undefined;
   onNavigateToSaleDetail: (saleId?: string) => void;
 }

@@ -134,7 +134,8 @@ import {
   type WalletRoute,
   type WalletRouteParams,
   CustomerSearchScreen,
-  SubWarehouseNeedsAttentionScreen,
+  HomeFlow,
+  type AttentionFilter,
   MoreScreen,
   SubWarehouseTaskActionCenterScreen,
   SubWarehouseTaskDetailScreen,
@@ -1476,7 +1477,12 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'SubWarehouseNeedsAttention' ? (
-          <SubWarehouseNeedsAttentionScreen
+          // Shared dashboard-home-more NeedsAttentionScreen through HomeFlow (W4), own warehouse only.
+          <HomeFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen="NeedsAttention"
+            initialParams={{ category: params['category'] as AttentionFilter | undefined }}
             onBack={goBack}
           />
         ) : SALES_ROUTE_ENTRY[screen] !== undefined ? (
@@ -1495,7 +1501,7 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToNeedsAttention={() => navigate('SubWarehouseNeedsAttention')}
+            onNavigateToNeedsAttention={(category) => navigate('SubWarehouseNeedsAttention', category ? { category } : {})}
           />
         ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
           <ChannelSalesScreen

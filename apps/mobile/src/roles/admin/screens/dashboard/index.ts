@@ -5,7 +5,6 @@ export * from './MainWarehouseAdminDashboardScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAdminDashboardScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOverviewScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTodayOverviewScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseNeedsAttentionScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskActionCenterScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTaskDetailScreen';
 export * from './AdminProfileScreen';

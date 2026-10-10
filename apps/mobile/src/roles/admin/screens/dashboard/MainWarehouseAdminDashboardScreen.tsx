@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
-import { HomeFlow, MoreScreen, type HomeTarget } from '../warehouse/dashboard-home-more';
+import { HomeFlow, MoreScreen, type AttentionFilter, type HomeTarget } from '../warehouse/dashboard-home-more';
 import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
@@ -132,6 +132,8 @@ type WarehouseSubView =
   | 'stock_and_transfer'
   | 'alerts_action_center'
   | 'quick_actions_overview'
+  // Sales hub "Needs Attention" card (shared HomeFlow NeedsAttention, W4 dashboard part 2)
+  | 'needs_attention'
   | 'stock_ledger'
   | 'verify_stock'
   | 'stock_adjustment_approval'
@@ -542,6 +544,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // Only the old Warehouse Activity / Operations History rows set this (now inside
   // StorageFlow, W4 storage-ops part B); the 'material_detail' sub-view keeps its default.
   const [selectedMaterialId] = useState('MAT-0021');
+  /** Filter the Sales hub's Needs Attention card opened the queue on. */
+  const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
   // or if it fails, makeCan fails closed and gated controls stay hidden.
@@ -1587,6 +1591,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 initialParams={ATTENDANCE_ALL_PARAMS}
                 onBack={goBackWh}
               />
+            ) : whSubView === 'needs_attention' ? (
+              // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
+              <HomeFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="NeedsAttention"
+                initialParams={{ category: attentionCategory }}
+                onBack={goBackWh}
+              />
             ) : whSubView === 'stock_and_transfer' || whSubView === 'quick_actions_overview' ? (
               // Shared HomeFlow (W4 dashboard part 2): both screens are Main-only
               // (warehouse.all.view) and hide their shortcuts per code; the targets
@@ -1787,6 +1800,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   setWhHistory([]);
                 }}
                 onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+                onNavigateToNeedsAttention={(category) => {
+                  setAttentionCategory(category ?? 'all');
+                  navigateWh('needs_attention');
+                }}
               />
             ) : null
           )}

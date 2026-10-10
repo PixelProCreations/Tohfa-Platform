@@ -7,5 +7,17 @@ export {
   StockAndTransferOverviewScreen,
   type StockAndTransferOverviewScreenProps,
 } from './StockAndTransferOverviewScreen';
+export { NeedsAttentionScreen, type NeedsAttentionScreenProps } from './NeedsAttentionScreen';
 export { HOME_CODES } from './HomeParts';
-export type { HomeRoute, HomeRouteParams, HomeTarget, MoreOptionItem, OptionGroup } from './types';
+export { NEEDS_ATTENTION_ITEMS } from './fixtures';
+export type {
+  AttentionAction,
+  AttentionCategory,
+  AttentionFilter,
+  AttentionItem,
+  HomeRoute,
+  HomeRouteParams,
+  HomeTarget,
+  MoreOptionItem,
+  OptionGroup,
+} from './types';

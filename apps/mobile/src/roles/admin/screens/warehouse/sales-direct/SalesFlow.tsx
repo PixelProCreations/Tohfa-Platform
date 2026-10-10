@@ -60,7 +60,7 @@ export interface SalesFlowProps {
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Needs Attention lives outside the area folders (Sub only today); the host opens it. */
+  /** Needs Attention is the shared dashboard-home-more queue (HomeFlow); the host opens it. */
   onNavigateToNeedsAttention?:
     | ((category?: 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue') => void)
     | undefined;

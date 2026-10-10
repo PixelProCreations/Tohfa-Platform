@@ -4,6 +4,7 @@
  *
  *   Quick Actions (Main)      -> host targets (transfers, receiving, SWA, ...)
  *   Stock & Transfer (Main)   -> host targets (initiate, transfers, low stock)
+ *   Needs Attention (shared)  sales & order resolution queue, scope-filtered
  *
  * Screens of other modules are not re-implemented: the host opens them through
  * `onOpenTarget`, so their own gates apply. navigate() refuses a route without
@@ -12,6 +13,7 @@
 import React, { useEffect, useState } from 'react';
 
 import { HOME_CODES } from './HomeParts';
+import { NeedsAttentionScreen } from './NeedsAttentionScreen';
 import { QuickActionsOverviewScreen } from './QuickActionsOverviewScreen';
 import { StockAndTransferOverviewScreen } from './StockAndTransferOverviewScreen';
 import type { HomeRoute, HomeRouteParams, HomeTarget, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
@@ -48,7 +50,7 @@ export function HomeFlow({ scope, can, initialScreen, initialParams, onBack, onO
   const [stack, setStack] = useState<HomeStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack (keyed on the value).
-  const presetKey = initialParams?.id ?? '';
+  const presetKey = `${initialParams?.id ?? ''}|${initialParams?.category ?? ''}`;
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
     // initialParams is read through presetKey on purpose (see above).
@@ -92,6 +94,17 @@ export function HomeFlow({ scope, can, initialScreen, initialParams, onBack, onO
           onViewConsolidatedStock={target('WarehouseOverview')}
           onViewLowStock={target('LowStock')}
           onViewTransfers={target('TransferList')}
+        />
+      );
+    case 'NeedsAttention':
+      return (
+        <NeedsAttentionScreen
+          key={current.params?.category ?? 'all'}
+          scope={scope}
+          can={can}
+          onBack={back}
+          onTabChange={onTabChange}
+          initialCategory={current.params?.category}
         />
       );
     default:

@@ -51,6 +51,7 @@ export {
 export {
   HomeFlow,
   MoreScreen,
+  type AttentionFilter,
   type HomeFlowProps,
   type HomeRoute,
   type HomeTarget,
