@@ -29,6 +29,7 @@
     "db:seed": "pnpm --filter @tohfa/api db:seed",
     "db:reset": "pnpm --filter @tohfa/api db:reset",
     "rbac:check": "tsx scripts/check-rbac-drift.ts",
+    "gen:demo-grants": "tsx scripts/gen-demo-grants.ts",
     "spec:lint": "spectral lint docs/openapi.yaml --fail-severity=error",
     "spec:drift": "tsx scripts/check-spec-drift.ts",
     "new:module": "tsx scripts/new-module.ts"

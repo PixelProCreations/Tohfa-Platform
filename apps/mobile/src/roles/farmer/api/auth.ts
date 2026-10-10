@@ -17,7 +17,7 @@
  */
 import type { RoleCodeWithColor } from '@tohfa/design-tokens';
 import type { LoginRequest } from '@tohfa/shared-types';
-import { request, setAccessToken } from '../../../shell/api/client';
+import { getAccessToken, request, setAccessToken } from '../../../shell/api/client';
 import {
   fetchCurrentUser as apiFetchCurrentUser,
   forgotPassword as apiForgotPassword,
@@ -28,7 +28,7 @@ import {
   sendOtp as apiSendOtp,
   verifyOtp as apiVerifyOtp,
 } from '../../../shell/auth/api';
-import { saveTokens, clearTokens } from '../storage/tokenStorage';
+import { saveTokens, clearTokens, getAccessToken as getStoredAccessToken } from '../storage/tokenStorage';
 
 export interface UserRole {
   code: RoleCodeWithColor;
@@ -393,6 +393,17 @@ export async function fetchMe(): Promise<UserMe> {
   // SUPER_ADMIN with ['*'] here would hand every permission to an unauthenticated
   // client; the server is the only source of roles and permissions.
   return (await apiFetchCurrentUser()) as unknown as UserMe;
+}
+
+/**
+ * True when a token exists to authenticate GET /auth/me: the API client's
+ * in-memory access token, or a stored session the client can refresh from.
+ * Used to hold the warehouse permission fetch until the (un-awaited) demo
+ * login has stored a token; see roles/admin/permissions/useWarehousePermissions.
+ */
+export async function hasSessionCredentials(): Promise<boolean> {
+  if (getAccessToken() !== null) return true;
+  return (await getStoredAccessToken()) !== null;
 }
 
 export async function fetchApplicationStatus(
