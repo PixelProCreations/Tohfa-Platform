@@ -1,6 +1,3 @@
-export * from './StockAndTransferOverviewScreen';
-export * from './QuickActionsOverviewScreen';
-
 // Main warehouse-admin navigator (W4); the screens themselves are imported from './warehouse-admin'.
 export {
   WarehouseAdminFlow,
@@ -50,9 +47,13 @@ export {
   type WarehouseTab,
 } from './finance-expenses';
 
-// Shared Main/Sub warehouse screens, W2 batch B (scope + can props).
+// Shared Main/Sub warehouse Home + More screens (scope + can props); HomeFlow owns the Home-tab screens (W4).
 export {
+  HomeFlow,
   MoreScreen,
+  type HomeFlowProps,
+  type HomeRoute,
+  type HomeTarget,
   type MoreOptionItem,
   type MoreScreenProps,
   type OptionGroup,

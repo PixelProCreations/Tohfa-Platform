@@ -13,8 +13,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { MoreScreen } from '../warehouse/dashboard-home-more';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
+import { HomeFlow, MoreScreen, type HomeTarget } from '../warehouse/dashboard-home-more';
 import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
@@ -31,7 +31,6 @@ import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance'
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
-import { StockAndTransferOverviewScreen, QuickActionsOverviewScreen } from '../warehouse';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
   MAIN_NOTIFICATIONS,
@@ -381,15 +380,6 @@ function HorizontalTransferIcon({ size = 26, color = PALETTE.primary }: { size?:
   );
 }
 
-function DocCheckIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="3" width="16" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M9 8h6M9 12h6M9 16h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 // ─── Bottom Navigation Tab Icons ─────────────────────────────────────────────
 
 function HomeTabNavIcon({ active }: { active: boolean }) {
@@ -622,6 +612,22 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     else if (module === 'qc') navigateWh('quality_issues_ops');
     else if (module === 'staff') navigateWh('staff_attendance');
     else if (module === 'cash') openTab('More', 'wallet');
+  };
+  /**
+   * HomeFlow targets -> this shell's sub-views / tabs. Create SWA opens Manage
+   * Sub Warehouse Admins (W4 warehouse-admin); the Quick Actions screen only
+   * draws it with admin.sub_wh_admin.create (it used to be drawn inert).
+   */
+  const openHomeTarget = (target: HomeTarget) => {
+    if (target === 'TransferList') navigateWh('inter_warehouse_transfer');
+    else if (target === 'InitiateTransfer') navigateWh('initiate_new_transfer');
+    else if (target === 'ReceivingDashboard') openTab('Receiving');
+    else if (target === 'WarehouseOverview') navigateWh('warehouse_overview');
+    else if (target === 'Inventory') openTab('Inventory');
+    else if (target === 'LowStock' || target === 'Escalations') navigateWh('alerts_action_center');
+    else if (target === 'CreateSwa') navigateWh('manage_swas');
+    else if (target === 'Reports') navigateWh('dashboard_operations');
+    else if (target === 'WarehouseTargets') navigateWh('warehouse_settings');
   };
   /** Warehouse activity sub-views (shared storage-ops, W4 part B), all warehouses. */
   const renderActivityFlow = (params: StorageRouteParams) => (
@@ -1581,36 +1587,19 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 initialParams={ATTENDANCE_ALL_PARAMS}
                 onBack={goBackWh}
               />
-            ) : whSubView === 'stock_and_transfer' ? (
-              <StockAndTransferOverviewScreen
+            ) : whSubView === 'stock_and_transfer' || whSubView === 'quick_actions_overview' ? (
+              // Shared HomeFlow (W4 dashboard part 2): both screens are Main-only
+              // (warehouse.all.view) and hide their shortcuts per code; the targets
+              // reopen this shell's sub-views, which keep their own gates.
+              <HomeFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen={whSubView === 'stock_and_transfer' ? 'StockAndTransfer' : 'QuickActions'}
                 onBack={goBackWh}
-                onInitiateTransfer={() => navigateWh('initiate_new_transfer')}
-                onViewConsolidatedStock={() => navigateWh('warehouse_overview')}
-                onViewLowStock={() => navigateWh('alerts_action_center')}
-                onViewTransfers={() => navigateWh('inter_warehouse_transfer')}
+                onOpenTarget={openHomeTarget}
               />
             ) : whSubView === 'alerts_action_center' ? (
               renderNotificationsFlow('ApprovalAlerts')
-            ) : whSubView === 'quick_actions_overview' ? (
-              <QuickActionsOverviewScreen
-                onBack={goBackWh}
-                onTransferStock={() => navigateWh('inter_warehouse_transfer')}
-                onReviewReceiving={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('dashboard');
-                }}
-                onWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onViewInventory={() => {
-                  setActiveTab('Inventory');
-                  setWhSubView('overview');
-                }}
-                // Create SWA opens Manage Sub Warehouse Admins (W4 warehouse-admin), only with
-                // admin.sub_wh_admin.create; it used to open the Sub roster key 'SubWarehouseStaff'.
-                {...(can('admin.sub_wh_admin.create') ? { onCreateSwa: () => navigateWh('manage_swas') } : {})}
-                onViewReports={() => navigateWh('dashboard_operations')}
-                onWarehouseTargets={() => navigateWh('warehouse_settings')}
-                onReviewEscalations={() => navigateWh('alerts_action_center')}
-              />
             ) : whSubView === 'stock_ledger' ||
               whSubView === 'verify_stock' ||
               whSubView === 'stock_adjustment_approval' ||
