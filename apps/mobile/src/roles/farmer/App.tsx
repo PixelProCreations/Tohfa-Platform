@@ -240,6 +240,7 @@ import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScree
 import { ReportBuilderScreen } from '../admin/screens/reports';
 import { TohfaToast, makeCan, type ToastData } from '../admin';
 import { OrderStatusHistoryScreen } from '../admin/screens/warehouse/orders';
+import type { WarehouseTab } from '../admin/screens/warehouse/finance-expenses';
 
 export type ScreenName =
   | 'Splash'
@@ -1162,6 +1163,23 @@ export default function App(): React.JSX.Element {
     [navigate],
   );
 
+  /**
+   * Bottom-tab handler shared by the Sub warehouse flows rendered from this file.
+   * Every tab lands on the Sub shell with the params its tab needs, so a tab tap
+   * never falls through to an unknown screen key (the old 'ReceivingQcScreen'
+   * key had no render branch and dropped the admin into the farmer MainTabs).
+   * More opens the warehouse More screen; flows whose More differs pass their own.
+   */
+  const openWarehouseTab = useCallback(
+    (tab: WarehouseTab) => {
+      if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
+      else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+      else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+      else if (tab === 'More') navigate('WarehouseMore');
+    },
+    [navigate],
+  );
+
   const goBack = useCallback(
     (fallbackScreen?: ScreenName) => {
       if (history.length > 0) {
@@ -1262,11 +1280,6 @@ export default function App(): React.JSX.Element {
   const isSubWarehouse =
     screen.startsWith('SubWarehouse') ||
     screen.startsWith('MainWarehouse') ||
-    (screen as string) === 'ReceivingQcScreen' ||
-    (screen as string) === 'BatchInspectionScreen' ||
-    (screen as string) === 'RmaDetailScreen' ||
-    (screen as string) === 'IssueReportedSuccessScreen' ||
-    (screen as string) === 'SupplierCommunicationScreen' ||
     Boolean(params && (params['adminRole'] === 'SUB_WH_ADMIN' || params['adminRole'] === 'MAIN_WH_ADMIN'));
 
   return (
@@ -1399,10 +1412,9 @@ export default function App(): React.JSX.Element {
             initialScreen="WarehouseSnapshot"
             onBack={goBack}
             onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
+              // More from the Snapshot opens Wallet Operations (unchanged); every other tab is the shared handler.
+              if (tab === 'More') navigate('WarehouseWalletOperations');
+              else openWarehouseTab(tab);
             }}
             onOpenTarget={(target) => {
               if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
@@ -1421,12 +1433,7 @@ export default function App(): React.JSX.Element {
             initialScreen={NOTIFICATIONS_ROUTE_ENTRY[screen]}
             initialParams={notificationsParamsFor(screen, params)}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onOpenTarget={(target) => {
               if (target === 'ReviewReceiving') navigate('SubWarehouseReviewReceiving');
               else if (target === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
@@ -1470,12 +1477,7 @@ export default function App(): React.JSX.Element {
             initialScreen={SALES_ROUTE_ENTRY[screen]}
             initialParams={salesParams}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToNeedsAttention={(category) => navigate('SubWarehouseNeedsAttention', category ? { category } : {})}
           />
@@ -1528,12 +1530,7 @@ export default function App(): React.JSX.Element {
             onLogout={() => navigate('Login')}
             onReportIssue={() => navigate('SubWarehouseReportIssue')}
             onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
           />
         ) : screen === 'WarehouseMore' ? (
           <MoreScreen
@@ -1541,12 +1538,7 @@ export default function App(): React.JSX.Element {
             can={warehouseCan}
             onBack={goBack}
             onNavigateToDashboard={() => navigate('SubWarehouseAdminDashboard')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
             onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
@@ -1573,12 +1565,7 @@ export default function App(): React.JSX.Element {
             initialScreen={CUSTOMERS_ROUTE_ENTRY[screen]}
             initialParams={customersParams}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
               const customerName = p.customer?.name;
               const customerCode = p.customer?.code ?? p.customer?.id;
@@ -1661,12 +1648,7 @@ export default function App(): React.JSX.Element {
             initialScreen={FINANCE_ROUTE_ENTRY[screen]}
             initialParams={financeParams}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onOpenWallet={() => navigate('WarehouseWalletOperations')}
             onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
@@ -1681,12 +1663,7 @@ export default function App(): React.JSX.Element {
             initialScreen={WALLET_ROUTE_ENTRY[screen]}
             initialParams={walletParams}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToProfile={() => navigate('SubWarehouseProfile')}
           />
@@ -1699,12 +1676,7 @@ export default function App(): React.JSX.Element {
             initialScreen={BILLING_ROUTE_ENTRY[screen]}
             initialParams={billingParams}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
         ) : screen === 'SubWarehouseTaskActionCenter' || screen === 'SubWarehouseTaskDetail' ? (
@@ -1730,12 +1702,7 @@ export default function App(): React.JSX.Element {
               customerName: (params['customerName'] as string) || 'Rajesh Kumar',
             }}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
           />
         ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
           // SubWarehouseGoodsReceiptDetailScreen was absorbed by the shared receipt detail (W4 receiving-qc).
@@ -1755,12 +1722,7 @@ export default function App(): React.JSX.Element {
             initialScreen={RETURNS_ROUTE_ENTRY[screen]}
             initialParams={params}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
         ) : STAFF_ROUTE_ENTRY[screen] !== undefined ? (
@@ -1772,12 +1734,7 @@ export default function App(): React.JSX.Element {
             initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
             initialParams={staffParams}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
           />
         ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
           // The storage-ops screens live in the shared warehouse/storage-ops area
@@ -1809,12 +1766,7 @@ export default function App(): React.JSX.Element {
             can={warehouseCan}
             canExport={warehouseCan('report.export.file')}
             onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
+            onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
         ) : screen === 'WarehouseOverview' ? (
