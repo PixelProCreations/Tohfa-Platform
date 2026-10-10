@@ -97,9 +97,11 @@ export function MaterialHandlingScreen({
   const lowCount = scoped.filter((m) => m.status !== 'Available').length;
 
   const firstVisible = visible[0];
-  const showReceive = canManage && onReceiveMaterial !== undefined;
-  const showIssue = canManage && onIssueMaterial !== undefined && firstVisible !== undefined;
-  const showHistory = onViewHistory !== undefined;
+  // Material Actions (Receive / Issue / History) are Main-only: the Sub warehouse
+  // (scope.warehouseId defined) does not show the section at all.
+  const showReceive = allWarehouses && canManage && onReceiveMaterial !== undefined;
+  const showIssue = allWarehouses && canManage && onIssueMaterial !== undefined && firstVisible !== undefined;
+  const showHistory = allWarehouses && onViewHistory !== undefined;
 
   return (
     <WalletScreen
