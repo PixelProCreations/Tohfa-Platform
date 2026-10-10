@@ -10,9 +10,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { WarehouseChips, SALE_WAREHOUSES } from './SalesParts';
+import type { SaleRecord, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -64,93 +65,32 @@ function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size
   );
 }
 
-function InfoCircleIcon({ size = 16, color = adminColors.info.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
-
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-export interface MarketDaySalesScreenProps {
-  warehouseName?: string | undefined;
+// Design id: M6-S10
+export interface MarketDaySalesScreenProps extends WarehouseScreenBaseProps {
   marketDate?: string | undefined;
-  onBack?: (() => void) | undefined;
   onNavigateToNewMarketSale?: (() => void) | undefined;
   onNavigateToSalesHistory?: (() => void) | undefined;
-  onSelectTransaction?: ((tx: any) => void) | undefined;
-  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+  onSelectTransaction?: ((tx: SaleRecord) => void) | undefined;
 }
 
 export function MarketDaySalesScreen({
-  warehouseName = 'Coonoor Warehouse',
+  scope,
+  can,
   marketDate = '24 Sep 2026',
   onBack,
   onNavigateToNewMarketSale,
   onNavigateToSalesHistory,
   onSelectTransaction,
-  onTabChange,
 }: MarketDaySalesScreenProps) {
-  const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
-
-  const handleTabPress = (tab: SubWHTab) => {
-    setActiveTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    } else if (tab === 'Home' && onBack) {
-      onBack();
-    }
-  };
+  // Main picks the market's warehouse (from Main's Market Day slice, M6-S10);
+  // a Sub admin is locked to its own.
+  const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(SALE_WAREHOUSES[0]?.warehouseId);
+  const marketWarehouse =
+    scope.warehouseId !== undefined ? scope : SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse) ?? scope;
+  // Creating a market-day sale needs sales.channel.manage (FINAL_LIST row 109).
+  const canCreateSale = can('sales.channel.manage');
 
   const handleOpenNewSale = () => {
     if (onNavigateToNewMarketSale) {
@@ -180,6 +120,8 @@ export function MarketDaySalesScreen({
         status: 'Completed',
         invoiceNo: `INV-${txId.replace('SALE-', '')}`,
         paymentMethod: 'Cash',
+        warehouseId: marketWarehouse.warehouseId,
+        warehouseName: marketWarehouse.warehouseName,
       });
     } else {
       Alert.alert(txId, `${itemText} · ₹${amount} (Paid)`);
@@ -213,10 +155,14 @@ export function MarketDaySalesScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Warehouse Pill ─── */}
-        <View style={styles.warehousePill}>
-          <LockBadgeIcon size={12} color={adminColors.warning.text} />
-          <Text style={styles.warehousePillText}>{warehouseName}</Text>
-        </View>
+        {scope.warehouseId !== undefined ? (
+          <View style={styles.warehousePill}>
+            <LockBadgeIcon size={12} color={adminColors.warning.text} />
+            <Text style={styles.warehousePillText}>{scope.warehouseName}</Text>
+          </View>
+        ) : (
+          <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} allowAll={false} />
+        )}
 
         {/* ─── Market Day Active Banner ─── */}
         <View style={styles.marketDayCard}>
@@ -249,14 +195,16 @@ export function MarketDaySalesScreen({
         {/* ─── Quick Actions Row ─── */}
         <Text style={styles.sectionHeading}>Quick Actions</Text>
         <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={handleOpenNewSale}
-            activeOpacity={0.78}
-          >
-            <ShoppingCartActionIcon size={24} />
-            <Text style={styles.actionCardLabel}>New Market Sale</Text>
-          </TouchableOpacity>
+          {canCreateSale && (
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={handleOpenNewSale}
+              activeOpacity={0.78}
+            >
+              <ShoppingCartActionIcon size={24} />
+              <Text style={styles.actionCardLabel}>New Market Sale</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.actionCard}

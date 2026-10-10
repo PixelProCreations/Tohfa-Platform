@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,12 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
-import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
+import type { SaleRecord, WarehouseScreenBaseProps } from './types';
 
-type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -56,85 +54,13 @@ function TimelineCheckIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
-
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-export interface SaleDetailScreenProps {
-  sale?: {
-    id: string;
-    customerName: string;
-    customerCode?: string | undefined;
-    channel: string;
-    dateText: string;
-    amount: number;
-    status: string;
-    invoiceNo?: string | undefined;
-    paymentMethod?: string | undefined;
-    items?: Array<{
-      name: string;
-      grade: string;
-      batch: string;
-      qtyText: string;
-      pricePerUnit: number;
-      lineTotal: number;
-    }> | undefined;
-  } | undefined;
-  onBack?: (() => void) | undefined;
+// Design id: M6-S09
+export interface SaleDetailScreenProps extends WarehouseScreenBaseProps {
+  sale?: SaleRecord | undefined;
+  /** Open the invoice in the host; without it the shared invoice detail opens inline. */
   onViewInvoice?: (() => void) | undefined;
-  onTabChange?: ((tab: SubWHTab) => void) | undefined;
-  /**
-   * Needed only for the inline invoice detail (no onViewInvoice): the shared
-   * invoice screen is scoped and permission-gated. Without them View Invoice is
-   * not offered (fail closed).
-   */
-  scope?: WarehouseScope | undefined;
-  can?: PermissionCheck | undefined;
 }
 
 export function SaleDetailScreen({
@@ -161,22 +87,14 @@ export function SaleDetailScreen({
   },
   onBack,
   onViewInvoice,
-  onTabChange,
   scope,
   can,
 }: SaleDetailScreenProps) {
-  const canShowInvoice = onViewInvoice !== undefined || (scope !== undefined && can !== undefined);
-  const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
+  // View Invoice opens the shared invoice detail, which checks invoice.view_own
+  // (MAIN all, SUB own); FINAL_LIST row 113 names invoice.generate, which both
+  // roles also hold. Gate on the code the target screen enforces.
+  const canShowInvoice = can('invoice.view_own');
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
-
-  const handleTabPress = (tab: SubWHTab) => {
-    setActiveTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    } else if (tab === 'Home' && onBack) {
-      onBack();
-    }
-  };
 
   const handleViewInvoice = () => {
     if (onViewInvoice) {
@@ -186,7 +104,31 @@ export function SaleDetailScreen({
     }
   };
 
-  if (showInvoiceScreen && scope && can) {
+  // A Sub admin sees only its own warehouse's sales. A record from another
+  // warehouse renders as not found (empty), never as a 403 that would confirm
+  // the sale exists (root CLAUDE.md 2.1).
+  const outOfScope =
+    scope.warehouseId !== undefined && sale.warehouseId !== undefined && sale.warehouseId !== scope.warehouseId;
+  if (outOfScope) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.headerBanner}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+              <ArrowBackIcon size={24} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Sale Details</Text>
+          </View>
+        </View>
+        <View style={styles.scrollContent}>
+          <Text style={styles.fieldLabel}>No sale found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (showInvoiceScreen) {
     return (
       <InvoiceDetailScreen
         scope={scope}
@@ -254,7 +196,7 @@ export function SaleDetailScreen({
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Warehouse</Text>
-              <Text style={styles.fieldValueBold}>Coonoor</Text>
+              <Text style={styles.fieldValueBold}>{sale.warehouseName ?? scope.warehouseName ?? '—'}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Channel</Text>
@@ -385,6 +327,16 @@ export function SaleDetailScreen({
             <Text style={styles.viewInvoiceBtnText}>View Invoice</Text>
           </TouchableOpacity>
         )}
+
+        {/* ─── Inventory reference (from Main's Sale Details slice, M6-S09) ─── */}
+        <Text style={styles.sectionHeading}>Inventory Reference</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Movement</Text>
+          <Text style={styles.fieldValueBold}>{sale.movementId ?? `MOV-${sale.id.replace(/^SALE-/, '')}`}</Text>
+          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>
+            Reference only. The detailed stock movement stays in Inventory.
+          </Text>
+        </View>
 
         {/* ─── 7. Sale Timeline ─── */}
         <Text style={[styles.sectionHeading, { marginTop: 24 }]}>Sale Timeline</Text>

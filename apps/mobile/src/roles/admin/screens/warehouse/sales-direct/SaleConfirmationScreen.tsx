@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminType } from '../../../theme';
 import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
-import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
+import type { WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -73,22 +73,20 @@ function ShieldCheckIcon({ size = 16, color = adminColors.success.text }: { size
   );
 }
 
-export interface SaleConfirmationScreenProps {
+// Design id: M6-S07
+export interface SaleConfirmationScreenProps extends WarehouseScreenBaseProps {
   saleId?: string | undefined;
   customerName?: string | undefined;
   customerCode?: string | undefined;
   paymentMethod?: string | undefined;
   totalAmount?: number | undefined;
-  onBack?: (() => void) | undefined;
+  /** Number of product lines, for the invoice review step. */
+  itemsCount?: number | undefined;
+  /** Warehouse that made the sale (Main picks one on New Sale); defaults to the viewer's scope. */
+  saleWarehouse?: WarehouseScope | undefined;
+  /** Open the invoice in the host; without it the shared billing flow opens inline. */
   onViewInvoice?: (() => void) | undefined;
   onNewSale?: (() => void) | undefined;
-  /**
-   * Needed only for the inline invoice fallback (no onViewInvoice): the shared
-   * billing flow is scoped and permission-gated. Without them the fallback is
-   * not offered (fail closed).
-   */
-  scope?: WarehouseScope | undefined;
-  can?: PermissionCheck | undefined;
 }
 
 export function SaleConfirmationScreen({
@@ -97,6 +95,8 @@ export function SaleConfirmationScreen({
   customerCode = 'CUS-00291',
   paymentMethod = 'Cash',
   totalAmount = 320,
+  itemsCount = 2,
+  saleWarehouse,
   onBack,
   onViewInvoice,
   onNewSale,
@@ -104,20 +104,23 @@ export function SaleConfirmationScreen({
   can,
 }: SaleConfirmationScreenProps) {
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
-  const canShowInvoice = onViewInvoice !== undefined || (scope !== undefined && can !== undefined);
+  // View Invoice opens the invoice wizard on its Review step, which issues the
+  // invoice: gated on the code that wizard checks (FINAL_LIST row 112).
+  const canShowInvoice = can('invoice.generate');
+  const warehouseLabel = saleWarehouse?.warehouseName ?? scope.warehouseName ?? 'All warehouses';
   // Post-sale entry of the invoice wizard: opens on its Review step (W4).
   const invoiceParams = useMemo<BillingRouteParams>(
     () => ({
       review: {
         invoiceType: 'Direct Sale',
         customerName,
-        itemsCount: 2,
+        itemsCount,
         subtotal: `₹${totalAmount}`,
         gst: '₹0',
         total: `₹${totalAmount}`,
       },
     }),
-    [customerName, totalAmount],
+    [customerName, itemsCount, totalAmount],
   );
 
   const handleViewInvoice = () => {
@@ -136,10 +139,10 @@ export function SaleConfirmationScreen({
     }
   };
 
-  if (showInvoiceScreen && scope && can) {
+  if (showInvoiceScreen) {
     return (
       <BillingFlow
-        scope={scope}
+        scope={saleWarehouse?.warehouseId ? saleWarehouse : scope}
         can={can}
         initialScreen="InvoiceWizard"
         initialParams={invoiceParams}
@@ -200,7 +203,7 @@ export function SaleConfirmationScreen({
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
               <Text style={styles.label}>Warehouse</Text>
-              <Text style={styles.valueBold}>Coonoor</Text>
+              <Text style={styles.valueBold}>{warehouseLabel}</Text>
             </View>
 
             <View style={styles.gridCol}>

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SaleProduct, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType } from '../../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -24,21 +24,6 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function ShieldCheckIcon({ size = 16, color = adminColors.info.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -65,19 +50,7 @@ interface CartItem {
   pricePerKg: number;
 }
 
-import { SelectCustomerScreen } from './SelectCustomerScreen';
-
-export interface SaleSummaryScreenProps {
-  onBack?: (() => void) | undefined;
-  onContinueToCustomer?: (() => void) | undefined;
-}
-
-export function SaleSummaryScreen({
-  onBack,
-  onContinueToCustomer,
-}: SaleSummaryScreenProps) {
-  const [showCustomerSelection, setShowCustomerSelection] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([
+const SAMPLE_CART: CartItem[] = [
     {
       id: 'tomato-1',
       name: 'Tomato',
@@ -92,7 +65,34 @@ export function SaleSummaryScreen({
       quantityKg: 1,
       pricePerKg: 120,
     },
-  ]);
+];
+
+/** Cart lines from the products picked on Select Products (Main's Sale Summary slice, M6-S04). */
+function cartFromProducts(products: readonly SaleProduct[] | undefined): CartItem[] {
+  if (!products || products.length === 0) return SAMPLE_CART;
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    grade: p.grade,
+    quantityKg: p.selectedQty ?? 1,
+    pricePerKg: p.pricePerKg,
+  }));
+}
+
+// Design id: M6-S04
+export interface SaleSummaryScreenProps extends WarehouseScreenBaseProps {
+  /** Products picked on Select Products; a sample cart when absent. */
+  items?: readonly SaleProduct[] | undefined;
+  /** Continue with the (possibly edited) cart total and line count. */
+  onContinueToCustomer: (total: number, itemsCount: number) => void;
+}
+
+export function SaleSummaryScreen({
+  items,
+  onBack,
+  onContinueToCustomer,
+}: SaleSummaryScreenProps) {
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => cartFromProducts(items));
 
   const updateQuantity = (id: string, delta: number) => {
     setCartItems((prev) =>
@@ -118,24 +118,7 @@ export function SaleSummaryScreen({
   const gst = 0;
   const total = subtotal - discount + gst;
 
-  const handleContinue = () => {
-    if (onContinueToCustomer) {
-      onContinueToCustomer();
-    } else {
-      setShowCustomerSelection(true);
-    }
-  };
-
-  if (showCustomerSelection) {
-    return (
-      <SelectCustomerScreen
-        onBack={() => setShowCustomerSelection(false)}
-        onContinueToPayment={() => {
-          Alert.alert('Payment', 'Proceeding to payment terminal.');
-        }}
-      />
-    );
-  }
+  const handleContinue = () => onContinueToCustomer(total, cartItems.length);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -187,7 +170,7 @@ export function SaleSummaryScreen({
         <View style={styles.card}>
           {cartItems.map((item, idx) => {
             const itemTotal = item.quantityKg * item.pricePerKg;
-            const isTomato = item.id.includes('tomato');
+            const isTomato = idx === 0;
 
             return (
               <View key={item.id}>

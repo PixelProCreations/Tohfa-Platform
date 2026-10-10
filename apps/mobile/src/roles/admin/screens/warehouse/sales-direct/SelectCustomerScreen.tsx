@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+import type { SaleCustomer, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -34,15 +34,6 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2.2" />
       <Path d="M20 20l-4-4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function InfoCircleIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -105,14 +96,17 @@ function CheckCircleGreenIcon({ size = 22 }: { size?: number }) {
   );
 }
 
-export interface CustomerRecord {
-  id: string;
-  code: string;
-  name: string;
-  phone: string;
-  orderCount: number;
-  walletBalance: number;
-}
+export type CustomerRecord = SaleCustomer;
+
+/** No customer list permission: the sale is recorded against a walk-in customer. */
+const WALK_IN_CUSTOMER: CustomerRecord = {
+  id: 'walk-in',
+  code: 'CUS-WALKIN',
+  name: 'Walk-in Customer',
+  phone: '',
+  orderCount: 0,
+  walletBalance: 0,
+};
 
 const MOCK_CUSTOMERS: CustomerRecord[] = [
   {
@@ -149,36 +143,44 @@ const MOCK_CUSTOMERS: CustomerRecord[] = [
   },
 ];
 
-import { PaymentScreen } from './PaymentScreen';
-
-export interface SelectCustomerScreenProps {
-  onBack?: (() => void) | undefined;
-  onContinueToPayment?: ((customer: CustomerRecord) => void) | undefined;
+// Design id: M6-S05
+export interface SelectCustomerScreenProps extends WarehouseScreenBaseProps {
+  customers?: readonly CustomerRecord[] | undefined;
+  onContinueToPayment: (customer: CustomerRecord) => void;
+  /** Button label: 'Continue to Payment' in the sale flow, 'Use Customer' when picking from New Sale. */
+  continueLabel?: string | undefined;
 }
 
 export function SelectCustomerScreen({
+  can,
+  customers = MOCK_CUSTOMERS,
   onBack,
   onContinueToPayment,
+  continueLabel = 'Continue to Payment',
 }: SelectCustomerScreenProps) {
+  // The customer search and list need customer.list.view (FINAL_LIST row 117;
+  // MAIN all, SUB own). Without it the sale goes to a walk-in customer.
+  const canListCustomers = can('customer.list.view');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('cus-1');
   const [isDetailView, setIsDetailView] = useState<boolean>(false);
   const [isConfirmedSelected, setIsConfirmedSelected] = useState<boolean>(false);
-  const [showPaymentScreen, setShowPaymentScreen] = useState(false);
 
   const filteredCustomers = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_CUSTOMERS;
+    if (!canListCustomers) return [];
+    if (!searchQuery.trim()) return customers;
     const q = searchQuery.toLowerCase();
-    return MOCK_CUSTOMERS.filter(
+    return customers.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.code.toLowerCase().includes(q) ||
         c.phone.includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, canListCustomers, customers]);
 
-  const selectedCustomer =
-    MOCK_CUSTOMERS.find((c) => c.id === selectedCustomerId) ?? MOCK_CUSTOMERS[0]!;
+  const selectedCustomer = canListCustomers
+    ? customers.find((c) => c.id === selectedCustomerId) ?? customers[0] ?? WALK_IN_CUSTOMER
+    : WALK_IN_CUSTOMER;
 
   const handleSelectCard = (customer: CustomerRecord) => {
     setSelectedCustomerId(customer.id);
@@ -195,26 +197,7 @@ export function SelectCustomerScreen({
     setIsDetailView(false);
   };
 
-  const handleContinue = () => {
-    if (onContinueToPayment) {
-      onContinueToPayment(selectedCustomer);
-    } else {
-      setShowPaymentScreen(true);
-    }
-  };
-
-  if (showPaymentScreen) {
-    return (
-      <PaymentScreen
-        amountDue={320}
-        onBack={() => setShowPaymentScreen(false)}
-        onPaymentConfirmed={() => {
-          setShowPaymentScreen(false);
-          if (onBack) onBack();
-        }}
-      />
-    );
-  }
+  const handleContinue = () => onContinueToPayment(selectedCustomer);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -242,6 +225,7 @@ export function SelectCustomerScreen({
       </View>
 
       {/* ─── Search Bar ─── */}
+      {canListCustomers && (
       <View style={styles.searchBarContainer}>
         <View style={styles.searchBar}>
           <SearchIcon size={18} color={adminColors.muted} />
@@ -255,6 +239,7 @@ export function SelectCustomerScreen({
           />
         </View>
       </View>
+      )}
 
       {/* ─── Main Content ─── */}
       <ScrollView
@@ -262,6 +247,15 @@ export function SelectCustomerScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {!canListCustomers && (
+          <View style={styles.customerCard}>
+            <Text style={styles.customerName}>{WALK_IN_CUSTOMER.name}</Text>
+            <Text style={styles.customerSubtitle}>
+              Customer search needs the customer list permission. This sale is recorded as a walk-in.
+            </Text>
+          </View>
+        )}
+
         {/* State 3: Confirmed Selected Banner (Matching Image 3) */}
         {isConfirmedSelected && (
           <View style={styles.confirmedBannerCard}>
@@ -362,6 +356,11 @@ export function SelectCustomerScreen({
           </>
         )}
 
+        {/* From Main's Select Customer slice (M6-S05). */}
+        <Text style={styles.customerSubtitle}>
+          This flow only selects an existing customer. Creating or editing a customer is a separate permission.
+        </Text>
+
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -373,7 +372,7 @@ export function SelectCustomerScreen({
           activeOpacity={0.85}
         >
           <ArrowRightIcon size={18} />
-          <Text style={styles.continueBtnText}>Continue to Payment</Text>
+          <Text style={styles.continueBtnText}>{continueLabel}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

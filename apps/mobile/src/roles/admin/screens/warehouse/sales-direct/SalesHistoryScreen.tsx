@@ -10,37 +10,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-import { SaleDetailScreen } from './SaleDetailScreen';
+import { WarehouseChips, inWarehouse, isAllWarehouses } from './SalesParts';
+import type { SaleRecord, WarehouseScreenBaseProps } from './types';
 
-type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
-export interface SaleHistoryItem {
-  id: string;
-  customerName: string;
-  itemCountText: string;
-  channel: string;
-  dateText: string;
-  amount: number;
-  status: 'Paid' | 'Pending' | 'Completed';
-  invoiceNo?: string;
-  customerCode?: string;
-  paymentMethod?: string;
-  items?: Array<{
-    name: string;
-    grade: string;
-    batch: string;
-    qtyText: string;
-    pricePerUnit: number;
-    lineTotal: number;
-  }>;
-}
+export type SaleHistoryItem = SaleRecord;
 
 const INITIAL_SALES_DATA: SaleHistoryItem[] = [
   {
     id: 'SALE-00251',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
     customerName: 'Rajesh Kumar',
     customerCode: 'CUS-00291',
     itemCountText: '2 Items',
@@ -71,6 +54,8 @@ const INITIAL_SALES_DATA: SaleHistoryItem[] = [
   },
   {
     id: 'SALE-00248',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
     customerName: 'Walk-in',
     customerCode: 'CUS-00104',
     itemCountText: '1 Item',
@@ -93,6 +78,8 @@ const INITIAL_SALES_DATA: SaleHistoryItem[] = [
   },
   {
     id: 'SALE-00240',
+    warehouseId: 'WH-OOTY',
+    warehouseName: 'Ooty Warehouse',
     customerName: 'Ganesh K.',
     customerCode: 'CUS-00388',
     itemCountText: '3 Items',
@@ -170,107 +157,40 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
-
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-export interface SalesHistoryScreenProps {
-  onBack?: (() => void) | undefined;
-  onSelectSale?: ((sale: SaleHistoryItem) => void) | undefined;
-  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+// Design id: M6-S08
+export interface SalesHistoryScreenProps extends WarehouseScreenBaseProps {
+  onSelectSale: (sale: SaleHistoryItem) => void;
+  sales?: readonly SaleHistoryItem[] | undefined;
 }
 
 export function SalesHistoryScreen({
+  scope,
   onBack,
   onSelectSale,
-  onTabChange,
+  sales = INITIAL_SALES_DATA,
 }: SalesHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<SubWHTab>('Home');
-  const [selectedSaleDetail, setSelectedSaleDetail] = useState<SaleHistoryItem | null>(null);
+  // Main only: the picked warehouse (undefined = all). A Sub list is always
+  // filtered to scope.warehouseId (FINAL_LIST row 116).
+  const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
+  const showWarehouse = isAllWarehouses(scope);
 
-  const filteredSales = INITIAL_SALES_DATA.filter((sale) => {
+  const filteredSales = sales.filter((sale) => {
+    if (!inWarehouse(scope, pickedWarehouse, sale.warehouseId)) return false;
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return (
       sale.id.toLowerCase().includes(q) ||
       sale.customerName.toLowerCase().includes(q) ||
       sale.channel.toLowerCase().includes(q) ||
-      (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(q))
+      (sale.invoiceNo && sale.invoiceNo.toLowerCase().includes(q)) ||
+      (showWarehouse && (sale.warehouseName ?? '').toLowerCase().includes(q))
     );
   });
 
-  const handleSalePress = (sale: SaleHistoryItem) => {
-    if (onSelectSale) {
-      onSelectSale(sale);
-    } else {
-      setSelectedSaleDetail(sale);
-    }
-  };
-
-  const handleTabPress = (tab: SubWHTab) => {
-    setActiveTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    } else if (tab === 'Home' && onBack) {
-      onBack();
-    }
-  };
-
-  if (selectedSaleDetail) {
-    return (
-      <SaleDetailScreen
-        sale={selectedSaleDetail}
-        onBack={() => setSelectedSaleDetail(null)}
-        onTabChange={handleTabPress}
-      />
-    );
-  }
+  const handleSalePress = (sale: SaleHistoryItem) => onSelectSale(sale);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -315,6 +235,8 @@ export function SalesHistoryScreen({
           />
         </View>
 
+        <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} />
+
         {/* Sales List */}
         <FlatList
           data={filteredSales}
@@ -356,7 +278,9 @@ export function SalesHistoryScreen({
 
                 {/* Bottom Row: Channel (Left), Date & Amount (Right) */}
                 <View style={styles.cardBottomRow}>
-                  <Text style={styles.channelText}>{item.channel}</Text>
+                  <Text style={styles.channelText}>
+                    {showWarehouse && item.warehouseName ? `${item.channel} · ${item.warehouseName}` : item.channel}
+                  </Text>
 
                   <View style={styles.rightInfoWrap}>
                     <Text style={styles.dateText}>{item.dateText}</Text>

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,7 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+import type { SaleProduct, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -76,17 +76,7 @@ function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-interface ProductItem {
-  id: string;
-  name: string;
-  grade: string;
-  pricePerKg: number;
-  availableKg: number;
-  status: 'Available' | 'Low Stock';
-  batch?: string;
-  location?: string;
-  selectedQty?: number;
-}
+type ProductItem = SaleProduct;
 
 const MOCK_PRODUCTS: ProductItem[] = [
   {
@@ -143,27 +133,37 @@ const MOCK_PRODUCTS: ProductItem[] = [
 
 type FilterType = 'All' | 'Grade 1' | 'Available' | 'Low Stock';
 
-import { SaleSummaryScreen } from './SaleSummaryScreen';
-
-export interface SelectProductsScreenProps {
-  onBack?: (() => void) | undefined;
-  onContinue?: ((selectedItems: ProductItem[]) => void) | undefined;
+// Design id: M6-S03
+export interface SelectProductsScreenProps extends WarehouseScreenBaseProps {
+  /** Warehouse the sale is made from: only its stock is offered. Defaults to scope.warehouseId. */
+  saleWarehouseId?: string | undefined;
+  products?: readonly SaleProduct[] | undefined;
+  onContinue: (selectedItems: SaleProduct[]) => void;
 }
 
 export function SelectProductsScreen({
+  scope,
+  saleWarehouseId,
+  products = MOCK_PRODUCTS,
   onBack,
   onContinue,
 }: SelectProductsScreenProps) {
+  // Products are limited to the sale warehouse's stock (FINAL_LIST row 118).
+  // Batches without a warehouseId are the (mock) stock of the viewer's own warehouse.
+  const stockWarehouse = saleWarehouseId ?? scope.warehouseId;
+  const warehouseStock = useMemo(
+    () => products.filter((p) => p.warehouseId === undefined || stockWarehouse === undefined || p.warehouseId === stockWarehouse),
+    [products, stockWarehouse],
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [configuringQuantity, setConfiguringQuantity] = useState<number>(2);
-  const [showSummaryScreen, setShowSummaryScreen] = useState(false);
 
   const filteredProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter((item) => {
+    return warehouseStock.filter((item) => {
       // Filter tab match
       if (activeFilter === 'Grade 1' && item.grade !== 'Grade 1') return false;
       if (activeFilter === 'Available' && item.status !== 'Available') return false;
@@ -174,11 +174,13 @@ export function SelectProductsScreen({
         const q = searchQuery.toLowerCase();
         const matchName = item.name.toLowerCase().includes(q);
         const matchGrade = item.grade.toLowerCase().includes(q);
-        return matchName || matchGrade;
+        // Batch search, as Main's Select Products slice did (M6-S03).
+        const matchBatch = (item.batch ?? '').toLowerCase().includes(q);
+        return matchName || matchGrade || matchBatch;
       }
       return true;
     });
-  }, [searchQuery, activeFilter]);
+  }, [searchQuery, activeFilter, warehouseStock]);
 
   const handleOpenAddProduct = (product: ProductItem) => {
     if (expandedProductId === product.id) {
@@ -207,27 +209,12 @@ export function SelectProductsScreen({
   };
 
   const handleContinuePress = () => {
-    const selected = MOCK_PRODUCTS.filter((p) => selectedProductIds.includes(p.id)).map((p) => ({
+    const selected = warehouseStock.filter((p) => selectedProductIds.includes(p.id)).map((p) => ({
       ...p,
       selectedQty: selectedQuantities[p.id] || 2,
     }));
-    if (onContinue) {
-      onContinue(selected);
-    } else {
-      setShowSummaryScreen(true);
-    }
+    onContinue(selected);
   };
-
-  if (showSummaryScreen) {
-    return (
-      <SaleSummaryScreen
-        onBack={() => setShowSummaryScreen(false)}
-        onContinueToCustomer={() => {
-          Alert.alert('Sale Completed', 'Order submitted successfully for Coonoor Hub.');
-        }}
-      />
-    );
-  }
 
   return (
     <SafeAreaView style={styles.root}>

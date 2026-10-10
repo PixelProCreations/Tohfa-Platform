@@ -12,15 +12,9 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-import { NewSaleScreen } from './NewSaleScreen';
-import { SalesHistoryScreen } from './SalesHistoryScreen';
-import { MarketDaySalesScreen } from './MarketDaySalesScreen';
-import { ChannelSalesScreen } from './ChannelSalesScreen';
-import type { SalesChannel } from './types';
-import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
-import { SaleDetailScreen } from './SaleDetailScreen';
+import { SALE_WAREHOUSES, WarehouseChips } from './SalesParts';
+import type { SalesChannel, WarehouseScreenBaseProps } from './types';
 
-type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -276,237 +270,48 @@ function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: num
   );
 }
 
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+type AttentionCategory = 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue';
 
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 10l5 5 5-5M12 15V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? adminColors.brand : adminColors.muted;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
-
-export interface SalesScreenProps {
-  /** Warehouse the viewer is scoped to, handed to the shared channel sales screens. */
-  scope: WarehouseScope;
-  /** docs/rbac.json permission check for the signed-in admin (roles/admin/permissions/can.ts). */
-  can: PermissionCheck;
-  onBack?: (() => void) | undefined;
-  onTabChange?: ((tab: SubWHTab) => void) | undefined;
+// Design id: M6-S01
+// HORECA / B2B cards: the role matrix says MW=view / SW=none but no per-channel
+// code exists in docs/rbac.json, so they stay ungated (SPEC_GAPS #5).
+export interface SalesScreenProps extends WarehouseScreenBaseProps {
   onNavigateToNotifications?: (() => void) | undefined;
-  onNavigateToNewSale?: (() => void) | undefined;
-  onNavigateToSalesHistory?: (() => void) | undefined;
-  onNavigateToMarketDaySales?: (() => void) | undefined;
-  onNavigateToHorecaSales?: (() => void) | undefined;
-  onNavigateToB2BSales?: (() => void) | undefined;
-  onNavigateToNeedsAttention?: ((category?: 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue') => void) | undefined;
-  onNavigateToSaleDetail?: ((saleId?: string) => void) | undefined;
+  onNavigateToNewSale: () => void;
+  onNavigateToSalesHistory: () => void;
+  onNavigateToMarketDaySales: () => void;
+  onNavigateToChannelSales: (channel: SalesChannel) => void;
+  /** Needs Attention is a Sub screen not yet in an area folder; the host opens it. Card hidden without it. */
+  onNavigateToNeedsAttention?: ((category?: AttentionCategory) => void) | undefined;
+  onNavigateToSaleDetail: (saleId?: string) => void;
 }
 
 export function SalesScreen({
   scope,
-  can,
   onBack,
   onTabChange,
   onNavigateToNotifications,
   onNavigateToNewSale,
   onNavigateToSalesHistory,
   onNavigateToMarketDaySales,
-  onNavigateToHorecaSales,
-  onNavigateToB2BSales,
+  onNavigateToChannelSales,
   onNavigateToNeedsAttention,
   onNavigateToSaleDetail,
 }: SalesScreenProps) {
-  const [activeTab, setActiveTab] = useState<SubWHTab>('More');
-  const [showNewSaleScreen, setShowNewSaleScreen] = useState(false);
-  const [showSalesHistoryScreen, setShowSalesHistoryScreen] = useState(false);
-  const [showMarketDaySalesScreen, setShowMarketDaySalesScreen] = useState(false);
-  const [channelSales, setChannelSales] = useState<SalesChannel | null>(null);
-  const [showSaleDetailScreen, setShowSaleDetailScreen] = useState(false);
+  // Main only: the warehouse the hub totals are for (undefined = all four).
+  const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
+  const headerWarehouse =
+    scope.warehouseName ??
+    SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse)?.warehouseName ??
+    'All warehouses';
 
-  const handleTabPress = (tab: SubWHTab) => {
-    setActiveTab(tab);
-    if (onTabChange) {
-      onTabChange(tab);
-    } else if (tab === 'Home' && onBack) {
-      onBack();
-    }
-  };
-
-  const handleOpenNewSale = () => {
-    if (onNavigateToNewSale) {
-      onNavigateToNewSale();
-    } else {
-      setShowNewSaleScreen(true);
-    }
-  };
-
-  const handleOpenSalesHistory = () => {
-    if (onNavigateToSalesHistory) {
-      onNavigateToSalesHistory();
-    } else {
-      setShowSalesHistoryScreen(true);
-    }
-  };
-
-  const handleOpenMarketDaySales = () => {
-    if (onNavigateToMarketDaySales) {
-      onNavigateToMarketDaySales();
-    } else {
-      setShowMarketDaySalesScreen(true);
-    }
-  };
-
-  const handleOpenHorecaSales = () => {
-    if (onNavigateToHorecaSales) {
-      onNavigateToHorecaSales();
-    } else {
-      setChannelSales('HORECA');
-    }
-  };
-
-  const handleOpenB2BSales = () => {
-    if (onNavigateToB2BSales) {
-      onNavigateToB2BSales();
-    } else {
-      setChannelSales('B2B');
-    }
-  };
-
-  const handleOpenNeedsAttention = (cat: 'all' | 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue' = 'all') => {
-    // Needs Attention is a Sub warehouse screen (roles/subwarehouse) that has not
-    // moved to an area folder yet; the host opens it, this screen does not import it.
-    onNavigateToNeedsAttention?.(cat);
-  };
-
-  const handleOpenSaleDetail = (saleId: string = 'SALE-00251') => {
-    if (onNavigateToSaleDetail) {
-      onNavigateToSaleDetail(saleId);
-    } else {
-      setShowSaleDetailScreen(true);
-    }
-  };
-
-  if (showSaleDetailScreen) {
-    return (
-      <SaleDetailScreen
-        scope={scope}
-        can={can}
-        sale={{
-          id: 'SALE-00251',
-          customerName: 'Rajesh Kumar',
-          customerCode: 'CUS-00291',
-          channel: 'Direct Sale',
-          dateText: 'Today · 6:35 PM',
-          amount: 500,
-          status: 'Paid',
-          invoiceNo: 'INV-00251',
-          paymentMethod: 'UPI',
-          items: [
-            {
-              name: 'Tomato',
-              grade: 'Grade 1',
-              batch: 'BTH-00231',
-              qtyText: '2 KG @ ₹100',
-              pricePerUnit: 100,
-              lineTotal: 200,
-            },
-            {
-              name: 'Potato',
-              grade: 'Grade 1',
-              batch: 'BTH-00245',
-              qtyText: '3 KG @ ₹100',
-              pricePerUnit: 100,
-              lineTotal: 300,
-            },
-          ],
-        }}
-        onBack={() => setShowSaleDetailScreen(false)}
-        onTabChange={handleTabPress}
-      />
-    );
-  }
-
-  if (channelSales) {
-    return (
-      <ChannelSalesScreen
-        scope={scope}
-        can={can}
-        channel={channelSales}
-        onBack={() => setChannelSales(null)}
-      />
-    );
-  }
-
-  if (showMarketDaySalesScreen) {
-    return (
-      <MarketDaySalesScreen
-        onBack={() => setShowMarketDaySalesScreen(false)}
-        onNavigateToNewMarketSale={handleOpenNewSale}
-        onNavigateToSalesHistory={handleOpenSalesHistory}
-        onTabChange={handleTabPress}
-      />
-    );
-  }
-
-  if (showSalesHistoryScreen) {
-    return (
-      <SalesHistoryScreen
-        onBack={() => setShowSalesHistoryScreen(false)}
-        onTabChange={handleTabPress}
-      />
-    );
-  }
-
-  if (showNewSaleScreen) {
-    return (
-      <NewSaleScreen
-        scope={scope}
-        can={can}
-        onBack={() => setShowNewSaleScreen(false)}
-        onSelectProducts={() => {
-          Alert.alert('Products', 'Select produce batches from Coonoor inventory.');
-        }}
-      />
-    );
-  }
+  const handleOpenNewSale = () => onNavigateToNewSale();
+  const handleOpenSalesHistory = () => onNavigateToSalesHistory();
+  const handleOpenMarketDaySales = () => onNavigateToMarketDaySales();
+  const handleOpenHorecaSales = () => onNavigateToChannelSales('HORECA');
+  const handleOpenB2BSales = () => onNavigateToChannelSales('B2B');
+  const handleOpenNeedsAttention = (cat: AttentionCategory = 'all') => onNavigateToNeedsAttention?.(cat);
+  const handleOpenSaleDetail = (saleId: string = 'SALE-00251') => onNavigateToSaleDetail(saleId);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -552,7 +357,7 @@ export function SalesScreen({
         <View style={styles.warehouseBadgeRow}>
           <View style={styles.warehouseBadge}>
             <LockBadgeIcon />
-            <Text style={styles.warehouseBadgeText}>Coonoor Warehouse</Text>
+            <Text style={styles.warehouseBadgeText}>{headerWarehouse}</Text>
           </View>
         </View>
       </View>
@@ -563,6 +368,8 @@ export function SalesScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <WarehouseChips scope={scope} selected={pickedWarehouse} onSelect={setPickedWarehouse} />
+
         {/* ─── 1. Today's Sales by Channel ─── */}
         <Text style={styles.sectionTitle}>Today's Sales by Channel</Text>
 

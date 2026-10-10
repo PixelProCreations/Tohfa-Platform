@@ -241,16 +241,10 @@ import {
   type CustomersRouteParams,
 } from '../admin/screens';
 import {
-  MarketDaySalesScreen,
-  NewSaleScreen,
-  PaymentScreen,
-  SaleConfirmationScreen,
-  SaleDetailScreen,
-  SaleSummaryScreen,
-  SalesHistoryScreen,
-  SalesScreen,
-  SelectCustomerScreen,
-  SelectProductsScreen,
+  SalesFlow,
+  type SaleRecord,
+  type SalesRoute,
+  type SalesRouteParams,
 } from '../admin/screens/warehouse/sales-direct';
 import { MarketPricingHomeScreen } from '../admin/screens/dashboard/MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeilingScreen';
@@ -715,6 +709,24 @@ const BILLING_ROUTE_ENTRY: Partial<Record<ScreenName, BillingRoute>> = {
   SubWarehouseInvoiceGenerated: 'InvoiceGenerated',
 };
 /**
+ * Legacy Sub sales route keys -> shared SalesFlow routes (W4). Every old key
+ * still opens; the flow then owns the rest of the sale, so each step gets the
+ * viewer's scope and `can` (the nested Payment -> Confirmation and History ->
+ * Detail paths used to lose them and hide View Invoice).
+ */
+const SALES_ROUTE_ENTRY: Partial<Record<ScreenName, SalesRoute>> = {
+  SubWarehouseSales: 'Sales',
+  SubWarehouseNewSale: 'NewSale',
+  SubWarehouseSelectProducts: 'SelectProducts',
+  SubWarehouseSaleSummary: 'SaleSummary',
+  SubWarehouseSelectCustomer: 'SelectCustomer',
+  SubWarehousePayment: 'Payment',
+  SubWarehouseSaleConfirmation: 'SaleConfirmation',
+  SubWarehouseSalesHistory: 'SalesHistory',
+  SubWarehouseSaleDetail: 'SaleDetail',
+  SubWarehouseMarketDaySales: 'MarketDaySales',
+};
+/**
  * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
  * keys were aliases of one screen (CustomerList/Customers, CustomerDetail/
  * CustomerDetails, CustomerPurchases/PurchaseHistory, CustomerSupport/
@@ -856,7 +868,7 @@ export default function App(): React.JSX.Element {
   const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
-  const [selectedSaleRecord, setSelectedSaleRecord] = useState<any | null>(null);
+  const [selectedSaleRecord] = useState<any | null>(null);
   const [selectedChannelOrder, setSelectedChannelOrder] = useState<ChannelOrderItem | null>(null);
   const [selectedStatusOrderId, setSelectedStatusOrderId] = useState<string>('ORD-1024');
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -885,6 +897,31 @@ export default function App(): React.JSX.Element {
       transaction: params['transaction'],
       review: params['review'],
       layout: params['layout'] === 'history' ? 'history' : undefined,
+    };
+  }, [params, selectedSaleRecord]);
+  // Params for a SalesFlow entry, memoised so the flow does not restart its
+  // stack on every App render. A deep link to a sale detail carries flat fields.
+  const salesParams = useMemo<SalesRouteParams>(() => {
+    const saleId = stringParam(params['saleId']);
+    const sale: SaleRecord | undefined =
+      (selectedSaleRecord as SaleRecord | null) ??
+      (saleId
+        ? {
+            id: saleId,
+            customerName: stringParam(params['customerName']) ?? 'Walk-in Customer',
+            customerCode: stringParam(params['customerCode']),
+            channel: stringParam(params['channel']) ?? 'Direct Sale',
+            dateText: stringParam(params['dateText']) ?? '',
+            amount: typeof params['amount'] === 'number' ? params['amount'] : 0,
+            status: stringParam(params['status']) ?? 'Completed',
+            invoiceNo: stringParam(params['invoiceNo']),
+            paymentMethod: stringParam(params['paymentMethod']),
+          }
+        : undefined);
+    return {
+      sale,
+      customerName: stringParam(params['customerName']),
+      customerCode: stringParam(params['customerCode']),
     };
   }, [params, selectedSaleRecord]);
   // Params for a CustomersFlow entry, memoised so the flow does not restart its
@@ -1382,10 +1419,18 @@ export default function App(): React.JSX.Element {
               else if (section === 'Cash Top-Up') navigate('WarehouseWalletOperations');
             }}
           />
-        ) : screen === 'SubWarehouseSales' ? (
-          <SalesScreen
+        ) : screen === 'SubWarehouseNeedsAttention' ? (
+          <SubWarehouseNeedsAttentionScreen
+            onBack={goBack}
+          />
+        ) : SALES_ROUTE_ENTRY[screen] !== undefined ? (
+          // The direct sales screens live in the shared warehouse/sales-direct area
+          // (W4); each old 'SubWarehouseXxx' key opens SalesFlow on the matching route.
+          <SalesFlow
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
+            initialScreen={SALES_ROUTE_ENTRY[screen]}
+            initialParams={salesParams}
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -1394,160 +1439,7 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseMore');
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToNewSale={() => navigate('SubWarehouseNewSale')}
-            onNavigateToSalesHistory={() => navigate('SubWarehouseSalesHistory')}
-            onNavigateToMarketDaySales={() => navigate('SubWarehouseMarketDaySales')}
-            onNavigateToHorecaSales={() => navigate('SubWarehouseHorecaSales')}
-            onNavigateToB2BSales={() => navigate('SubWarehouseB2BSales')}
             onNavigateToNeedsAttention={() => navigate('SubWarehouseNeedsAttention')}
-            onNavigateToSaleDetail={(saleId) => navigate('SubWarehouseSaleDetail', {
-              saleId: saleId || 'SALE-00251',
-              customerName: 'Rajesh Kumar',
-              customerCode: 'CUS-00291',
-              channel: 'Direct Sale',
-              dateText: 'Today · 6:35 PM',
-              amount: 500,
-              status: 'Paid',
-              invoiceNo: 'INV-00251',
-              paymentMethod: 'UPI',
-            })}
-          />
-        ) : screen === 'SubWarehouseNeedsAttention' ? (
-          <SubWarehouseNeedsAttentionScreen
-            onBack={goBack}
-          />
-        ) : screen === 'SubWarehouseNewSale' ? (
-          <NewSaleScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialCustomerName={(params['customerName'] as string) || 'Rajesh Kumar'}
-            onBack={goBack}
-            onSelectProducts={() => navigate('SubWarehouseSelectProducts')}
-          />
-        ) : screen === 'SubWarehouseSelectProducts' ? (
-          <SelectProductsScreen
-            onBack={goBack}
-            onContinue={(items) => {
-              navigate('SubWarehouseSaleSummary');
-            }}
-          />
-        ) : screen === 'SubWarehouseSaleSummary' ? (
-          <SaleSummaryScreen
-            onBack={goBack}
-            onContinueToCustomer={() => {
-              navigate('SubWarehouseSelectCustomer');
-            }}
-          />
-        ) : screen === 'SubWarehouseSelectCustomer' ? (
-          <SelectCustomerScreen
-            onBack={goBack}
-            onContinueToPayment={(cust: any) => {
-              navigate('SubWarehousePayment', { customerName: cust.name, customerCode: cust.code });
-            }}
-          />
-        ) : screen === 'SubWarehousePayment' ? (
-          <PaymentScreen
-            amountDue={320}
-            onBack={goBack}
-            onPaymentConfirmed={() => {
-              navigate('SubWarehouseSaleConfirmation', {
-                saleId: 'SALE-00251',
-                customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
-                customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291',
-                paymentMethod: 'Wallet',
-                totalAmount: 320,
-              });
-            }}
-          />
-        ) : screen === 'SubWarehouseSaleConfirmation' ? (
-          <SaleConfirmationScreen
-            saleId={typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251'}
-            customerName={typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar'}
-            customerCode={typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291'}
-            paymentMethod={typeof params['paymentMethod'] === 'string' ? params['paymentMethod'] : 'Wallet'}
-            totalAmount={typeof params['totalAmount'] === 'number' ? params['totalAmount'] : 320}
-            onBack={goBack}
-            onViewInvoice={() => {
-              // Post-sale entry: the invoice wizard opens on its Review step (W4).
-              const review: BillingRouteParams['review'] = {
-                invoiceType: 'Direct Sale',
-                customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
-                itemsCount: 2,
-                subtotal: '₹320',
-                gst: '₹0',
-                total: '₹320',
-              };
-              navigate('SubWarehouseInvoiceWizard', { review });
-            }}
-            onNewSale={() => {
-              navigate('SubWarehouseNewSale');
-            }}
-          />
-        ) : screen === 'SubWarehouseSalesHistory' ? (
-          <SalesHistoryScreen
-            onBack={goBack}
-            onSelectSale={(sale) => {
-              setSelectedSaleRecord(sale);
-              navigate('SubWarehouseSaleDetail');
-            }}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseSaleDetail' ? (
-          <SaleDetailScreen
-            sale={selectedSaleRecord ?? {
-              id: typeof params['saleId'] === 'string' ? params['saleId'] : 'SALE-00251',
-              customerName: typeof params['customerName'] === 'string' ? params['customerName'] : 'Rajesh Kumar',
-              customerCode: typeof params['customerCode'] === 'string' ? params['customerCode'] : 'CUS-00291',
-              channel: typeof params['channel'] === 'string' ? params['channel'] : 'Direct Sale',
-              dateText: typeof params['dateText'] === 'string' ? params['dateText'] : '24 Sep, 6:35 PM',
-              amount: typeof params['amount'] === 'number' ? params['amount'] : 320,
-              status: typeof params['status'] === 'string' ? params['status'] : 'Completed',
-              invoiceNo: typeof params['invoiceNo'] === 'string' ? params['invoiceNo'] : 'INV-00251',
-              paymentMethod: typeof params['paymentMethod'] === 'string' ? params['paymentMethod'] : 'UPI',
-              items: [
-                {
-                  name: 'Tomato',
-                  grade: 'Grade 1',
-                  batch: 'BTH-00231',
-                  qtyText: '2 KG @ ₹100',
-                  pricePerUnit: 100,
-                  lineTotal: 200,
-                },
-              ],
-            }}
-            onBack={goBack}
-            onViewInvoice={() => navigate('SubWarehouseInvoiceDetail', {
-              invoiceId: (selectedSaleRecord as any)?.invoiceNo || (params['invoiceNo'] as string) || 'INV-00251',
-            })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-          />
-        ) : screen === 'SubWarehouseMarketDaySales' ? (
-          <MarketDaySalesScreen
-            warehouseName="Coonoor Warehouse"
-            marketDate="24 Sep 2026"
-            onBack={goBack}
-            onNavigateToNewMarketSale={() => navigate('SubWarehouseNewSale')}
-            onNavigateToSalesHistory={() => navigate('SubWarehouseSalesHistory')}
-            onSelectTransaction={(tx) => {
-              setSelectedSaleRecord(tx);
-              navigate('SubWarehouseSaleDetail');
-            }}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
           />
         ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
           <ChannelSalesScreen

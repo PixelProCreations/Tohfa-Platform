@@ -1,6 +1,7 @@
 // Direct sales area: the sales hub, the direct (walk-in) sale flow, market day,
 // sales history / detail, and the B2B / HORECA channel screens (`channel` prop).
 // Explicit exports only (no `export *`).
+export { SalesFlow, type SalesFlowProps } from './SalesFlow';
 export { SalesScreen, type SalesScreenProps } from './SalesScreen';
 export { NewSaleScreen, type NewSaleScreenProps } from './NewSaleScreen';
 export { SelectProductsScreen, type SelectProductsScreenProps } from './SelectProductsScreen';
@@ -14,4 +15,15 @@ export { MarketDaySalesScreen, type MarketDaySalesScreenProps } from './MarketDa
 export { ChannelSalesScreen, type ChannelSalesScreenProps } from './ChannelSalesScreen';
 export { ChannelOrderDetailScreen, type ChannelOrderDetailScreenProps } from './ChannelOrderDetailScreen';
 export { invoiceIdForOrder } from './fixtures';
-export type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
+export { SALE_WAREHOUSES } from './SalesParts';
+export type {
+  ChannelOrderItem,
+  ChannelOrderLine,
+  SaleCustomer,
+  SalePaymentMethod,
+  SaleProduct,
+  SaleRecord,
+  SalesChannel,
+  SalesRoute,
+  SalesRouteParams,
+} from './types';

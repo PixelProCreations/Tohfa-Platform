@@ -38,7 +38,7 @@ import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
-import { NewSaleScreen, SalesScreen } from '../../admin/screens/warehouse/sales-direct';
+import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
 import {
@@ -2014,7 +2014,8 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (showSalesScreen) {
     return (
-      <SalesScreen
+      // The shared direct sales flow (admin/screens/warehouse/sales-direct).
+      <SalesFlow
         scope={scope}
         can={can}
         onBack={() => {
@@ -2033,11 +2034,14 @@ export function SubWarehouseAdminDashboardScreen({
             setShowNotifications(true);
           }
         }}
-        onNavigateToSaleDetail={(saleId) => {
-          if (onNavigate) {
-            onNavigate('SubWarehouseSaleDetail');
-          }
-        }}
+        onNavigateToNeedsAttention={
+          onNavigate
+            ? () => {
+                setShowSalesScreen(false);
+                onNavigate('SubWarehouseNeedsAttention');
+              }
+            : undefined
+        }
       />
     );
   }
@@ -2110,7 +2114,15 @@ export function SubWarehouseAdminDashboardScreen({
             );
           }
           if (target === 'NewSale') {
-            return <NewSaleScreen scope={scope} can={can} initialCustomerName={c?.name} onBack={nav.back} />;
+            return (
+              <SalesFlow
+                scope={scope}
+                can={can}
+                initialScreen="NewSale"
+                initialParams={{ customerName: c?.name, customerCode: c?.code }}
+                onBack={nav.back}
+              />
+            );
           }
           if (target === 'OrderDetail') {
             return (

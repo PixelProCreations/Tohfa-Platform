@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -37,15 +36,6 @@ function LockIcon({ size = 12, color = adminColors.warning.text }: { size?: numb
   );
 }
 
-function InfoCircleIcon({ size = 16, color = adminColors.info.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function ChevronDownIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -72,67 +62,36 @@ function PlusIcon({ size = 18, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-import { SelectProductsScreen } from './SelectProductsScreen';
-import { SelectCustomerScreen } from './SelectCustomerScreen';
-import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
+import { WarehouseChips } from './SalesParts';
+import type { SaleProduct, WarehouseScreenBaseProps } from './types';
 
-export interface NewSaleScreenProps {
-  scope: WarehouseScope;
-  can: PermissionCheck;
-  initialCustomerName?: string | undefined;
-  onBack?: (() => void) | undefined;
-  onSelectProducts?: (() => void) | undefined;
+// Design id: M6-S02
+// No direct/walk-in sale code exists in docs/rbac.json (SPEC_GAPS "Sales
+// Direct" #110): ungated, and a Sub admin is locked to its own warehouse.
+export interface NewSaleScreenProps extends WarehouseScreenBaseProps {
+  /** Customer already chosen (from Select Customer or the caller), shown on the card. */
+  customerLabel?: string | undefined;
+  /** Main only: the warehouse the sale is made from (Main's warehouse selector, M6-S02). */
+  saleWarehouseId?: string | undefined;
+  onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
+  /** Products already picked (Main's "Current Cart", M6-S02). */
+  cartItems?: readonly SaleProduct[] | undefined;
+  onSelectCustomer: () => void;
+  onSelectProducts: () => void;
 }
 
 export function NewSaleScreen({
   scope,
-  can,
-  initialCustomerName,
+  customerLabel,
+  saleWarehouseId,
+  onSelectWarehouse,
+  cartItems = [],
   onBack,
+  onSelectCustomer,
   onSelectProducts,
 }: NewSaleScreenProps) {
   const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket'>('Direct');
-  const [selectedCustomer, setSelectedCustomer] = useState<string>(
-    initialCustomerName || 'Select Customer / Walk-in'
-  );
-  const [showSelectProducts, setShowSelectProducts] = useState(false);
-  const [showSelectCustomer, setShowSelectCustomer] = useState(false);
-
-  const handleSelectCustomer = () => {
-    setShowSelectCustomer(true);
-  };
-
-  const handleSelectProductsPress = () => {
-    if (onSelectProducts) {
-      onSelectProducts();
-    } else {
-      setShowSelectProducts(true);
-    }
-  };
-
-  if (showSelectCustomer) {
-    return (
-      <SelectCustomerScreen
-        onBack={() => setShowSelectCustomer(false)}
-        onContinueToPayment={(cust) => {
-          setSelectedCustomer(`${cust.name} (${cust.code})`);
-          setShowSelectCustomer(false);
-        }}
-      />
-    );
-  }
-
-  if (showSelectProducts) {
-    return (
-      <SelectProductsScreen
-        onBack={() => setShowSelectProducts(false)}
-        onContinue={() => {
-          setShowSelectProducts(false);
-          Alert.alert('Success', 'Products added to sale order.');
-        }}
-      />
-    );
-  }
+  const selectedCustomer = customerLabel || 'Select Customer / Walk-in';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -161,10 +120,19 @@ export function NewSaleScreen({
       >
         {/* ─── 1. Warehouse ─── */}
         <Text style={styles.sectionHeading}>Warehouse</Text>
-        <View style={styles.warehousePill}>
-          <LockIcon size={12} color={adminColors.warning.text} />
-          <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
-        </View>
+        {scope.warehouseId !== undefined ? (
+          <View style={styles.warehousePill}>
+            <LockIcon size={12} color={adminColors.warning.text} />
+            <Text style={styles.warehousePillText}>{scope.warehouseName}</Text>
+          </View>
+        ) : (
+          <WarehouseChips
+            scope={scope}
+            selected={saleWarehouseId}
+            onSelect={(id) => onSelectWarehouse?.(id)}
+            allowAll={false}
+          />
+        )}
 
         {/* ─── 2. Sales Channel ─── */}
         <Text style={styles.sectionHeading}>Sales Channel</Text>
@@ -201,7 +169,7 @@ export function NewSaleScreen({
         <Text style={styles.sectionHeading}>Customer</Text>
         <TouchableOpacity
           style={styles.customerSelectCard}
-          onPress={handleSelectCustomer}
+          onPress={onSelectCustomer}
           activeOpacity={0.75}
         >
           <View style={{ flex: 1 }}>
@@ -213,17 +181,33 @@ export function NewSaleScreen({
 
         {/* ─── 4. Products Empty State ─── */}
         <Text style={styles.sectionHeading}>Products</Text>
-        <View style={styles.emptyProductsContainer}>
-          <EmptyCartIcon size={52} color={adminColors.border} />
-          <Text style={styles.emptyProductsText}>No products added</Text>
-        </View>
+        {cartItems.length === 0 ? (
+          <View style={styles.emptyProductsContainer}>
+            <EmptyCartIcon size={52} color={adminColors.border} />
+            <Text style={styles.emptyProductsText}>No products added</Text>
+          </View>
+        ) : (
+          <View style={styles.channelContainer}>
+            {cartItems.map((item, idx) => (
+              <View key={item.id}>
+                {idx > 0 && <View style={styles.divider} />}
+                <View style={styles.channelRow}>
+                  <Text style={[styles.channelLabel, { flex: 1 }]}>
+                    {item.name} - {item.selectedQty ?? 1} KG
+                  </Text>
+                  <Text style={styles.channelLabel}>₹{item.pricePerKg * (item.selectedQty ?? 1)}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {/* ─── Bottom Action Button ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.selectProductsBtn}
-          onPress={handleSelectProductsPress}
+          onPress={onSelectProducts}
           activeOpacity={0.85}
         >
           <PlusIcon size={18} />

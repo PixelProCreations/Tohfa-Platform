@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import type { SalePaymentMethod, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -69,15 +70,6 @@ function WalletIcon({ size = 20, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function LockIcon({ size = 14, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function QuestionCircleIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -121,45 +113,42 @@ function CancelCrossIcon({ size = 18, color = adminColors.brandDeep }: { size?: 
   );
 }
 
-import { SaleConfirmationScreen } from './SaleConfirmationScreen';
+type PaymentMethod = SalePaymentMethod;
 
-type PaymentMethod = 'Cash' | 'UPI' | 'Card' | 'Wallet';
-
-export interface PaymentScreenProps {
+// Design id: M6-S06
+// No direct-sale / payment-collection code exists in docs/rbac.json (SPEC_GAPS
+// "Sales Direct" #111): the screen is scope-locked but ungated. The Wallet
+// method is not gated on a wallet code either; none covers paying from a wallet
+// at a counter, and inventing one is not allowed (noted in SPEC_GAPS).
+export interface PaymentScreenProps extends WarehouseScreenBaseProps {
   amountDue?: number | undefined;
-  onBack?: (() => void) | undefined;
-  onPaymentConfirmed?: (() => void) | undefined;
+  /** Wallet balance of the sale's customer (Wallet method). */
+  walletBalance?: number | undefined;
+  onPaymentConfirmed: (method: PaymentMethod) => void;
 }
 
 export function PaymentScreen({
   amountDue = 320,
+  walletBalance = 1250,
   onBack,
   onPaymentConfirmed,
 }: PaymentScreenProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Cash');
   const [receivedAmount, setReceivedAmount] = useState<string>('500');
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
 
   // UPI State
-  const [upiStatus, setUpiStatus] = useState<'Waiting' | 'Received'>('Waiting');
-  const [upiRef, setUpiRef] = useState<string>('—');
+  const [upiStatus] = useState<'Waiting' | 'Received'>('Waiting');
+  const [upiRef] = useState<string>('—');
 
   // Card State
-  const [cardStatus, setCardStatus] = useState<'Processing' | 'Approved'>('Processing');
+  const [cardStatus] = useState<'Processing' | 'Approved'>('Processing');
 
   // Wallet State
-  const walletBalance = 1250;
   const balanceAfter = Math.max(0, walletBalance - amountDue);
 
   const numericReceived = parseFloat(receivedAmount) || 0;
   const changeAmount = Math.max(0, numericReceived - amountDue);
-
-  const handleSimulateUpiPayment = () => {
-    setUpiStatus('Received');
-    setUpiRef('UPI-8839210');
-    Alert.alert('Payment Received', 'UPI transaction of ₹' + amountDue + ' confirmed with Ref: UPI-8839210.');
-  };
 
   const handleConfirm = () => {
     if (selectedMethod === 'Cash' && numericReceived < amountDue) {
@@ -171,31 +160,8 @@ export function PaymentScreen({
 
   const handleFinalConfirm = () => {
     setShowConfirmPopup(false);
-    if (onPaymentConfirmed) {
-      onPaymentConfirmed();
-    } else {
-      setShowConfirmation(true);
-    }
+    onPaymentConfirmed(selectedMethod);
   };
-
-  if (showConfirmation) {
-    return (
-      <SaleConfirmationScreen
-        saleId="SALE-00251"
-        customerName="Rajesh Kumar"
-        customerCode="CUS-00291"
-        paymentMethod={selectedMethod}
-        totalAmount={amountDue}
-        onBack={() => {
-          setShowConfirmation(false);
-        }}
-        onNewSale={() => {
-          setShowConfirmation(false);
-          if (onBack) onBack();
-        }}
-      />
-    );
-  }
 
   return (
     <SafeAreaView style={styles.root}>
