@@ -28,27 +28,13 @@ import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
 import { InventoryFlow } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
+import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import {
   WarehouseOverviewScreen,
   WarehousePerformanceScreen,
   ManageWarehousesScreen,
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
-  NewDirectSaleScreen,
-  SelectProductsScreen,
-  SaleSummaryScreen,
-  SelectCustomerScreen,
-  PaymentScreen,
-  SaleConfirmationScreen,
-  SaleDetailsScreen,
-  MarketDaySalesScreen,
-  HorecaSalesScreen,
-  B2bSalesScreen,
-  SalesHistoryScreen,
-  type ProductItem,
-  type DirectSaleCustomerItem,
-  type PaymentMethodType,
-  type SaleRecordItem,
   TransferDetailScreen,
   TodaysOperationsOverviewScreen,
   TodaysOperationsMonitoringScreen,
@@ -206,12 +192,6 @@ type WarehouseSubView =
   | 'warehouse_settings'
   | 'sales'
   | 'direct_sale_new'
-  | 'direct_sale_select_products'
-  | 'direct_sale_summary'
-  | 'direct_sale_select_customer'
-  | 'direct_sale_payment'
-  | 'direct_sale_confirmation'
-  | 'sale_details'
   | 'sales_market_day'
   | 'sales_horeca'
   | 'sales_b2b'
@@ -450,45 +430,6 @@ function HorizontalTransferIcon({ size = 26, color = PALETTE.primary }: { size?:
   );
 }
 
-function ShoppingCartIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="21" r="1" stroke={color} strokeWidth="2" />
-      <Circle cx="20" cy="21" r="1" stroke={color} strokeWidth="2" />
-      <Path
-        d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SalesHistoryClockIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ArrowLeftWhiteIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function DocCheckIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -572,6 +513,23 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 const MAIN_CUSTOMER_INLINE_ROUTES = ['CustomerWallet', 'CashTopUp', 'OrderDetail', 'RmaDetail'] as const;
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 
+/**
+ * Main sales sub-views -> shared SalesFlow entries (W4). The Main shell used to
+ * render its own slices from DirectSaleScreens.tsx (deleted); it now opens the
+ * same flow as the Sub shell with MAIN_WAREHOUSE_SCOPE (all four warehouses,
+ * owner decision). Params are module constants so the flow does not restart.
+ */
+const HORECA_PARAMS: SalesRouteParams = { channel: 'HORECA' };
+const B2B_PARAMS: SalesRouteParams = { channel: 'B2B' };
+const MAIN_SALES_ENTRY: Partial<Record<WarehouseSubView, { screen: SalesRoute; params?: SalesRouteParams }>> = {
+  sales: { screen: 'Sales' },
+  direct_sale_new: { screen: 'NewSale' },
+  sales_market_day: { screen: 'MarketDaySales' },
+  sales_horeca: { screen: 'ChannelSales', params: HORECA_PARAMS },
+  sales_b2b: { screen: 'ChannelSales', params: B2B_PARAMS },
+  sales_history: { screen: 'SalesHistory' },
+};
+
 /** Seeded warehouse id for a display name like 'Ooty Warehouse' or 'Ooty' (the overview still passes names). */
 function warehouseIdForName(name: string): string | undefined {
   const key = name.replace(/ Warehouse$/, '').toLowerCase();
@@ -619,14 +577,6 @@ export function MainWarehouseAdminDashboardScreen({
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
   const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
-  const [cartProducts, setCartProducts] = useState<ProductItem[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<DirectSaleCustomerItem | null>({
-    id: 'c1',
-    name: 'Arun Kumar',
-    customerId: 'CUS-00251',
-    phone: '+91 98765 43210',
-  });
-  const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState<PaymentMethodType>('Cash');
   const [selectedTransfer, setSelectedTransfer] = useState<InterWarehouseTransferItem>(INITIAL_TRANSFERS[0]!);
   const [selectedLocationId, setSelectedLocationId] = useState('LOC-COO-A02-S03');
   const [selectedMaterialId, setSelectedMaterialId] = useState('MAT-0021');
@@ -1944,226 +1894,20 @@ export function MainWarehouseAdminDashboardScreen({
                   setWhHistory([]);
                 }}
               />
-            ) : whSubView === 'sales' ? (
-              <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.scrollPad}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Header Banner */}
-                <View style={styles.headerBanner}>
-                  <View style={styles.headerTopRow}>
-                    <TouchableOpacity
-                      style={styles.headerBackBtn}
-                      onPress={goBackWh}
-                      activeOpacity={0.8}
-                    >
-                      <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <View style={[styles.headerTitleWrap, { marginLeft: 8 }]}>
-                      <Grid4SquaresIcon size={20} color="#FFFFFF" />
-                      <Text style={styles.headerGreetingText}>Sales</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Content Body */}
-                <View style={styles.contentBody}>
-                  {/* 1. KPI 2x2 Grid */}
-                  <View style={styles.kpiGrid}>
-                    {/* Today's Sales */}
-                    <TouchableOpacity
-                      style={styles.kpiCard}
-                      onPress={() => navigateWh('sales_history')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.kpiLabel}>TODAY'S SALES</Text>
-                      <Text style={styles.kpiValue}>₹24,850</Text>
-                    </TouchableOpacity>
-
-                    {/* Market Sales */}
-                    <TouchableOpacity
-                      style={styles.kpiCard}
-                      onPress={() => navigateWh('sales_market_day')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.kpiLabel}>MARKET SALES</Text>
-                      <Text style={styles.kpiValue}>₹7,200</Text>
-                    </TouchableOpacity>
-
-                    {/* HORECA */}
-                    <TouchableOpacity
-                      style={styles.kpiCard}
-                      onPress={() => navigateWh('sales_horeca')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.kpiLabel}>HORECA</Text>
-                      <Text style={styles.kpiValue}>₹4,800</Text>
-                    </TouchableOpacity>
-
-                    {/* B2B */}
-                    <TouchableOpacity
-                      style={styles.kpiCard}
-                      onPress={() => navigateWh('sales_b2b')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.kpiLabel}>B2B</Text>
-                      <Text style={styles.kpiValue}>₹4,400</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* 2. Warehouse Sales Summary */}
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeading}>Warehouse Sales Summary</Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSelectedWHName('Coonoor Warehouse');
-                        navigateWh('stock_ledger');
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.viewAllLink}>View →</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.summaryListCard}>
-                    <View style={styles.summaryItemRow}>
-                      <Text style={styles.summaryItemName}>Coonoor</Text>
-                      <View style={styles.greenBadgePill}>
-                        <Text style={styles.greenBadgeText}>₹8,450</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* 3. Needs Attention */}
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeading}>Needs Attention</Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert('Stock Updated', '2 sales in cart require review before payment.');
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.viewAllLink}>View →</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.needsAttentionAlertCard}
-                    onPress={() => {
-                      Alert.alert('Stock Updated', '2 sales in cart require review before payment.');
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.needsAttentionIconWrap}>
-                      <WarningTriangleIcon size={22} color={PALETTE.primary} />
-                    </View>
-                    <View style={styles.needsAttentionTextWrap}>
-                      <Text style={styles.needsAttentionTitle}>Stock Updated — 2 sales in cart</Text>
-                      <Text style={styles.needsAttentionSub}>Requires review before payment</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* 4. Quick Actions */}
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionHeading}>Quick Actions</Text>
-                  </View>
-                  <View style={styles.quickActionsDualRow}>
-                    <TouchableOpacity
-                      style={styles.quickActionDualCard}
-                      onPress={() => navigateWh('direct_sale_new')}
-                      activeOpacity={0.8}
-                    >
-                      <ShoppingCartIcon size={26} color={PALETTE.primary} />
-                      <Text style={styles.quickActionDualLabel}>New Direct Sale</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.quickActionDualCard}
-                      onPress={() => navigateWh('sales_history')}
-                      activeOpacity={0.8}
-                    >
-                      <SalesHistoryClockIcon size={26} color={PALETTE.primary} />
-                      <Text style={styles.quickActionDualLabel}>Sales History</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={{ height: 24 }} />
-                </View>
-              </ScrollView>
-            ) : whSubView === 'direct_sale_new' ? (
-              <NewDirectSaleScreen
-                warehouseName={selectedWHName.replace(' Warehouse', '')}
+            ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
+              // Shared direct sales flow (warehouse/sales-direct), all warehouses.
+              <SalesFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
+                initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
                 onBack={goBackWh}
-                onSelectProducts={() => navigateWh('direct_sale_select_products')}
-                cartItems={cartProducts}
-              />
-            ) : whSubView === 'direct_sale_select_products' ? (
-              <SelectProductsScreen
-                onBack={goBackWh}
-                onReviewCart={(selected) => {
-                  setCartProducts(selected);
-                  navigateWh('direct_sale_summary');
+                onTabChange={(tab) => {
+                  setActiveTab(tab);
+                  setWhSubView('overview');
+                  setWhHistory([]);
                 }}
-              />
-            ) : whSubView === 'direct_sale_summary' ? (
-              <SaleSummaryScreen
-                onBack={goBackWh}
-                saleItems={cartProducts.length > 0 ? cartProducts : undefined}
-                onContinueToCustomer={() => navigateWh('direct_sale_select_customer')}
-              />
-            ) : whSubView === 'direct_sale_select_customer' ? (
-              <SelectCustomerScreen
-                onBack={goBackWh}
-                onSelectCustomer={(cust) => {
-                  setSelectedCustomer(cust);
-                  navigateWh('direct_sale_payment');
-                }}
-              />
-            ) : whSubView === 'direct_sale_payment' ? (
-              <PaymentScreen
-                amount={
-                  cartProducts.length > 0
-                    ? cartProducts.reduce((acc, p) => acc + p.pricePerKg * p.quantitySelected, 0)
-                    : 320
-                }
-                onBack={goBackWh}
-                onConfirmPayment={(method) => {
-                  setConfirmedPaymentMethod(method);
-                  navigateWh('direct_sale_confirmation');
-                }}
-              />
-            ) : whSubView === 'direct_sale_confirmation' ? (
-              <SaleConfirmationScreen
-                saleId="SALE-00251"
-                warehouseName={selectedWHName.replace(' Warehouse', '') || 'Coonoor'}
-                customerName={selectedCustomer?.name ?? 'Arun Kumar'}
-                amount={
-                  cartProducts.length > 0
-                    ? cartProducts.reduce((acc, p) => acc + p.pricePerKg * p.quantitySelected, 0)
-                    : 320
-                }
-                onBack={goBackWh}
-                onViewInvoice={() => navigateWh('sale_details')}
-                onNewSale={() => {
-                  setCartProducts([]);
-                  setWhSubView('direct_sale_new');
-                  setWhHistory(['sales']);
-                }}
-              />
-            ) : whSubView === 'sale_details' ? (
-              <SaleDetailsScreen onBack={goBackWh} />
-            ) : whSubView === 'sales_market_day' ? (
-              <MarketDaySalesScreen
-                onBack={goBackWh}
-                onSelectSummary={() => navigateWh('sale_details')}
-              />
-            ) : whSubView === 'sales_horeca' ? (
-              <HorecaSalesScreen onBack={goBackWh} />
-            ) : whSubView === 'sales_b2b' ? (
-              <B2bSalesScreen onBack={goBackWh} />
-            ) : whSubView === 'sales_history' ? (
-              <SalesHistoryScreen
-                onBack={goBackWh}
-                onSelectRecord={() => navigateWh('sale_details')}
+                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
               />
             ) : null
           )}

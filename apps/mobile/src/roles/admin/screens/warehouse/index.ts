@@ -30,7 +30,6 @@ export * from './ReportOperationalIssueScreen';
 export * from './TodaysOperationsMonitoringScreen';
 export * from './WarehousePerformanceScreen';
 export * from './ManageWarehousesScreen';
-export * from './DirectSaleScreens';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
 export {
@@ -98,7 +97,12 @@ export {
   type WalletRoute,
   type WalletRouteParams,
 } from './wallet-cashtopup';
+// Shared direct sales navigator + channel screens (W4); DirectSaleScreens.tsx was absorbed.
 export {
+  SalesFlow,
+  type SalesFlowProps,
+  type SalesRoute,
+  type SalesRouteParams,
   ChannelOrderDetailScreen,
   ChannelSalesScreen,
   invoiceIdForOrder,
