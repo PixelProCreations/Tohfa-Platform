@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
-import { fetchMe, logout } from './api/auth';
+import { fetchMe, hasSessionCredentials, logout } from './api/auth';
+import { useWarehousePermissions } from '../admin/permissions/useWarehousePermissions';
 import {
   emptyHistoryBackTarget,
   keepsScreenOnAuthFailure,
@@ -818,12 +819,30 @@ export default function App(): React.JSX.Element {
   const [params, setParams] = useState<Record<string, any>>({});
   const [locale, setLocaleState] = useState<Locale>('en');
   const [marketDays, setMarketDays] = useState<MarketDay[]>(MOCK_DAYS);
-  // Permission codes of the signed-in warehouse admin, from GET /v1/auth/me.
-  // Loaded once, the first time a Sub Warehouse screen mounts. Until it
-  // resolves (or if it fails) makeCan fails closed: gated controls stay
-  // hidden. The server re-checks every action anyway (CLAUDE.md 2.1).
-  const [warehousePermissions, setWarehousePermissions] = useState<string[] | undefined>(undefined);
-  const warehousePermissionsRequested = useRef(false);
+  // The admin role the last admin sign-in opened (params.adminRole). Warehouse
+  // routes reached from the Sub shell do not all carry it, so remember it for
+  // the dev-only demo fallback in useWarehousePermissions.
+  const [lastAdminRole, setLastAdminRole] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const role = params['adminRole'];
+    if (typeof role === 'string') setLastAdminRole(role);
+  }, [params]);
+  // Permission codes of the signed-in warehouse admin, from GET /v1/auth/me,
+  // loaded while the Sub shell or any warehouse route is mounted
+  // (shouldLoadWarehousePermissions) and retried until it arrives: the demo
+  // sign-in opens the shell without waiting for its token, so a one-shot fetch
+  // left `can` deny-all (Receiving: "You do not have permission to view goods
+  // receiving"). Until a list arrives makeCan fails closed; in __DEV__ only,
+  // after the retries, the role's docs/rbac.json grants stand in (see
+  // roles/admin/permissions/warehousePermissions.ts). The server re-checks
+  // every action anyway (CLAUDE.md 2.1).
+  const warehousePermissions = useWarehousePermissions({
+    enabled: shouldLoadWarehousePermissions(screen, params),
+    adminRole: lastAdminRole,
+    isDev: __DEV__,
+    loadPermissions: async () => (await fetchMe()).permissions ?? [],
+    hasCredentials: hasSessionCredentials,
+  }).permissions;
   const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
   // Params for a BillingFlow entry, memoised so the flow does not restart its
   // stack on every App render. An invoice opened from a sale record falls back
@@ -1005,20 +1024,6 @@ export default function App(): React.JSX.Element {
           : undefined,
     };
   }, [params]);
-
-  useEffect(() => {
-    if (warehousePermissionsRequested.current) return;
-    // Includes the Sub shell (AdminMain + SUB_WH_ADMIN), which renders with
-    // can={warehouseCan}; see shouldLoadWarehousePermissions.
-    if (!shouldLoadWarehousePermissions(screen, params)) return;
-    warehousePermissionsRequested.current = true;
-    fetchMe()
-      .then((me) => setWarehousePermissions(me.permissions ?? []))
-      .catch(() => {
-        // Leave undefined (deny all) and allow a retry on the next screen change.
-        warehousePermissionsRequested.current = false;
-      });
-  }, [screen, params]);
 
   const navigate = useCallback(
     (nextScreen: ScreenName, nextParams: Record<string, any> = {}) => {

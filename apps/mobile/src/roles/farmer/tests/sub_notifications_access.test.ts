@@ -64,7 +64,9 @@ describe('shouldLoadWarehousePermissions', () => {
   });
 
   it('App.tsx gates the warehouse /auth/me fetch on it', () => {
-    expect(APP_SOURCE).toMatch(/if \(!shouldLoadWarehousePermissions\(screen, params\)\) return;/);
+    // The fetch now runs inside useWarehousePermissions (retried until it
+    // answers); it is enabled exactly when this predicate holds.
+    expect(APP_SOURCE).toMatch(/useWarehousePermissions\(\{\s*enabled: shouldLoadWarehousePermissions\(screen, params\),/);
   });
 });
 

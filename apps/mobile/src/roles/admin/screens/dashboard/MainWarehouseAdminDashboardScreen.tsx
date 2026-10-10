@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { fetchMe, type UserMe } from '../../../farmer/api/auth';
+import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
   HomeFlow,
@@ -29,6 +29,7 @@ import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtop
 import { FinanceFlow } from '../warehouse/finance-expenses';
 import { ReportsScreen } from '../warehouse/reports';
 import { makeCan } from '../../permissions/can';
+import { useWarehousePermissions } from '../../permissions/useWarehousePermissions';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
 import { OrdersFlow } from '../warehouse/orders';
 import { InventoryFlow } from '../warehouse/inventory';
@@ -542,9 +543,24 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [user, setUser] = useState<UserMe | null>(null);
-  // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
-  // or if it fails, makeCan fails closed and gated controls stay hidden.
-  const can = useMemo(() => makeCan(user?.permissions), [user]);
+  // Permissions come from GET /v1/auth/me, retried until it answers: the demo
+  // sign-in opens this shell without waiting for its token, so a one-shot fetch
+  // could leave every gate closed for the session. Until a list arrives makeCan
+  // fails closed; in __DEV__ only, after the retries, the MAIN_WH_ADMIN grants
+  // from docs/rbac.json stand in (../../permissions/warehousePermissions.ts).
+  // The server still authorises every call (CLAUDE.md 2.1).
+  const { permissions } = useWarehousePermissions({
+    enabled: true,
+    adminRole: 'MAIN_WH_ADMIN',
+    isDev: __DEV__,
+    loadPermissions: async () => {
+      const me = await fetchMe();
+      setUser(me);
+      return me.permissions ?? [];
+    },
+    hasCredentials: hasSessionCredentials,
+  });
+  const can = useMemo(() => makeCan(permissions), [permissions]);
   const canAllView = can(HOME_CODES.allView);
   const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
   const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
@@ -586,12 +602,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   useEffect(() => {
     if (activeTab !== 'More') setMoreSubScreen(null);
   }, [activeTab]);
-
-  useEffect(() => {
-    fetchMe()
-      .then((me) => setUser(me))
-      .catch(() => { });
-  }, []);
 
   const displayName = 'Suresh';
 

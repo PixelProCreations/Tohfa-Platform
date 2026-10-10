@@ -41,8 +41,10 @@ const WAREHOUSE_SHELL_ROLES: readonly string[] = ['SUB_WH_ADMIN'];
  * gets `can={warehouseCan}`. Without the shell case the permissions were never
  * fetched while the admin stayed inside it, so `can` denied everything (bell
  * -> Notifications showed "not available"). The Main shell builds its own
- * `can` from its own fetchMe, so it is not listed. A failed fetch still leaves
- * `can` denying everything; nothing is granted on the client.
+ * `can` from its own useWarehousePermissions, so it is not listed. While this
+ * is true App.tsx keeps retrying a failed fetch (useWarehousePermissions); a
+ * failed fetch leaves `can` denying everything (dev builds aside: see
+ * roles/admin/permissions/warehousePermissions.ts).
  */
 export function shouldLoadWarehousePermissions(
   screen: string,
@@ -62,7 +64,8 @@ export function shouldLoadWarehousePermissions(
  * Login / Create account page in the middle of the session. The tokens are
  * still cleared by the client and the server still refuses every call, so
  * staying on the screen grants nothing; a failed permission fetch leaves
- * `can` denying everything and is retried on the next screen change.
+ * `can` denying everything and is retried with a backoff while the warehouse
+ * surface stays mounted.
  */
 export function keepsScreenOnAuthFailure(screen: string): boolean {
   return ADMIN_DASHBOARDS.includes(screen) || isWarehouseAdminScreen(screen);
