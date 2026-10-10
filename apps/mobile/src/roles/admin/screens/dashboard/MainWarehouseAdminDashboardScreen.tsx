@@ -147,14 +147,9 @@ type WarehouseSubView =
   | 'low_stock_alerts'
   | 'inter_warehouse_transfer'
   | 'initiate_new_transfer'
-  | 'transfer_detail'
   | 'warehouse_settings'
   | 'sales'
   | 'direct_sale_new'
-  | 'sales_market_day'
-  | 'sales_horeca'
-  | 'sales_b2b'
-  | 'sales_history'
   | 'customer_orders'
   | 'warehouse_notifications'
   | 'profile'
@@ -474,17 +469,12 @@ const ACTIVITY_ALL_PARAMS: StorageRouteParams = { activityPreset: 'All' };
  * Main sales sub-views -> shared SalesFlow entries (W4). The Main shell used to
  * render its own slices from DirectSaleScreens.tsx (deleted); it now opens the
  * same flow as the Sub shell with MAIN_WAREHOUSE_SCOPE (all four warehouses,
- * owner decision). Params are module constants so the flow does not restart.
+ * owner decision). Market Day / HORECA / B2B / History are reached from the
+ * Sales hub inside the flow, so only the two entries the shell produces remain.
  */
-const HORECA_PARAMS: SalesRouteParams = { channel: 'HORECA' };
-const B2B_PARAMS: SalesRouteParams = { channel: 'B2B' };
 const MAIN_SALES_ENTRY: Partial<Record<WarehouseSubView, { screen: SalesRoute; params?: SalesRouteParams }>> = {
   sales: { screen: 'Sales' },
   direct_sale_new: { screen: 'NewSale' },
-  sales_market_day: { screen: 'MarketDaySales' },
-  sales_horeca: { screen: 'ChannelSales', params: HORECA_PARAMS },
-  sales_b2b: { screen: 'ChannelSales', params: B2B_PARAMS },
-  sales_history: { screen: 'SalesHistory' },
 };
 
 /** Seeded warehouse id for a display name like 'Ooty Warehouse' or 'Ooty' (the overview still passes names). */
@@ -495,12 +485,10 @@ function warehouseIdForName(name: string): string | undefined {
 
 /**
  * Old transfer sub-views -> shared TransfersFlow entry routes (W4). The detail
- * was only ever opened from the list, which now lives inside the flow, so the
- * old 'transfer_detail' key opens the list.
+ * is only ever opened from the list, which now lives inside the flow.
  */
 const TRANSFER_ENTRY: Partial<Record<WarehouseSubView, TransferRoute>> = {
   inter_warehouse_transfer: 'Transfers',
-  transfer_detail: 'Transfers',
   initiate_new_transfer: 'InitiateNewTransfer',
 };
 
@@ -644,6 +632,11 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     else if (target === 'CreateSwa') navigateWh('manage_swas');
     else if (target === 'Reports') navigateWh('dashboard_operations');
     else if (target === 'WarehouseTargets') navigateWh('warehouse_settings');
+    else if (target === 'Orders' || target === 'OrderDetail' || target === 'Operations') {
+      // Intentional no-op: only the single-warehouse Snapshot and the task queue
+      // emit these, and this shell opens HomeFlow on Quick Actions / Stock &
+      // Transfer only (neither navigates to them). Wire them here if that changes.
+    }
   };
   /** Warehouse activity sub-views (shared storage-ops, W4 part B), all warehouses. */
   const renderActivityFlow = (params: StorageRouteParams) => (
