@@ -14,28 +14,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  greenText:     adminColors.success.text,
-  amberNoticeBg: adminColors.brandTint,
-  amberNoticeBorder: adminColors.border,
-  amberNoticeText: adminColors.brandDeep,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -91,7 +69,7 @@ function WalletIcon({ size = 20, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function LockIcon({ size = 14, color = PALETTE.amberNoticeText }: { size?: number; color?: string }) {
+function LockIcon({ size = 14, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2.2" />
@@ -221,7 +199,7 @@ export function PaymentScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -379,7 +357,7 @@ export function PaymentScreen({
                 <Text
                   style={[
                     styles.detailValue,
-                    upiStatus === 'Received' && { color: PALETTE.greenText },
+                    upiStatus === 'Received' && { color: adminColors.success.text },
                   ]}
                 >
                   {upiStatus === 'Received' ? 'Received ✓' : 'Waiting for payment...'}
@@ -503,10 +481,10 @@ export function PaymentScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 18,
@@ -536,10 +514,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   amountDueCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 26,
     alignItems: 'center',
     justifyContent: 'center',
@@ -547,13 +525,13 @@ const styles = StyleSheet.create({
   },
   amountDueValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     letterSpacing: -0.5,
     marginBottom: 6,
   },
   amountDueLabel: {
     ...adminType.caption,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     letterSpacing: 0.8,
   },
   paymentMethodsRow: {
@@ -563,22 +541,22 @@ const styles = StyleSheet.create({
   },
   methodBtn: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   methodBtnSelected: {
-    backgroundColor: PALETTE.primary,
-    borderColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   methodBtnText: {
     ...adminType.rowTitle,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   methodBtnTextSelected: {
     color: adminColors.onBrand,
@@ -586,17 +564,17 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 8,
     marginTop: 4,
   },
   receivedInputCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
     paddingHorizontal: 16,
     height: 52,
     marginBottom: 14,
@@ -604,56 +582,56 @@ const styles = StyleSheet.create({
   receivedInput: {
     flex: 1,
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   currencySymbol: {
     ...adminType.title,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
   },
   changeCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 14,
   },
   changeLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   changeValue: {
     ...adminType.title,
-    color: PALETTE.greenText,
+    color: adminColors.success.text,
   },
   statusDetailCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginBottom: 14,
   },
   detailLabel: {
     ...adminType.caption,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   detailValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   walletDetailCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginBottom: 14,
@@ -663,10 +641,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   simulateBtn: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
@@ -679,10 +657,10 @@ const styles = StyleSheet.create({
   walletNoticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: PALETTE.amberNoticeBg,
+    backgroundColor: adminColors.brandTint,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.amberNoticeBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
@@ -691,20 +669,20 @@ const styles = StyleSheet.create({
   walletNoticeText: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.amberNoticeText,
+    color: adminColors.brandDeep,
     lineHeight: 17,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   confirmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,

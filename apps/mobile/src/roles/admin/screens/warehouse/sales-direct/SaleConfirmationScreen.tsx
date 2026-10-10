@@ -14,30 +14,6 @@ import { adminColors, adminType } from '../../../theme';
 import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
 import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  greenCircleBg: adminColors.success.bg,
-  greenBorder:   adminColors.success.text,
-  greenText:     adminColors.success.text,
-  serverNoticeBg:adminColors.success.bg,
-  serverNoticeBorder: adminColors.success.border,
-  serverNoticeText: adminColors.success.text,
-};
-
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -174,7 +150,7 @@ export function SaleConfirmationScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -295,7 +271,7 @@ export function SaleConfirmationScreen({
 
         {/* ─── Server Confirmation Notice ─── */}
         <View style={styles.serverNoticeBanner}>
-          <ShieldCheckIcon size={18} color={PALETTE.serverNoticeText} />
+          <ShieldCheckIcon size={18} color={adminColors.success.text} />
           <Text style={styles.serverNoticeText}>
             This screen only ever appears after the server confirms payment, sale, and the inventory ledger movement together — never on a local/optimistic success.
           </Text>
@@ -332,10 +308,10 @@ export function SaleConfirmationScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
@@ -382,19 +358,19 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginTop: 12,
     marginBottom: 8,
   },
   card: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -408,21 +384,21 @@ const styles = StyleSheet.create({
   },
   label: {
     ...adminType.rowMeta,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   valueBold: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   customerName: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   customerCode: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   productRow: {
     flexDirection: 'row',
@@ -432,20 +408,20 @@ const styles = StyleSheet.create({
   },
   productName: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   productGrade: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   productPrice: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   divider: {
     height: 1,
-    backgroundColor: PALETTE.border,
+    backgroundColor: adminColors.border,
     marginVertical: 10,
   },
   serverNoticeBanner: {
@@ -471,14 +447,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
     gap: 10,
   },
   viewInvoiceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 12,
     height: 48,
     gap: 8,
@@ -488,16 +464,16 @@ const styles = StyleSheet.create({
     ...adminType.sectionHead,
   },
   newSaleBtn: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   newSaleBtnText: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     ...adminType.sectionHead,
   },
 });

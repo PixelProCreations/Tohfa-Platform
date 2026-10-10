@@ -20,28 +20,6 @@ import type { SalesChannel } from './types';
 import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 import { SaleDetailScreen } from './SaleDetailScreen';
 
-// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brandDeep,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  amberText:     adminColors.warning.text,
-  redText:       adminColors.danger.text,
-  tabInactive:   adminColors.muted,
-  tabBorder:     adminColors.border,
-};
-
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -148,7 +126,7 @@ function ExclamationCircleCardIcon({ color = adminColors.danger.text }: { color?
   );
 }
 
-function ShoppingCartActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+function ShoppingCartActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="20" r="1.5" stroke={color} strokeWidth="2" />
@@ -165,7 +143,7 @@ function ShoppingCartActionIcon({ size = 22, color = PALETTE.primary }: { size?:
   );
 }
 
-function StoreActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+function StoreActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -182,7 +160,7 @@ function StoreActionIcon({ size = 22, color = PALETTE.primary }: { size?: number
   );
 }
 
-function HistoryClockActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -192,7 +170,7 @@ function HistoryClockActionIcon({ size = 22, color = PALETTE.primary }: { size?:
   );
 }
 
-function CutleryActionIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+function CutleryActionIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Fork: 3 prongs, neck and handle */}
@@ -215,7 +193,7 @@ function CutleryActionIcon({ size = 24, color = PALETTE.primary }: { size?: numb
   );
 }
 
-function BuildingActionIcon({ size = 24, color = PALETTE.primary }: { size?: number; color?: string }) {
+function BuildingActionIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {/* Ground baseline */}
@@ -299,7 +277,7 @@ function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: num
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -309,7 +287,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -319,7 +297,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
@@ -329,7 +307,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -532,7 +510,7 @@ export function SalesScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
@@ -648,7 +626,7 @@ export function SalesScreen({
             activeOpacity={0.75}
           >
             <View style={styles.cardIconWrap}>
-              <BuildingCardIcon color={PALETTE.primary} />
+              <BuildingCardIcon color={adminColors.brand} />
             </View>
             <Text style={styles.cardAmount}>₹4,400</Text>
             <Text style={styles.cardSubtitle}>B2B · 4 orders</Text>
@@ -678,7 +656,7 @@ export function SalesScreen({
             onPress={handleOpenNewSale}
             activeOpacity={0.75}
           >
-            <ShoppingCartActionIcon size={24} color={PALETTE.primary} />
+            <ShoppingCartActionIcon size={24} color={adminColors.brand} />
             <Text style={styles.actionBtnLabel}>New Direct Sale</Text>
           </TouchableOpacity>
 
@@ -688,7 +666,7 @@ export function SalesScreen({
             onPress={handleOpenMarketDaySales}
             activeOpacity={0.75}
           >
-            <StoreActionIcon size={24} color={PALETTE.primary} />
+            <StoreActionIcon size={24} color={adminColors.brand} />
             <Text style={styles.actionBtnLabel}>Market Day Sales</Text>
           </TouchableOpacity>
 
@@ -698,7 +676,7 @@ export function SalesScreen({
             onPress={handleOpenSalesHistory}
             activeOpacity={0.75}
           >
-            <HistoryClockActionIcon size={24} color={PALETTE.primary} />
+            <HistoryClockActionIcon size={24} color={adminColors.brand} />
             <Text style={styles.actionBtnLabel}>Sales History</Text>
           </TouchableOpacity>
         </View>
@@ -711,7 +689,7 @@ export function SalesScreen({
             onPress={handleOpenHorecaSales}
             activeOpacity={0.75}
           >
-            <CutleryActionIcon size={24} color={PALETTE.primary} />
+            <CutleryActionIcon size={24} color={adminColors.brand} />
             <Text style={styles.actionBtnLabel}>HORECA Sale</Text>
           </TouchableOpacity>
 
@@ -721,7 +699,7 @@ export function SalesScreen({
             onPress={handleOpenB2BSales}
             activeOpacity={0.75}
           >
-            <BuildingActionIcon size={24} color={PALETTE.primary} />
+            <BuildingActionIcon size={24} color={adminColors.brand} />
             <Text style={styles.actionBtnLabel}>B2B Sale</Text>
           </TouchableOpacity>
         </View>
@@ -808,7 +786,7 @@ export function SalesScreen({
 
         {/* ─── 5. Needs Attention ─── */}
         <View style={styles.needsAttentionHeader}>
-          <WarningTriangleIcon size={18} color={PALETTE.textInk} />
+          <WarningTriangleIcon size={18} color={adminColors.ink} />
           <Text style={styles.sectionTitle}>Needs Attention</Text>
         </View>
 
@@ -885,7 +863,6 @@ export function SalesScreen({
         <View style={{ height: 28 }} />
       </ScrollView>
 
-
     </SafeAreaView>
   );
 }
@@ -893,10 +870,10 @@ export function SalesScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 18,
@@ -981,7 +958,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 12,
     marginTop: 6,
   },
@@ -994,11 +971,11 @@ const styles = StyleSheet.create({
   },
   channelCard: {
     width: '48.5%',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     minHeight: 96,
     justifyContent: 'center',
     ...adminShadow.sm,
@@ -1008,12 +985,12 @@ const styles = StyleSheet.create({
   },
   cardAmount: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   cardSubtitle: {
     ...adminType.rowMeta,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   quickActionsRow: {
     flexDirection: 'row',
@@ -1023,10 +1000,10 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -1036,10 +1013,10 @@ const styles = StyleSheet.create({
   },
   actionBtnHalf: {
     width: '48%',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -1049,15 +1026,15 @@ const styles = StyleSheet.create({
   },
   actionBtnLabel: {
     ...adminType.caption,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     textAlign: 'center',
     marginTop: 8,
   },
   summaryCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 6,
     ...adminShadow.sm,
@@ -1070,19 +1047,19 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   summaryValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   divider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   dividerThick: {
     height: 1.5,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
     marginVertical: 2,
   },
   totalRow: {
@@ -1093,11 +1070,11 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   totalValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -1108,13 +1085,13 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     ...adminType.sectionHead,
-    color: PALETTE.primary,
+    color: adminColors.brand,
   },
   recentSaleCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 10,
     position: 'relative',
@@ -1128,7 +1105,7 @@ const styles = StyleSheet.create({
   },
   recentSaleId: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   paidBadge: {
     backgroundColor: adminColors.success.bg,
@@ -1142,7 +1119,7 @@ const styles = StyleSheet.create({
   },
   recentSaleCustomer: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 10,
   },
   recentSaleBottomRow: {
@@ -1153,18 +1130,18 @@ const styles = StyleSheet.create({
   },
   recentSaleType: {
     ...adminType.body,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
   },
   recentSaleTime: {
     ...adminType.body,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
   },
   recentSaleAmount: {
     position: 'absolute',
     right: 16,
     bottom: 14,
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   needsAttentionHeader: {
     flexDirection: 'row',
@@ -1180,10 +1157,10 @@ const styles = StyleSheet.create({
   alertCardItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 14,
     paddingLeft: 18,
@@ -1210,18 +1187,18 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   alertSub: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
+    borderTopColor: adminColors.border,
     paddingVertical: 8,
     paddingBottom: 14,
     paddingHorizontal: 16,
@@ -1236,11 +1213,11 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     ...adminType.caption,
-    color: PALETTE.tabInactive,
+    color: adminColors.muted,
     marginTop: 3,
   },
   navLabelActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

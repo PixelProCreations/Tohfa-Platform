@@ -12,37 +12,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  amberPillBg:   adminColors.warning.bg,
-  amberText:     adminColors.warning.text,
-  activeGreenBg: adminColors.success.bg,
-  activeGreenText: adminColors.success.text,
-  paidBg:        adminColors.success.bg,
-  paidText:      adminColors.success.text,
-
-  infoBoxBg:     adminColors.info.bg,
-  infoBoxBorder: adminColors.info.border,
-  infoBoxText:   adminColors.info.text,
-
-  tabInactive:   adminColors.muted,
-  tabBorder:     adminColors.border,
-};
-
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -70,7 +39,7 @@ function LockBadgeIcon({ size = 12, color = adminColors.warning.text }: { size?:
   );
 }
 
-function ShoppingCartActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+function ShoppingCartActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="21" r="1" stroke={color} strokeWidth="2" />
@@ -86,7 +55,7 @@ function ShoppingCartActionIcon({ size = 22, color = PALETTE.primary }: { size?:
   );
 }
 
-function HistoryClockActionIcon({ size = 22, color = PALETTE.primary }: { size?: number; color?: string }) {
+function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -105,7 +74,7 @@ function InfoCircleIcon({ size = 16, color = adminColors.info.text }: { size?: n
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -115,7 +84,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -125,7 +94,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
@@ -135,7 +104,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -219,7 +188,7 @@ export function MarketDaySalesScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -245,7 +214,7 @@ export function MarketDaySalesScreen({
       >
         {/* ─── Warehouse Pill ─── */}
         <View style={styles.warehousePill}>
-          <LockBadgeIcon size={12} color={PALETTE.amberText} />
+          <LockBadgeIcon size={12} color={adminColors.warning.text} />
           <Text style={styles.warehousePillText}>{warehouseName}</Text>
         </View>
 
@@ -395,7 +364,6 @@ export function MarketDaySalesScreen({
         </View>
       </ScrollView>
 
-
     </SafeAreaView>
   );
 }
@@ -404,10 +372,10 @@ export function MarketDaySalesScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
@@ -444,7 +412,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: PALETTE.amberPillBg,
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -453,16 +421,16 @@ const styles = StyleSheet.create({
   },
   warehousePillText: {
     ...adminType.rowTitle,
-    color: PALETTE.amberText,
+    color: adminColors.warning.text,
   },
   marketDayCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 16,
@@ -470,12 +438,12 @@ const styles = StyleSheet.create({
   },
   marketDayTitle: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   activePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.activeGreenBg,
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
@@ -483,21 +451,21 @@ const styles = StyleSheet.create({
   },
   activePillDot: {
     ...adminType.sectionHead,
-    color: PALETTE.activeGreenText,
+    color: adminColors.success.text,
   },
   activePillText: {
     ...adminType.rowTitle,
-    color: PALETTE.activeGreenText,
+    color: adminColors.success.text,
   },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginTop: 14,
     marginBottom: 10,
   },
   sectionHeadingNoMargin: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   kpiRow: {
     flexDirection: 'row',
@@ -505,10 +473,10 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 8,
     alignItems: 'center',
@@ -517,12 +485,12 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   kpiLabel: {
     ...adminType.caption,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     letterSpacing: 0.5,
   },
   quickActionsRow: {
@@ -531,10 +499,10 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -543,13 +511,13 @@ const styles = StyleSheet.create({
   },
   actionCardLabel: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   card: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     ...adminShadow.sm,
   },
@@ -562,18 +530,18 @@ const styles = StyleSheet.create({
   },
   productName: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   productQty: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   txCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 14,
     marginBottom: 10,
     ...adminShadow.sm,
@@ -585,17 +553,17 @@ const styles = StyleSheet.create({
   },
   txSaleId: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   txPaidPill: {
-    backgroundColor: PALETTE.paidBg,
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 2.5,
     borderRadius: 10,
   },
   txPaidText: {
     ...adminType.caption,
-    color: PALETTE.paidText,
+    color: adminColors.success.text,
   },
   txCardBottom: {
     flexDirection: 'row',
@@ -605,11 +573,11 @@ const styles = StyleSheet.create({
   },
   txSubtitle: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   txAmount: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   summaryHeaderRow: {
     flexDirection: 'row',
@@ -620,13 +588,13 @@ const styles = StyleSheet.create({
   },
   previousDaysLink: {
     ...adminType.rowTitle,
-    color: PALETTE.amberText,
+    color: adminColors.warning.text,
   },
   summaryCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     ...adminShadow.sm,
   },
@@ -637,37 +605,37 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   summaryValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
     marginVertical: 10,
   },
   summaryStrongDivider: {
     height: 1.5,
-    backgroundColor: PALETTE.textInk,
+    backgroundColor: adminColors.ink,
     marginVertical: 10,
   },
   summaryStrongLabel: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   summaryStrongValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.infoBoxBg,
+    backgroundColor: adminColors.info.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.infoBoxBorder,
+    borderColor: adminColors.info.border,
     padding: 12,
     marginTop: 14,
     gap: 10,
@@ -675,14 +643,14 @@ const styles = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.infoBoxText,
+    color: adminColors.info.text,
     lineHeight: 16,
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
+    borderTopColor: adminColors.border,
     paddingTop: 8,
     paddingBottom: 6,
   },
@@ -693,11 +661,11 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     ...adminType.rowMeta,
-    color: PALETTE.tabInactive,
+    color: adminColors.muted,
     marginTop: 3,
   },
   navLabelActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

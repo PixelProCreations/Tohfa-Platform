@@ -14,31 +14,6 @@ import { adminColors, adminType, adminShadow } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  completedPillBg:   adminColors.success.bg,
-  completedPillText: adminColors.success.text,
-  timelineGreen:     adminColors.success.text,
-  timelineLine:      adminColors.border,
-
-  tabInactive:   adminColors.muted,
-  tabBorder:     adminColors.border,
-};
-
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -75,14 +50,14 @@ function InvoiceReceiptIcon({ size = 18, color = adminColors.onBrand }: { size?:
 function TimelineCheckIcon({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="8.5" fill={adminColors.success.bg} stroke={PALETTE.timelineGreen} strokeWidth="1.8" />
-      <Circle cx="10" cy="10" r="3.5" fill={PALETTE.timelineGreen} />
+      <Circle cx="10" cy="10" r="8.5" fill={adminColors.success.bg} stroke={adminColors.success.text} strokeWidth="1.8" />
+      <Circle cx="10" cy="10" r="3.5" fill={adminColors.success.text} />
     </Svg>
   );
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -92,7 +67,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -102,7 +77,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
@@ -112,7 +87,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -234,7 +209,7 @@ export function SaleDetailScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -323,7 +298,7 @@ export function SaleDetailScreen({
               lineTotal: 200,
             }
           ]).map((item, idx) => (
-            <View key={idx} style={idx > 0 ? { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: PALETTE.divider } : {}}>
+            <View key={idx} style={idx > 0 ? { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: adminColors.border } : {}}>
               <View style={styles.gridRow}>
                 <View style={styles.gridCol}>
                   <Text style={styles.itemTitle}>{item.name} · {item.grade}</Text>
@@ -435,7 +410,6 @@ export function SaleDetailScreen({
         </View>
       </ScrollView>
 
-
     </SafeAreaView>
   );
 }
@@ -444,10 +418,10 @@ export function SaleDetailScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
@@ -474,14 +448,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   completedPill: {
-    backgroundColor: PALETTE.completedPillBg,
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 16,
   },
   completedPillText: {
     ...adminType.rowTitle,
-    color: PALETTE.completedPillText,
+    color: adminColors.success.text,
   },
   scroll: {
     flex: 1,
@@ -493,15 +467,15 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginTop: 18,
     marginBottom: 8,
   },
   card: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     ...adminShadow.sm,
   },
@@ -514,16 +488,16 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   fieldValueBold: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   itemTitle: {
     ...adminType.sectionHead,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   breakdownRow: {
@@ -533,24 +507,24 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   breakdownValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   breakdownDivider: {
     height: 1.5,
-    backgroundColor: PALETTE.textInk,
+    backgroundColor: adminColors.ink,
     marginVertical: 12,
   },
   totalLabel: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   totalValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   viewInvoiceBtn: {
     flexDirection: 'row',
@@ -558,15 +532,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1.5,
-    borderColor: PALETTE.primaryDark,
+    borderColor: adminColors.brand,
     borderRadius: 12,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     paddingVertical: 14,
     marginTop: 14,
   },
   viewInvoiceBtnText: {
     ...adminType.sectionHead,
-    color: PALETTE.primaryDark,
+    color: adminColors.brand,
   },
   downloadInvoiceTooltip: {
     alignSelf: 'center',
@@ -599,7 +573,7 @@ const styles = StyleSheet.create({
     width: 2,
     flex: 1,
     minHeight: 28,
-    backgroundColor: PALETTE.border,
+    backgroundColor: adminColors.border,
     marginVertical: 2,
   },
   timelineContent: {
@@ -608,18 +582,18 @@ const styles = StyleSheet.create({
   },
   timelineStepTitle: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   timelineStepTime: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginTop: 2,
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
+    borderTopColor: adminColors.border,
     paddingTop: 8,
     paddingBottom: 6,
   },
@@ -630,11 +604,11 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     ...adminType.rowMeta,
-    color: PALETTE.tabInactive,
+    color: adminColors.muted,
     marginTop: 3,
   },
   navLabelActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

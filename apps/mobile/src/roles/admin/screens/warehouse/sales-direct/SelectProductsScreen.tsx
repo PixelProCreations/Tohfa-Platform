@@ -13,28 +13,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  greenBadgeBg:  adminColors.success.bg,
-  greenBadgeText:adminColors.success.text,
-  redBadgeBg:    adminColors.danger.bg,
-  redBadgeText:  adminColors.danger.text,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -253,7 +231,7 @@ export function SelectProductsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -487,10 +465,10 @@ export function SelectProductsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 18,
@@ -519,10 +497,10 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     height: 46,
     gap: 10,
@@ -531,7 +509,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   filterPillsRow: {
@@ -540,23 +518,23 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   filterPill: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 7,
   },
   filterPillSelected: {
-    backgroundColor: PALETTE.primaryLight,
-    borderColor: PALETTE.primary,
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
   },
   filterPillText: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   filterPillTextSelected: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
   scroll: {
@@ -568,10 +546,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   productCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 12,
   },
@@ -583,12 +561,12 @@ const styles = StyleSheet.create({
   },
   productName: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   productGradePrice: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -596,19 +574,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   statusBadgeAvailable: {
-    backgroundColor: PALETTE.greenBadgeBg,
+    backgroundColor: adminColors.success.bg,
   },
   statusBadgeLowStock: {
-    backgroundColor: PALETTE.redBadgeBg,
+    backgroundColor: adminColors.danger.bg,
   },
   statusBadgeText: {
     ...adminType.caption,
   },
   statusBadgeTextAvailable: {
-    color: PALETTE.greenBadgeText,
+    color: adminColors.success.text,
   },
   statusBadgeTextLowStock: {
-    color: PALETTE.redBadgeText,
+    color: adminColors.danger.text,
   },
   cardBottomRow: {
     flexDirection: 'row',
@@ -617,12 +595,12 @@ const styles = StyleSheet.create({
   },
   availableLabel: {
     ...adminType.rowMeta,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   availableValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   addBtn: {
     paddingVertical: 6,
@@ -630,14 +608,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addBtnSelected: {
-    backgroundColor: PALETTE.primaryLight,
+    backgroundColor: adminColors.brandTint,
   },
   addBtnText: {
     ...adminType.sectionHead,
-    color: PALETTE.primary,
+    color: adminColors.brand,
   },
   addBtnTextSelected: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '800',
   },
   emptyContainer: {
@@ -647,19 +625,19 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...adminType.body,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,

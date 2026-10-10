@@ -15,32 +15,6 @@ import { adminColors, adminType, adminShadow } from '../../../theme';
 
 import { SaleDetailScreen } from './SaleDetailScreen';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  paidBg:        adminColors.success.bg,
-  paidText:      adminColors.success.text,
-  pendingBg:     adminColors.warning.bg,
-  pendingText:   adminColors.warning.text,
-  amberText:     adminColors.warning.text,
-
-  tabInactive:   adminColors.muted,
-  tabBorder:     adminColors.border,
-};
-
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
 
 export interface SaleHistoryItem {
@@ -197,7 +171,7 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
 }
 
 function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -207,7 +181,7 @@ function HomeTabIcon({ active }: { active: boolean }) {
 }
 
 function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -217,7 +191,7 @@ function ReceivingTabIcon({ active }: { active: boolean }) {
 }
 
 function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
@@ -227,7 +201,7 @@ function InventoryTabIcon({ active }: { active: boolean }) {
 }
 
 function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
+  const color = active ? adminColors.brand : adminColors.muted;
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="2" fill={color} />
@@ -300,7 +274,7 @@ export function SalesHistoryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -330,11 +304,11 @@ export function SalesHistoryScreen({
       <View style={styles.mainContainer}>
         {/* Search Bar */}
         <View style={styles.searchBarWrap}>
-          <SearchIcon size={18} color={PALETTE.textMuted} />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search sale ID, invoice, customer"
-            placeholderTextColor={PALETTE.textMuted}
+            placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             clearButtonMode="while-editing"
@@ -361,13 +335,13 @@ export function SalesHistoryScreen({
                   <View
                     style={[
                       styles.statusPill,
-                      { backgroundColor: isPaid ? PALETTE.paidBg : PALETTE.pendingBg },
+                      { backgroundColor: isPaid ? adminColors.success.bg : adminColors.warning.bg },
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusText,
-                        { color: isPaid ? PALETTE.paidText : PALETTE.pendingText },
+                        { color: isPaid ? adminColors.success.text : adminColors.warning.text },
                       ]}
                     >
                       {item.status}
@@ -404,7 +378,6 @@ export function SalesHistoryScreen({
         />
       </View>
 
-
     </SafeAreaView>
   );
 }
@@ -413,10 +386,10 @@ export function SalesHistoryScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
@@ -459,10 +432,10 @@ const styles = StyleSheet.create({
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 16,
@@ -471,17 +444,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     ...adminType.body,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     padding: 0,
   },
   listContent: {
     paddingBottom: 20,
   },
   saleCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 14,
     ...adminShadow.sm,
@@ -493,7 +466,7 @@ const styles = StyleSheet.create({
   },
   saleIdText: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   statusPill: {
     paddingHorizontal: 12,
@@ -505,7 +478,7 @@ const styles = StyleSheet.create({
   },
   customerSubText: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginTop: 4,
   },
   cardBottomRow: {
@@ -516,19 +489,19 @@ const styles = StyleSheet.create({
   },
   channelText: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   rightInfoWrap: {
     alignItems: 'flex-end',
   },
   dateText: {
     ...adminType.rowMeta,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   amountText: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   loadMoreWrap: {
     alignItems: 'center',
@@ -537,13 +510,13 @@ const styles = StyleSheet.create({
   },
   loadMoreText: {
     ...adminType.sectionHead,
-    color: PALETTE.amberText,
+    color: adminColors.warning.text,
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
+    borderTopColor: adminColors.border,
     paddingTop: 8,
     paddingBottom: 6,
   },
@@ -554,11 +527,11 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     ...adminType.rowMeta,
-    color: PALETTE.tabInactive,
+    color: adminColors.muted,
     marginTop: 3,
   },
   navLabelActive: {
-    color: PALETTE.primary,
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

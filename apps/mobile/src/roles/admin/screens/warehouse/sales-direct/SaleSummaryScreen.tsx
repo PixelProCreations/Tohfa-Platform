@@ -12,31 +12,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType } from '../../../theme';
 
-// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
-const PALETTE = {
-  primary: adminColors.brand,
-  primaryDark: adminColors.brandDeep,
-  primaryLight: adminColors.brandTint,
-  primarySoft: adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg: adminColors.canvas,
-  cardBg: adminColors.card,
-  textInk: adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted: adminColors.muted,
-  border: adminColors.border,
-  divider: adminColors.border,
-
-  infoBg: adminColors.info.bg,
-  infoBorder: adminColors.border,
-  infoText: adminColors.info.text,
-
-  stepperBg: adminColors.brandTint,
-  stepperBtnBg: adminColors.border,
-  redText: adminColors.danger.text,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -164,7 +139,7 @@ export function SaleSummaryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -262,7 +237,7 @@ export function SaleSummaryScreen({
 
           {cartItems.length === 0 && (
             <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: PALETTE.textMuted, ...adminType.body }}>
+              <Text style={{ color: adminColors.muted, ...adminType.body }}>
                 No items in cart
               </Text>
             </View>
@@ -314,10 +289,10 @@ export function SaleSummaryScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 18,
@@ -348,15 +323,15 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginTop: 14,
     marginBottom: 8,
   },
   card: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -368,25 +343,25 @@ const styles = StyleSheet.create({
   },
   itemName: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   itemSubtitle: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   itemRightCol: {
     alignItems: 'flex-end',
   },
   itemPrice: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   stepperWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.stepperBg,
+    backgroundColor: adminColors.brandTint,
     borderRadius: 20,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -396,28 +371,28 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: PALETTE.stepperBtnBg,
+    backgroundColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginTop: -1,
   },
   stepperValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     minWidth: 16,
     textAlign: 'center',
   },
   removeText: {
     ...adminType.sectionHead,
-    color: PALETTE.redText,
+    color: adminColors.danger.text,
   },
   divider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
     marginVertical: 12,
   },
   thickDivider: {
@@ -433,19 +408,19 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   breakdownValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   totalLabel: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   totalValue: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   marketRow: {
     flexDirection: 'row',
@@ -453,21 +428,21 @@ const styles = StyleSheet.create({
   },
   marketLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   marketValue: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     lineHeight: 19,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.infoBg,
+    backgroundColor: adminColors.info.bg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.infoBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
@@ -477,20 +452,20 @@ const styles = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.infoText,
+    color: adminColors.info.text,
     lineHeight: 17,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,

@@ -12,30 +12,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType } from '../../../theme';
 
-// ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brandDeep,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  infoBg:        adminColors.info.bg,
-  infoBorder:    adminColors.border,
-  infoText:      adminColors.info.text,
-
-  amberPillBg:   adminColors.warning.bg,
-  amberPillText: adminColors.warning.text,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -52,7 +28,7 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function LockIcon({ size = 12, color = PALETTE.amberPillText }: { size?: number; color?: string }) {
+function LockIcon({ size = 12, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth="2.2" />
@@ -160,7 +136,7 @@ export function NewSaleScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -186,7 +162,7 @@ export function NewSaleScreen({
         {/* ─── 1. Warehouse ─── */}
         <Text style={styles.sectionHeading}>Warehouse</Text>
         <View style={styles.warehousePill}>
-          <LockIcon size={12} color={PALETTE.amberPillText} />
+          <LockIcon size={12} color={adminColors.warning.text} />
           <Text style={styles.warehousePillText}>Coonoor Warehouse</Text>
         </View>
 
@@ -232,7 +208,7 @@ export function NewSaleScreen({
             <Text style={styles.customerSubLabel}>CUSTOMER</Text>
             <Text style={styles.customerValueText}>{selectedCustomer}</Text>
           </View>
-          <ChevronDownIcon size={20} color={PALETTE.textSecondary} />
+          <ChevronDownIcon size={20} color={adminColors.muted} />
         </TouchableOpacity>
 
         {/* ─── 4. Products Empty State ─── */}
@@ -261,10 +237,10 @@ export function NewSaleScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 18,
@@ -295,14 +271,14 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginTop: 14,
     marginBottom: 8,
   },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.amberPillBg,
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -311,14 +287,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   warehousePillText: {
-    color: PALETTE.amberPillText,
+    color: adminColors.warning.text,
     ...adminType.rowTitle,
   },
   channelContainer: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     overflow: 'hidden',
     marginBottom: 10,
   },
@@ -339,29 +315,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioOuterSelected: {
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
   },
   channelLabel: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   divider: {
     height: 1,
-    backgroundColor: PALETTE.divider,
+    backgroundColor: adminColors.border,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.infoBg,
+    backgroundColor: adminColors.info.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.infoBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 10,
@@ -370,29 +346,29 @@ const styles = StyleSheet.create({
   infoBannerText: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.infoText,
+    color: adminColors.info.text,
     lineHeight: 17,
   },
   customerSelectCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 6,
   },
   customerSubLabel: {
     ...adminType.caption,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   customerValueText: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   emptyProductsContainer: {
     alignItems: 'center',
@@ -401,20 +377,20 @@ const styles = StyleSheet.create({
   },
   emptyProductsText: {
     ...adminType.body,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
     marginTop: 12,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   selectProductsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,

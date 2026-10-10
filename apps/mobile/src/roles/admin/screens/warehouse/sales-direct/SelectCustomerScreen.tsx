@@ -13,27 +13,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
-// ─── Design Tokens (#F0562A Unified Subwarehouse Palette) ────────────────────
-const PALETTE = {
-  primary:       adminColors.brand,
-  primaryDark:   adminColors.brand,
-  primaryLight:  adminColors.brandTint,
-  primarySoft:   adminColors.brandTint,
-  primaryBorder: adminColors.border,
-
-  pageBg:        adminColors.canvas,
-  cardBg:        adminColors.card,
-  textInk:       adminColors.ink,
-  textSecondary: adminColors.muted,
-  textMuted:     adminColors.muted,
-  border:        adminColors.border,
-  divider:       adminColors.border,
-
-  noticeBg:      adminColors.brandTint,
-  noticeBorder:  adminColors.border,
-  noticeText:    adminColors.brandDeep,
-};
-
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -239,7 +218,7 @@ export function SelectCustomerScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Top Brand Header Banner (#F0562A) ─── */}
       <View style={styles.headerBanner}>
@@ -404,10 +383,10 @@ export function SelectCustomerScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 18,
@@ -436,10 +415,10 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     height: 46,
     gap: 10,
@@ -447,7 +426,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   scroll: {
@@ -461,26 +440,26 @@ const styles = StyleSheet.create({
 
   // ─── Customer Card (List View) ───
   customerCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 12,
   },
   customerCardSelected: {
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.card,
     borderWidth: 1.5,
   },
   customerName: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   customerSubtitle: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 12,
   },
   ordersRow: {
@@ -488,11 +467,11 @@ const styles = StyleSheet.create({
   },
   ordersLabel: {
     ...adminType.rowMeta,
-    color: PALETTE.textMuted,
+    color: adminColors.muted,
   },
   ordersCount: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
 
   // ─── Detail Card (Image 2) ───
@@ -500,7 +479,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: PALETTE.primary,
+    borderColor: adminColors.brand,
     padding: 16,
     marginBottom: 14,
     ...adminShadow.sm,
@@ -513,7 +492,7 @@ const styles = StyleSheet.create({
   },
   detailCustomerName: {
     ...adminType.title,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   detailGridRow: {
     flexDirection: 'row',
@@ -525,27 +504,27 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     ...adminType.body,
-    color: PALETTE.textSecondary,
+    color: adminColors.muted,
     marginBottom: 3,
   },
   detailValueCode: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   detailValuePhone: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   detailValueOrders: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   detailValueWallet: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   selectCustomerBtn: {
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 48,
     flexDirection: 'row',
@@ -586,7 +565,7 @@ const styles = StyleSheet.create({
   },
   confirmedNameText: {
     ...adminType.sectionHead,
-    color: PALETTE.textInk,
+    color: adminColors.ink,
   },
   changeBtnText: {
     ...adminType.sectionHead,
@@ -599,10 +578,10 @@ const styles = StyleSheet.create({
   noticeBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: PALETTE.noticeBg,
+    backgroundColor: adminColors.brandTint,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: PALETTE.noticeBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
@@ -612,7 +591,7 @@ const styles = StyleSheet.create({
   noticeBannerText: {
     flex: 1,
     ...adminType.body,
-    color: PALETTE.noticeText,
+    color: adminColors.brandDeep,
     lineHeight: 17,
   },
 
@@ -621,13 +600,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PALETTE.primary,
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
