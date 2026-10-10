@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { Alert, BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { tokenStorage } from './storage/tokenStorage';
@@ -136,8 +136,6 @@ import {
   HomeFlow,
   type AttentionFilter,
   MoreScreen,
-  SubWarehouseTaskActionCenterScreen,
-  SubWarehouseTaskDetailScreen,
   GoodsReceivingWizardScreen,
   ReceivingHistoryDetailScreen,
   ALERT_RECEIPT_ID,
@@ -1726,25 +1724,17 @@ export default function App(): React.JSX.Element {
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
-        ) : screen === 'SubWarehouseTaskActionCenter' ? (
-          <SubWarehouseTaskActionCenterScreen
+        ) : screen === 'SubWarehouseTaskActionCenter' || screen === 'SubWarehouseTaskDetail' ? (
+          // Shared task screens through HomeFlow (W4): the list opens Task Details inside the
+          // flow; an order task hands its order id to the Sub order detail. No task rbac code (ungated).
+          <HomeFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={screen === 'SubWarehouseTaskDetail' ? 'TaskDetail' : 'TaskActionCenter'}
+            initialParams={screen === 'SubWarehouseTaskDetail' ? { id: (params['taskId'] as string | undefined) ?? 'TSK-001' } : undefined}
             onBack={goBack}
-            onNavigateToTaskDetail={() => navigate('SubWarehouseTaskDetail')}
-            onNavigateToOrderDetail={() => navigate('SubWarehouseOrderDetail')}
-            onStartTask={(task) => {
-              if (task?.id === 'TSK-002' || task?.title?.includes('Pickup')) {
-                navigate('SubWarehouseOrderDetail');
-              } else {
-                navigate('SubWarehouseTaskDetail');
-              }
-            }}
-          />
-        ) : screen === 'SubWarehouseTaskDetail' ? (
-          <SubWarehouseTaskDetailScreen
-            onBack={goBack}
-            onMarkInProgress={() => {
-              Alert.alert('Task Updated', 'Task marked as In Progress');
-              goBack();
+            onOpenTarget={(target, ref) => {
+              if (target === 'OrderDetail') navigate('SubWarehouseOrderDetail', ref ? { orderNo: ref } : {});
             }}
           />
         ) : screen === 'SubWarehouseOrderDetail' ? (

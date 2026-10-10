@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
-import { AdminProfileScreen } from '../../admin/screens/dashboard/AdminProfileScreen';
 import {
   ALERT_RECEIPT_ID,
   GoodsReceivingWizardScreen,
@@ -49,8 +48,6 @@ import {
   type CustomersRouteParams,
 } from '../../admin/screens/warehouse/customers';
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
-import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
-import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
 import {
   StorageFlow,
@@ -633,15 +630,11 @@ export function SubWarehouseAdminDashboardScreen({
   // The open billing module: BillingFlow (hub, list, filters, detail, generate,
   // wizard, generated) owns its stack from here on (W4).
   const [showBilling, setShowBilling] = useState(false);
-  const [showTasks, setShowTasks] = useState(false);
-  const [showTaskDetail, setShowTaskDetail] = useState(false);
-  const [showOrderDetail, setShowOrderDetail] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(undefined);
+  // Order a HomeFlow task opened (Task / Action Center order tasks); null = closed.
+  const [taskOrderNo, setTaskOrderNo] = useState<string | null>(null);
   const [showExpenseRecord, setShowExpenseRecord] = useState(false);
   const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
 
-
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showWalletOperations, setShowWalletOperations] = useState(false);
   // The open returns (RMA) module: ReturnsFlow owns the stack from here on.
   const [returnsEntry, setReturnsEntry] = useState<{
@@ -755,36 +748,23 @@ export function SubWarehouseAdminDashboardScreen({
 
   const userName = user?.fullName?.split(' ')[0] ?? 'Suresh';
 
-  if (showTaskDetail) {
-    return (
-      <SubWarehouseTaskDetailScreen
-        onBack={() => setShowTaskDetail(false)}
-        onMarkInProgress={() => {
-          Alert.alert('Task Updated', 'Task marked as In Progress');
-          setShowTaskDetail(false);
-        }}
-      />
-    );
-  }
-
-  if (showOrderDetail) {
+  if (taskOrderNo !== null) {
+    // Order detail of a HomeFlow order task; back returns to the task list.
     return (
       <OrdersModule
         scope={scope}
         can={can}
         initialScreen="M5S04"
-        initialParams={{
-          orderId: selectedOrder?.orderNo || 'ORD-00251',
-          customerName: selectedOrder?.customer || selectedCustomer?.name || 'Rajesh Kumar',
-        }}
-        onBack={() => setShowOrderDetail(false)}
+        initialParams={{ orderId: taskOrderNo }}
+        onBack={() => setTaskOrderNo(null)}
         onTabChange={(tab) => {
-          setShowOrderDetail(false);
-          setCustomersEntry(null);
+          setTaskOrderNo(null);
+          setHomeEntry(null);
           setActiveTab(tab);
         }}
         onNavigateToOperationalIssues={() => {
-          setShowOrderDetail(false);
+          setTaskOrderNo(null);
+          setHomeEntry(null);
           setStorageEntry({ screen: 'OperationalIssues' });
         }}
       />
@@ -812,23 +792,6 @@ export function SubWarehouseAdminDashboardScreen({
         onTakeAction={() => {
           setShowGoodsReceiptDetail(false);
           setReceivingWizardStep('damage_mismatch');
-        }}
-      />
-    );
-  }
-
-  if (showTasks) {
-    return (
-      <SubWarehouseTaskActionCenterScreen
-        onBack={() => setShowTasks(false)}
-        onNavigateToTaskDetail={() => setShowTaskDetail(true)}
-        onNavigateToOrderDetail={() => setShowOrderDetail(true)}
-        onStartTask={(t) => {
-          if (t?.id === 'TSK-002' || t?.title?.includes('Pickup')) {
-            setShowOrderDetail(true);
-          } else {
-            setShowTaskDetail(true);
-          }
         }}
       />
     );
@@ -969,7 +932,8 @@ export function SubWarehouseAdminDashboardScreen({
   }
 
   if (homeEntry !== null) {
-    // Shared HomeFlow (W4 dashboard part 2): Warehouse Snapshot, scope-locked to this warehouse.
+    // Shared HomeFlow (W4 dashboard part 2): Warehouse Snapshot and the task screens, scope-locked
+    // to this warehouse. The order-detail early return above sits on top of it (taskOrderNo).
     return (
       <HomeFlow
         scope={scope}
@@ -981,7 +945,12 @@ export function SubWarehouseAdminDashboardScreen({
           setHomeEntry(null);
           setActiveTab(tab);
         }}
-        onOpenTarget={(target) => {
+        onOpenTarget={(target, ref) => {
+          if (target === 'OrderDetail') {
+            // Keep the flow open underneath: back from the order returns to the tasks.
+            setTaskOrderNo(ref ?? '');
+            return;
+          }
           setHomeEntry(null);
           if (target === 'Inventory') {
             setInventoryInitialScreen('M3S01');
@@ -1245,9 +1214,8 @@ export function SubWarehouseAdminDashboardScreen({
         scope={scope}
         can={can}
         initialScreen="CashTopUp"
-        initialParams={walletParamsForCustomer(
-          selectedCustomer ? { name: selectedCustomer.name, code: selectedCustomer.code } : undefined,
-        )}
+        // No customer is preselected from Home (the old selectedCustomer was never set).
+        initialParams={walletParamsForCustomer(undefined)}
         onBack={() => setShowCashTopUp(false)}
         onTabChange={(tab) => {
           setShowCashTopUp(false);

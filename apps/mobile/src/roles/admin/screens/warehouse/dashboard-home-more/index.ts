@@ -9,8 +9,10 @@ export {
 } from './StockAndTransferOverviewScreen';
 export { NeedsAttentionScreen, type NeedsAttentionScreenProps } from './NeedsAttentionScreen';
 export { WarehouseSnapshotScreen, type WarehouseSnapshotScreenProps } from './WarehouseSnapshotScreen';
+export { TaskActionCenterScreen, type TaskActionCenterScreenProps } from './TaskActionCenterScreen';
+export { TaskDetailScreen, type TaskDetailScreenProps } from './TaskDetailScreen';
 export { HOME_CODES } from './HomeParts';
-export { NEEDS_ATTENTION_ITEMS, WAREHOUSE_TODAY_COUNTS } from './fixtures';
+export { NEEDS_ATTENTION_ITEMS, TASKS, WAREHOUSE_TODAY_COUNTS } from './fixtures';
 export type {
   AttentionAction,
   AttentionCategory,
@@ -21,4 +23,8 @@ export type {
   HomeTarget,
   MoreOptionItem,
   OptionGroup,
+  TaskPriority,
+  TaskRecord,
+  TaskStatus,
+  WarehouseTodayCounts,
 } from './types';

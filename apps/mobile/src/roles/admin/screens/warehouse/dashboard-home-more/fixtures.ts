@@ -5,7 +5,49 @@
  * from a screen. No endpoint in docs/openapi.yaml serves these lists yet.
  */
 import { HOME_CODES } from './HomeParts';
-import type { AttentionItem, WarehouseTodayCounts } from './types';
+import type { AttentionItem, TaskRecord, WarehouseTodayCounts } from './types';
+
+/**
+ * Warehouse tasks (was INITIAL_TASKS in SubWarehouseTaskActionCenterScreen plus
+ * the QC task written into SubWarehouseTaskDetailScreen). Sub sees only its
+ * own warehouse's tasks.
+ */
+export const TASKS: readonly TaskRecord[] = [
+  {
+    id: 'TSK-001',
+    warehouseId: 'WH-COON',
+    referenceId: 'GR-00245',
+    title: 'QC Follow-up',
+    description: 'Review receiving exception for GR-00245.',
+    dueTime: 'Due Today · 12:30 PM',
+    dueToday: true,
+    dueDate: '25 Sep 2026 · 12:30 PM',
+    priority: 'HIGH',
+    status: 'Pending',
+    type: 'Goods Receipt',
+    assignedTo: 'Ramesh Kumar',
+    mine: true,
+    createdOn: '24 Sep 2026 · 10:15 AM',
+    opens: 'TaskDetail',
+  },
+  {
+    id: 'TSK-002',
+    warehouseId: 'WH-COON',
+    referenceId: 'ORD-10284',
+    title: 'Pickup Order',
+    description: 'Prepare order for customer pickup.',
+    dueTime: 'Due Today · 02:00 PM',
+    dueToday: true,
+    dueDate: '25 Sep 2026 · 02:00 PM',
+    priority: 'MEDIUM',
+    status: 'Pending',
+    type: 'Customer Order',
+    assignedTo: 'Suresh',
+    mine: false,
+    createdOn: '25 Sep 2026 · 08:40 AM',
+    opens: 'OrderDetail',
+  },
+];
 
 /**
  * Today's counts per seeded warehouse for the single-warehouse snapshot (was

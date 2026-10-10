@@ -6,6 +6,8 @@
  *   Stock & Transfer (Main)   -> host targets (initiate, transfers, low stock)
  *   Needs Attention (shared)  sales & order resolution queue, scope-filtered
  *   Warehouse Snapshot (shared, one warehouse) -> host targets (inventory, receiving, orders, operations)
+ *   Task / Action Center (shared) -> Task Details, or host 'OrderDetail' for an order task
+ *   (tasks have no rbac code: ungated, scope-locked; SPEC_GAPS W4z-3)
  *
  * Screens of other modules are not re-implemented: the host opens them through
  * `onOpenTarget`, so their own gates apply. navigate() refuses a route without
@@ -17,8 +19,19 @@ import { HOME_CODES } from './HomeParts';
 import { NeedsAttentionScreen } from './NeedsAttentionScreen';
 import { QuickActionsOverviewScreen } from './QuickActionsOverviewScreen';
 import { StockAndTransferOverviewScreen } from './StockAndTransferOverviewScreen';
+import { TaskActionCenterScreen } from './TaskActionCenterScreen';
+import { TaskDetailScreen } from './TaskDetailScreen';
 import { WarehouseSnapshotScreen } from './WarehouseSnapshotScreen';
-import type { HomeRoute, HomeRouteParams, HomeTarget, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
+import { TASKS } from './fixtures';
+import type {
+  HomeRoute,
+  HomeRouteParams,
+  HomeTarget,
+  PermissionCheck,
+  TaskRecord,
+  WarehouseScope,
+  WarehouseTab,
+} from './types';
 
 interface HomeStackEntry {
   screen: HomeRoute;
@@ -43,13 +56,26 @@ export interface HomeFlowProps {
   initialParams?: HomeRouteParams | undefined;
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
-  /** Host screens the flow does not own. */
-  onOpenTarget?: ((target: HomeTarget) => void) | undefined;
+  /** Host screens the flow does not own; `ref` is the record to open (an order id for 'OrderDetail'). */
+  onOpenTarget?: ((target: HomeTarget, ref?: string) => void) | undefined;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
+  /** Task list (mock); defaults to the seeded TASKS. */
+  tasks?: readonly TaskRecord[] | undefined;
 }
 
-export function HomeFlow({ scope, can, initialScreen, initialParams, onBack, onOpenTarget, onTabChange }: HomeFlowProps) {
+export function HomeFlow({
+  scope,
+  can,
+  initialScreen,
+  initialParams,
+  onBack,
+  onOpenTarget,
+  onTabChange,
+  tasks: initialTasks = TASKS,
+}: HomeFlowProps) {
   const [stack, setStack] = useState<HomeStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
+  // Mock task list owned by the flow so Mark as In Progress shows up in the list.
+  const [tasks, setTasks] = useState<readonly TaskRecord[]>(initialTasks);
 
   // A host that re-targets the open module restarts the stack (keyed on the value).
   const presetKey = `${initialParams?.id ?? ''}|${initialParams?.category ?? ''}`;
@@ -60,9 +86,18 @@ export function HomeFlow({ scope, can, initialScreen, initialParams, onBack, onO
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
 
+  const navigate = (screen: HomeRoute, nextParams?: HomeRouteParams) => {
+    if (!canOpenHomeRoute(screen, can)) return;
+    setStack((prev) => [...prev, { screen, params: nextParams }]);
+  };
   const back = () => {
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
+  };
+  /** A task opens its detail, or the order it is about in the host's order detail. */
+  const openTask = (task: TaskRecord) => {
+    if (task.opens === 'OrderDetail') onOpenTarget?.('OrderDetail', task.referenceId);
+    else navigate('TaskDetail', { id: task.id });
   };
   /** Handler for a host target, or undefined when the host does not offer targets. */
   const target = (t: HomeTarget) => (onOpenTarget !== undefined ? () => onOpenTarget(t) : undefined);
@@ -120,6 +155,20 @@ export function HomeFlow({ scope, can, initialScreen, initialParams, onBack, onO
           onNavigateToReceiving={target('ReceivingDashboard')}
           onNavigateToOrders={target('Orders')}
           onNavigateToOperations={target('Operations')}
+        />
+      );
+    case 'TaskActionCenter':
+      return <TaskActionCenterScreen scope={scope} can={can} onBack={back} tasks={tasks} onOpenTask={openTask} />;
+    case 'TaskDetail':
+      return (
+        <TaskDetailScreen
+          scope={scope}
+          can={can}
+          onBack={back}
+          task={tasks.find((t) => t.id === current.params?.id)}
+          onMarkInProgress={(id) =>
+            setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'In Progress' } : t)))
+          }
         />
       );
     default:

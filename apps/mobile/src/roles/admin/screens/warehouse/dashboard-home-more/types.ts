@@ -38,6 +38,35 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 
+export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
+
+/**
+ * One warehouse task (mock; no task endpoint or rbac code exists, SPEC_GAPS
+ * W4z-3). `opens` says where Start / tap leads: the task detail, or the order
+ * the task is about (handed to the host's order detail).
+ */
+export interface TaskRecord {
+  id: string;
+  warehouseId: string;
+  /** GR / order / RMA id the task is about. */
+  referenceId: string;
+  title: string;
+  description: string;
+  /** 'Due Today · 12:30 PM' */
+  dueTime: string;
+  dueToday: boolean;
+  dueDate: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  type: string;
+  assignedTo: string;
+  /** Assigned to the signed-in admin (the "My Tasks" chip). */
+  mine: boolean;
+  createdOn: string;
+  opens: 'TaskDetail' | 'OrderDetail';
+}
+
 /** Today's counts of one warehouse (mock; no dashboard summary endpoint yet). */
 export interface WarehouseTodayCounts {
   receipts: number;
@@ -78,7 +107,13 @@ export interface AttentionItem {
  * show* flags or sub-view keys). Quick Actions and Stock & Transfer are
  * Main-only (`warehouse.all.view`).
  */
-export type HomeRoute = 'QuickActions' | 'StockAndTransfer' | 'NeedsAttention' | 'WarehouseSnapshot';
+export type HomeRoute =
+  | 'QuickActions'
+  | 'StockAndTransfer'
+  | 'NeedsAttention'
+  | 'WarehouseSnapshot'
+  | 'TaskActionCenter'
+  | 'TaskDetail';
 
 /**
  * Screens HomeFlow does not own; the host opens them (shell sub-view, tab or
