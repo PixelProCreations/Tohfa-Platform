@@ -21,7 +21,6 @@ import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import { FinanceFlow } from '../warehouse/finance-expenses';
 import { ReportsScreen } from '../warehouse/reports';
-import { MainWarehouseStaffScreen } from './MainWarehouseStaffScreen';
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { makeCan } from '../../permissions/can';
 import type { WarehouseScope } from '../warehouse/finance-expenses';
@@ -1428,7 +1427,16 @@ export function MainWarehouseAdminDashboardScreen({
               onTabChange={handleMoreTabChange}
             />
           ) : moreSubScreen === 'staff' ? (
-            <MainWarehouseStaffScreen onBack={() => setMoreSubScreen(null)} />
+            // Shared staff & attendance flow (W4, M14) replaces the nested
+            // MainWarehouseStaff* / MainWarehouseAttendance screens. The roster needs
+            // warehouse.staff.list_view (MAIN all); MAIN_WAREHOUSE_SCOPE shows the selector.
+            <StaffFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="Staff"
+              onBack={() => setMoreSubScreen(null)}
+              onTabChange={handleMoreTabChange}
+            />
           ) : moreSubScreen === 'settings' ? (
             // Shared account hub (W4): Profile, Notification Settings, Security,
             // Change Password, Session & Security, Help & Support, About, Logout.
