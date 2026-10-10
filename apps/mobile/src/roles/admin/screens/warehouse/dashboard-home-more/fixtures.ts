@@ -62,8 +62,9 @@ export const WAREHOUSE_TODAY_COUNTS: Readonly<Record<string, WarehouseTodayCount
 };
 
 /**
- * Sales & order resolution queue (was INITIAL_ITEMS in
- * SubWarehouseNeedsAttentionScreen, all Coonoor). 'Approve & Issue Invoice'
+ * Sales & order resolution queue for the shared NeedsAttentionScreen (seeded
+ * from the deleted Sub-only Needs Attention screen's rows, all Coonoor; both
+ * shells now open it through HomeFlow). 'Approve & Issue Invoice'
  * needs invoice.generate; 'Edit Tax Details' needs invoice.gst.generate, which
  * no warehouse role holds, so it is hidden for both shells.
  */
