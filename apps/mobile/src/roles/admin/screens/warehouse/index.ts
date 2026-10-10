@@ -14,7 +14,6 @@ export * from './ShipmentDetailScreen';
 export * from './ReceivingHistoryScreen';
 export * from './TransferReceivingScreen';
 export * from './TransferReceivingInspectionScreen';
-export * from './WarehouseOperationsHubScreen';
 export * from './ManageWarehousesScreen';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).

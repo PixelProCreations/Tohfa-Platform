@@ -1,6 +1,6 @@
 /**
- * In-module navigator for the warehouse storage-ops screens, part A (design
- * module M4).
+ * In-module navigator for the warehouse storage-ops screens (design module
+ * M4, parts A and B).
  *
  *   Material Handling -> Material Detail -> Add Material (Add Stock)
  *                     -> Add Material (Add Material / Receive)
@@ -8,6 +8,10 @@
  *   Storage Location Assignment          (host: confirmed location)
  *   Warehouse Capacity                   (host: history, Manage Capacity Limits)
  *   Warehouse Performance (Main)         (host: warehouse, operations log, staff)
+ *   Warehouse Operations (hub) -> Material Handling / Capacity / Operational
+ *                                 Issues / Warehouse Activity (in the flow)
+ *                              -> storage locations, staff, receiving, stock
+ *                                 verification (host, onOpenModule)
  *   Warehouse Activity (Today / All preset) -> Activity Detail -> owning module
  *   Operational Issues -> Issue Detail
  *                      -> Report an Issue (operational) -> Request Submitted
@@ -19,8 +23,8 @@
  * The screens used to be stitched three times (App.tsx keys, the Sub shell's
  * show* flags and Main's whSubView branches), none of which passed `scope` /
  * `can`. This flow owns the stack, so every step gets the viewer's scope and
- * `can`. Hops that leave the module (warehouse activity, Inventory & Stock,
- * the receiving flow) go to the host.
+ * `can`. Hops that leave the module (Inventory & Stock, the receiving flow,
+ * storage locations, staff, orders, cash, QC) go to the host.
  *
  * Gates: Add Material needs `inventory.material_handling.manage` and
  * Warehouse Performance needs `warehouse.all.view`; navigate() refuses them
@@ -45,6 +49,7 @@ import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { STORAGE_CODES } from './StorageParts';
 import { WarehouseActivityScreen } from './WarehouseActivityScreen';
 import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
+import { WarehouseOperationsScreen } from './WarehouseOperationsScreen';
 import { WarehousePerformanceScreen } from './WarehousePerformanceScreen';
 import type {
   ActivityModule,
@@ -101,7 +106,11 @@ export interface StorageFlowProps {
   onConfirmAssignment?: ((locationId: string) => void) | undefined;
   /** Capacity "Manage Capacity Limits" (Warehouse Settings); the screen also needs warehouse.capacity.set. */
   onManageCapacity?: (() => void) | undefined;
-  /** Performance warehouse card (by display name, as the Main shell keys warehouses). */
+  /** Operations hub bell. */
+  onOpenNotifications?: (() => void) | undefined;
+  /** Operations hub (Main) Warehouse Overview "View" link. */
+  onOpenWarehouseOverview?: (() => void) | undefined;
+  /** Performance / Operations hub warehouse card (by display name, as the Main shell keys warehouses). */
   onSelectWarehouse?: ((warehouseName: string) => void) | undefined;
   /** Performance "Operations log"; defaults to the flow's Warehouse Activity (All). */
   onViewOperationsHistory?: (() => void) | undefined;
@@ -128,6 +137,8 @@ export function StorageFlow({
   onViewProductDetail,
   onConfirmAssignment,
   onManageCapacity,
+  onOpenNotifications,
+  onOpenWarehouseOverview,
   onSelectWarehouse,
   onViewOperationsHistory,
   onViewStaffAttendance,
@@ -242,6 +253,21 @@ export function StorageFlow({
           onSelectWarehouse={onSelectWarehouse}
           onViewOperationsHistory={onViewOperationsHistory ?? (() => navigate('Activity', { activityPreset: 'All' }))}
           onViewStaffAttendance={onViewStaffAttendance}
+        />
+      );
+    case 'Operations':
+      return (
+        <WarehouseOperationsScreen
+          {...common}
+          onOpenMaterials={() => navigate('MaterialHandling')}
+          onOpenCapacity={() => navigate('Capacity')}
+          onOpenIssues={() => navigate('OperationalIssues')}
+          onOpenActivity={(activityPreset) => navigate('Activity', { activityPreset })}
+          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
+          onOpenModule={openModule}
+          onOpenNotifications={onOpenNotifications}
+          onOpenWarehouseOverview={onOpenWarehouseOverview}
+          onSelectWarehouse={onSelectWarehouse}
         />
       );
     case 'Activity':

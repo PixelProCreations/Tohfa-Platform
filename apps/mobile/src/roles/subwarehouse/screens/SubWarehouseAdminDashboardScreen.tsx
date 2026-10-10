@@ -55,7 +55,6 @@ import {
   type StorageRoute,
   type StorageRouteParams,
 } from '../../admin/screens/warehouse/storage-ops';
-import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 import {
   ExpenseDetailScreen,
   FinanceFlow,
@@ -1064,7 +1063,6 @@ export function SubWarehouseAdminDashboardScreen({
   const [showSalesScreen, setShowSalesScreen] = useState(false);
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showWarehouseOperations, setShowWarehouseOperations] = useState(false);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   // The open storage-ops module (W4, M4 part A): StorageFlow owns the stack from here on.
   // closeOnBack: opened from the Home tab (Recent Activity), so back closes the flow
@@ -1550,7 +1548,6 @@ export function SubWarehouseAdminDashboardScreen({
     const openStock = () => {
       setSelectedStorageLocationId(null);
       setShowStorageInfo(false);
-      setShowWarehouseOperations(false);
       setInventoryInitialScreen('M3S02');
       setActiveTab('Inventory');
     };
@@ -1588,7 +1585,7 @@ export function SubWarehouseAdminDashboardScreen({
         onBack={() => {
           // Back from Storage List → go back to Profile or Operations
           setShowStorageInfo(false);
-          if (!showProfile) setShowWarehouseOperations(true);
+          if (!showProfile) setStorageEntry({ screen: 'Operations' });
         }}
         onTabChange={(tab) => {
           setShowStorageInfo(false);
@@ -1597,56 +1594,6 @@ export function SubWarehouseAdminDashboardScreen({
         onSelectStorageLocation={(id) => {
           setShowStorageInfo(false);
           setSelectedStorageLocationId(id);
-        }}
-      />
-    );
-  }
-
-  if (showWarehouseOperations) {
-    return (
-      <SubWarehouseWarehouseOperationsScreen
-        onBack={() => setShowWarehouseOperations(false)}
-        onNavigateToStorageLocations={() => {
-          setShowWarehouseOperations(false);
-          setShowStorageInfo(true);
-        }}
-        onNavigateToCapacity={() => {
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'Capacity' });
-        }}
-        onNavigateToMaterialHandling={() => {
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'MaterialHandling' });
-        }}
-        onNavigateToOperationalIssues={() => {
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'OperationalIssues' });
-        }}
-        onNavigateToStaffAttendance={() => {
-          setShowWarehouseOperations(false);
-          setStaffEntry({ screen: 'Attendance', filter: 'All' });
-        }}
-        onNavigateToReceiveGoods={() => {
-          setShowWarehouseOperations(false);
-          setReceivingSubView('incoming_shipments');
-          setActiveTab('Receiving');
-        }}
-        onNavigateToStockVerification={() => {
-          setShowWarehouseOperations(false);
-          setInventoryInitialScreen('M3S10');
-          setActiveTab('Inventory');
-        }}
-        onNavigateToWarehouseActivity={() => {
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'Activity' });
-        }}
-        onNavigateToTodayOperations={() => {
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' } });
-        }}
-        onTabChange={(tab) => {
-          setShowWarehouseOperations(false);
-          setActiveTab(tab);
         }}
       />
     );
@@ -1702,7 +1649,8 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (storageEntry) {
     return (
-      // Shared storage-ops flow (W4, M4 part A), scope-locked to this warehouse.
+      // Shared storage-ops flow (W4, M4 parts A and B), scope-locked to this warehouse:
+      // the Warehouse Operations hub, materials, capacity, activity and operational issues.
       // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own);
       // capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
       <StorageFlow
@@ -1711,9 +1659,10 @@ export function SubWarehouseAdminDashboardScreen({
         initialScreen={storageEntry.screen}
         initialParams={storageEntry.params}
         onBack={() => {
-          const close = storageEntry.closeOnBack === true;
-          setStorageEntry(null);
-          if (!close) setShowWarehouseOperations(true);
+          // Back from the hub (or an entry opened from Home) closes the flow; a
+          // module opened directly returns to the hub, as the old screens did.
+          const close = storageEntry.closeOnBack === true || storageEntry.screen === 'Operations';
+          setStorageEntry(close ? null : { screen: 'Operations' });
         }}
         onOpenModule={(module) => {
           // Activity records / Today tiles owned by modules outside storage-ops.
@@ -3895,25 +3844,10 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowFinanceScreen(true);
             }}
             onNavigateToWarehouseOperations={() => {
-              setShowWarehouseOperations(true);
+              setStorageEntry({ screen: 'Operations' });
             }}
             onNavigateToStorageLocations={() => {
               setShowStorageInfo(true);
-            }}
-            onNavigateToCapacity={() => {
-              setStorageEntry({ screen: 'Capacity' });
-            }}
-            onNavigateToMaterialHandling={() => {
-              setStorageEntry({ screen: 'MaterialHandling' });
-            }}
-            onNavigateToOperationalIssues={() => {
-              setStorageEntry({ screen: 'OperationalIssues' });
-            }}
-            onNavigateToWarehouseActivity={() => {
-              setStorageEntry({ screen: 'Activity' });
-            }}
-            onNavigateToTodayOperations={() => {
-              setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' } });
             }}
             onNavigateToReceiveGoods={() => {
               setReceivingSubView('incoming_shipments');

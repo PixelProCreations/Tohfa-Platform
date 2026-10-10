@@ -48,7 +48,6 @@ import {
   ReceivingHistoryScreen,
   TransferReceivingScreen,
   TransferReceivingInspectionScreen,
-  WarehouseOperationsHubScreen,
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
@@ -1529,25 +1528,24 @@ export function MainWarehouseAdminDashboardScreen({
               // monitoring card show for the all-warehouses scope.
               renderActivityFlow(ACTIVITY_TODAY_PARAMS)
             ) : whSubView === 'warehouse_operations' ? (
-              <WarehouseOperationsHubScreen
-                showBack={true}
+              // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
+              // selector (replaces the shell's filter modal here); per-warehouse cards,
+              // Open Issues / Operations History tiles need warehouse.all.view. Materials,
+              // capacity, issues and activity open inside the flow.
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="Operations"
                 onBack={goBackWh}
-                selectedWarehouse={selectedWHFilter}
-                onOpenWarehouseFilter={() => setShowFilterModal(true)}
+                onOpenModule={openMainModule}
+                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
                 onOpenNotifications={() => navigateWh('warehouse_notifications')}
-                onNavigateWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onNavigateTodaysOperations={() => navigateWh('todays_operations_overview')}
-                onNavigateNeedsAttention={() => navigateWh('operational_issues')}
-                onNavigateStorageLocations={() => navigateWh('storage_locations')}
-                onNavigateMaterialHandling={() => navigateWh('material_handling')}
-                onNavigateWarehouseCapacity={() => navigateWh('warehouse_capacity')}
-                onNavigateOperationalIssues={() => navigateWh('operational_issues')}
-                onNavigateStaffAttendance={() => navigateWh('staff_attendance')}
-                onNavigateOperationsHistory={() => navigateWh('operations_history')}
-                onSelectWarehouseDetail={(whName) => {
+                onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
+                onSelectWarehouse={(whName) => {
                   setSelectedWHName(whName);
                   navigateWh('warehouse_city_detail');
                 }}
+                onManageCapacity={() => navigateWh('warehouse_settings')}
               />
             ) : whSubView === 'warehouse_overview' ? (
               <WarehouseOverviewScreen

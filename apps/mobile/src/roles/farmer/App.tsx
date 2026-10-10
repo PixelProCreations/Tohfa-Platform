@@ -158,7 +158,6 @@ import {
   type NotificationsRoute,
   type NotificationsRouteParams,
   type FinanceRouteParams,
-  SubWarehouseWarehouseOperationsScreen,
   ReportsScreen,
   ProfileFlow,
   type ProfileRoute,
@@ -733,8 +732,19 @@ const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?
  * StorageFlow and the screen check it.
  */
 const STORAGE_ROUTE_ENTRY: Partial<
-  Record<ScreenName, { route: StorageRoute; back: ScreenName; params?: StorageRouteParams | undefined }>
+  Record<
+    ScreenName,
+    {
+      route: StorageRoute;
+      back: ScreenName;
+      backParams?: Record<string, unknown> | undefined;
+      params?: StorageRouteParams | undefined;
+    }
+  >
 > = {
+  // Part B: the Warehouse Operations hub; its materials / capacity / issues /
+  // activity tiles open inside the flow, the rest leave through onOpenModule.
+  SubWarehouseWarehouseOperations: { route: 'Operations', back: 'SubWarehouseAdminDashboard', backParams: { initialTab: 'More' } },
   SubWarehouseMaterialHandling: { route: 'MaterialHandling', back: 'SubWarehouseWarehouseOperations' },
   SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
@@ -1568,10 +1578,6 @@ export default function App(): React.JSX.Element {
             onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
             onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
             onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToCapacity={() => navigate('SubWarehouseCapacity')}
-            onNavigateToMaterialHandling={() => navigate('SubWarehouseMaterialHandling')}
-            onNavigateToOperationalIssues={() => navigate('SubWarehouseOperationalIssues')}
-            onNavigateToWarehouseActivity={() => navigate('SubWarehouseWarehouseActivity')}
             onNavigateToSettings={() => navigate('SubWarehouseSettings')}
             onLogout={() => navigate('Login')}
           />
@@ -1799,34 +1805,17 @@ export default function App(): React.JSX.Element {
               else if (tab === 'More') navigate('WarehouseMore');
             }}
           />
-        ) : screen === 'SubWarehouseWarehouseOperations' ? (
-          <SubWarehouseWarehouseOperationsScreen
-            onBack={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'More' })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseAdminDashboard', { initialTab: 'More' });
-            }}
-            onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToCapacity={() => navigate('SubWarehouseCapacity')}
-            onNavigateToMaterialHandling={() => navigate('SubWarehouseMaterialHandling')}
-            onNavigateToOperationalIssues={() => navigate('SubWarehouseOperationalIssues')}
-            onNavigateToStaffAttendance={() => navigate('SubWarehouseTodayAttendance')}
-            onNavigateToReceiveGoods={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' })}
-            onNavigateToStockVerification={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' })}
-            onNavigateToTodayOperations={() => navigate('SubWarehouseTodayOperations')}
-            onNavigateToWarehouseActivity={() => navigate('SubWarehouseWarehouseActivity')}
-          />
         ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
           // The storage-ops screens live in the shared warehouse/storage-ops area
-          // (W4, M4 part A); each old key opens StorageFlow on the matching route.
+          // (W4, M4 parts A and B); each old key opens StorageFlow on the matching route.
           <StorageFlow
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
             initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
             initialParams={storageParams}
-            onBack={() => navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations')}
+            onBack={() =>
+              navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations', STORAGE_ROUTE_ENTRY[screen]?.backParams)
+            }
             onSupportRequestDone={() => navigate('SubWarehouseSettings')}
             onOpenModule={openSubWarehouseModule}
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
@@ -1835,7 +1824,9 @@ export default function App(): React.JSX.Element {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
               else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
+              // More from the hub itself returns to the dashboard's More tab, as the old hub did.
+              else if (tab === 'More')
+                navigate(screen === 'SubWarehouseWarehouseOperations' ? 'SubWarehouseAdminDashboard' : 'SubWarehouseWarehouseOperations', screen === 'SubWarehouseWarehouseOperations' ? { initialTab: 'More' } : {});
             }}
           />
         ) : screen === 'SubWarehouseReports' ? (

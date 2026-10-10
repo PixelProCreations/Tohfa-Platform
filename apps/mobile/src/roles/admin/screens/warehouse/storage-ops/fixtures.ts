@@ -13,6 +13,7 @@ import { STORAGE_LOCATIONS } from '../profile-settings/warehouseFixtures';
 import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import type {
   ActivityItem,
+  AttentionItem,
   IssueSeverity,
   LocationLayout,
   LocationStockItem,
@@ -21,6 +22,7 @@ import type {
   MaterialItem,
   MaterialOption,
   OperationalIssue,
+  OperationsSummary,
   PerformanceKpi,
   ReportIssueMode,
   StorageLocationItem,
@@ -234,6 +236,24 @@ export const ACTIVITIES: readonly ActivityItem[] = [
   { id: 'ACT-004817', title: 'Storage location updated', category: 'Storage', module: 'storage', warehouseId: 'WH-COON', subtitle: 'Rack 03 · Ambient · Potato 220 KG placed', performedBy: 'Suresh · SWA', day: 'Yesterday', when: 'Yesterday · 02:30 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Pallet position confirmed in Rack 03 Shelf 01', reference: 'Batch BAT-COO-00238', notes: 'Ambient storage zone allocated.' },
   { id: 'ACT-004790', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'VER-0021 · full cycle count', performedBy: 'Suresh · SWA', day: 'Earlier', when: '28 Sep 2026, 09:30 AM', timeOfDay: 'morning', status: 'Completed', action: 'Stock verification VER-0021 completed', reference: 'Verification Log VER-0021', notes: 'Long-term operations history record.' },
   { id: 'ACT-004781', title: 'Material Issued', category: 'Material Handling', module: 'material_handling', warehouseId: 'WH-COON', subtitle: 'Packaging Box · 20 units', performedBy: 'Suresh · SWA', day: 'Earlier', when: '27 Sep 2026, 04:20 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Material issued · Packaging Box (20 units)', reference: 'Material MAT-0021', notes: 'Long-term operations history record.' },
+];
+
+// ─── Part B: Warehouse Operations hub ────────────────────────────────────────
+
+/** Operations snapshot per warehouse (demo; summed / averaged for the Main view). */
+export const OPERATIONS_SUMMARY: readonly OperationsSummary[] = [
+  { warehouseId: 'WH-COON', storageLocations: 18, occupancyPercent: 72, materialItems: 42, staffPresent: 8, staffTotal: 10, activitiesToday: 28, historyRecords: 26, receivingShipments: 3, storageMovements: 5, verificationPending: 2 },
+  { warehouseId: 'WH-OOTY', storageLocations: 22, occupancyPercent: 68, materialItems: 38, staffPresent: 7, staffTotal: 9, activitiesToday: 24, historyRecords: 31, receivingShipments: 5, storageMovements: 9, verificationPending: 3 },
+  { warehouseId: 'WH-KOTA', storageLocations: 12, occupancyPercent: 61, materialItems: 21, staffPresent: 6, staffTotal: 8, activitiesToday: 14, historyRecords: 15, receivingShipments: 2, storageMovements: 4, verificationPending: 2 },
+  { warehouseId: 'WH-GUDA', storageLocations: 10, occupancyPercent: 55, materialItems: 17, staffPresent: 6, staffTotal: 7, activitiesToday: 11, historyRecords: 12, receivingShipments: 2, storageMovements: 3, verificationPending: 1 },
+];
+
+/** Needs Attention cards of the hub (demo). */
+export const ATTENTION_ITEMS: readonly AttentionItem[] = [
+  { id: 'att-1', warehouseId: 'WH-COON', title: 'Storage Location Issue', detail: 'Rack A-03 requires attention', tone: 'danger', module: 'storage' },
+  { id: 'att-2', warehouseId: 'WH-COON', title: 'Material Low', detail: 'Packaging boxes', tone: 'warning', module: 'material_handling' },
+  { id: 'att-3', warehouseId: 'WH-COON', title: 'Operational Issue', detail: 'Cold storage maintenance', tone: 'danger', module: 'operational_issue' },
+  { id: 'att-4', warehouseId: 'WH-KOTA', title: 'Stock Count Variance', detail: 'Dry Storage A · Beans -12 KG', tone: 'warning', module: 'operational_issue' },
 ];
 
 /** Today's operation counts per warehouse (demo; summed for the Main view). */

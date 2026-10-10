@@ -24,7 +24,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ReportsScreen } from '../reports';
 import { FinanceFlow } from '../finance-expenses/FinanceFlow';
 import { ProfileFlow } from '../profile-settings';
-import { SubWarehouseWarehouseOperationsScreen } from '../../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
+import { StorageFlow } from '../storage-ops';
 import { CustomersFlow } from '../customers';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -531,11 +531,8 @@ export interface MoreScreenProps extends WarehouseScreenBaseProps {
   onNavigateToHelpSupport?: (() => void) | undefined;
   onNavigateToWarehouseOperations?: (() => void) | undefined;
   onNavigateToStorageLocations?: (() => void) | undefined;
-  onNavigateToCapacity?: (() => void) | undefined;
-  onNavigateToMaterialHandling?: (() => void) | undefined;
-  onNavigateToOperationalIssues?: (() => void) | undefined;
-  onNavigateToWarehouseActivity?: (() => void) | undefined;
-  onNavigateToTodayOperations?: (() => void) | undefined;
+  // Materials, capacity, operational issues and warehouse activity open inside
+  // the shared storage-ops hub (StorageFlow), so they need no host callbacks.
   onNavigateToReceiveGoods?: (() => void) | undefined;
   onNavigateToStockVerification?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
@@ -566,11 +563,6 @@ export function MoreScreen({
   onNavigateToHelpSupport,
   onNavigateToWarehouseOperations,
   onNavigateToStorageLocations,
-  onNavigateToCapacity,
-  onNavigateToMaterialHandling,
-  onNavigateToOperationalIssues,
-  onNavigateToWarehouseActivity,
-  onNavigateToTodayOperations,
   onNavigateToReceiveGoods,
   onNavigateToStockVerification,
   onLogout,
@@ -828,47 +820,27 @@ export function MoreScreen({
   }
 
   if (showWarehouseOperationsScreen) {
+    // Shared storage-ops hub (W4 storage-ops part B): materials, capacity,
+    // operational issues and warehouse activity open inside StorageFlow; the
+    // rest leave through this screen's host callbacks.
+    const close = () => setShowWarehouseOperationsScreen(false);
     return (
-      <SubWarehouseWarehouseOperationsScreen
-        onBack={() => setShowWarehouseOperationsScreen(false)}
+      <StorageFlow
+        scope={scope}
+        can={can}
+        initialScreen="Operations"
+        onBack={close}
         onTabChange={onTabChange}
-        onNavigateToReceiveGoods={() => {
-          setShowWarehouseOperationsScreen(false);
-          if (onNavigateToReceiveGoods) onNavigateToReceiveGoods();
-          else onTabChange?.('Receiving');
-        }}
-        onNavigateToStockVerification={() => {
-          setShowWarehouseOperationsScreen(false);
-          if (onNavigateToStockVerification) onNavigateToStockVerification();
-          else onTabChange?.('Inventory');
-        }}
-        onNavigateToStaffAttendance={() => {
-          setShowWarehouseOperationsScreen(false);
-          if (onNavigateToAttendance) onNavigateToAttendance();
-        }}
-        onNavigateToStorageLocations={() => {
-          setShowWarehouseOperationsScreen(false);
-          onNavigateToStorageLocations?.();
-        }}
-        onNavigateToCapacity={() => {
-          setShowWarehouseOperationsScreen(false);
-          onNavigateToCapacity?.();
-        }}
-        onNavigateToMaterialHandling={() => {
-          setShowWarehouseOperationsScreen(false);
-          onNavigateToMaterialHandling?.();
-        }}
-        onNavigateToOperationalIssues={() => {
-          setShowWarehouseOperationsScreen(false);
-          onNavigateToOperationalIssues?.();
-        }}
-        onNavigateToWarehouseActivity={() => {
-          setShowWarehouseOperationsScreen(false);
-          onNavigateToWarehouseActivity?.();
-        }}
-        onNavigateToTodayOperations={() => {
-          setShowWarehouseOperationsScreen(false);
-          onNavigateToTodayOperations?.();
+        onOpenModule={(module) => {
+          close();
+          if (module === 'receiving') {
+            if (onNavigateToReceiveGoods) onNavigateToReceiveGoods();
+            else onTabChange?.('Receiving');
+          } else if (module === 'verification') {
+            if (onNavigateToStockVerification) onNavigateToStockVerification();
+            else onTabChange?.('Inventory');
+          } else if (module === 'staff') onNavigateToAttendance?.();
+          else if (module === 'storage') onNavigateToStorageLocations?.();
         }}
       />
     );

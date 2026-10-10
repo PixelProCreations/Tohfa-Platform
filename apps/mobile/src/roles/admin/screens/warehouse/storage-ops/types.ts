@@ -232,6 +232,32 @@ export interface TodayMetrics {
   staffPresent: number;
 }
 
+/** One warehouse's operations snapshot (Warehouse Operations hub tiles and cards). */
+export interface OperationsSummary {
+  warehouseId: string;
+  storageLocations: number;
+  occupancyPercent: number;
+  materialItems: number;
+  staffPresent: number;
+  staffTotal: number;
+  activitiesToday: number;
+  /** Rows in the long-term operations history (Main's Operations History tile). */
+  historyRecords: number;
+  receivingShipments: number;
+  storageMovements: number;
+  verificationPending: number;
+}
+
+/** One Needs Attention card of the hub; `module` is where it leads. */
+export interface AttentionItem {
+  id: string;
+  warehouseId: string;
+  title: string;
+  detail: string;
+  tone: 'danger' | 'warning';
+  module: ActivityModule;
+}
+
 /** Screens of the storage-ops flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StorageRoute =
   | 'MaterialHandling'
@@ -241,6 +267,7 @@ export type StorageRoute =
   | 'StorageLocationAssignment'
   | 'Capacity'
   | 'Performance'
+  | 'Operations'
   | 'Activity'
   | 'ActivityDetail'
   | 'OperationalIssues'
