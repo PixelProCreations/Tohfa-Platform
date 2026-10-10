@@ -18,6 +18,7 @@
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
 import { ChannelSalesScreen } from './ChannelSalesScreen';
@@ -116,6 +117,13 @@ export function SalesFlow({
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
   const startNewSale = () => {
     setCart([]);
     setCustomer(null);

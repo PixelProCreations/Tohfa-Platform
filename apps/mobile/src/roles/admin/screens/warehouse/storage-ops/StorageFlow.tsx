@@ -34,6 +34,7 @@
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { ActivityDetailScreen } from './ActivityDetailScreen';
 import { AddMaterialScreen } from './AddMaterialScreen';
@@ -179,6 +180,13 @@ export function StorageFlow({
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
   /** Pop back to the nearest `screen` on the stack, or restart the stack on it. */
   const backTo = (screen: StorageRoute) => {
     setStack((prev) => {

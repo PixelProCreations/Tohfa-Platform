@@ -21,7 +21,7 @@
  * each step again). The server re-checks every action (CLAUDE.md 2.1).
  */
 import React, { useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { useFlowBack } from '../useFlowBack';
 
 import { StorageFlow } from '../storage-ops';
 import { EMPTY_RECEIVING_FILTERS, findReceivingRecord, findShipment, recordsInScope, shipmentsInScope } from './fixtures';
@@ -160,12 +160,10 @@ export function ReceivingFlow({
   };
 
   // Hardware back walks the flow's own stack (the shells defer to it while it is open).
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      back();
-      return true;
-    });
-    return () => sub.remove();
+  // Always handled: at the root back() hands over to the host through onBack.
+  useFlowBack(() => {
+    back();
+    return true;
   });
 
   const common = { scope, can, onBack: back };

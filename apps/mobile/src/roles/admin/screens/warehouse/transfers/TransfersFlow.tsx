@@ -16,6 +16,7 @@
  * Shared and scope-locked (Sub: incoming transfers only).
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { TRANSFERS } from './fixtures';
 import { InitiateNewTransferScreen } from './InitiateNewTransferScreen';
@@ -68,6 +69,13 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
   /** Return to the list (or leave, when the flow did not start on it). */
   const backToList = () => {
     const index = stack.map((e) => e.screen).lastIndexOf('Transfers');

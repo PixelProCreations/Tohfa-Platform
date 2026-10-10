@@ -26,7 +26,7 @@
  * detail stays with the host (`onSelectStorageLocation`).
  */
 import React, { useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { useFlowBack } from '../useFlowBack';
 
 import { AboutScreen } from './AboutScreen';
 import { ContactScreen } from './ContactScreen';
@@ -92,12 +92,10 @@ export function ProfileFlow({
   };
 
   // Hardware back walks the flow's own stack.
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      back();
-      return true;
-    });
-    return () => sub.remove();
+  // Always handled: at the root back() hands over to the host through onBack.
+  useFlowBack(() => {
+    back();
+    return true;
   });
 
   const common = { scope, can, onBack: back, onTabChange };

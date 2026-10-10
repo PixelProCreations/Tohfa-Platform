@@ -21,6 +21,7 @@
  * old 'SubWarehouseTodayAttendance' key opens Attendance on the 'All' chip.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { AttendanceDetailScreen } from './AttendanceDetailScreen';
 import { AttendanceHistoryScreen } from './AttendanceHistoryScreen';
@@ -76,6 +77,13 @@ export function StaffFlow({ scope, can, initialScreen = 'Staff', initialParams, 
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
   /** Success "Back to Staff List": drop the edit and detail entries. */
   const backToStaffList = () => {
     const index = stack.map((e) => e.screen).lastIndexOf('Staff');

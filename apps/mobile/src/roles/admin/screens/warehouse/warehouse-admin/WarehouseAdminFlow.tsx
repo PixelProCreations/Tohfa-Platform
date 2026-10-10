@@ -16,6 +16,7 @@
  * each screen renders a not-available note if opened directly.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { ProfileFlow } from '../profile-settings';
 import { StorageFlow } from '../storage-ops';
@@ -94,6 +95,13 @@ export function WarehouseAdminFlow({
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
 
   const openDetail = (warehouseId: string) => navigate('WarehouseCityDetail', { warehouseId });
   const openSettings = (warehouseId: string) => navigate('WarehouseSettings', { warehouseId });

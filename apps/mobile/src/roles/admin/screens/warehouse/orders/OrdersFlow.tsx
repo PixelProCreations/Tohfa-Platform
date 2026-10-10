@@ -13,6 +13,7 @@
  * are gone; callers pass `{ step }` to the survivor instead (see ./types).
  */
 import React, { useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
 import { OrderFiltersScreen } from '../customers';
@@ -91,6 +92,13 @@ export function OrdersFlow({
       onBack();
     }
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
 
   const common = {
     scope,

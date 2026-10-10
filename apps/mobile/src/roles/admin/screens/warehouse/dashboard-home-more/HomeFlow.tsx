@@ -14,6 +14,7 @@
  * its code and each screen renders a not-available note if opened directly.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { HOME_CODES } from './HomeParts';
 import { NeedsAttentionScreen } from './NeedsAttentionScreen';
@@ -94,6 +95,13 @@ export function HomeFlow({
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
   /** A task opens its detail, or the order it is about in the host's order detail. */
   const openTask = (task: TaskRecord) => {
     if (task.opens === 'OrderDetail') onOpenTarget?.('OrderDetail', task.referenceId);

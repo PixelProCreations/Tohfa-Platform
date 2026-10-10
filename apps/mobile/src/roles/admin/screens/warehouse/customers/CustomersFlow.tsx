@@ -19,6 +19,7 @@
  * and navigate to their own route.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { CustomerDetailsScreen } from './CustomerDetailsScreen';
 import { CustomerIssueDetailScreen } from './CustomerIssueDetailScreen';
@@ -134,6 +135,13 @@ export function CustomersFlow({
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
 
   const common = { scope, can, onBack: back, onTabChange };
 

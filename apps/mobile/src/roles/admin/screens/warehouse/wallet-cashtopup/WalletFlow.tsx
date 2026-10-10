@@ -17,7 +17,7 @@
  * 'transaction' variant (SubWarehouseTransactionDetailScreen was absorbed).
  */
 import React, { useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { useFlowBack } from '../useFlowBack';
 
 import { CustomerSearchScreen } from '../customers/CustomerSearchScreen';
 import { CashTopUpScreen } from './CashTopUpScreen';
@@ -139,12 +139,10 @@ export function WalletFlow({
   };
 
   // Hardware back walks the flow's own stack (the W2b hub did this for its sub-screens).
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      back();
-      return true;
-    });
-    return () => sub.remove();
+  // Always handled: at the root back() hands over to the host through onBack.
+  useFlowBack(() => {
+    back();
+    return true;
   });
 
   const common = { scope, can, onBack: back, onTabChange };

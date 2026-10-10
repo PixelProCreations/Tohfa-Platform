@@ -19,7 +19,7 @@
  * keeps the mock list for the scope itself.
  */
 import React, { useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { useFlowBack } from '../useFlowBack';
 
 import { ApprovalAlertsScreen } from './ApprovalAlertsScreen';
 import { defaultNotifications, NOTIFICATION_WAREHOUSES } from './fixtures';
@@ -116,12 +116,10 @@ export function NotificationsFlow({
   };
 
   // Hardware back walks the flow's own stack.
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      back();
-      return true;
-    });
-    return () => sub.remove();
+  // Always handled: at the root back() hands over to the host through onBack.
+  useFlowBack(() => {
+    back();
+    return true;
   });
 
   const common = { scope, can, onBack: back, onTabChange };

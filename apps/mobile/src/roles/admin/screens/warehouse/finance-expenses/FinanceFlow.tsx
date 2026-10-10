@@ -20,7 +20,7 @@
  * no approve code exists) is ExpenseDetail.
  */
 import React, { useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { useFlowBack } from '../useFlowBack';
 
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
@@ -127,12 +127,10 @@ export function FinanceFlow({
   };
 
   // Hardware back walks the flow's own stack.
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      back();
-      return true;
-    });
-    return () => sub.remove();
+  // Always handled: at the root back() hands over to the host through onBack.
+  useFlowBack(() => {
+    back();
+    return true;
   });
 
   const common = { scope, can, onBack: back, onTabChange };

@@ -15,6 +15,7 @@
  * dropped with its screen (FINAL_LIST row 106).
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { ApproveReturnScreen } from './ApproveReturnScreen';
 import { SAMPLE_REFUND_AMOUNT, SAMPLE_RETURN_HISTORY_RECORD, SAMPLE_RMA } from './fixtures';
@@ -94,6 +95,13 @@ export function ReturnsFlow({
       onBack();
     }
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
 
   /** Finish a review: back to the RMA list with a fresh stack (the old shells did the same). */
   const backToList = () => setStack([{ screen: 'ReturnsIssues' }]);

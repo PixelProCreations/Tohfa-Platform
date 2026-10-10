@@ -16,6 +16,7 @@
  * (-> InvoiceWizard with `review`), and the dropped GSTInvoice.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 
 import { BillingHubScreen } from './BillingHubScreen';
 import { BILLING_WAREHOUSES, SAMPLE_GENERATED_INVOICE_ID, SAMPLE_WIZARD_TRANSACTION } from './fixtures';
@@ -90,6 +91,13 @@ export function BillingFlow({
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
 
   const openList = (layout: InvoiceListLayout) => {
     setListLayout(layout);

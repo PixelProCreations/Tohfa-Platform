@@ -15,6 +15,7 @@
  * Locations" keeps working.
  */
 import React, { useEffect, useState } from 'react';
+import { useFlowBack } from '../useFlowBack';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
 import { AdjustmentDetailScreen } from './AdjustmentDetailScreen';
@@ -100,6 +101,13 @@ export function InventoryFlow({
       onBack();
     }
   };
+
+  // Hardware back pops this flow's stack; at its root the host's listener handles it.
+  useFlowBack(() => {
+    if (stack.length <= 1) return false;
+    back();
+    return true;
+  });
 
   const common = {
     scope,
