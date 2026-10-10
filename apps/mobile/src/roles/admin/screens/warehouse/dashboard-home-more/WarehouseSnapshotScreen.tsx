@@ -133,10 +133,10 @@ export function WarehouseSnapshotScreen({
 
   if (warehouseId === undefined) {
     return (
-      <WalletScreen title="Warehouse Snapshot" onBack={onBack} footer={footer}>
+      <WalletScreen title="Warehouse Overview" onBack={onBack} footer={footer}>
         <EmptyState
           title="Single-warehouse view"
-          subtitle="This snapshot is locked to one warehouse. The all-warehouses view is Warehouse Overview."
+          subtitle="This overview is locked to one warehouse. The all-warehouses view is on the Main warehouse login."
         />
       </WalletScreen>
     );
@@ -159,7 +159,7 @@ export function WarehouseSnapshotScreen({
   const canOrders = can(HOME_CODES.orderList);
 
   return (
-    <WalletScreen title="Warehouse Snapshot" subtitle={`${name} · ${statusLabel}`} onBack={onBack} footer={footer}>
+    <WalletScreen title="Warehouse Overview" subtitle={`${name} · ${statusLabel}`} onBack={onBack} footer={footer}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>Warehouse Identity</SectionTitle>
         <InfoCard

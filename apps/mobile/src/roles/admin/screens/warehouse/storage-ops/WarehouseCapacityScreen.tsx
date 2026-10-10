@@ -185,7 +185,7 @@ export function WarehouseCapacityScreen({
             quantity allocation here.
           </InfoNote>
         )}
-        {onViewHistory ? (
+        {allWarehouses && onViewHistory ? (
           <View style={styles.historyButton}>
             <WalletButton label="View Capacity History" variant="neutral" onPress={onViewHistory} />
           </View>
