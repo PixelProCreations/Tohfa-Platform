@@ -168,7 +168,6 @@ import {
   SubWarehouseReportIssueScreen,
   SubWarehouseIssueSubmittedScreen,
   SubWarehouseOperationalIssueDetailScreen,
-  SubWarehouseStaffAndAttendanceScreen,
   ReportsScreen,
   ProfileFlow,
   type ProfileRoute,
@@ -384,7 +383,6 @@ export type ScreenName =
   | 'SubWarehouseReportIssue'
   | 'SubWarehouseIssueSubmitted'
   | 'SubWarehouseOperationalIssueDetail'
-  | 'SubWarehouseStaffAndAttendance'
   | 'SubWarehouseAttendanceDetail'
   | 'SubWarehouseEditStaffProfile'
   | 'SubWarehouseReports'
@@ -609,7 +607,6 @@ export type ScreenName =
   | 'SubWarehouseReportIssue'
   | 'SubWarehouseIssueSubmitted'
   | 'SubWarehouseOperationalIssueDetail'
-  | 'SubWarehouseStaffAndAttendance'
   | 'SubWarehouseAttendanceDetail'
   | 'SubWarehouseNewSale'
   | 'SubWarehouseSelectProducts'
@@ -1882,17 +1879,6 @@ export default function App(): React.JSX.Element {
         ) : screen === 'SubWarehouseOperationalIssueDetail' ? (
           <SubWarehouseOperationalIssueDetailScreen
             onBack={() => navigate('SubWarehouseOperationalIssues')}
-          />
-        ) : screen === 'SubWarehouseStaffAndAttendance' ? (
-          <SubWarehouseStaffAndAttendanceScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
-            onNavigateToDetail={(staffId) => navigate('SubWarehouseAttendanceDetail', { staffId })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
-            }}
           />
         ) : screen === 'SubWarehouseReports' ? (
           <ReportsScreen

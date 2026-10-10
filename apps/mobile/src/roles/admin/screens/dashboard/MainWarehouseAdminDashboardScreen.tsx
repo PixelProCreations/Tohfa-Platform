@@ -29,6 +29,7 @@ import { OrdersFlow } from '../warehouse/orders';
 import { InventoryFlow } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
+import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
 import {
   WarehouseOverviewScreen,
   WarehousePerformanceScreen,
@@ -59,7 +60,6 @@ import {
   WarehouseCapacityScreen,
   WarehouseActivityScreen,
   OperationalIssuesScreen,
-  StaffAndAttendanceScreen,
   OperationsHistoryScreen,
   ReportOperationalIssueScreen,
   type InterWarehouseTransferItem,
@@ -512,6 +512,8 @@ function MoreTabNavIcon({ active }: { active: boolean }) {
 /** External customer routes the Main shell draws inside CustomersFlow (New Sale leaves for the direct-sale flow). */
 const MAIN_CUSTOMER_INLINE_ROUTES = ['CustomerWallet', 'CashTopUp', 'OrderDetail', 'RmaDetail'] as const;
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+/** StaffFlow entry params for the attendance overview (stable, so the flow does not restart). */
+const ATTENDANCE_ALL_PARAMS: StaffRouteParams = { attendanceFilter: 'All' };
 
 /**
  * Main sales sub-views -> shared SalesFlow entries (W4). The Main shell used to
@@ -1647,7 +1649,14 @@ export function MainWarehouseAdminDashboardScreen({
                 }}
               />
             ) : whSubView === 'staff_attendance' ? (
-              <StaffAndAttendanceScreen
+              // The dropped Staff & Attendance hub was Main's only attendance entry
+              // (Manage SWAs card, operations hub); it opens the shared Attendance
+              // overview now (W4, M14). Attendance has no rbac code (ungated).
+              <StaffFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="Attendance"
+                initialParams={ATTENDANCE_ALL_PARAMS}
                 onBack={goBackWh}
               />
             ) : whSubView === 'operations_history' ? (

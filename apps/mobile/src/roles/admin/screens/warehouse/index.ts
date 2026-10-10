@@ -24,7 +24,6 @@ export * from './MaterialDetailScreen';
 export * from './WarehouseCapacityScreen';
 export * from './WarehouseActivityScreen';
 export * from './OperationalIssuesScreen';
-export * from './StaffAndAttendanceScreen';
 export * from './OperationsHistoryScreen';
 export * from './ReportOperationalIssueScreen';
 export * from './TodaysOperationsMonitoringScreen';

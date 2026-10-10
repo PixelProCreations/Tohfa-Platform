@@ -40,7 +40,6 @@ export * from './AdminRequestDetailScreen';
 export * from './AdminSupportScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseIssueSubmittedScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssueDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseStaffAndAttendanceScreen';
 export { SubWarehouseWarehouseActivityScreen, type SubWarehouseWarehouseActivityScreenProps } from '../../../subwarehouse/screens/SubWarehouseWarehouseActivityScreen';
 export { SubWarehouseTodayOperationsScreen, type SubWarehouseTodayOperationsScreenProps } from '../../../subwarehouse/screens/SubWarehouseTodayOperationsScreen';
 export { SubWarehouseActivityDetailScreen, type SubWarehouseActivityDetailScreenProps } from '../../../subwarehouse/screens/SubWarehouseActivityDetailScreen';
