@@ -12,6 +12,7 @@ import {
   type FarmerApplicationRow,
   type FarmerApplicationsRepo,
 } from './farmer-applications.repo.js';
+import { locationHasPosition, step3LocationSchema } from './farmer-applications.schema.js';
 import type {
   ApproveApplicationBody,
   CreateFarmerApplicationBody,
@@ -229,8 +230,9 @@ export function createFarmerApplicationsService(
         stepData = payload && typeof payload === 'object' && !Array.isArray(payload) ? { ...(payload as Record<string, unknown>) } : {};
       } else if (step === 3) {
         // Step 3 holds the land LOCATIONS — each a self-contained parcel with its
-        // own acreage and boundary. The route does not Zod-validate the body, so
-        // this normalises whatever arrives into one canonical stored shape: the
+        // own acreage and boundary. The route validates the body (BR-69), so through
+        // HTTP only `{ locations: [>=1 valid entries] }` gets here; this still
+        // normalises whatever a direct caller passes into one canonical shape: the
         // invariant the pass below depends on is that `stepData['locations']` is
         // always an array. An unrecognised payload becomes an empty list rather
         // than being wrapped into a location — a single flat object is no longer a
@@ -357,7 +359,24 @@ export function createFarmerApplicationsService(
         return mapApplicationResponse(app);
       }
 
-      // Cross-step validation
+      // Cross-step validation (BR-69). Every problem is collected and reported together, each
+      // naming its step, so the applicant can fix the whole application in one round trip.
+      const problems: Array<{ step: number; message: string }> = [];
+
+      // Step 3: at least one land location that says where the land is. Re-validated against the
+      // STORED data with the same strict schema the route applies on save, so a row written
+      // before BR-69 (or by any other path) cannot reach review with nothing to verify.
+      const storedLocations = step3LocationSchema.safeParse(app.step3_location);
+      const hasLocatedLand =
+        storedLocations.success && storedLocations.data.locations.some(locationHasPosition);
+      if (!hasLocatedLand) {
+        problems.push({
+          step: 3,
+          message:
+            'Step 3 (Location) is incomplete: at least one farm location with a boundary or GPS position is required.',
+        });
+      }
+
       const docs = (app.step4_documents as { documents?: Array<{ docType: string }> })?.documents ?? [];
       const docTypes = docs.map((d) => d.docType);
 
@@ -365,14 +384,27 @@ export function createFarmerApplicationsService(
       const hasFarmDoc = docTypes.includes('FARM_DOC');
 
       if (!hasIdProof || !hasFarmDoc) {
+        problems.push({
+          step: 4,
+          message: 'Mandatory documents missing: ID_PROOF and FARM_DOC are required for submission.',
+        });
+      }
+
+      if (problems.length > 0) {
         throw new AppError('VALIDATION_FAILED', {
           status: 422,
-          detail: 'Mandatory documents missing: ID_PROOF and FARM_DOC are required for submission.',
+          detail: problems.map((p) => p.message).join(' '),
+          errors: Object.fromEntries(problems.map((p) => [`step${p.step}`, [p.message]])),
           meta: {
-            missingDocuments: [
-              ...(!hasIdProof ? ['ID_PROOF'] : []),
-              ...(!hasFarmDoc ? ['FARM_DOC'] : []),
-            ],
+            missingSteps: problems.map((p) => p.step),
+            ...(!hasIdProof || !hasFarmDoc
+              ? {
+                  missingDocuments: [
+                    ...(!hasIdProof ? ['ID_PROOF'] : []),
+                    ...(!hasFarmDoc ? ['FARM_DOC'] : []),
+                  ],
+                }
+              : {}),
           },
         });
       }
@@ -584,6 +616,27 @@ export function createFarmerApplicationsService(
         });
       }
 
+      // BR-69: refuse BEFORE anything is written. A farmer with zero farms is VERIFIED but can
+      // list nothing and has no land for FARM_VERIFICATION to have looked at; the QA run that
+      // found this had approval succeed on `{"locations":[]}`. The count is of the entries that
+      // will actually become `farms` rows below, so the two can never disagree.
+      const rawLocationsToApprove =
+        ((app.step3_location as Record<string, unknown> | null) ?? {})['locations'];
+      const locationsToApprove: unknown[] = Array.isArray(rawLocationsToApprove)
+        ? rawLocationsToApprove.filter(
+            (l) => l !== null && typeof l === 'object' && !Array.isArray(l),
+          )
+        : [];
+      if (locationsToApprove.length === 0) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail:
+            'Application has no farm locations (step 3). A farmer cannot be approved with zero farms; request the applicant to complete step 3 or reject the application.',
+          errors: { step3: ['At least one farm location is required to approve an application.'] },
+          meta: { missingSteps: [3] },
+        });
+      }
+
       const result = await withTransaction(async (tx) => {
         const year = new Date().getFullYear();
         const tohfaFarmerId = await repo.allocateNextTohfaFarmerId(tx, year);
@@ -669,8 +722,8 @@ export function createFarmerApplicationsService(
         // farming operation per farmer (its type of farming and years of experience
         // live in step 2) — what varies per row is the parcel, so each location is
         // self-contained and nothing is correlated across steps.
-        // An application with no step-3 data therefore creates no farms rows; that
-        // degrades quietly rather than failing an otherwise valid approval.
+        // BR-69: the guard above guarantees at least one location here, so approval can never
+        // produce a VERIFIED farmer with zero farms.
         const locationData = (app.step3_location as Record<string, unknown>) ?? {};
         const rawLocations = locationData['locations'];
         const locationList: Array<Record<string, unknown>> = Array.isArray(rawLocations)
