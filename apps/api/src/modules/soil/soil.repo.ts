@@ -19,6 +19,7 @@
  * like `FarmsRepo` does for farms + plots.
  */
 import type { Executor } from '../../db/pool.js';
+import { AppError } from '../../http/problem.js';
 
 /** `date` columns come back as JS Dates from `pg`; keep only the calendar date. */
 function toDateOnly(value: Date): string {
@@ -46,7 +47,13 @@ export type SoilMetricKey =
   | 'phosphorus'
   | 'potassium';
 
-/** One system_config key per metric — see db/seed/001_reference.sql for the seeded bands. */
+/**
+ * One system_config key per metric. NOTE: no migration or seed inserts these
+ * rows yet — the band values (low/high and the three labels per metric) are a
+ * product/agronomy decision that no file in this repo defines (docs/rules.md
+ * BR-40 only says they must live in system_config). Until the owner supplies
+ * them, `getClassificationBands` fails with a clear 503 rather than guessing.
+ */
 export const SOIL_CLASSIFICATION_CONFIG_KEYS: Record<SoilMetricKey, string> = {
   organicCarbon: 'soil.classification.organic_carbon',
   ph: 'soil.classification.ph',
@@ -491,8 +498,9 @@ export const soilRepo: SoilRepo = {
   /**
    * Batch-reads every classification band this module needs in ONE round
    * trip (BR-40: one shared function, fed by one config read, not seven).
-   * Throws if a key is missing — a soil test response cannot silently fall
-   * back to a hidden literal, since that is exactly what BR-40 forbids.
+   * Throws a 503 AppError naming every missing key — a soil test response
+   * cannot silently fall back to a hidden literal, since that is exactly what
+   * BR-40 forbids.
    */
   async getClassificationBands(db) {
     const keys = Object.values(SOIL_CLASSIFICATION_CONFIG_KEYS);
@@ -502,18 +510,28 @@ export const soilRepo: SoilRepo = {
     );
     const byKey = new Map(result.rows.map((row) => [row.key, row.value]));
 
+    // Collect EVERY missing key so one error tells the operator the whole
+    // list, not just the first gap.
+    const missing = Object.values(SOIL_CLASSIFICATION_CONFIG_KEYS).filter((key) => !byKey.has(key));
+    if (missing.length > 0) {
+      // 503, not a plain Error (-> opaque 500): the request is fine, the
+      // deployment is not configured. There is no dedicated config ErrorCode,
+      // so the generic INTERNAL code carries an explicit 503 status; the
+      // fix is data (insert the system_config rows), not a code change.
+      throw new AppError('INTERNAL', {
+        status: 503,
+        detail:
+          'Soil classification is not configured: system_config is missing ' +
+          `${missing.join(', ')}. BR-40 forbids a hard-coded fallback; an administrator must insert these rows.`,
+        meta: { missingConfigKeys: missing },
+      });
+    }
+
     const bands = {} as Record<SoilMetricKey, ClassificationBands>;
     for (const [metric, key] of Object.entries(SOIL_CLASSIFICATION_CONFIG_KEYS) as Array<
       [SoilMetricKey, string]
     >) {
-      const value = byKey.get(key);
-      if (value === undefined) {
-        throw new Error(
-          `system_config row "${key}" is missing — BR-40 classification cannot run without it. ` +
-            'Run db/seed/001_reference.sql.',
-        );
-      }
-      bands[metric] = value;
+      bands[metric] = byKey.get(key) as ClassificationBands;
     }
     return bands;
   },

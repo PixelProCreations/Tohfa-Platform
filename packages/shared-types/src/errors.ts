@@ -117,6 +117,8 @@ export const GenericProblemCode = {
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
+  /** The request body exceeds the configured size limit (HTTP 413). */
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   RATE_LIMITED: 'RATE_LIMITED',
   INTERNAL: 'INTERNAL',
 } as const;

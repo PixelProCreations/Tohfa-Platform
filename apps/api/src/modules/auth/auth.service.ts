@@ -677,14 +677,22 @@ export function createAuthService(
       const newTokenHash = hashValue(newPair.refreshToken);
       const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-      await withTransaction(async (tx) => {
-        await repo.rotateRefreshToken(tx, storedToken.id, {
+      const rotated = await withTransaction((tx) =>
+        repo.rotateRefreshToken(tx, storedToken.id, {
           sessionId: session.id,
           userId: user.id,
           tokenHash: newTokenHash,
           expiresAt: sessionExpiresAt,
+        }),
+      );
+      if (rotated === null) {
+        // A concurrent request consumed this token between our read and our claim: that
+        // is reuse, treated exactly like the sequential case above.
+        await repo.revokeSessionTokenFamily(pool, storedToken.session_id, 'TOKEN_REUSE_DETECTED');
+        throw new AppError('UNAUTHENTICATED', {
+          detail: 'Token reuse detected. All sessions in this family have been terminated.',
         });
-      });
+      }
 
       return {
         accessToken: newPair.accessToken,

@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import sharp from 'sharp';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { InMemoryBlobStorage, defaultBlobStorage } from '../../storage/blobStorage.js';
 import { sniffMimeType, stripExifAndGps, type AllowedMimeType } from '../../storage/imageProcessor.js';
-import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
+import { anActor, describeIfDatabase, IDS } from '../../test/factories.js';
+import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { createUploadsService } from './uploads.service.js';
 import type { CreateUploadParams, UploadsRepo } from './uploads.repo.js';
 
@@ -318,8 +319,22 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       customerId: null,
     });
 
-    it('returns 201 with signed target for valid payload', async () => {
-      if (!(await databaseReady('uploads'))) return;
+    beforeAll(async () => {
+      // POST /uploads/sign writes uploads.uploaded_by = the caller, an FK to users. The
+      // caller used to exist only because golden-thread.e2e had committed it.
+      if (await requireDatabaseTables('uploads', 'users')) {
+        const { pool } = await import('../../db/pool.js');
+        await ensureStandardUsers(pool, 'userSuperAdmin');
+      }
+    });
+
+    afterAll(async () => {
+      const { closePool } = await import('../../db/pool.js');
+      await closePool();
+    });
+
+    it('returns 201 with signed target for valid payload', async (ctx) => {
+      if (!(await requireDatabaseTables('uploads', 'users'))) return ctx.skip();
 
       const res = await request(app)
         .post('/v1/uploads/sign')

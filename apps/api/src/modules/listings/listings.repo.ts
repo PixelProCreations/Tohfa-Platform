@@ -256,13 +256,33 @@ export const listingsRepo = {
     };
   },
 
+  /**
+   * BR-71: next `LST-YYYY-NNNN`. MUST be called inside the transaction that
+   * inserts the listing: the transaction-scoped advisory lock below is held
+   * until that transaction commits or rolls back, so the next caller reads
+   * the committed row and cannot choose the same number.
+   *
+   * Why a lock and the highest existing suffix, not COUNT(*)+1 (two
+   * concurrent creates read the same count and one hit the unique
+   * `listing_number` constraint as a 500; a gap left by a deleted row, or a
+   * number written by a seed or import, would also be reused or collide) and
+   * not a sequence (the number restarts every calendar year, which a single
+   * sequence cannot do without a per-year table that still drifts from rows
+   * inserted by hand). The lock is taken last, after every row lock the
+   * create holds, so it cannot take part in a lock cycle. Creating a listing
+   * is a farmer-paced action; serialising the few statements that follow the
+   * lock costs nothing measurable.
+   */
   async generateListingNumber(db: Executor): Promise<string> {
     const year = new Date().getFullYear();
-    const res = await db.query<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM produce_listings WHERE listing_number LIKE $1`,
-      [`LST-${year}-%`],
+    await db.query(`SELECT pg_advisory_xact_lock(hashtextextended('produce_listings.listing_number', 0))`);
+    const res = await db.query<{ max_seq: string }>(
+      `SELECT COALESCE(MAX(substring(listing_number FROM '^LST-' || $1::text || '-([0-9]+)$')::bigint), 0)::text AS max_seq
+         FROM produce_listings
+        WHERE listing_number LIKE $2`,
+      [String(year), `LST-${year}-%`],
     );
-    const nextSeq = parseInt(res.rows[0]?.count ?? '0', 10) + 1;
+    const nextSeq = parseInt(res.rows[0]?.max_seq ?? '0', 10) + 1;
     return `LST-${year}-${String(nextSeq).padStart(4, '0')}`;
   },
 
