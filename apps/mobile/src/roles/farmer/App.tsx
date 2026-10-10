@@ -1435,6 +1435,10 @@ export default function App(): React.JSX.Element {
             onTabChange={openWarehouseTab}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
             onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
+            // Wallet and Profile rows: same targets as the Sub shell's More tab
+            // (they only showed an "Opening ..." alert here before).
+            onNavigateToWallet={() => navigate('WarehouseWalletOperations')}
+            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
             onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
             onNavigateToOrders={() => navigate('SubWarehouseCustomerOrders')}
             onNavigateToSales={() => navigate('SubWarehouseSales')}
