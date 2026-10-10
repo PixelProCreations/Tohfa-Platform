@@ -1,4 +1,4 @@
-// Design id: M1-S05 (Main side; the Sub single-warehouse dashboard is SubWarehouseOverviewScreen, a different screen)
+// Design id: M1-S05 (Main side; the Sub single-warehouse dashboard is dashboard-home-more/WarehouseSnapshotScreen, a different screen)
 /**
  * Warehouse Overview: all four warehouses at a glance, plus the warehouse
  * management the Main admin used to reach through three other screens.

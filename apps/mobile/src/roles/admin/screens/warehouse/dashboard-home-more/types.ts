@@ -38,6 +38,13 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 
+/** Today's counts of one warehouse (mock; no dashboard summary endpoint yet). */
+export interface WarehouseTodayCounts {
+  receipts: number;
+  ordersToday: number;
+  pendingFulfilment: number;
+}
+
 /** Categories of the sales & order resolution queue. */
 export type AttentionCategory = 'payment_pending' | 'stock_issue' | 'failed_sale' | 'invoice_issue';
 
@@ -71,7 +78,7 @@ export interface AttentionItem {
  * show* flags or sub-view keys). Quick Actions and Stock & Transfer are
  * Main-only (`warehouse.all.view`).
  */
-export type HomeRoute = 'QuickActions' | 'StockAndTransfer' | 'NeedsAttention';
+export type HomeRoute = 'QuickActions' | 'StockAndTransfer' | 'NeedsAttention' | 'WarehouseSnapshot';
 
 /**
  * Screens HomeFlow does not own; the host opens them (shell sub-view, tab or
@@ -87,7 +94,10 @@ export type HomeTarget =
   | 'CreateSwa'
   | 'Reports'
   | 'WarehouseTargets'
-  | 'Escalations';
+  | 'Escalations'
+  | 'Orders'
+  | 'OrderDetail'
+  | 'Operations';
 
 /** Params a HomeFlow route can carry. */
 export interface HomeRouteParams {

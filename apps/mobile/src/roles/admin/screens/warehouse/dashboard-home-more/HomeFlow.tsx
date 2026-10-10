@@ -5,6 +5,7 @@
  *   Quick Actions (Main)      -> host targets (transfers, receiving, SWA, ...)
  *   Stock & Transfer (Main)   -> host targets (initiate, transfers, low stock)
  *   Needs Attention (shared)  sales & order resolution queue, scope-filtered
+ *   Warehouse Snapshot (shared, one warehouse) -> host targets (inventory, receiving, orders, operations)
  *
  * Screens of other modules are not re-implemented: the host opens them through
  * `onOpenTarget`, so their own gates apply. navigate() refuses a route without
@@ -16,6 +17,7 @@ import { HOME_CODES } from './HomeParts';
 import { NeedsAttentionScreen } from './NeedsAttentionScreen';
 import { QuickActionsOverviewScreen } from './QuickActionsOverviewScreen';
 import { StockAndTransferOverviewScreen } from './StockAndTransferOverviewScreen';
+import { WarehouseSnapshotScreen } from './WarehouseSnapshotScreen';
 import type { HomeRoute, HomeRouteParams, HomeTarget, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
 
 interface HomeStackEntry {
@@ -105,6 +107,19 @@ export function HomeFlow({ scope, can, initialScreen, initialParams, onBack, onO
           onBack={back}
           onTabChange={onTabChange}
           initialCategory={current.params?.category}
+        />
+      );
+    case 'WarehouseSnapshot':
+      return (
+        <WarehouseSnapshotScreen
+          scope={scope}
+          can={can}
+          onBack={back}
+          onTabChange={onTabChange}
+          onNavigateToInventory={target('Inventory')}
+          onNavigateToReceiving={target('ReceivingDashboard')}
+          onNavigateToOrders={target('Orders')}
+          onNavigateToOperations={target('Operations')}
         />
       );
     default:

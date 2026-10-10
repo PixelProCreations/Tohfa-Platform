@@ -124,7 +124,6 @@ import {
   MainWarehouseAdminDashboardScreen,
   SubWarehouseAdminDashboardScreen,
   OrdersModule,
-  SubWarehouseOverviewScreen,
   SubWarehouseTodayOverviewScreen,
   ChannelSalesScreen,
   ChannelOrderDetailScreen,
@@ -1395,9 +1394,11 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
           />
         ) : screen === 'SubWarehouseOverview' ? (
-          <SubWarehouseOverviewScreen
-            warehouseName="Coonoor Warehouse"
-            warehouseId="COO-WH-001"
+          // Was SubWarehouseOverviewScreen: the shared single-warehouse WarehouseSnapshotScreen (W4), scope-locked.
+          <HomeFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen="WarehouseSnapshot"
             onBack={goBack}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
@@ -1405,18 +1406,12 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
               else if (tab === 'More') navigate('WarehouseWalletOperations');
             }}
-            onNavigateToInventory={() =>
-              navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' })
-            }
-            onNavigateToReceiving={() =>
-              navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' })
-            }
-            onNavigateToOrders={() =>
-              navigate('SubWarehouseAdminDashboard', { showOrders: true })
-            }
-            onNavigateToOperations={() =>
-              navigate('WarehouseWalletOperations')
-            }
+            onOpenTarget={(target) => {
+              if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+              else if (target === 'ReceivingDashboard') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+              else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+              else if (target === 'Operations') navigate('WarehouseWalletOperations');
+            }}
           />
         ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
           // The notification screens live in the shared warehouse/notifications area

@@ -33,12 +33,16 @@ import {
   type NotificationsRoute,
   type NotificationsRouteParams,
 } from '../../admin/screens/warehouse/notifications';
-import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
 import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
-import { MoreScreen } from '../../admin/screens/warehouse/dashboard-home-more';
+import {
+  HomeFlow,
+  MoreScreen,
+  type HomeRoute,
+  type HomeRouteParams,
+} from '../../admin/screens/warehouse/dashboard-home-more';
 import {
   CustomersFlow,
   type CustomersRoute,
@@ -603,7 +607,8 @@ export function SubWarehouseAdminDashboardScreen({
   const [returnToNotificationsOnBack, setReturnToNotificationsOnBack] = useState(false);
   const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
-  const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
+  // The open Home-tab module: HomeFlow (warehouse snapshot, tasks) owns its stack (W4).
+  const [homeEntry, setHomeEntry] = useState<{ screen: HomeRoute; params?: HomeRouteParams | undefined } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   // The open storage-ops module (W4, M4 part A): StorageFlow owns the stack from here on.
@@ -963,35 +968,34 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showWarehouseOverview) {
+  if (homeEntry !== null) {
+    // Shared HomeFlow (W4 dashboard part 2): Warehouse Snapshot, scope-locked to this warehouse.
     return (
-      <SubWarehouseOverviewScreen
-        warehouseName="Coonoor Warehouse"
-        warehouseId="COO-WH-001"
-        onBack={() => setShowWarehouseOverview(false)}
+      <HomeFlow
+        scope={scope}
+        can={can}
+        initialScreen={homeEntry.screen}
+        initialParams={homeEntry.params}
+        onBack={() => setHomeEntry(null)}
         onTabChange={(tab) => {
-          setShowWarehouseOverview(false);
+          setHomeEntry(null);
           setActiveTab(tab);
         }}
-        onNavigateToInventory={() => {
-          setShowWarehouseOverview(false);
-          setInventoryInitialScreen('M3S01');
-          setInventoryInitialParams(null);
-          setActiveTab('Inventory');
-        }}
-        onNavigateToReceiving={() => {
-          setShowWarehouseOverview(false);
-          openReceiving();
-        }}
-        onNavigateToOrders={() => {
-          setShowWarehouseOverview(false);
-          setOrdersInitialScreen('M5S01');
-          setOrdersInitialParams(null);
-          setShowOrdersModule(true);
-        }}
-        onNavigateToOperations={() => {
-          setShowWarehouseOverview(false);
-          setShowWalletOperations(true);
+        onOpenTarget={(target) => {
+          setHomeEntry(null);
+          if (target === 'Inventory') {
+            setInventoryInitialScreen('M3S01');
+            setInventoryInitialParams(null);
+            setActiveTab('Inventory');
+          } else if (target === 'ReceivingDashboard') {
+            openReceiving();
+          } else if (target === 'Orders') {
+            setOrdersInitialScreen('M5S01');
+            setOrdersInitialParams(null);
+            setShowOrdersModule(true);
+          } else if (target === 'Operations') {
+            setShowWalletOperations(true);
+          }
         }}
       />
     );
@@ -1529,7 +1533,7 @@ export function SubWarehouseAdminDashboardScreen({
                       if (onNavigate) {
                         onNavigate('SubWarehouseOverview');
                       } else {
-                        setShowWarehouseOverview(true);
+                        setHomeEntry({ screen: 'WarehouseSnapshot' });
                       }
                     }}
                     activeOpacity={0.75}
@@ -1594,7 +1598,7 @@ export function SubWarehouseAdminDashboardScreen({
                   if (onNavigate) {
                     onNavigate('SubWarehouseOverview');
                   } else {
-                    setShowWarehouseOverview(true);
+                    setHomeEntry({ screen: 'WarehouseSnapshot' });
                   }
                 }}
                 activeOpacity={0.8}

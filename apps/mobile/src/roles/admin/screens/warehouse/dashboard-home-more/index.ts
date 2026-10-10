@@ -8,8 +8,9 @@ export {
   type StockAndTransferOverviewScreenProps,
 } from './StockAndTransferOverviewScreen';
 export { NeedsAttentionScreen, type NeedsAttentionScreenProps } from './NeedsAttentionScreen';
+export { WarehouseSnapshotScreen, type WarehouseSnapshotScreenProps } from './WarehouseSnapshotScreen';
 export { HOME_CODES } from './HomeParts';
-export { NEEDS_ATTENTION_ITEMS } from './fixtures';
+export { NEEDS_ATTENTION_ITEMS, WAREHOUSE_TODAY_COUNTS } from './fixtures';
 export type {
   AttentionAction,
   AttentionCategory,

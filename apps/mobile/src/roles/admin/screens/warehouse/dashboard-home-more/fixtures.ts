@@ -5,7 +5,19 @@
  * from a screen. No endpoint in docs/openapi.yaml serves these lists yet.
  */
 import { HOME_CODES } from './HomeParts';
-import type { AttentionItem } from './types';
+import type { AttentionItem, WarehouseTodayCounts } from './types';
+
+/**
+ * Today's counts per seeded warehouse for the single-warehouse snapshot (was
+ * 8 receipts / 24 orders / 7 pending written into SubWarehouseOverviewScreen
+ * for Coonoor). Stock comes from warehouse-admin WAREHOUSE_ADMIN_ROWS.
+ */
+export const WAREHOUSE_TODAY_COUNTS: Readonly<Record<string, WarehouseTodayCounts>> = {
+  'WH-OOTY': { receipts: 11, ordersToday: 31, pendingFulfilment: 9 },
+  'WH-COON': { receipts: 8, ordersToday: 24, pendingFulfilment: 7 },
+  'WH-KOTA': { receipts: 5, ordersToday: 15, pendingFulfilment: 4 },
+  'WH-GUDA': { receipts: 6, ordersToday: 18, pendingFulfilment: 5 },
+};
 
 /**
  * Sales & order resolution queue (was INITIAL_ITEMS in
