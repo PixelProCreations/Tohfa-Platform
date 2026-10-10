@@ -5,7 +5,7 @@
  * adds the storage-specific icons, the action tile and the permission codes.
  */
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -24,6 +24,13 @@ export const STORAGE_CODES = {
   allWarehousesView: 'warehouse.all.view',
   /** The warehouse workforce roster (Top Performing Staff). MAIN all, SUB own. */
   staffRoster: 'warehouse.staff.list_view',
+  /**
+   * Report an Issue (support request and operational issue). MAIN none, SUB
+   * none today, so the form is unreachable for warehouse admins (SPEC_GAPS W4v-2).
+   */
+  issueReport: 'support.ticket.create_own',
+  /** Activity log CSV export (absorbed Operations History). MAIN view, SUB own. */
+  reportExport: 'report.export.file',
 } as const;
 
 interface IconProps {
@@ -151,6 +158,122 @@ export function CheckCircleIcon({ size = 14, color = adminColors.success.text }:
   );
 }
 
+export function AlertCircleIcon({ size = 20, color = adminColors.danger.text }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 8v5M12 16h.01" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ImageIcon({ size = 24, color = adminColors.warning.text }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Circle cx="8.5" cy="8.5" r="1.5" fill={color} />
+      <Path d="M21 15l-5-5L5 21" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function PaperclipIcon({ size = 22, color = adminColors.ink }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function SendIcon({ size = 18, color = adminColors.onBrand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function CloseIcon({ size = 18, color = adminColors.muted }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon({ size = 16, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/**
+ * Option picker shown over the screen (Report an Issue category / specific
+ * issue). The old scrim was translucent black; no translucent token exists, so
+ * (as notifications / orders) the backdrop is the solid canvas and the card is
+ * raised with adminShadow.lg. Tapping the backdrop closes it.
+ */
+export function PickerModal<T extends string>({
+  visible,
+  title,
+  subtitle,
+  options,
+  value,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  subtitle?: string | undefined;
+  options: readonly T[];
+  value: T;
+  onSelect: (option: T) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Close">
+        <View style={styles.pickerCard} onStartShouldSetResponder={() => true}>
+          <View style={styles.pickerHeader}>
+            <View style={styles.pickerHeaderText}>
+              <Text style={styles.pickerTitle}>{title}</Text>
+              {subtitle ? <Text style={styles.pickerSubtitle}>{subtitle}</Text> : null}
+            </View>
+            <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+              <CloseIcon />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+            {options.map((option) => {
+              const active = option === value;
+              return (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.pickerOption, active && styles.pickerOptionActive]}
+                  onPress={() => onSelect(option)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.pickerOptionText, active && styles.pickerOptionTextActive]}>{option}</Text>
+                  {active ? <CheckCircleIcon color={adminColors.brand} /> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 /** One square action tile (Receive / Issue / History). Several share a row. */
 export function ActionTile({ label, icon, onPress }: { label: string; icon: React.ReactNode; onPress: () => void }) {
   return (
@@ -203,4 +326,32 @@ const styles = StyleSheet.create({
   actionTileText: { ...adminType.rowTitle, color: adminColors.ink },
   track: { height: 8, borderRadius: adminRadius.full, backgroundColor: adminColors.canvas, overflow: 'hidden' },
   fill: { height: 8, borderRadius: adminRadius.full },
+
+  // Was a translucent black scrim; no translucent token, so the solid canvas (see PickerModal).
+  pickerBackdrop: { flex: 1, backgroundColor: adminColors.canvas, justifyContent: 'center', padding: adminSpacing.lg },
+  pickerCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    maxHeight: '75%',
+    ...adminShadow.lg,
+  },
+  pickerHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: adminSpacing.md },
+  pickerHeaderText: { flex: 1 },
+  pickerTitle: { ...adminType.sectionHead, color: adminColors.brandDeep },
+  pickerSubtitle: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  pickerList: { flexGrow: 0 },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    borderRadius: adminRadius.md,
+  },
+  pickerOptionActive: { backgroundColor: adminColors.brandTint },
+  pickerOptionText: { ...adminType.body, color: adminColors.ink, flex: 1 },
+  pickerOptionTextActive: { ...adminType.sectionHead, color: adminColors.brandDeep },
 });

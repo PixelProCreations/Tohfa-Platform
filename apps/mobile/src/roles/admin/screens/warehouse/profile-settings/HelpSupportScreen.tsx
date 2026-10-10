@@ -2,10 +2,11 @@
  * Help & Support for the Main and Sub warehouse admins (FINAL_LIST #79).
  *
  * Was SubWarehouseHelpSupportScreen, which also drew the report-issue form
- * and the "request submitted" page inline (SubWarehouseReportIssueScreen /
- * SubWarehouseIssueSubmittedScreen). Those belong to the storage-ops wave and
- * stay in roles/subwarehouse; this screen hands a report request to its host
- * (`onReportIssue`) instead of importing them across roles.
+ * and the "request submitted" page inline. Those are now the shared
+ * storage-ops ReportIssueScreen / IssueSubmittedScreen ('support' mode, W4
+ * storage-ops part B); this screen hands a report request to its host
+ * (`onReportIssue`, which opens StorageFlow on ReportIssue) instead of
+ * importing another area.
  *
  * Gates (docs/rbac.json):
  *   - FAQs, search, categories and contact cards: open to every signed-in admin.

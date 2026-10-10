@@ -29,7 +29,7 @@ import { InventoryFlow } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
-import { StorageFlow } from '../warehouse/storage-ops';
+import { StorageFlow, type StorageRouteParams } from '../warehouse/storage-ops';
 import {
   WarehouseOverviewScreen,
   ManageWarehousesScreen,
@@ -53,9 +53,7 @@ import {
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
   WarehouseActivityScreen,
-  OperationalIssuesScreen,
   OperationsHistoryScreen,
-  ReportOperationalIssueScreen,
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
@@ -508,6 +506,8 @@ const MAIN_CUSTOMER_INLINE_ROUTES = ['CustomerWallet', 'CashTopUp', 'OrderDetail
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 /** StaffFlow entry params for the attendance overview (stable, so the flow does not restart). */
 const ATTENDANCE_ALL_PARAMS: StaffRouteParams = { attendanceFilter: 'All' };
+/** StorageFlow entry params for Main's Report Operational Issue sub-view (stable). */
+const REPORT_OPERATIONAL_PARAMS: StorageRouteParams = { reportMode: 'operational' };
 
 /**
  * Main sales sub-views -> shared SalesFlow entries (W4). The Main shell used to
@@ -1638,20 +1638,18 @@ export function MainWarehouseAdminDashboardScreen({
                   }
                 }}
               />
-            ) : whSubView === 'operational_issues' ? (
-              <OperationalIssuesScreen
+            ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
+              // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
+              // warehouse's issues with the selector and opens their detail. The
+              // report form (operational mode, with Main's warehouse / rack /
+              // severity fields) needs support.ticket.create_own, which MAIN does
+              // not hold today, so the Report button is replaced by a note.
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
+                initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
                 onBack={() => navigateWh('warehouse_operations')}
-                onCreateIssue={() => {
-                  navigateWh('report_operational_issue');
-                }}
-                onSelectIssue={() => { }}
-              />
-            ) : whSubView === 'report_operational_issue' ? (
-              <ReportOperationalIssueScreen
-                onBack={() => navigateWh('operational_issues')}
-                onSubmitIssue={() => {
-                  navigateWh('operational_issues');
-                }}
               />
             ) : whSubView === 'staff_attendance' ? (
               // The dropped Staff & Attendance hub was Main's only attendance entry

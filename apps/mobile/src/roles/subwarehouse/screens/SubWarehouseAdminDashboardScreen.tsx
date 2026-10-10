@@ -52,10 +52,6 @@ import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
 import { StorageFlow, type StorageRoute, type StorageRouteParams } from '../../admin/screens/warehouse/storage-ops';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
-import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
-import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
-import { SubWarehouseIssueSubmittedScreen } from './SubWarehouseIssueSubmittedScreen';
-import { SubWarehouseOperationalIssueDetailScreen } from './SubWarehouseOperationalIssueDetailScreen';
 import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActivityScreen';
 import { SubWarehouseTodayOperationsScreen } from './SubWarehouseTodayOperationsScreen';
 import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailScreen';
@@ -1008,16 +1004,11 @@ export function OrdersModule({
           case 'M4S09':
           case 'OperationalIssues':
             // Reached only when the host gave no onNavigateToOperationalIssues
-            // (OrderIssueScreen's View Issue prefers onViewIssue).
-            return (
-              <SubWarehouseOperationalIssuesScreen
-                onBack={nav.back}
-                onNavigateToReport={() => nav.navigate('M5S16')}
-                onViewIssueDetail={() => nav.navigate('OperationalIssueDetail')}
-              />
-            );
+            // (OrderIssueScreen's View Issue prefers onViewIssue). The shared
+            // storage-ops flow owns the issue list, its detail and the report form.
+            return <StorageFlow scope={scope} can={can} initialScreen="OperationalIssues" onBack={nav.back} />;
           case 'OperationalIssueDetail':
-            return <SubWarehouseOperationalIssueDetailScreen onBack={nav.back} />;
+            return <StorageFlow scope={scope} can={can} initialScreen="OperationalIssueDetail" onBack={nav.back} />;
           default:
             return null;
         }
@@ -1117,10 +1108,6 @@ export function SubWarehouseAdminDashboardScreen({
   ) => setReturnsEntry({ screen, params, backStack });
   // The open staff & attendance module: StaffFlow owns the stack from here on.
   const [staffEntry, setStaffEntry] = useState<{ screen: StaffRoute; filter?: AttendanceFilter } | null>(null);
-  const [showOperationalIssues, setShowOperationalIssues] = useState(false);
-  const [showReportIssue, setShowReportIssue] = useState(false);
-  const [showIssueSubmitted, setShowIssueSubmitted] = useState(false);
-  const [showIssueDetail, setShowIssueDetail] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
@@ -1344,7 +1331,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToOperationalIssues={() => {
           setShowOrderDetail(false);
-          setShowOperationalIssues(true);
+          setStorageEntry({ screen: 'OperationalIssues' });
         }}
       />
     );
@@ -1605,7 +1592,7 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToOperationalIssues={() => {
           setShowTodayOperations(false);
           setShowWarehouseOperations(false);
-          setShowOperationalIssues(true);
+          setStorageEntry({ screen: 'OperationalIssues' });
         }}
       />
     );
@@ -1665,7 +1652,7 @@ export function SubWarehouseAdminDashboardScreen({
           setShowWarehouseOperations(false);
           setSelectedStorageLocationId(null);
           setShowStorageInfo(false);
-          setShowOperationalIssues(true);
+          setStorageEntry({ screen: 'OperationalIssues' });
         }}
       />
     );
@@ -1745,7 +1732,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToOperationalIssues={() => {
           setShowWarehouseOperations(false);
-          setShowOperationalIssues(true);
+          setStorageEntry({ screen: 'OperationalIssues' });
         }}
         onNavigateToStaffAttendance={() => {
           setShowWarehouseOperations(false);
@@ -1798,62 +1785,6 @@ export function SubWarehouseAdminDashboardScreen({
         onTabChange={(tab) => {
           setStorageEntry(null);
           setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showReportIssue) {
-    return (
-      <SubWarehouseReportIssueScreen
-        onBack={() => {
-          setShowReportIssue(false);
-          setShowOperationalIssues(true);
-        }}
-        onSubmit={() => {
-          setShowReportIssue(false);
-          setShowIssueSubmitted(true);
-        }}
-      />
-    );
-  }
-
-  if (showIssueSubmitted) {
-    return (
-      <SubWarehouseIssueSubmittedScreen
-        onViewIssue={() => {
-          setShowIssueSubmitted(false);
-          setShowOperationalIssues(true);
-        }}
-      />
-    );
-  }
-
-  if (showIssueDetail) {
-    return (
-      <SubWarehouseOperationalIssueDetailScreen
-        onBack={() => {
-          setShowIssueDetail(false);
-          setShowOperationalIssues(true);
-        }}
-      />
-    );
-  }
-
-  if (showOperationalIssues) {
-    return (
-      <SubWarehouseOperationalIssuesScreen
-        onBack={() => {
-          setShowOperationalIssues(false);
-          setShowWarehouseOperations(true);
-        }}
-        onNavigateToReport={() => {
-          setShowOperationalIssues(false);
-          setShowReportIssue(true);
-        }}
-        onViewIssueDetail={() => {
-          setShowOperationalIssues(false);
-          setShowIssueDetail(true);
         }}
       />
     );
@@ -2101,7 +2032,7 @@ export function SubWarehouseAdminDashboardScreen({
                 }}
                 onNavigateToOperationalIssues={() => {
                   setCustomersEntry(null);
-                  setShowOperationalIssues(true);
+                  setStorageEntry({ screen: 'OperationalIssues' });
                 }}
               />
             );
@@ -3798,7 +3729,7 @@ export function SubWarehouseAdminDashboardScreen({
                         selectedReceivingCard === 'issues' && styles.receivingOverviewCardActive,
                       ]}
                       onPress={() => {
-                        setShowOperationalIssues(true);
+                        setStorageEntry({ screen: 'OperationalIssues' });
                       }}
                       activeOpacity={0.8}
                     >
@@ -3873,7 +3804,7 @@ export function SubWarehouseAdminDashboardScreen({
                     <TouchableOpacity
                       style={styles.attentionCard}
                       onPress={() => {
-                        setShowOperationalIssues(true);
+                        setStorageEntry({ screen: 'OperationalIssues' });
                       }}
                       activeOpacity={0.75}
                     >
@@ -4004,7 +3935,7 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToOperationalIssues={() => {
               setShowOrdersModule(false);
-              setShowOperationalIssues(true);
+              setStorageEntry({ screen: 'OperationalIssues' });
             }}
           />
         )}
@@ -4083,7 +4014,7 @@ export function SubWarehouseAdminDashboardScreen({
               setStorageEntry({ screen: 'MaterialHandling' });
             }}
             onNavigateToOperationalIssues={() => {
-              setShowOperationalIssues(true);
+              setStorageEntry({ screen: 'OperationalIssues' });
             }}
             onNavigateToWarehouseActivity={() => {
               setShowWarehouseActivity(true);

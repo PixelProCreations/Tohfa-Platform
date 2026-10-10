@@ -162,10 +162,6 @@ import {
   SubWarehouseWarehouseActivityScreen,
   SubWarehouseTodayOperationsScreen,
   SubWarehouseActivityDetailScreen,
-  SubWarehouseOperationalIssuesScreen,
-  SubWarehouseReportIssueScreen,
-  SubWarehouseIssueSubmittedScreen,
-  SubWarehouseOperationalIssueDetailScreen,
   ReportsScreen,
   ProfileFlow,
   type ProfileRoute,
@@ -739,12 +735,22 @@ const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?
  * first screen of the flow. Add Material needs inventory.material_handling.manage;
  * StorageFlow and the screen check it.
  */
-const STORAGE_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StorageRoute; back: ScreenName }>> = {
+const STORAGE_ROUTE_ENTRY: Partial<
+  Record<ScreenName, { route: StorageRoute; back: ScreenName; params?: StorageRouteParams | undefined }>
+> = {
   SubWarehouseMaterialHandling: { route: 'MaterialHandling', back: 'SubWarehouseWarehouseOperations' },
   SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseStorageLocationDetail: { route: 'StorageLocationDetail', back: 'SubWarehouseStorageInfo' },
   SubWarehouseCapacity: { route: 'Capacity', back: 'SubWarehouseWarehouseOperations' },
+  // Part B: operational issues. Report an Issue / Request Submitted need
+  // support.ticket.create_own (neither warehouse admin role holds it today), so
+  // StorageFlow refuses them and the screens render a not-available note. The
+  // App-level key is the Help & Support path ('support' mode).
+  SubWarehouseOperationalIssues: { route: 'OperationalIssues', back: 'SubWarehouseWarehouseOperations' },
+  SubWarehouseOperationalIssueDetail: { route: 'OperationalIssueDetail', back: 'SubWarehouseOperationalIssues' },
+  SubWarehouseReportIssue: { route: 'ReportIssue', back: 'SubWarehouseHelpSupport', params: { reportMode: 'support' } },
+  SubWarehouseIssueSubmitted: { route: 'IssueSubmitted', back: 'SubWarehouseHelpSupport', params: { reportMode: 'support' } },
 };
 /**
  * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
@@ -955,10 +961,12 @@ export default function App(): React.JSX.Element {
   // Params for a StorageFlow entry, memoised so the flow does not restart its stack.
   const storageParams = useMemo<StorageRouteParams>(
     () => ({
+      ...STORAGE_ROUTE_ENTRY[screen]?.params,
       materialId: stringParam(params['materialId']),
       locationId: stringParam(params['locationId']),
+      issueId: stringParam(params['issueId']),
     }),
-    [params],
+    [params, screen],
   );
   // Params for a CustomersFlow entry, memoised so the flow does not restart its
   // stack on every App render. Deep links carry flat customer / issue / ticket
@@ -1854,6 +1862,7 @@ export default function App(): React.JSX.Element {
             initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
             initialParams={storageParams}
             onBack={() => navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations')}
+            onSupportRequestDone={() => navigate('SubWarehouseSettings')}
             onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
@@ -1863,25 +1872,6 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
               else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
             }}
-          />
-        ) : screen === 'SubWarehouseOperationalIssues' ? (
-          <SubWarehouseOperationalIssuesScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
-            onNavigateToReport={() => navigate('SubWarehouseReportIssue')}
-            onViewIssueDetail={() => navigate('SubWarehouseOperationalIssueDetail')}
-          />
-        ) : screen === 'SubWarehouseReportIssue' ? (
-          <SubWarehouseReportIssueScreen
-            onBack={() => navigate('SubWarehouseOperationalIssues')}
-            onSubmit={() => navigate('SubWarehouseIssueSubmitted')}
-          />
-        ) : screen === 'SubWarehouseIssueSubmitted' ? (
-          <SubWarehouseIssueSubmittedScreen
-            onViewIssue={() => navigate('SubWarehouseOperationalIssues')}
-          />
-        ) : screen === 'SubWarehouseOperationalIssueDetail' ? (
-          <SubWarehouseOperationalIssueDetailScreen
-            onBack={() => navigate('SubWarehouseOperationalIssues')}
           />
         ) : screen === 'SubWarehouseReports' ? (
           <ReportsScreen

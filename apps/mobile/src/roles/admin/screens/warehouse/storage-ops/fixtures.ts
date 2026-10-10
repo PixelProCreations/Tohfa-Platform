@@ -17,8 +17,11 @@ import type {
   MaterialDaySummary,
   MaterialHistoryEntry,
   MaterialItem,
+  IssueSeverity,
   MaterialOption,
+  OperationalIssue,
   PerformanceKpi,
+  ReportIssueMode,
   StorageLocationItem,
   TopPerformer,
   WarehousePerformanceRow,
@@ -135,3 +138,70 @@ export const TOP_PERFORMERS: readonly TopPerformer[] = [
 
 /** The demo batch Storage Location Assignment opens on when the host passes none. */
 export const DEMO_ASSIGNMENT_BATCH = { batchId: 'BAT-00512', productName: 'Tomato · Grade 2', quantity: '445 KG' } as const;
+
+// ─── Part B: operational issues and the report-issue form ────────────────────
+
+/** Operational issues (no issue endpoint in docs/openapi.yaml; SPEC_GAPS W4v-1). */
+export const OPERATIONAL_ISSUES: readonly OperationalIssue[] = [
+  { id: 'ISS-0029', warehouseId: 'WH-COON', title: 'Quality / Quantity issue reported', type: 'Order Fulfillment', area: 'Orders Fulfillment · ORD-1018', location: 'Packing Station 1', status: 'Open', severity: 'Medium', description: 'Customer order ORD-1018 packed short by 2 KG of Tomato Grade 1; recount requested before dispatch.', reportedBy: 'Suresh · SWA', reportedDate: 'Today', reportedAt: 'Today · Just now', evidenceCount: 1 },
+  { id: 'ISS-0028', warehouseId: 'WH-COON', title: 'Cold storage maintenance required', type: 'Maintenance Required', area: 'Cold Storage · Section A', location: 'Cold Storage · Section A · Rack A-03', status: 'Open', severity: 'High', description: 'Cooling unit in Section A running above target temperature; needs technician inspection before more stock is stored there.', reportedBy: 'Suresh · SWA', reportedDate: '24 Sep 2026', reportedAt: '24 Sep · 11:20 AM', evidenceCount: 2 },
+  { id: 'ISS-0027', warehouseId: 'WH-COON', title: 'Weighing scale calibration drift', type: 'Equipment / Facility', area: 'Receiving Bay 2', location: 'Receiving Bay 2', status: 'In Progress', severity: 'Medium', description: 'Bay 2 scale reads 0.4 KG heavy against the test weight; technician booked.', reportedBy: 'Suresh · SWA', reportedDate: '23 Sep 2026', reportedAt: '23 Sep · 04:10 PM', evidenceCount: 1 },
+  { id: 'ISS-0025', warehouseId: 'WH-COON', title: 'Crate shortage at dispatch', type: 'Packaging / Material', area: 'Dispatch Area', location: 'Dispatch Area', status: 'Resolved', severity: 'Low', description: 'Ran out of crates for the evening dispatch; 40 crates transferred from Main Warehouse.', reportedBy: 'Suresh · SWA', reportedDate: '20 Sep 2026', reportedAt: '20 Sep · 06:05 PM', resolvedBy: 'Ravi · SWA', resolvedAt: '21 Sep · 09:30 AM', evidenceCount: 0 },
+  { id: 'ISS-0031', warehouseId: 'WH-OOTY', title: 'Dock door sensor fault', type: 'Equipment / Facility', area: 'Loading Dock 1', location: 'Loading Dock 1', status: 'In Progress', severity: 'Medium', description: 'Dock 1 door does not register closed; manual lock in use until the sensor is replaced.', reportedBy: 'Arun · SWA', reportedDate: '25 Sep 2026', reportedAt: '25 Sep · 08:45 AM', evidenceCount: 1 },
+  { id: 'ISS-0030', warehouseId: 'WH-KOTA', title: 'Stock count variance in dry storage', type: 'Stock Discrepancy', area: 'Dry Storage A', location: 'Dry Storage A · Rack 04', status: 'Open', severity: 'High', description: 'Beans count 12 KG below system balance after the morning cycle count.', reportedBy: 'Manoj · SWA', reportedDate: '25 Sep 2026', reportedAt: '25 Sep · 10:15 AM', evidenceCount: 0 },
+];
+
+/** Help & Support request categories (support mode). */
+export const SUPPORT_CATEGORIES: readonly string[] = [
+  'Getting Started',
+  'Warehouse Operations',
+  'Orders',
+  'Inventory',
+  'Billing',
+  'Wallet',
+  'Reports',
+  'Account & Security',
+  'Other',
+];
+
+/** The specific issues offered for each support category. */
+export const SUPPORT_SPECIFIC_ISSUES: Readonly<Record<string, readonly string[]>> = {
+  'Getting Started': ['App Navigation & Walkthrough Help', 'Warehouse Role & Permissions Setup', 'Warehouse Facility Assignment Error', 'Initial Barcode Scanner Pairing', 'Other Getting Started Issue'],
+  'Warehouse Operations': ['Staff Shift & Attendance Logging Issue', 'Expense Entry / Receipt Upload Failure', 'Weighing Scale / Scanner Malfunction', 'Crate & Staging Bay Capacity Full', 'Cold Storage Temperature Alert', 'Facility Maintenance Request', 'Other Operations Issue'],
+  Orders: ['Order Dispatch Delay', 'Barcode Mismatch on Order Crates', 'Customer Cancelled Order Handover', 'Damaged Goods in Order Packing', 'Wrong Product Items in Dispatch Batch', 'Customer Pickup Verification Issue', 'Other Order Issue'],
+  Inventory: ['Physical Stock Count Discrepancy', 'Damaged / Spoilt Produce Inbound Batch', 'Produce Weight / Moisture Grade Discrepancy', 'Bin Tag Barcode Printing Failure', 'Storage Zone Capacity Exceeded', 'Stock Reconciliation Error', 'Other Inventory Issue'],
+  Billing: ['Unable to Generate GST Invoice', 'Incorrect Tax / HSN Rate Calculation', 'Credit Note Issuance Failure', 'Thermal Receipt Printer Connection Error', 'Customer Invoice PDF Download Issue', 'Other Billing Issue'],
+  Wallet: ['Customer Cash Top-Up Confirmation Pending', 'Wallet Balance Deduction Discrepancy', 'Customer Refund Request Failed', 'Daily Cash Summary Ledger Mismatch', 'Customer Wallet PIN Reset Assistance', 'Other Wallet Issue'],
+  Reports: ['Sales Report Excel Export Failure', 'Produce Shrinkage / Wastage Data Inaccurate', 'Financial Expense Ledger Missing Entries', 'Daily Shift Audit Summary Discrepancy', 'Other Reports Issue'],
+  'Account & Security': ['Password Reset / Change Failure', 'Suspicious Login Session Detected', 'Device Authorization / Auto-Logout Error', 'Biometric / PIN Verification Failure', 'Other Security Concern'],
+  Other: ['App Performance / Lag Issue', 'Network Offline Sync Delay', 'Feature Suggestion', 'General Inquiry'],
+};
+
+/** Reference-id placeholder per support category. */
+export const SUPPORT_REFERENCE_HINT: Readonly<Record<string, string>> = {
+  Orders: 'e.g. ORD-2026-00452',
+  Inventory: 'e.g. BATCH-2026-0891',
+  Billing: 'e.g. INV-GST-2026-0012',
+  Wallet: 'e.g. WAL-TOP-9921',
+  'Warehouse Operations': 'e.g. EXP-2026-0041',
+};
+
+/** Operational issue categories (absorbed Main Report Operational Issue form). */
+export const OPERATIONAL_ISSUE_CATEGORIES: readonly string[] = [
+  'Storage / Space',
+  'Temperature / Cooling',
+  'Equipment / Facility',
+  'Packaging / Material',
+  'Stock Discrepancy',
+];
+
+export const ISSUE_SEVERITIES: readonly IssueSeverity[] = ['Low', 'Medium', 'High', 'Critical'];
+
+/** Demo ids the form "returns" until a support / issue endpoint exists. */
+export const DEMO_SUBMITTED_ID: Readonly<Record<ReportIssueMode, string>> = {
+  support: 'SUP-00246',
+  operational: 'ISS-0032',
+};
+
+/** Mock attachment names offered by the form's attach dialog. */
+export const DEMO_ATTACHMENTS = { document: 'receipt_inv_0048.png', photo: 'photo_damage_crate.jpg' } as const;

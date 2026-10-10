@@ -1,7 +1,8 @@
 /**
- * Shared types for the warehouse storage-ops screens, part A (design module
- * M4): material handling, storage location detail / assignment, capacity and
- * (Main only) warehouse performance.
+ * Shared types for the warehouse storage-ops screens (design module M4).
+ * Part A: material handling, storage location detail / assignment, capacity
+ * and (Main only) warehouse performance. Part B: operational issues, the
+ * report-issue form, warehouse activity and the operations hub.
  *
  * One set of screens serves both warehouse roles. As in the other warehouse
  * areas, the role difference is carried by `scope` (warehouseId undefined = all
@@ -131,6 +132,41 @@ export interface TopPerformer {
 /** Performance period chips. */
 export type PerformancePeriod = 'Today' | 'This Week' | 'This Month';
 
+/** Lifecycle state of an operational issue, also the issue list chips (besides 'All'). */
+export type IssueStatus = 'Open' | 'In Progress' | 'Resolved';
+export type IssueFilter = IssueStatus | 'All';
+
+/** Severity of an operational issue (absorbed Main Report Operational Issue form). */
+export type IssueSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+
+/** One operational issue (floor / facility problem). Mock data until an endpoint exists. */
+export interface OperationalIssue {
+  id: string;
+  warehouseId: string;
+  title: string;
+  type: string;
+  /** Short context line on the list card ("Cold Storage · Section A"). */
+  area: string;
+  location: string;
+  status: IssueStatus;
+  severity?: IssueSeverity | undefined;
+  description: string;
+  reportedBy: string;
+  reportedDate: string;
+  reportedAt: string;
+  resolvedBy?: string | undefined;
+  resolvedAt?: string | undefined;
+  /** Number of evidence photos attached. */
+  evidenceCount: number;
+}
+
+/**
+ * The Report an Issue form serves two paths: the Help & Support request
+ * ('support') and a warehouse floor issue ('operational', which adds the
+ * absorbed Main fields: warehouse, location / rack, issue category, severity).
+ */
+export type ReportIssueMode = 'support' | 'operational';
+
 /** Screens of the storage-ops flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StorageRoute =
   | 'MaterialHandling'
@@ -139,9 +175,21 @@ export type StorageRoute =
   | 'StorageLocationDetail'
   | 'StorageLocationAssignment'
   | 'Capacity'
-  | 'Performance';
+  | 'Performance'
+  | 'OperationalIssues'
+  | 'OperationalIssueDetail'
+  | 'ReportIssue'
+  | 'IssueSubmitted';
 
 export interface StorageRouteParams {
+  /** Operational issue detail. */
+  issueId?: string | undefined;
+  /** Report an Issue / Request Submitted path (default 'support'). */
+  reportMode?: ReportIssueMode | undefined;
+  /** Report an Issue: preselected support category. */
+  issueCategory?: string | undefined;
+  /** Request Submitted: the id the form returned. */
+  submittedId?: string | undefined;
   materialId?: string | undefined;
   locationId?: string | undefined;
   /** Storage Location Assignment: the batch being put away. */

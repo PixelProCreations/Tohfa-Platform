@@ -8,6 +8,12 @@
  *   Storage Location Assignment          (host: confirmed location)
  *   Warehouse Capacity                   (host: history, Manage Capacity Limits)
  *   Warehouse Performance (Main)         (host: warehouse, operations log, staff)
+ *   Operational Issues -> Issue Detail
+ *                      -> Report an Issue (operational) -> Request Submitted
+ *   Report an Issue (support, from Help & Support) -> Request Submitted
+ *
+ * Report an Issue and Request Submitted need `support.ticket.create_own`
+ * (neither warehouse admin role holds it today, SPEC_GAPS W4v-2).
  *
  * The screens used to be stitched three times (App.tsx keys, the Sub shell's
  * show* flags and Main's whSubView branches), none of which passed `scope` /
@@ -26,8 +32,12 @@ import React, { useEffect, useState } from 'react';
 
 import { AddMaterialScreen } from './AddMaterialScreen';
 import { MATERIALS } from './fixtures';
+import { IssueSubmittedScreen } from './IssueSubmittedScreen';
 import { MaterialDetailScreen } from './MaterialDetailScreen';
 import { MaterialHandlingScreen } from './MaterialHandlingScreen';
+import { OperationalIssueDetailScreen } from './OperationalIssueDetailScreen';
+import { OperationalIssuesScreen } from './OperationalIssuesScreen';
+import { ReportIssueScreen } from './ReportIssueScreen';
 import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { STORAGE_CODES } from './StorageParts';
@@ -44,6 +54,9 @@ interface StorageStackEntry {
 const ROUTE_CODE: Partial<Record<StorageRoute, string>> = {
   AddMaterial: STORAGE_CODES.materialManage,
   Performance: STORAGE_CODES.allWarehousesView,
+  // Neither warehouse admin role holds it today (SPEC_GAPS W4v-2): unreachable.
+  ReportIssue: STORAGE_CODES.issueReport,
+  IssueSubmitted: STORAGE_CODES.issueReport,
 };
 
 /** True when `can` allows opening `route`. */
@@ -75,6 +88,11 @@ export interface StorageFlowProps {
   onViewOperationsHistory?: (() => void) | undefined;
   /** Performance "All Staff" (warehouse roster / attendance). */
   onViewStaffAttendance?: (() => void) | undefined;
+  /**
+   * Request Submitted "Back to Settings" on the support path (the form was
+   * opened from Help & Support). Defaults to leaving the module.
+   */
+  onSupportRequestDone?: (() => void) | undefined;
 }
 
 export function StorageFlow({
@@ -92,6 +110,7 @@ export function StorageFlow({
   onSelectWarehouse,
   onViewOperationsHistory,
   onViewStaffAttendance,
+  onSupportRequestDone,
 }: StorageFlowProps) {
   const [stack, setStack] = useState<StorageStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -105,6 +124,10 @@ export function StorageFlow({
     initialParams?.productName,
     initialParams?.quantity,
     initialParams?.warehouseId,
+    initialParams?.issueId,
+    initialParams?.reportMode,
+    initialParams?.issueCategory,
+    initialParams?.submittedId,
   ].join('|');
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
@@ -121,6 +144,13 @@ export function StorageFlow({
   const back = () => {
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
+  };
+  /** Pop back to the nearest `screen` on the stack, or restart the stack on it. */
+  const backTo = (screen: StorageRoute) => {
+    setStack((prev) => {
+      const index = prev.map((e) => e.screen).lastIndexOf(screen);
+      return index >= 0 ? prev.slice(0, index + 1) : [{ screen }];
+    });
   };
 
   const common = { scope, can, onBack: back, onTabChange };
@@ -182,6 +212,37 @@ export function StorageFlow({
           onSelectWarehouse={onSelectWarehouse}
           onViewOperationsHistory={onViewOperationsHistory}
           onViewStaffAttendance={onViewStaffAttendance}
+        />
+      );
+    case 'OperationalIssues':
+      return (
+        <OperationalIssuesScreen
+          {...common}
+          onSelectIssue={(issueId) => navigate('OperationalIssueDetail', { issueId })}
+          onReportIssue={() => navigate('ReportIssue', { reportMode: 'operational' })}
+        />
+      );
+    case 'OperationalIssueDetail':
+      return <OperationalIssueDetailScreen {...common} issueId={params.issueId} />;
+    case 'ReportIssue':
+      return (
+        <ReportIssueScreen
+          {...common}
+          mode={params.reportMode}
+          initialCategory={params.issueCategory}
+          onSubmit={(submittedId) => navigate('IssueSubmitted', { reportMode: params.reportMode, submittedId })}
+        />
+      );
+    case 'IssueSubmitted':
+      return (
+        <IssueSubmittedScreen
+          {...common}
+          mode={params.reportMode}
+          submittedId={params.submittedId}
+          onDone={() => {
+            if (params.reportMode === 'operational') backTo('OperationalIssues');
+            else (onSupportRequestDone ?? onBack)();
+          }}
         />
       );
     default:
