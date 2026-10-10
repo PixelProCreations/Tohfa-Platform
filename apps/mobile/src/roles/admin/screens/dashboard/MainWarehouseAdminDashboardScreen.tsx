@@ -32,7 +32,6 @@ import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance'
 import { StorageFlow } from '../warehouse/storage-ops';
 import {
   WarehouseOverviewScreen,
-  WarehousePerformanceScreen,
   ManageWarehousesScreen,
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
@@ -1766,7 +1765,12 @@ export function MainWarehouseAdminDashboardScreen({
                 onBack={goBackWh}
               />
             ) : whSubView === 'warehouse_performance' ? (
-              <WarehousePerformanceScreen
+              // Shared storage-ops performance (W4, FINAL_LIST 127): route-guarded on
+              // warehouse.all.view; the staff ranking needs warehouse.staff.list_view.
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="Performance"
                 onBack={goBackWh}
                 onSelectWarehouse={(whName) => {
                   setSelectedWHName(whName);

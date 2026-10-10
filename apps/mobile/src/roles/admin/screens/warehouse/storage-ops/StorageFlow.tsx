@@ -7,6 +7,7 @@
  *   Storage Location (detail)            (host: View Stock, product rows)
  *   Storage Location Assignment          (host: confirmed location)
  *   Warehouse Capacity                   (host: history, Manage Capacity Limits)
+ *   Warehouse Performance (Main)         (host: warehouse, operations log, staff)
  *
  * The screens used to be stitched three times (App.tsx keys, the Sub shell's
  * show* flags and Main's whSubView branches), none of which passed `scope` /
@@ -14,9 +15,10 @@
  * `can`. Hops that leave the module (warehouse activity, Inventory & Stock,
  * the receiving flow) go to the host.
  *
- * Gates: Add Material needs `inventory.material_handling.manage`; navigate()
- * refuses it without the code and the screen renders a not-available note if
- * opened directly.
+ * Gates: Add Material needs `inventory.material_handling.manage` and
+ * Warehouse Performance needs `warehouse.all.view`; navigate() refuses them
+ * without the code and the screens render a not-available note if opened
+ * directly. The other routes are view-only and gate their actions inside.
  *
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix.
  */
@@ -30,6 +32,7 @@ import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScre
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { STORAGE_CODES } from './StorageParts';
 import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
+import { WarehousePerformanceScreen } from './WarehousePerformanceScreen';
 import type { PermissionCheck, StorageRoute, StorageRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StorageStackEntry {
@@ -40,6 +43,7 @@ interface StorageStackEntry {
 /** The code each gated route needs; routes not listed are ungated (view-only). */
 const ROUTE_CODE: Partial<Record<StorageRoute, string>> = {
   AddMaterial: STORAGE_CODES.materialManage,
+  Performance: STORAGE_CODES.allWarehousesView,
 };
 
 /** True when `can` allows opening `route`. */
@@ -66,6 +70,11 @@ export interface StorageFlowProps {
   onConfirmAssignment?: ((locationId: string) => void) | undefined;
   /** Capacity "Manage Capacity Limits" (Warehouse Settings); the screen also needs warehouse.capacity.set. */
   onManageCapacity?: (() => void) | undefined;
+  /** Performance warehouse card (by display name, as the Main shell keys warehouses). */
+  onSelectWarehouse?: ((warehouseName: string) => void) | undefined;
+  onViewOperationsHistory?: (() => void) | undefined;
+  /** Performance "All Staff" (warehouse roster / attendance). */
+  onViewStaffAttendance?: (() => void) | undefined;
 }
 
 export function StorageFlow({
@@ -80,6 +89,9 @@ export function StorageFlow({
   onViewProductDetail,
   onConfirmAssignment,
   onManageCapacity,
+  onSelectWarehouse,
+  onViewOperationsHistory,
+  onViewStaffAttendance,
 }: StorageFlowProps) {
   const [stack, setStack] = useState<StorageStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -163,6 +175,15 @@ export function StorageFlow({
       );
     case 'Capacity':
       return <WarehouseCapacityScreen {...common} onViewHistory={onViewActivity} onManageCapacity={onManageCapacity} />;
+    case 'Performance':
+      return (
+        <WarehousePerformanceScreen
+          {...common}
+          onSelectWarehouse={onSelectWarehouse}
+          onViewOperationsHistory={onViewOperationsHistory}
+          onViewStaffAttendance={onViewStaffAttendance}
+        />
+      );
     default:
       return null;
   }

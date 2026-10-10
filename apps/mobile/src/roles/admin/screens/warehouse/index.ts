@@ -22,7 +22,6 @@ export * from './OperationalIssuesScreen';
 export * from './OperationsHistoryScreen';
 export * from './ReportOperationalIssueScreen';
 export * from './TodaysOperationsMonitoringScreen';
-export * from './WarehousePerformanceScreen';
 export * from './ManageWarehousesScreen';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).

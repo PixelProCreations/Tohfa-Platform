@@ -1,7 +1,8 @@
 // Warehouse storage-ops area, part A (design module M4): material handling
 // (list, detail, add; rbac inventory.material_handling.manage) and storage
 // locations (detail: inventory.batch.view; assignment: inventory.batch.assign)
-// and capacity (no view code; Manage Capacity Limits: warehouse.capacity.set).
+// and capacity (no view code; Manage Capacity Limits: warehouse.capacity.set),
+// plus Main-only Warehouse Performance (warehouse.all.view).
 // Explicit exports only (no `export *`).
 export { StorageFlow, canOpenStorageRoute, type StorageFlowProps } from './StorageFlow';
 export { MaterialHandlingScreen, type MaterialHandlingScreenProps } from './MaterialHandlingScreen';
@@ -13,6 +14,7 @@ export {
   type StorageLocationAssignmentScreenProps,
 } from './StorageLocationAssignmentScreen';
 export { WarehouseCapacityScreen, capacityStateOf, type WarehouseCapacityScreenProps } from './WarehouseCapacityScreen';
+export { WarehousePerformanceScreen, type WarehousePerformanceScreenProps } from './WarehousePerformanceScreen';
 export { STORAGE_CODES } from './StorageParts';
 export { STORAGE_WAREHOUSES } from './fixtures';
 export type {
@@ -23,6 +25,7 @@ export type {
   MaterialItem,
   MaterialOption,
   MaterialStatus,
+  PerformancePeriod,
   StorageRoute,
   StorageRouteParams,
 } from './types';
