@@ -29,6 +29,7 @@ import { InventoryFlow } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
+import { StorageFlow } from '../warehouse/storage-ops';
 import {
   WarehouseOverviewScreen,
   WarehousePerformanceScreen,
@@ -54,8 +55,6 @@ import {
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
   LocationDetailScreen,
-  MaterialHandlingScreen,
-  MaterialDetailScreen,
   WarehouseCapacityScreen,
   WarehouseActivityScreen,
   OperationalIssuesScreen,
@@ -1586,40 +1585,23 @@ export function MainWarehouseAdminDashboardScreen({
                 onViewProductDetail={() => { }}
               />
             ) : whSubView === 'material_handling' ? (
-              <MaterialHandlingScreen
+              // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
+              // actions were ported into the shared screens (inventory.material_handling.manage).
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="MaterialHandling"
                 onBack={() => navigateWh('warehouse_operations')}
-                onSelectMaterial={(matId) => {
-                  setSelectedMaterialId(matId);
-                  navigateWh('material_detail');
-                }}
-                onReceiveMaterial={() => {
-                  setSelectedMaterialId('MAT-0021');
-                  navigateWh('material_detail');
-                }}
-                onIssueMaterial={() => {
-                  setSelectedMaterialId('MAT-0021');
-                  navigateWh('material_detail');
-                }}
-                onViewHistory={() => {
-                  navigateWh('warehouse_activity');
-                }}
+                onViewActivity={() => navigateWh('warehouse_activity')}
               />
             ) : whSubView === 'material_detail' ? (
-              <MaterialDetailScreen
-                materialId={selectedMaterialId}
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="MaterialDetail"
+                initialParams={{ materialId: selectedMaterialId }}
                 onBack={goBackWh}
-                onReceive={() => {
-                  Alert.alert('Receive Material', 'Record new incoming stock for packaging boxes.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm Receive', onPress: () => Alert.alert('Success', '100 units added to MAT-0021 inventory.') },
-                  ]);
-                }}
-                onIssue={() => {
-                  Alert.alert('Issue Material', 'Dispatch packaging boxes to packing line.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm Issue', onPress: () => Alert.alert('Success', '20 units issued from MAT-0021.') },
-                  ]);
-                }}
+                onViewActivity={() => navigateWh('warehouse_activity')}
               />
             ) : whSubView === 'warehouse_capacity' ? (
               <WarehouseCapacityScreen

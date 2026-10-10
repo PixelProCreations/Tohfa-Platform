@@ -147,6 +147,9 @@ import {
   type AttendanceFilter,
   type StaffRoute,
   type StaffRouteParams,
+  StorageFlow,
+  type StorageRoute,
+  type StorageRouteParams,
   type WarehouseScope,
   FinanceFlow,
   type FinanceRoute,
@@ -160,9 +163,6 @@ import {
   SubWarehouseTodayOperationsScreen,
   SubWarehouseActivityDetailScreen,
   SubWarehouseStorageLocationDetailScreen,
-  SubWarehouseMaterialHandlingScreen,
-  SubWarehouseMaterialDetailScreen,
-  SubWarehouseAddMaterialScreen,
   SubWarehouseCapacityScreen,
   SubWarehouseOperationalIssuesScreen,
   SubWarehouseReportIssueScreen,
@@ -736,6 +736,17 @@ const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?
   SubWarehouseAttendanceHistory: { route: 'AttendanceHistory' },
 };
 /**
+ * Legacy Sub storage-ops route keys -> shared StorageFlow routes (W4, M4 part
+ * A). `back` is where the old screen's back button went when the key is the
+ * first screen of the flow. Add Material needs inventory.material_handling.manage;
+ * StorageFlow and the screen check it.
+ */
+const STORAGE_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StorageRoute; back: ScreenName }>> = {
+  SubWarehouseMaterialHandling: { route: 'MaterialHandling', back: 'SubWarehouseWarehouseOperations' },
+  SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
+  SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
+};
+/**
  * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
  * keys were aliases of one screen (CustomerList/Customers, CustomerDetail/
  * CustomerDetails, CustomerPurchases/PurchaseHistory, CustomerSupport/
@@ -940,6 +951,14 @@ export default function App(): React.JSX.Element {
       attendanceFilter: STAFF_ROUTE_ENTRY[screen]?.filter,
     }),
     [params, screen],
+  );
+  // Params for a StorageFlow entry, memoised so the flow does not restart its stack.
+  const storageParams = useMemo<StorageRouteParams>(
+    () => ({
+      materialId: stringParam(params['materialId']),
+      locationId: stringParam(params['locationId']),
+    }),
+    [params],
   );
   // Params for a CustomersFlow entry, memoised so the flow does not restart its
   // stack on every App render. Deep links carry flat customer / issue / ticket
@@ -1834,22 +1853,22 @@ export default function App(): React.JSX.Element {
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
           />
-        ) : screen === 'SubWarehouseMaterialHandling' ? (
-          <SubWarehouseMaterialHandlingScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
-            onSelectMaterial={(id) => navigate('SubWarehouseMaterialDetail', { materialId: id })}
-            onAddMaterial={() => navigate('SubWarehouseAddMaterial')}
-          />
-        ) : screen === 'SubWarehouseMaterialDetail' ? (
-          <SubWarehouseMaterialDetailScreen
-            materialId={(params['materialId'] as string) || 'MAT-01'}
-            onBack={() => navigate('SubWarehouseMaterialHandling')}
-            onAddStock={() => navigate('SubWarehouseAddMaterial')}
-          />
-        ) : screen === 'SubWarehouseAddMaterial' ? (
-          <SubWarehouseAddMaterialScreen
-            onBack={() => navigate('SubWarehouseMaterialHandling')}
-            onSave={() => navigate('SubWarehouseMaterialHandling')}
+        ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
+          // The storage-ops screens live in the shared warehouse/storage-ops area
+          // (W4, M4 part A); each old key opens StorageFlow on the matching route.
+          <StorageFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
+            initialParams={storageParams}
+            onBack={() => navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations')}
+            onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
+            onTabChange={(tab) => {
+              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
+              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
+              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
+            }}
           />
         ) : screen === 'SubWarehouseCapacity' ? (
           <SubWarehouseCapacityScreen

@@ -19,8 +19,6 @@ export * from './TransferReceivingScreen';
 export * from './TransferReceivingInspectionScreen';
 export * from './WarehouseOperationsHubScreen';
 export * from './LocationDetailScreen';
-export * from './MaterialHandlingScreen';
-export * from './MaterialDetailScreen';
 export * from './WarehouseCapacityScreen';
 export * from './WarehouseActivityScreen';
 export * from './OperationalIssuesScreen';
@@ -158,3 +156,5 @@ export {
   type ReceivingWizardStep,
   type WizardShipmentData,
 } from './receiving-qc';
+// Shared storage-ops navigator, part A (W4, M4); the screens themselves are imported from './storage-ops'.
+export { StorageFlow, type StorageFlowProps, type StorageRoute, type StorageRouteParams } from './storage-ops';

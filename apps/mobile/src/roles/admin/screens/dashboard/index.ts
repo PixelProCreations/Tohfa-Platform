@@ -10,8 +10,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseNeedsAttentionScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseStorageLocationDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseActivityDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseMaterialHandlingScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseMaterialDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseCapacityScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssuesScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseReportIssueScreen';
@@ -43,6 +41,3 @@ export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssueDetailS
 export { SubWarehouseWarehouseActivityScreen, type SubWarehouseWarehouseActivityScreenProps } from '../../../subwarehouse/screens/SubWarehouseWarehouseActivityScreen';
 export { SubWarehouseTodayOperationsScreen, type SubWarehouseTodayOperationsScreenProps } from '../../../subwarehouse/screens/SubWarehouseTodayOperationsScreen';
 export { SubWarehouseActivityDetailScreen, type SubWarehouseActivityDetailScreenProps } from '../../../subwarehouse/screens/SubWarehouseActivityDetailScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseAddMaterialScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseMaterialHandlingScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseMaterialDetailScreen';

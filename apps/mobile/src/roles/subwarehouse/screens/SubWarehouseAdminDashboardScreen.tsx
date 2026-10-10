@@ -50,11 +50,9 @@ import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
+import { StorageFlow, type StorageRoute, type StorageRouteParams } from '../../admin/screens/warehouse/storage-ops';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
-import { SubWarehouseMaterialHandlingScreen } from './SubWarehouseMaterialHandlingScreen';
-import { SubWarehouseAddMaterialScreen } from './SubWarehouseAddMaterialScreen';
-import { SubWarehouseMaterialDetailScreen } from './SubWarehouseMaterialDetailScreen';
 import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
 import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
 import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
@@ -1082,9 +1080,8 @@ export function SubWarehouseAdminDashboardScreen({
   const [showWarehouseActivity, setShowWarehouseActivity] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
-  const [showMaterialHandling, setShowMaterialHandling] = useState(false);
-  const [showAddMaterial, setShowAddMaterial] = useState(false);
-  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+  // The open storage-ops module (W4, M4 part A): StorageFlow owns the stack from here on.
+  const [storageEntry, setStorageEntry] = useState<{ screen: StorageRoute; params?: StorageRouteParams | undefined } | null>(null);
   const [showWarehouseCapacity, setShowWarehouseCapacity] = useState(false);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
@@ -1595,7 +1592,7 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToMaterialHandling={() => {
           setShowTodayOperations(false);
           setShowWarehouseOperations(false);
-          setShowMaterialHandling(true);
+          setStorageEntry({ screen: 'MaterialHandling' });
         }}
         onNavigateToStorage={() => {
           setShowTodayOperations(false);
@@ -1649,7 +1646,7 @@ export function SubWarehouseAdminDashboardScreen({
           setShowWarehouseOperations(false);
           setSelectedStorageLocationId(null);
           setShowStorageInfo(false);
-          setShowMaterialHandling(true);
+          setStorageEntry({ screen: 'MaterialHandling' });
         }}
         onNavigateToStorage={() => {
           setShowWarehouseActivity(false);
@@ -1737,7 +1734,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToMaterialHandling={() => {
           setShowWarehouseOperations(false);
-          setShowMaterialHandling(true);
+          setStorageEntry({ screen: 'MaterialHandling' });
         }}
         onNavigateToOperationalIssues={() => {
           setShowWarehouseOperations(false);
@@ -1773,38 +1770,27 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showAddMaterial) {
+  if (storageEntry) {
     return (
-      <SubWarehouseAddMaterialScreen
-        onBack={() => setShowAddMaterial(false)}
-        onSave={() => {
-          setShowAddMaterial(false);
-        }}
-      />
-    );
-  }
-
-  if (selectedMaterialId) {
-    return (
-      <SubWarehouseMaterialDetailScreen
-        materialId={selectedMaterialId}
-        onBack={() => setSelectedMaterialId(null)}
-        onAddStock={() => {
-          setShowAddMaterial(true);
-        }}
-      />
-    );
-  }
-
-  if (showMaterialHandling) {
-    return (
-      <SubWarehouseMaterialHandlingScreen
+      // Shared storage-ops flow (W4, M4 part A), scope-locked to this warehouse.
+      // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own).
+      <StorageFlow
+        scope={scope}
+        can={can}
+        initialScreen={storageEntry.screen}
+        initialParams={storageEntry.params}
         onBack={() => {
-          setShowMaterialHandling(false);
+          setStorageEntry(null);
           setShowWarehouseOperations(true);
         }}
-        onSelectMaterial={(id) => setSelectedMaterialId(id)}
-        onAddMaterial={() => setShowAddMaterial(true)}
+        onViewActivity={() => {
+          setStorageEntry(null);
+          setShowWarehouseActivity(true);
+        }}
+        onTabChange={(tab) => {
+          setStorageEntry(null);
+          setActiveTab(tab);
+        }}
       />
     );
   }
@@ -4101,7 +4087,7 @@ export function SubWarehouseAdminDashboardScreen({
               setShowWarehouseCapacity(true);
             }}
             onNavigateToMaterialHandling={() => {
-              setShowMaterialHandling(true);
+              setStorageEntry({ screen: 'MaterialHandling' });
             }}
             onNavigateToOperationalIssues={() => {
               setShowOperationalIssues(true);

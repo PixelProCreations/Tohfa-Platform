@@ -1,0 +1,18 @@
+// Warehouse storage-ops area, part A (design module M4): material handling
+// (list, detail, add; rbac inventory.material_handling.manage). Explicit
+// exports only (no `export *`).
+export { StorageFlow, canOpenStorageRoute, type StorageFlowProps } from './StorageFlow';
+export { MaterialHandlingScreen, type MaterialHandlingScreenProps } from './MaterialHandlingScreen';
+export { MaterialDetailScreen, type MaterialDetailScreenProps } from './MaterialDetailScreen';
+export { AddMaterialScreen, type AddMaterialScreenProps } from './AddMaterialScreen';
+export { STORAGE_CODES } from './StorageParts';
+export { STORAGE_WAREHOUSES } from './fixtures';
+export type {
+  MaterialFilter,
+  MaterialHistoryEntry,
+  MaterialItem,
+  MaterialOption,
+  MaterialStatus,
+  StorageRoute,
+  StorageRouteParams,
+} from './types';
