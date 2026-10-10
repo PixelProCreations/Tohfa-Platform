@@ -123,6 +123,11 @@ export interface GoodsReceivingWizardScreenProps extends WarehouseScreenBaseProp
   onViewBatch?: ((batchId: string) => void) | undefined;
   /** Host's storage location assignment screen (Main shell), offered on the Batch & Storage step. */
   onOpenStorageLocations?: (() => void) | undefined;
+  /**
+   * The host's Receiving History list (ReceivingFlow). When given, "View
+   * receiving history" opens it instead of the embedded receiving_history step.
+   */
+  onViewHistory?: (() => void) | undefined;
 }
 
 /** Stepper stages, in order. Quality and Batch drop out when their gate fails. */
@@ -167,6 +172,7 @@ export function GoodsReceivingWizardScreen({
   onBackToShipments,
   onViewBatch,
   onOpenStorageLocations,
+  onViewHistory,
 }: GoodsReceivingWizardScreenProps) {
   const canRecord = can(RECEIVING_CODES.receiptRecord);
   const canQc = can(RECEIVING_CODES.qualityCheck);
@@ -1373,7 +1379,7 @@ export function GoodsReceivingWizardScreen({
               <ReceiptPaperIcon color={adminColors.brand} size={18} />
               <Text style={styles.actionCardText}>Full Detail</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => goToStep('receiving_history')}>
+            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => (onViewHistory ? onViewHistory() : goToStep('receiving_history'))}>
               <ClockSmallIcon color={adminColors.brand} size={18} />
               <Text style={styles.actionCardText}>Activity</Text>
             </TouchableOpacity>

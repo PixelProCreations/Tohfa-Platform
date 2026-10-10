@@ -31,23 +31,8 @@ import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance'
 import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
-import {
-  StockAndTransferOverviewScreen,
-  QuickActionsOverviewScreen,
-  ReceivingDashboardScreen,
-  IncomingShipmentsScreen,
-  ReceivingSearchFiltersScreen,
-  IncomingGoodsOperationsScreen,
-  QualityIssuesOperationsScreen,
-  ShipmentDetailScreen,
-  ReceivingHistoryScreen,
-} from '../warehouse';
-import {
-  DEMO_SHIPMENT,
-  GoodsReceivingWizardScreen,
-  ReceivingHistoryDetailScreen,
-  type ReceivingWizardStep,
-} from '../warehouse/receiving-qc';
+import { StockAndTransferOverviewScreen, QuickActionsOverviewScreen } from '../warehouse';
+import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
   MAIN_NOTIFICATIONS,
   NotificationsFlow,
@@ -55,6 +40,11 @@ import {
   type NotificationsRoute,
 } from '../warehouse/notifications';
 
+/**
+ * Receiving tab entry keys. Every key except the transfer ones opens the
+ * shared ReceivingFlow on the matching route (receivingRouteFor, W4); the
+ * flow owns the stack from there.
+ */
 export type ReceivingSubView =
   | 'dashboard'
   | 'incoming_shipments'
@@ -74,23 +64,6 @@ export type ReceivingSubView =
   | 'receiving_history_detail'
   | 'transfer_receiving'
   | 'transfer_receiving_inspection';
-
-/**
- * Receiving sub-views that are steps of the shared Goods Receiving wizard
- * (the standalone screens were absorbed, W4 receiving-qc). The keys stay so
- * every existing navigation keeps working.
- */
-const RECEIVING_WIZARD_STEP: Partial<Record<ReceivingSubView, ReceivingWizardStep>> = {
-  start_receiving: 'start_receiving',
-  quantity_verification: 'quantity_verification',
-  quality_check: 'quality_check',
-  grade_product_verification: 'grade_verification',
-  damage_mismatch_report: 'damage_mismatch',
-  acceptance_decision: 'receiving_decision',
-  partial_acceptance: 'partial_acceptance',
-  goods_receipt_summary: 'receipt_summary',
-  batch_assignment: 'batch_assignment',
-};
 
 // ─── Design Tokens (Exact match to TOHFA Admin App Design System v1.0 PDF) ───
 const PALETTE = {
@@ -569,14 +542,6 @@ export interface MainWarehouseAdminDashboardScreenProps {
 export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<MainWHTab>('Home');
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
-  const [selectedShipmentId, setSelectedShipmentId] = useState('SHP-000124');
-  const [selectedGrnId, setSelectedGrnId] = useState('GRN-000842');
-  /** Where the receiving wizard returns when backed out of its first step. */
-  const [receivingWizardReturn, setReceivingWizardReturn] = useState<ReceivingSubView>('shipment_detail');
-  const openReceivingWizard = (view: ReceivingSubView, returnTo: ReceivingSubView) => {
-    setReceivingWizardReturn(returnTo);
-    setReceivingSubView(view);
-  };
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
@@ -1100,97 +1065,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
         {/* ─── Receiving Tab ─── */}
         {activeTab === 'Receiving' && (
-          receivingSubView === 'dashboard' ? (
-            <ReceivingDashboardScreen
-              warehouseName={selectedWHFilter}
-              onBack={() => {
-                setActiveTab('Home');
-                setWhSubView('overview');
-              }}
-              onOpenWarehouseSelector={() => setShowFilterModal(true)}
-              onRefresh={() => { }}
-              onViewIncomingShipments={() => setReceivingSubView('incoming_shipments')}
-              onViewTransferReceiving={() => setReceivingSubView('transfer_receiving')}
-              onViewDetails={() => setReceivingSubView('incoming_shipments')}
-              onViewActivity={() => setReceivingSubView('receiving_history')}
-              onViewPendingQueue={() => setReceivingSubView('incoming_shipments')}
-            />
-          ) : receivingSubView === 'incoming_shipments' ? (
-            <IncomingShipmentsScreen
-              onBack={() => setReceivingSubView('dashboard')}
-              onOpenFilters={() => setReceivingSubView('search_filters')}
-              onSelectShipment={(id) => {
-                setSelectedShipmentId(id);
-                setReceivingSubView('shipment_detail');
-              }}
-            />
-          ) : receivingSubView === 'search_filters' ? (
-            <ReceivingSearchFiltersScreen
-              onBack={() => setReceivingSubView('incoming_shipments')}
-              onApplyFilters={(filters) => {
-                if (filters.warehouse && filters.warehouse !== 'All') {
-                  setSelectedWHFilter(filters.warehouse);
-                }
-                setReceivingSubView('incoming_shipments');
-              }}
-            />
-          ) : receivingSubView === 'shipment_detail' ? (
-            <ShipmentDetailScreen
-              shipmentId={selectedShipmentId}
-              onBack={() => setReceivingSubView('incoming_shipments')}
-              onStartReceiving={() => openReceivingWizard('start_receiving', 'shipment_detail')}
-              onViewProductDetail={() => openReceivingWizard('quantity_verification', 'shipment_detail')}
-              onViewTimeline={() => openReceivingWizard('goods_receipt_summary', 'shipment_detail')}
-            />
-          ) : RECEIVING_WIZARD_STEP[receivingSubView] !== undefined ? (
-            // The ten standalone receiving screens are steps of the shared wizard now
-            // (W4 receiving-qc); every old sub-view key opens it on the matching step.
-            <GoodsReceivingWizardScreen
-              key={receivingSubView}
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialStep={RECEIVING_WIZARD_STEP[receivingSubView] ?? 'start_receiving'}
-              shipment={{ ...DEMO_SHIPMENT, code: selectedShipmentId, to: selectedWHName }}
-              receiverName={user?.fullName}
-              onBack={() => setReceivingSubView(receivingWizardReturn)}
-              onFinish={() => setReceivingSubView('receiving_history')}
-              onBackToShipments={() => setReceivingSubView('incoming_shipments')}
-              onOpenStorageLocations={() => setReceivingSubView('storage_location_assignment')}
-            />
-          ) : receivingSubView === 'storage_location_assignment' ? (
-            // Shared storage-ops assignment (W4, FINAL_LIST 136): the batch's warehouse is
-            // the shipment's; Confirm needs inventory.batch.assign.
-            <StorageFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="StorageLocationAssignment"
-              initialParams={{ warehouseId: warehouseIdForName(selectedWHName) }}
-              onBack={() => openReceivingWizard('batch_assignment', receivingWizardReturn)}
-              onConfirmAssignment={() => setReceivingSubView('receiving_history')}
-            />
-          ) : receivingSubView === 'receiving_history' ? (
-            <ReceivingHistoryScreen
-              onBack={() => setReceivingSubView('dashboard')}
-              onSelectRecord={(grnId) => {
-                setSelectedGrnId(grnId);
-                setReceivingSubView('receiving_history_detail');
-              }}
-            />
-          ) : receivingSubView === 'receiving_history_detail' ? (
-            <ReceivingHistoryDetailScreen
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              receiptId={selectedGrnId}
-              onBack={() => setReceivingSubView('receiving_history')}
-              onNavigateTimeline={() => {
-                setActiveTab('Home');
-                navigateWh('activity_timeline_ops');
-              }}
-              onNavigateDiscrepancy={() => openReceivingWizard('damage_mismatch_report', 'receiving_history_detail')}
-              onNavigateBatch={() => openReceivingWizard('batch_assignment', 'receiving_history_detail')}
-              onNavigateShipment={() => setReceivingSubView('shipment_detail')}
-            />
-          ) : receivingSubView === 'transfer_receiving' || receivingSubView === 'transfer_receiving_inspection' ? (
+          receivingSubView === 'transfer_receiving' || receivingSubView === 'transfer_receiving_inspection' ? (
             // Shared transfers flow (W4): arrivals for all warehouses; the
             // inspection step opens inside the flow for the tapped transfer
             // (Start Inspection / Complete need transfer.inter_warehouse.receive).
@@ -1200,7 +1075,39 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               initialScreen="TransferReceiving"
               onBack={() => setReceivingSubView('dashboard')}
             />
-          ) : null
+          ) : (
+            // Shared receiving flow (W4): dashboard, incoming shipments, search &
+            // filters, shipment detail, the wizard, storage assignment, receiving
+            // history (+ detail) and quality issues, all warehouses. Every old
+            // sub-view key opens the matching route; the flow owns the stack.
+            <ReceivingFlow
+              key={receivingSubView}
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen={receivingRouteFor(receivingSubView).screen}
+              initialParams={receivingRouteFor(receivingSubView).params}
+              receiverName={user?.fullName}
+              finishTo="History"
+              onBack={() => {
+                if (receivingSubView !== 'dashboard') {
+                  setReceivingSubView('dashboard');
+                } else {
+                  setActiveTab('Home');
+                  setWhSubView('overview');
+                }
+              }}
+              onTabChange={handleMoreTabChange}
+              onOpenTransferReceiving={() => setReceivingSubView('transfer_receiving')}
+              onOpenOperationalIssues={() => {
+                setActiveTab('Home');
+                navigateWh('operational_issues');
+              }}
+              onOpenTimeline={() => {
+                setActiveTab('Home');
+                navigateWh('activity_timeline_ops');
+              }}
+            />
+          )
         )}
 
         {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
@@ -1759,17 +1666,21 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 onViewStaffAttendance={() => navigateWh('staff_attendance')}
               />
             ) : whSubView === 'incoming_goods_ops' ? (
-              <IncomingGoodsOperationsScreen
+              // Incoming Goods was the receiving summary again: it is the shared
+              // receiving dashboard now (W4), opened from the operations hub.
+              <ReceivingFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="Dashboard"
+                receiverName={user?.fullName}
+                finishTo="History"
                 onBack={goBackWh}
-                onSelectShipment={(shipmentId) => {
-                  setSelectedShipmentId(shipmentId);
+                onOpenTransferReceiving={() => {
                   setActiveTab('Receiving');
-                  setReceivingSubView('shipment_detail');
+                  setReceivingSubView('transfer_receiving');
                 }}
-                onNavigateReceiving={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('dashboard');
-                }}
+                onOpenOperationalIssues={() => navigateWh('operational_issues')}
+                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
               />
             ) : whSubView === 'order_fulfilment_ops' ? (
               <OrdersFlow
@@ -1784,9 +1695,17 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 }}
               />
             ) : whSubView === 'quality_issues_ops' ? (
-              <QualityIssuesOperationsScreen
+              // Shared receiving Quality Issues (W4, read-only list); issues open the
+              // wizard step / shipment inside the flow, damage reports Operational Issues.
+              <ReceivingFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="QualityIssues"
+                receiverName={user?.fullName}
+                finishTo="History"
                 onBack={goBackWh}
-                onNavigateIssues={() => navigateWh('operational_issues')}
+                onOpenOperationalIssues={() => navigateWh('operational_issues')}
+                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
               />
             ) : whSubView === 'customers_list' ? (
               // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
@@ -1885,22 +1804,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       </View>
 
       {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */}
-      {((activeTab === 'Receiving' &&
-        receivingSubView !== 'search_filters' &&
-        receivingSubView !== 'shipment_detail' &&
-        receivingSubView !== 'start_receiving' &&
-        receivingSubView !== 'quantity_verification' &&
-        receivingSubView !== 'quality_check' &&
-        receivingSubView !== 'grade_product_verification' &&
-        receivingSubView !== 'damage_mismatch_report' &&
-        receivingSubView !== 'acceptance_decision' &&
-        receivingSubView !== 'partial_acceptance' &&
-        receivingSubView !== 'goods_receipt_summary' &&
-        receivingSubView !== 'batch_assignment' &&
-        receivingSubView !== 'storage_location_assignment' &&
-        receivingSubView !== 'transfer_receiving' &&
-        receivingSubView !== 'transfer_receiving_inspection') ||
-        (activeTab === 'Home' &&
+      {/* Receiving draws its own tab bar (ReceivingFlow dashboard); transfers have none. */}
+      {((activeTab === 'Home' &&
           (whSubView === 'overview' ||
             whSubView === 'warehouse_operations' ||
             whSubView === 'warehouse_overview' ||
@@ -1955,8 +1860,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               accessibilityRole="tab"
               activeOpacity={0.7}
             >
-              <ReceivingTabNavIcon active={activeTab === 'Receiving'} />
-              <Text style={[styles.tabLabel, activeTab === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
+              <ReceivingTabNavIcon active={false} />
+              <Text style={styles.tabLabel}>Receiving</Text>
             </TouchableOpacity>
 
             {/* Inventory */}

@@ -10,8 +10,44 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import type { QcCriterion } from './types';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
+import type { QcCriterion, QualityIssue, ReceiptResult, ShipmentStatus } from './types';
+
+/** Badge tone of a shipment status (the old per-row hex pairs, by meaning). */
+export function shipmentTone(status: ShipmentStatus): AdminTone {
+  switch (status) {
+    case 'Expected':
+      return 'brandSoft';
+    case 'Arrived':
+    case 'Completed':
+      return 'success';
+    case 'Receiving':
+      return 'info';
+    case 'Awaiting QC':
+    case 'Partially Accepted':
+      return 'warning';
+    default:
+      return 'danger';
+  }
+}
+
+/** Badge tone of a receipt result. */
+export function receiptTone(result: ReceiptResult): AdminTone {
+  if (result === 'Accepted') return 'success';
+  if (result === 'Rejected') return 'danger';
+  if (result === 'Open') return 'brandSoft';
+  return 'warning';
+}
+
+/** Accent tone of a QC issue. */
+export function qualityIssueTone(kind: QualityIssue['kind']): AdminTone {
+  return kind === 'QC Pending' ? 'warning' : 'danger';
+}
+
+/** True when the admin may see receiving data (as ReceivingHistoryDetailScreen gates it). */
+export function canViewReceiving(can: (code: string) => boolean): boolean {
+  return can(RECEIVING_CODES.batchView) || can(RECEIVING_CODES.receiptRecord);
+}
 
 /** docs/rbac.json codes the receiving screens check (each one exists there; MAIN=all, SUB=all unless noted). */
 export const RECEIVING_CODES = {
@@ -528,6 +564,14 @@ export function RedCrossBadgeIcon({ size = 32 }: { size?: number }) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={adminColors.danger.text} strokeWidth="2" />
       <Path d="M15 9l-6 6M9 9l6 6" stroke={adminColors.danger.text} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function TransferArrowsIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

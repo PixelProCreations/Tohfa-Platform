@@ -1,12 +1,5 @@
 export * from './StockAndTransferOverviewScreen';
 export * from './QuickActionsOverviewScreen';
-export * from './ReceivingDashboardScreen';
-export * from './IncomingShipmentsScreen';
-export * from './ReceivingSearchFiltersScreen';
-export * from './IncomingGoodsOperationsScreen';
-export * from './QualityIssuesOperationsScreen';
-export * from './ShipmentDetailScreen';
-export * from './ReceivingHistoryScreen';
 
 // Main warehouse-admin navigator (W4); the screens themselves are imported from './warehouse-admin'.
 export {
@@ -132,12 +125,18 @@ export {
   type StaffRoute,
   type StaffRouteParams,
 } from './staff-attendance';
-// Shared goods receiving & QC screens (W4); the wizard absorbed the standalone receiving steps.
+// Shared goods receiving & QC screens (W4); the wizard absorbed the standalone receiving steps and
+// ReceivingFlow the receiving list screens (dashboard, shipments, filters, history, quality issues).
 export {
   ALERT_RECEIPT_ID,
   DEMO_SHIPMENT,
   GoodsReceivingWizardScreen,
+  ReceivingFlow,
   ReceivingHistoryDetailScreen,
+  receivingRouteFor,
+  type ReceivingFlowProps,
+  type ReceivingRoute,
+  type ReceivingRouteParams,
   type GoodsReceivingWizardScreenProps,
   type ReceivingHistoryDetailScreenProps,
   type ReceivingRecord,

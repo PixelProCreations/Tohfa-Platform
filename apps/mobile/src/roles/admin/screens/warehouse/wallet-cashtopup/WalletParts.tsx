@@ -602,14 +602,17 @@ const TABS: readonly WarehouseTab[] = ['Home', 'Receiving', 'Inventory', 'More']
 export function WarehouseTabBar({
   onTabChange,
   onBack,
+  activeTab = 'More',
 }: {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onBack?: (() => void) | undefined;
+  /** Highlighted tab (the module's home tab); More by default. */
+  activeTab?: WarehouseTab | undefined;
 }) {
   return (
     <View style={styles.tabBar}>
       {TABS.map((tab) => {
-        const active = tab === 'More';
+        const active = tab === activeTab;
         return (
           <TouchableOpacity
             key={tab}

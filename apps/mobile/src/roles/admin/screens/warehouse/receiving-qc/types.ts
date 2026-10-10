@@ -154,3 +154,107 @@ export interface ReceivingRecord {
   timeline?: ReceiptTimelineEvent[] | undefined;
   qcResults?: Partial<Record<string, QcResult>> | undefined;
 }
+
+// ─── Receiving list screens (dashboard, shipments, filters, history, QC issues) ───
+
+/** Status of an incoming shipment (Main's old 'In Progress' is 'Receiving'). */
+export type ShipmentStatus =
+  | 'Expected'
+  | 'Arrived'
+  | 'Receiving'
+  | 'Awaiting QC'
+  | 'Mismatch'
+  | 'Partially Accepted'
+  | 'Completed'
+  | 'Rejected';
+
+/** The two documented shipment contexts; no other type is invented. */
+export type ShipmentType = 'Farmer/Admin' | 'Inter-Warehouse Transfer';
+
+/**
+ * One incoming shipment, as the shipment list, its detail and the wizard show
+ * it. Declared once here (it was the Sub shell's inline ShipmentItem and the
+ * Main IncomingShipments / ShipmentDetail inline rows). Structurally a
+ * WizardShipmentData, so a row opens the wizard as is.
+ */
+export interface IncomingShipment extends WizardShipmentData {
+  code: string;
+  reference: string;
+  status: ShipmentStatus;
+  type: ShipmentType;
+  /** Receiving warehouse. A Sub scope only sees its own. */
+  warehouseId: string;
+  from: string;
+  to: string;
+  produce: string;
+  grade: string;
+  dispatchDate: string;
+  expectedArrival: string;
+  actualArrival?: string | undefined;
+  batchSource: string;
+  /** "Dispatch" column of an Expected shipment. */
+  dispatchStatus?: string | undefined;
+  /** Shows the "Review" link on the list card (a variance to look at). */
+  hasReview?: boolean | undefined;
+  crates?: number | undefined;
+}
+
+/** Status pills of the Incoming Shipments list. */
+export type ShipmentFilterTab = 'All' | 'Expected' | 'Arrived' | 'Receiving' | 'QC Pending' | 'Completed' | 'Rejected';
+
+/** Result pills of Receiving History. */
+export type HistoryFilter = 'All' | 'Accepted' | 'Partial' | 'Rejected';
+
+/**
+ * Facets of Receiving Search & Filters (SPEC_GAPS W4n-1). 'All' / '' = not
+ * filtered. Warehouse, shipment type and result are the Main facets; status,
+ * date, grade, source and product the Sub ones.
+ */
+export interface ReceivingFilters {
+  search: string;
+  status: string;
+  date: string;
+  grade: string;
+  source: string;
+  product: string;
+  warehouseId?: string | undefined;
+  shipmentType: string;
+  result: string;
+}
+
+/** What opening a QC issue leads to. */
+export type QualityIssueTarget = 'wizard' | 'shipment' | 'operational_issue';
+
+/** One quality / receiving issue (read-only list; Needs Attention on the dashboard). */
+export interface QualityIssue {
+  id: string;
+  kind: 'QC Pending' | 'Quantity Mismatch' | 'Damage Reported';
+  shipmentCode: string;
+  produce: string;
+  detail: string;
+  warehouseId: string;
+  time: string;
+  target: QualityIssueTarget;
+  /** Wizard step a 'wizard' issue opens. */
+  wizardStep?: ReceivingWizardStep | undefined;
+}
+
+/** Routes of the receiving flow (ReceivingFlow). */
+export type ReceivingRoute =
+  | 'Dashboard'
+  | 'Shipments'
+  | 'SearchFilters'
+  | 'ShipmentDetail'
+  | 'History'
+  | 'HistoryDetail'
+  | 'QualityIssues'
+  | 'Wizard'
+  | 'StorageAssignment';
+
+export interface ReceivingRouteParams {
+  shipmentId?: string | undefined;
+  receiptId?: string | undefined;
+  statusTab?: ShipmentFilterTab | undefined;
+  historyFilter?: HistoryFilter | undefined;
+  wizardStep?: ReceivingWizardStep | undefined;
+}
