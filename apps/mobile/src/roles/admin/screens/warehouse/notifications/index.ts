@@ -5,7 +5,7 @@ export { NotificationsScreen, type NotificationsScreenProps } from './Notificati
 export { NotificationDetailScreen, type NotificationDetailScreenProps } from './NotificationDetailScreen';
 export { ApprovalAlertsScreen, type ApprovalAlertsScreenProps } from './ApprovalAlertsScreen';
 export { NotificationsFlow, type NotificationsFlowProps, type NotificationsStackEntry } from './NotificationsFlow';
-export { NOTIFICATION_CODES, canOpenAlertRecord, canOpenTarget } from './NotificationParts';
+export { DEFAULT_TAG, NOTIFICATION_CODES, canOpenAlertRecord, canOpenTarget, tagOf } from './NotificationParts';
 export {
   APPROVAL_ALERTS,
   MAIN_NOTIFICATIONS,
@@ -21,5 +21,6 @@ export type {
   NotificationItem,
   NotificationsRoute,
   NotificationsRouteParams,
+  NotificationTagTone,
   NotificationTarget,
 } from './types';

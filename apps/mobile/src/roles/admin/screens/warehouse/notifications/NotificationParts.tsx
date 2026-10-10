@@ -122,6 +122,23 @@ export const NOTIFICATION_FILTERS: readonly NotificationFilter[] = [
   'Messages',
 ];
 
+/**
+ * Chip label of each filter (the original Sub list's wording). The 'Finance'
+ * filter value is kept for hosts and route params; its chip reads 'Wallet'.
+ */
+export const FILTER_LABEL: Record<NotificationFilter, string> = {
+  All: 'All',
+  Unread: 'Unread',
+  Receiving: 'Receiving',
+  Quality: 'Quality',
+  Orders: 'Orders',
+  Inventory: 'Inventory',
+  Finance: 'Wallet',
+  Returns: 'Returns',
+  System: 'System',
+  Messages: 'Messages',
+};
+
 export function matchesFilter(item: NotificationItem, filter: NotificationFilter): boolean {
   if (filter === 'All') return true;
   if (filter === 'Unread') return !item.isRead;
@@ -134,17 +151,21 @@ export function FilterTabs<T extends string>({
   value,
   onChange,
   countOf,
+  labelOf,
 }: {
   options: readonly T[];
   value: T;
   onChange: (next: T) => void;
   countOf?: ((option: T) => number) | undefined;
+  /** Display label of an option (defaults to the option itself). */
+  labelOf?: ((option: T) => string) | undefined;
 }) {
   return (
     <View style={styles.filterBar}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
         {options.map((option) => {
           const active = option === value;
+          const label = labelOf ? labelOf(option) : option;
           return (
             <TouchableOpacity
               key={option}
@@ -155,7 +176,7 @@ export function FilterTabs<T extends string>({
               accessibilityState={{ selected: active }}
             >
               <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                {countOf ? `${option} (${countOf(option)})` : option}
+                {countOf ? `${label} (${countOf(option)})` : label}
               </Text>
             </TouchableOpacity>
           );
@@ -181,9 +202,44 @@ export const CATEGORY_TONE: Record<NotificationCategory, AdminTone> = {
   message: 'brandSoft',
 };
 
+/**
+ * Status tag a notification shows when it carries none (the original Sub
+ * list's pills: 'Awaiting QC', 'To Pack', 'Expected', 'Low Stock', 'Wallet').
+ */
+export const DEFAULT_TAG: Record<NotificationCategory, string> = {
+  shipment: 'Expected',
+  received: 'Received',
+  quality: 'Awaiting QC',
+  mismatch: 'Handling Action',
+  inventory: 'Low Stock',
+  order: 'To Pack',
+  wallet: 'Wallet',
+  returns: 'Return',
+  system: 'System',
+  message: 'Message',
+};
+
+/** The tag pill of a notification: its own label / tone, else the category's defaults. */
+export function tagOf(item: NotificationItem): { label: string; tone: AdminTone } {
+  return {
+    label: item.tag ?? DEFAULT_TAG[item.category],
+    tone: item.tagTone ?? CATEGORY_TONE[item.category],
+  };
+}
+
 interface IconProps {
   size?: number;
   color?: string;
+}
+
+/** Person glyph for the header's profile circle. */
+export function PersonIcon({ size = 18, color = adminColors.onBrand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="2" />
+      <Path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 function TruckIcon({ size = 20, color = adminColors.info.text }: IconProps) {

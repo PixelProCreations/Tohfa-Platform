@@ -15,7 +15,12 @@ import type { ApprovalAlertItem, NotificationItem, WarehouseScope } from './type
 /** Warehouses for the Main alerts selector (seed 001, shared with the wallet / finance areas). */
 export const NOTIFICATION_WAREHOUSES: readonly WarehouseScope[] = WALLET_WAREHOUSES;
 
-/** A Sub Warehouse admin's own notifications (receiving, orders, stock, wallet, returns, messages). */
+/**
+ * A Sub Warehouse admin's own notifications (receiving, orders, stock, wallet,
+ * returns, messages). Ordered and read-state as in the original Sub design:
+ * All (13), Unread (2), Receiving (1), Quality (2), Orders (1), ... Rows without
+ * a `tag` show their category's default pill (NotificationParts DEFAULT_TAG).
+ */
 export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
   {
     id: 'n1',
@@ -47,7 +52,7 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     title: 'New Expected Shipment Today',
     message: 'GR-1025: Carrot · Grade 1 (120 KG) scheduled for arrival from Main Warehouse.',
     timestamp: '35m ago',
-    isRead: false,
+    isRead: true,
     tag: 'Expected',
     reference: 'GR-1025',
     date: '25 Sep 2026',
@@ -59,7 +64,7 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     title: 'Low Stock Alert — Tomato Grade 1',
     message: 'Current inventory is 18 KG, falling below the safe threshold of 25 KG.',
     timestamp: '1h ago',
-    isRead: false,
+    isRead: true,
     tag: 'Low Stock',
     reference: 'Tomato Grade 1',
     date: '25 Sep 2026',
@@ -107,7 +112,7 @@ export const SUB_NOTIFICATIONS: readonly NotificationItem[] = [
     title: 'System Maintenance',
     message: 'Scheduled system maintenance may temporarily affect warehouse operations.',
     timestamp: '25 Sep 2026 · 08:00 PM',
-    isRead: false,
+    isRead: true,
     date: '25 Sep 2026',
   },
   {

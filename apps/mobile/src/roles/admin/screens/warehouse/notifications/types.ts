@@ -20,6 +20,8 @@
  * warehouse selector; the approval / exception alerts are warehouse records
  * and do (Main only).
  */
+import type { AdminTone } from '../../../theme';
+
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -62,6 +64,9 @@ export type NotificationCategory =
  */
 export type NotificationTarget = 'ReviewReceiving' | 'Receiving' | 'Stock' | 'Orders' | 'Wallet' | 'Returns';
 
+/** Status pair a notification tag pill is drawn in (the admin theme's tones). */
+export type NotificationTagTone = AdminTone;
+
 /** One notification of the signed-in admin. */
 export interface NotificationItem {
   id: string;
@@ -71,8 +76,13 @@ export interface NotificationItem {
   /** Display time, e.g. '10m ago' or '25 Sep 2026 · 08:00 PM'. */
   timestamp: string;
   isRead: boolean;
-  /** Short label chip ('Awaiting QC', 'Low Stock'). */
+  /**
+   * Status tag pill under the message ('Awaiting QC', 'To Pack', 'Low Stock').
+   * Absent = the category's default tag (NotificationParts tagOf).
+   */
   tag?: string | undefined;
+  /** Tone of the tag pill; absent = the category's tone (CATEGORY_TONE). */
+  tagTone?: NotificationTagTone | undefined;
   /** Record the notification refers to (GR-1024, ORD-10245, TOP-002845). */
   reference?: string | undefined;
   /** Date shown on the detail screen (Main detail design). */
