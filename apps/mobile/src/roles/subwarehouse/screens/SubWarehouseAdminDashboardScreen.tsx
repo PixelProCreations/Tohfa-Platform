@@ -35,7 +35,6 @@ import {
   ShipmentDetailScreen,
 } from '../../admin/screens/warehouse';
 import { SubWarehouseOverviewScreen } from './SubWarehouseOverviewScreen';
-import { SubWarehouseRecentActivityScreen } from './SubWarehouseRecentActivityScreen';
 import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
 import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
@@ -50,11 +49,13 @@ import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
-import { StorageFlow, type StorageRoute, type StorageRouteParams } from '../../admin/screens/warehouse/storage-ops';
+import {
+  StorageFlow,
+  type ActivityModule,
+  type StorageRoute,
+  type StorageRouteParams,
+} from '../../admin/screens/warehouse/storage-ops';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
-import { SubWarehouseWarehouseActivityScreen } from './SubWarehouseWarehouseActivityScreen';
-import { SubWarehouseTodayOperationsScreen } from './SubWarehouseTodayOperationsScreen';
-import { SubWarehouseActivityDetailScreen } from './SubWarehouseActivityDetailScreen';
 import {
   ExpenseDetailScreen,
   FinanceFlow,
@@ -1062,15 +1063,17 @@ export function SubWarehouseAdminDashboardScreen({
   const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
-  const [showRecentActivity, setShowRecentActivity] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showWarehouseOperations, setShowWarehouseOperations] = useState(false);
-  const [showTodayOperations, setShowTodayOperations] = useState(false);
-  const [showWarehouseActivity, setShowWarehouseActivity] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   // The open storage-ops module (W4, M4 part A): StorageFlow owns the stack from here on.
-  const [storageEntry, setStorageEntry] = useState<{ screen: StorageRoute; params?: StorageRouteParams | undefined } | null>(null);
+  // closeOnBack: opened from the Home tab (Recent Activity), so back closes the flow
+  // instead of returning to the Warehouse Operations hub.
+  const [storageEntry, setStorageEntry] = useState<{
+    screen: StorageRoute;
+    params?: StorageRouteParams | undefined;
+    closeOnBack?: boolean | undefined;
+  } | null>(null);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
   const [showReviewReceiving, setShowReviewReceiving] = useState(false);
   // The open customer module: CustomersFlow (list, search, details, orders,
@@ -1543,121 +1546,6 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (selectedActivity) {
-    return (
-      <SubWarehouseActivityDetailScreen
-        activity={selectedActivity}
-        onBack={() => setSelectedActivity(null)}
-      />
-    );
-  }
-
-  if (showTodayOperations) {
-    return (
-      <SubWarehouseTodayOperationsScreen
-        onBack={() => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(true);
-        }}
-        onTabChange={(tab) => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(false);
-          setActiveTab(tab);
-        }}
-        onSelectActivity={(activity) => {
-          setSelectedActivity(activity);
-        }}
-        onNavigateToReceiving={() => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(false);
-          setReceivingSubView('incoming_shipments');
-          setActiveTab('Receiving');
-        }}
-        onNavigateToMaterialHandling={() => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'MaterialHandling' });
-        }}
-        onNavigateToStorage={() => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(false);
-          setShowStorageInfo(true);
-        }}
-        onNavigateToStockVerification={() => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(false);
-          setInventoryInitialScreen('M3S10');
-          setActiveTab('Inventory');
-        }}
-        onNavigateToOperationalIssues={() => {
-          setShowTodayOperations(false);
-          setShowWarehouseOperations(false);
-          setStorageEntry({ screen: 'OperationalIssues' });
-        }}
-      />
-    );
-  }
-
-  if (showWarehouseActivity) {
-    return (
-      <SubWarehouseWarehouseActivityScreen
-        onBack={() => {
-          setShowWarehouseActivity(false);
-          if (!selectedStorageLocationId) {
-            setShowWarehouseOperations(true);
-          }
-        }}
-        onTabChange={(tab) => {
-          setShowWarehouseActivity(false);
-          setSelectedStorageLocationId(null);
-          setShowStorageInfo(false);
-          setShowWarehouseOperations(false);
-          setActiveTab(tab);
-        }}
-        onSelectActivity={(activity) => {
-          setSelectedActivity(activity);
-        }}
-        onNavigateToReceiving={() => {
-          setShowWarehouseActivity(false);
-          setShowWarehouseOperations(false);
-          setSelectedStorageLocationId(null);
-          setShowStorageInfo(false);
-          setReceivingSubView('incoming_shipments');
-          setActiveTab('Receiving');
-        }}
-        onNavigateToMaterialHandling={() => {
-          setShowWarehouseActivity(false);
-          setShowWarehouseOperations(false);
-          setSelectedStorageLocationId(null);
-          setShowStorageInfo(false);
-          setStorageEntry({ screen: 'MaterialHandling' });
-        }}
-        onNavigateToStorage={() => {
-          setShowWarehouseActivity(false);
-          setShowWarehouseOperations(false);
-          setSelectedStorageLocationId(null);
-          if (onNavigate) onNavigate('SubWarehouseStorageInfo');
-          else setShowStorageInfo(true);
-        }}
-        onNavigateToStockVerification={() => {
-          setShowWarehouseActivity(false);
-          setShowWarehouseOperations(false);
-          setSelectedStorageLocationId(null);
-          setShowStorageInfo(false);
-          setInventoryInitialScreen('M3S10');
-          setActiveTab('Inventory');
-        }}
-        onNavigateToOperationalIssues={() => {
-          setShowWarehouseActivity(false);
-          setShowWarehouseOperations(false);
-          setSelectedStorageLocationId(null);
-          setShowStorageInfo(false);
-          setStorageEntry({ screen: 'OperationalIssues' });
-        }}
-      />
-    );
-  }
-
   if (selectedStorageLocationId) {
     const openStock = () => {
       setSelectedStorageLocationId(null);
@@ -1750,11 +1638,11 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToWarehouseActivity={() => {
           setShowWarehouseOperations(false);
-          setShowWarehouseActivity(true);
+          setStorageEntry({ screen: 'Activity' });
         }}
         onNavigateToTodayOperations={() => {
           setShowWarehouseOperations(false);
-          setShowTodayOperations(true);
+          setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' } });
         }}
         onTabChange={(tab) => {
           setShowWarehouseOperations(false);
@@ -1763,6 +1651,54 @@ export function SubWarehouseAdminDashboardScreen({
       />
     );
   }
+
+  /** Modules outside storage-ops that own an activity record or a Today tile (StorageFlow onOpenModule). */
+  const openModule = (module: ActivityModule) => {
+    switch (module) {
+      case 'receiving':
+        setReceivingSubView('incoming_shipments');
+        setActiveTab('Receiving');
+        break;
+      case 'verification':
+        setInventoryInitialScreen('M3S10');
+        setActiveTab('Inventory');
+        break;
+      case 'storage':
+        if (onNavigate) onNavigate('SubWarehouseStorageInfo');
+        else setShowStorageInfo(true);
+        break;
+      case 'orders':
+        setOrdersInitialScreen('M5S01');
+        setOrdersInitialParams(null);
+        setShowOrdersModule(true);
+        break;
+      case 'cash':
+        setShowCashTopUp(true);
+        break;
+      case 'staff':
+        setStaffEntry({ screen: 'Attendance', filter: 'All' });
+        break;
+      case 'qc':
+        setNotificationsEntry({
+          screen: 'NotificationDetail',
+          params: {
+            notification: {
+              id: 'qc-1',
+              category: 'quality',
+              title: 'QC Required',
+              message: 'Tomato batch GR-1024 is waiting for quality inspection.',
+              timestamp: '10 minutes ago',
+              isRead: false,
+              reference: 'GR-1024',
+              target: 'ReviewReceiving',
+            },
+          },
+        });
+        break;
+      default:
+        break;
+    }
+  };
 
   if (storageEntry) {
     return (
@@ -1775,61 +1711,18 @@ export function SubWarehouseAdminDashboardScreen({
         initialScreen={storageEntry.screen}
         initialParams={storageEntry.params}
         onBack={() => {
+          const close = storageEntry.closeOnBack === true;
           setStorageEntry(null);
-          setShowWarehouseOperations(true);
+          if (!close) setShowWarehouseOperations(true);
         }}
-        onViewActivity={() => {
+        onOpenModule={(module) => {
+          // Activity records / Today tiles owned by modules outside storage-ops.
           setStorageEntry(null);
-          setShowWarehouseActivity(true);
+          openModule(module);
         }}
         onTabChange={(tab) => {
           setStorageEntry(null);
           setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showRecentActivity) {
-    return (
-      <SubWarehouseRecentActivityScreen
-        onBack={() => setShowRecentActivity(false)}
-        onTabChange={(tab) => {
-          setShowRecentActivity(false);
-          setActiveTab(tab);
-        }}
-        onNavigateToCategory={(category) => {
-          setShowRecentActivity(false);
-          if (category === 'Inventory') {
-            setInventoryInitialScreen('M3S01');
-            setInventoryInitialParams(null);
-            setActiveTab('Inventory');
-          } else if (category === 'Receiving') {
-            setActiveTab('Receiving');
-            navigateTo('Receiving', 'overview');
-          } else if (category === 'Orders') {
-            setOrdersInitialScreen('M5S01');
-            setOrdersInitialParams(null);
-            setShowOrdersModule(true);
-          } else if (category === 'Cash') {
-            setShowCashTopUp(true);
-          } else if (category === 'QC') {
-            setNotificationsEntry({
-              screen: 'NotificationDetail',
-              params: {
-                notification: {
-                  id: 'qc-1',
-                  category: 'quality',
-                  title: 'QC Required',
-                  message: 'Tomato batch GR-1024 is waiting for quality inspection.',
-                  timestamp: '10 minutes ago',
-                  isRead: false,
-                  reference: 'GR-1024',
-                  target: 'ReviewReceiving',
-                },
-              },
-            });
-          }
         }}
       />
     );
@@ -2550,7 +2443,7 @@ export function SubWarehouseAdminDashboardScreen({
                     if (onNavigate) {
                       onNavigate('SubWarehouseRecentActivity');
                     } else {
-                      setShowRecentActivity(true);
+                      setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' }, closeOnBack: true });
                     }
                   }}
                 >
@@ -2884,7 +2777,7 @@ export function SubWarehouseAdminDashboardScreen({
                     if (onNavigate) {
                       onNavigate('SubWarehouseRecentActivity');
                     } else {
-                      setShowRecentActivity(true);
+                      setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' }, closeOnBack: true });
                     }
                   }}
                   activeOpacity={0.75}
@@ -4017,10 +3910,10 @@ export function SubWarehouseAdminDashboardScreen({
               setStorageEntry({ screen: 'OperationalIssues' });
             }}
             onNavigateToWarehouseActivity={() => {
-              setShowWarehouseActivity(true);
+              setStorageEntry({ screen: 'Activity' });
             }}
             onNavigateToTodayOperations={() => {
-              setShowTodayOperations(true);
+              setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' } });
             }}
             onNavigateToReceiveGoods={() => {
               setReceivingSubView('incoming_shipments');

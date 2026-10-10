@@ -12,17 +12,19 @@
 import { STORAGE_LOCATIONS } from '../profile-settings/warehouseFixtures';
 import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import type {
+  ActivityItem,
+  IssueSeverity,
   LocationLayout,
   LocationStockItem,
   MaterialDaySummary,
   MaterialHistoryEntry,
   MaterialItem,
-  IssueSeverity,
   MaterialOption,
   OperationalIssue,
   PerformanceKpi,
   ReportIssueMode,
   StorageLocationItem,
+  TodayMetrics,
   TopPerformer,
   WarehousePerformanceRow,
   WarehouseScope,
@@ -205,3 +207,39 @@ export const DEMO_SUBMITTED_ID: Readonly<Record<ReportIssueMode, string>> = {
 
 /** Mock attachment names offered by the form's attach dialog. */
 export const DEMO_ATTACHMENTS = { document: 'receipt_inv_0048.png', photo: 'photo_damage_crate.jpg' } as const;
+
+// ─── Part B: warehouse activity log ──────────────────────────────────────────
+
+/**
+ * Logged warehouse activities (no activity endpoint in docs/openapi.yaml;
+ * SPEC_GAPS W4v-4). Merges the rows of the old Sub Warehouse Activity, Today's
+ * Operations and Recent Activity screens with Main's Activity Timeline and
+ * Operations History rows, each tagged with its warehouse.
+ */
+export const ACTIVITIES: readonly ActivityItem[] = [
+  { id: 'ACT-004820', title: 'Goods Received', category: 'Receiving', module: 'receiving', warehouseId: 'WH-COON', subtitle: 'GRN-00291 · Tomato · Grade 1 · 140 KG', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 10:42 AM', timeOfDay: 'morning', status: 'Completed', action: 'GRN-00291 received and verified · Tomato Grade 1 · 140 KG', reference: 'Related GRN GRN-00291', notes: 'Received in good condition from Main Warehouse (Ooty Hub).' },
+  { id: 'ACT-004830', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'Tomato · Grade 1 · cycle count', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 10:25 AM', timeOfDay: 'morning', status: 'Completed', action: 'Cycle count of Tomato Grade 1 in Cold Storage', reference: 'Verification Log VER-2026-10', notes: 'Variance posted for review.', metrics: { system: '100 KG', counted: '95 KG', variance: '-5 KG' } },
+  { id: 'ACT-004831', title: 'Order Packed', category: 'Orders', module: 'orders', warehouseId: 'WH-COON', subtitle: 'ORD-10242 · 3 items', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 10:20 AM', timeOfDay: 'morning', status: 'Completed', action: 'Order ORD-10242 packed and staged for pickup', reference: 'Related Order ORD-10242', notes: 'Packed at station 2.' },
+  { id: 'ACT-004832', title: 'Cash Top-Up', category: 'Cash', module: 'cash', warehouseId: 'WH-COON', subtitle: '₹2,000 · Customer CUS-1042', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:55 AM', timeOfDay: 'morning', status: 'Completed', action: 'Cash top-up credited to customer wallet CUS-1042', reference: 'Wallet Top-Up WAL-TOP-9921', notes: 'Receipt printed at the counter.' },
+  { id: 'ACT-004821', title: 'Material Handling', category: 'Material Handling', module: 'material_handling', warehouseId: 'WH-COON', subtitle: 'Packaging Box · Issued 20 units', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:50 AM', timeOfDay: 'morning', status: 'Completed', action: 'Packaging boxes issued for order fulfillment · 20 units', reference: 'Related Order ORD-1018', notes: 'Issued to packing station 1.' },
+  { id: 'ACT-004822', title: 'Storage location updated', category: 'Storage', module: 'storage', warehouseId: 'WH-COON', subtitle: 'Rack 02 · Cold Storage · Tomato moved', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:35 AM', timeOfDay: 'morning', status: 'Completed', action: 'Tomato moved to Cold Storage · Rack 02, Shelf 03', reference: 'Related Batch BAT-COO-00241', notes: 'Relocated to make room for incoming Section B stock.' },
+  { id: 'ACT-004833', title: 'QC Completed', category: 'QC', module: 'qc', warehouseId: 'WH-COON', subtitle: 'GR-00123 · Carrot, Grade 1 · Accepted in full', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:20 AM', timeOfDay: 'morning', status: 'Completed', action: 'Quality check passed for GR-00123 · Carrot Grade 1', reference: 'Related GRN GR-00123', notes: 'Accepted in full.' },
+  { id: 'ACT-004823', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'Tomato · Grade 1 · Variance -5 KG detected', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 08:20 AM', timeOfDay: 'morning', status: 'Pending', action: 'Physical stock verification conducted · Tomato Grade 1', reference: 'Variance Check VER-2026-09', notes: 'Variance of -5 KG detected during morning cycle count. System: 100 KG, Counted: 95 KG.' },
+  { id: 'ACT-004824', title: 'Operational Issue', category: 'Issues', module: 'operational_issue', warehouseId: 'WH-COON', subtitle: 'Cold storage maintenance required', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 08:05 AM', timeOfDay: 'morning', status: 'Open', action: 'Cold storage maintenance required in Section A', reference: 'Issue Ticket ISS-0028', notes: 'Cooling unit running above target temperature.' },
+  { id: 'ACT-004819', title: 'Goods Received', category: 'Receiving', module: 'receiving', warehouseId: 'WH-COON', subtitle: 'GRN-00290 · Potato · Grade 2 · 220 KG', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 07:45 AM', timeOfDay: 'morning', status: 'Completed', action: 'Direct grower shipment accepted and inspected', reference: 'Related GRN GRN-00290', notes: 'Unloaded at Bay 2.' },
+  { id: 'ACT-004840', title: 'Goods Received', category: 'Receiving', module: 'receiving', warehouseId: 'WH-KOTA', subtitle: 'GR-04512 · Beans · 300 KG', performedBy: 'Manoj · SWA', day: 'Today', when: 'Today · 09:45 AM', timeOfDay: 'morning', status: 'Completed', action: 'Goods receipt GR-04512 recorded at Kotagiri', reference: 'Related GRN GR-04512', notes: 'Inspected on arrival.' },
+  { id: 'ACT-004841', title: 'Order Dispatched', category: 'Orders', module: 'orders', warehouseId: 'WH-OOTY', subtitle: 'ORD-88213 · 6 items', performedBy: 'Arun · SWA', day: 'Today', when: 'Today · 09:12 AM', timeOfDay: 'morning', status: 'Completed', action: 'Order ORD-88213 dispatched from Ooty', reference: 'Related Order ORD-88213', notes: 'Handed over at Dock 1.' },
+  { id: 'ACT-004842', title: 'Storage location updated', category: 'Storage', module: 'storage', warehouseId: 'WH-OOTY', subtitle: 'Cold Storage A · Tomato G1 640 KG placed', performedBy: 'Arun · SWA', day: 'Today', when: 'Today · 01:30 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Tomato Grade 1 put away in Cold Storage A, Rack 01', reference: 'Batch BAT-OOT-00112', notes: 'Put away after QC.' },
+  { id: 'ACT-004818', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'Carrot · Grade 1 · Verified count 80 KG', performedBy: 'Suresh · SWA', day: 'Yesterday', when: 'Yesterday · 04:15 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Physical count matched system balance 100%', reference: 'Verification Log VER-2026-08', notes: 'Rack 02 Shelf 03 verified.' },
+  { id: 'ACT-004817', title: 'Storage location updated', category: 'Storage', module: 'storage', warehouseId: 'WH-COON', subtitle: 'Rack 03 · Ambient · Potato 220 KG placed', performedBy: 'Suresh · SWA', day: 'Yesterday', when: 'Yesterday · 02:30 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Pallet position confirmed in Rack 03 Shelf 01', reference: 'Batch BAT-COO-00238', notes: 'Ambient storage zone allocated.' },
+  { id: 'ACT-004790', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'VER-0021 · full cycle count', performedBy: 'Suresh · SWA', day: 'Earlier', when: '28 Sep 2026, 09:30 AM', timeOfDay: 'morning', status: 'Completed', action: 'Stock verification VER-0021 completed', reference: 'Verification Log VER-0021', notes: 'Long-term operations history record.' },
+  { id: 'ACT-004781', title: 'Material Issued', category: 'Material Handling', module: 'material_handling', warehouseId: 'WH-COON', subtitle: 'Packaging Box · 20 units', performedBy: 'Suresh · SWA', day: 'Earlier', when: '27 Sep 2026, 04:20 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Material issued · Packaging Box (20 units)', reference: 'Material MAT-0021', notes: 'Long-term operations history record.' },
+];
+
+/** Today's operation counts per warehouse (demo; summed for the Main view). */
+export const TODAY_METRICS: readonly TodayMetrics[] = [
+  { warehouseId: 'WH-COON', receiving: 3, storage: 8, verification: 2, materials: 6, issues: 3, staffPresent: 8 },
+  { warehouseId: 'WH-OOTY', receiving: 5, storage: 9, verification: 3, materials: 5, issues: 1, staffPresent: 7 },
+  { warehouseId: 'WH-KOTA', receiving: 2, storage: 4, verification: 2, materials: 3, issues: 1, staffPresent: 6 },
+  { warehouseId: 'WH-GUDA', receiving: 2, storage: 3, verification: 1, materials: 2, issues: 0, staffPresent: 6 },
+];

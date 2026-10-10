@@ -8,6 +8,7 @@
  *   Storage Location Assignment          (host: confirmed location)
  *   Warehouse Capacity                   (host: history, Manage Capacity Limits)
  *   Warehouse Performance (Main)         (host: warehouse, operations log, staff)
+ *   Warehouse Activity (Today / All preset) -> Activity Detail -> owning module
  *   Operational Issues -> Issue Detail
  *                      -> Report an Issue (operational) -> Request Submitted
  *   Report an Issue (support, from Help & Support) -> Request Submitted
@@ -30,6 +31,7 @@
  */
 import React, { useEffect, useState } from 'react';
 
+import { ActivityDetailScreen } from './ActivityDetailScreen';
 import { AddMaterialScreen } from './AddMaterialScreen';
 import { MATERIALS } from './fixtures';
 import { IssueSubmittedScreen } from './IssueSubmittedScreen';
@@ -41,9 +43,17 @@ import { ReportIssueScreen } from './ReportIssueScreen';
 import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { STORAGE_CODES } from './StorageParts';
+import { WarehouseActivityScreen } from './WarehouseActivityScreen';
 import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
 import { WarehousePerformanceScreen } from './WarehousePerformanceScreen';
-import type { PermissionCheck, StorageRoute, StorageRouteParams, WarehouseScope, WarehouseTab } from './types';
+import type {
+  ActivityModule,
+  PermissionCheck,
+  StorageRoute,
+  StorageRouteParams,
+  WarehouseScope,
+  WarehouseTab,
+} from './types';
 
 interface StorageStackEntry {
   screen: StorageRoute;
@@ -73,8 +83,16 @@ export interface StorageFlowProps {
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
-  /** Material movement / capacity history (warehouse activity, storage-ops part B). */
+  /** Material movement / capacity history; defaults to the flow's own Warehouse Activity. */
   onViewActivity?: (() => void) | undefined;
+  /**
+   * Open a module outside storage-ops that owns an activity record or a metric
+   * tile (receiving, stock verification, storage locations, orders, cash, QC,
+   * staff). Material handling and operational issues open inside the flow.
+   */
+  onOpenModule?: ((module: ActivityModule) => void) | undefined;
+  /** Warehouse Activity "Export Operations (CSV)"; the button also needs report.export.file. */
+  onExportActivity?: (() => void) | undefined;
   /** Storage location View Stock: Inventory & Stock (inventory.batch.view). */
   onViewStock?: (() => void) | undefined;
   /** Storage location stored-stock row: that product in Inventory & Stock. */
@@ -85,6 +103,7 @@ export interface StorageFlowProps {
   onManageCapacity?: (() => void) | undefined;
   /** Performance warehouse card (by display name, as the Main shell keys warehouses). */
   onSelectWarehouse?: ((warehouseName: string) => void) | undefined;
+  /** Performance "Operations log"; defaults to the flow's Warehouse Activity (All). */
   onViewOperationsHistory?: (() => void) | undefined;
   /** Performance "All Staff" (warehouse roster / attendance). */
   onViewStaffAttendance?: (() => void) | undefined;
@@ -103,6 +122,8 @@ export function StorageFlow({
   onBack,
   onTabChange,
   onViewActivity,
+  onOpenModule,
+  onExportActivity,
   onViewStock,
   onViewProductDetail,
   onConfirmAssignment,
@@ -118,6 +139,8 @@ export function StorageFlow({
   // area flows do. Keyed on the param values, not the object, so a host that
   // builds the params inline does not reset it on every render.
   const presetKey = [
+    initialParams?.activityPreset,
+    initialParams?.activityId,
     initialParams?.materialId,
     initialParams?.locationId,
     initialParams?.batchId,
@@ -154,6 +177,13 @@ export function StorageFlow({
   };
 
   const common = { scope, can, onBack: back, onTabChange };
+  const viewActivity = onViewActivity ?? (() => navigate('Activity'));
+  /** Records and tiles of storage-ops' own modules open in the flow; the rest go to the host. */
+  const openModule = (module: ActivityModule) => {
+    if (module === 'material_handling') navigate('MaterialHandling');
+    else if (module === 'operational_issue') navigate('OperationalIssues');
+    else onOpenModule?.(module);
+  };
 
   switch (current.screen) {
     case 'MaterialHandling':
@@ -164,7 +194,7 @@ export function StorageFlow({
           onAddMaterial={() => navigate('AddMaterial')}
           onReceiveMaterial={() => navigate('AddMaterial')}
           onIssueMaterial={(materialId) => navigate('MaterialDetail', { materialId })}
-          onViewHistory={onViewActivity}
+          onViewHistory={viewActivity}
         />
       );
     case 'MaterialDetail':
@@ -204,16 +234,28 @@ export function StorageFlow({
         />
       );
     case 'Capacity':
-      return <WarehouseCapacityScreen {...common} onViewHistory={onViewActivity} onManageCapacity={onManageCapacity} />;
+      return <WarehouseCapacityScreen {...common} onViewHistory={viewActivity} onManageCapacity={onManageCapacity} />;
     case 'Performance':
       return (
         <WarehousePerformanceScreen
           {...common}
           onSelectWarehouse={onSelectWarehouse}
-          onViewOperationsHistory={onViewOperationsHistory}
+          onViewOperationsHistory={onViewOperationsHistory ?? (() => navigate('Activity', { activityPreset: 'All' }))}
           onViewStaffAttendance={onViewStaffAttendance}
         />
       );
+    case 'Activity':
+      return (
+        <WarehouseActivityScreen
+          {...common}
+          initialPreset={params.activityPreset}
+          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
+          onOpenModule={openModule}
+          onExport={onExportActivity}
+        />
+      );
+    case 'ActivityDetail':
+      return <ActivityDetailScreen {...common} activityId={params.activityId} onOpenModule={openModule} />;
     case 'OperationalIssues':
       return (
         <OperationalIssuesScreen

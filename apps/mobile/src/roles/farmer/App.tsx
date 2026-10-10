@@ -125,7 +125,6 @@ import {
   SubWarehouseAdminDashboardScreen,
   OrdersModule,
   SubWarehouseOverviewScreen,
-  SubWarehouseRecentActivityScreen,
   SubWarehouseTodayOverviewScreen,
   ChannelSalesScreen,
   ChannelOrderDetailScreen,
@@ -148,6 +147,7 @@ import {
   type StaffRoute,
   type StaffRouteParams,
   StorageFlow,
+  type ActivityModule,
   type StorageRoute,
   type StorageRouteParams,
   type WarehouseScope,
@@ -159,9 +159,6 @@ import {
   type NotificationsRouteParams,
   type FinanceRouteParams,
   SubWarehouseWarehouseOperationsScreen,
-  SubWarehouseWarehouseActivityScreen,
-  SubWarehouseTodayOperationsScreen,
-  SubWarehouseActivityDetailScreen,
   ReportsScreen,
   ProfileFlow,
   type ProfileRoute,
@@ -747,6 +744,12 @@ const STORAGE_ROUTE_ENTRY: Partial<
   // support.ticket.create_own (neither warehouse admin role holds it today), so
   // StorageFlow refuses them and the screens render a not-available note. The
   // App-level key is the Help & Support path ('support' mode).
+  // Warehouse Activity absorbed Today's Operations (the Today preset) and Recent
+  // Activity; no view code (SPEC_GAPS W4v-4).
+  SubWarehouseWarehouseActivity: { route: 'Activity', back: 'SubWarehouseWarehouseOperations', params: { activityPreset: 'All' } },
+  SubWarehouseTodayOperations: { route: 'Activity', back: 'SubWarehouseWarehouseOperations', params: { activityPreset: 'Today' } },
+  SubWarehouseRecentActivity: { route: 'Activity', back: 'SubWarehouseAdminDashboard', params: { activityPreset: 'Today' } },
+  SubWarehouseActivityDetail: { route: 'ActivityDetail', back: 'SubWarehouseWarehouseActivity' },
   SubWarehouseOperationalIssues: { route: 'OperationalIssues', back: 'SubWarehouseWarehouseOperations' },
   SubWarehouseOperationalIssueDetail: { route: 'OperationalIssueDetail', back: 'SubWarehouseOperationalIssues' },
   SubWarehouseReportIssue: { route: 'ReportIssue', back: 'SubWarehouseHelpSupport', params: { reportMode: 'support' } },
@@ -965,6 +968,8 @@ export default function App(): React.JSX.Element {
       materialId: stringParam(params['materialId']),
       locationId: stringParam(params['locationId']),
       issueId: stringParam(params['issueId']),
+      // Old callers passed the whole activity row; the flow wants its id.
+      activityId: stringParam(params['activityId']) ?? stringParam((params['activity'] as { id?: unknown } | undefined)?.id),
     }),
     [params, screen],
   );
@@ -1118,6 +1123,36 @@ export default function App(): React.JSX.Element {
       setScreen(nextScreen);
     },
     [screen, params, currentTab],
+  );
+
+  /**
+   * Sub warehouse modules outside storage-ops that own an activity record or a
+   * Today metric tile (StorageFlow onOpenModule). Same targets the old Today's
+   * Operations / Recent Activity / Warehouse Activity handlers used.
+   */
+  const openSubWarehouseModule = useCallback(
+    (module: ActivityModule) => {
+      if (module === 'receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
+      else if (module === 'verification') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' });
+      else if (module === 'storage') navigate('SubWarehouseStorageInfo');
+      else if (module === 'orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+      else if (module === 'cash') navigate('SubWarehouseCashTopUp');
+      else if (module === 'staff') navigate('SubWarehouseTodayAttendance');
+      else if (module === 'qc') {
+        const notification: NotificationItem = {
+          id: 'qc-1',
+          category: 'quality',
+          title: 'QC Required',
+          message: 'Tomato batch GR-1024 is waiting for quality inspection.',
+          timestamp: '10 minutes ago',
+          isRead: false,
+          reference: 'GR-1024',
+          target: 'ReviewReceiving',
+        };
+        navigate('SubWarehouseNotificationDetail', { notification });
+      }
+    },
+    [navigate],
   );
 
   const goBack = useCallback(
@@ -1371,39 +1406,6 @@ export default function App(): React.JSX.Element {
             onNavigateToOperations={() =>
               navigate('WarehouseWalletOperations')
             }
-          />
-        ) : screen === 'SubWarehouseRecentActivity' ? (
-          <SubWarehouseRecentActivityScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-            onNavigateToCategory={(category) => {
-              if (category === 'Inventory') {
-                navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              } else if (category === 'Receiving') {
-                navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              } else if (category === 'Orders') {
-                navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              } else if (category === 'Cash') {
-                navigate('SubWarehouseCashTopUp');
-              } else if (category === 'QC') {
-                const notification: NotificationItem = {
-                  id: 'qc-1',
-                  category: 'quality',
-                  title: 'QC Required',
-                  message: 'Tomato batch GR-1024 is waiting for quality inspection.',
-                  timestamp: '10 minutes ago',
-                  isRead: false,
-                  reference: 'GR-1024',
-                  target: 'ReviewReceiving',
-                };
-                navigate('SubWarehouseNotificationDetail', { notification });
-              }
-            }}
           />
         ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
           // The notification screens live in the shared warehouse/notifications area
@@ -1816,43 +1818,6 @@ export default function App(): React.JSX.Element {
             onNavigateToTodayOperations={() => navigate('SubWarehouseTodayOperations')}
             onNavigateToWarehouseActivity={() => navigate('SubWarehouseWarehouseActivity')}
           />
-        ) : screen === 'SubWarehouseTodayOperations' ? (
-          <SubWarehouseTodayOperationsScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
-            }}
-            onSelectActivity={(activity) => navigate('SubWarehouseActivityDetail', { activity })}
-            onNavigateToReceiving={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' })}
-            onNavigateToMaterialHandling={() => navigate('SubWarehouseMaterialHandling')}
-            onNavigateToStorage={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToStockVerification={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' })}
-            onNavigateToOperationalIssues={() => navigate('SubWarehouseOperationalIssues')}
-          />
-        ) : screen === 'SubWarehouseWarehouseActivity' ? (
-          <SubWarehouseWarehouseActivityScreen
-            onBack={() => navigate('SubWarehouseWarehouseOperations')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
-            }}
-            onSelectActivity={(activity) => navigate('SubWarehouseActivityDetail', { activity })}
-            onNavigateToReceiving={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' })}
-            onNavigateToMaterialHandling={() => navigate('SubWarehouseMaterialHandling')}
-            onNavigateToStorage={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToStockVerification={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' })}
-            onNavigateToOperationalIssues={() => navigate('SubWarehouseOperationalIssues')}
-          />
-        ) : screen === 'SubWarehouseActivityDetail' ? (
-          <SubWarehouseActivityDetailScreen
-            activity={params['activity'] as any}
-            onBack={() => navigate('SubWarehouseWarehouseActivity')}
-          />
         ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
           // The storage-ops screens live in the shared warehouse/storage-ops area
           // (W4, M4 part A); each old key opens StorageFlow on the matching route.
@@ -1863,7 +1828,7 @@ export default function App(): React.JSX.Element {
             initialParams={storageParams}
             onBack={() => navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations')}
             onSupportRequestDone={() => navigate('SubWarehouseSettings')}
-            onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
+            onOpenModule={openSubWarehouseModule}
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onTabChange={(tab) => {

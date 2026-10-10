@@ -2,7 +2,6 @@ export * from './WarehouseOverviewScreen';
 export * from './InterWarehouseTransferScreen';
 export * from './InitiateNewTransferScreen';
 export * from './TransferDetailScreen';
-export * from './TodaysOperationsOverviewScreen';
 export * from './StockAndTransferOverviewScreen';
 export * from './QuickActionsOverviewScreen';
 export * from './ReceivingDashboardScreen';
@@ -11,15 +10,11 @@ export * from './ReceivingSearchFiltersScreen';
 export * from './WarehouseCityDetailScreen';
 export * from './IncomingGoodsOperationsScreen';
 export * from './QualityIssuesOperationsScreen';
-export * from './ActivityTimelineOperationsScreen';
 export * from './ShipmentDetailScreen';
 export * from './ReceivingHistoryScreen';
 export * from './TransferReceivingScreen';
 export * from './TransferReceivingInspectionScreen';
 export * from './WarehouseOperationsHubScreen';
-export * from './WarehouseActivityScreen';
-export * from './OperationsHistoryScreen';
-export * from './TodaysOperationsMonitoringScreen';
 export * from './ManageWarehousesScreen';
 
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
@@ -151,4 +146,10 @@ export {
   type WizardShipmentData,
 } from './receiving-qc';
 // Shared storage-ops navigator (W4, M4); the screens themselves are imported from './storage-ops'.
-export { StorageFlow, type StorageFlowProps, type StorageRoute, type StorageRouteParams } from './storage-ops';
+export {
+  StorageFlow,
+  type ActivityModule,
+  type StorageFlowProps,
+  type StorageRoute,
+  type StorageRouteParams,
+} from './storage-ops';

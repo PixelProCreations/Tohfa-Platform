@@ -29,15 +29,13 @@ import { InventoryFlow } from '../warehouse/inventory';
 import { ReturnsFlow } from '../warehouse/returns-rma';
 import { SalesFlow, type SalesRoute, type SalesRouteParams } from '../warehouse/sales-direct';
 import { StaffFlow, type StaffRouteParams } from '../warehouse/staff-attendance';
-import { StorageFlow, type StorageRouteParams } from '../warehouse/storage-ops';
+import { StorageFlow, type ActivityModule, type StorageRouteParams } from '../warehouse/storage-ops';
 import {
   WarehouseOverviewScreen,
   ManageWarehousesScreen,
   InterWarehouseTransferScreen,
   InitiateNewTransferScreen,
   TransferDetailScreen,
-  TodaysOperationsOverviewScreen,
-  TodaysOperationsMonitoringScreen,
   StockAndTransferOverviewScreen,
   QuickActionsOverviewScreen,
   ReceivingDashboardScreen,
@@ -46,14 +44,11 @@ import {
   WarehouseCityDetailScreen,
   IncomingGoodsOperationsScreen,
   QualityIssuesOperationsScreen,
-  ActivityTimelineOperationsScreen,
   ShipmentDetailScreen,
   ReceivingHistoryScreen,
   TransferReceivingScreen,
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
-  WarehouseActivityScreen,
-  OperationsHistoryScreen,
   type InterWarehouseTransferItem,
   INITIAL_TRANSFERS,
 } from '../warehouse';
@@ -508,6 +503,9 @@ const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 const ATTENDANCE_ALL_PARAMS: StaffRouteParams = { attendanceFilter: 'All' };
 /** StorageFlow entry params for Main's Report Operational Issue sub-view (stable). */
 const REPORT_OPERATIONAL_PARAMS: StorageRouteParams = { reportMode: 'operational' };
+/** StorageFlow entry params for the activity log presets (stable). */
+const ACTIVITY_TODAY_PARAMS: StorageRouteParams = { activityPreset: 'Today' };
+const ACTIVITY_ALL_PARAMS: StorageRouteParams = { activityPreset: 'All' };
 
 /**
  * Main sales sub-views -> shared SalesFlow entries (W4). The Main shell used to
@@ -575,7 +573,9 @@ export function MainWarehouseAdminDashboardScreen({
   const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
   const [selectedTransfer, setSelectedTransfer] = useState<InterWarehouseTransferItem>(INITIAL_TRANSFERS[0]!);
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
-  const [selectedMaterialId, setSelectedMaterialId] = useState('MAT-0021');
+  // Only the old Warehouse Activity / Operations History rows set this (now inside
+  // StorageFlow, W4 storage-ops part B); the 'material_detail' sub-view keeps its default.
+  const [selectedMaterialId] = useState('MAT-0021');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
   // or if it fails, makeCan fails closed and gated controls stay hidden.
@@ -637,6 +637,29 @@ export function MainWarehouseAdminDashboardScreen({
   // Shared notifications flow (W4): the bell opens the list, Home's alerts /
   // escalations open the approval / exception alerts. MAIN_WAREHOUSE_SCOPE =
   // all four warehouses; targets are opened only when their code passes.
+  /** Modules outside storage-ops that own an activity record or a Today tile (StorageFlow onOpenModule). */
+  const openMainModule = (module: ActivityModule) => {
+    if (module === 'receiving') openTab('Receiving');
+    else if (module === 'storage') navigateWh('storage_locations');
+    else if (module === 'verification') navigateWh('verify_stock');
+    else if (module === 'orders') navigateWh('order_fulfilment_ops');
+    else if (module === 'qc') navigateWh('quality_issues_ops');
+    else if (module === 'staff') navigateWh('staff_attendance');
+    else if (module === 'cash') openTab('More', 'wallet');
+  };
+  /** Warehouse activity sub-views (shared storage-ops, W4 part B), all warehouses. */
+  const renderActivityFlow = (params: StorageRouteParams) => (
+    <StorageFlow
+      scope={MAIN_WAREHOUSE_SCOPE}
+      can={can}
+      initialScreen="Activity"
+      initialParams={params}
+      onBack={goBackWh}
+      onOpenModule={openMainModule}
+      onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
+    />
+  );
+
   const renderNotificationsFlow = (initialScreen: NotificationsRoute) => (
     <NotificationsFlow
       scope={MAIN_WAREHOUSE_SCOPE}
@@ -1498,29 +1521,13 @@ export function MainWarehouseAdminDashboardScreen({
               onLogout={onSignOut}
               onTabChange={handleMoreTabChange}
             />
-          ) : (whSubView === 'dashboard_operations' || whSubView === 'todays_operations') ? (
-              <TodaysOperationsMonitoringScreen
-                onBack={goBackWh}
-                onNavigateIncoming={() => navigateWh('incoming_goods_ops')}
-                onNavigateFulfilment={() => navigateWh('order_fulfilment_ops')}
-                onNavigateQuality={() => navigateWh('quality_issues_ops')}
-                onNavigateTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'todays_operations_overview' ? (
-              <TodaysOperationsOverviewScreen
-                onBack={goBackWh}
-                onNavigateIncoming={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('dashboard');
-                }}
-                onNavigateStorage={() => navigateWh('storage_locations')}
-                onNavigateVerification={() => navigateWh('verify_stock')}
-                onNavigateMaterials={() => navigateWh('material_handling')}
-                onNavigateIssues={() => navigateWh('operational_issues')}
-                onNavigateStaff={() => navigateWh('staff_attendance')}
-                onNavigateActivity={() => navigateWh('warehouse_activity')}
-                onNavigateTimeline={() => navigateWh('activity_timeline_ops')}
-              />
+          ) : whSubView === 'dashboard_operations' ||
+            whSubView === 'todays_operations' ||
+            whSubView === 'todays_operations_overview' ? (
+              // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
+              // shared Warehouse Activity as its Today preset: the six-tile strip and the
+              // monitoring card show for the all-warehouses scope.
+              renderActivityFlow(ACTIVITY_TODAY_PARAMS)
             ) : whSubView === 'warehouse_operations' ? (
               <WarehouseOperationsHubScreen
                 showBack={true}
@@ -1625,19 +1632,11 @@ export function MainWarehouseAdminDashboardScreen({
                 onViewActivity={() => navigateWh('warehouse_activity')}
                 onManageCapacity={() => navigateWh('warehouse_settings')}
               />
-            ) : whSubView === 'warehouse_activity' ? (
-              <WarehouseActivityScreen
-                onBack={goBackWh}
-                onViewTimeline={() => { }}
-                onNavigateOperationsHistory={() => navigateWh('operations_history')}
-                onSelectActivity={(act) => {
-                  if (act.includes('Storage')) {
-                    navigateWh('location_detail');
-                  } else {
-                    navigateWh('material_detail');
-                  }
-                }}
-              />
+            ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
+              // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
+              // shared activity log (All preset): search, warehouse selector, rows with
+              // warehouse + operator, detail, and CSV export with report.export.file.
+              renderActivityFlow(ACTIVITY_ALL_PARAMS)
             ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
               // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
               // warehouse's issues with the selector and opens their detail. The
@@ -1661,18 +1660,6 @@ export function MainWarehouseAdminDashboardScreen({
                 initialScreen="Attendance"
                 initialParams={ATTENDANCE_ALL_PARAMS}
                 onBack={goBackWh}
-              />
-            ) : whSubView === 'operations_history' ? (
-              <OperationsHistoryScreen
-                onBack={goBackWh}
-                onExport={() => {
-                  Alert.alert('Export Successful', 'Operational history log has been exported to CSV.');
-                }}
-                onSelectVerification={() => navigateWh('verify_stock')}
-                onSelectMaterial={() => {
-                  setSelectedMaterialId('MAT-0021');
-                  navigateWh('material_detail');
-                }}
               />
             ) : whSubView === 'stock_and_transfer' ? (
               <StockAndTransferOverviewScreen
@@ -1819,20 +1806,6 @@ export function MainWarehouseAdminDashboardScreen({
               <QualityIssuesOperationsScreen
                 onBack={goBackWh}
                 onNavigateIssues={() => navigateWh('operational_issues')}
-              />
-            ) : whSubView === 'activity_timeline_ops' ? (
-              <ActivityTimelineOperationsScreen
-                onBack={goBackWh}
-                onSelectActivity={(actId) => {
-                  if (actId.startsWith('GR-')) {
-                    setSelectedShipmentId(actId);
-                    setActiveTab('Receiving');
-                    setReceivingSubView('shipment_detail');
-                  } else {
-                    navigateWh('operations_history');
-                  }
-                }}
-                onViewAllHistory={() => navigateWh('operations_history')}
               />
             ) : whSubView === 'customers_list' ? (
               // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's

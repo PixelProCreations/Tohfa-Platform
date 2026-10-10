@@ -3,7 +3,9 @@
 // locations (detail: inventory.batch.view; assignment: inventory.batch.assign)
 // and capacity (no view code; Manage Capacity Limits: warehouse.capacity.set),
 // plus Main-only Warehouse Performance (warehouse.all.view). Part B: operational
-// issues (no code), Report an Issue / Request Submitted (support.ticket.create_own).
+// issues (no code), Report an Issue / Request Submitted (support.ticket.create_own),
+// Warehouse Activity with the Today preset + Activity Detail (no code; CSV export
+// report.export.file).
 // Explicit exports only (no `export *`).
 export { StorageFlow, canOpenStorageRoute, type StorageFlowProps } from './StorageFlow';
 export { MaterialHandlingScreen, type MaterialHandlingScreenProps } from './MaterialHandlingScreen';
@@ -16,6 +18,13 @@ export {
 } from './StorageLocationAssignmentScreen';
 export { WarehouseCapacityScreen, capacityStateOf, type WarehouseCapacityScreenProps } from './WarehouseCapacityScreen';
 export { WarehousePerformanceScreen, type WarehousePerformanceScreenProps } from './WarehousePerformanceScreen';
+export {
+  WarehouseActivityScreen,
+  ActivityCategoryIcon,
+  ACTIVITY_STATUS_TONE,
+  type WarehouseActivityScreenProps,
+} from './WarehouseActivityScreen';
+export { ActivityDetailScreen, type ActivityDetailScreenProps } from './ActivityDetailScreen';
 export { OperationalIssuesScreen, ISSUE_STATUS_TONE, type OperationalIssuesScreenProps } from './OperationalIssuesScreen';
 export { OperationalIssueDetailScreen, type OperationalIssueDetailScreenProps } from './OperationalIssueDetailScreen';
 export { ReportIssueScreen, type ReportIssueScreenProps, type ReportIssueSubmission } from './ReportIssueScreen';
@@ -23,6 +32,11 @@ export { IssueSubmittedScreen, type IssueSubmittedScreenProps } from './IssueSub
 export { STORAGE_CODES } from './StorageParts';
 export { STORAGE_WAREHOUSES } from './fixtures';
 export type {
+  ActivityCategory,
+  ActivityItem,
+  ActivityModule,
+  ActivityPreset,
+  ActivityStatus,
   CapacityFilter,
   CapacityState,
   IssueFilter,

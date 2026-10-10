@@ -167,6 +167,71 @@ export interface OperationalIssue {
  */
 export type ReportIssueMode = 'support' | 'operational';
 
+/** Category of a logged warehouse activity, also the activity log chips (besides 'All'). */
+export type ActivityCategory =
+  | 'Receiving'
+  | 'Storage'
+  | 'Verification'
+  | 'Material Handling'
+  | 'Issues'
+  | 'Orders'
+  | 'Cash'
+  | 'QC';
+
+/**
+ * Module that owns an activity's record; the detail screen links there
+ * ("every transaction links to its owning module rather than duplicating the
+ * record", absorbed Main Today's Operations).
+ */
+export type ActivityModule =
+  | 'receiving'
+  | 'storage'
+  | 'verification'
+  | 'material_handling'
+  | 'operational_issue'
+  | 'orders'
+  | 'cash'
+  | 'qc'
+  | 'staff';
+
+export type ActivityStatus = 'Completed' | 'Pending' | 'Open';
+export type ActivityTimeOfDay = 'morning' | 'afternoon' | 'evening';
+/** Activity log date preset: Today (the folded Today's Operations) or the full history. */
+export type ActivityPreset = 'Today' | 'All';
+
+/** One logged warehouse activity. Mock data until an activity endpoint exists. */
+export interface ActivityItem {
+  id: string;
+  title: string;
+  category: ActivityCategory;
+  module: ActivityModule;
+  warehouseId: string;
+  subtitle: string;
+  performedBy: string;
+  /** 'Today' rows make up the Today preset. */
+  day: 'Today' | 'Yesterday' | 'Earlier';
+  /** Display date / time ("Today · 10:42 AM", "27 Sep 2026, 04:20 PM"). */
+  when: string;
+  timeOfDay: ActivityTimeOfDay;
+  status: ActivityStatus;
+  action: string;
+  reference: string;
+  notes: string;
+  /** Stock verification counts (absorbed Recent Activity). */
+  metrics?: { system: string; counted: string; variance: string } | undefined;
+}
+
+/** Today's operation counts of one warehouse (Today preset metrics strip). */
+export interface TodayMetrics {
+  warehouseId: string;
+  receiving: number;
+  storage: number;
+  verification: number;
+  materials: number;
+  issues: number;
+  staffPresent: number;
+}
+
 /** Screens of the storage-ops flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StorageRoute =
   | 'MaterialHandling'
@@ -176,12 +241,18 @@ export type StorageRoute =
   | 'StorageLocationAssignment'
   | 'Capacity'
   | 'Performance'
+  | 'Activity'
+  | 'ActivityDetail'
   | 'OperationalIssues'
   | 'OperationalIssueDetail'
   | 'ReportIssue'
   | 'IssueSubmitted';
 
 export interface StorageRouteParams {
+  /** Warehouse Activity date preset (default 'All'; 'Today' = the old Today's Operations). */
+  activityPreset?: ActivityPreset | undefined;
+  /** Activity detail. */
+  activityId?: string | undefined;
   /** Operational issue detail. */
   issueId?: string | undefined;
   /** Report an Issue / Request Submitted path (default 'support'). */
