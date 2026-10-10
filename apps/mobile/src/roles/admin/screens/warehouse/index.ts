@@ -138,6 +138,15 @@ export {
   type ProfileRoute,
   type WarehouseSettingsScreenProps,
 } from './profile-settings';
+// Shared staff & attendance navigator (W4, M14); the screens themselves are imported from './staff-attendance'.
+export {
+  StaffFlow,
+  type AttendanceFilter,
+  type StaffFlowProps,
+  type StaffMember,
+  type StaffRoute,
+  type StaffRouteParams,
+} from './staff-attendance';
 // Shared goods receiving & QC screens (W4); the wizard absorbed the standalone receiving steps.
 export {
   ALERT_RECEIPT_ID,

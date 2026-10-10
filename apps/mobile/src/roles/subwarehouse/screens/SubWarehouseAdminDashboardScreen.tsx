@@ -49,17 +49,7 @@ import {
 import { BillingFlow } from '../../admin/screens/warehouse/billing-invoices';
 import { SubWarehouseTaskActionCenterScreen } from './SubWarehouseTaskActionCenterScreen';
 import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
-import {
-  SubWarehouseStaffScreen,
-  type StaffMember,
-} from './SubWarehouseStaffScreen';
-import { SubWarehouseStaffDetailScreen } from './SubWarehouseStaffDetailScreen';
-import { SubWarehouseEditStaffProfileScreen } from './SubWarehouseEditStaffProfileScreen';
-import { SubWarehouseAttendanceScreen } from './SubWarehouseAttendanceScreen';
-import { SubWarehouseTodayAttendanceScreen } from './SubWarehouseTodayAttendanceScreen';
-import { SubWarehouseAttendanceHistoryScreen } from './SubWarehouseAttendanceHistoryScreen';
-import { SubWarehouseStaffAndAttendanceScreen } from './SubWarehouseStaffAndAttendanceScreen';
-import { SubWarehouseAttendanceDetailScreen } from './SubWarehouseAttendanceDetailScreen';
+import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
 import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
 import { SubWarehouseMaterialHandlingScreen } from './SubWarehouseMaterialHandlingScreen';
@@ -1131,14 +1121,8 @@ export function SubWarehouseAdminDashboardScreen({
     params?: ReturnsRouteParams,
     backStack?: ReturnsStackEntry[],
   ) => setReturnsEntry({ screen, params, backStack });
-  const [showStaffScreen, setShowStaffScreen] = useState(false);
-  const [selectedStaffMember, setSelectedStaffMember] = useState<StaffMember | null>(null);
-  const [showEditStaffProfileScreen, setShowEditStaffProfileScreen] = useState(false);
-  const [showAttendanceScreen, setShowAttendanceScreen] = useState(false);
-  const [showStaffAndAttendance, setShowStaffAndAttendance] = useState(false);
-  const [selectedAttendanceStaffId, setSelectedAttendanceStaffId] = useState<string | null>(null);
-  const [showTodayAttendanceScreen, setShowTodayAttendanceScreen] = useState(false);
-  const [showAttendanceHistoryScreen, setShowAttendanceHistoryScreen] = useState(false);
+  // The open staff & attendance module: StaffFlow owns the stack from here on.
+  const [staffEntry, setStaffEntry] = useState<{ screen: StaffRoute; filter?: AttendanceFilter } | null>(null);
   const [showOperationalIssues, setShowOperationalIssues] = useState(false);
   const [showReportIssue, setShowReportIssue] = useState(false);
   const [showIssueSubmitted, setShowIssueSubmitted] = useState(false);
@@ -1761,7 +1745,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onNavigateToStaffAttendance={() => {
           setShowWarehouseOperations(false);
-          setShowTodayAttendanceScreen(true);
+          setStaffEntry({ screen: 'Attendance', filter: 'All' });
         }}
         onNavigateToReceiveGoods={() => {
           setShowWarehouseOperations(false);
@@ -2259,117 +2243,20 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showAttendanceHistoryScreen) {
+  if (staffEntry) {
     return (
-      <SubWarehouseAttendanceHistoryScreen
-        onBack={() => setShowAttendanceHistoryScreen(false)}
-        onNavigateToToday={() => {
-          setShowAttendanceHistoryScreen(false);
-          setShowTodayAttendanceScreen(true);
-        }}
+      // Shared staff & attendance flow (W4, M14), scope-locked to this warehouse.
+      // The roster routes need warehouse.staff.list_view (SUB own); attendance is ungated.
+      <StaffFlow
+        scope={scope}
+        can={can}
+        initialScreen={staffEntry.screen}
+        initialParams={{ attendanceFilter: staffEntry.filter }}
+        onBack={() => setStaffEntry(null)}
         onTabChange={(tab) => {
-          setShowAttendanceHistoryScreen(false);
-          setShowTodayAttendanceScreen(false);
-          setShowStaffScreen(false);
-          setSelectedStaffMember(null);
+          setStaffEntry(null);
           setActiveTab(tab);
         }}
-      />
-    );
-  }
-
-  if (showTodayAttendanceScreen) {
-    return (
-      <SubWarehouseTodayAttendanceScreen
-        onBack={() => setShowTodayAttendanceScreen(false)}
-        onNavigateToHistory={() => setShowAttendanceHistoryScreen(true)}
-        onTabChange={(tab) => {
-          setShowTodayAttendanceScreen(false);
-          setShowStaffScreen(false);
-          setSelectedStaffMember(null);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showAttendanceScreen) {
-    return (
-      <SubWarehouseAttendanceScreen
-        onBack={() => setShowAttendanceScreen(false)}
-        onTabChange={(tab) => {
-          setShowAttendanceScreen(false);
-          setShowStaffScreen(false);
-          setSelectedStaffMember(null);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showEditStaffProfileScreen && selectedStaffMember) {
-    return (
-      <SubWarehouseEditStaffProfileScreen
-        staff={selectedStaffMember}
-        onBack={() => setShowEditStaffProfileScreen(false)}
-        onSave={(staff) => setShowEditStaffProfileScreen(false)}
-      />
-    );
-  }
-
-  if (selectedStaffMember) {
-    return (
-      <SubWarehouseStaffDetailScreen
-        staff={selectedStaffMember}
-        onBack={() => setSelectedStaffMember(null)}
-        onViewAttendance={() => setShowAttendanceScreen(true)}
-        onEditProfile={(staff) => setShowEditStaffProfileScreen(true)}
-        onAssignDelivery={(staff) => {
-          setSelectedStaffMember(null);
-          setShowStaffScreen(false);
-          setOrdersInitialScreen('M5S01');
-          setOrdersInitialParams(null);
-          setShowOrdersModule(true);
-        }}
-      />
-    );
-  }
-
-  if (showStaffScreen) {
-    return (
-      <SubWarehouseStaffScreen
-        onBack={() => setShowStaffScreen(false)}
-        onSelectStaff={(staff) => setSelectedStaffMember(staff)}
-        onNavigateToTodayAttendance={() => setShowTodayAttendanceScreen(true)}
-        onTabChange={(tab) => {
-          setShowStaffScreen(false);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (showStaffAndAttendance) {
-    return (
-      <SubWarehouseStaffAndAttendanceScreen
-        onBack={() => setShowStaffAndAttendance(false)}
-        onNavigateToDetail={(id) => {
-          setShowStaffAndAttendance(false);
-          setSelectedAttendanceStaffId(id);
-        }}
-        onTabChange={(tab) => {
-          setShowStaffAndAttendance(false);
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
-
-  if (selectedAttendanceStaffId) {
-    return (
-      <SubWarehouseAttendanceDetailScreen
-        staffId={selectedAttendanceStaffId}
-        onBack={() => setSelectedAttendanceStaffId(null)}
       />
     );
   }
@@ -4194,11 +4081,11 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToStaff={() => {
               if (onNavigate) onNavigate('SubWarehouseStaff');
-              else setShowStaffAndAttendance(true);
+              else setStaffEntry({ screen: 'Staff' });
             }}
             onNavigateToAttendance={() => {
               if (onNavigate) onNavigate('SubWarehouseTodayAttendance');
-              else setShowTodayAttendanceScreen(true);
+              else setStaffEntry({ screen: 'Attendance', filter: 'All' });
             }}
             onNavigateToFinance={() => {
               if (onNavigate) onNavigate('SubWarehouseFinance');

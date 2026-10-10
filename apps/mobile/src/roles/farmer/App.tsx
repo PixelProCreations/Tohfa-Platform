@@ -143,12 +143,10 @@ import {
   ReceivingHistoryDetailScreen,
   ALERT_RECEIPT_ID,
   DEMO_SHIPMENT,
-  SubWarehouseStaffScreen,
-  SubWarehouseStaffDetailScreen,
-  SubWarehouseEditStaffProfileScreen,
-  SubWarehouseAttendanceScreen,
-  SubWarehouseTodayAttendanceScreen,
-  SubWarehouseAttendanceHistoryScreen,
+  StaffFlow,
+  type AttendanceFilter,
+  type StaffRoute,
+  type StaffRouteParams,
   type WarehouseScope,
   FinanceFlow,
   type FinanceRoute,
@@ -171,7 +169,6 @@ import {
   SubWarehouseIssueSubmittedScreen,
   SubWarehouseOperationalIssueDetailScreen,
   SubWarehouseStaffAndAttendanceScreen,
-  SubWarehouseAttendanceDetailScreen,
   ReportsScreen,
   ProfileFlow,
   type ProfileRoute,
@@ -727,6 +724,21 @@ const SALES_ROUTE_ENTRY: Partial<Record<ScreenName, SalesRoute>> = {
   SubWarehouseMarketDaySales: 'MarketDaySales',
 };
 /**
+ * Legacy Sub staff & attendance route keys -> shared StaffFlow routes (W4, M14).
+ * Today's Attendance was folded into Attendance: its key opens Attendance on
+ * the 'All' chip. The roster routes (Staff, StaffDetail, EditStaffProfile) need
+ * warehouse.staff.list_view; StaffFlow and the screens check it.
+ */
+const STAFF_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StaffRoute; filter?: AttendanceFilter }>> = {
+  SubWarehouseStaff: { route: 'Staff' },
+  SubWarehouseStaffDetail: { route: 'StaffDetail' },
+  SubWarehouseEditStaffProfile: { route: 'EditStaffProfile' },
+  SubWarehouseAttendance: { route: 'Attendance' },
+  SubWarehouseTodayAttendance: { route: 'Attendance', filter: 'All' },
+  SubWarehouseAttendanceDetail: { route: 'AttendanceDetail' },
+  SubWarehouseAttendanceHistory: { route: 'AttendanceHistory' },
+};
+/**
  * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
  * keys were aliases of one screen (CustomerList/Customers, CustomerDetail/
  * CustomerDetails, CustomerPurchases/PurchaseHistory, CustomerSupport/
@@ -924,6 +936,14 @@ export default function App(): React.JSX.Element {
       customerCode: stringParam(params['customerCode']),
     };
   }, [params, selectedSaleRecord]);
+  // Params for a StaffFlow entry, memoised so the flow does not restart its stack.
+  const staffParams = useMemo<StaffRouteParams>(
+    () => ({
+      staff: params['staff'] as StaffMember | undefined,
+      attendanceFilter: STAFF_ROUTE_ENTRY[screen]?.filter,
+    }),
+    [params, screen],
+  );
   // Params for a CustomersFlow entry, memoised so the flow does not restart its
   // stack on every App render. Deep links carry flat customer / issue / ticket
   // fields (customerName, issueNo, ticketNo, ...); the flow wants records.
@@ -1737,62 +1757,15 @@ export default function App(): React.JSX.Element {
             }}
             onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
           />
-        ) : screen === 'SubWarehouseStaff' ? (
-          <SubWarehouseStaffScreen
+        ) : STAFF_ROUTE_ENTRY[screen] !== undefined ? (
+          // The staff & attendance screens live in the shared warehouse/staff-attendance
+          // area (W4); each old key opens StaffFlow on the matching route.
+          <StaffFlow
+            scope={SUB_WAREHOUSE_SCOPE}
+            can={warehouseCan}
+            initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
+            initialParams={staffParams}
             onBack={goBack}
-            onSelectStaff={(staff) => navigate('SubWarehouseStaffDetail', { staff: staff as any })}
-            onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
-            onNavigateToTodayAttendance={() => navigate('SubWarehouseTodayAttendance')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseStaffDetail' ? (
-          <SubWarehouseStaffDetailScreen
-            staff={params['staff'] as any}
-            onBack={goBack}
-            onViewAttendance={() => navigate('SubWarehouseAttendance', { staff: params['staff'] as any })}
-            onEditProfile={(staff) => navigate('SubWarehouseEditStaffProfile', { staff: staff as any })}
-            onAssignDelivery={(staff) => navigate('SubWarehouseAdminDashboard', { showOrders: true })}
-          />
-        ) : screen === 'SubWarehouseEditStaffProfile' ? (
-          <SubWarehouseEditStaffProfileScreen
-            staff={params['staff'] as any}
-            onBack={goBack}
-            onSave={(staff) => {
-              // Usually we'd update state or refetch, but here just go back to Staff
-              goBack();
-              goBack();
-            }}
-          />
-        ) : screen === 'SubWarehouseAttendance' ? (
-          <SubWarehouseAttendanceScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseTodayAttendance' ? (
-          <SubWarehouseTodayAttendanceScreen
-            onBack={goBack}
-            onNavigateToHistory={() => navigate('SubWarehouseAttendanceHistory')}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseMore');
-            }}
-          />
-        ) : screen === 'SubWarehouseAttendanceHistory' ? (
-          <SubWarehouseAttendanceHistoryScreen
-            onBack={goBack}
-            onNavigateToToday={() => navigate('SubWarehouseTodayAttendance')}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
               else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
@@ -1920,11 +1893,6 @@ export default function App(): React.JSX.Element {
               else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
               else if (tab === 'More') navigate('SubWarehouseWarehouseOperations');
             }}
-          />
-        ) : screen === 'SubWarehouseAttendanceDetail' ? (
-          <SubWarehouseAttendanceDetailScreen
-            staffId={(params['staffId'] as string) || 'STAFF-1'}
-            onBack={() => navigate('SubWarehouseStaffAndAttendance')}
           />
         ) : screen === 'SubWarehouseReports' ? (
           <ReportsScreen
