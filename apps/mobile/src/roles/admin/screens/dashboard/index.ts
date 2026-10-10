@@ -8,7 +8,6 @@ export * from '../../../subwarehouse/screens/SubWarehouseRecentActivityScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseTodayOverviewScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseNeedsAttentionScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseWarehouseOperationsScreen';
-export * from '../../../subwarehouse/screens/SubWarehouseStorageLocationDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseActivityDetailScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseCapacityScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseOperationalIssuesScreen';

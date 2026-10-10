@@ -17,7 +17,7 @@
  *
  * Sub sees its own warehouse (locked pill); Main sees all four with the
  * all-warehouses selector and a warehouse line on each location card. The
- * location detail (SubWarehouseStorageLocationDetailScreen, storage-ops wave)
+ * location detail (storage-ops/StorageLocationDetailScreen, via StorageFlow)
  * stays with the host: cards are tappable only when it passes onSelectLocation.
  */
 import React, { useMemo, useState } from 'react';

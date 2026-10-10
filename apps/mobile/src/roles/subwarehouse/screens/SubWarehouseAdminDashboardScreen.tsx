@@ -52,7 +52,6 @@ import { SubWarehouseTaskDetailScreen } from './SubWarehouseTaskDetailScreen';
 import { StaffFlow, type AttendanceFilter, type StaffRoute } from '../../admin/screens/warehouse/staff-attendance';
 import { StorageFlow, type StorageRoute, type StorageRouteParams } from '../../admin/screens/warehouse/storage-ops';
 import { SubWarehouseWarehouseOperationsScreen } from './SubWarehouseWarehouseOperationsScreen';
-import { SubWarehouseStorageLocationDetailScreen } from './SubWarehouseStorageLocationDetailScreen';
 import { SubWarehouseCapacityScreen } from './SubWarehouseCapacityScreen';
 import { SubWarehouseOperationalIssuesScreen } from './SubWarehouseOperationalIssuesScreen';
 import { SubWarehouseReportIssueScreen } from './SubWarehouseReportIssueScreen';
@@ -1675,22 +1674,32 @@ export function SubWarehouseAdminDashboardScreen({
   }
 
   if (selectedStorageLocationId) {
+    const openStock = () => {
+      setSelectedStorageLocationId(null);
+      setShowStorageInfo(false);
+      setShowWarehouseOperations(false);
+      setInventoryInitialScreen('M3S02');
+      setActiveTab('Inventory');
+    };
     return (
-      <SubWarehouseStorageLocationDetailScreen
-        locationId={selectedStorageLocationId}
+      // Shared storage-ops location detail (W4, M4-S04), scope-locked to this
+      // warehouse; View Stock needs inventory.batch.view (SUB own).
+      <StorageFlow
+        scope={scope}
+        can={can}
+        initialScreen="StorageLocationDetail"
+        initialParams={{ locationId: selectedStorageLocationId }}
         onBack={() => {
           // Back from detail → go back to Storage Info list
           setSelectedStorageLocationId(null);
           setShowStorageInfo(true);
         }}
-        onViewStock={() => {
+        onViewStock={openStock}
+        onViewProductDetail={openStock}
+        onTabChange={(tab) => {
           setSelectedStorageLocationId(null);
-          setShowStorageInfo(false);
-          setShowWarehouseOperations(false);
-          setInventoryInitialScreen('M3S02');
-          setActiveTab('Inventory');
+          setActiveTab(tab);
         }}
-        onViewActivity={() => setShowWarehouseActivity(true)}
       />
     );
   }

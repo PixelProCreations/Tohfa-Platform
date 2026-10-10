@@ -49,12 +49,10 @@ import {
   QualityIssuesOperationsScreen,
   ActivityTimelineOperationsScreen,
   ShipmentDetailScreen,
-  StorageLocationAssignmentScreen,
   ReceivingHistoryScreen,
   TransferReceivingScreen,
   TransferReceivingInspectionScreen,
   WarehouseOperationsHubScreen,
-  LocationDetailScreen,
   WarehouseCapacityScreen,
   WarehouseActivityScreen,
   OperationalIssuesScreen,
@@ -578,7 +576,7 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
   const [transferList, setTransferList] = useState<InterWarehouseTransferItem[]>(INITIAL_TRANSFERS);
   const [selectedTransfer, setSelectedTransfer] = useState<InterWarehouseTransferItem>(INITIAL_TRANSFERS[0]!);
-  const [selectedLocationId, setSelectedLocationId] = useState('LOC-COO-A02-S03');
+  const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
   const [selectedMaterialId, setSelectedMaterialId] = useState('MAT-0021');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me (fetchMe below). Until it resolves,
@@ -1128,9 +1126,15 @@ export function MainWarehouseAdminDashboardScreen({
               onOpenStorageLocations={() => setReceivingSubView('storage_location_assignment')}
             />
           ) : receivingSubView === 'storage_location_assignment' ? (
-            <StorageLocationAssignmentScreen
+            // Shared storage-ops assignment (W4, FINAL_LIST 136): the batch's warehouse is
+            // the shipment's; Confirm needs inventory.batch.assign.
+            <StorageFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={can}
+              initialScreen="StorageLocationAssignment"
+              initialParams={{ warehouseId: warehouseIdForName(selectedWHName) }}
               onBack={() => openReceivingWizard('batch_assignment', receivingWizardReturn)}
-              onSelectStorageLocation={() => setReceivingSubView('receiving_history')}
+              onConfirmAssignment={() => setReceivingSubView('receiving_history')}
             />
           ) : receivingSubView === 'receiving_history' ? (
             <ReceivingHistoryScreen
@@ -1579,10 +1583,18 @@ export function MainWarehouseAdminDashboardScreen({
                 }}
               />
             ) : whSubView === 'location_detail' ? (
-              <LocationDetailScreen
-                locationId={selectedLocationId}
+              // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
+              // card and occupancy bar were ported. View Stock needs inventory.batch.view.
+              <StorageFlow
+                scope={MAIN_WAREHOUSE_SCOPE}
+                can={can}
+                initialScreen="StorageLocationDetail"
+                initialParams={{ locationId: selectedLocationId }}
                 onBack={() => navigateWh('storage_locations')}
-                onViewProductDetail={() => { }}
+                onViewStock={() => {
+                  setActiveTab('Inventory');
+                  setWhSubView('overview');
+                }}
               />
             ) : whSubView === 'material_handling' ? (
               // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History

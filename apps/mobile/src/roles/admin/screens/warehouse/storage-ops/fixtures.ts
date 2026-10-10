@@ -94,7 +94,7 @@ export const LOCATION_LAYOUT: readonly LocationLayout[] = [
  * (SPEC_GAPS W4u-3). A warehouse without an entry shows no alert.
  */
 const CAPACITY_ALERT_PERCENT: Readonly<Record<string, number>> = {
-  'WH-COON': 90,
+  'WH-COON': 80,
   'WH-OOTY': 90,
   'WH-KOTA': 90,
   'WH-GUDA': 85,
@@ -132,3 +132,6 @@ export const TOP_PERFORMERS: readonly TopPerformer[] = [
   { id: 'tp-2', name: 'Arun P', role: 'SWA Dispatch', warehouseId: 'WH-OOTY', taskCount: '86 Orders Packed', score: '99.2%' },
   { id: 'tp-3', name: 'Priya S', role: 'SWA Inventory', warehouseId: 'WH-COON', taskCount: '32 Rack Transfers', score: '98.9%' },
 ];
+
+/** The demo batch Storage Location Assignment opens on when the host passes none. */
+export const DEMO_ASSIGNMENT_BATCH = { batchId: 'BAT-00512', productName: 'Tomato · Grade 2', quantity: '445 KG' } as const;

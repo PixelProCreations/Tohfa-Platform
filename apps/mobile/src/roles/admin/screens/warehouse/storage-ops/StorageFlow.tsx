@@ -4,11 +4,14 @@
  *
  *   Material Handling -> Material Detail -> Add Material (Add Stock)
  *                     -> Add Material (Add Material / Receive)
+ *   Storage Location (detail)            (host: View Stock, product rows)
+ *   Storage Location Assignment          (host: confirmed location)
  *
  * The screens used to be stitched three times (App.tsx keys, the Sub shell's
  * show* flags and Main's whSubView branches), none of which passed `scope` /
  * `can`. This flow owns the stack, so every step gets the viewer's scope and
- * `can`. Hops that leave the module (warehouse activity) go to the host.
+ * `can`. Hops that leave the module (warehouse activity, Inventory & Stock,
+ * the receiving flow) go to the host.
  *
  * Gates: Add Material needs `inventory.material_handling.manage`; navigate()
  * refuses it without the code and the screen renders a not-available note if
@@ -22,6 +25,8 @@ import { AddMaterialScreen } from './AddMaterialScreen';
 import { MATERIALS } from './fixtures';
 import { MaterialDetailScreen } from './MaterialDetailScreen';
 import { MaterialHandlingScreen } from './MaterialHandlingScreen';
+import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
+import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { STORAGE_CODES } from './StorageParts';
 import type { PermissionCheck, StorageRoute, StorageRouteParams, WarehouseScope, WarehouseTab } from './types';
 
@@ -51,6 +56,12 @@ export interface StorageFlowProps {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   /** Material movement history (warehouse activity, storage-ops part B). */
   onViewActivity?: (() => void) | undefined;
+  /** Storage location View Stock: Inventory & Stock (inventory.batch.view). */
+  onViewStock?: (() => void) | undefined;
+  /** Storage location stored-stock row: that product in Inventory & Stock. */
+  onViewProductDetail?: ((product: string) => void) | undefined;
+  /** Storage Location Assignment confirmed (inventory.batch.assign); the host finishes receiving. */
+  onConfirmAssignment?: ((locationId: string) => void) | undefined;
 }
 
 export function StorageFlow({
@@ -61,6 +72,9 @@ export function StorageFlow({
   onBack,
   onTabChange,
   onViewActivity,
+  onViewStock,
+  onViewProductDetail,
+  onConfirmAssignment,
 }: StorageFlowProps) {
   const [stack, setStack] = useState<StorageStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -120,6 +134,26 @@ export function StorageFlow({
           {...common}
           initialMaterialName={MATERIALS.find((m) => m.id === params.materialId)?.name}
           onSave={back}
+        />
+      );
+    case 'StorageLocationDetail':
+      return (
+        <StorageLocationDetailScreen
+          {...common}
+          locationId={params.locationId}
+          onViewStock={onViewStock}
+          onViewProductDetail={onViewProductDetail}
+        />
+      );
+    case 'StorageLocationAssignment':
+      return (
+        <StorageLocationAssignmentScreen
+          {...common}
+          batchId={params.batchId}
+          productName={params.productName}
+          quantity={params.quantity}
+          warehouseId={params.warehouseId}
+          onConfirmAssignment={onConfirmAssignment}
         />
       );
     default:

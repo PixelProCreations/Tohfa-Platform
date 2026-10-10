@@ -162,7 +162,6 @@ import {
   SubWarehouseWarehouseActivityScreen,
   SubWarehouseTodayOperationsScreen,
   SubWarehouseActivityDetailScreen,
-  SubWarehouseStorageLocationDetailScreen,
   SubWarehouseCapacityScreen,
   SubWarehouseOperationalIssuesScreen,
   SubWarehouseReportIssueScreen,
@@ -745,6 +744,7 @@ const STORAGE_ROUTE_ENTRY: Partial<Record<ScreenName, { route: StorageRoute; bac
   SubWarehouseMaterialHandling: { route: 'MaterialHandling', back: 'SubWarehouseWarehouseOperations' },
   SubWarehouseMaterialDetail: { route: 'MaterialDetail', back: 'SubWarehouseMaterialHandling' },
   SubWarehouseAddMaterial: { route: 'AddMaterial', back: 'SubWarehouseMaterialHandling' },
+  SubWarehouseStorageLocationDetail: { route: 'StorageLocationDetail', back: 'SubWarehouseStorageInfo' },
 };
 /**
  * Legacy Sub customer route keys -> shared CustomersFlow routes (W4). Several
@@ -1845,14 +1845,6 @@ export default function App(): React.JSX.Element {
             activity={params['activity'] as any}
             onBack={() => navigate('SubWarehouseWarehouseActivity')}
           />
-        ) : screen === 'SubWarehouseStorageLocationDetail' ? (
-          <SubWarehouseStorageLocationDetailScreen
-            locationId={(params?.['locationId'] as string) || 'CS-A01'}
-            warehouseName="Coonoor Warehouse"
-            onBack={() => navigate('SubWarehouseStorageInfo')}
-            onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
-            onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
-          />
         ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
           // The storage-ops screens live in the shared warehouse/storage-ops area
           // (W4, M4 part A); each old key opens StorageFlow on the matching route.
@@ -1863,6 +1855,8 @@ export default function App(): React.JSX.Element {
             initialParams={storageParams}
             onBack={() => navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations')}
             onViewActivity={() => navigate('SubWarehouseWarehouseActivity')}
+            onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
+            onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
             onTabChange={(tab) => {
               if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
               else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
