@@ -124,7 +124,6 @@ import {
   MainWarehouseAdminDashboardScreen,
   SubWarehouseAdminDashboardScreen,
   OrdersModule,
-  SubWarehouseTodayOverviewScreen,
   ChannelSalesScreen,
   ChannelOrderDetailScreen,
   type ChannelOrderItem,
@@ -1379,7 +1378,8 @@ export default function App(): React.JSX.Element {
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
-        ) : screen === 'SubWarehouseAdminDashboard' ? (
+        ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' ? (
+          // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
           <SubWarehouseAdminDashboardScreen
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
@@ -1451,23 +1451,6 @@ export default function App(): React.JSX.Element {
             shipment={DEMO_SHIPMENT}
             onBack={goBack}
             onFinish={() => navigate('SubWarehouseAdminDashboard')}
-          />
-        ) : screen === 'SubWarehouseTodayOverview' ? (
-          <SubWarehouseTodayOverviewScreen
-            onBack={goBack}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard');
-              else if (tab === 'Receiving') navigate('ReceivingQcScreen' as any);
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard' as any);
-              else if (tab === 'More') navigate('WarehouseWalletOperations');
-            }}
-            onNavigateToSection={(section) => {
-              if (section === 'Receiving') navigate('SubWarehouseReviewReceiving');
-              else if (section === 'Inventory') navigate('SubWarehouseAdminDashboard');
-              else if (section === 'Orders') navigate('SubWarehouseCustomerOrders');
-              else if (section === 'Sales') navigate('SubWarehouseSales');
-              else if (section === 'Cash Top-Up') navigate('WarehouseWalletOperations');
-            }}
           />
         ) : screen === 'SubWarehouseNeedsAttention' ? (
           // Shared dashboard-home-more NeedsAttentionScreen through HomeFlow (W4), own warehouse only.

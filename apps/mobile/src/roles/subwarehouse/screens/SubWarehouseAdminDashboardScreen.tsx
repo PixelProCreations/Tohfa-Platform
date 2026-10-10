@@ -32,11 +32,11 @@ import {
   type NotificationsRoute,
   type NotificationsRouteParams,
 } from '../../admin/screens/warehouse/notifications';
-import { SubWarehouseTodayOverviewScreen } from './SubWarehouseTodayOverviewScreen';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
 import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import {
+  HOME_CODES,
   HomeFlow,
   MoreScreen,
   type HomeRoute,
@@ -602,7 +602,6 @@ export function SubWarehouseAdminDashboardScreen({
   const showNotifications = notificationsEntry !== null;
   const setShowNotifications = (open: boolean) => setNotificationsEntry(open ? { screen: 'Notifications' } : null);
   const [returnToNotificationsOnBack, setReturnToNotificationsOnBack] = useState(false);
-  const [showTodayOverview, setShowTodayOverview] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
   // The open Home-tab module: HomeFlow (warehouse snapshot, tasks) owns its stack (W4).
   const [homeEntry, setHomeEntry] = useState<{ screen: HomeRoute; params?: HomeRouteParams | undefined } | null>(null);
@@ -747,6 +746,14 @@ export function SubWarehouseAdminDashboardScreen({
   }, []);
 
   const userName = user?.fullName?.split(' ')[0] ?? 'Suresh';
+  // Home is locked to the assigned warehouse (scope), never a written-in name.
+  const warehouseLabel = scope.warehouseName ?? scope.warehouseId ?? '';
+  const warehouseShort = warehouseLabel.replace(/ Warehouse$/, '');
+  // Home section gates (FINAL_LIST 26; SUB own for all three). The server
+  // filters again; these only decide which cards are worth drawing.
+  const canOrders = can(HOME_CODES.orderList);
+  const canStock = can(HOME_CODES.batchView);
+  const canSales = can(HOME_CODES.salesIncome);
 
   if (taskOrderNo !== null) {
     // Order detail of a HomeFlow order task; back returns to the task list.
@@ -888,43 +895,6 @@ export function SubWarehouseAdminDashboardScreen({
           } else if (alert.record === 'Transfer') {
             // App.tsx opens the shared TransfersFlow on the Sub scope (incoming only).
             onNavigate?.('InterWarehouseTransfer', { transferScope: 'sub' });
-          }
-        }}
-      />
-    );
-  }
-
-  if (showTodayOverview) {
-    return (
-      <SubWarehouseTodayOverviewScreen
-        onBack={() => setShowTodayOverview(false)}
-        onTabChange={(tab) => {
-          setShowTodayOverview(false);
-          if (tab === 'Receiving') {
-            setActiveTab('Receiving');
-            openReceiving();
-          } else if (tab === 'Inventory') {
-            setInventoryInitialScreen('M3S01');
-            setInventoryInitialParams(null);
-            setActiveTab('Inventory');
-          } else {
-            setActiveTab(tab);
-          }
-        }}
-        onNavigateToSection={(section) => {
-          setShowTodayOverview(false);
-          if (section === 'Receiving') {
-            setShowReviewReceiving(true);
-          } else if (section === 'Inventory') {
-            setInventoryInitialScreen('M3S01');
-            setInventoryInitialParams(null);
-            setActiveTab('Inventory');
-          } else if (section === 'Orders') {
-            openCustomers('CustomerOrders');
-          } else if (section === 'Sales') {
-            setShowSalesScreen(true);
-          } else if (section === 'Cash Top-Up') {
-            setShowWalletOperations(true);
           }
         }}
       />
@@ -1507,7 +1477,7 @@ export function SubWarehouseAdminDashboardScreen({
                     activeOpacity={0.75}
                   >
                     <WarehouseHeaderIcon />
-                    <Text style={styles.warehouseNameText}>Coonoor Warehouse</Text>
+                    <Text style={styles.warehouseNameText}>{warehouseLabel}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -1572,7 +1542,7 @@ export function SubWarehouseAdminDashboardScreen({
                 activeOpacity={0.8}
               >
                 <View style={styles.statusCardLeft}>
-                  <Text style={styles.statusWarehouseTitle}>Coonoor Warehouse</Text>
+                  <Text style={styles.statusWarehouseTitle}>{warehouseLabel}</Text>
                   <View style={styles.operationalRow}>
                     <View style={styles.greenDot} />
                     <Text style={styles.operationalText}>Operational</Text>
@@ -1587,23 +1557,15 @@ export function SubWarehouseAdminDashboardScreen({
               </TouchableOpacity>
 
               {/* 2. Today's Overview Grid */}
+              {/* SubWarehouseTodayOverviewScreen was absorbed here (FINAL_LIST 26): its
+                  receiving-completed and verification-pending figures were ported onto
+                  these cards / the Inventory Snapshot, so there is no "View All" any more. */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Today's Overview</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseTodayOverview');
-                    } else {
-                      setShowTodayOverview(true);
-                    }
-                  }}
-                  activeOpacity={0.75}
-                  style={{ paddingVertical: 4 }}
-                >
-                  <Text style={styles.viewAllText}>View All</Text>
-                </TouchableOpacity>
               </View>
               <View style={styles.overviewGrid}>
+                {canOrders ? (
+                <>
                 {/* 1. Pending Orders */}
                 <Pressable
                   style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
@@ -1629,6 +1591,8 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewTitle}>Ready for Pickup</Text>
                   <Text style={styles.overviewSub}>3 customers expected</Text>
                 </Pressable>
+                </>
+                ) : null}
 
                 {/* 3. Today's Receiving */}
                 <Pressable
@@ -1640,10 +1604,11 @@ export function SubWarehouseAdminDashboardScreen({
                   </View>
                   <Text style={styles.overviewNumber}>03</Text>
                   <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>1 awaiting QC</Text>
+                  <Text style={styles.overviewSub}>1 awaiting QC · 2 completed</Text>
                 </Pressable>
 
                 {/* 4. Low Stock Items */}
+                {canStock ? (
                 <Pressable
                   style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => setActiveTab('Inventory')}
@@ -1655,8 +1620,10 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewTitle}>Low Stock Items</Text>
                   <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
                 </Pressable>
+                ) : null}
 
                 {/* 5. Today's Sales */}
+                {canSales ? (
                 <Pressable
                   style={({ pressed }) => [styles.overviewCard, pressed && { borderColor: '#F0562A', borderWidth: 1 }]}
                   onPress={() => {
@@ -1674,6 +1641,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.overviewTitle}>Today's Sales</Text>
                   <Text style={styles.overviewSub}>42 transactions</Text>
                 </Pressable>
+                ) : null}
 
                 {/* 6. Cash Top-Ups */}
                 <Pressable
@@ -1720,6 +1688,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.quickActionLabel}>New Sale</Text>
                 </Pressable>
 
+                {canOrders ? (
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setShowOrdersModule(true)}
@@ -1727,6 +1696,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <ViewOrdersActionIcon />
                   <Text style={styles.quickActionLabel}>View Orders</Text>
                 </Pressable>
+                ) : null}
 
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
@@ -1742,6 +1712,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
                 </Pressable>
 
+                {canStock ? (
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
                   onPress={() => setActiveTab('Inventory')}
@@ -1749,6 +1720,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <StockVerifyActionIcon />
                   <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
                 </Pressable>
+                ) : null}
 
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
@@ -1828,6 +1800,7 @@ export function SubWarehouseAdminDashboardScreen({
                   <ChevronRight />
                 </TouchableOpacity>
 
+                {canOrders ? (
                 <TouchableOpacity
                   style={styles.alertCard}
                   onPress={() => Alert.alert('Pickup Pending', '3 customers are waiting for order pickup.')}
@@ -1842,7 +1815,9 @@ export function SubWarehouseAdminDashboardScreen({
                   </View>
                   <ChevronRight />
                 </TouchableOpacity>
+                ) : null}
 
+                {canStock ? (
                 <TouchableOpacity
                   style={styles.alertCard}
                   onPress={() => Alert.alert('Low Stock Alert', 'Carrot — Grade 1 · Available 12 KG.')}
@@ -1857,6 +1832,7 @@ export function SubWarehouseAdminDashboardScreen({
                   </View>
                   <ChevronRight />
                 </TouchableOpacity>
+                ) : null}
               </View>
 
               {/* 5. Today's Receiving */}
@@ -1879,7 +1855,7 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.awaitingQcText}>Awaiting QC</Text>
                     </View>
                   </View>
-                  <Text style={styles.routeText}>Main Warehouse → Coonoor</Text>
+                  <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
                   <Text style={styles.produceTitle}>Tomato · Grade 1</Text>
                   <View style={styles.rowBetween}>
                     <Text style={styles.detailText}>Expected: 150 KG</Text>
@@ -1900,7 +1876,7 @@ export function SubWarehouseAdminDashboardScreen({
                       <Text style={styles.qcCompletedText}>✓ QC Completed</Text>
                     </View>
                   </View>
-                  <Text style={styles.routeText}>Main Warehouse → Coonoor</Text>
+                  <Text style={styles.routeText}>Main Warehouse → {warehouseShort}</Text>
                   <Text style={styles.produceTitle}>Carrot · Grade 1</Text>
                   <Text style={styles.detailText}>Received: 80 KG</Text>
                 </TouchableOpacity>
@@ -1916,7 +1892,9 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* 6. Today's Orders */}
+              {/* 6. Today's Orders + 7. Order Status Summary: order.list.view_all */}
+              {canOrders ? (
+              <>
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Today's Orders</Text>
                 <Text style={styles.sectionHeaderSub}>12 Orders</Text>
@@ -1963,8 +1941,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
                 </View>
               </View>
+              </>
+              ) : null}
 
-              {/* 8. Inventory Snapshot */}
+              {/* 8. Inventory Snapshot + 9. Stock Allocation: inventory.batch.view */}
+              {canStock ? (
+              <>
               <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
               <View style={styles.infoTableCard}>
                 <View style={styles.infoTableRow}>
@@ -1979,9 +1961,14 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.infoTableLabel}>Allocated</Text>
                   <Text style={styles.infoTableValue}>580 KG</Text>
                 </View>
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                <View style={styles.infoTableRow}>
                   <Text style={styles.infoTableLabel}>Low Stock</Text>
                   <Text style={[styles.infoTableValue, { color: '#E11D48' }]}>05</Text>
+                </View>
+                {/* Ported from the absorbed Today's Overview (Inventory card). */}
+                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.infoTableLabel}>Verification Pending</Text>
+                  <Text style={styles.infoTableValue}>02</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.tableLinkButton}
@@ -2023,8 +2010,12 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
                 </TouchableOpacity>
               </View>
+              </>
+              ) : null}
 
-              {/* 10. Today's Sales Summary */}
+              {/* 10. Today's Sales Summary: finance.sales_income.view */}
+              {canSales ? (
+              <>
               <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
               <View style={styles.infoTableCard}>
                 <View style={styles.salesHeaderRow}>
@@ -2061,6 +2052,8 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.linkButtonText}>View Sales Report →</Text>
                 </TouchableOpacity>
               </View>
+              </>
+              ) : null}
 
               {/* 11. Cash Operations */}
               <Text style={styles.sectionHeading}>Cash Operations</Text>
@@ -2117,6 +2110,8 @@ export function SubWarehouseAdminDashboardScreen({
                   </View>
                 </TouchableOpacity>
 
+                {canOrders ? (
+                <>
                 <View style={styles.cardDivider} />
 
                 {/* Activity 2 */}
@@ -2134,6 +2129,8 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.activityTimeText}>10:20 AM</Text>
                   </View>
                 </TouchableOpacity>
+                </>
+                ) : null}
 
                 <View style={styles.cardDivider} />
 
@@ -2161,14 +2158,18 @@ export function SubWarehouseAdminDashboardScreen({
                   <WarningTriangleIcon color="#D97706" size={16} />
                   <Text style={styles.alertBulletText}>2 QC checks pending</Text>
                 </View>
-                <View style={styles.alertBulletRow}>
-                  <WarningTriangleIcon color="#D97706" size={16} />
-                  <Text style={styles.alertBulletText}>5 low-stock products</Text>
-                </View>
-                <View style={styles.alertBulletRow}>
-                  <InfoCircleIcon color="#2563EB" size={16} />
-                  <Text style={styles.alertBulletText}>3 pickups scheduled today</Text>
-                </View>
+                {canStock ? (
+                  <View style={styles.alertBulletRow}>
+                    <WarningTriangleIcon color="#D97706" size={16} />
+                    <Text style={styles.alertBulletText}>5 low-stock products</Text>
+                  </View>
+                ) : null}
+                {canOrders ? (
+                  <View style={styles.alertBulletRow}>
+                    <InfoCircleIcon color="#2563EB" size={16} />
+                    <Text style={styles.alertBulletText}>3 pickups scheduled today</Text>
+                  </View>
+                ) : null}
               </View>
 
               <View style={{ height: 28 }} />
