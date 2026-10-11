@@ -17,7 +17,7 @@
  */
 // Design id: M4-S07
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -37,10 +37,28 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { capacityAlertPercentOf, locationsInScope, STORAGE_LOCATIONS, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
-import { formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
+import { CheckCircleIcon, formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
 import type { CapacityFilter, CapacityState, StorageLocationItem, WarehouseScreenBaseProps } from './types';
 
 const FILTERS: readonly CapacityFilter[] = ['All', 'Available', 'Occupied', 'Unavailable'];
+
+const MWA_COMPARISON_ROWS = [
+  { name: 'Ooty', percent: '68%' },
+  { name: 'Coonoor', percent: '72%' },
+  { name: 'Kotagiri', percent: '54%' },
+  { name: 'Gudalur Market', percent: '61%' },
+];
+
+const STORAGE_AREA_ROWS = [
+  { name: 'Cold Storage', percent: '68%' },
+  { name: 'Dry Storage', percent: '52%' },
+  { name: 'Material Storage', percent: '41%' },
+];
+
+const LOCATION_CAPACITY_ROWS = [
+  { name: 'Cold Storage · Section A', percent: '72%' },
+  { name: 'Cold Storage · Section B', percent: '58%' },
+];
 
 const STATE_TONE: Record<CapacityState, 'success' | 'warning' | 'danger'> = {
   Available: 'success',
@@ -106,96 +124,244 @@ export function WarehouseCapacityScreen({
       title="Warehouse Capacity"
       onBack={onBack}
       headerExtra={
-        <ScopeHeader
-          scope={scope}
-          label={allWarehouses ? undefined : scope.warehouseName}
-          warehouseOptions={STORAGE_WAREHOUSES}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
-        />
+        allWarehouses ? undefined : (
+          <ScopeHeader
+            scope={scope}
+            label={scope.warehouseName}
+            warehouseOptions={STORAGE_WAREHOUSES}
+            selectedWarehouseId={selectedWarehouseId}
+            onSelectWarehouse={setSelectedWarehouseId}
+          />
+        )
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {allWarehouses ? (
-          <KpiRow
-            items={[
-              { value: `${sum.percent}%`, label: 'OCCUPIED' },
-              { value: `${100 - sum.percent}%`, label: 'AVAILABLE', tone: 'success' },
-            ]}
-          />
-        ) : null}
-
-        {showComparison ? (
           <>
+            <View style={styles.mwaSummaryCard}>
+              <View style={styles.mwaSummaryRow}>
+                <View style={styles.mwaSummaryCol}>
+                  <Text style={styles.mwaSummaryLabel}>Occupied</Text>
+                  <Text style={styles.mwaSummaryValue}>68%</Text>
+                </View>
+                <View style={styles.mwaSummaryCol}>
+                  <Text style={styles.mwaSummaryLabel}>Available</Text>
+                  <Text style={styles.mwaSummaryValue}>32%</Text>
+                </View>
+              </View>
+              <View style={styles.mwaStatusGroup}>
+                <Text style={styles.mwaSummaryLabel}>Status</Text>
+                <Text style={styles.mwaStatusValue}>Operational</Text>
+              </View>
+            </View>
+
             <SectionTitle>Warehouse Comparison</SectionTitle>
             <Card>
-              {comparison.map((row, index) => (
-                <View key={row.warehouseId} style={[styles.compareRow, index > 0 && styles.compareRowDivider]}>
-                  <View style={styles.compareHead}>
-                    <Text style={styles.compareName}>{storageWarehouseName(row.warehouseId)}</Text>
-                    <Text style={styles.compareValue}>{row.percent}%</Text>
-                  </View>
-                  <ProgressBar percent={row.percent} />
+              {MWA_COMPARISON_ROWS.map((row, index) => (
+                <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
+                  <Text style={styles.tableRowName}>{row.name}</Text>
+                  <Text style={styles.tableRowValue}>{row.percent}</Text>
                 </View>
               ))}
             </Card>
-          </>
-        ) : null}
 
-        <SectionTitle>Storage Locations</SectionTitle>
-        <KpiRow
-          items={[
-            { value: formatKg(sum.capacityKg), label: 'STORAGE TOTAL' },
-            { value: formatKg(Math.max(0, sum.capacityKg - sum.currentKg)), label: 'AVAILABLE CAPACITY', tone: 'success' },
-          ]}
-        />
-        <SearchBar value={query} onChangeText={setQuery} placeholder="Search storage locations..." />
-        <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
-
-        {visible.length === 0 ? (
-          <EmptyState title="No storage locations found" subtitle="Try another filter or search." />
-        ) : (
-          <View style={styles.list}>
-            {visible.map((loc, index) => {
-              const state = capacityStateOf(loc);
-              return (
-                <View key={loc.id} style={[styles.item, index > 0 && styles.itemDivider]}>
-                  <View style={styles.itemIcon}>
-                    <WarehouseIcon />
-                  </View>
-                  <View style={styles.itemText}>
-                    <Text style={styles.itemTitle}>{loc.name}</Text>
-                    <Text style={styles.itemSub}>
-                      Code: {loc.code} · {formatKg(loc.currentKg)} / {formatKg(loc.capacityKg)}
-                      {allWarehouses ? ` · ${storageWarehouseName(loc.warehouseId)}` : ''}
-                    </Text>
-                  </View>
-                  <StatusBadge label={state} tone={STATE_TONE[state]} />
+            <SectionTitle
+              right={
+                <TouchableOpacity onPress={onViewHistory} accessibilityRole="button">
+                  <Text style={styles.link}>View →</Text>
+                </TouchableOpacity>
+              }
+            >
+              Storage Area Capacity
+            </SectionTitle>
+            <Card>
+              {STORAGE_AREA_ROWS.map((row, index) => (
+                <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
+                  <Text style={styles.tableRowName}>{row.name}</Text>
+                  <Text style={styles.tableRowValue}>{row.percent}</Text>
                 </View>
-              );
-            })}
-          </View>
-        )}
+              ))}
+            </Card>
 
-        {canManageCapacity ? (
-          <WalletButton label="Manage Capacity Limits" variant="outline" onPress={() => onManageCapacity?.()} />
+            <SectionTitle
+              right={
+                <TouchableOpacity onPress={onViewHistory} accessibilityRole="button">
+                  <Text style={styles.link}>View →</Text>
+                </TouchableOpacity>
+              }
+            >
+              Location Capacity
+            </SectionTitle>
+            <Card>
+              {LOCATION_CAPACITY_ROWS.map((row, index) => (
+                <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
+                  <Text style={styles.tableRowName}>{row.name}</Text>
+                  <Text style={styles.tableRowValue}>{row.percent}</Text>
+                </View>
+              ))}
+            </Card>
+
+            {canManageCapacity ? (
+              <View style={styles.historyButton}>
+                <WalletButton label="Manage Capacity Limits" variant="outline" onPress={() => onManageCapacity?.()} />
+              </View>
+            ) : null}
+          </>
         ) : (
-          <InfoNote tone="warning" icon={<LockIcon size={16} color={adminColors.warning.text} />}>
-            View only.{allWarehouses ? '' : ' Locations are scoped to your assigned warehouse —'} No capacity editing, storage configuration, or
-            quantity allocation here.
-          </InfoNote>
+          <>
+            <KpiRow
+              items={[
+                { value: `${sum.percent}%`, label: 'OCCUPIED' },
+                { value: `${100 - sum.percent}%`, label: 'AVAILABLE', tone: 'success' },
+              ]}
+            />
+
+            {showComparison ? (
+              <>
+                <SectionTitle>Warehouse Comparison</SectionTitle>
+                <Card>
+                  {comparison.map((row, index) => (
+                    <View key={row.warehouseId} style={[styles.compareRow, index > 0 && styles.compareRowDivider]}>
+                      <View style={styles.compareHead}>
+                        <Text style={styles.compareName}>{storageWarehouseName(row.warehouseId)}</Text>
+                        <Text style={styles.compareValue}>{row.percent}%</Text>
+                      </View>
+                      <ProgressBar percent={row.percent} />
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
+
+            <SectionTitle>Storage Locations</SectionTitle>
+            <KpiRow
+              items={[
+                { value: formatKg(sum.capacityKg), label: 'STORAGE TOTAL' },
+                { value: formatKg(Math.max(0, sum.capacityKg - sum.currentKg)), label: 'AVAILABLE CAPACITY', tone: 'success' },
+              ]}
+            />
+            <SearchBar value={query} onChangeText={setQuery} placeholder="Search storage locations..." />
+            <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
+
+            {visible.length === 0 ? (
+              <EmptyState title="No storage locations found" subtitle="Try another filter or search." />
+            ) : (
+              <View style={styles.list}>
+                {visible.map((loc, index) => {
+                  const state = capacityStateOf(loc);
+                  return (
+                    <View key={loc.id} style={[styles.item, index > 0 && styles.itemDivider]}>
+                      <View style={styles.itemIcon}>
+                        <WarehouseIcon />
+                      </View>
+                      <View style={styles.itemText}>
+                        <Text style={styles.itemTitle}>{loc.name}</Text>
+                        <Text style={styles.itemSub}>
+                          Code: {loc.code} · {formatKg(loc.currentKg)} / {formatKg(loc.capacityKg)}
+                        </Text>
+                      </View>
+                      <StatusBadge label={state} tone={STATE_TONE[state]} />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {canManageCapacity ? (
+              <WalletButton label="Manage Capacity Limits" variant="outline" onPress={() => onManageCapacity?.()} />
+            ) : (
+              <InfoNote tone="warning" icon={<LockIcon size={16} color={adminColors.warning.text} />}>
+                View only. Locations are scoped to your assigned warehouse — No capacity editing, storage configuration, or
+                quantity allocation here.
+              </InfoNote>
+            )}
+            {onViewHistory ? (
+              <View style={styles.historyButton}>
+                <WalletButton label="View Capacity History" variant="neutral" onPress={onViewHistory} />
+              </View>
+            ) : null}
+          </>
         )}
-        {allWarehouses && onViewHistory ? (
-          <View style={styles.historyButton}>
-            <WalletButton label="View Capacity History" variant="neutral" onPress={onViewHistory} />
-          </View>
-        ) : null}
       </ScrollView>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  mwaBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    backgroundColor: adminColors.success.bg,
+    borderWidth: 1,
+    borderColor: adminColors.success.border,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  mwaBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.success.text,
+    lineHeight: 18,
+  },
+  mwaSummaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+  },
+  mwaSummaryRow: {
+    flexDirection: 'row',
+    marginBottom: adminSpacing.md,
+  },
+  mwaSummaryCol: {
+    flex: 1,
+  },
+  mwaSummaryLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  mwaSummaryValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  mwaStatusGroup: {
+    marginTop: 2,
+  },
+  mwaStatusValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.success.text,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.sm,
+  },
+  tableRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  tableRowName: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  tableRowValue: {
+    ...adminType.rowTitle,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  link: {
+    ...adminType.caption,
+    color: adminColors.brand,
+  },
   compareRow: { paddingVertical: adminSpacing.sm },
   compareRowDivider: { borderTopWidth: 1, borderTopColor: adminColors.border },
   compareHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },

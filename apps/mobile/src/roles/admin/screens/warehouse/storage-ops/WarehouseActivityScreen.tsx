@@ -12,7 +12,13 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { STORAGE_WAREHOUSES } from './fixtures';
-import type { ActivityCategory, ActivityStatus, WarehouseScreenBaseProps } from './types';
+import type {
+  ActivityCategory,
+  ActivityModule,
+  ActivityPreset,
+  ActivityStatus,
+  WarehouseScreenBaseProps,
+} from './types';
 
 const CATEGORY_CHIPS = [
   'All',
@@ -29,7 +35,7 @@ export const ACTIVITY_STATUS_TONE: Record<string, 'success' | 'warning' | 'dange
   Open: 'danger',
 };
 
-export function ActivityCategoryIcon() {
+export function ActivityCategoryIcon(_props?: { category?: ActivityCategory; size?: number }) {
   return null;
 }
 
@@ -70,13 +76,19 @@ const DEFAULT_ACTIVITIES: ActivityRecord[] = [
 ];
 
 export interface WarehouseActivityScreenProps extends WarehouseScreenBaseProps {
+  initialPreset?: ActivityPreset | undefined;
   onSelectActivity: (activityId: string) => void;
+  onOpenModule?: ((module: ActivityModule) => void) | undefined;
+  onExport?: (() => void) | undefined;
 }
 
 export function WarehouseActivityScreen({
   scope,
   onBack,
+  initialPreset: _initialPreset,
   onSelectActivity,
+  onOpenModule: _onOpenModule,
+  onExport: _onExport,
 }: WarehouseActivityScreenProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<(typeof CATEGORY_CHIPS)[number]>('All');

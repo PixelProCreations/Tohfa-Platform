@@ -79,7 +79,7 @@ export function ActivityDetailScreen({ scope, onBack, activityId, activities = A
             <ActivityCategoryIcon category={activity.category} size={20} />
           </View>
           <Text style={styles.title}>{activity.title}</Text>
-          <StatusBadge label={activity.status} tone={ACTIVITY_STATUS_TONE[activity.status]} />
+          <StatusBadge label={activity.status} tone={ACTIVITY_STATUS_TONE[activity.status] ?? 'info'} />
         </View>
         <InfoCard
           rows={[

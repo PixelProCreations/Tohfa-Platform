@@ -30,8 +30,6 @@ import {
   Card,
   CheckIcon,
   InfoCard,
-  InfoIcon,
-  InfoNote,
   PermissionNote,
   SectionTitle,
   WalletButton,
@@ -191,22 +189,6 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
             [{ label: 'Time', value: timeStr }],
           ]}
         />
-
-        <InfoNote tone="warning" icon={<InfoIcon color={adminColors.warning.text} />}>
-          {formatRupees(topUpAmount)} cash will be credited to the customer's wallet. This action cannot be completed
-          without server confirmation.
-        </InfoNote>
-        <InfoNote tone="info">
-          Success is never shown before the server confirms the transaction — the balance is never simulated by editing
-          the display.
-        </InfoNote>
-
-        <TouchableOpacity style={styles.demoButton} onPress={handleSimulateBalanceChanged} activeOpacity={0.75}>
-          <Text style={styles.demoButtonText}>Simulate wallet changed mid-flow (demo)</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.demoButton} onPress={handleSimulateFailedTopUp} activeOpacity={0.75}>
-          <Text style={styles.demoButtonText}>Simulate failed top-up (demo)</Text>
-        </TouchableOpacity>
       </ScrollView>
     </WalletScreen>
   );

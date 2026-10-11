@@ -245,16 +245,6 @@ export function CustomerSearchScreen({
           </View>
         )}
 
-        {/* ─── Notice Info Banner ─── */}
-        <View style={styles.noticeBanner}>
-          <View style={styles.noticeIconWrap}>
-            <InfoNoticeIcon size={18} color={adminColors.brandDeep} />
-          </View>
-          <Text style={styles.noticeBannerText}>
-            Select a customer to view wallet balance and perform authorized top-ups.
-          </Text>
-        </View>
-
         {/* ─── Customer Results ─── */}
         <View style={styles.sectionWrap}>
           <Text style={styles.resultsHeader}>

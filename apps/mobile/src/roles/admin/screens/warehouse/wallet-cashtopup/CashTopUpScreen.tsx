@@ -19,7 +19,6 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 
 import { CASH_TOPUP_CAP_PAISE, formatCashTopUpCap, validateTopUpAmount } from '../../../config/businessThresholds';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { WarehouseSelector } from '../inventory';
 import { SAMPLE_WALLET_CUSTOMER, TOP_UP_PRESETS, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
 import type { CashTopUpDraft, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
@@ -210,17 +209,31 @@ export function CashTopUpScreen({
           {isAllWarehouses(scope) ? (
             <>
               <SectionTitle>Collected At</SectionTitle>
-              <View style={styles.selectorWrap}>
-                <WarehouseSelector
-                  scope={scope}
-                  options={warehouseOptions}
-                  selectedId={collectedAt}
-                  onSelect={(id) => {
-                    // A top-up is collected at one warehouse; "All" is not a choice here.
-                    if (id !== undefined) setCollectedAt(id);
-                  }}
-                />
-              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.warehouseChipsRow}
+              >
+                {warehouseOptions
+                  .filter((w) => w.warehouseId !== undefined)
+                  .map((w) => {
+                    const active = (collectedAt ?? warehouseOptions[0]?.warehouseId) === w.warehouseId;
+                    return (
+                      <TouchableOpacity
+                        key={w.warehouseId}
+                        style={[styles.warehouseChip, active && styles.warehouseChipActive]}
+                        onPress={() => setCollectedAt(w.warehouseId)}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Text style={[styles.warehouseChipText, active && styles.warehouseChipTextActive]}>
+                          {w.warehouseName ?? w.warehouseId}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
             </>
           ) : null}
 
@@ -291,11 +304,29 @@ const styles = StyleSheet.create({
   },
   customButtonActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
   customButtonText: { ...adminType.rowTitle, color: adminColors.ink },
-  // WarehouseSelector chips are drawn for the orange header; give them a brand backdrop here.
-  selectorWrap: {
+  warehouseChipsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+  },
+  warehouseChip: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+  },
+  warehouseChipActive: {
     backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.lg,
-    paddingHorizontal: adminSpacing.md,
-    paddingBottom: adminSpacing.md,
+    borderColor: adminColors.brand,
+  },
+  warehouseChipText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  warehouseChipTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
   },
 });
