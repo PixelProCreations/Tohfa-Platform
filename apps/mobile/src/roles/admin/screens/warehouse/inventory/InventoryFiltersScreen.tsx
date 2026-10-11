@@ -69,19 +69,11 @@ function PinIcon({ size = 16, color = adminColors.ink }: { size?: number; color?
   );
 }
 
-function ArrowsUpDownIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
+function LockIcon({ size = 14, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 16V4M7 4l-4 4M7 4l4 4M17 8v12M17 20l-4-4M17 20l4-4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CalendarIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke={color} strokeWidth="1.8" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -100,15 +92,10 @@ function FunnelFilterIcon({ size = 18, color = adminColors.onBrand }: { size?: n
   );
 }
 
-export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOptions = [] }: InventoryFiltersScreenProps) {
-  // Warehouse facet only for the all-warehouses (Main) view; Sub is locked to its own.
-  const showWarehouseFacet = scope.warehouseId === undefined;
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+export function InventoryFiltersScreen({ scope, onNavigate, onBack }: InventoryFiltersScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('All Grades');
   const [selectedStatus, setSelectedStatus] = useState('All');
-  const [selectedMovement, setSelectedMovement] = useState<string | null>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState('Today');
   const [showMore, setShowMore] = useState(false);
 
   return (
@@ -118,7 +105,15 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
           title="Inventory Filters"
           onBack={onBack}
           rightAction={
-            <TouchableOpacity onPress={() => {}} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity 
+              onPress={() => {
+                setSearchQuery('');
+                setSelectedGrade('All Grades');
+                setSelectedStatus('All');
+                setShowMore(false);
+              }} 
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Text style={styles.headerClearAll}>Clear All</Text>
             </TouchableOpacity>
           }
@@ -137,6 +132,25 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
             />
           </View>
 
+          {/* Warehouse */}
+          <View style={styles.filterSection}>
+            <View style={styles.sectionHeaderRow}>
+              <WarehouseIcon size={16} color={adminColors.ink} />
+              <Text style={styles.sectionTitle}>Warehouse</Text>
+            </View>
+            <View style={styles.warehouseBox}>
+              <View style={styles.warehouseLockIcon}>
+                <LockIcon size={14} color={adminColors.brandDeep} />
+              </View>
+              <Text style={styles.warehouseText}>
+                <Text style={styles.warehouseTextBold}>
+                  {scope.warehouseName ?? 'Coonoor Warehouse'} — Assigned Warehouse.
+                </Text>{' '}
+                Not an editable dropdown; SWA cannot select Ooty, Kotagiri or Gudalur. This scope also applies to any export.
+              </Text>
+            </View>
+          </View>
+
           {/* Product / Crop */}
           <View style={styles.filterSection}>
             <View style={styles.sectionHeaderRow}>
@@ -148,33 +162,6 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
               <Icon name="expand_more" size={20} color={adminColors.muted} />
             </TouchableOpacity>
           </View>
-
-          {/* Warehouse (Main only) */}
-          {showWarehouseFacet ? (
-            <View style={styles.filterSection}>
-              <View style={styles.sectionHeaderRow}>
-                <WarehouseIcon size={16} color={adminColors.ink} />
-                <Text style={styles.sectionTitle}>Warehouse</Text>
-              </View>
-              <View style={styles.chipGroup}>
-                {[{ warehouseId: undefined, warehouseName: 'All Warehouses' }, ...warehouseOptions].map((wh) => {
-                  const isActive = selectedWarehouseId === wh.warehouseId;
-                  return (
-                    <TouchableOpacity
-                      key={wh.warehouseId ?? 'all'}
-                      style={[styles.chip, isActive && styles.activeChip]}
-                      onPress={() => setSelectedWarehouseId(wh.warehouseId)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.chipText, isActive && styles.activeChipText]}>
-                        {wh.warehouseName ?? wh.warehouseId}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          ) : null}
 
           {/* Grade */}
           <View style={styles.filterSection}>
@@ -193,6 +180,29 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.chipText, isActive && styles.activeChipText]}>{grade}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Stock Status */}
+          <View style={styles.filterSection}>
+            <View style={styles.sectionHeaderRow}>
+              <FlagIcon size={16} color={adminColors.ink} />
+              <Text style={styles.sectionTitle}>Stock Status</Text>
+            </View>
+            <View style={styles.chipGroup}>
+              {['All', 'Available', 'Low Stock', 'Out of Stock'].map((status) => {
+                const isActive = selectedStatus === status;
+                return (
+                  <TouchableOpacity 
+                    key={status} 
+                    style={[styles.chip, isActive && styles.activeChip]}
+                    onPress={() => setSelectedStatus(status)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, isActive && styles.activeChipText]}>{status}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -223,98 +233,13 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
             </TouchableOpacity>
           </View>
 
-          {/* Stock Status */}
-          <View style={styles.filterSection}>
-            <View style={styles.sectionHeaderRow}>
-              <FlagIcon size={16} color={adminColors.ink} />
-              <Text style={styles.sectionTitle}>Stock Status</Text>
-            </View>
-            <View style={styles.chipGroup}>
-              {['All', 'Available', 'Low Stock', 'Out of Stock'].map((status) => {
-                const isActive = selectedStatus === status;
-                return (
-                  <TouchableOpacity 
-                    key={status} 
-                    style={[styles.chip, isActive && styles.activeChip]}
-                    onPress={() => setSelectedStatus(status)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, isActive && styles.activeChipText]}>{status}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Movement Type For Stock Ledger */}
-          <View style={styles.filterSection}>
-            <View style={styles.sectionHeaderRow}>
-              <ArrowsUpDownIcon size={16} color={adminColors.ink} />
-              <Text style={styles.sectionTitle}>Movement Type <Text style={{fontWeight: '700'}}>For Stock Ledger</Text></Text>
-            </View>
-            <View style={styles.chipGroup}>
-              {['Receipt', 'Dispatch', 'Allocation', 'Reservation', 'Consumption', 'Write-off', 'Adjustment'].map((mov) => {
-                const isActive = selectedMovement === mov;
-                return (
-                  <TouchableOpacity 
-                    key={mov} 
-                    style={[styles.chip, isActive && styles.activeChip]}
-                    onPress={() => setSelectedMovement(mov)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, isActive && styles.activeChipText]}>{mov}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Date Range */}
-          <View style={styles.filterSection}>
-            <View style={styles.sectionHeaderRow}>
-              <CalendarIcon size={16} color={adminColors.ink} />
-              <Text style={styles.sectionTitle}>Date Range</Text>
-            </View>
-            <View style={styles.chipGroup}>
-              {['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Custom'].map((range) => {
-                const isActive = selectedDateRange === range;
-                return (
-                  <TouchableOpacity 
-                    key={range} 
-                    style={[styles.chip, isActive && styles.activeChip]}
-                    onPress={() => setSelectedDateRange(range)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, isActive && styles.activeChipText]}>{range}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* From / To Dates */}
-          <View style={[styles.filterSection, { flexDirection: 'row', gap: 12 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.dateLabel}>From</Text>
-              <TouchableOpacity style={styles.dateInput} activeOpacity={0.7}>
-                <Text style={styles.dateInputValue}>16 Sep 2026</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.dateLabel}>To</Text>
-              <TouchableOpacity style={styles.dateInput} activeOpacity={0.7}>
-                <Text style={styles.dateInputValue}>16 Sep 2026</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
           {/* Results Count */}
           <View style={styles.resultsHeader}>
             <Text style={styles.resultsText}>Results</Text>
             <Text style={styles.resultsCount}>23 Results</Text>
           </View>
 
-          {/* Result Card matching Left Reference UI */}
+          {/* Result Card matching Reference UI */}
           <View style={styles.resultCard}>
             <View style={styles.resultCardTop}>
               <Text style={styles.resultItemName}>Tomato</Text>
@@ -383,7 +308,7 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
           <View style={{ height: 16 }} />
         </ScrollView>
 
-        {/* Sticky Action Buttons (Stacked Vertically matching reference) */}
+        {/* Sticky Action Buttons */}
         <View style={styles.footer}>
           <TouchableOpacity 
             style={styles.applyButton}
@@ -400,8 +325,6 @@ export function InventoryFiltersScreen({ scope, onNavigate, onBack, warehouseOpt
               setSearchQuery('');
               setSelectedGrade('All Grades');
               setSelectedStatus('All');
-              setSelectedMovement(null);
-              setSelectedDateRange('Today');
               setShowMore(false);
             }}
             activeOpacity={0.8}

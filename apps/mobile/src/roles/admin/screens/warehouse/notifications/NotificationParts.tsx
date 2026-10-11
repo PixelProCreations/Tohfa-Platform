@@ -111,32 +111,30 @@ const FILTER_CATEGORIES: Record<Exclude<NotificationFilter, 'All' | 'Unread'>, r
 
 export const NOTIFICATION_FILTERS: readonly NotificationFilter[] = [
   'All',
-  'Unread',
-  'Receiving',
-  'Quality',
   'Orders',
   'Inventory',
+  'Receiving',
   'Finance',
   'Returns',
+  'Quality',
   'System',
   'Messages',
 ];
 
 /**
- * Chip label of each filter (the original Sub list's wording). The 'Finance'
- * filter value is kept for hosts and route params; its chip reads 'Wallet'.
+ * Chip label of each filter.
  */
 export const FILTER_LABEL: Record<NotificationFilter, string> = {
   All: 'All',
-  Unread: 'Unread',
-  Receiving: 'Receiving',
-  Quality: 'Quality',
   Orders: 'Orders',
   Inventory: 'Inventory',
-  Finance: 'Wallet',
+  Receiving: 'Receiving',
+  Finance: 'Finance',
   Returns: 'Returns',
+  Quality: 'Quality',
   System: 'System',
   Messages: 'Messages',
+  Unread: 'Unread',
 };
 
 export function matchesFilter(item: NotificationItem, filter: NotificationFilter): boolean {

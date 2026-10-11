@@ -511,7 +511,7 @@ export const QUALITY_ISSUES: QualityIssue[] = [
     warehouseId: COONOOR_ID,
     time: '11:15 AM',
     target: 'wizard',
-    wizardStep: 'partial_acceptance',
+    wizardStep: 'damage_mismatch',
   },
   {
     id: 'QC-1020',
@@ -521,7 +521,8 @@ export const QUALITY_ISSUES: QualityIssue[] = [
     detail: '2 crates reported damaged',
     warehouseId: COONOOR_ID,
     time: '09:20 AM',
-    target: 'operational_issue',
+    target: 'wizard',
+    wizardStep: 'rejected_goods',
   },
   {
     id: 'QC-0914',

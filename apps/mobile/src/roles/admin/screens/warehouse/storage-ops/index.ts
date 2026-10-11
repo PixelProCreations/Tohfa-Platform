@@ -17,6 +17,7 @@ export {
   StorageLocationAssignmentScreen,
   type StorageLocationAssignmentScreenProps,
 } from './StorageLocationAssignmentScreen';
+export { StorageLocationsScreen, type StorageLocationsScreenProps } from './StorageLocationsScreen';
 export { WarehouseCapacityScreen, capacityStateOf, type WarehouseCapacityScreenProps } from './WarehouseCapacityScreen';
 export { WarehousePerformanceScreen, type WarehousePerformanceScreenProps } from './WarehousePerformanceScreen';
 export {

@@ -1,22 +1,8 @@
-/**
- * Add Material: record received material stock into a storage location.
- *
- * Gate (FINAL_LIST 129): `inventory.material_handling.manage` (MAIN all, SUB
- * own). Entry points hide without it; opened directly, the screen renders a
- * not-available note. Saving is a local mock until a material endpoint exists
- * (SPEC_GAPS W4u-1).
- *
- * Scope: the storage-location picker lists only the locations of the viewer's
- * warehouse (Sub: its own, locked). Main picks the warehouse first with the
- * selector; the list then narrows to it. The helper line names the warehouse
- * from scope, never a hard-coded one.
- */
-import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
-  EmptyState,
   ScopeHeader,
   SectionTitle,
   WalletButton,
@@ -24,59 +10,52 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { locationsInScope, MATERIAL_OPTIONS, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
-import { ChevronDownIcon, MinusIcon, PlusIcon, STORAGE_CODES } from './StorageParts';
-import type { MaterialOption, WarehouseScreenBaseProps } from './types';
+import { STORAGE_WAREHOUSES } from './fixtures';
+import { ChevronDownIcon } from './StorageParts';
+import type { WarehouseScreenBaseProps } from './types';
 
 type Condition = 'Good' | 'Damaged';
 const CONDITIONS: readonly Condition[] = ['Good', 'Damaged'];
 
+const MATERIAL_OPTIONS = [
+  'Select material',
+  'Packaging Box',
+  'Plastic Crates',
+  'Label Roll',
+  'Cleaning Liquid',
+  'Safety Gloves',
+];
+
+const LOCATION_OPTIONS = [
+  'Select storage location',
+  'Rack 02 · Shelf 03',
+  'Rack 01 · Shelf 01',
+  'Rack 03 · Shelf 02',
+  'Material Storage Area',
+  'Cold Storage A',
+  'Dry Storage B',
+];
+
 export interface AddMaterialScreenProps extends WarehouseScreenBaseProps {
-  /** Preselect a material (Add Stock from Material Detail). */
   initialMaterialName?: string | undefined;
-  materialOptions?: readonly MaterialOption[] | undefined;
   onSave: () => void;
 }
 
 export function AddMaterialScreen({
   scope,
-  can,
   onBack,
   initialMaterialName,
-  materialOptions = MATERIAL_OPTIONS,
   onSave,
 }: AddMaterialScreenProps) {
-  const initialOption = materialOptions.find((o) => o.name === initialMaterialName);
-  const [material, setMaterial] = useState<MaterialOption | undefined>(initialOption);
-  const [quantity, setQuantity] = useState('');
+  const [material, setMaterial] = useState<string | undefined>(initialMaterialName);
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
+
   const [condition, setCondition] = useState<Condition>('Good');
-  const [locationId, setLocationId] = useState<string | undefined>(undefined);
+
+  const [location, setLocation] = useState<string | undefined>(undefined);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+
   const [notes, setNotes] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  const [picker, setPicker] = useState<'material' | 'location' | null>(null);
-
-  const warehouseId = scope.warehouseId ?? selectedWarehouseId;
-  const locations = useMemo(
-    () => (warehouseId === undefined ? [] : locationsInScope(scope, selectedWarehouseId).filter((l) => l.status === 'Active')),
-    [scope, selectedWarehouseId, warehouseId],
-  );
-  const location = locations.find((l) => l.id === locationId);
-
-  if (!can(STORAGE_CODES.materialManage)) {
-    return (
-      <WalletScreen title="Add Material" onBack={onBack}>
-        <EmptyState title="Material handling not available" subtitle="Your role does not include managing warehouse materials." />
-      </WalletScreen>
-    );
-  }
-
-  const step = (delta: number) => {
-    const current = parseInt(quantity, 10);
-    const base = Number.isNaN(current) ? 0 : current;
-    setQuantity(String(Math.max(0, base + delta)));
-  };
-  const qty = parseInt(quantity, 10);
-  const canSave = material !== undefined && location !== undefined && !Number.isNaN(qty) && qty > 0;
 
   return (
     <WalletScreen
@@ -85,52 +64,69 @@ export function AddMaterialScreen({
       headerExtra={
         <ScopeHeader
           scope={scope}
+          label={scope.warehouseName ?? 'Coonoor Warehouse'}
           warehouseOptions={STORAGE_WAREHOUSES}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={(id) => {
-            setSelectedWarehouseId(id);
-            setLocationId(undefined);
-          }}
         />
       }
       footer={
         <WalletFooter>
-          <WalletButton label="Add Material" onPress={onSave} disabled={!canSave} />
+          <WalletButton label="Add Material" onPress={onSave} />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>MATERIAL INFORMATION</SectionTitle>
         <FieldLabel required>Material Name</FieldLabel>
-        <TouchableOpacity style={styles.dropdown} onPress={() => setPicker('material')} activeOpacity={0.8} accessibilityRole="button">
-          <Text style={[styles.dropdownText, !material && styles.placeholder]}>{material?.name ?? 'Select material'}</Text>
+        <TouchableOpacity
+          style={styles.dropdown}
+          onPress={() => {
+            setMaterialPickerOpen((prev) => !prev);
+            setLocationPickerOpen(false);
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.dropdownText, !material && styles.placeholder]}>
+            {material ?? 'Select material'}
+          </Text>
           <ChevronDownIcon />
         </TouchableOpacity>
-        <FieldLabel required>Material Category</FieldLabel>
-        <View style={[styles.dropdown, styles.dropdownDisabled]}>
-          <Text style={[styles.dropdownText, !material && styles.placeholder]}>{material?.category ?? 'Select material first'}</Text>
-        </View>
 
-        <SectionTitle>QUANTITY</SectionTitle>
-        <FieldLabel required>Received Quantity</FieldLabel>
-        <View style={styles.dropdown}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter quantity"
-            placeholderTextColor={adminColors.placeholder}
-            keyboardType="number-pad"
-            value={quantity}
-            onChangeText={(t) => setQuantity(t.replace(/[^0-9]/g, ''))}
-          />
-          <View style={styles.stepper}>
-            <TouchableOpacity style={styles.stepperButton} onPress={() => step(-1)} activeOpacity={0.7} accessibilityLabel="Decrease quantity">
-              <MinusIcon />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.stepperButton} onPress={() => step(1)} activeOpacity={0.7} accessibilityLabel="Increase quantity">
-              <PlusIcon size={16} color={adminColors.muted} />
-            </TouchableOpacity>
+        {materialPickerOpen ? (
+          <View style={styles.dropdownList}>
+            {MATERIAL_OPTIONS.map((item, idx) => {
+              const isHeader = idx === 0;
+              return (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.dropdownOption,
+                    isHeader && styles.dropdownHeaderOption,
+                  ]}
+                  onPress={() => {
+                    if (isHeader) {
+                      setMaterial(undefined);
+                    } else {
+                      setMaterial(item);
+                    }
+                    setMaterialPickerOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownOptionText,
+                      isHeader && styles.dropdownHeaderOptionText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </View>
+        ) : null}
+
         <FieldLabel required>Condition</FieldLabel>
         <View style={styles.toggleRow}>
           {CONDITIONS.map((c) => {
@@ -153,20 +149,56 @@ export function AddMaterialScreen({
         <SectionTitle>STORAGE LOCATION</SectionTitle>
         <FieldLabel required>Storage Location</FieldLabel>
         <TouchableOpacity
-          style={[styles.dropdown, warehouseId === undefined && styles.dropdownDisabled]}
-          onPress={() => setPicker('location')}
-          disabled={warehouseId === undefined}
+          style={styles.dropdown}
+          onPress={() => {
+            setLocationPickerOpen((prev) => !prev);
+            setMaterialPickerOpen(false);
+          }}
           activeOpacity={0.8}
           accessibilityRole="button"
         >
-          <Text style={[styles.dropdownText, !location && styles.placeholder]}>{location?.name ?? 'Select storage location'}</Text>
+          <Text style={[styles.dropdownText, !location && styles.placeholder]}>
+            {location ?? 'Select storage location'}
+          </Text>
           <ChevronDownIcon />
         </TouchableOpacity>
-        <Text style={styles.helper}>
-          {warehouseId === undefined
-            ? 'Select a warehouse above to list its storage locations.'
-            : `Only locations in ${storageWarehouseName(warehouseId)} are shown.`}
-        </Text>
+
+        {locationPickerOpen ? (
+          <View style={styles.dropdownList}>
+            {LOCATION_OPTIONS.map((item, idx) => {
+              const isHeader = idx === 0;
+              return (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.dropdownOption,
+                    isHeader && styles.dropdownHeaderOption,
+                  ]}
+                  onPress={() => {
+                    if (isHeader) {
+                      setLocation(undefined);
+                    } else {
+                      setLocation(item);
+                    }
+                    setLocationPickerOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownOptionText,
+                      isHeader && styles.dropdownHeaderOptionText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null}
+
+        <Text style={styles.helper}>Only locations in Coonoor Warehouse are shown.</Text>
 
         <SectionTitle>ADDITIONAL</SectionTitle>
         <FieldLabel>Notes</FieldLabel>
@@ -183,41 +215,6 @@ export function AddMaterialScreen({
           />
         </View>
       </ScrollView>
-
-      <Modal visible={picker !== null} transparent animationType="fade" onRequestClose={() => setPicker(null)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPicker(null)}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{picker === 'material' ? 'Select Material' : 'Select Storage Location'}</Text>
-            {picker === 'material'
-              ? materialOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.name}
-                    style={styles.modalOption}
-                    onPress={() => {
-                      setMaterial(option);
-                      setPicker(null);
-                    }}
-                  >
-                    <Text style={styles.modalOptionTitle}>{option.name}</Text>
-                    <Text style={styles.modalOptionSub}>{option.category}</Text>
-                  </TouchableOpacity>
-                ))
-              : locations.map((loc) => (
-                  <TouchableOpacity
-                    key={loc.id}
-                    style={styles.modalOption}
-                    onPress={() => {
-                      setLocationId(loc.id);
-                      setPicker(null);
-                    }}
-                  >
-                    <Text style={styles.modalOptionTitle}>{loc.name}</Text>
-                    <Text style={styles.modalOptionSub}>{loc.code}</Text>
-                  </TouchableOpacity>
-                ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </WalletScreen>
   );
 }
@@ -246,18 +243,32 @@ const styles = StyleSheet.create({
     height: 52,
     marginBottom: adminSpacing.lg,
   },
-  dropdownDisabled: { backgroundColor: adminColors.brandTint },
   dropdownText: { ...adminType.body, color: adminColors.ink },
-  placeholder: { color: adminColors.placeholder },
-  input: { flex: 1, ...adminType.body, color: adminColors.ink, paddingVertical: 0 },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stepperButton: {
-    backgroundColor: adminColors.brandTint,
-    width: 32,
-    height: 32,
-    borderRadius: adminRadius.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
+  placeholder: { color: adminColors.ink },
+  dropdownList: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#475569',
+    marginTop: -adminSpacing.md,
+    marginBottom: adminSpacing.lg,
+  },
+  dropdownOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  dropdownHeaderOption: {
+    backgroundColor: '#6B7280',
+    paddingVertical: 12,
+  },
+  dropdownOptionText: {
+    fontSize: 15,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  dropdownHeaderOptionText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   toggleRow: { flexDirection: 'row', gap: adminSpacing.md, marginBottom: adminSpacing.lg },
   toggle: {
@@ -283,24 +294,4 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   textArea: { flex: 1, ...adminType.body, color: adminColors.ink },
-  // Was a translucent black scrim; no translucent token, so a solid canvas scrim with the card raised by adminShadow.lg.
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: adminColors.canvas,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: adminSpacing.xl,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    padding: 20,
-    maxHeight: 380,
-    ...adminShadow.lg,
-  },
-  modalTitle: { ...adminType.title, color: adminColors.ink, marginBottom: adminSpacing.lg },
-  modalOption: { paddingVertical: adminSpacing.md, borderBottomWidth: 1, borderBottomColor: adminColors.border },
-  modalOptionTitle: { ...adminType.sectionHead, color: adminColors.ink },
-  modalOptionSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
 });

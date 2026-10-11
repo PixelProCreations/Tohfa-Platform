@@ -245,7 +245,8 @@ import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScree
 import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
 import { ReportBuilderScreen } from '../admin/screens/reports';
-import { TohfaToast, makeCan, type ToastData } from '../admin';
+import { TohfaToast, type ToastData } from '../admin/components/TohfaToast';
+import { makeCan } from '../admin/permissions/can';
 import { OrderStatusHistoryScreen } from '../admin/screens/warehouse/orders';
 import type { WarehouseTab } from '../admin/screens/warehouse/finance-expenses';
 
@@ -757,7 +758,7 @@ const PROFILE_ROUTE_ENTRY: Partial<Record<ScreenName, ProfileRoute>> = {
   SubWarehouseHelpSupport: 'HelpSupport',
   // Part B: the warehouse-facing profile screens (Profile -> Storage /
   // Operating / Contact / Documents are also reachable inside the flow).
-  SubWarehouseProfile: 'WarehouseProfile',
+  SubWarehouseProfile: 'UserProfile',
   SubWarehouseStorageInfo: 'StorageInfo',
   SubWarehouseOperatingInfo: 'OperatingInfo',
   SubWarehouseContact: 'Contact',
@@ -1305,6 +1306,7 @@ export default function App(): React.JSX.Element {
             initialReceivingSubView={params?.initialReceivingSubView as any}
             initialInventoryScreen={params?.initialInventoryScreen as any}
             initialShowOrders={!!params?.showOrders}
+            initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
             onBack={goBack}
@@ -1325,7 +1327,7 @@ export default function App(): React.JSX.Element {
               if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
               else if (target === 'ReceivingDashboard') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
               else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              else if (target === 'Operations') navigate('WarehouseWalletOperations');
+              else if (target === 'Operations') navigate('SubWarehouseWarehouseOperations');
             }}
           />
         ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
@@ -1656,6 +1658,7 @@ export default function App(): React.JSX.Element {
             onBack={() =>
               navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations', STORAGE_ROUTE_ENTRY[screen]?.backParams)
             }
+            onOpenNotifications={() => navigate('SubWarehouseNotifications')}
             onSupportRequestDone={() => navigate('SubWarehouseSettings')}
             onOpenModule={openSubWarehouseModule}
             onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}

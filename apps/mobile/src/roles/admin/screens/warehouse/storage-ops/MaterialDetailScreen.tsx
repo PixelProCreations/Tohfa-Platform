@@ -14,16 +14,14 @@
  * Scope: a material outside the viewer's warehouse is "not found" (no 403
  * leak, CLAUDE.md 2.1), Main sees every warehouse's materials.
  */
-// Design id: M4-S06
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   EmptyState,
   inScope,
   InfoCard,
-  PermissionNote,
   SectionTitle,
   WalletButton,
   WalletFooter,
@@ -31,7 +29,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { MATERIAL_HISTORY, MATERIALS, storageWarehouseName } from './fixtures';
-import { ActionTile, ActionTileRow, IssueIcon, PlusIcon, ReceiveIcon, STORAGE_CODES } from './StorageParts';
+import { PlusIcon, STORAGE_CODES } from './StorageParts';
 import type { MaterialHistoryEntry, MaterialItem, WarehouseScreenBaseProps } from './types';
 
 export interface MaterialDetailScreenProps extends WarehouseScreenBaseProps {
@@ -62,17 +60,6 @@ export function MaterialDetailScreen({
   const canManage = can(STORAGE_CODES.materialManage);
   const available = material.current - material.reserved;
   const entries = history.filter((h) => h.materialId === material.id);
-
-  const confirmReceive = () =>
-    Alert.alert('Receive Material', `Record new incoming stock for ${material.name}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Confirm Receive', onPress: () => Alert.alert('Recorded', `Incoming stock recorded for ${material.code}.`) },
-    ]);
-  const confirmIssue = () =>
-    Alert.alert('Issue Material', `Issue ${material.name} to the packing line.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Confirm Issue', onPress: () => Alert.alert('Recorded', `Issue recorded for ${material.code}.`) },
-    ]);
 
   return (
     <WalletScreen
@@ -116,15 +103,6 @@ export function MaterialDetailScreen({
             </View>
           ))}
         </View>
-
-        {canManage ? (
-          <ActionTileRow>
-            <ActionTile label="Receive" icon={<ReceiveIcon />} onPress={confirmReceive} />
-            <ActionTile label="Issue" icon={<IssueIcon />} onPress={confirmIssue} />
-          </ActionTileRow>
-        ) : (
-          <PermissionNote>View only. Receiving, issuing and adding stock needs material handling access.</PermissionNote>
-        )}
 
         <SectionTitle>Warehouse</SectionTitle>
         <InfoCard

@@ -170,7 +170,8 @@ export function SalesFlow({
           saleWarehouseId={saleWarehouse.warehouseId}
           onContinue={(items) => {
             setCart(items);
-            navigate('SaleSummary');
+            setTotal(320);
+            navigate('Payment');
           }}
         />
       );

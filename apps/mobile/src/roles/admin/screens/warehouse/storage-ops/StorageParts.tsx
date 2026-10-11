@@ -149,6 +149,87 @@ export function WarehouseIcon({ size = 20, color = adminColors.warning.text }: I
   );
 }
 
+export function ShelfIcon({ size = 20, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M7 7v5M17 12v5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function DonutIcon({ size = 20, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeDasharray="14 6"
+      />
+    </Svg>
+  );
+}
+
+export function StaffBadgeIcon({ size = 20, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="6" width="16" height="15" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M9 3h6v3H9z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="11" r="2" stroke={color} strokeWidth="1.8" />
+      <Path d="M8 17a4 4 0 0 1 8 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ReportIssueIcon({ size = 20, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86L7.86 2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 8v5M12 16h.01" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ReceiveGoodsIcon({ size = 20, color = adminColors.success.text }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 4v16h16V4H4z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 8v7M8 12l4 4 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function StockVerificationIcon({ size = 20, color = '#2A9D8F' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 9l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 13h2M7 15h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function HeaderOperationsTitleIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="7" cy="7" r="3" stroke="#FFFFFF" strokeWidth="2" />
+      <Path d="M2 19v-2a4 4 0 0 1 7-2.6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="16.5" cy="8.5" r="2.5" stroke="#FFFFFF" strokeWidth="1.8" />
+      <Path d="M16.5 4.5v1M16.5 11.5v1M12.5 8.5h1M19.5 8.5h1" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
+      <Circle cx="16" cy="16" r="3.5" stroke="#FFFFFF" strokeWidth="1.8" />
+      <Path d="M16 11v1.5M16 19.5V21M11 16h1.5M19.5 16H21" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function CheckCircleIcon({ size = 14, color = adminColors.success.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

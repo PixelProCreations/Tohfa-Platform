@@ -54,11 +54,11 @@ function BackArrowIcon() {
 function GreenCheckboxIcon() {
   return (
     <View style={styles.greenCheckbox}>
-      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
         <Path
           d="M20 6L9 17l-5-5"
-          stroke={adminColors.onBrand}
-          strokeWidth="3"
+          stroke="#FFFFFF"
+          strokeWidth="3.2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -74,8 +74,8 @@ function EmptyCheckboxIcon() {
 function InfoCircleIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke="#0284C7" strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke="#0284C7" strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -83,13 +83,15 @@ function InfoCircleIcon() {
 function DeliveryTruckIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="14" height="13" rx="1" stroke={adminColors.onBrand} strokeWidth="2" />
-      <Path d="M15 8h4l3 3v5h-7V8z" stroke={adminColors.onBrand} strokeWidth="2" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Rect x="1" y="3" width="14" height="13" rx="1" stroke="#FFFFFF" strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke="#FFFFFF" strokeWidth="2" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
     </Svg>
   );
 }
+
+const DELIVERY_SLOTS = ['MORNING_8_12', 'AFTERNOON_12_4', 'EVENING_4_8'] as const;
 
 export function DeliveryPreparationScreen({
   can,
@@ -98,6 +100,7 @@ export function DeliveryPreparationScreen({
   orderId = 'ORD-1021',
 }: DeliveryPreparationScreenProps) {
   const canDispatch = can('order.dispatch');
+  const [selectedSlot, setSelectedSlot] = useState<string>(MOCK_DELIVERY_SLOT);
   const [checklist, setChecklist] = useState([
     { id: '1', title: 'Items verified', checked: true },
     { id: '2', title: 'Quantity verified', checked: true },
@@ -120,21 +123,31 @@ export function DeliveryPreparationScreen({
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+          <Text style={styles.orderIdTop}>{orderId}</Text>
+
+          <Text style={styles.sectionTitleFirst}>Delivery Information</Text>
           <View style={styles.card}>
-            <Text style={styles.orderIdLabel}>{orderId}</Text>
-            <Text style={styles.configuredAddressText}>Configured address — {MOCK_CONFIGURED_ADDRESS}</Text>
-            <View style={styles.dateBlock}>
-              <Text style={styles.fieldLabel}>Delivery Date</Text>
-              <Text style={styles.fieldValue}>{MOCK_DELIVERY_DATE}</Text>
-            </View>
+            <Text style={styles.fieldLabel}>Delivery Address</Text>
+            <Text style={styles.fieldValueBold}>Configured address — Divya R., Ooty Road, Coonoor</Text>
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Delivery Date</Text>
+            <Text style={styles.fieldValueBold}>{MOCK_DELIVERY_DATE}</Text>
           </View>
 
-          {/* Read-only: warehouse admins cannot change the slot (see header comment). */}
           <Text style={styles.sectionTitle}>Delivery Slot</Text>
           <View style={styles.slotsRow}>
-            <View style={styles.slotPill}>
-              <Text style={styles.slotPillText}>{MOCK_DELIVERY_SLOT}</Text>
-            </View>
+            {DELIVERY_SLOTS.map((slot) => {
+              const isSelected = slot === selectedSlot;
+              return (
+                <TouchableOpacity
+                  key={slot}
+                  style={[styles.slotPill, isSelected && styles.slotPillActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedSlot(slot)}
+                >
+                  <Text style={[styles.slotPillText, isSelected && styles.slotPillTextActive]}>{slot}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <View style={styles.infoBox}>
@@ -189,133 +202,148 @@ export function DeliveryPreparationScreen({
   );
 }
 
-// Checkbox square: an icon size, not spacing.
-const CHECKBOX_SIZE = 22;
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: adminColors.brand },
-  container: { flex: 1, backgroundColor: adminColors.canvas },
+  container: { flex: 1, backgroundColor: '#FBF8F2' },
   header: {
     backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: adminSpacing.lg,
+    paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: adminSpacing.md,
-    gap: adminSpacing.md,
+    paddingBottom: 14,
+    gap: 12,
   },
   backButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitle: { ...adminType.title, color: adminColors.onBrand },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
   content: { flex: 1 },
-  contentContainer: { paddingHorizontal: adminSpacing.lg, paddingTop: 14, paddingBottom: 20 },
-  scrollTail: { height: adminSpacing.xl },
+  contentContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 20 },
+  scrollTail: { height: 20 },
+  orderIdTop: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9A7150',
+    paddingLeft: 34,
+    marginBottom: 10,
+  },
+  sectionTitleFirst: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 10,
+  },
   sectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginTop: adminSpacing.lg,
-    marginBottom: adminSpacing.sm,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 18,
+    marginBottom: 10,
   },
   card: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 20,
-    paddingVertical: adminSpacing.lg,
-    ...adminShadow.sm,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  orderIdLabel: { ...adminType.rowTitle, fontWeight: '700', color: adminColors.muted, marginBottom: adminSpacing.xs },
-  configuredAddressText: { ...adminType.sectionHead, color: adminColors.ink },
-  dateBlock: { marginTop: adminSpacing.md },
-  fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
-  slotsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: 14 },
-  // Styled as the old "selected" pill: the one slot the order has.
+  fieldLabel: { fontSize: 13, color: '#64748B', marginBottom: 4 },
+  fieldValueBold: { fontSize: 15, fontWeight: '700', color: '#1E293B', lineHeight: 20 },
+  slotsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   slotPill: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.full,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  slotPillText: { ...adminType.rowTitle, color: adminColors.brand },
-  infoBox: {
-    backgroundColor: adminColors.info.bg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: adminColors.info.border,
-    borderRadius: adminRadius.md,
-    paddingVertical: adminSpacing.md,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  slotPillActive: {
+    backgroundColor: '#FDF4EC',
+    borderWidth: 1.5,
+    borderColor: '#C27038',
+  },
+  slotPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  slotPillTextActive: {
+    color: '#8A421D',
+  },
+  infoBox: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    borderRadius: 12,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: adminSpacing.lg,
+    marginBottom: 4,
   },
-  infoText: { flex: 1, ...adminType.rowTitle, color: adminColors.info.text },
+  infoText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#0369A1', lineHeight: 18 },
   packingCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: 13,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    ...adminShadow.sm,
+    gap: 12,
   },
   packingCardSpaced: { marginTop: 10 },
-  packingCardText: { ...adminType.sectionHead, color: adminColors.ink },
+  packingCardText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
   checklistCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
-    ...adminShadow.sm,
   },
   checklistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
   },
-  checklistItemBorder: { borderBottomWidth: 1, borderBottomColor: adminColors.border },
+  checklistItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   greenCheckbox: {
-    width: CHECKBOX_SIZE,
-    height: CHECKBOX_SIZE,
-    borderRadius: 5,
-    backgroundColor: adminColors.success.text,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#1E824C',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: adminSpacing.md,
   },
   emptyCheckbox: {
-    width: CHECKBOX_SIZE,
-    height: CHECKBOX_SIZE,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
-    marginRight: adminSpacing.md,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
   },
-  checklistText: { ...adminType.sectionHead, color: adminColors.ink },
+  checklistText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
   bottomBar: {
-    backgroundColor: adminColors.canvas,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
+    backgroundColor: '#FBF8F2',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: adminColors.border,
+    borderTopColor: '#F1ECE4',
   },
   dispatchBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    height: ADMIN_BUTTON_HEIGHT,
+    backgroundColor: '#EA580C',
+    borderRadius: 14,
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.sm,
-    ...adminShadow.md,
+    gap: 8,
   },
-  dispatchBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
+  dispatchBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 });

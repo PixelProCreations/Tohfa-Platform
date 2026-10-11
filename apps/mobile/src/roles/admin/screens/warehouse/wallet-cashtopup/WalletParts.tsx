@@ -220,7 +220,8 @@ export function ShieldCheckIcon({ size = 16, color = adminColors.success.text }:
 export interface WalletScreenProps {
   title: string;
   subtitle?: string | undefined;
-  onBack: () => void;
+  onBack?: (() => void) | undefined;
+  headerLeft?: React.ReactNode;
   /** Right side of the header row (filter, bell). */
   headerRight?: React.ReactNode;
   /** Extra header content under the title row (warehouse pill / selector). */
@@ -231,22 +232,26 @@ export interface WalletScreenProps {
 }
 
 /** Orange header + canvas body + optional sticky footer: the frame of every wallet screen. */
-export function WalletScreen({ title, subtitle, onBack, headerRight, headerExtra, footer, children }: WalletScreenProps) {
+export function WalletScreen({ title, subtitle, onBack, headerLeft, headerRight, headerExtra, footer, children }: WalletScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.8}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <BackArrowIcon />
-          </TouchableOpacity>
+          {headerLeft !== undefined ? (
+            headerLeft
+          ) : onBack ? (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.8}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <BackArrowIcon />
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.headerTextGroup}>
             <Text style={styles.headerTitle}>{title}</Text>
             {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
@@ -651,28 +656,28 @@ const styles = StyleSheet.create({
   headerTextGroup: { flex: 1 },
   headerTitle: { ...adminType.title, color: adminColors.onBrand },
   headerSubtitle: { ...adminType.rowMeta, color: adminColors.onBrand, marginTop: 2 },
-  // Was 22% translucent white over the orange header; nearest solid token is brandDeep.
   headerIconButton: {
     width: HEADER_ICON_BUTTON,
     height: HEADER_ICON_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Was 22% translucent white; nearest solid token is brandDeep (as the inventory selector chips).
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,
     marginTop: adminSpacing.sm,
     gap: adminSpacing.xs,
   },
-  warehousePillText: { ...adminType.caption, color: adminColors.onBrand },
+  warehousePillText: { ...adminType.caption, color: adminColors.onBrand, fontWeight: '600' },
   body: { flex: 1, backgroundColor: adminColors.canvas },
 
   sectionRow: {
