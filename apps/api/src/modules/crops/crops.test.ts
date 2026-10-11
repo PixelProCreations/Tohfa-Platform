@@ -17,7 +17,8 @@ import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { loadRbac } from '../../rbac/loadRbac.js';
 import { requirePermission, type ResolvedScope } from '../../rbac/requirePermission.js';
-import { aScope, anActor, aFarmer, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { aScope, anActor, aFarmer, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { insertCrop, insertFarmerWithPlot, requireDatabaseTables } from '../../test/dbFixtures.js';
 import type {
   CreateFarmCropData,
   CropsRepo,
@@ -590,8 +591,8 @@ describeIfDatabase('cropsRepo (integration)', () => {
   let ready = false;
 
   beforeAll(async () => {
-    ready = await databaseReady('farm_crops');
-    if (!ready) console.warn('[skip] farm_crops not migrated — run `pnpm db:migrate`');
+    // Throws when a DATABASE_URL is configured but the schema is unreachable/unmigrated.
+    ready = await requireDatabaseTables('farm_crops', 'plots', 'crop_master', 'users', 'farmers', 'farms', 'categories');
   });
 
   afterAll(async () => {
@@ -600,8 +601,8 @@ describeIfDatabase('cropsRepo (integration)', () => {
     await closePool();
   });
 
-  it('runs the crop_master, list, lookup and rotation-history queries against Postgres', async () => {
-    if (!ready) return;
+  it('runs the crop_master, list, lookup and rotation-history queries against Postgres', async (ctx) => {
+    if (!ready) return ctx.skip();
     const { pool } = await import('../../db/pool.js');
     const { cropsRepo } = await import('./crops.repo.js');
     const nobody = newId();
@@ -621,22 +622,17 @@ describeIfDatabase('cropsRepo (integration)', () => {
     expect(list.items).toEqual([]);
   });
 
-  it("BR-46: the database itself rejects a second live GROWING crop on the same plot", async () => {
-    if (!ready) return;
-    const { pool, withTransaction } = await import('../../db/pool.js');
+  it("BR-46: the database itself rejects a second live GROWING crop on the same plot", async (ctx) => {
+    if (!ready) return ctx.skip();
+    const { withTransaction } = await import('../../db/pool.js');
     const { cropsRepo } = await import('./crops.repo.js');
 
-    // Only run this against a real farm/plot/crop_master if one is already
-    // seeded; otherwise this environment cannot exercise the FK-dependent
-    // insert path, and the unit-level BR-46a/b/c tests above already prove
-    // the service's translation logic against a simulated 23505.
-    const anyPlot = await pool.query<{ id: string }>('SELECT id FROM plots LIMIT 1');
-    const anyCrop = await pool.query<{ id: string }>('SELECT id FROM crop_master LIMIT 1');
-    const plotId = anyPlot.rows[0]?.id;
-    const cropMasterId = anyCrop.rows[0]?.id;
-    if (plotId === undefined || cropMasterId === undefined) return;
-
     await withTransaction(async (tx) => {
+      // The farmer/farm/plot and the crop type are created INSIDE this transaction (rolled back
+      // below). This used to borrow `SELECT id FROM plots LIMIT 1`, which (a) silently passed when
+      // the database had no plot and (b) failed when that plot already had a GROWING crop.
+      const { plotId } = await insertFarmerWithPlot(tx);
+      const cropMasterId = await insertCrop(tx);
       const firstId = await cropsRepo.createFarmCrop(tx, { plotId, cropMasterId });
       const secondId = await cropsRepo.createFarmCrop(tx, { plotId, cropMasterId });
       // Raw SQL here, deliberately bypassing the farmer-scoped updateFarmCrop:
@@ -646,7 +642,7 @@ describeIfDatabase('cropsRepo (integration)', () => {
       await expect(tx.query('UPDATE farm_crops SET status = $2 WHERE id = $1', [secondId, 'GROWING'])).rejects.toMatchObject({
         code: '23505',
       });
-      // Roll back: this is a real transaction against shared fixture rows.
+      // Roll back: nothing this test created is left behind.
       throw new Error('__rollback_test_fixture__');
     }).catch((error: unknown) => {
       if (!(error instanceof Error) || error.message !== '__rollback_test_fixture__') throw error;

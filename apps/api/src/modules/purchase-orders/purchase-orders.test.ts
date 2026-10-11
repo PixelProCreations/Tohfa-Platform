@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import type { Actor } from '../../auth/requireAuth.js';
@@ -8,10 +8,10 @@ import {
   aScope,
   aSubWarehouseAdmin,
   anActor,
-  databaseReady,
   describeIfDatabase,
   IDS,
 } from '../../test/factories.js';
+import { insertPurchaseOrder, requireDatabaseTables } from '../../test/dbFixtures.js';
 import {
   calculateTotalAmountPaise,
   createPurchaseOrdersService,
@@ -402,24 +402,29 @@ describe('Purchase order timestamps are ISO-8601 on the wire (docs/openapi.yaml:
   });
 
   describeIfDatabase('against PostgreSQL (rolled-back transaction)', () => {
-    it('issuedAt/receivedAt read back equal the stored instant; a microsecond cursor pages correctly', async () => {
-      if (!(await databaseReady('purchase_orders'))) return;
+    afterAll(async () => {
+      const { closePool } = await import('../../db/pool.js');
+      await closePool();
+    });
+
+    it('issuedAt/receivedAt read back equal the stored instant; a microsecond cursor pages correctly', async (ctx) => {
+      if (!(await requireDatabaseTables('purchase_orders', 'goods_receipts', 'produce_listings'))) return ctx.skip();
       const { pool } = await import('../../db/pool.js');
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
         const tx = client as unknown as Executor;
-        const po = await client.query<{ id: string; farm_id: string; warehouse_id: string }>(
-          'SELECT id, farmer_id AS farm_id, warehouse_id FROM purchase_orders LIMIT 1',
-        );
-        if (po.rows.length === 0) return; // no PO in this database to borrow
-        const { id, farm_id: farmerId, warehouse_id: warehouseId } = po.rows[0]!;
+        // The purchase order (and its farmer, warehouse, crop, fair price, listing and admin
+        // user) is created inside this transaction, so the test no longer borrows "any PO in
+        // the database" (and silently passes when there is none, as on a fresh database).
+        const fixture = await insertPurchaseOrder(tx);
+        const { purchaseOrderId: id, farmerId, warehouseId } = fixture;
 
         await client.query(`UPDATE purchase_orders SET issued_at = '2031-03-04T05:06:07.123456Z' WHERE id = $1`, [id]);
         await client.query(
           `INSERT INTO goods_receipts (grn_number, purchase_order_id, warehouse_id, farmer_id, gross_qty_kg, received_by, created_at)
            VALUES ('GRN-TSTEST-1', $1, $2, $3, 10, $4, '2031-03-04T05:06:08.654321Z')`,
-          [id, warehouseId, farmerId, IDS.userSuperAdmin],
+          [id, warehouseId, farmerId, fixture.receivedBy],
         );
 
         const detail = await purchaseOrdersRepo.findPurchaseOrderById(tx, id, allScope);

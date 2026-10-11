@@ -2,8 +2,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { pool } from '../../db/pool.js';
+import { pool, type Executor } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import {
   aScope,
   databaseReady,
@@ -29,6 +30,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         listPayoutDues: async () => ({ items: [], totals: { totalDue: '0.00', farmerCount: 0 }, nextCursor: null }),
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -40,7 +44,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
 
     // Service doesn't check role here (that's requirePermission middleware), but amount 0 fails
     await expect(
-      svc.createPayout(actor, aScope({}), { farmerId: newId(), amount: '0.00', mode: 'IMPS' }),
+      svc.createPayout(actor, aScope({}), { farmerId: newId(), amount: '0.00', mode: 'IMPS' }, newId()),
     ).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 422 });
   });
 
@@ -80,6 +84,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         createPayout: async () => ({ payout: {} as PayoutRow, approvals: [] }),
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -90,7 +97,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}),
+      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'SAME_ACTOR_APPROVAL', status: 403 });
   });
 
@@ -130,6 +137,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         createPayout: async () => ({ payout: {} as PayoutRow, approvals: [] }),
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -140,7 +150,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}),
+      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
   });
 
@@ -178,6 +188,9 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
         updatePayoutStatus: async () => {},
         findPayoutByIdempotencyKey: async () => null,
       } as unknown as PayoutRepo,
+      // BR-72: the service claims its Idempotency-Key in a transaction; no database here.
+      runTx: async (fn) => fn({} as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
     });
 
     const actor = {
@@ -188,7 +201,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}),
+      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION', status: 409 });
   });
 });
@@ -410,6 +423,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     const selfApproveRes = await request(app)
       .post(`/v1/admin/payouts/${payoutId}/approve`)
       .set('Authorization', `Bearer ${superAdminToken}`)
+      .set('Idempotency-Key', newId())
       .send({ note: 'Self-approve attempt' });
 
     expect(selfApproveRes.status).toBe(403);
@@ -419,6 +433,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     const tohfaApproveRes = await request(app)
       .post(`/v1/admin/payouts/${payoutId}/approve`)
       .set('Authorization', `Bearer ${tohfaAdminToken}`)
+      .set('Idempotency-Key', newId())
       .send({ note: 'Tohfa Admin attempt' });
 
     expect(tohfaApproveRes.status).toBe(403);
@@ -428,6 +443,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     const approveRes = await request(app)
       .post(`/v1/admin/payouts/${payoutId}/approve`)
       .set('Authorization', `Bearer ${superAdmin2Token}`)
+      .set('Idempotency-Key', newId())
       .send({ note: 'Approved by Super Admin 2' });
 
     expect(approveRes.status).toBe(200);
@@ -554,6 +570,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
       const approveRes = await request(app)
         .post(`/v1/admin/payouts/${payoutId}/approve`)
         .set('Authorization', `Bearer ${superAdmin2Token}`)
+        .set('Idempotency-Key', newId())
         .send({ note: 'BR-52 second approval' });
 
       expect(approveRes.status).toBe(200);

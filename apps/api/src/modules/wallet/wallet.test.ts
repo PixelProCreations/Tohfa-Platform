@@ -13,10 +13,10 @@ import type { ListMyTransactionsQuery } from './wallet.schema.js';
 import {
   IDS,
   aScope,
-  databaseReady,
   describeIfDatabase,
   newId,
 } from '../../test/factories.js';
+import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { pool } from '../../db/pool.js';
 
 interface RecordingRepo extends WalletRepo {
@@ -160,8 +160,14 @@ describeIfDatabase('walletService (integration)', () => {
   let testZoneId: string;
 
   beforeAll(async () => {
-    ready = await databaseReady('wallets');
+    // Throws when a DATABASE_URL is configured but the schema is unreachable/unmigrated.
+    ready = await requireDatabaseTables('wallets', 'users', 'customers', 'farmers', 'zones');
     if (!ready) return;
+
+    // service.move stamps scope.userId (aScope() => IDS.userSuperAdmin) into
+    // wallet_transactions.created_by, an FK to users. That user used to exist only
+    // because golden-thread.e2e had committed it; create it here instead.
+    await ensureStandardUsers(pool, 'userSuperAdmin');
 
     testUserId = newId();
     testCustomerId = newId();
@@ -201,8 +207,8 @@ describeIfDatabase('walletService (integration)', () => {
     await closePool();
   });
 
-  it('BR-35: ledger sum equals cached balance', async () => {
-    if (!ready) return;
+  it('BR-35: ledger sum equals cached balance', async (ctx) => {
+    if (!ready) return ctx.skip();
 
     const service = createWalletService();
     
@@ -281,10 +287,12 @@ describeIfDatabase('walletService (integration)', () => {
 
       expect(dbBalance).toBeCloseTo(ledgerSum, 2);
     }
-  });
+    // 500 concurrent money moves take ~2s on an idle local Postgres and exceeded vitest's default
+    // 5s whenever the machine/database was busy (flaky 5s timeout, not an assertion failure).
+  }, 60_000);
 
-  it('BR-17b: one idempotency key moves money once', async () => {
-    if (!ready) return;
+  it('BR-17b: one idempotency key moves money once', async (ctx) => {
+    if (!ready) return ctx.skip();
 
     const service = createWalletService();
     
@@ -328,8 +336,8 @@ describeIfDatabase('walletService (integration)', () => {
     expect(dbRes.rows[0]!.count).toBe('1');
   });
 
-  it('throws WALLET_INSUFFICIENT on overdraw', async () => {
-    if (!ready) return;
+  it('throws WALLET_INSUFFICIENT on overdraw', async (ctx) => {
+    if (!ready) return ctx.skip();
 
     const service = createWalletService();
     

@@ -7,6 +7,7 @@
  * roles are re-read from the database at refresh time, so a revoked role stops
  * working within one access-token lifetime (default 15 minutes).
  */
+import { randomUUID } from 'node:crypto';
 import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
 import { RoleCode } from '@tohfa/shared-types';
@@ -56,6 +57,11 @@ const refreshPayloadSchema = z.object({
   typ: z.literal('refresh'),
   /** Opaque id of the stored refresh-token row, so it can be revoked. */
   jti: z.string().min(1),
+  /**
+   * Per-issue random id. Optional on verify so refresh tokens minted before it
+   * existed stay valid until they expire. See `signRefreshToken`.
+   */
+  nonce: z.string().min(1).optional(),
 });
 export type RefreshPayload = z.infer<typeof refreshPayloadSchema>;
 
@@ -78,13 +84,18 @@ export function signAccessToken(payload: Omit<AccessPayload, 'typ' | 'iat'>): st
   return sign({ ...payload, typ: 'access' }, config.JWT_ACCESS_TTL);
 }
 
-export function signRefreshToken(payload: Omit<RefreshPayload, 'typ'>): string {
-  return sign({ ...payload, typ: 'refresh' }, config.JWT_REFRESH_TTL);
+export function signRefreshToken(payload: Omit<RefreshPayload, 'typ' | 'nonce'>): string {
+  // `sub`, `jti` (the session id) and `iat` (whole seconds) are the same for every
+  // token of a session minted in one second, so without a random `nonce` a refresh
+  // in the same second as login (or as the previous refresh) would be byte-identical
+  // to the token it replaces and collide on `refresh_tokens.token_hash` (UNIQUE).
+  // The nonce makes every issued token, and therefore every stored hash, unique.
+  return sign({ ...payload, typ: 'refresh', nonce: randomUUID() }, config.JWT_REFRESH_TTL);
 }
 
 export function signTokenPair(
   access: Omit<AccessPayload, 'typ' | 'iat'>,
-  refresh: Omit<RefreshPayload, 'typ'>,
+  refresh: Omit<RefreshPayload, 'typ' | 'nonce'>,
 ): TokenPair {
   return {
     accessToken: signAccessToken(access),

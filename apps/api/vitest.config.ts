@@ -17,6 +17,9 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     include: ['src/**/*.test.ts', 'src/**/*.e2e.test.ts'],
+    // globalSetup aborts the whole run before any worker or pool exists when
+    // DATABASE_URL targets a non-local database (see src/test/dbSafety.ts).
+    globalSetup: ['src/test/globalSetup.ts'],
     setupFiles: ['src/test/setup.ts'],
     // Integration tests share one Postgres schema; keep files serial.
     pool: 'forks',

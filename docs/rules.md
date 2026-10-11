@@ -1370,6 +1370,100 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-69 — Registration step bodies are validated; no farmer is created without a farm
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): QA review fixes, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/farmer-applications/` (`farmer-applications.schema.ts`, `farmer-applications.routes.ts`, `farmer-applications.service.ts`) |
+| **Scope** | Track 1 |
+
+**Rule.** `PATCH /farmers/applications/{id}/steps/{step}` validates the body against that step's strict schema before anything is saved. Unknown keys, a malformed `dob` or `aadhaarLast4` (exactly 4 digits; the value is never echoed), a location without `id`, `label` or `areaAcres`, out-of-range coordinates, an unclosed polygon ring, and an empty `locations` list are all 422 `VALIDATION_FAILED`. Partial drafts are allowed: fields present are checked, absent fields are left alone. A full Aadhaar number is accepted but dropped before storage (BR-33b). `POST .../submit` re-validates the stored step-3 data and refuses with 422, naming the step, unless at least one farm location carries a boundary or a GPS position (and the mandatory `ID_PROOF` and `FARM_DOC` documents exist). `POST /admin/farmer-applications/{id}/approve` refuses with 422 and writes nothing if the application has zero farm locations.
+
+**Open note.** The "boundary or GPS position at submit" reading is the implementer's interpretation of the spec's "GPS/FMB boundary — GPS capture with manual lat/lng fallback" (contradiction 17). Whether `aadhaarLast4` and `dob` are required at submit is a product decision not yet made.
+
+**Failure mode if unenforced.** A step save wipes a good boundary, an incomplete application reaches review, or an admin approves a VERIFIED farmer with no land.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/registration-validation.test.ts`)
+- `BR-69a` Step 3 `{"locations":[]}` is 422 and the earlier boundary survives.
+- `BR-69b` Submit with no located farm location is 422 naming step 3 and the application stays a draft.
+- `BR-69c` Approving with zero locations is 422 and writes no user, farmer, farm, status change or audit row.
+- `BR-69d` The mobile app's real payloads (`DD / MM / YYYY` dob, Title-case gender, `{documents: []}`) are accepted.
+- `BR-69e` A bad `aadhaarLast4` or `dob` is 422 and the value is not echoed.
+- `BR-69f` Unknown keys are 422 on every step.
+- `BR-69g` Bad coordinates, an unclosed ring, or a missing `id` / `label` / `areaAcres` are 422.
+
+---
+
+### BR-70 — A payout's bank account must be an active destination of the farmer being paid
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): QA review fixes, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/payouts/` (`payouts.service.ts`, `payouts.repo.ts`); `farmer_bank_accounts`; `apps/api/src/http/idempotency.ts` for the key claim (`idempotency_keys`, `0045_listing_idempotency.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** When `bankAccountId` is supplied to `POST /admin/payouts` it must reference a row of `farmer_bank_accounts` (bank account or UPI destination) whose `farmer_id` is the payout's farmer and whose `deleted_at` is null. Otherwise the response is 404 `NOT_FOUND`; the body is identical whether the id does not exist, belongs to another farmer, or is soft-deleted (BR-36). Nothing is written: no payout, no audit row, no idempotency claim. The check runs inside the payout transaction after the farmer row lock, the same lock the destination delete path takes, so a destination cannot be deleted between the check and the insert.
+
+**Open note.** BR-53 item 1 says an account with a null `account_number_token` is display-only and cannot be a payout destination. Taken literally no account could be attached to a payout, which contradicts BR-53 item 4. Tokenisation is an open owner decision, so this check is not enforced (contradiction 16).
+
+**Failure mode if unenforced.** One farmer's money is sent to another farmer's account.
+
+**Test contract.** (`apps/api/src/modules/payouts/payout-bank-account.test.ts`)
+- `BR-70a` Another farmer's account is 404 and writes nothing.
+- `BR-70b` The farmer's own account is accepted.
+- `BR-70c` The farmer's own deleted account is 404.
+- `BR-70d` The 404 bodies are identical (nonexistent, another farmer's, deleted).
+- `BR-70e` A refusal does not consume the idempotency key.
+- `BR-70f` A payout waits for a concurrent destination delete and then refuses.
+
+---
+
+### BR-71 — Listing numbers are unique under concurrency and never reused
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): QA review fixes, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/listings/listings.repo.ts` (`generateListingNumber`), inside the creating transaction |
+| **Scope** | Track 1 |
+
+**Rule.** A listing number is `LST-<calendar year>-<zero-padded sequence>` (year as the generator already computes it). The next number is one more than the highest existing numeric suffix for that year, chosen inside the creating transaction under a transaction-scoped advisory lock, so concurrent creates by any farmers get distinct numbers and never fail on the `listing_number` unique constraint. A gap is never refilled.
+
+**Failure mode if unenforced.** Two simultaneous creates pick the same number and one farmer gets a 500 on a valid request.
+
+**Test contract.** (`apps/api/src/modules/listings/listing-number.test.ts`)
+- `BR-71a` 20 parallel creates by 20 farmers all succeed with distinct numbers in the existing format.
+- `BR-71b` The number follows the highest suffix of the year, and other years do not move it.
+
+---
+
+### BR-72 — Payout creation and approval are replay-safe, and payout numbers are unique under concurrency
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): QA review fixes, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/payouts/` (`payouts.routes.ts`, `payouts.service.ts`, `payouts.repo.ts`); `apps/api/src/http/idempotency.ts` over `idempotency_keys` (`0045_listing_idempotency.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /admin/payouts` and `POST /admin/payouts/{id}/approve` require an `Idempotency-Key`; missing or blank is 422 `VALIDATION_FAILED`; any non-blank value up to 255 characters is accepted. The key is claimed in `idempotency_keys` in the same transaction as the payout or approval, scoped to the acting admin and retained 24 hours. A replay with the same request by the same admin returns the original response and writes no second payout, approval, audit row or notification. The same key with a different request is 409 `IDEMPOTENCY_KEY_REUSED`. Concurrent requests with one key execute once. A refused attempt leaves no claim. Approval takes a row lock on the payout, so two approvers cannot both release it; the loser is 409 `INVALID_STATE_TRANSITION`. A payout number is `PO-<year>-<six-digit sequence>`, chosen inside the creating transaction under a transaction-scoped advisory lock as the highest existing suffix of that year plus one.
+
+**Failure mode if unenforced.** A retry or double click pays the farmer twice; two approvers both release the same dual-approval payout; two simultaneous payouts pick the same number and one gets a 500.
+
+**Test contract.** (`apps/api/src/modules/payouts/payout-idempotency.test.ts`)
+- `BR-72a` A missing, blank or over-long key is 422 and creates nothing.
+- `BR-72b` A replay returns the original body with one payout, one audit row and one event.
+- `BR-72c` A changed request under the same key is 409.
+- `BR-72d` Parallel same-key requests create one payout.
+- `BR-72e` Keys are per admin.
+- `BR-72f` A refused attempt leaves no claim.
+- `BR-72g` A key older than 24 hours is released.
+- `BR-72h` Approve requires the key and replays to the original 200 with one approval.
+- `BR-72i` Racing approvers: one succeeds, one gets 409, and a held payout row lock makes approve wait.
+- `BR-72j` 20 parallel payouts all succeed with distinct numbers in the existing format.
+- `BR-72k` The number follows the highest suffix of the year and other years do not move it.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -1388,6 +1482,9 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 | 12 | Farmer application approval by Farmer Admin | §6.1 `Approve farmer applications`: FA = View | §2: `Approve farmer application` FA = N, with a separate view-only queue row | FA has read-only access, no approval path (behaviourally identical) | resolved, recorded for completeness |
 | 13 | Object storage vendor | Ch.7/Ch.9: Azure Blob or Cloudinary | §15: AWS S3 or Cloudinary | Storage access is behind one adapter interface; no vendor SDK in domain code | requires client confirmation |
 | 14 | Certificate eligibility for listing (BR-01 vs BR-02) | §2.1, as transcribed into this file, gave two different tests: BR-01 blocked a farmer "whose certifications are **all** expired", BR-02 refused listing "while a farmer has no verified, unexpired PGS or NPOP certificate". The listing gate implemented neither: it refused if ANY single certificate was expired or unverified, so an old expired certificate or a pending renewal blocked a farmer who held a valid one | Not the source of the conflict (BR-02 cites §9 / P7 only for manual verification) | Eligibility is per farmer: listing is allowed iff at least one certificate is VERIFIED, unexpired (`expires_on` >= Asia/Kolkata today) and PGS/NPOP; other expired, pending or rejected certificates never block. BR-01 and BR-02 are reworded so BR-02 is the governing test and BR-01 a subset of it. When nothing qualifies: `CERT_UNVERIFIED` if an unexpired certificate awaits verification, otherwise `CERT_EXPIRED` if one has expired, otherwise `CERT_MISSING`. **Gap closed 2026-10-05:** with no certificate at all, or only unexpired `REJECTED` ones, the live gate used not to refuse; only `farmers.is_market_blocked` did (`CERT_EXPIRED`, "Farmer market access is currently blocked."), so a farmer whose flag was false with no qualifying certificate (seeded or stale data) could still list. The gate now refuses these itself with 422 `CERT_MISSING` (BR-02f, BR-02g), whatever the flag says; the flag is still checked after it. `PATCH /listings/{id}` and admin approval have never checked certificates; still unchanged | **Resolved 2026-10-05** (user-confirmed: a valid certificate permits listing; a pending renewal must not block; a farmer with no certificate, or only rejected ones, must be refused with its own error). Still open: whether the edit path (`PATCH /listings/{id}`) and admin approval should check certificates |
+| 15 | Soil classification bands (BR-40) | Not specified | Not specified | BR-40 says the bands live in `system_config`, but no authoritative values exist. Seven keys are read: `soil.classification.organic_carbon`, `.ph`, `.ec`, `.tds`, `.nitrogen`, `.phosphorus`, `.potassium`, each `{low, high, belowLabel, insideLabel, aboveLabel}`. The soil repo answers 503 naming the missing keys. The unit-test mock `BANDS` values are only proposals | requires owner to supply the values |
+| 16 | BR-53 display-only vs payout destination (BR-70) | Not specified | Not specified | BR-53 item 1: an account with a null `account_number_token` is display-only and cannot be a payout destination. Taken literally no account could be attached to a payout, which contradicts BR-53 item 4. Tokenisation is an open owner decision, so BR-70 checks ownership and soft-delete only and does not enforce this | requires owner decision (tokenisation) |
+| 17 | Registration submit threshold (BR-69) | Spec: "GPS/FMB boundary — GPS capture with manual lat/lng fallback" | Not specified | Submit requires at least one farm location with a boundary or a GPS position (plus `ID_PROOF` and `FARM_DOC`). This is the implementer's reading of the spec. Whether `aadhaarLast4` and `dob` are required at submit is not decided | requires product confirmation |
 
 ---
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { PoolClient } from 'pg';
 import { createApp } from '../../app.js';
@@ -7,7 +7,8 @@ import { RoleCode } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
 import type { SignUploadResponse } from '../uploads/uploads.schema.js';
-import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
+import { anActor, describeIfDatabase, IDS } from '../../test/factories.js';
+import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
 import {
   createFarmerApplicationsService,
@@ -589,11 +590,14 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       ).rejects.toThrow(expect.objectContaining({ code: 'VALIDATION_FAILED' }));
     });
 
-    it('submits successfully when ID_PROOF and FARM_DOC are provided', async () => {
+    it('submits successfully when ID_PROOF and FARM_DOC are provided and a located farm exists (BR-69)', async () => {
       const repo = mockFarmerApplicationsRepo({
         id: '11111111-1111-1111-1111-111111111111',
         user_id: '00000000-0000-0000-0000-000000000002',
         status: 'SUBMITTED',
+        step3_location: {
+          locations: [{ id: 'loc-a', label: 'Home plot', areaAcres: 2, latitude: 11.41, longitude: 76.69 }],
+        },
         step4_documents: {
           documents: [
             { docType: 'ID_PROOF', fileUrl: 'https://blob.storage/aadhaar.pdf' },
@@ -1029,7 +1033,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       }
     });
 
-    it('approval succeeds and writes no farms rows when step 3 was never captured', async () => {
+    it('BR-69c: approval is refused with 422 and writes nothing when step 3 was never captured', async () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
@@ -1042,28 +1046,35 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await expect(service.approveApplication(actor, APP_ID, {})).resolves.toBeDefined();
+      await expect(service.approveApplication(actor, APP_ID, {})).rejects.toMatchObject({
+        code: 'VALIDATION_FAILED',
+        status: 422,
+      });
 
-      // Farms rows are derived solely from the land locations now, so an
-      // application with none produces none — the approval itself still succeeds.
-      expect(farmInserts(tx)).toHaveLength(0);
+      // Not one statement ran: no tohfa id allocated, no user, farmer, farm or audit row.
+      expect(tx.queries).toHaveLength(0);
     });
 
-    it('approval succeeds and writes no farms rows when the locations array is empty', async () => {
-      const repo = mockFarmerApplicationsRepo({
-        id: APP_ID,
-        user_id: FARMER_USER_ID,
-        status: 'AUDIT',
-        step3_location: { locations: [] },
-      });
-      const service = createFarmerApplicationsService(repo);
-      const actor = anActor({ userId: IDS.userSuperAdmin });
+    it('BR-69c: approval is refused with 422 and writes nothing when the locations array is empty, or holds only non-objects', async () => {
+      for (const step3 of [{ locations: [] }, { locations: [null, 'x', 3, []] }, { locations: 'x' }]) {
+        const repo = mockFarmerApplicationsRepo({
+          id: APP_ID,
+          user_id: FARMER_USER_ID,
+          status: 'AUDIT',
+          step3_location: step3,
+        });
+        const service = createFarmerApplicationsService(repo);
+        const actor = anActor({ userId: IDS.userSuperAdmin });
 
-      const tx = recordingTx();
-      capture.tx = tx;
-      await expect(service.approveApplication(actor, APP_ID, {})).resolves.toBeDefined();
-
-      expect(farmInserts(tx)).toHaveLength(0);
+        const tx = recordingTx();
+        capture.tx = tx;
+        await expect(service.approveApplication(actor, APP_ID, {})).rejects.toMatchObject({
+          code: 'VALIDATION_FAILED',
+          status: 422,
+        });
+        expect(tx.queries).toHaveLength(0);
+        capture.tx = null;
+      }
     });
 
     it('approval leaves an unsurveyed location null without poisoning the location that has a boundary', async () => {
@@ -1170,7 +1181,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         status: 'AUDIT',
         step1_personal: step1Personal,
         step2_farm_details: step2FarmDetails,
-        step3_location: {},
+        step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
       });
       const service = createFarmerApplicationsService(repo);
       const actor = anActor({ userId: IDS.userSuperAdmin });
@@ -1233,7 +1244,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         user_id: FARMER_USER_ID,
         status: 'AUDIT',
         step2_farm_details: { experienceYears: 5, totalAreaAcres: 7.5 },
-        step3_location: {},
+        step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
       });
       const service = createFarmerApplicationsService(repo);
       const actor = anActor({ userId: IDS.userSuperAdmin });
@@ -1276,7 +1287,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         user_id: FARMER_USER_ID,
         status: 'AUDIT',
         step1_personal: step1Personal,
-        step3_location: {},
+        step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
       });
       const service = createFarmerApplicationsService(repo);
       const actor = anActor({ userId: IDS.userSuperAdmin });
@@ -1507,10 +1518,26 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
   describeIfDatabase('Integration against PostgreSQL', () => {
     const app = createApp();
+
+    beforeAll(async () => {
+      // These tests stamp IDS.userSuperAdmin (approve -> audit_log.actor_id) and IDS.userFarmer
+      // (farmer_applications.user_id) into FK columns. Those users used to exist only because
+      // golden-thread.e2e had committed them; create them here (idempotent, never UPDATEs).
+      if (await requireDatabaseTables('farmer_applications', 'users')) {
+        const { pool } = await import('../../db/pool.js');
+        await ensureStandardUsers(pool, 'userSuperAdmin', 'userFarmer');
+      }
+    });
+
+    afterAll(async () => {
+      const { closePool } = await import('../../db/pool.js');
+      await closePool();
+    });
+
     const uniqueMobile = `+9198${Date.now().toString().slice(-8)}`;
 
-    it('creates draft, updates steps, and checks duplicate live constraint', async () => {
-      if (!(await databaseReady('farmer_applications'))) return;
+    it('creates draft, updates steps, and checks duplicate live constraint', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications'))) return ctx.skip();
 
       // 1. Create Draft
       const createRes = await request(app)
@@ -1571,8 +1598,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(step3Res.body.completedSteps).toContain(3);
     });
 
-    it('the 409 CONFLICT on a duplicate mobile carries meta.applicationId matching the first draft, and GET /v1/farmers/applications/:id recovers its real saved step data', async () => {
-      if (!(await databaseReady('farmer_applications'))) return;
+    it('the 409 CONFLICT on a duplicate mobile carries meta.applicationId matching the first draft, and GET /v1/farmers/applications/:id recovers its real saved step data', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications'))) return ctx.skip();
 
       const mobile = `+9195${Date.now().toString().slice(-8)}`;
 
@@ -1627,8 +1654,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       });
     });
 
-    it('GET /v1/farmers/applications/:id returns 404 for a real id belonging to a different authenticated farmer', async () => {
-      if (!(await databaseReady('farmer_applications'))) return;
+    it('GET /v1/farmers/applications/:id returns 404 for a real id belonging to a different authenticated farmer', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications'))) return ctx.skip();
 
       const mobile = `+9193${Date.now().toString().slice(-8)}`;
       const createRes = await request(app)
@@ -1660,8 +1687,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(res.body.code).toBe('NOT_FOUND');
     });
 
-    it('POST /v1/farmers/applications/:id/uploads/sign succeeds with NO Authorization header and records uploaded_by NULL / entity_type+entity_id on the real uploads row', async () => {
-      if (!(await databaseReady('farmer_applications')) || !(await databaseReady('uploads'))) return;
+    it('POST /v1/farmers/applications/:id/uploads/sign succeeds with NO Authorization header and records uploaded_by NULL / entity_type+entity_id on the real uploads row', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications', 'uploads'))) return ctx.skip();
 
       const mobile = `+9197${Date.now().toString().slice(-8)}`;
       const createRes = await request(app)
@@ -1716,8 +1743,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(row.rows[0]!.is_public).toBe(false);
     });
 
-    it('POST /v1/farmers/applications/:id/uploads/sign rejects a terminal-status application exactly like a nonexistent one', async () => {
-      if (!(await databaseReady('farmer_applications'))) return;
+    it('POST /v1/farmers/applications/:id/uploads/sign rejects a terminal-status application exactly like a nonexistent one', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications', 'uploads'))) return ctx.skip();
 
       const mobile = `+9196${Date.now().toString().slice(-8)}`;
       const createRes = await request(app)
@@ -1748,16 +1775,14 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       // tell "exists but terminal" from "never existed" apart.
       expect(terminalRes.body.detail).toBe(missingRes.body.detail);
 
-      // And no upload row was ever written for the rejected application.
-      const uploadsExist = await databaseReady('uploads');
-      if (uploadsExist) {
-        const row = await pool.query('SELECT 1 FROM uploads WHERE entity_id = $1', [appId]);
-        expect(row.rowCount).toBe(0);
-      }
+      // And no upload row was ever written for the rejected application. (Unconditional now:
+      // the `uploads` table is required at the top of this test instead of being silently skipped.)
+      const row = await pool.query('SELECT 1 FROM uploads WHERE entity_id = $1', [appId]);
+      expect(row.rowCount).toBe(0);
     });
 
-    it('Bug 1 & Bug 2 end-to-end: approval writes dob/gender/pincode correctly and the full Aadhaar never reaches storage or any response', async () => {
-      if (!(await databaseReady('farmer_applications')) || !(await databaseReady('farmers'))) return;
+    it('Bug 1 & Bug 2 end-to-end: approval writes dob/gender/pincode correctly and the full Aadhaar never reaches storage or any response', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications', 'farmers'))) return ctx.skip();
 
       const mobile = `+9194${Date.now().toString().slice(-8)}`;
       // A syntactically-real-shaped 12-digit number -- not a real Aadhaar -- sent on
@@ -1943,8 +1968,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       };
     }
 
-    it('GET /v1/farmers/me returns the dob and gender that approval copied into the farmers row', async () => {
-      if (!(await databaseReady('farmer_applications')) || !(await databaseReady('farmers'))) return;
+    it('GET /v1/farmers/me returns the dob and gender that approval copied into the farmers row', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications', 'farmers'))) return ctx.skip();
 
       const { farmerToken } = await approveFreshFarmer({ dob: '21 / 05 / 1990', gender: 'Female' });
 
@@ -1956,8 +1981,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(meRes.body.gender).toBe('FEMALE');
     });
 
-    it('GET /v1/farmers/me returns dob: null and gender: null when registration never captured them', async () => {
-      if (!(await databaseReady('farmer_applications')) || !(await databaseReady('farmers'))) return;
+    it('GET /v1/farmers/me returns dob: null and gender: null when registration never captured them', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications', 'farmers'))) return ctx.skip();
 
       const { farmerToken } = await approveFreshFarmer({});
 

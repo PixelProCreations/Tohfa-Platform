@@ -39,6 +39,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   INTERNAL: 500,
 
@@ -96,6 +97,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   FORBIDDEN: 'Not permitted',
   NOT_FOUND: 'Resource not found',
   CONFLICT: 'Conflicting request',
+  PAYLOAD_TOO_LARGE: 'Request body is too large',
   RATE_LIMITED: 'Too many requests',
   INTERNAL: 'Internal server error',
 

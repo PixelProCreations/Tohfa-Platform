@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
-import { anActor, databaseReady, describeIfDatabase, IDS } from '../../test/factories.js';
+import { anActor, describeIfDatabase, IDS } from '../../test/factories.js';
+import { ensureStandardUsers, insertCrop, requireDatabaseTables } from '../../test/dbFixtures.js';
 import {
   compareMoney,
   createPricingService,
@@ -467,20 +468,18 @@ describe('Pricing Module Unit & Business Rules', () => {
   describeIfDatabase('Integration against PostgreSQL (BR-08b Database Exclusion Constraint)', () => {
     const app = createApp();
 
-    it('BR-08b: Database rejects overlapping fair price window', async () => {
-      if (!(await databaseReady('fair_prices'))) return;
+    it('BR-08b: Database rejects overlapping fair price window', async (ctx) => {
+      if (!(await requireDatabaseTables('fair_prices', 'crop_master', 'users'))) return ctx.skip();
 
       const { pool } = await import('../../db/pool.js');
 
-      // Borrow an existing seeded admin as the actor instead of INSERTing a throwaway
-      // user: a user row can never be deleted again once audit_log (append-only) or a
-      // fair_prices row references it, so creating one per run leaked a user per run.
-      const adminRes = await pool.query<{ id: string }>(
-        `SELECT id FROM users WHERE id = $1 AND user_type = 'ADMIN'`,
-        [IDS.userSuperAdmin],
-      );
-      if (adminRes.rows.length === 0) return;
-      const testAdminId = adminRes.rows[0]!.id;
+      // The actor must exist: fair_prices.set_by and audit_log.actor_id are FKs to users.
+      // Created idempotently (ON CONFLICT DO NOTHING) rather than borrowed from whatever
+      // another test file left committed, so this test passes alone on a fresh database.
+      // (A user row can never be deleted again once audit_log, which is append-only,
+      // references it, so it is deliberately a fixed id, not one new row per run.)
+      await ensureStandardUsers(pool, 'userSuperAdmin');
+      const testAdminId = IDS.userSuperAdmin;
       const superAdminToken = signAccessToken({
         sub: testAdminId,
         roles: [{ code: 'SUPER_ADMIN' }],
@@ -488,9 +487,9 @@ describe('Pricing Module Unit & Business Rules', () => {
         customerId: null,
       });
 
-      const cropRes = await pool.query<{ id: string }>('SELECT id FROM crop_master LIMIT 1');
-      if (cropRes.rows.length === 0) return;
-      const testCropId = cropRes.rows[0]!.id;
+      // A private crop: no existing fair price (seeded, left by another test, or a real
+      // operator's) can overlap or 409 this test's window.
+      const testCropId = await insertCrop(pool);
 
       let createdFairPriceId: string | null = null;
       try {
@@ -505,10 +504,12 @@ describe('Pricing Module Unit & Business Rules', () => {
             frequency: 'WEEKLY',
             effectiveFrom: '2026-09-01',
           });
-        expect([201, 409]).toContain(res1.status);
-        if (res1.status === 201) {
-          createdFairPriceId = (res1.body as { fairPrice: { id: string } }).fairPrice.id;
-        }
+        // The crop is private and new, so the only acceptable outcome is 201. (This used to
+        // accept 409 as well, and then silently skipped the constraint check below.)
+        expect(res1.status, JSON.stringify(res1.body)).toBe(201);
+        // POST /v1/fair-prices answers with the FairPrice itself (id at the top level), not
+        // a `{ fairPrice }` wrapper: reading `.fairPrice.id` threw on every 201.
+        createdFairPriceId = (res1.body as { id: string }).id;
 
         // 2. Direct raw SQL insert with overlapping window to test database constraint
         await expect(
@@ -523,6 +524,7 @@ describe('Pricing Module Unit & Business Rules', () => {
         if (createdFairPriceId !== null) {
           await pool.query('DELETE FROM fair_prices WHERE id = $1', [createdFairPriceId]);
         }
+        await pool.query('DELETE FROM crop_master WHERE id = $1', [testCropId]);
       }
     });
   });
@@ -531,6 +533,12 @@ describe('Pricing Module Unit & Business Rules', () => {
     // pg turns a `date` column into a JS Date at LOCAL midnight; toISOString() then
     // converts to UTC, so on an IST host 2031-08-17 came out as 2031-08-16. The repo
     // selects the date columns ::text instead (same as listings.available_from).
+    afterAll(async () => {
+      // Last integration block in the file, and the only place the pool is closed.
+      const { closePool } = await import('../../db/pool.js');
+      await closePool();
+    });
+
     const TZS = ['UTC', 'Asia/Kolkata', 'America/Los_Angeles'];
     const FROM = '2031-08-17';
     const NEXT = '2031-09-01';
@@ -548,15 +556,18 @@ describe('Pricing Module Unit & Business Rules', () => {
     }
 
     it.each(TZS)('BR-08: fair price effectiveFrom/effectiveTo are exact calendar dates under TZ=%s', async (tz) => {
-      if (!(await databaseReady('fair_prices'))) return;
-      const { pool } = await import('../../db/pool.js');
-      const crop = await pool.query<{ id: string }>('SELECT id FROM crop_master LIMIT 1');
-      if (crop.rows.length === 0) return;
-      const cropId = crop.rows[0]!.id;
+      // it.each hands no test context, so the no-DATABASE_URL-configured case can only warn+return;
+      // with a configured URL requireDatabaseTables throws.
+      if (!(await requireDatabaseTables('fair_prices', 'crop_master', 'users'))) return;
       const savedTz = process.env['TZ'];
       process.env['TZ'] = tz;
       try {
         await inRolledBackTx(async (tx) => {
+          // Own fixtures, rolled back with the transaction: the actor (fair_prices.set_by and
+          // audit_log.actor_id are FKs) and a private crop, so nothing depends on rows another
+          // test file left committed and no existing price can overlap the 2031 window.
+          await ensureStandardUsers(tx, 'userSuperAdmin');
+          const cropId = await insertCrop(tx);
           const service = createPricingService(pricingRepo, async (fn) => fn(tx));
           const created = (await service.createFairPrice(anActor({ roles: [{ code: 'SUPER_ADMIN' }] }), {
             cropId,
@@ -596,15 +607,13 @@ describe('Pricing Module Unit & Business Rules', () => {
     });
 
     it.each(TZS)('BR-09: retail price effectiveFrom/effectiveTo are exact calendar dates under TZ=%s', async (tz) => {
-      if (!(await databaseReady('retail_prices'))) return;
-      const { pool } = await import('../../db/pool.js');
-      const crop = await pool.query<{ id: string }>('SELECT id FROM crop_master LIMIT 1');
-      if (crop.rows.length === 0) return;
-      const cropId = crop.rows[0]!.id;
+      if (!(await requireDatabaseTables('fair_prices', 'retail_prices', 'crop_master', 'users'))) return;
       const savedTz = process.env['TZ'];
       process.env['TZ'] = tz;
       try {
         await inRolledBackTx(async (tx) => {
+          await ensureStandardUsers(tx, 'userSuperAdmin');
+          const cropId = await insertCrop(tx);
           const fp = await pricingRepo.createFairPrice(
             tx,
             { cropId, grade: 'GRADE_2', ceilingPrice: '80.00', frequency: 'WEEKLY', effectiveFrom: FROM },

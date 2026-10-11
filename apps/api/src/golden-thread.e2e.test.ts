@@ -770,6 +770,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const selfApprove = await request(app)
         .post(`/v1/admin/payouts/${createdPayoutId}/approve`)
         .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `gt-approve-${Date.now()}-superAdminToken`)
         .send({ note: 'Self approval attempt' });
       expect(selfApprove.status).toBe(403);
       expect(selfApprove.body.code).toBe('SAME_ACTOR_APPROVAL');
@@ -778,6 +779,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const dualApprove = await request(app)
         .post(`/v1/admin/payouts/${createdPayoutId}/approve`)
         .set('Authorization', `Bearer ${superAdmin2Token}`)
+        .set('Idempotency-Key', `gt-approve-${Date.now()}-superAdmin2Token`)
         .send({ note: 'Super Admin 2 signoff' });
       expect(dualApprove.status).toBe(200);
       expect(dualApprove.body.status).toBe('APPROVED');

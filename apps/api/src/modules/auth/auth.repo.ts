@@ -132,7 +132,8 @@ export interface AuthRepo {
       tokenHash: string;
       expiresAt: Date;
     },
-  ): Promise<RefreshTokenRow>;
+    // null when the old token was already used or revoked (lost a rotation race).
+  ): Promise<RefreshTokenRow | null>;
   revokeSessionTokenFamily(db: Executor, sessionId: string, reason: string): Promise<void>;
   createOtpVerification(
     db: Executor,
@@ -375,15 +376,22 @@ export const authRepo: AuthRepo = {
   },
 
   async rotateRefreshToken(db, oldTokenId, params) {
-    const newRow = await this.createRefreshToken(db, params);
-    await db.query(
+    // Claim the old token first, atomically. Two parallel refreshes of one token both
+    // pass the service's "not used yet" read; the row lock taken by this UPDATE makes
+    // the second wait for the first to commit, then match zero rows. The caller treats
+    // null as token reuse (401 + family revoked), never as a database error.
+    const claimed = await db.query<{ id: string }>(
       `UPDATE refresh_tokens
           SET used_at = now(),
-              replaced_by = $2,
               updated_at = now()
-        WHERE id = $1`,
-      [oldTokenId, newRow.id],
+        WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL
+        RETURNING id`,
+      [oldTokenId],
     );
+    if (claimed.rowCount === 0) return null;
+
+    const newRow = await this.createRefreshToken(db, params);
+    await db.query(`UPDATE refresh_tokens SET replaced_by = $2 WHERE id = $1`, [oldTokenId, newRow.id]);
     return newRow;
   },
 

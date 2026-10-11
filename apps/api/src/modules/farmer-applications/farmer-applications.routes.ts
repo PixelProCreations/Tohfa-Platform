@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { optionalAuth, requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
@@ -9,6 +9,7 @@ import {
   createFarmerApplicationBody,
   farmerApplicationIdParams,
   listAdminApplicationsQuery,
+  registrationStepBodySchemas,
   rejectApplicationBody,
   requestInfoApplicationBody,
   updateFarmerProfileBody,
@@ -30,13 +31,24 @@ farmerApplicationsRouter.post(
   }),
 );
 
+// BR-69: the body schema depends on the `:step` path parameter, so it is picked from the
+// already-validated params and handed to the ordinary `validate` middleware (same 422
+// VALIDATION_FAILED shape, same field paths as every other route). Runs after the params check,
+// so an out-of-range step is still rejected as a bad path before any body is looked at.
+const validateStepBody: RequestHandler = (req, res, next) => {
+  const { step } = getValidated(req, 'params', updateStepParams);
+  validate({ body: registrationStepBodySchemas[step as 1 | 2 | 3 | 4 | 5] })(req, res, next);
+};
+
 // Save individual step (1..5)
 farmerApplicationsRouter.patch(
   '/applications/:id/steps/:step',
   optionalAuth,
   validate({ params: updateStepParams }),
+  validateStepBody,
   asyncHandler(async (req, res) => {
     const { id, step } = getValidated(req, 'params', updateStepParams);
+    // `req.body` is the PARSED body: strict, trimmed, with a full Aadhaar number already dropped.
     const result = await farmerApplicationsService.updateStep(req.actor, id, step, req.body);
     res.json(result);
   }),

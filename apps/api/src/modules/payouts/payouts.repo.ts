@@ -51,18 +51,18 @@ export interface PayoutRepo {
       dueIds?: string[];
       remarks?: string;
       initiatedBy: string;
-      idempotencyKey?: string;
     },
   ): Promise<{ payout: PayoutRow; approvals: PayoutApprovalRow[] }>;
 
+  /**
+   * `forUpdate` locks the payout row until the caller's transaction ends. The
+   * approve path uses it so two approvers cannot both pass the "still pending"
+   * check and both release the payout (BR-72).
+   */
   findPayoutById(
     db: Executor,
     payoutId: string,
-  ): Promise<{ payout: PayoutRow; approvals: PayoutApprovalRow[] } | null>;
-
-  findPayoutByIdempotencyKey(
-    db: Executor,
-    idempotencyKey: string,
+    forUpdate?: boolean,
   ): Promise<{ payout: PayoutRow; approvals: PayoutApprovalRow[] } | null>;
 
   addApproval(
@@ -89,6 +89,24 @@ export interface PayoutRepo {
   ): Promise<void>;
 
   getFarmerName(db: Executor, farmerId: string): Promise<string | null>;
+
+  /**
+   * BR-70: take the farmer row lock, in the same mode and at the same point
+   * as the bank-accounts module's delete path (`lockFarmer` there), so a
+   * payout being created and a destination being deleted for the same farmer
+   * run one after the other. Without it the delete's "any unsettled payout
+   * still pointing here?" check can run before this payout is visible, and the
+   * account is then soft-deleted underneath a payout that is already in flight.
+   */
+  lockFarmer(db: Executor, farmerId: string): Promise<void>;
+
+  /**
+   * BR-70: true only when `bankAccountId` is a destination (bank account or
+   * UPI id) of `farmerId` that has not been soft-deleted. One predicate for
+   * "does not exist", "belongs to someone else" and "deleted", so the caller
+   * cannot tell the three apart.
+   */
+  findActiveBankAccountOfFarmer(db: Executor, bankAccountId: string, farmerId: string): Promise<boolean>;
 
   /**
    * The farmer's `users.id`, for publishing `payout.released` (BR-52/PAYROLL)
@@ -227,19 +245,25 @@ export const payoutsRepo: PayoutRepo = {
     return { items, totals, nextCursor };
   },
 
+  /**
+   * BR-72: next `PO-YYYY-NNNNNN`. Called inside the transaction that creates
+   * the payout: the transaction-scoped advisory lock is held until that
+   * transaction ends, so the next caller reads the committed row and cannot
+   * choose the same number. Highest existing suffix + 1, not COUNT(*) + 1, so
+   * a gap or a number written by hand is never reused. The lock is taken last,
+   * after the key claim and the farmer row lock, so it cannot join a lock cycle.
+   */
   async createPayout(db, params) {
-    // Generate payout number: PO-YYYY-XXXXXX (sequential per year)
-    const yearRes = await db.query<{ yr: string }>(`SELECT EXTRACT(YEAR FROM now())::text AS yr`);
-    const yr = yearRes.rows[0]!.yr;
-    const seqRes = await db.query<{ n: string }>(`SELECT COUNT(*) + 1 AS n FROM payouts WHERE payout_number LIKE $1`, [`PO-${yr}-%`]);
-    const seq = String(seqRes.rows[0]!.n).padStart(6, '0');
-    const payoutNumber = `PO-${yr}-${seq}`;
-
-    // Idempotency — check existing payout first
-    if (params.idempotencyKey) {
-      const existing = await this.findPayoutByIdempotencyKey(db, params.idempotencyKey);
-      if (existing) return existing;
-    }
+    await db.query(`SELECT pg_advisory_xact_lock(hashtextextended('payouts.payout_number', 0))`);
+    const numRes = await db.query<{ yr: string; max_seq: string }>(
+      `SELECT y.yr,
+              COALESCE(MAX(substring(p.payout_number FROM '^PO-' || y.yr || '-([0-9]+)$')::bigint), 0)::text AS max_seq
+         FROM (SELECT EXTRACT(YEAR FROM now())::text AS yr) y
+         LEFT JOIN payouts p ON p.payout_number LIKE 'PO-' || y.yr || '-%'
+        GROUP BY y.yr`,
+    );
+    const { yr, max_seq: maxSeq } = numRes.rows[0]!;
+    const payoutNumber = `PO-${yr}-${String(Number(maxSeq) + 1).padStart(6, '0')}`;
 
     const insertRes = await db.query<PayoutRow>(
       `INSERT INTO payouts
@@ -263,9 +287,6 @@ export const payoutsRepo: PayoutRepo = {
 
     const payout = insertRes.rows[0]!;
 
-    // Store idempotency key in a comment (simplest — in prod, add an idempotency_key column)
-    // For now, we skip and rely on service-layer dedup
-
     // Store farmer name for response
     const nameRes = await db.query<{ full_name: string }>(
       `SELECT u.full_name FROM farmers f JOIN users u ON u.id = f.user_id WHERE f.id = $1`,
@@ -276,7 +297,7 @@ export const payoutsRepo: PayoutRepo = {
     return { payout, approvals: [] };
   },
 
-  async findPayoutById(db, payoutId) {
+  async findPayoutById(db, payoutId, forUpdate = false) {
     const res = await db.query<PayoutRow & { farmer_name: string }>(
       `SELECT
          p.id, p.payout_number, p.farmer_id, u.full_name AS farmer_name,
@@ -287,7 +308,8 @@ export const payoutsRepo: PayoutRepo = {
        FROM payouts p
        JOIN farmers f ON f.id = p.farmer_id
        JOIN users u   ON u.id = f.user_id
-       WHERE p.id = $1`,
+       WHERE p.id = $1
+       ${forUpdate ? 'FOR UPDATE OF p' : ''}`,
       [payoutId],
     );
     if (!res.rows[0]) return null;
@@ -295,11 +317,6 @@ export const payoutsRepo: PayoutRepo = {
 
     const approvals = await this._getApprovals(db, payoutId);
     return { payout, approvals };
-  },
-
-  async findPayoutByIdempotencyKey(_db, _key) {
-    // Idempotency key column not in current schema — handled at service level with a map
-    return null;
   },
 
   async addApproval(db, params) {
@@ -340,6 +357,19 @@ export const payoutsRepo: PayoutRepo = {
       [farmerId],
     );
     return res.rows[0]?.full_name ?? null;
+  },
+
+  async lockFarmer(db, farmerId) {
+    // Same statement as the bank-accounts module's lockFarmer (FOR UPDATE), so the two serialise.
+    await db.query(`SELECT id FROM farmers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [farmerId]);
+  },
+
+  async findActiveBankAccountOfFarmer(db, bankAccountId, farmerId) {
+    const res = await db.query(
+      `SELECT 1 FROM farmer_bank_accounts WHERE id = $1 AND farmer_id = $2 AND deleted_at IS NULL`,
+      [bankAccountId, farmerId],
+    );
+    return (res.rowCount ?? 0) > 0;
   },
 
   async getFarmerUserId(db, farmerId) {
