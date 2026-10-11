@@ -28,6 +28,7 @@ import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { confineToAssignedWarehouses } from '../warehouse-ops/scope.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
 import {
   returnRequestsRepo,
@@ -92,8 +93,12 @@ export function createReturnRequestsService(
   const runTx = deps.runTx ?? (deps.db ? <T>(fn: (tx: Executor) => Promise<T>) => fn(deps.db!) : withTransaction);
   const walletSvc = deps.walletSvc ?? walletService;
 
+  // A warehouse admin holds the return permissions at `all`, and `scopedWhere` adds no warehouse
+  // clause at `all`, so every read and write below first narrows a scope that carries assigned
+  // warehouses to them (BR-30; docs/rbac.json scopeFilters). Without it a Sub Warehouse Admin
+  // could list, read, inspect, approve, reject and refund any warehouse's returns.
   async function loadVisible(scope: ResolvedScope, id: string): Promise<ReturnRequestResponse> {
-    const found = await repo.findById(db, id, scope);
+    const found = await repo.findById(db, id, confineToAssignedWarehouses(scope));
     if (found === null) throw notFound(id);
     return found;
   }
@@ -101,7 +106,7 @@ export function createReturnRequestsService(
   return {
     async createReturnRequest(actor, scope, orderId, input): Promise<ReturnRequestResponse> {
       const order = await repo.findOrderForReturn(db, orderId);
-      if (order === null || !orderVisible(scope, order)) {
+      if (order === null || !orderVisible(confineToAssignedWarehouses(scope), order)) {
         throw new AppError('NOT_FOUND', {
           detail: `No order with id ${orderId} is visible to you.`,
         });
@@ -169,7 +174,7 @@ export function createReturnRequestsService(
     },
 
     async list(scope, query): Promise<ListReturnsResponse> {
-      const result = await repo.list(db, { filters: query, scope });
+      const result = await repo.list(db, { filters: query, scope: confineToAssignedWarehouses(scope) });
       return {
         items: result.items,
         page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
