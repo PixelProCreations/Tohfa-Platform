@@ -8667,7 +8667,13 @@ paths:
       tags: [Purchase]
       operationId: listGoodsReceipts
       summary: List goods receipts
-      description: Lists goods receipts with warehouse scoping (BR-30).
+      description: |
+        Lists goods receipts with warehouse scoping (BR-30). A caller with an assigned warehouse (a
+        Sub Warehouse Admin, whose grant here is `all`, or a Main admin confined to one warehouse)
+        sees only its assigned warehouses; a Main, Super or Tohfa admin with no assigned warehouse
+        sees all four. A `warehouseId` naming a warehouse the caller cannot reach is an empty
+        page (200), the same as an unknown warehouse: a cross-scope list is an empty result set,
+        never a 403 and never a leak; only a read or write BY ID is 404.
       x-permission: inventory.goods_receipt.record
       x-business-rules: [BR-30]
       parameters:
@@ -8699,6 +8705,9 @@ paths:
         Warehouse-side intake. `acceptedQtyKg + rejectedQtyKg` must not exceed
         `grossQtyKg`. The receipt is created in `AWAITING_QC`; stock only enters the
         ledger once the quality check passes. Scoped to the caller's warehouse (BR-30).
+        A caller confined to assigned warehouses who names another warehouse, or a purchase order
+        destined for another warehouse, gets the same 404 as for an id that does not exist, and
+        nothing is written.
       x-permission: inventory.goods_receipt.record
       x-business-rules: [BR-30, BR-37]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
@@ -8731,7 +8740,10 @@ paths:
       tags: [Purchase]
       operationId: getGoodsReceipt
       summary: Get goods receipt detail
-      description: Returns goods receipt by ID with warehouse scoping (BR-30).
+      description: |
+        Returns goods receipt by ID with warehouse scoping (BR-30). Another warehouse's receipt is
+        the same 404 as an id that does not exist, also for a Sub Warehouse Admin whose grant is
+        `all`.
       x-permission: inventory.goods_receipt.record
       x-business-rules: [BR-30]
       parameters:
@@ -8756,7 +8768,8 @@ paths:
         The assigned grade may differ from the listed grade, which triggers a price
         adjustment. On `ACCEPTED` or `PARTIALLY_ACCEPTED` an inventory batch is created
         and a `RECEIPT` row is appended to the stock ledger (BR-37). A `REJECT` grade is
-        never sellable.
+        never sellable. Another warehouse's receipt is the same 404 as an id that does not
+        exist, and nothing is written (BR-30).
       x-permission: inventory.quality_check.perform
       x-business-rules: [BR-30, BR-37]
       parameters:
@@ -8800,9 +8813,25 @@ paths:
       tags: [Purchase]
       operationId: createGoodsReceiptCounterOffer
       summary: Counter-offer to the farmer on a quality shortfall
-      description: Offers a revised price for the delivered lot when the quality check downgrades it. The farmer has 24 hours to respond (BR-10).
+      description: |
+        Offers a revised price for the delivered lot when the quality check downgrades it. Another
+        warehouse's receipt is the same 404 as an id that does not exist, and nothing is written (BR-30).
+
+        Unconfirmed default (owner decision pending; docs/rules.md BR-10 lists the quality counter-offer
+        as a second surface that is not specified yet): the offer is a round of the negotiation on the
+        listing behind the receipt's purchase order. It is stored in `counter_offers` with that
+        `listingId`, `offeredBy: ADMIN` and this receipt as `goodsReceiptId`; it takes the listing's next
+        round under the same ceiling as the listing counter-offers (`system_config.max_counter_rounds` + 1,
+        BR-11); it expires `system_config.counter_offer_window_hours` after creation (BR-10, read on every
+        request; an unset or invalid value is a 500, there is no literal fallback); the listing moves from
+        ACCEPTED to COUNTER_OFFERED and the receipt to COUNTER_OFFERED (its quantities and rejection
+        reason are kept). The farmer is notified as for a listing counter-offer and answers it with
+        `POST /listings/{id}/counter-offers/{offerId}/accept|reject|counter`. Accepting sets the listing's
+        final price and quantity to the offer; a farmer reject or an expiry returns the listing to ACCEPTED
+        (its state before this offer), never to PENDING_APPROVAL. What happens next to the receipt, the
+        purchase order and the payout is not specified and is not changed by this endpoint.
       x-permission: inventory.quality.counter_offer
-      x-business-rules: [BR-10, BR-11]
+      x-business-rules: [BR-10, BR-11, BR-30]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -8813,14 +8842,29 @@ paths:
             schema: { $ref: '#/components/schemas/CounterOfferCreate' }
       responses:
         '201':
-          description: Counter-offer sent.
+          description: Counter-offer sent. `listingId`, `goodsReceiptId` and `offeredByUserId` are always set on this endpoint.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CounterOffer' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '409':
+          description: |
+            `CONFLICT`: a counter-offer on the lot's listing is still PENDING (a second quality
+            counter-offer on the same receipt, or a farmer counter waiting for an answer), or a concurrent
+            request won the round. `COUNTER_LIMIT_REACHED`: the listing has used every round (BR-11).
+            `INVALID_STATE_TRANSITION`: the lot's listing is not ACCEPTED. Nothing is written.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://api.tohfa.in/problems/counter-rounds-exhausted
+                title: No counter-offer rounds remain
+                status: 409
+                code: COUNTER_LIMIT_REACHED
+                detail: This lot's listing has no counter-offer rounds left.
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/batches:
@@ -10235,9 +10279,11 @@ paths:
       tags: [Payouts & Invoices]
       operationId: listInvoices
       summary: Own invoices
-      description: Farmers see purchase invoices, customers see sale invoices, admins see everything in scope. GST invoices exist only for B2B and Horeca, which are out of scope in Track 1 (BR-15).
+      description: |
+        Farmers see purchase invoices, customers see sale invoices, admins see everything in scope. GST invoices exist only for B2B and Horeca, which are out of scope in Track 1 (BR-15).
+        Scope follows the `invoice.view_own` grant: SUPER_ADMIN, TOHFA_ADMIN and MAIN_WH_ADMIN (`all`) see every invoice; a farmer sees invoices issued to their own farmer profile and a customer those issued to their own customer profile (BR-36); a Sub Warehouse Admin sees invoices of orders placed at its assigned warehouse (BR-30). An invoice with no order (purchase or payout invoice) has no warehouse, so no Sub Warehouse Admin sees it (unconfirmed default, 2026-10-11). FARMER_ADMIN holds no grant (403). `GET /invoices/{id}` and `/invoices/{id}/download` return exactly the invoices this list returns.
       x-permission: invoice.view_own
-      x-business-rules: [BR-16, BR-36]
+      x-business-rules: [BR-16, BR-30, BR-36]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -10256,6 +10302,7 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /invoices/{id}:
@@ -10266,8 +10313,12 @@ paths:
       description: |
         Returns one invoice with its line items. A farmer or customer sees only their own, and a
         customer invoice names TOHFA as the seller, never the farm (BR-16, BR-36).
+        Visible to exactly the callers whose `GET /invoices` returns it (same scope rules). Another
+        owner's invoice, or one outside a Sub Warehouse Admin's warehouse, is 404 `NOT_FOUND` with
+        the same body as an id that does not exist, never 403 (BR-30, BR-36). 401 without a bearer
+        token; 403 for a role without `invoice.view_own` (FARMER_ADMIN).
       x-permission: invoice.view_own
-      x-business-rules: [BR-16, BR-36]
+      x-business-rules: [BR-16, BR-30, BR-36]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -10285,12 +10336,28 @@ paths:
       tags: [Payouts & Invoices]
       operationId: downloadInvoice
       summary: Download the invoice PDF
-      description: Returns the PDF inline, or a 302 to a short-lived signed CDN URL when `redirect=true`.
+      description: |
+        Returns the PDF inline, or a 302 to a short-lived signed URL when `redirect=true`.
+        With a bearer token the caller needs `invoice.view_own` (403 for FARMER_ADMIN) and sees
+        exactly the invoices `GET /invoices` returns them; any other id is 404 `NOT_FOUND` with the
+        same body as an id that does not exist, never 403 (BR-30, BR-36). `redirect=true` mints the
+        signed link only after that same check (404 otherwise).
+        A request carrying `token` is a signed link: it needs no bearer token, `token` and `expires`
+        must verify (403 `FORBIDDEN` when tampered, expired, missing `expires` or minted for another
+        invoice). Without a bearer token and without `token` the response is 401.
       x-permission: invoice.view_own
-      x-business-rules: [BR-16, BR-36]
+      x-business-rules: [BR-16, BR-30, BR-36]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { name: redirect, in: query, schema: { type: boolean, default: false } }
+        - name: token
+          in: query
+          description: Signature from a `redirect=true` link (HMAC over invoice id and expiry). With `expires`, authorises this one download without a bearer token; never construct it client-side.
+          schema: { type: string }
+        - name: expires
+          in: query
+          description: Expiry of a signed link, epoch milliseconds (5 minutes after it was issued).
+          schema: { type: integer }
       responses:
         '200':
           description: The invoice PDF.

@@ -226,6 +226,9 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 **Test contract.**
 - `BR-10a` Responding at `expires_at + 1s` → 409, `code: COUNTER_OFFER_EXPIRED`.
 - `BR-10b` The expiry job transitions untouched offers to `expired` and is idempotent when re-run.
+- `BR-10` (quality counter-offer at goods receipt, `POST /admin/goods-receipts/{id}/counter-offer`, `apps/api/src/modules/goods-receipts/goods-receipts.counter-offer.test.ts`, real PostgreSQL) The offer is written on the listing behind the receipt's purchase order (`listing_id`, `actor = ADMIN`, `actor_user_id`, `goods_receipt_id`) and returns the documented `CounterOffer` body; `expires_at` follows `system_config.counter_offer_window_hours` (changed to 6 inside the test transaction → 6 hours) and an invalid value is a 500 with nothing written; the round continues the listing's rounds and is 409 `COUNTER_LIMIT_REACHED` when all 4 are used (BR-11); a second offer while one is PENDING is 409 `CONFLICT`; a listing that is not ACCEPTED is 409 `INVALID_STATE_TRANSITION`; the receipt keeps its quantities and rejection reason; the farmer can accept, reject or counter it through the listing endpoints; a farmer reject or an expiry returns a listing that has a purchase order to ACCEPTED, while a listing without one still returns to PENDING_APPROVAL.
+
+**Note (2026-10-11, UNCONFIRMED default, owner decision pending).** "Quality counter-offer at goods receipt" is listed under Rules NOT enforced in Track 1 as a second counter-offer surface. Its endpoint existed but could never run: its INSERT named columns `counter_offers` does not have. It was repaired with the smallest behaviour that fits this rule and BR-11 instead of a new rule: the quality counter-offer is one more round of the listing negotiation (same `system_config` window, same round ceiling, one PENDING offer per listing), linked to its receipt by the nullable `counter_offers.goods_receipt_id` (db/migrations/0058). "Prior state" is read as ACCEPTED for a listing that already has a purchase order. Not decided and not built: whether the quality round should have its own budget instead of sharing the listing's 4 rounds; what an accepted, rejected or lapsed quality offer does to the goods receipt (it stays COUNTER_OFFERED, which keeps it out of payout dues), the purchase order price and the payout; and any limit on the offered price or quantity.
 
 ---
 
@@ -595,6 +598,10 @@ See also BR-66.
 - `BR-30b` SUB_WH_ADMIN of Ooty fetches a Coonoor batch by id → 404 with an empty body, never 403.
 - `BR-30c` A write against a Coonoor row is rejected even when the id is valid and guessed correctly.
 
+**Note (2026-10-11).** The filter applies whatever level `docs/rbac.json` grants. SUB_WH_ADMIN holds `inventory.goods_receipt.record`, `inventory.quality_check.perform` and `inventory.quality.counter_offer` at `all`, and `scopedWhere` adds no warehouse clause at `all`, so the goods-receipt service first narrows a scope that carries assigned warehouses to them. A Main admin confined to one warehouse is narrowed the same way; a Main, Super or Tohfa admin with no assigned warehouse sees all four. Another warehouse's receipt or purchase order, or a warehouse named on create, is the same 404 as an id that does not exist, on reads and writes alike, and nothing is written; a `warehouseId` list filter naming a warehouse the caller cannot reach is an empty 200 page (cross-scope list = empty result set, root CLAUDE.md section 2.1). Tests: `BR-30: ...` in `apps/api/src/modules/goods-receipts/goods-receipts.test.ts`.
+
+**Note (2026-10-11, invoices).** A Sub Warehouse Admin's invoices (`invoice.view_own` at `own`) are those of orders placed at its assigned warehouse (`invoices.order_id` → `orders.warehouse_id`), on the list, the detail and the PDF download alike; another warehouse's invoice is the same 404 as an unknown id. An invoice with no order (purchase or payout invoice) has no warehouse and is not shown to a Sub Warehouse Admin (unconfirmed default). Before this date the invoice list returned nothing to a Sub Warehouse Admin. Tests: `BR-30: ...` in `apps/api/src/modules/invoices/invoice-access.test.ts`.
+
 See also BR-66.
 
 ---
@@ -715,6 +722,8 @@ See also BR-66.
 **Test contract.**
 - `BR-36a` Farmer A requests Farmer B's listing by id → 404 with empty body.
 - `BR-36b` Customer A requests Customer B's order/invoice by id → 404; the invoice PDF endpoint is covered too, not just the JSON one.
+
+**Note (2026-10-11, invoices).** QA found `GET /invoices/{id}` and `GET /invoices/{id}/download` returning any invoice (JSON and PDF) to any logged-in user while `GET /invoices` was scoped. For every role, the detail, the download and `redirect=true` now answer for exactly the invoices the list returns that caller, and 404 with the same body as an unknown id (no PDF bytes, no invoice fields) for every other id; `redirect=true` mints a signed link only after that check. A signed link (`token` + `expires`) needs no bearer token and is 403 when tampered, expired or minted for another invoice; no bearer token and no `token` is 401. Tests: `BR-36: ...` in `apps/api/src/modules/invoices/invoice-access.test.ts`.
 
 ---
 
@@ -2009,7 +2018,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 13 | Inter-warehouse transfers restricted to MW + SA | §2.4 | BR-26 | The ledger has a transfer type; there is no transfer endpoint or UI in this scope |
 | 14 | Warehouse capacity limits and quotas/targets | §6.2, FR-A04 | — | Contested authority (contradiction 5); no capacity model until resolved |
 | 15 | Stock verification (physical count vs system) | §6.2 | — | Ledger supports it; the counting workflow and variance report are Phase 2 |
-| 16 | Quality counter-offer at goods receipt | matrix §7 | — | Second counter-offer surface; the listing counter-offer (BR-10/BR-11) is the one in scope |
+| 16 | Quality counter-offer at goods receipt | matrix §7 | BR-10 | Repaired 2026-10-11 as an UNCONFIRMED default: it is a round of the listing negotiation (shares the 4-round limit and the one-PENDING-offer rule); what happens to the receipt, purchase order and payout after the farmer answers is not specified (see the BR-10 note) |
 | 17 | Market day scheduling per warehouse | matrix §5 | — | Belongs to the Market sales channel, which is Phase 3 |
 | 18 | GDPR data export and account deletion requests | matrix §15 | — | Absent from the Requirements document entirely; needs a retention policy first, which no document states |
 | 19 | Advisory automation (reminders, treatments, weather risk) | FR-F06/F07 | BR-38 | Blocked on contradiction 2 — do not build either way until the client answers |
