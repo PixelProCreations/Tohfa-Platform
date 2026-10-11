@@ -36,6 +36,10 @@ export interface ExpenseRecord {
   status: ExpenseStatus;
   recordedBy: string;
   createdAt: string;
+  /** BR-73: who approved, rejected or cancelled the expense; all three null while RECORDED. */
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionReason: string | null;
 }
 
 export interface ExpenseCategoryRecord {
@@ -153,11 +157,11 @@ export interface Page<T, C> {
  * delivery order) and PICKED_UP (a pickup order), and both set `completed_at` on the OTP handover.
  * `completed_at IS NOT NULL` is required because the report dates a sale by it.
  */
-const REVENUE_PREDICATE =
+export const REVENUE_PREDICATE =
   `o.payment_status = 'PAID' AND o.status IN ('DELIVERED', 'PICKED_UP') AND o.completed_at IS NOT NULL`;
 
 /** Microsecond ISO timestamp for cursors: `created_at` has microsecond precision, a JS Date does not. */
-const MICRO_TS = (column: string): string =>
+export const MICRO_TS = (column: string): string =>
   `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 /** 366 is the one-year bound; it matches the row seeded by migration 0047. */
@@ -166,7 +170,7 @@ const DEFAULT_REPORT_MAX_RANGE_DAYS = 366;
 // ---------------------------------------------------------------------------
 // Rows
 // ---------------------------------------------------------------------------
-interface ExpenseRow {
+export interface ExpenseRow {
   id: string;
   warehouse_id: string | null;
   category_id: string | null;
@@ -179,6 +183,9 @@ interface ExpenseRow {
   status: string;
   recorded_by: string;
   created_at: Date;
+  decided_by: string | null;
+  decided_at: Date | null;
+  decision_reason: string | null;
 }
 
 interface ExpenseListRow extends ExpenseRow {
@@ -207,15 +214,15 @@ interface RevenueDetailRow extends RevenueRow {
   invoice_status: string | null;
 }
 
-const EXPENSE_COLUMNS = `e.id, e.warehouse_id, e.category_id, e.category, e.amount::text AS amount,
+export const EXPENSE_COLUMNS = `e.id, e.warehouse_id, e.category_id, e.category, e.amount::text AS amount,
        e.expense_date::text AS expense_date, e.payment_method, e.vendor, e.description,
-       e.status, e.recorded_by, e.created_at`;
+       e.status, e.recorded_by, e.created_at, e.decided_by, e.decided_at, e.decision_reason`;
 
 const REVENUE_COLUMNS = `o.id AS order_id, o.channel, o.payment_method::text AS payment_method,
        o.payment_status, o.status::text AS status, o.total_amount::text AS total_amount,
        o.gst_amount::text AS gst_amount, o.placed_at, o.completed_at, o.warehouse_id`;
 
-function mapExpense(row: ExpenseRow): ExpenseRecord {
+export function mapExpense(row: ExpenseRow): ExpenseRecord {
   return {
     id: row.id,
     warehouseId: row.warehouse_id,
@@ -229,6 +236,9 @@ function mapExpense(row: ExpenseRow): ExpenseRecord {
     status: row.status as ExpenseStatus,
     recordedBy: row.recorded_by,
     createdAt: row.created_at.toISOString(),
+    decidedBy: row.decided_by,
+    decidedAt: row.decided_at === null ? null : row.decided_at.toISOString(),
+    decisionReason: row.decision_reason,
   };
 }
 

@@ -8,12 +8,23 @@
  * UNCONFIRMED owner default in src/rbac/warehouseScope.ts, an `own` grant with no assigned
  * warehouse (a Main Warehouse Admin) means all four warehouses.
  */
-import { fromPaise, parseMoney, ScopeLevel, toPaise, type Money } from '@tohfa/shared-types';
+import { fromPaise, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { isCalendarDate } from '../certifications/certifications.schema.js';
+import {
+  decodeCursorParts,
+  encodeCursor,
+  failValidation,
+  invalidCursor,
+  MICRO_TS,
+  notFound,
+  pageOf,
+  targetWarehouse,
+  UUID,
+} from './finance.shared.js';
 import {
   financeRepo,
   type ChannelTotalRecord,
@@ -53,47 +64,6 @@ export interface CreateExpenseResult {
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** The microsecond timestamp the repo emits for cursors. */
-const MICRO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
-
-function failValidation(errors: Record<string, string[]>): never {
-  throw new AppError('VALIDATION_FAILED', { detail: 'One or more fields are invalid.', errors });
-}
-
-function notFound(what: string, id: string): AppError {
-  return new AppError('NOT_FOUND', { detail: `${what} "${id}" not found.` });
-}
-
-/**
- * The warehouses the actor is confined to, or null when the scope is not confined to any (an
- * `all` grant, or an `own` grant on a role with no warehouse dimension: the owner default).
- */
-function confinedWarehouses(scope: ResolvedScope): { first: string; all: string[] } | null {
-  if (scope.level === ScopeLevel.ALL || scope.level === ScopeLevel.CONDITIONAL) return null;
-  const [first] = scope.warehouseIds;
-  return first === undefined ? null : { first, all: scope.warehouseIds };
-}
-
-function encodeCursor(parts: string[]): string {
-  return Buffer.from(JSON.stringify(parts), 'utf8').toString('base64url');
-}
-
-function decodeCursorParts(raw: string, length: number): string[] {
-  try {
-    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-    if (Array.isArray(parsed) && parsed.length === length && parsed.every((part) => typeof part === 'string')) {
-      return parsed as string[];
-    }
-  } catch {
-    // fall through to the 422 below
-  }
-  return invalidCursor();
-}
-
-function invalidCursor(): never {
-  throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
-}
 
 function decodeExpenseCursor(raw: string): ExpenseCursor {
   const [expenseDate, createdAt, id] = decodeCursorParts(raw, 3);
@@ -118,12 +88,8 @@ function sumTotals(rows: ReadonlyArray<{ count: number; total: Money }>): TotalS
   };
 }
 
-function pageOf<C>(next: C | null, encode: (cursor: C) => string): { nextCursor: string | null; hasMore: boolean } {
-  return { nextCursor: next === null ? null : encode(next), hasMore: next !== null };
-}
-
 /** True when `a` and `b` are the same request, as far as an idempotent replay cares. */
-function sameRequest(existing: ExpenseRecord, wanted: Omit<ExpenseRecord, 'id' | 'category' | 'status' | 'createdAt'>): boolean {
+function sameRequest(existing: ExpenseRecord, wanted: Omit<ExpenseRecord, 'id' | 'category' | 'status' | 'createdAt' | 'decidedBy' | 'decidedAt' | 'decisionReason'>): boolean {
   return (
     existing.warehouseId === wanted.warehouseId &&
     existing.categoryId === wanted.categoryId &&
@@ -155,21 +121,6 @@ export function createFinanceService(
   deps: FinanceServiceDeps = { repo: financeRepo, db: pool, runTx: withTransaction },
 ): FinanceService {
   const { repo, db, runTx } = deps;
-
-  /** BR-62: a Sub admin records for their own warehouse; an unconfined actor must say which. */
-  function targetWarehouse(scope: ResolvedScope, requested: string | undefined): string {
-    const confined = confinedWarehouses(scope);
-    if (confined !== null) {
-      if (requested === undefined) return confined.first;
-      // 404, not 403: a 403 would confirm the other warehouse exists.
-      if (!confined.all.includes(requested)) throw notFound('Warehouse', requested);
-      return requested;
-    }
-    if (requested === undefined) {
-      return failValidation({ 'body.warehouseId': ['warehouseId is required for an actor not assigned to a warehouse.'] });
-    }
-    return requested;
-  }
 
   /** The `finance_report_max_range_days` cap; `from`/`to` are real dates (schema), so the subtraction is exact. */
   async function assertRangeWithinCap(query: ReportQuery): Promise<void> {
