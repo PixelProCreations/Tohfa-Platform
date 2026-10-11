@@ -147,6 +147,19 @@ authRouter.get(
   }),
 );
 
+// BR-67: the caller's own live sessions. The user id is taken from the token
+// only; there is deliberately no `:userId` or query filter.
+authRouter.get(
+  '/me/sessions',
+  requireAuth,
+  requirePermission('auth.principal.view_own'),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const result = await authService.listMySessions(actor);
+    res.json(result);
+  }),
+);
+
 // BR-39: alternate login method for an already mobile-verified account, or a
 // prefill convenience during first-time registration — public like /auth/login,
 // never a way to create/activate an account by itself.

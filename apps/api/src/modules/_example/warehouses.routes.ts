@@ -22,7 +22,11 @@ import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { warehousesService } from './warehouses.service.js';
-import { listWarehousesQuery, warehouseIdParams } from './warehouses.schema.js';
+import {
+  listWarehousesQuery,
+  updateCapacityBody,
+  warehouseIdParams,
+} from './warehouses.schema.js';
 
 export const warehousesRouter: Router = Router();
 
@@ -41,11 +45,36 @@ warehousesRouter.get(
 warehousesRouter.get(
   '/:id',
   requireAuth,
-  requirePermission('warehouse.all.view'),
+  requirePermission('warehouse.own.view'),
   validate({ params: warehouseIdParams }),
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', warehouseIdParams);
     res.json(await warehousesService.getById(scope, id));
+  }),
+);
+
+warehousesRouter.get(
+  '/:id/capacity',
+  requireAuth,
+  requirePermission('warehouse.own.view'),
+  validate({ params: warehouseIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', warehouseIdParams);
+    res.json(await warehousesService.getCapacity(scope, id));
+  }),
+);
+
+warehousesRouter.patch(
+  '/:id/capacity',
+  requireAuth,
+  requirePermission('warehouse.capacity.set'),
+  validate({ params: warehouseIdParams, body: updateCapacityBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', warehouseIdParams);
+    const body = getValidated(req, 'body', updateCapacityBody);
+    res.json(await warehousesService.setCapacity(scope, id, body));
   }),
 );

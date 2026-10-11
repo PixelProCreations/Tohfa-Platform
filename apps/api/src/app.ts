@@ -34,6 +34,7 @@ import {
 } from './modules/certifications/certifications.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { notificationPreferencesRouter } from './modules/notification-preferences/notification-preferences.routes.js';
+import { systemMessagesRouter } from './modules/system-messages/system-messages.routes.js';
 import { fairPricesRouter, retailPricesRouter } from './modules/pricing/pricing.routes.js';
 import {
   adminListingsRouter,
@@ -103,7 +104,17 @@ import {
   farmerSupportTicketsRouter,
 } from './modules/support-tickets/support-tickets.routes.js';
 import { cropPlanningInsightRouter } from './modules/crop-planning-insight/crop-planning-insight.routes.js';
+import {
+  adminExpenseCategoriesRouter,
+  adminExpensesRouter,
+  adminFinanceRouter,
+} from './modules/finance/finance.routes.js';
 
+import {
+  adminReturnsRouter,
+  returnRequestsRouter,
+} from './modules/returnRequests/returnRequests.routes.js';
+import { reportsRouter } from './modules/reports/reports.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -130,6 +141,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/certifications', router: certificationsAdminRouter },
   { prefix: '/v1/notifications', router: notificationsRouter },
   { prefix: '/v1/notification-preferences', router: notificationPreferencesRouter },
+  { prefix: '/v1/system-messages', router: systemMessagesRouter },
   { prefix: '/v1/fair-prices', router: fairPricesRouter },
   { prefix: '/v1/retail-prices', router: retailPricesRouter },
   { prefix: '/v1/listings', router: listingsRouter },
@@ -150,6 +162,9 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/cart', router: cartRouter },
   { prefix: '/v1/orders', router: ordersRouter },
   { prefix: '/v1/orders', router: orderTrackingRouter },
+  { prefix: '/v1/orders', router: returnRequestsRouter },
+  { prefix: '/v1/admin/returns', router: adminReturnsRouter },
+  { prefix: '/v1/admin/reports', router: reportsRouter },
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
   { prefix: '/v1/admin/payouts', router: payoutsRouter },
   { prefix: '/v1/invoices', router: invoicesRouter },
@@ -183,6 +198,9 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me', router: farmerSupportTicketsRouter },
   { prefix: '/v1/admin', router: adminSupportTicketsRouter },
   { prefix: '/v1/farmers/me', router: cropPlanningInsightRouter },
+  { prefix: '/v1/admin/expenses', router: adminExpensesRouter },
+  { prefix: '/v1/admin/expense-categories', router: adminExpenseCategoriesRouter },
+  { prefix: '/v1/admin/finance', router: adminFinanceRouter },
 ];
 
 /**
