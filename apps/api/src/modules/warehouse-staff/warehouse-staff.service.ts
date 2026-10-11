@@ -89,7 +89,8 @@ function notFound(what: string, id: string): AppError {
 
 /**
  * The warehouses the actor is confined to, or null when the scope is not confined to any (an
- * `all` grant, or an `own` grant on a role with no warehouse dimension: the owner default).
+ * `all` grant, or an `own` grant on a role with no warehouse dimension: a Main Warehouse Admin
+ * sees all four warehouses, confirmed by the owner 2026-10-11).
  */
 function confinedWarehouses(scope: ResolvedScope): { first: string; all: string[] } | null {
   if (scope.level === ScopeLevel.ALL || scope.level === ScopeLevel.CONDITIONAL) return null;

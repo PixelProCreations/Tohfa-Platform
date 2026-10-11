@@ -36,10 +36,6 @@ export interface ExpenseRecord {
   status: ExpenseStatus;
   recordedBy: string;
   createdAt: string;
-  /** BR-73: who approved, rejected or cancelled the expense; all three null while RECORDED. */
-  decidedBy: string | null;
-  decidedAt: string | null;
-  decisionReason: string | null;
 }
 
 export interface ExpenseCategoryRecord {
@@ -183,9 +179,6 @@ export interface ExpenseRow {
   status: string;
   recorded_by: string;
   created_at: Date;
-  decided_by: string | null;
-  decided_at: Date | null;
-  decision_reason: string | null;
 }
 
 interface ExpenseListRow extends ExpenseRow {
@@ -216,7 +209,7 @@ interface RevenueDetailRow extends RevenueRow {
 
 export const EXPENSE_COLUMNS = `e.id, e.warehouse_id, e.category_id, e.category, e.amount::text AS amount,
        e.expense_date::text AS expense_date, e.payment_method, e.vendor, e.description,
-       e.status, e.recorded_by, e.created_at, e.decided_by, e.decided_at, e.decision_reason`;
+       e.status, e.recorded_by, e.created_at`;
 
 const REVENUE_COLUMNS = `o.id AS order_id, o.channel, o.payment_method::text AS payment_method,
        o.payment_status, o.status::text AS status, o.total_amount::text AS total_amount,
@@ -236,9 +229,6 @@ export function mapExpense(row: ExpenseRow): ExpenseRecord {
     status: row.status as ExpenseStatus,
     recordedBy: row.recorded_by,
     createdAt: row.created_at.toISOString(),
-    decidedBy: row.decided_by,
-    decidedAt: row.decided_at === null ? null : row.decided_at.toISOString(),
-    decisionReason: row.decision_reason,
   };
 }
 

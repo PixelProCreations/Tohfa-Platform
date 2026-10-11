@@ -4,15 +4,14 @@
  * For one warehouse and one Asia/Kolkata day the system COMPUTES, from existing data:
  *   cash sales    completed, paid CASH orders (the BR-63 revenue definition, restricted to CASH)
  *   cash top-ups  successful CASH wallet top-ups processed at the warehouse (the design lists them as cash in)
- *   cash expenses CASH expenses dated that day that are not CANCELLED
+ *   cash expenses every CASH expense dated that day (expenses are only recorded, BR-62: none is excluded)
  *   opening cash  the COUNTED cash of the latest earlier close of the warehouse, 0 with none
  *   expected      opening + sales + top-ups - expenses   (integer paise, never typed in)
  * and a close stores those figures with the counted cash, the difference and who closed it.
  *
  * UNCONFIRMED DEFAULTS (owner approval pending; also stated in docs/openapi.yaml): the design only
- * shows the screen, so these are the smallest safe readings. A REJECTED cash expense still counts as
- * cash that left the till. The difference is recorded, never judged (no tolerance, reason optional).
- * A day closes once; how a mistaken close is corrected is undefined, so a close cannot be changed.
+ * shows the screen, so these are the smallest safe readings. The difference is recorded, never
+ * judged (no tolerance, reason optional). A day closes once; how a mistaken close is corrected is undefined, so a close cannot be changed.
  * Closing a day earlier than an existing later close is recorded with its own opening.
  *
  * Takes a `ResolvedScope`, never a `Request`. The close and its masked audit row share one transaction.

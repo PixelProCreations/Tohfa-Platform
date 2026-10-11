@@ -9,6 +9,9 @@
  * Permission codes must exist in docs/rbac.json; requirePermission throws at import time on a typo.
  * Reads of the roster use the existing admin.staff.list_view (Sub = none); the write and the
  * attendance codes are documented spec gaps (admin.staff.manage, admin.staff.attendance.*).
+ * Every route here returns or needs staff names, so a Sub Warehouse Admin, who cannot list staff
+ * (owner decision 2026-10-11), holds none of these codes and gets 403 on all of them. The grants
+ * in docs/rbac.json are the single source of truth: no role check lives in the service.
  */
 import { Router } from 'express';
 import { requireAuth } from '../../auth/requireAuth.js';

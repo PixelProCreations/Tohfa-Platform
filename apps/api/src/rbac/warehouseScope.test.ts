@@ -36,7 +36,7 @@ describe('warehouseScopeFilter / warehouseVisible', () => {
     expect(warehouseVisible(s, W2)).toBe(true);
   });
 
-  it('BR-30: an `own` grant on a role with no warehouse dimension (Main) means all four warehouses (unconfirmed default)', () => {
+  it('BR-30: an `own` grant on a role with no warehouse dimension (Main) means all four warehouses (confirmed by the owner 2026-10-11)', () => {
     const s = scope({ roleCode: RoleCode.MAIN_WH_ADMIN, warehouseIds: [] });
     expect(warehouseScopeFilter(s, 'w.id').sql).toBe('TRUE');
     expect(warehouseVisible(s, W1)).toBe(true);

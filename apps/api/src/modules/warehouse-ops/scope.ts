@@ -8,8 +8,8 @@
  *  - a warehouse the caller cannot reach and a warehouse that does not exist are the SAME 404, so the
  *    response never confirms that an id exists (a 403 would).
  *
- * A Main/Super/Tohfa admin has no warehouse dimension and reaches all four (the documented default in
- * `apps/api/src/rbac/warehouseScope.ts`).
+ * A Main/Super/Tohfa admin has no warehouse dimension and reaches all four (for Main this was
+ * confirmed by the owner 2026-10-11; see `apps/api/src/rbac/warehouseScope.ts`).
  */
 import { ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';

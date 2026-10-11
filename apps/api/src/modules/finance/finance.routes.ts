@@ -20,19 +20,13 @@ import {
   dailySummaryQuery,
   listCashClosesQuery,
 } from './cash-close.schema.js';
-import { expenseCategoriesService } from './expense-categories.service.js';
-import { expenseLifecycleService } from './expense-lifecycle.service.js';
+import { expenseVoucherService } from './expense-voucher.service.js';
 import {
   createExpenseBody,
-  createExpenseCategoryBody,
-  expenseDecisionEmptyBody,
   financeIdParams,
   listExpensesQuery,
   listRevenueQuery,
-  manageCategoriesQuery,
-  rejectExpenseBody,
   reportQuery,
-  updateExpenseCategoryBody,
 } from './finance.schema.js';
 import { financeService } from './finance.service.js';
 
@@ -80,46 +74,6 @@ adminExpensesRouter.get(
   }),
 );
 
-// POST /v1/admin/expenses/:id/approve   (BR-73)
-adminExpensesRouter.post(
-  '/:id/approve',
-  requireAuth,
-  requirePermission('finance.expense.approve'),
-  validate({ params: financeIdParams, body: expenseDecisionEmptyBody }),
-  asyncHandler(async (req, res) => {
-    const scope = requireScope(req.scope);
-    const { id } = getValidated(req, 'params', financeIdParams);
-    res.json(await expenseLifecycleService.approve(scope, req.header('idempotency-key'), id));
-  }),
-);
-
-// POST /v1/admin/expenses/:id/reject   (BR-73)
-adminExpensesRouter.post(
-  '/:id/reject',
-  requireAuth,
-  requirePermission('finance.expense.approve'),
-  validate({ params: financeIdParams, body: rejectExpenseBody }),
-  asyncHandler(async (req, res) => {
-    const scope = requireScope(req.scope);
-    const { id } = getValidated(req, 'params', financeIdParams);
-    const body = getValidated(req, 'body', rejectExpenseBody);
-    res.json(await expenseLifecycleService.reject(scope, req.header('idempotency-key'), id, body));
-  }),
-);
-
-// POST /v1/admin/expenses/:id/cancel   (BR-73; the recorder only, enforced by the service)
-adminExpensesRouter.post(
-  '/:id/cancel',
-  requireAuth,
-  requirePermission('finance.expense.log'),
-  validate({ params: financeIdParams, body: expenseDecisionEmptyBody }),
-  asyncHandler(async (req, res) => {
-    const scope = requireScope(req.scope);
-    const { id } = getValidated(req, 'params', financeIdParams);
-    res.json(await expenseLifecycleService.cancel(scope, req.header('idempotency-key'), id));
-  }),
-);
-
 // GET /v1/admin/expenses/:id/voucher   (BR-75; interim gate finance.expense.log, per SPEC_GAPS)
 adminExpensesRouter.get(
   '/:id/voucher',
@@ -129,50 +83,11 @@ adminExpensesRouter.get(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', financeIdParams);
-    res.json(await expenseLifecycleService.getVoucher(scope, id));
+    res.json(await expenseVoucherService.getVoucher(scope, id));
   }),
 );
 
-// GET /v1/admin/expense-categories/manage   (BR-73: every category incl. inactive, with usage counts)
-adminExpenseCategoriesRouter.get(
-  '/manage',
-  requireAuth,
-  requirePermission('finance.expense_category.manage'),
-  validate({ query: manageCategoriesQuery }),
-  asyncHandler(async (req, res) => {
-    const query = getValidated(req, 'query', manageCategoriesQuery);
-    res.json(await expenseCategoriesService.list(query));
-  }),
-);
-
-// POST /v1/admin/expense-categories   (BR-73)
-adminExpenseCategoriesRouter.post(
-  '/',
-  requireAuth,
-  requirePermission('finance.expense_category.manage'),
-  validate({ body: createExpenseCategoryBody }),
-  asyncHandler(async (req, res) => {
-    const scope = requireScope(req.scope);
-    const body = getValidated(req, 'body', createExpenseCategoryBody);
-    res.status(201).json(await expenseCategoriesService.create(scope, body));
-  }),
-);
-
-// PATCH /v1/admin/expense-categories/:id   (BR-73: rename, deactivate, reactivate)
-adminExpenseCategoriesRouter.patch(
-  '/:id',
-  requireAuth,
-  requirePermission('finance.expense_category.manage'),
-  validate({ params: financeIdParams, body: updateExpenseCategoryBody }),
-  asyncHandler(async (req, res) => {
-    const scope = requireScope(req.scope);
-    const { id } = getValidated(req, 'params', financeIdParams);
-    const body = getValidated(req, 'body', updateExpenseCategoryBody);
-    res.json(await expenseCategoriesService.update(scope, id, body));
-  }),
-);
-
-// GET /v1/admin/expense-categories
+// GET /v1/admin/expense-categories   (read-only: there is no category write route, BR-62)
 adminExpenseCategoriesRouter.get(
   '/',
   requireAuth,

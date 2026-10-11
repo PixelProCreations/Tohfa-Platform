@@ -171,7 +171,8 @@ export const cashCloseRepo: CashCloseRepo = {
   async dayFigures(db, warehouseId, date) {
     // Cash sales: the revenue definition of BR-63 (paid, completed) restricted to CASH, dated by completed_at.
     // Cash top-ups: a successful CASH top-up processed at this warehouse (only CASH top-ups carry a warehouse).
-    // Cash expenses: CASH expenses dated that day, any status but CANCELLED, never soft-deleted.
+    // Cash expenses: every CASH expense dated that day, never soft-deleted. Expenses are only recorded
+    // (BR-62: no approval or cancellation exists), so no status is excluded.
     const result = await db.query<{
       cash_sales: string;
       cash_top_ups: string;
@@ -187,7 +188,7 @@ export const cashCloseRepo: CashCloseRepo = {
            WHERE t.channel::text = 'CASH' AND t.status = 'SUCCESS' AND t.warehouse_id = $1::uuid
              AND ${IN_DAY('t.created_at')}) AS cash_top_ups,
          (SELECT ${SUM_TEXT('e.amount')} FROM expenses e
-           WHERE e.payment_method = 'CASH' AND e.status <> 'CANCELLED' AND e.deleted_at IS NULL
+           WHERE e.payment_method = 'CASH' AND e.deleted_at IS NULL
              AND e.warehouse_id = $1::uuid AND e.expense_date = $2::date) AS cash_expenses,
          prev.counted_cash::text AS opening_cash,
          prev.close_date::text AS opening_from

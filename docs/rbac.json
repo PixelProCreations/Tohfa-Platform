@@ -2494,36 +2494,6 @@
       "source": "reqs 6.3"
     },
     {
-      "code": "finance.expense.approve",
-      "module": "Accounts & Finance",
-      "description": "Approve or reject a warehouse expense recorded by someone else (BR-73).",
-      "grants": {
-        "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
-        "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "none",
-        "SUB_WH_ADMIN": "none",
-        "FARMER": "none",
-        "CUSTOMER": "none"
-      },
-      "source": "spec gap added 2026-10-11: SPEC_GAPS 1.6 (Expense Detail / Expenses list model an approval workflow but no expense-approve code exists). SA/TA only because the SWA and MWA Module 11 prototypes both state expense approval is not granted to the warehouse roles; MAIN_WH_ADMIN is none pending the owner (the builder brief proposed all); owner approval pending"
-    },
-    {
-      "code": "finance.expense_category.manage",
-      "module": "Accounts & Finance",
-      "description": "Create, rename, deactivate and reactivate warehouse expense categories (BR-73).",
-      "grants": {
-        "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
-        "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "none",
-        "SUB_WH_ADMIN": "none",
-        "FARMER": "none",
-        "CUSTOMER": "none"
-      },
-      "source": "spec gap added 2026-10-11: SPEC_GAPS (Expense Categories) says no code covers category management; the SWA prototype says Add/Edit/Activate/Deactivate are TA/SA-configured controls; owner approval pending"
-    },
-    {
       "code": "finance.cash_close.manage",
       "module": "Accounts & Finance",
       "description": "View the daily cash summary and submit the daily cash close / reconciliation for a warehouse (BR-74).",
@@ -2733,37 +2703,37 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap added 2026-10-11: rbac.json had no code for creating or editing a warehouse staff record; grants copy admin.staff.list_view (Sub none, Main own = all four warehouses by the owner default); owner approval pending"
+      "source": "spec gap added 2026-10-11: rbac.json had no code for creating or editing a warehouse staff record; grants copy admin.staff.list_view (Sub none, Main own = all four warehouses, confirmed by the owner 2026-10-11); owner approval pending"
     },
     {
       "code": "admin.staff.attendance.view",
       "module": "Workforce & Staff",
-      "description": "View warehouse staff attendance: the daily roll call, attendance history and the per-staff summary (Module 14, BR-84). A Sub Warehouse Admin sees only its own warehouse.",
+      "description": "View warehouse staff attendance: the daily roll call, attendance history and the per-staff summary (Module 14, BR-84). A Sub Warehouse Admin has no access: these views list staff, and Sub cannot list staff.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "own",
-        "SUB_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap added 2026-10-11: the attendance screens (Attendance, Attendance Detail, Attendance History, Today's Attendance) have no code and are classed Shared in the owner's screen list, so Sub gets own; note admin.staff.list_view stays none for Sub while the roll call must show staff names to be usable (contradiction reported); owner approval pending"
+      "source": "spec gap added 2026-10-11: the attendance screens (Attendance, Attendance Detail, Attendance History, Today's Attendance) had no code; owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access (admin.staff.list_view is none for Sub); Main own = all four warehouses (confirmed by the owner 2026-10-11)"
     },
     {
       "code": "admin.staff.attendance.mark",
       "module": "Workforce & Staff",
-      "description": "Mark or correct warehouse staff attendance for a day, singly or in bulk (Module 14, BR-84). A Sub Warehouse Admin marks only its own warehouse's staff.",
+      "description": "Mark or correct warehouse staff attendance for a day, singly or in bulk (Module 14, BR-84). A Sub Warehouse Admin has no access: marking needs the staff list, and Sub cannot list staff.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "none",
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "own",
-        "SUB_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "spec gap added 2026-10-11: no code exists for marking attendance; floor attendance is a warehouse operation so TOHFA_ADMIN (platform staff) is none; owner approval pending"
+      "source": "spec gap added 2026-10-11: no code existed for marking attendance; floor attendance is a warehouse operation so TOHFA_ADMIN (platform staff) is none (owner approval pending for TOHFA_ADMIN); owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access; Main own = all four warehouses (confirmed by the owner 2026-10-11)"
     },
     {
       "code": "admin.super_admin.create",

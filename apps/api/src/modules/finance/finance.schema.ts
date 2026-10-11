@@ -30,8 +30,8 @@ export const expensePaymentMethods = ['CASH', 'UPI', 'BANK'] as const;
 export const expensePaymentMethodEnum = z.enum(expensePaymentMethods);
 export type ExpensePaymentMethod = z.infer<typeof expensePaymentMethodEnum>;
 
-/** Matches `expenses.status` CHECK (0007_money.sql; CANCELLED added by 0049_expense_lifecycle.sql, BR-73). */
-export const expenseStatuses = ['RECORDED', 'APPROVED', 'REJECTED', 'CANCELLED'] as const;
+/** Matches `expenses.status` CHECK in db/migrations/0007_money.sql. */
+export const expenseStatuses = ['RECORDED', 'APPROVED', 'REJECTED'] as const;
 export const expenseStatusEnum = z.enum(expenseStatuses);
 export type ExpenseStatus = z.infer<typeof expenseStatusEnum>;
 
@@ -70,20 +70,6 @@ export const createExpenseBody = z
   })
   .strict();
 export type CreateExpenseBody = z.infer<typeof createExpenseBody>;
-
-// ---------------------------------------------------------------------------
-// POST /v1/admin/expenses/{id}/{approve,reject,cancel}   (BR-73)
-// ---------------------------------------------------------------------------
-/** Approve and cancel carry no body; an unexpected field is a 422, not silently ignored. */
-export const expenseDecisionEmptyBody = z.object({}).strict();
-
-export const rejectExpenseBody = z
-  .object({
-    /** A short reason, shown to the recorder. Stored on the expense, never copied into the audit row. */
-    reason: z.string().trim().min(1, 'reason is required').max(200, 'reason must be at most 200 characters'),
-  })
-  .strict();
-export type RejectExpenseBody = z.infer<typeof rejectExpenseBody>;
 
 // ---------------------------------------------------------------------------
 // GET /v1/admin/expenses
@@ -155,11 +141,6 @@ export const expenseResponse = z.object({
   status: expenseStatusEnum,
   recordedBy: z.string().uuid(),
   createdAt: z.string(),
-  /** BR-73: who approved, rejected or cancelled it. All three null while RECORDED. */
-  decidedBy: z.string().uuid().nullable(),
-  decidedAt: z.string().nullable(),
-  /** The short reason given with a rejection; null otherwise. */
-  decisionReason: z.string().nullable(),
 });
 export type ExpenseResponse = z.infer<typeof expenseResponse>;
 
@@ -248,42 +229,6 @@ export const expenseReportResponse = z.object({
 export type ExpenseReportResponse = z.infer<typeof expenseReportResponse>;
 
 // ---------------------------------------------------------------------------
-// Expense category writes (BR-73): POST/PATCH /v1/admin/expense-categories, GET .../manage
-// ---------------------------------------------------------------------------
-/** A category name: the unique key (case-insensitively), so it is trimmed and bounded. */
-const categoryName = z.string().trim().min(1, 'name is required').max(80, 'name must be at most 80 characters');
-
-export const createExpenseCategoryBody = z.object({ name: categoryName }).strict();
-export type CreateExpenseCategoryBody = z.infer<typeof createExpenseCategoryBody>;
-
-/** Rename, deactivate or reactivate: at least one field. */
-export const updateExpenseCategoryBody = z
-  .object({ name: categoryName.optional(), isActive: z.boolean().optional() })
-  .strict()
-  .refine((value) => value.name !== undefined || value.isActive !== undefined, {
-    message: 'Send name, isActive or both',
-  });
-export type UpdateExpenseCategoryBody = z.infer<typeof updateExpenseCategoryBody>;
-
-export const expenseCategoryStatuses = ['ACTIVE', 'INACTIVE', 'ALL'] as const;
-export const manageCategoriesQuery = z
-  .object({ status: z.enum(expenseCategoryStatuses).default('ALL') })
-  .strict();
-export type ManageCategoriesQuery = z.infer<typeof manageCategoriesQuery>;
-
-export const expenseCategoryAdminResponse = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  isActive: z.boolean(),
-  /** How many expenses carry this category (the SWA prototype's "Used: 28"). */
-  expenseCount: z.number().int(),
-});
-export type ExpenseCategoryAdminResponse = z.infer<typeof expenseCategoryAdminResponse>;
-
-export const listExpenseCategoriesAdminResponse = z.object({ items: z.array(expenseCategoryAdminResponse) });
-export type ListExpenseCategoriesAdminResponse = z.infer<typeof listExpenseCategoriesAdminResponse>;
-
-// ---------------------------------------------------------------------------
 // GET /v1/admin/expenses/{id}/voucher   (BR-75)
 // ---------------------------------------------------------------------------
 const personRef = z.object({ id: z.string().uuid(), name: z.string() });
@@ -302,9 +247,5 @@ export const expenseVoucherResponse = z.object({
   description: z.string().nullable(),
   status: expenseStatusEnum,
   recordedBy: personRef,
-  /** The approver, only while the expense is APPROVED; null otherwise ("Authorized By: -" on the design). */
-  authorizedBy: personRef.nullable(),
-  decidedAt: z.string().nullable(),
-  decisionReason: z.string().nullable(),
 });
 export type ExpenseVoucherResponse = z.infer<typeof expenseVoucherResponse>;

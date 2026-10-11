@@ -3,6 +3,9 @@
  *
  * BR-83 = the staff roster: one warehouse each, not users, warehouse-scoped (another warehouse's
  *         id is 404), soft deactivation, masked audit rows, staff reads on admin.staff.list_view.
+ *         A Sub Warehouse Admin cannot list staff, so it gets 403 on EVERY staff and attendance
+ *         route (owner decision 2026-10-11); confinement to one warehouse is tested with a Main
+ *         admin that has an assigned warehouse.
  * BR-84 = daily attendance: one row per staff member per Asia/Kolkata day updated in place, every
  *         change kept (append-only history), future day 422, deactivated staff 409, bulk is
  *         all-or-nothing, exact summary counts, role matrix.
@@ -153,9 +156,13 @@ interface World {
   whB: string;
   adminId: string;
   svc: ReturnType<typeof createWarehouseStaffService>;
-  /** Scopes: a Sub admin of warehouse A / B, a Main admin (no warehouse), the Super Admin. */
-  subA: (permission?: string) => ResolvedScope;
-  subB: (permission?: string) => ResolvedScope;
+  /**
+   * Scopes: a Main admin confined to warehouse A (an assigned warehouse), a Main admin with no
+   * warehouse (all four, confirmed by the owner 2026-10-11), the Super Admin. A Sub Warehouse
+   * Admin has no staff or attendance grant at all (owner decision 2026-10-11, BR-83), so the
+   * warehouse-confinement cases are expressed with a confined Main admin.
+   */
+  mainA: (permission?: string) => ResolvedScope;
   main: (permission?: string) => ResolvedScope;
   sa: (permission?: string) => ResolvedScope;
 }
@@ -186,17 +193,14 @@ async function inRolledBackTx(fn: (world: World) => Promise<void>): Promise<void
       }
     };
     const svc = createWarehouseStaffService({ repo: warehouseStaffRepo, db: tx, runTx, now: () => NOW });
-    const sub = (warehouseId: string, permission: string): ResolvedScope =>
-      aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.SUB_WH_ADMIN, warehouseIds: [warehouseId], permission, userId: adminId });
-
     await fn({
       tx,
       whA,
       whB,
       adminId,
       svc,
-      subA: (permission = 'admin.staff.attendance.mark') => sub(whA, permission),
-      subB: (permission = 'admin.staff.attendance.mark') => sub(whB, permission),
+      mainA: (permission = 'admin.staff.attendance.mark') =>
+        aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.MAIN_WH_ADMIN, warehouseIds: [whA], permission, userId: adminId }),
       main: (permission = 'admin.staff.manage') =>
         aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.MAIN_WH_ADMIN, permission, userId: adminId }),
       sa: (permission = 'admin.staff.manage') =>
@@ -276,17 +280,17 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
     });
   });
 
-  dbIt('BR-83e: a Sub admin lists and reads only its own warehouse (another warehouse id is 404), Main and Super Admin see both, and the search escapes LIKE wildcards', async () => {
+  dbIt('BR-83e: an admin confined to one warehouse (a Main admin with an assigned warehouse) lists and reads only that warehouse (another warehouse id is 404), an unconfined Main and the Super Admin see both, and the search escapes LIKE wildcards', async () => {
     await inRolledBackTx(async (w) => {
       const a1 = await addStaff(w, w.whA, 'Anil A');
       const b1 = await addStaff(w, w.whB, 'Bala B');
       await addStaff(w, w.whA, '100% Raju');
-      const readA = w.subA('admin.staff.list_view');
+      const readA = w.mainA('admin.staff.list_view');
 
-      const subList = await w.svc.listStaff(readA, { limit: 50 });
-      expect(subList.items.map((s) => s.warehouseId)).toEqual([w.whA, w.whA]);
-      expect(subList.items.map((s) => s.id)).toContain(a1.id);
-      expect(subList.items.map((s) => s.id)).not.toContain(b1.id);
+      const confinedList = await w.svc.listStaff(readA, { limit: 50 });
+      expect(confinedList.items.map((s) => s.warehouseId)).toEqual([w.whA, w.whA]);
+      expect(confinedList.items.map((s) => s.id)).toContain(a1.id);
+      expect(confinedList.items.map((s) => s.id)).not.toContain(b1.id);
 
       expect((await rejects(w.svc.getStaff(readA, b1.id))).code).toBe('NOT_FOUND');
       expect((await w.svc.getStaff(readA, a1.id)).id).toBe(a1.id);
@@ -413,12 +417,12 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
     await inRolledBackTx(async (w) => {
       const staff = await addStaff(w, w.whA, 'Priya Hidden');
       const other = await insertUser(w.tx, 'ADMIN', 'Second admin');
-      const first = await w.svc.markAttendance(w.subA(), staff.id, '2026-03-09', { status: 'PRESENT', checkIn: '2026-03-09T09:02:00+05:30', note: 'secret note text' });
+      const first = await w.svc.markAttendance(w.mainA(), staff.id, '2026-03-09', { status: 'PRESENT', checkIn: '2026-03-09T09:02:00+05:30', note: 'secret note text' });
       expect(first.created).toBe(true);
       expect(first.attendance).toMatchObject({ staffId: staff.id, staffName: 'Priya Hidden', warehouseId: w.whA, workDate: '2026-03-09', status: 'PRESENT', checkIn: '2026-03-09T03:32:00.000Z', checkOut: null, note: 'secret note text', markedBy: w.adminId, updatedAt: null });
 
       const correction = await w.svc.markAttendance(
-        { ...w.subA(), userId: other },
+        { ...w.mainA(), userId: other },
         staff.id,
         '2026-03-09',
         { status: 'ABSENT' },
@@ -428,14 +432,14 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
       expect(correction.attendance.updatedAt).not.toBeNull();
       expect(await count(w.tx, `SELECT 1 FROM staff_attendance WHERE staff_id = $1 AND work_date = '2026-03-09'`, [staff.id])).toBe(1);
 
-      const history = (await w.svc.attendanceHistory(w.subA('admin.staff.attendance.view'), staff.id, '2026-03-09')).items;
+      const history = (await w.svc.attendanceHistory(w.mainA('admin.staff.attendance.view'), staff.id, '2026-03-09')).items;
       expect(history.map((h) => h.action)).toEqual(['CREATED', 'UPDATED']);
       expect(history[0]).toMatchObject({ fromStatus: null, toStatus: 'PRESENT', toCheckIn: '2026-03-09T03:32:00.000Z', toNote: 'secret note text', changedBy: w.adminId });
       expect(history[1]).toMatchObject({ fromStatus: 'PRESENT', fromCheckIn: '2026-03-09T03:32:00.000Z', fromNote: 'secret note text', toStatus: 'ABSENT', toCheckIn: null, toNote: null, changedBy: other });
 
       const audits = await auditRows(w.tx, first.attendance.id);
       expect(audits.map((a) => a.action_code)).toEqual(['staff.attendance.mark', 'staff.attendance.mark']);
-      expect(audits[0]).toMatchObject({ actor_role: RoleCode.SUB_WH_ADMIN, warehouse_id: w.whA, before: null });
+      expect(audits[0]).toMatchObject({ actor_role: RoleCode.MAIN_WH_ADMIN, warehouse_id: w.whA, before: null });
       expect(audits[0]!.after).toEqual({ id: first.attendance.id, staffId: staff.id, warehouseId: w.whA, workDate: '2026-03-09', status: 'PRESENT' });
       expect(audits[1]).toMatchObject({ before: { status: 'PRESENT' }, after: { status: 'ABSENT' } });
       expect([...audits[1]!.changed_fields!].sort()).toEqual(['checkIn', 'note', 'status']);
@@ -448,14 +452,14 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
     await inRolledBackTx(async (w) => {
       const staff = await addStaff(w, w.whA, 'Replay Person');
       const body = { status: 'PRESENT' as const, checkIn: '2026-03-09T09:00:00+05:30', checkOut: '2026-03-09T18:00:00+05:30' };
-      const first = await w.svc.markAttendance(w.subA(), staff.id, '2026-03-09', body);
-      const replay = await w.svc.markAttendance(w.subA(), staff.id, '2026-03-09', body);
+      const first = await w.svc.markAttendance(w.mainA(), staff.id, '2026-03-09', body);
+      const replay = await w.svc.markAttendance(w.mainA(), staff.id, '2026-03-09', body);
       expect(replay.created).toBe(false);
       expect(replay.attendance).toEqual(first.attendance);
       expect(await count(w.tx, `SELECT 1 FROM staff_attendance_history WHERE attendance_id = $1`, [first.attendance.id])).toBe(1);
       expect(await auditRows(w.tx, first.attendance.id)).toHaveLength(1);
       // A different instant that is the same moment (UTC vs +05:30) is the same value.
-      const sameMoment = await w.svc.markAttendance(w.subA(), staff.id, '2026-03-09', { ...body, checkIn: '2026-03-09T03:30:00Z' });
+      const sameMoment = await w.svc.markAttendance(w.mainA(), staff.id, '2026-03-09', { ...body, checkIn: '2026-03-09T03:30:00Z' });
       expect(sameMoment.attendance.updatedAt).toBeNull();
       expect(await count(w.tx, `SELECT 1 FROM staff_attendance_history WHERE attendance_id = $1`, [first.attendance.id])).toBe(1);
     });
@@ -464,7 +468,7 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
   dbIt('BR-84e: the history table is append-only (UPDATE, DELETE and TRUNCATE are refused by the database), and a direct UPDATE of an attendance row still leaves a history row', async () => {
     await inRolledBackTx(async (w) => {
       const staff = await addStaff(w, w.whA, 'Ledger Person');
-      const marked = await w.svc.markAttendance(w.subA(), staff.id, '2026-03-09', { status: 'PRESENT' });
+      const marked = await w.svc.markAttendance(w.mainA(), staff.id, '2026-03-09', { status: 'PRESENT' });
       for (const sql of [
         `UPDATE staff_attendance_history SET to_status = 'ABSENT'`,
         `DELETE FROM staff_attendance_history`,
@@ -483,30 +487,30 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
   dbIt('BR-84f: a future day is 422 and writes nothing; "today" is the Asia/Kolkata date (01:30 on the 11th IST is still the 10th UTC)', async () => {
     await inRolledBackTx(async (w) => {
       const staff = await addStaff(w, w.whA, 'Clock Person');
-      const err = await rejects(w.svc.markAttendance(w.subA(), staff.id, '2026-03-12', { status: 'PRESENT' }));
+      const err = await rejects(w.svc.markAttendance(w.mainA(), staff.id, '2026-03-12', { status: 'PRESENT' }));
       expect(err.code).toBe('VALIDATION_FAILED');
       expect(await count(w.tx, `SELECT 1 FROM staff_attendance WHERE staff_id = $1`, [staff.id])).toBe(0);
       // Today in Kolkata is accepted although the UTC date is still the 10th.
-      expect((await w.svc.markAttendance(w.subA(), staff.id, TODAY, { status: 'PRESENT' })).created).toBe(true);
-      expect((await rejects(w.svc.markAttendanceBulk(w.subA(), '2026-03-12', { entries: [{ staffId: staff.id, status: 'LEAVE' }] }))).code).toBe('VALIDATION_FAILED');
+      expect((await w.svc.markAttendance(w.mainA(), staff.id, TODAY, { status: 'PRESENT' })).created).toBe(true);
+      expect((await rejects(w.svc.markAttendanceBulk(w.mainA(), '2026-03-12', { entries: [{ staffId: staff.id, status: 'LEAVE' }] }))).code).toBe('VALIDATION_FAILED');
       // A date no later than today in the past is fine.
-      expect((await w.svc.markAttendance(w.subA(), staff.id, '2020-01-01', { status: 'LEAVE' })).created).toBe(true);
+      expect((await w.svc.markAttendance(w.mainA(), staff.id, '2020-01-01', { status: 'LEAVE' })).created).toBe(true);
     });
   });
 
-  dbIt('BR-84g: a deactivated staff member cannot be marked (409, nothing written); another warehouse\'s staff is 404 for a Sub admin and markable by Main', async () => {
+  dbIt('BR-84g: a deactivated staff member cannot be marked (409, nothing written); another warehouse\'s staff is 404 for an admin confined to one warehouse and markable by an unconfined Main', async () => {
     await inRolledBackTx(async (w) => {
       const mine = await addStaff(w, w.whA, 'Mine');
       const theirs = await addStaff(w, w.whB, 'Theirs');
       await w.svc.deactivateStaff(w.main(), mine.id);
-      const inactive = await rejects(w.svc.markAttendance(w.subA(), mine.id, '2026-03-09', { status: 'PRESENT' }));
+      const inactive = await rejects(w.svc.markAttendance(w.mainA(), mine.id, '2026-03-09', { status: 'PRESENT' }));
       expect(inactive.code).toBe('CONFLICT');
       expect(inactive.status).toBe(409);
       expect(await count(w.tx, `SELECT 1 FROM staff_attendance WHERE staff_id = $1`, [mine.id])).toBe(0);
 
-      const cross = await rejects(w.svc.markAttendance(w.subA(), theirs.id, '2026-03-09', { status: 'PRESENT' }));
+      const cross = await rejects(w.svc.markAttendance(w.mainA(), theirs.id, '2026-03-09', { status: 'PRESENT' }));
       expect(cross.code).toBe('NOT_FOUND');
-      expect((await rejects(w.svc.markAttendance(w.subA(), newId(), '2026-03-09', { status: 'PRESENT' }))).code).toBe('NOT_FOUND');
+      expect((await rejects(w.svc.markAttendance(w.mainA(), newId(), '2026-03-09', { status: 'PRESENT' }))).code).toBe('NOT_FOUND');
       expect(await count(w.tx, `SELECT 1 FROM staff_attendance WHERE staff_id = $1`, [theirs.id])).toBe(0);
       expect((await w.svc.markAttendance(w.main('admin.staff.attendance.mark'), theirs.id, '2026-03-09', { status: 'ABSENT' })).attendance.warehouseId).toBe(w.whB);
       expect((await w.svc.markAttendance(w.sa('admin.staff.attendance.mark'), theirs.id, '2026-03-08', { status: 'LEAVE' })).created).toBe(true);
@@ -535,7 +539,7 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
       }
       await w.svc.markAttendance(w.main('admin.staff.attendance.mark'), a.id, '2026-03-01', { status: 'ABSENT' });
 
-      const view = w.subA('admin.staff.attendance.view');
+      const view = w.mainA('admin.staff.attendance.view');
       const month = await w.svc.attendanceSummary(view, { month: '2026-02' });
       expect(month.from).toBe('2026-02-01');
       expect(month.to).toBe('2026-02-28');
@@ -588,11 +592,11 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
       await w.svc.deactivateStaff(w.main(), gone.id);
 
       const bad409 = await rejects(
-        w.svc.markAttendanceBulk(w.subA(), '2026-03-09', { entries: [{ staffId: s1.id, status: 'PRESENT' }, { staffId: s2.id, status: 'ABSENT' }, { staffId: gone.id, status: 'PRESENT' }] }),
+        w.svc.markAttendanceBulk(w.mainA(), '2026-03-09', { entries: [{ staffId: s1.id, status: 'PRESENT' }, { staffId: s2.id, status: 'ABSENT' }, { staffId: gone.id, status: 'PRESENT' }] }),
       );
       expect(bad409.code).toBe('CONFLICT');
       const bad404 = await rejects(
-        w.svc.markAttendanceBulk(w.subA(), '2026-03-09', { entries: [{ staffId: s1.id, status: 'PRESENT' }, { staffId: newId(), status: 'PRESENT' }] }),
+        w.svc.markAttendanceBulk(w.mainA(), '2026-03-09', { entries: [{ staffId: s1.id, status: 'PRESENT' }, { staffId: newId(), status: 'PRESENT' }] }),
       );
       expect(bad404.code).toBe('NOT_FOUND');
       for (const table of ['staff_attendance', 'staff_attendance_history']) {
@@ -600,13 +604,13 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
       }
       expect(await count(w.tx, `SELECT 1 FROM audit_log WHERE action_code = 'staff.attendance.mark' AND warehouse_id = $1`, [w.whA])).toBe(0);
 
-      await w.svc.markAttendance(w.subA(), s4.id, '2026-03-09', { status: 'ABSENT' });
-      const ok = await w.svc.markAttendanceBulk(w.subA(), '2026-03-09', {
+      await w.svc.markAttendance(w.mainA(), s4.id, '2026-03-09', { status: 'ABSENT' });
+      const ok = await w.svc.markAttendanceBulk(w.mainA(), '2026-03-09', {
         entries: [{ staffId: s1.id, status: 'PRESENT' }, { staffId: s2.id, status: 'LEAVE' }, { staffId: s4.id, status: 'PRESENT' }],
       });
       expect(ok).toMatchObject({ date: '2026-03-09', created: 2, updated: 1, unchanged: 0 });
       expect(ok.items.map((i) => i.status)).toEqual(['PRESENT', 'LEAVE', 'PRESENT']);
-      const replay = await w.svc.markAttendanceBulk(w.subA(), '2026-03-09', {
+      const replay = await w.svc.markAttendanceBulk(w.mainA(), '2026-03-09', {
         entries: [{ staffId: s1.id, status: 'PRESENT' }, { staffId: s2.id, status: 'LEAVE' }, { staffId: s4.id, status: 'PRESENT' }],
       });
       expect(replay).toMatchObject({ created: 0, updated: 0, unchanged: 3 });
@@ -614,7 +618,7 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
     });
   });
 
-  dbIt('BR-84k: the roll call lists the active staff with their mark or null (not marked yet), counts every bucket, keeps a later-deactivated person on the days they have a record, and is confined to the Sub admin\'s warehouse', async () => {
+  dbIt('BR-84k: the roll call lists the active staff with their mark or null (not marked yet), counts every bucket, keeps a later-deactivated person on the days they have a record, and is confined to the warehouse of an admin assigned to one', async () => {
     await inRolledBackTx(async (w) => {
       const p = await addStaff(w, w.whA, 'Roll Present');
       const a = await addStaff(w, w.whA, 'Roll Absent');
@@ -632,7 +636,7 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
       await w.svc.deactivateStaff(w.main(), leftNever.id);
       await mark(other.id, 'PRESENT');
 
-      const view = w.subA('admin.staff.attendance.view');
+      const view = w.mainA('admin.staff.attendance.view');
       const roll = await w.svc.rollCall(view, { date: '2026-03-09' });
       expect(roll.date).toBe('2026-03-09');
       expect(roll.items.map((i) => i.staffName)).toEqual(['Roll Absent', 'Roll Leave', 'Roll Left', 'Roll Present', 'Roll Unmarked']);
@@ -659,7 +663,7 @@ describeIfDatabase('Warehouse staff and attendance service (PostgreSQL)', () => 
         await w.svc.markAttendance(w.main('admin.staff.attendance.mark'), s.id, `2026-03-0${d}`, { status: d <= 3 ? 'PRESENT' : 'ABSENT' });
       }
       await w.svc.markAttendance(w.main('admin.staff.attendance.mark'), t.id, '2026-03-03', { status: 'LEAVE' });
-      const view = w.subA('admin.staff.attendance.view');
+      const view = w.mainA('admin.staff.attendance.view');
 
       const first = await w.svc.listAttendance(view, { staffId: s.id, limit: 2 });
       expect(first.items.map((i) => i.workDate)).toEqual(['2026-03-05', '2026-03-04']);
@@ -758,6 +762,10 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
     tokens['subCoonoor'] = signAccessToken({ sub: IDS.userSubWhAdmin, roles: [{ code: RoleCode.SUB_WH_ADMIN, warehouseId: coonoorId }], ...base });
     tokens['subKotagiri'] = signAccessToken({ sub: IDS.userSubWhAdmin, roles: [{ code: RoleCode.SUB_WH_ADMIN, warehouseId: kotagiriId }], ...base });
     tokens['main'] = signAccessToken({ sub: IDS.userSuperAdmin, roles: [{ code: RoleCode.MAIN_WH_ADMIN }], ...base });
+    // A Main admin with an assigned warehouse is confined to it (warehouseScope.ts): the
+    // cross-warehouse 404 cases run with these, because Sub has no staff access at all.
+    tokens['mainCoonoor'] = signAccessToken({ sub: IDS.userSuperAdmin, roles: [{ code: RoleCode.MAIN_WH_ADMIN, warehouseId: coonoorId }], ...base });
+    tokens['mainKotagiri'] = signAccessToken({ sub: IDS.userSuperAdmin, roles: [{ code: RoleCode.MAIN_WH_ADMIN, warehouseId: kotagiriId }], ...base });
     tokens['superAdmin'] = signAccessToken({ sub: IDS.userSuperAdmin, roles: [{ code: RoleCode.SUPER_ADMIN }], ...base });
     tokens['tohfaAdmin'] = signAccessToken({ sub: IDS.userTohfaAdmin, roles: [{ code: RoleCode.TOHFA_ADMIN }], ...base });
     tokens['farmer'] = signAccessToken({ sub: IDS.userSuperAdmin, roles: [{ code: RoleCode.FARMER }], farmerId: newId(), customerId: null });
@@ -792,26 +800,28 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
   const NIL = '99999999-9999-4999-8999-999999999999';
   const markUrl = (staffId: string, date = DAY): string => `/v1/admin/staff-attendance/staff/${staffId}/${date}`;
 
-  type Call = { method: 'get' | 'post' | 'patch' | 'put'; path: () => string; body?: () => object };
+  /** `route` is the Express route the call hits (mount prefix + router path), used to prove coverage. */
+  type Call = { route: string; method: 'get' | 'post' | 'patch' | 'put'; path: () => string; body?: () => object };
   const STAFF_READS: Call[] = [
-    { method: 'get', path: () => '/v1/admin/warehouse-staff' },
-    { method: 'get', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}` },
+    { route: 'GET /v1/admin/warehouse-staff', method: 'get', path: () => '/v1/admin/warehouse-staff' },
+    { route: 'GET /v1/admin/warehouse-staff/:id', method: 'get', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}` },
   ];
   const STAFF_WRITES: Call[] = [
-    { method: 'post', path: () => '/v1/admin/warehouse-staff', body: () => ({ warehouseId: coonoorId, fullName: `${tag} X`, designation: tag, joinedOn: '2026-01-15' }) },
-    { method: 'patch', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}`, body: () => ({ designation: tag }) },
-    { method: 'post', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/deactivate` },
+    { route: 'POST /v1/admin/warehouse-staff', method: 'post', path: () => '/v1/admin/warehouse-staff', body: () => ({ warehouseId: coonoorId, fullName: `${tag} X`, designation: tag, joinedOn: '2026-01-15' }) },
+    { route: 'PATCH /v1/admin/warehouse-staff/:id', method: 'patch', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}`, body: () => ({ designation: tag }) },
+    { route: 'POST /v1/admin/warehouse-staff/:id/deactivate', method: 'post', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/deactivate` },
   ];
   const ATTENDANCE_READS: Call[] = [
-    { method: 'get', path: () => `/v1/admin/staff-attendance/roll-call?date=${DAY}` },
-    { method: 'get', path: () => '/v1/admin/staff-attendance?limit=5' },
-    { method: 'get', path: () => `/v1/admin/staff-attendance/summary?month=2025-03&staffId=${coonoorStaff}` },
-    { method: 'get', path: () => `/v1/admin/staff-attendance/staff/${coonoorStaff}/2025-03-09/history` },
+    { route: 'GET /v1/admin/staff-attendance/roll-call', method: 'get', path: () => `/v1/admin/staff-attendance/roll-call?date=${DAY}` },
+    { route: 'GET /v1/admin/staff-attendance', method: 'get', path: () => '/v1/admin/staff-attendance?limit=5' },
+    { route: 'GET /v1/admin/staff-attendance/summary', method: 'get', path: () => `/v1/admin/staff-attendance/summary?month=2025-03&staffId=${coonoorStaff}` },
+    { route: 'GET /v1/admin/staff-attendance/staff/:staffId/:date/history', method: 'get', path: () => `/v1/admin/staff-attendance/staff/${coonoorStaff}/2025-03-09/history` },
   ];
   const ATTENDANCE_MARKS: Call[] = [
-    { method: 'put', path: () => markUrl(coonoorStaff, '2025-03-09'), body: () => ({ status: 'PRESENT' }) },
-    { method: 'put', path: () => '/v1/admin/staff-attendance/dates/2025-03-09', body: () => ({ entries: [{ staffId: coonoorStaff, status: 'PRESENT' }] }) },
+    { route: 'PUT /v1/admin/staff-attendance/staff/:staffId/:date', method: 'put', path: () => markUrl(coonoorStaff, '2025-03-09'), body: () => ({ status: 'PRESENT' }) },
+    { route: 'PUT /v1/admin/staff-attendance/dates/:date', method: 'put', path: () => '/v1/admin/staff-attendance/dates/2025-03-09', body: () => ({ entries: [{ staffId: coonoorStaff, status: 'PRESENT' }] }) },
   ];
+  const ALL_CALLS: Call[] = [...STAFF_READS, ...STAFF_WRITES, ...ATTENDANCE_READS, ...ATTENDANCE_MARKS];
 
   const send = (call: Call, token: string | undefined) => {
     const req = request(server)[call.method](call.path());
@@ -831,16 +841,61 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
     }
   });
 
-  httpIt('BR-83k: the role matrix holds through the real router: Sub is 403 on every roster route (admin.staff.list_view and admin.staff.manage are none for Sub) but may read and mark attendance; Tohfa Admin reads but cannot mark; Main and Super Admin may do everything', async () => {
-    for (const call of [...STAFF_READS, ...STAFF_WRITES]) {
+  // ---- BR-83: a Sub Warehouse Admin cannot list staff (owner decision 2026-10-11) -------------
+  it('BR-83: the Sub-403 route list below covers every route the two staff routers expose', async () => {
+    const routes = await import('./warehouse-staff.routes.js');
+    type Layer = { route?: { path: string; methods: Record<string, boolean> } };
+    const exposed = (router: unknown, prefix: string): string[] =>
+      (router as { stack: Layer[] }).stack.flatMap((layer) =>
+        layer.route === undefined
+          ? []
+          : Object.keys(layer.route.methods).map((m) => `${m.toUpperCase()} ${prefix}${layer.route!.path === '/' ? '' : layer.route!.path}`),
+      );
+    const actual = [
+      ...exposed(routes.adminWarehouseStaffRouter, '/v1/admin/warehouse-staff'),
+      ...exposed(routes.adminStaffAttendanceRouter, '/v1/admin/staff-attendance'),
+    ].sort();
+    expect(actual).toHaveLength(11);
+    expect(ALL_CALLS.map((c) => c.route).sort()).toEqual(actual);
+  });
+
+  for (const call of ALL_CALLS) {
+    httpIt(`BR-83: a Sub Warehouse Admin gets 403 on every staff and attendance route (${call.route}), for its own warehouse's staff too, with no staff data in the body and nothing written`, async () => {
+      const { pool } = await import('../../db/pool.js');
+      const state = async (): Promise<string> =>
+        JSON.stringify(
+          (
+            await pool.query(
+              `SELECT (SELECT count(*) FROM warehouse_staff WHERE designation LIKE $1) AS staff,
+                      (SELECT count(*) FROM warehouse_staff WHERE designation LIKE $1 AND status = 'INACTIVE') AS inactive,
+                      (SELECT count(*) FROM staff_attendance WHERE staff_id = ANY($2::uuid[])) AS marks,
+                      (SELECT count(*) FROM staff_attendance_history WHERE staff_id = ANY($2::uuid[])) AS history`,
+              [`${tag}%`, [coonoorStaff, kotagiriStaff]],
+            )
+          ).rows,
+        );
+      const before = await state();
       for (const role of ['subCoonoor', 'subKotagiri']) {
         const res = await send(call, role);
-        expect(res.status, `${call.method} ${call.path()} as ${role}`).toBe(403);
+        expect(res.status, `${call.route} as ${role}: ${JSON.stringify(res.body)}`).toBe(403);
+        expect(res.headers['content-type']).toContain('application/problem+json');
+        expect(res.body.code).toBe('FORBIDDEN');
+        // `instance` echoes the request URL the caller sent (which may hold the id it asked for);
+        // everything else in the problem document must carry no staff data.
+        const rest: Record<string, unknown> = { ...(res.body as Record<string, unknown>) };
+        expect(rest['instance']).toBe(call.path());
+        delete rest['instance'];
+        const raw = JSON.stringify(rest);
+        for (const leak of [tag, coonoorStaff, kotagiriStaff, 'STF-']) expect(raw, `${call.route} as ${role}`).not.toContain(leak);
       }
-    }
+      expect(await state()).toBe(before);
+    });
+  }
+
+  httpIt('BR-83k: the role matrix holds through the real router for every role that keeps staff access: Tohfa Admin reads but cannot mark; Main (confined or not) and Super Admin may do everything', async () => {
     // Marks first, so the history route below has a record to read.
     for (const call of ATTENDANCE_MARKS) {
-      for (const role of ['subCoonoor', 'main', 'superAdmin']) {
+      for (const role of ['mainCoonoor', 'main', 'superAdmin']) {
         const res = await send(call, role);
         expect([200, 201], `${call.method} ${call.path()} as ${role}: ${JSON.stringify(res.body)}`).toContain(res.status);
       }
@@ -848,13 +903,13 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
       expect(ta.status, `${call.method} ${call.path()} as tohfaAdmin`).toBe(403);
     }
     for (const call of ATTENDANCE_READS) {
-      for (const role of ['subCoonoor', 'main', 'superAdmin', 'tohfaAdmin']) {
+      for (const role of ['mainCoonoor', 'main', 'superAdmin', 'tohfaAdmin']) {
         const res = await send(call, role);
         expect(res.status, `${call.method} ${call.path()} as ${role}: ${JSON.stringify(res.body)}`).toBe(200);
       }
     }
     for (const call of [...STAFF_READS, STAFF_WRITES[1]!]) {
-      for (const role of ['main', 'superAdmin', 'tohfaAdmin']) {
+      for (const role of ['mainCoonoor', 'main', 'superAdmin', 'tohfaAdmin']) {
         const res = await send(call, role);
         expect(res.status, `${call.method} ${call.path()} as ${role}: ${JSON.stringify(res.body)}`).toBe(200);
       }
@@ -901,58 +956,58 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
     expect(after.rowCount).toBe(before.rowCount);
   });
 
-  httpIt('BR-84n: a Sub admin marks its own warehouse (201, then 200 on replay and on correction), and another warehouse\'s staff is 404 on mark, bulk, history and the warehouse/staff filters, while Main reaches both', async () => {
-    const created = await request(server).put(markUrl(coonoorStaff)).set('Authorization', auth('subCoonoor')).send({ status: 'PRESENT', checkIn: '2025-03-10T09:02:00+05:30', checkOut: '2025-03-10T18:10:00+05:30', note: 'ok' });
+  httpIt('BR-84n: a Main admin confined to one warehouse marks its own warehouse (201, then 200 on replay and on correction), and another warehouse\'s staff is 404 on mark, bulk, history and the warehouse/staff filters, while an unconfined Main reaches both', async () => {
+    const created = await request(server).put(markUrl(coonoorStaff)).set('Authorization', auth('mainCoonoor')).send({ status: 'PRESENT', checkIn: '2025-03-10T09:02:00+05:30', checkOut: '2025-03-10T18:10:00+05:30', note: 'ok' });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body).toMatchObject({ staffId: coonoorStaff, warehouseId: coonoorId, workDate: DAY, status: 'PRESENT', checkIn: '2025-03-10T03:32:00.000Z', checkOut: '2025-03-10T12:40:00.000Z', note: 'ok' });
-    const replay = await request(server).put(markUrl(coonoorStaff)).set('Authorization', auth('subCoonoor')).send({ status: 'PRESENT', checkIn: '2025-03-10T09:02:00+05:30', checkOut: '2025-03-10T18:10:00+05:30', note: 'ok' });
+    const replay = await request(server).put(markUrl(coonoorStaff)).set('Authorization', auth('mainCoonoor')).send({ status: 'PRESENT', checkIn: '2025-03-10T09:02:00+05:30', checkOut: '2025-03-10T18:10:00+05:30', note: 'ok' });
     expect(replay.status).toBe(200);
     expect(replay.body.id).toBe(created.body.id);
-    const fix = await request(server).put(markUrl(coonoorStaff)).set('Authorization', auth('subCoonoor')).send({ status: 'LEAVE' });
+    const fix = await request(server).put(markUrl(coonoorStaff)).set('Authorization', auth('mainCoonoor')).send({ status: 'LEAVE' });
     expect(fix.status).toBe(200);
     expect(fix.body).toMatchObject({ id: created.body.id, status: 'LEAVE', checkIn: null, note: null });
-    const history = await request(server).get(`${markUrl(coonoorStaff)}/history`).set('Authorization', auth('subCoonoor'));
+    const history = await request(server).get(`${markUrl(coonoorStaff)}/history`).set('Authorization', auth('mainCoonoor'));
     expect(history.status).toBe(200);
     expect(history.body.items.map((h: { action: string; toStatus: string }) => `${h.action}:${h.toStatus}`)).toEqual(['CREATED:PRESENT', 'UPDATED:LEAVE']);
 
     for (const other of [
-      request(server).put(markUrl(kotagiriStaff)).set('Authorization', auth('subCoonoor')).send({ status: 'PRESENT' }),
-      request(server).put('/v1/admin/staff-attendance/dates/2025-03-10').set('Authorization', auth('subCoonoor')).send({ entries: [{ staffId: coonoorStaff, status: 'PRESENT' }, { staffId: kotagiriStaff, status: 'PRESENT' }] }),
-      request(server).get(`${markUrl(kotagiriStaff)}/history`).set('Authorization', auth('subCoonoor')),
-      request(server).get('/v1/admin/staff-attendance/roll-call').query({ warehouseId: kotagiriId }).set('Authorization', auth('subCoonoor')),
-      request(server).get('/v1/admin/staff-attendance').query({ staffId: kotagiriStaff }).set('Authorization', auth('subCoonoor')),
-      request(server).get('/v1/admin/staff-attendance').query({ warehouseId: kotagiriId }).set('Authorization', auth('subCoonoor')),
-      request(server).get('/v1/admin/staff-attendance/summary').query({ month: '2025-03', staffId: kotagiriStaff }).set('Authorization', auth('subCoonoor')),
+      request(server).put(markUrl(kotagiriStaff)).set('Authorization', auth('mainCoonoor')).send({ status: 'PRESENT' }),
+      request(server).put('/v1/admin/staff-attendance/dates/2025-03-10').set('Authorization', auth('mainCoonoor')).send({ entries: [{ staffId: coonoorStaff, status: 'PRESENT' }, { staffId: kotagiriStaff, status: 'PRESENT' }] }),
+      request(server).get(`${markUrl(kotagiriStaff)}/history`).set('Authorization', auth('mainCoonoor')),
+      request(server).get('/v1/admin/staff-attendance/roll-call').query({ warehouseId: kotagiriId }).set('Authorization', auth('mainCoonoor')),
+      request(server).get('/v1/admin/staff-attendance').query({ staffId: kotagiriStaff }).set('Authorization', auth('mainCoonoor')),
+      request(server).get('/v1/admin/staff-attendance').query({ warehouseId: kotagiriId }).set('Authorization', auth('mainCoonoor')),
+      request(server).get('/v1/admin/staff-attendance/summary').query({ month: '2025-03', staffId: kotagiriStaff }).set('Authorization', auth('mainCoonoor')),
     ]) {
       const res = await other;
       expect(res.status, JSON.stringify(res.body)).toBe(404);
     }
     // The bulk request that named the other warehouse's staff changed nothing for the first entry either.
-    const bulkAfter = await request(server).get('/v1/admin/staff-attendance').query({ staffId: coonoorStaff, from: DAY, to: DAY }).set('Authorization', auth('subCoonoor'));
+    const bulkAfter = await request(server).get('/v1/admin/staff-attendance').query({ staffId: coonoorStaff, from: DAY, to: DAY }).set('Authorization', auth('mainCoonoor'));
     expect(bulkAfter.body.items.map((i: { status: string }) => i.status)).toEqual(['LEAVE']);
 
     const mainBoth = await request(server).put(markUrl(kotagiriStaff)).set('Authorization', auth('main')).send({ status: 'ABSENT' });
     expect(mainBoth.status).toBe(201);
-    const subKotagiriSees = await request(server).get('/v1/admin/staff-attendance').query({ staffId: kotagiriStaff }).set('Authorization', auth('subKotagiri'));
-    expect(subKotagiriSees.body.items.map((i: { workDate: string }) => i.workDate)).toEqual([DAY]);
+    const kotagiriSees = await request(server).get('/v1/admin/staff-attendance').query({ staffId: kotagiriStaff }).set('Authorization', auth('mainKotagiri'));
+    expect(kotagiriSees.body.items.map((i: { workDate: string }) => i.workDate)).toEqual([DAY]);
   });
 
   httpIt('BR-84o: bad attendance input is 422 and writes nothing: HALF_DAY, times on an absent day, a future date, an impossible date, a duplicate in a bulk request, and an invalid cursor or range', async () => {
     const { pool } = await import('../../db/pool.js');
     const rows = async (): Promise<number> => (await pool.query(`SELECT 1 FROM staff_attendance WHERE staff_id = $1`, [coonoorStaff])).rowCount ?? -1;
     const before = await rows();
-    const put = (date: string, body: object) => request(server).put(markUrl(coonoorStaff, date)).set('Authorization', auth('subCoonoor')).send(body);
+    const put = (date: string, body: object) => request(server).put(markUrl(coonoorStaff, date)).set('Authorization', auth('mainCoonoor')).send(body);
     expect((await put('2025-03-08', { status: 'HALF_DAY' })).status).toBe(422);
     expect((await put('2025-03-08', { status: 'ABSENT', checkIn: '2025-03-08T09:00:00+05:30' })).status).toBe(422);
     expect((await put('2099-01-01', { status: 'PRESENT' })).status).toBe(422);
     expect((await put('2025-02-30', { status: 'PRESENT' })).status).toBe(422);
     expect((await put('2025-03-08', { status: 'PRESENT', staffId: coonoorStaff })).status).toBe(422);
-    const bulk = (date: string, entries: object[]) => request(server).put(`/v1/admin/staff-attendance/dates/${date}`).set('Authorization', auth('subCoonoor')).send({ entries });
+    const bulk = (date: string, entries: object[]) => request(server).put(`/v1/admin/staff-attendance/dates/${date}`).set('Authorization', auth('mainCoonoor')).send({ entries });
     expect((await bulk('2025-03-08', [{ staffId: coonoorStaff, status: 'PRESENT' }, { staffId: coonoorStaff, status: 'ABSENT' }])).status).toBe(422);
     expect((await bulk('2099-01-01', [{ staffId: coonoorStaff, status: 'PRESENT' }])).status).toBe(422);
     expect((await bulk('2025-03-08', [])).status).toBe(422);
     expect(await rows()).toBe(before);
-    const get = (path: string) => request(server).get(path).set('Authorization', auth('subCoonoor'));
+    const get = (path: string) => request(server).get(path).set('Authorization', auth('mainCoonoor'));
     expect((await get('/v1/admin/staff-attendance?cursor=garbage')).status).toBe(422);
     expect((await get('/v1/admin/staff-attendance?from=2025-03-02&to=2025-03-01')).status).toBe(422);
     expect((await get('/v1/admin/staff-attendance/summary')).status).toBe(422);
@@ -961,7 +1016,7 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
     expect((await get('/v1/admin/staff-attendance?from=2000-01-01&to=2025-03-01')).status).toBe(422);
   });
 
-  httpIt('BR-84p: bulk, roll call, summary and list answer with their documented shapes for the Sub admin, and a bulk request is applied entirely or not at all', async () => {
+  httpIt('BR-84p: bulk, roll call, summary and list answer with their documented shapes for a Main admin confined to one warehouse, and a bulk request is applied entirely or not at all', async () => {
     const make = async (warehouseId: string, name: string): Promise<string> => {
       const res = await request(server).post('/v1/admin/warehouse-staff').set('Authorization', auth('main')).send({ warehouseId, fullName: `${tag} ${name}`, designation: tag, joinedOn: '2026-01-15' });
       expect(res.status, JSON.stringify(res.body)).toBe(201);
@@ -979,7 +1034,7 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
     const replay = await request(server).put(`/v1/admin/staff-attendance/dates/${day}`).set('Authorization', auth('main')).send({ entries });
     expect(replay.body).toMatchObject({ created: 0, updated: 0, unchanged: 2 });
 
-    const roll = await request(server).get('/v1/admin/staff-attendance/roll-call').query({ date: day }).set('Authorization', auth('subCoonoor'));
+    const roll = await request(server).get('/v1/admin/staff-attendance/roll-call').query({ date: day }).set('Authorization', auth('mainCoonoor'));
     expect(roll.status).toBe(200);
     expect(roll.body.date).toBe(day);
     const row = roll.body.items.find((i: { staffId: string }) => i.staffId === mine);
@@ -993,15 +1048,15 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
 
     // Exact month arithmetic for this staff member: PRESENT, ABSENT, LEAVE and the bulk PRESENT above.
     for (const [date, status] of [['2025-04-01', 'PRESENT'], ['2025-04-02', 'ABSENT'], ['2025-04-03', 'LEAVE']]) {
-      expect((await request(server).put(markUrl(mine, date!)).set('Authorization', auth('subCoonoor')).send({ status })).status).toBe(201);
+      expect((await request(server).put(markUrl(mine, date!)).set('Authorization', auth('mainCoonoor')).send({ status })).status).toBe(201);
     }
-    const summary = await request(server).get('/v1/admin/staff-attendance/summary').query({ month: '2025-04', staffId: mine }).set('Authorization', auth('subCoonoor'));
+    const summary = await request(server).get('/v1/admin/staff-attendance/summary').query({ month: '2025-04', staffId: mine }).set('Authorization', auth('mainCoonoor'));
     expect(summary.status).toBe(200);
     expect(summary.body).toMatchObject({ from: '2025-04-01', to: '2025-04-30', totals: { present: 2, absent: 1, leave: 1, marked: 4 } });
     expect(summary.body.byStaff).toHaveLength(1);
     expect(summary.body.byStaff[0]).toMatchObject({ staffId: mine, present: 2, absent: 1, leave: 1, marked: 4 });
 
-    const list = await request(server).get('/v1/admin/staff-attendance').query({ staffId: mine, limit: 3 }).set('Authorization', auth('subCoonoor'));
+    const list = await request(server).get('/v1/admin/staff-attendance').query({ staffId: mine, limit: 3 }).set('Authorization', auth('mainCoonoor'));
     expect(list.status).toBe(200);
     expect(list.body.items.map((i: { workDate: string }) => i.workDate)).toEqual(['2025-04-04', '2025-04-03', '2025-04-02']);
     expect(list.body.summary).toEqual({ present: 2, absent: 1, leave: 1, total: 4 });

@@ -4,9 +4,9 @@
  * Takes a `ResolvedScope`, never a `Request`. Throws `AppError` with a domain `ErrorCode`.
  *
  * Warehouse scoping (BR-62, BR-63): reads narrow with `warehouseScopeFilter` inside the repo; a
- * row outside the caller's scope is absent, so a by-id read of it is 404, never 403. Under the
- * UNCONFIRMED owner default in src/rbac/warehouseScope.ts, an `own` grant with no assigned
- * warehouse (a Main Warehouse Admin) means all four warehouses.
+ * row outside the caller's scope is absent, so a by-id read of it is 404, never 403. As
+ * src/rbac/warehouseScope.ts applies it, an `own` grant with no assigned warehouse (a Main
+ * Warehouse Admin) means all four warehouses: confirmed by the owner 2026-10-11.
  */
 import { fromPaise, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
@@ -89,7 +89,7 @@ function sumTotals(rows: ReadonlyArray<{ count: number; total: Money }>): TotalS
 }
 
 /** True when `a` and `b` are the same request, as far as an idempotent replay cares. */
-function sameRequest(existing: ExpenseRecord, wanted: Omit<ExpenseRecord, 'id' | 'category' | 'status' | 'createdAt' | 'decidedBy' | 'decidedAt' | 'decisionReason'>): boolean {
+function sameRequest(existing: ExpenseRecord, wanted: Omit<ExpenseRecord, 'id' | 'category' | 'status' | 'createdAt'>): boolean {
   return (
     existing.warehouseId === wanted.warehouseId &&
     existing.categoryId === wanted.categoryId &&

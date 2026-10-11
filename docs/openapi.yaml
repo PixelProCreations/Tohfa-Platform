@@ -10928,8 +10928,9 @@ paths:
         average order value, per day, per channel and per status. Every order status is included,
         cancelled and unpaid ones too. A channel, status or day with no orders is absent, never a
         zero row (BR-64c). The average is computed from the exact sum and count and rounded half up.
-        A Sub Warehouse Admin sees its own warehouse only; a Main Warehouse Admin sees all four, by
-        the working default that an `own` grant with no assigned warehouse means all warehouses (BR-64).
+        A Sub Warehouse Admin sees its own warehouse only; a Main Warehouse Admin sees all four: an
+        `own` grant with no assigned warehouse means all warehouses. Confirmed by the owner
+        2026-10-11: a Main Warehouse Admin sees all four warehouses (BR-64).
       x-permission: order.list.view_all
       x-business-rules: [BR-64]
       parameters:
@@ -11301,7 +11302,7 @@ paths:
         - { $ref: '#/components/parameters/ReportWarehouseIdParam' }
         - { name: categoryId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: paymentMethod, in: query, required: false, schema: { type: string, enum: [CASH, UPI, BANK] } }
-        - { name: status, in: query, required: false, schema: { type: string, enum: [RECORDED, APPROVED, REJECTED, CANCELLED] } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [RECORDED, APPROVED, REJECTED] } }
       responses:
         '200': { $ref: '#/components/responses/ReportExportCsv' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -11490,13 +11491,13 @@ paths:
       operationId: listExpenseCategories
       summary: Active expense categories
       description: |
-        Read-only list of the active expense categories, `{id, name}`, ordered by name. The categories
-        are seeded by migration 0047 and changed through `POST` / `PATCH` below and the management
-        list `GET /admin/expense-categories/manage` (BR-73). A "log expense" permission also
+        Read-only list of the active expense categories, `{id, name}`, ordered by name. There is no
+        write endpoint: the categories are seeded by migration 0047 (BR-62, owner decision 2026-10-11:
+        category management is not defined by the rules). A "log expense" permission also
         guarding this read is a deliberate stretch of `finance.expense.log` (no separate read code
         exists in docs/rbac.json).
       x-permission: finance.expense.log
-      x-business-rules: [BR-62, BR-73]
+      x-business-rules: [BR-62]
       responses:
         '200':
           description: Active categories.
@@ -11510,94 +11511,6 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/ServerError' }
-    post:
-      tags: [Finance]
-      operationId: createExpenseCategory
-      summary: Create an expense category
-      description: |
-        UNCONFIRMED DEFAULT (owner approval pending; permission `finance.expense_category.manage` is a
-        documented spec gap, SA / TA only): a category name is trimmed, 1 to 80 characters, and unique
-        ignoring case (409 `CONFLICT`). Writes a `finance.expense_category.manage` audit row in the same
-        transaction. No `Idempotency-Key` is needed: the unique name makes a repeat a 409.
-      x-permission: finance.expense_category.manage
-      x-business-rules: [BR-73]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ExpenseCategoryCreate' }
-      responses:
-        '201':
-          description: Category created.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ExpenseCategoryAdmin' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/ServerError' }
-
-  /admin/expense-categories/manage:
-    get:
-      tags: [Finance]
-      operationId: listExpenseCategoriesForManagement
-      summary: Every expense category, inactive ones included, with usage counts
-      description: |
-        For the category management screen: `{id, name, isActive, expenseCount}` ordered by name.
-        `status` narrows to `ACTIVE`, `INACTIVE` or `ALL` (default). `expenseCount` is the number of
-        non-deleted expenses carrying the category.
-      x-permission: finance.expense_category.manage
-      x-business-rules: [BR-73]
-      parameters:
-        - { name: status, in: query, schema: { type: string, enum: [ACTIVE, INACTIVE, ALL], default: ALL } }
-      responses:
-        '200':
-          description: The categories.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items: { type: array, items: { $ref: '#/components/schemas/ExpenseCategoryAdmin' } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/ServerError' }
-
-  /admin/expense-categories/{id}:
-    patch:
-      tags: [Finance]
-      operationId: updateExpenseCategory
-      summary: Rename, deactivate or reactivate an expense category
-      description: |
-        UNCONFIRMED DEFAULT (owner approval pending): send `name`, `isActive` or both. A deactivated
-        category is refused on NEW expenses (422 on `body.categoryId`) but keeps labelling the expenses
-        already recorded against it; reactivating allows it again. A category is never deleted. A
-        rename to a name another category already has (ignoring case) is 409 `CONFLICT`; an update that
-        changes nothing is a 200 that writes no audit row. 404 for an unknown id.
-      x-permission: finance.expense_category.manage
-      x-business-rules: [BR-73]
-      parameters:
-        - { $ref: '#/components/parameters/IdParam' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ExpenseCategoryUpdate' }
-      responses:
-        '200':
-          description: The category after the update.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ExpenseCategoryAdmin' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/expenses:
     post:
@@ -11605,9 +11518,9 @@ paths:
       operationId: createExpense
       summary: Record a warehouse expense
       description: |
-        Records an expense with status `RECORDED`, `recordedBy` = the caller. It is later approved,
-        rejected or cancelled through the decision endpoints below (BR-73); there is no edit or delete
-        endpoint, and the money fields never change after recording. A Sub Warehouse Admin records for their own warehouse (a
+        Records an expense with status `RECORDED`, `recordedBy` = the caller. There is no approve,
+        reject, edit, cancel or delete endpoint (BR-62, owner decision 2026-10-11: expenses are only
+        recorded). A Sub Warehouse Admin records for their own warehouse (a
         `warehouseId` they are not assigned to is 404); a caller not confined to a warehouse (Main
         Warehouse Admin, Super Admin, Tohfa Admin) must send `warehouseId`, an existing active
         warehouse (422 otherwise). `categoryId` must be an ACTIVE category (422). `expenseDate` is a
@@ -11659,7 +11572,7 @@ paths:
       parameters:
         - { name: categoryId, in: query, schema: { type: string, format: uuid } }
         - { name: paymentMethod, in: query, schema: { type: string, enum: [CASH, UPI, BANK] } }
-        - { name: status, in: query, schema: { type: string, enum: [RECORDED, APPROVED, REJECTED, CANCELLED] } }
+        - { name: status, in: query, schema: { type: string, enum: [RECORDED, APPROVED, REJECTED] } }
         - { name: from, in: query, description: 'Inclusive expense date, a real YYYY-MM-DD date. Must be <= `to`.', schema: { type: string, format: date } }
         - { name: to, in: query, description: 'Inclusive expense date, a real YYYY-MM-DD date.', schema: { type: string, format: date } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -11704,111 +11617,6 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
-  /admin/expenses/{id}/approve:
-    post:
-      tags: [Finance]
-      operationId: approveExpense
-      summary: Approve a RECORDED expense
-      description: |
-        UNCONFIRMED DEFAULT (owner approval pending; permission `finance.expense.approve` is a documented
-        spec gap): the SWA and MWA Module 11 prototypes both say expense approval is not granted to the
-        warehouse roles, so only Super Admin and Tohfa Admin may approve (Main Warehouse Admin is `none`
-        in docs/rbac.json pending the owner; the build brief proposed `all`).
-
-        `RECORDED` -> `APPROVED`, recording `decidedBy` / `decidedAt`. Never the recorder: 403
-        `SELF_APPROVAL_FORBIDDEN` (the database check `expenses_no_self_approval_chk` stays as a backstop,
-        never surfacing as a 500). A decided expense is final: any further decision is 409
-        `INVALID_STATE_TRANSITION`. 404 when the expense is absent, deleted or outside the caller's scope.
-
-        Requires `Idempotency-Key` (422 when missing or blank). Replaying the same key for the same
-        decision returns the original expense with 200 and writes no second audit row; the same key for a
-        different decision or expense is 409 `IDEMPOTENCY_KEY_REUSED`. A `finance.expense.approve` audit
-        row with a masked image (no vendor or description text) is written in the same transaction.
-      x-permission: finance.expense.approve
-      x-business-rules: [BR-73]
-      parameters:
-        - { $ref: '#/components/parameters/IdParam' }
-        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
-      responses:
-        '200':
-          description: The approved expense (also the idempotent replay).
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Expense' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/ServerError' }
-
-  /admin/expenses/{id}/reject:
-    post:
-      tags: [Finance]
-      operationId: rejectExpense
-      summary: Reject a RECORDED expense with a reason
-      description: |
-        Same rules, permission, idempotency and errors as approve (BR-73; UNCONFIRMED default, see
-        `approveExpense`), with `RECORDED` -> `REJECTED` and a required short `reason` (1 to 200
-        characters) stored on the expense as `decisionReason` and visible to whoever can read the
-        expense. The reason is free text and is NEVER copied into the audit row. A different `reason`
-        under the same key is 409 `IDEMPOTENCY_KEY_REUSED`.
-      x-permission: finance.expense.approve
-      x-business-rules: [BR-73]
-      parameters:
-        - { $ref: '#/components/parameters/IdParam' }
-        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ExpenseRejectRequest' }
-      responses:
-        '200':
-          description: The rejected expense (also the idempotent replay).
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Expense' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/ServerError' }
-
-  /admin/expenses/{id}/cancel:
-    post:
-      tags: [Finance]
-      operationId: cancelExpense
-      summary: Cancel your own RECORDED expense
-      description: |
-        UNCONFIRMED DEFAULT (owner approval pending): the user who recorded an expense may cancel it
-        while it is still `RECORDED` (`CANCELLED`, `decidedBy` = the recorder). Nobody else can: another
-        user who can see the expense (a colleague, a Main Warehouse Admin) gets 403 `FORBIDDEN`; an
-        expense outside the caller's warehouse scope is 404. A decided expense is final (409
-        `INVALID_STATE_TRANSITION`). The row is kept, there is no delete. Cancelled expenses are
-        excluded from the cash expenses of the daily cash close (BR-74).
-
-        Requires `Idempotency-Key` with the same replay rules as approve. A `finance.expense.cancel`
-        audit row with a masked image is written in the same transaction.
-      x-permission: finance.expense.log
-      x-business-rules: [BR-73]
-      parameters:
-        - { $ref: '#/components/parameters/IdParam' }
-        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
-      responses:
-        '200':
-          description: The cancelled expense (also the idempotent replay).
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Expense' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/ServerError' }
-
   /admin/expenses/{id}/voucher:
     get:
       tags: [Finance]
@@ -11820,11 +11628,10 @@ paths:
         from the expense and never stored: the same expense always yields the same document. The
         `voucherNumber` is `VCH-<expense date YYYYMMDD>-<first 8 hex digits of the expense id, upper
         case>`; the design's sequential number (e.g. VCH-000821) would need a stored sequence, which is
-        not invented here. The document carries the expense fields, the recorder's name and the
-        approval state: `authorizedBy` is the approver only while the expense is `APPROVED` (null
-        otherwise, "Authorized By: -" on the design), plus `decidedAt` and, for a rejection, the reason.
-        Only names leave for the people involved, never their phone or e-mail. Revenue vouchers are not
-        built: the design offers them but does not define them.
+        not invented here. The document carries the expense fields and the recorder's name; there is
+        no "Authorized By": expenses have no approval workflow (BR-62, owner decision 2026-10-11). Only
+        the recorder's name leaves, never their phone or e-mail. Revenue vouchers are not built: the
+        design offers them but does not define them.
 
         Interim permission gate `finance.expense.log` (SPEC_GAPS: no voucher code exists). 404, not 403,
         for an expense that is absent, deleted or outside the caller's warehouse scope.
@@ -12083,8 +11890,8 @@ paths:
         counts when `payment_status = PAID` and `status` is a completed state, `DELIVERED` or
         `PICKED_UP` (there is no `COMPLETED` order status), with a non-null `completed_at`. Scoped by
         `orders.warehouse_id`: a Sub Warehouse Admin sees only their warehouse; a Main Warehouse Admin
-        holds an `own` grant with no warehouse dimension, which by the documented, unconfirmed default
-        means all four warehouses (BR-63). `from`/`to` bound `completed_at` by the Asia/Kolkata day.
+        holds an `own` grant with no warehouse dimension, which means all four warehouses (BR-63).
+        Confirmed by the owner 2026-10-11: a Main Warehouse Admin sees all four warehouses. `from`/`to` bound `completed_at` by the Asia/Kolkata day.
         Newest completion first, cursor pagination. `summary` covers the whole filtered set; `byChannel`
         lists only channels that have rows. No customer data is returned.
       x-permission: finance.sales_income.view
@@ -12209,9 +12016,8 @@ paths:
           restricted to CASH), dated by `completed_at`.
         - `cashTopUps`: successful CASH wallet top-ups processed at this warehouse that day. The
           design's Daily Cash Summary lists them as cash in.
-        - `cashExpenses`: CASH expenses dated that day whose status is not `CANCELLED`, never
-          soft-deleted. UNCONFIRMED DEFAULT: a `REJECTED` cash expense still counts, because the cash
-          left the till.
+        - `cashExpenses`: every CASH expense dated that day, never soft-deleted. Expenses are only
+          recorded (BR-62: there is no approval or cancellation), so no status is excluded.
         - `openingCash`: the counted cash of the latest earlier close of this warehouse (`openingFrom`
           is that close's date), `0.00` and null when there is none.
         - `expectedClosing` = `openingCash + cashSales + cashTopUps - cashExpenses`, in exact decimal
@@ -12360,6 +12166,10 @@ paths:
         A `staff.create` audit row with a masked image (id, staff code, warehouse, status; never
         name, phone or designation) is written in the same transaction.
 
+        A Sub Warehouse Admin gets 403: it cannot list staff, so it cannot add them either (owner
+        decision 2026-10-11, BR-83). A Main Warehouse Admin with no assigned warehouse reaches all
+        four warehouses (confirmed by the owner 2026-10-11).
+
         UNCONFIRMED DEFAULTS (the owner has not defined a warehouse staff roster): `admin.staff.manage`
         is a documented spec gap whose grants copy `admin.staff.list_view` (Sub = none); the field
         set is the one the designed Staff screens show; `phone` is 10 to 15 digits with an optional
@@ -12378,7 +12188,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseStaff' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12392,8 +12202,8 @@ paths:
         `q` matches the name or the staff code, case-insensitively, with `%` and `_` taken literally.
 
         `admin.staff.list_view` is `none` for SUB_WH_ADMIN in docs/rbac.json, so a Sub Warehouse
-        Admin gets 403 here. The designed Sub Warehouse screens do show a staff list: that
-        contradiction is reported as a spec gap (SPEC_GAPS #2) and NOT widened in this endpoint.
+        Admin gets 403 here. Owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff,
+        as the rules say (BR-83).
       x-permission: admin.staff.list_view
       x-business-rules: [BR-83]
       parameters:
@@ -12414,7 +12224,7 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/WarehouseStaff' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12436,7 +12246,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseStaff' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12466,7 +12276,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseStaff' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12492,7 +12302,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WarehouseStaff' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12506,14 +12316,16 @@ paths:
         Every ACTIVE staff member of the caller's warehouse(s) with the day's mark, or
         `attendance: null` when not marked yet ("Not Checked In" in the design). A staff member
         deactivated later still appears on a day they have a record for. `date` is an
-        Asia/Kolkata calendar date and defaults to today there. Counts are exact. A Sub Warehouse
-        Admin sees only its own warehouse; `warehouseId` naming another is 404 (BR-84).
+        Asia/Kolkata calendar date and defaults to today there. Counts are exact. A caller confined
+        to one warehouse (a Main Warehouse Admin with an assigned warehouse) sees only that
+        warehouse; `warehouseId` naming another is 404 (BR-84). A Main Warehouse Admin with no
+        assigned warehouse sees all four (confirmed by the owner 2026-10-11).
 
-        UNCONFIRMED: `admin.staff.attendance.view` is a documented spec gap. Sub gets `own` (the
-        attendance screens are classed Shared) although `admin.staff.list_view` is `none` for Sub,
-        so this response necessarily names staff to a role that cannot list them: contradiction
-        reported, owner decision pending. The roll call does not exclude staff who joined after
-        `date`.
+        A Sub Warehouse Admin gets 403: this response names staff, and a Sub Warehouse Admin cannot
+        list staff, so it has no attendance access (owner decision 2026-10-11, BR-83).
+
+        UNCONFIRMED: `admin.staff.attendance.view` is a documented spec gap (owner approval pending
+        for its other grants). The roll call does not exclude staff who joined after `date`.
       x-permission: admin.staff.attendance.view
       x-business-rules: [BR-84]
       parameters:
@@ -12526,7 +12338,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StaffRollCall' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12559,7 +12371,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAttendanceSummary' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12572,8 +12384,10 @@ paths:
       description: |
         Attendance rows, newest day first, cursor pagination, filtered by staff member, status and
         an inclusive date range (per staff: pass `staffId`; per date: `from` = `to`). `summary`
-        counts EVERY matching row, not only the page. Warehouse-scoped: a Sub Warehouse Admin sees
-        only its own warehouse; `staffId` or `warehouseId` outside the scope is 404. A range with
+        counts EVERY matching row, not only the page. Warehouse-scoped: a caller confined to one
+        warehouse (a Main Warehouse Admin with an assigned warehouse) sees only that warehouse;
+        `staffId` or `warehouseId` outside the scope is 404. A Sub Warehouse Admin gets 403 (it
+        cannot list staff; owner decision 2026-10-11, BR-83). A range with
         both `from` and `to` is capped by `system_config.staff_attendance_max_range_days` (BR-84).
       x-permission: admin.staff.attendance.view
       x-business-rules: [BR-84]
@@ -12598,7 +12412,7 @@ paths:
                   summary: { $ref: '#/components/schemas/StaffAttendanceCounts' }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12645,7 +12459,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAttendance' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -12672,7 +12486,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAttendanceHistory' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -12703,7 +12517,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAttendanceBulkResult' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/WarehouseStaffForbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -12852,6 +12666,16 @@ components:
             traceId: 01J9F1B2C3D4E5F6G7H8J9KC
     Forbidden:
       description: Authenticated but not permitted — RBAC or warehouse scope.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    WarehouseStaffForbidden:
+      description: |
+        `FORBIDDEN`: the caller's roles do not grant this operation's permission. A Sub Warehouse
+        Admin ALWAYS gets 403 on every warehouse staff and attendance operation, for its own
+        warehouse's staff too: it cannot list staff (`admin.staff.list_view` is `none`), so it holds
+        none of the staff or attendance codes (owner decision 2026-10-11, BR-83). Farmers, customers
+        and Farmer Admins get 403 as well; a Tohfa Admin gets 403 on the attendance marks.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
@@ -18121,40 +17945,9 @@ components:
         description: { type: string, maxLength: 1000 }
         warehouseId: { type: string, format: uuid, description: 'Required for a caller not assigned to a warehouse; a Sub Warehouse Admin may only name their own.' }
 
-    ExpenseRejectRequest:
-      type: object
-      additionalProperties: false
-      required: [reason]
-      properties:
-        reason: { type: string, minLength: 1, maxLength: 200, description: 'A short reason, trimmed. Stored on the expense, shown to its reader, never written to the audit log.' }
-
-    ExpenseCategoryCreate:
-      type: object
-      additionalProperties: false
-      required: [name]
-      properties:
-        name: { type: string, minLength: 1, maxLength: 80, description: 'Trimmed; unique ignoring case.' }
-
-    ExpenseCategoryUpdate:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        name: { type: string, minLength: 1, maxLength: 80 }
-        isActive: { type: boolean, description: 'false deactivates (refused on new expenses, kept on old ones); true reactivates.' }
-
-    ExpenseCategoryAdmin:
-      type: object
-      required: [id, name, isActive, expenseCount]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        isActive: { type: boolean }
-        expenseCount: { type: integer, description: 'Non-deleted expenses carrying this category.' }
-
     ExpenseVoucher:
       type: object
-      required: [voucherNumber, voucherType, expenseId, warehouse, category, amount, expenseDate, paymentMethod, vendor, description, status, recordedBy, authorizedBy, decidedAt, decisionReason]
+      required: [voucherNumber, voucherType, expenseId, warehouse, category, amount, expenseDate, paymentMethod, vendor, description, status, recordedBy]
       properties:
         voucherNumber: { type: string, pattern: '^VCH-[0-9]{8}-[0-9A-F]{8}$', description: 'Derived: VCH-<expense date YYYYMMDD>-<first 8 hex digits of the expense id>. Never allocated, always the same for one expense.' }
         voucherType: { type: string, enum: [EXPENSE] }
@@ -18172,14 +17965,8 @@ components:
         paymentMethod: { type: [string, 'null'], enum: [CASH, UPI, BANK, null] }
         vendor: { type: [string, 'null'] }
         description: { type: [string, 'null'] }
-        status: { type: string, enum: [RECORDED, APPROVED, REJECTED, CANCELLED] }
+        status: { type: string, enum: [RECORDED, APPROVED, REJECTED] }
         recordedBy: { $ref: '#/components/schemas/VoucherPerson' }
-        authorizedBy:
-          allOf: [{ $ref: '#/components/schemas/VoucherPerson' }]
-          nullable: true
-          description: The approver, only while the expense is APPROVED.
-        decidedAt: { type: [string, 'null'], format: date-time }
-        decisionReason: { type: [string, 'null'] }
 
     VoucherPerson:
       type: object
@@ -18438,7 +18225,7 @@ components:
 
     Expense:
       type: object
-      required: [id, warehouseId, categoryId, category, amount, expenseDate, paymentMethod, vendor, description, status, recordedBy, createdAt, decidedBy, decidedAt, decisionReason]
+      required: [id, warehouseId, categoryId, category, amount, expenseDate, paymentMethod, vendor, description, status, recordedBy, createdAt]
       properties:
         id: { type: string, format: uuid }
         warehouseId: { type: [string, 'null'], format: uuid }
@@ -18449,12 +18236,9 @@ components:
         paymentMethod: { type: [string, 'null'], enum: [CASH, UPI, BANK, null], description: Null on rows recorded before migration 0047. }
         vendor: { type: [string, 'null'] }
         description: { type: [string, 'null'] }
-        status: { type: string, enum: [RECORDED, APPROVED, REJECTED, CANCELLED], description: 'BR-73: RECORDED may become APPROVED, REJECTED or CANCELLED once; a decided expense never changes again.' }
+        status: { type: string, enum: [RECORDED, APPROVED, REJECTED], description: 'Always RECORDED for an expense recorded through the API (BR-62: there is no approval workflow). APPROVED and REJECTED are legacy values of the original CHECK that no endpoint can produce.' }
         recordedBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
-        decidedBy: { type: [string, 'null'], format: uuid, description: 'Who approved, rejected or cancelled it (BR-73); null while RECORDED.' }
-        decidedAt: { type: [string, 'null'], format: date-time }
-        decisionReason: { type: [string, 'null'], description: The short reason given with a rejection; null otherwise. }
 
     FinanceTotal:
       type: object

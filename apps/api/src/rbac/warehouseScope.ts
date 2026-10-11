@@ -6,8 +6,9 @@
  * dimension in docs/rbac.json (`scopeDimension: null`), so an `own` grant on it - for example
  * `finance.sales_income.view` - has nothing to be confined to.
  *
- * Working default, NOT yet confirmed by the owner (docs SPEC_GAPS #4): a warehouse-admin `own`
- * grant with no assigned warehouse means "all four warehouses". It is safe here because
+ * A warehouse-admin `own` grant with no assigned warehouse means "all four warehouses".
+ * Confirmed by the owner 2026-10-11: a Main Warehouse Admin sees all four warehouses. It is safe
+ * here because
  *  - SUB_WH_ADMIN with a non-`all` scope and no warehouse never gets this far: requirePermission
  *    throws WAREHOUSE_SCOPE_VIOLATION for it, and
  *  - a scope that carries a farmer or customer id is never widened (it fails closed).

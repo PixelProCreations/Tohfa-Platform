@@ -1,6 +1,6 @@
 /**
- * Module 11 (Warehouse Finance): helpers shared by the finance, expense-lifecycle,
- * expense-categories and cash-close services. Pure functions only, no I/O.
+ * Module 11 (Warehouse Finance): helpers shared by the finance, expense-voucher and cash-close
+ * services. Pure functions only, no I/O.
  */
 import { ScopeLevel } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
@@ -20,7 +20,8 @@ export function notFound(what: string, id: string): AppError {
 
 /**
  * The warehouses the actor is confined to, or null when the scope is not confined to any (an
- * `all` grant, or an `own` grant on a role with no warehouse dimension: the owner default).
+ * `all` grant, or an `own` grant on a role with no warehouse dimension: a Main Warehouse Admin
+ * sees all four warehouses, confirmed by the owner 2026-10-11).
  */
 export function confinedWarehouses(scope: ResolvedScope): { first: string; all: string[] } | null {
   if (scope.level === ScopeLevel.ALL || scope.level === ScopeLevel.CONDITIONAL) return null;

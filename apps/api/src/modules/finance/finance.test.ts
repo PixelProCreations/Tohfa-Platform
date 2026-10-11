@@ -4,7 +4,7 @@
  * BR-62 = expense recording: own warehouse, idempotent, audited, no approval workflow, real date,
  *         positive Money.
  * BR-63 = finance reads are warehouse-scoped: revenue definition, 404 out of scope, a Main
- *         Warehouse Admin sees all four warehouses by the documented default.
+ *         Warehouse Admin sees all four warehouses (confirmed by the owner 2026-10-11).
  *
  * Three layers, because mocked-repo tests alone once let a SQL bug on nonexistent columns ship:
  *   1. schema tests (no I/O),
@@ -223,9 +223,6 @@ function makeHarness(): Harness {
         status: 'RECORDED',
         recordedBy: input.recordedBy,
         createdAt: '2026-03-10T10:00:00.000Z',
-        decidedBy: null,
-        decidedAt: null,
-        decisionReason: null,
       };
       expenses.push(record);
       keys.set(input.idempotencyKey, record.id);
@@ -447,9 +444,6 @@ describe('finance service: expense recording', () => {
       status: 'RECORDED',
       recordedBy: SUB_USER,
       createdAt: '2026-03-10T10:00:00.000Z',
-        decidedBy: null,
-        decidedAt: null,
-        decisionReason: null,
     };
     h.raceWith(winner);
     const result = await h.service.createExpense(subScope(), KEY, body());
@@ -514,9 +508,6 @@ describe('finance service: reads', () => {
     status: 'RECORDED',
     recordedBy: MAIN_USER,
     createdAt: '2026-03-10T10:00:00.000Z',
-        decidedBy: null,
-        decidedAt: null,
-        decisionReason: null,
   });
 
   it('BR-63a: an expense in another warehouse, and an id that does not exist, are both 404 for a Sub Warehouse Admin; Main sees it', async () => {

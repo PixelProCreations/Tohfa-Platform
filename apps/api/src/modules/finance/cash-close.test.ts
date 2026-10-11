@@ -264,11 +264,11 @@ describeIfDatabase('Cash close (PostgreSQL)', () => {
     await insertTopUp(tx, f, { warehouseId: f.ooty, amount: '700.00', createdAt: IN_START, channel: 'UPI' });
     await insertTopUp(tx, f, { warehouseId: f.coonoor, amount: '800.00', createdAt: IN_START });
     await insertTopUp(tx, f, { warehouseId: f.ooty, amount: '900.00', createdAt: '1950-03-09T18:29:59Z' });
-    // Expenses: 0.10 + 0.20 + 0.30 count (a REJECTED one is cash that left the till; only CANCELLED is excluded).
+    // Expenses: 0.10 + 0.20 + 0.30 count. Every CASH expense of the day counts; the legacy APPROVED and
+    // REJECTED values (no endpoint can produce them, BR-62) are not excluded either.
     await insertExpense(tx, f, { warehouseId: f.ooty, amount: '0.10' });
     await insertExpense(tx, f, { warehouseId: f.ooty, amount: '0.20', status: 'APPROVED' });
     await insertExpense(tx, f, { warehouseId: f.ooty, amount: '0.30', status: 'REJECTED' });
-    await insertExpense(tx, f, { warehouseId: f.ooty, amount: '400.00', status: 'CANCELLED' });
     await insertExpense(tx, f, { warehouseId: f.ooty, amount: '500.00', paymentMethod: 'UPI' });
     await insertExpense(tx, f, { warehouseId: f.ooty, amount: '600.00', deleted: true });
     await insertExpense(tx, f, { warehouseId: f.ooty, amount: '700.00', date: '1950-03-11' });

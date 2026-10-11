@@ -74,7 +74,7 @@ export const systemFigures = z.object({
   cashSales: moneyResponse,
   /** Successful CASH wallet top-ups processed at this warehouse that day. */
   cashTopUps: moneyResponse,
-  /** CASH expenses dated that day that are not CANCELLED. */
+  /** Every CASH expense dated that day (expenses are only recorded, BR-62). */
   cashExpenses: moneyResponse,
   /** openingCash + cashSales + cashTopUps - cashExpenses, computed server-side, never typed in. */
   expectedClosing: moneyResponse,
