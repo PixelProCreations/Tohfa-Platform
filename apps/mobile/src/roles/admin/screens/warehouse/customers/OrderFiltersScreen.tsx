@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: '#FDF4EC',
     borderWidth: 1.5,
-    borderColor: '#EA580C',
+    borderColor: '#F0562A',
   },
   chipText: {
     fontSize: 13,
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   chipTextActive: {
-    color: '#EA580C',
+    color: '#F0562A',
   },
   orangeNote: {
     flexDirection: 'row',
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   applyButton: {
     height: 52,
     borderRadius: 14,
-    backgroundColor: '#EA580C',
+    backgroundColor: '#F0562A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

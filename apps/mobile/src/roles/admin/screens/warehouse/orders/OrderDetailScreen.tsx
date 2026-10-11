@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryCheckBtn: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#F0562A',
     borderRadius: 14,
     height: 52,
     flexDirection: 'row',

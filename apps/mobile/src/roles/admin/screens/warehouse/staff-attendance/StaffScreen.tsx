@@ -39,6 +39,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
 import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
+import { StaffFiltersScreen, type StaffFilterValues } from './StaffFiltersScreen';
 import type { StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 /** rbac code for the warehouse roster (not admin.staff.list_view, the admin-account list). */
@@ -72,6 +73,10 @@ export function StaffScreen({
   const [filter, setFilter] = useState<RosterFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [showFilterScreen, setShowFilterScreen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<'All' | 'Warehouse Staff' | 'Driver'>('All');
+  const [attendanceFilter, setAttendanceFilter] = useState<'All' | 'Present' | 'Absent' | 'On Leave'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
 
   const scoped = useMemo(
     () => members.filter((m) => inScope(scope, m.warehouseId, selectedWarehouseId)),
@@ -83,8 +88,39 @@ export function StaffScreen({
       !q || m.name.toLowerCase().includes(q) || m.staffId.toLowerCase().includes(q) || m.role.toLowerCase().includes(q);
     const matchesFilter =
       filter === 'All' || (filter === 'Warehouse Staff' && m.type === 'warehouse') || (filter === 'Drivers' && m.type === 'driver');
-    return matchesSearch && matchesFilter;
+    const matchesRole =
+      roleFilter === 'All' ||
+      (roleFilter === 'Warehouse Staff' && m.type === 'warehouse') ||
+      (roleFilter === 'Driver' && m.type === 'driver');
+    const matchesAttendance = attendanceFilter === 'All' || m.attendance === attendanceFilter;
+    const matchesStatus = statusFilter === 'All' || m.status === statusFilter;
+    return matchesSearch && matchesFilter && matchesRole && matchesAttendance && matchesStatus;
   });
+
+  if (showFilterScreen) {
+    return (
+      <StaffFiltersScreen
+        initialFilters={{
+          searchQuery,
+          role: roleFilter,
+          attendance: attendanceFilter,
+          status: statusFilter,
+        }}
+        warehouseName={isMain ? undefined : scope.warehouseName ?? scope.warehouseId}
+        onBack={() => setShowFilterScreen(false)}
+        onApply={(newFilters) => {
+          setSearchQuery(newFilters.searchQuery);
+          setRoleFilter(newFilters.role);
+          setAttendanceFilter(newFilters.attendance);
+          setStatusFilter(newFilters.status);
+          if (newFilters.role === 'Warehouse Staff') setFilter('Warehouse Staff');
+          else if (newFilters.role === 'Driver') setFilter('Drivers');
+          else setFilter('All');
+          setShowFilterScreen(false);
+        }}
+      />
+    );
+  }
 
   const frame = (children: React.ReactNode) => (
     <WalletScreen
@@ -96,7 +132,7 @@ export function StaffScreen({
       }
       onBack={onBack}
       headerRight={
-        <HeaderIconButton accessibilityLabel="Filter staff" onPress={() => {}}>
+        <HeaderIconButton accessibilityLabel="Filter staff" onPress={() => setShowFilterScreen(true)}>
           <FilterSlidersIcon />
         </HeaderIconButton>
       }
@@ -225,11 +261,48 @@ export function StaffScreen({
         </View>
       </View>
 
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          &quot;Total Visible&quot; reflects only records SWA is authorized to see — never a misleading full-company staff count calculated over inaccessible admin records.
-        </Text>
-      </View>
+      {(attendanceFilter !== 'All' || statusFilter !== 'All') && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 }}>
+          {attendanceFilter !== 'All' && (
+            <TouchableOpacity
+              onPress={() => setAttendanceFilter('All')}
+              activeOpacity={0.7}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFF1EB',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 14,
+                gap: 4,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+                Attendance: {attendanceFilter} ✕
+              </Text>
+            </TouchableOpacity>
+          )}
+          {statusFilter !== 'All' && (
+            <TouchableOpacity
+              onPress={() => setStatusFilter('All')}
+              activeOpacity={0.7}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFF1EB',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 14,
+                gap: 4,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
+                Status: {statusFilter} ✕
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       <View style={styles.chipRow}>
         {FILTERS.map((item) => {
@@ -238,7 +311,12 @@ export function StaffScreen({
             <TouchableOpacity
               key={item}
               style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setFilter(item)}
+              onPress={() => {
+                setFilter(item);
+                if (item === 'Warehouse Staff') setRoleFilter('Warehouse Staff');
+                else if (item === 'Drivers') setRoleFilter('Driver');
+                else setRoleFilter('All');
+              }}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
@@ -268,13 +346,13 @@ export function StaffScreen({
         <View style={styles.actionRow}>
           {onNavigateToAttendance ? (
             <TouchableOpacity style={styles.actionCard} onPress={onNavigateToAttendance} activeOpacity={0.8} accessibilityRole="button">
-              <CalendarIcon size={22} color={adminColors.brand} />
+              <CalendarIcon size={22} color="#F0562A" />
               <Text style={styles.actionText}>Attendance</Text>
             </TouchableOpacity>
           ) : null}
           {onNavigateToHistory ? (
             <TouchableOpacity style={styles.actionCard} onPress={onNavigateToHistory} activeOpacity={0.8} accessibilityRole="button">
-              <HistoryIcon size={22} color={adminColors.brand} />
+              <HistoryIcon size={22} color="#F0562A" />
               <Text style={styles.actionText}>Attendance History</Text>
             </TouchableOpacity>
           ) : null}
@@ -354,7 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
   },
   chipActive: {
-    borderColor: '#EA580C',
+    borderColor: '#F0562A',
     backgroundColor: '#FFF7ED',
   },
   chipText: {
@@ -363,7 +441,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   chipTextActive: {
-    color: '#C2410C',
+    color: '#F0562A',
   },
   card: {
     backgroundColor: adminColors.card,
