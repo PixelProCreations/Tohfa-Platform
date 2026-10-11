@@ -101,6 +101,18 @@ export const ErrorCode = {
   LIVESTOCK_ALREADY_EXITED: 'LIVESTOCK_ALREADY_EXITED',
   /** The training workshop has reached full capacity (BR-59). */
   TRAINING_FULL: 'TRAINING_FULL',
+  /** A sale line's price differs from the quote the client echoed back; re-quote and confirm (BR-89). */
+  SALE_PRICE_CHANGED: 'SALE_PRICE_CHANGED',
+  /** Stock (or the LIVE_MARKET allocation) fell below a sale line's quantity since the quote (BR-89, BR-95). */
+  SALE_STOCK_CHANGED: 'SALE_STOCK_CHANGED',
+  /** A walk-in sale (no customer record) tried to pay by WALLET (BR-86). */
+  WALKIN_WALLET_NOT_ALLOWED: 'WALKIN_WALLET_NOT_ALLOWED',
+  /** The sale's UPI payment is not yet confirmed, so this action is not allowed (BR-94). */
+  PAYMENT_PENDING: 'PAYMENT_PENDING',
+  /** CASH amount received is below the sale total (BR-94). */
+  PAYMENT_AMOUNT_INSUFFICIENT: 'PAYMENT_AMOUNT_INSUFFICIENT',
+  /** HORECA/B2B sale creation is not available in Track 1 — HTTP 501 (BR-13, BR-85). */
+  SALE_CHANNEL_NOT_SUPPORTED: 'SALE_CHANNEL_NOT_SUPPORTED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

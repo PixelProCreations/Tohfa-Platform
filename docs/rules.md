@@ -267,6 +267,8 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-12b` Saving percentages that sum to 99 or 101 → 422, `code: ALLOCATION_SUM_INVALID`.
 - `BR-12c` An online order for more than the Online bucket's available quantity → 409, `code: INSUFFICIENT_ALLOCATION`; it does not draw from Reserve.
 
+**Interaction with DIRECT counter sales (owner decision 2026-10-11).** The buckets limit the ONLINE and LIVE_MARKET channels only; BR-12c stands. A DIRECT counter sale (BR-95) is **not** bucket-limited: it may draw any ACTIVE sellable stock of the batch, including stock the Online and Live Market buckets were allocated, and it does not decrement any allocation row. When it does, a later Online or Live Market consumption of that stock is refused 409 at the stock ledger (BR-95k), never by letting stock go negative; availability reads of those buckets are capped by the batch's unclaimed shelf (BR-100).
+
 ---
 
 ### BR-13 — B2B and Horeca draw from consolidated inventory
@@ -309,17 +311,20 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 | | |
 |---|---|
 | **Source** | Requirements v1.0 §2.2 |
-| **Status** | LOCKED |
+| **Status** | LOCKED, AMENDED 2026-10-11 (D1) |
 | **Layer** | Server-side, order service; `orders.channel` enum |
-| **Scope** | Deferred |
+| **Scope** | Deferred (Online); Direct and Market enabled for Sub Warehouse Admin by BR-85 |
 
-**Rule.** The platform sells through exactly four channels: Online, Market (live market day), Horeca, B2B. Every order carries its channel. Track 1 implements Online only; the other three are rejected rather than silently treated as Online.
+**Amended 2026-10-11 by owner decision D1 (see BR-85).** `orders.channel` gains a fifth value, `DIRECT` (at-counter sale). Direct and Market sales are now allowed for a Sub Warehouse Admin; Horeca and B2B creation is still rejected with 501. The original text is kept below; struck-through intent is marked "(superseded)".
+
+**Rule.** The platform sells through exactly four channels: Online, Market (live market day), Horeca, B2B. Every order carries its channel. Track 1 implements Online only; the other three are rejected rather than silently treated as Online. (superseded in part: Track 1 now implements Online, Market and Direct; Horeca and B2B are still rejected rather than silently treated as Online. `DIRECT` is a fifth `orders.channel` value alongside the four named channels.)
 
 **Failure mode if unenforced.** Channel revenue reporting and allocation both become unattributable, and GST treatment (inclusive for retail, exclusive for B2B) is applied to the wrong orders.
 
 **Test contract.**
-- `BR-15a` `orders.channel` is non-nullable and constrained to the four values.
-- `BR-15b` An order created with channel `b2b` in Track 1 → 501, not an Online order.
+- `BR-15a` `orders.channel` is non-nullable and constrained to the five values (the original four plus `DIRECT`, amended 2026-10-11).
+- `BR-15b` An order created with channel `b2b` in Track 1 → 501, not an Online order. (Unchanged by the amendment; `horeca` is likewise 501.)
+- `BR-15c` (added 2026-10-11) A `DIRECT` or `MARKET` order is accepted from a Sub Warehouse Admin through `POST /sales` (BR-85), and never from the customer order path.
 
 ---
 
@@ -1967,6 +1972,404 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-85 — Direct and Market sales are allowed for the Sub Warehouse Admin (amends BR-15)
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decisions 2026-10-11, D1, D2, D5; Sub Warehouse modules 6-7 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/sales/`; `orders.channel` (`DIRECT` added), `sales.*` permissions |
+| **Scope** | Track 1 |
+
+**Rule.** A Sub Warehouse Admin (scope `own`) may create `DIRECT` (at-counter) and `MARKET` (live market day) sales through `POST /v1/admin/sales` (Owner decision 2026-10-11, D1, D2). Super Admin and TOHFA Admin hold `sales.sale.create` at `all`; Main Warehouse Admin holds `none` on `sales.sale.create` and `payment.record` and `own` on the `*.view` sales codes; Farmer Admin, Farmer and Customer hold `none`. A sale is inserted already complete: `status = PICKED_UP`, `payment_status = PAID`, `completed_at` set, with no new status enum value (Owner decision 2026-10-11, D5); the one exception is UPI (BR-94). Horeca and B2B sale creation stays 501 (BR-13, BR-15b) with `SALE_CHANNEL_NOT_SUPPORTED` if no existing not-implemented code applies; read-only `GET /sales/horeca` and `GET /sales/b2b` are allowed (`sales.horeca.view`, `sales.b2b.view`). A sale is always made at the warehouse of the acting scope; a Sub Warehouse Admin cannot sell for another warehouse.
+
+**Failure mode if unenforced.** Counter and market revenue is recorded as Online or not at all, a Sub admin sells from another warehouse, or Horeca/B2B orders are silently created as retail sales.
+
+**Test contract.**
+- `BR-85a` `orders.channel` accepts `DIRECT` and `MARKET` (plus the existing values) and refuses any other string at the database level.
+- `BR-85b` Permission matrix on `POST /sales`: no token 401; FARMER, FARMER_ADMIN, CUSTOMER 403; MAIN_WH_ADMIN 403 (`none`); SUB_WH_ADMIN, TOHFA_ADMIN, SUPER_ADMIN reach the handler. The same matrix holds for `POST /sales/quote`, `GET /sales/products` and `GET /sales/customers/lookup`.
+- `BR-85c` Permission matrix on the read routes: `GET /sales`, `/sales/{id}`, `/sales/summary`, `/sales/market-day`, `/sales/horeca`, `/sales/b2b` return 401 without a token, 403 for FARMER, FARMER_ADMIN, CUSTOMER, and 200 for SUB_WH_ADMIN and MAIN_WH_ADMIN (`own`), TOHFA_ADMIN and SUPER_ADMIN (`all`).
+- `BR-85d` A sale created with channel `DIRECT` or `MARKET` is inserted `PICKED_UP` / `PAID` with `completed_at` set, in the same statement, and the `order_status_history` row exists (append-only, BR-17 family).
+- `BR-85e` Creating a sale with channel `horeca` or `b2b` is refused 501 (`SALE_CHANNEL_NOT_SUPPORTED`, or the existing not-implemented code), and nothing is written to `orders`, `stock_ledger` or `sale_payments`.
+- `BR-85f` A Sub Warehouse Admin's sale is stamped with their own warehouse; a `warehouse_id` in the body that is not theirs is ignored or refused 404, never accepted (cross-scope is not 403).
+- `BR-85g` `payment.record` is checked in the service: a caller with `sales.sale.create` but not `payment.record` is refused 403 before any write.
+- `BR-85h` `GET /sales/horeca` and `GET /sales/b2b` are read-only: no mutating verb exists for them (405/404), and their responses obey BR-90.
+
+---
+
+### BR-86 — A sale has exactly one customer identity; walk-ins cannot pay by wallet
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D4 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` service; database CHECK on `orders` (`customer_id`, `walk_in_name`, `walk_in_mobile`) |
+| **Scope** | Track 1 |
+
+**Rule.** `orders.customer_id` becomes nullable and `orders` gains `walk_in_name` and `walk_in_mobile`. A CHECK constraint requires exactly one identity: `customer_id IS NOT NULL XOR walk_in_name IS NOT NULL` (Owner decision 2026-10-11, D4). A walk-in sale cannot be paid by `WALLET`: 422 `WALKIN_WALLET_NOT_ALLOWED`, nothing written. Online orders keep a non-null `customer_id`. A walk-in is not a customer record and is not listed in BR-91.
+
+**Failure mode if unenforced.** An order with no buyer or two buyers, a wallet debit with no wallet to debit, or a walk-in silently attached to a real customer.
+
+**Test contract.**
+- `BR-86a` (DB level) Inserting an order with both `customer_id` and `walk_in_name` fails the CHECK; inserting one with neither fails the CHECK; inserting exactly one succeeds. `walk_in_mobile` without `walk_in_name` fails.
+- `BR-86b` An existing Online order (customer set, walk-in columns null) still satisfies the CHECK after migration (no data loss on backfill).
+- `BR-86c` `POST /sales` with a walk-in and `payment_method = WALLET` is 422 `WALKIN_WALLET_NOT_ALLOWED` as `problem+json`; no `orders`, `order_items`, `stock_ledger`, `wallet_transactions` or `sale_payments` row is written, and one `sale_attempts` row records the failure (BR-87).
+- `BR-86d` A walk-in may pay by CASH, UPI and CARD (201, `PAID`; UPI pending per BR-94).
+- `BR-86e` A body with both a customer reference and a walk-in name, or neither, is 422 and writes nothing.
+- `BR-86f` A walk-in sale never touches any `wallets` row (balance and ledger unchanged).
+
+---
+
+### BR-87 — A sale is one atomic transaction; confirmation only after commit
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decisions 2026-10-11, D5, D6 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` service (one transaction through `Executor`); `sale_attempts` table |
+| **Scope** | Track 1 |
+
+**Rule.** Payment, order, order items, the `SALE` rows in `stock_ledger`, the invoice (number from the gap-free counter, BR-98) and the `audit_log` row are written in one database transaction (Owner decision 2026-10-11, D5, D6). If any step fails, all roll back. The success response (and any notification or event) is emitted only after the commit. Every failed attempt is recorded in `sale_attempts` through a separate write that does not join the rolled-back transaction. `sale_attempts` is append-only at the database level (UPDATE and DELETE rejected, as for the other ledgers).
+
+**Failure mode if unenforced.** Stock decremented with no order, an order with no payment, a customer told "paid" for a sale that rolled back, or failed attempts that leave no trace for reconciliation.
+
+**Test contract.**
+- `BR-87a` A forced failure after the stock ledger write (for example in the invoice step) leaves no `orders`, `order_items`, `stock_ledger`, `sale_payments`, `wallet_transactions`, invoice or `audit_log` sale row, and the invoice counter is not advanced (no gap).
+- `BR-87b` On that failure exactly one `sale_attempts` row is written, with the reason code, actor, warehouse and request correlation id, and no secret or full mobile number.
+- `BR-87c` (DB level) `UPDATE`, `DELETE` and `TRUNCATE` on `sale_attempts` are refused.
+- `BR-87d` A successful sale writes exactly one audit row inside the same transaction, carrying ids and amounts only (no customer name, no mobile).
+- `BR-87e` The 201 response and any event or notification are produced after commit: a test that fails the commit sees no event emitted and a 5xx `problem+json`, never a success body.
+- `BR-87f` Rollback restores the stock: `inventory_batches.qty_available` is unchanged after a failed sale.
+- `BR-87g` Two concurrent sales for the last unit of a batch: one succeeds and one gets 409 `SALE_STOCK_CHANGED`; available quantity never goes negative.
+- `BR-87h` Concurrent sales draw invoice numbers with no collision and no gap: N parallel sales produce N distinct consecutive numbers, and a rolled-back sale does not consume one.
+
+---
+
+### BR-88 — A wallet debit for a sale is backend-only and idempotent
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D6; extends BR-17 and CLAUDE.md §2.4 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` service and wallet ledger; `Idempotency-Key` header |
+| **Scope** | Track 1 |
+
+**Rule.** When a sale is paid by `WALLET`, the debit is created by the backend inside the sale transaction (BR-87) as an append-only `wallet_transactions` row; no client, and no endpoint other than `POST /sales`, can debit a wallet for a sale (Owner decision 2026-10-11, D6). `POST /sales` and `POST /sales/{id}/payments/upi/confirm` require an `Idempotency-Key`; replaying a key returns the original response and moves money once. The same key with a different body is refused 422/409 per the existing idempotency contract. A wallet with insufficient balance is refused with the existing insufficient-balance error and writes nothing but a `sale_attempts` row.
+
+**Failure mode if unenforced.** A retry on a flaky counter connection debits the customer twice.
+
+**Test contract.**
+- `BR-88a` `POST /sales` without `Idempotency-Key` is 400/422 `problem+json` and writes nothing.
+- `BR-88b` Replaying the same key and body returns the same order id and amounts, and `wallet_transactions` holds exactly one debit for that sale; the wallet balance moved once, in integer paise.
+- `BR-88c` Replaying the same key with a different body is refused and moves no money.
+- `BR-88d` Concurrent requests with the same key move money once (one 201, the other the replayed response).
+- `BR-88e` Insufficient wallet balance is refused; balance and ledger unchanged; one `sale_attempts` row.
+- `BR-88f` No route other than `POST /sales` writes a sale debit; `wallet_transactions` accepts no UPDATE or DELETE (CLAUDE.md §2.3) and `wallets.balance` equals the sum of its ledger after the sale.
+- `BR-88g` The UPI confirm endpoint is idempotent: confirming twice (same or new key) on a sale already confirmed does not create a second `sale_payments` row or a second stock or invoice effect.
+
+---
+
+### BR-89 — Stock and price are re-validated at quote and again at create
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D2; reuses the BR-07 price ceiling |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` service; `POST /sales/quote`, `POST /sales` |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /sales/quote` checks stock and price and returns the priced lines and total. `POST /sales` re-checks both inside the sale transaction using the same code path; nothing the client sends (price, total) is trusted. If stock has dropped below the requested quantity since the quote: 409 `SALE_STOCK_CHANGED`. If the price differs from the quote the client echoed: 409 `SALE_PRICE_CHANGED`. Both are `problem+json`, write nothing except a `sale_attempts` row, and return the fresh values so the screen can re-confirm (Owner decision 2026-10-11, D2).
+
+**Failure mode if unenforced.** A counter sale at a stale price, or a sale of stock another counter just sold.
+
+**Test contract.**
+- `BR-89a` A quote for a quantity above available stock is refused with the stock error; a valid quote returns integer-paise lines and total.
+- `BR-89b` Reducing stock between quote and create returns 409 `SALE_STOCK_CHANGED`; no ledger, order or payment row is written; a `sale_attempts` row is.
+- `BR-89c` Changing the price between quote and create returns 409 `SALE_PRICE_CHANGED` with the same rollback and logging.
+- `BR-89d` A client-supplied total or unit price in the `POST /sales` body that disagrees with the server computation is ignored or refused, never stored.
+- `BR-89e` A sale never uses a batch that is not `ACTIVE`, or an expired one, or a quarantined/rejected GRN batch (stock lifecycle rules).
+- `BR-89f` Quote writes nothing (no order, no ledger, no `sale_attempts` row for a successful quote).
+
+---
+
+### BR-90 — No farm identity in any sale response or quote
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): extends BR-16 and CLAUDE.md §2.5 to the Sub Warehouse sales surface; owner decision 2026-10-11, D11 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` serializers (allow-list, not deny-list) |
+| **Scope** | Track 1 |
+
+**Rule.** Quote, product list, sale, sale history, sale detail, market-day, Horeca and B2B read responses are built by an allow-list serializer. No `farmerId`, farmer name, farm name, village, GPS, FMB or photo-with-farm-identity key may appear at any depth, including nested `items[]`, batch and invoice objects. Products are shown by grade, certification badges and TOHFA branding only. The invoice seller is TOHFA (BR-16b).
+
+**Failure mode if unenforced.** A Sub Warehouse staff member, or a printed counter receipt, exposes the farmer to the customer and defeats the aggregator model.
+
+**Test contract.**
+- `BR-90a` Responses of `GET /sales/products`, `POST /sales/quote`, `POST /sales`, `GET /sales`, `GET /sales/{id}` and the market-day, Horeca and B2B reads contain no key from the farmer-identity list, asserted recursively over the whole JSON including nested `items`.
+- `BR-90b` Adding a field to the internal order-item or batch model does not appear in any sale response (allow-list check: the serialized key set equals the documented key set).
+- `BR-90c` The receipt/invoice for a sale names TOHFA as seller and carries no farmer data.
+- `BR-90d` A sale-line `lot` or batch label shown to the counter is TOHFA's own code, not one that encodes a farmer id.
+
+---
+
+### BR-91 — Customer scope for the Sub Warehouse Admin
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D8; extends BR-30 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `customers` service and repo (scope predicate in SQL); `customer.*` permissions |
+| **Scope** | Track 1 |
+
+**Rule.** For an actor whose resolved scope is `own`, a customer is visible if and only if the customer has an order or a top-up at that actor's warehouse, or `preferred_warehouse_id` equals it (Owner decision 2026-10-11, D8). Anything else is an empty list on list routes and 404 on `/customers/{customerId}` and every sub-resource, never 403 (BR-30, `requirePermission.ts`). Scope `all` sees every customer. The same predicate applies to the customer sub-routes (purchases, orders, wallet, issues, support tickets) so a guessed id does not leak existence. Customer list summary counts (`total`, `active`, `new`) are computed over the visible set only. "Active" uses the window of BR-98.
+
+**Failure mode if unenforced.** A Sub admin reads another warehouse's customers, or learns by a 403 which customer ids exist.
+
+**Test contract.**
+- `BR-91a` Permission matrix on `GET /customers` and `/customers/{id}`: 401 without a token; 403 for FARMER, FARMER_ADMIN, CUSTOMER; 200 for SUB_WH_ADMIN and MAIN_WH_ADMIN (`own`), TOHFA_ADMIN and SUPER_ADMIN (`all`). The sub-routes use their own codes (`customer.purchase_history.view`, `customer.wallet.view`, `customer.issues.view`, `customer.support_history.view`) with the same matrix.
+- `BR-91b` A customer with an order at the admin's warehouse is visible; one with only a top-up there is visible; one whose `preferred_warehouse_id` is the warehouse is visible; one with none of these is absent from the list.
+- `BR-91c` For a customer outside the scope, `GET /customers/{id}` and each of the nine sub-routes return 404 `problem+json`, never 403, with the same body as for a nonexistent id.
+- `BR-91d` The list filters (`q`, `status`) and pagination cannot widen the scope: a `q` that matches an out-of-scope customer returns an empty page.
+- `BR-91e` `summary.total`, `summary.active` and `summary.new` count only in-scope customers and equal the sum of the visible rows over all pages.
+- `BR-91f` A customer later placing an order at the warehouse becomes visible; the scope is evaluated per request, not cached on the token.
+- `BR-91g` The sub-resources never return rows from another warehouse's orders for an in-scope customer unless the actor's scope covers them (purchases and orders are confined to the warehouse for `own`).
+- `BR-91h` Issues (`GET /customers/{customerId}/issues`, from `return_requests`, which has no number column) carry derived values, pinned by test: `reference` = `RET-` + the first 8 hex characters of the request id, upper-cased (a display label, not unique, never a key); `refundAmount` = sum of `unit_price * accepted_qty` over the request's items, rounded to 2 decimals, and ABSENT until an inspection recorded an accepted quantity; `resolvedAt` = the earliest status-history row to `REJECTED` or `REFUNDED`, null while open.
+
+---
+
+### BR-92 — Own-scope actors see masked customer PII
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D9; narrows BR-64d for list/detail only |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `customers` serializer driven by the resolved scope, not by a role check |
+| **Scope** | Track 1 |
+
+**Rule.** An actor holding a customer permission at scope `own` (the Sub Warehouse Admin; Main Warehouse Admin when `own`) receives only the customer name, the mobile masked to its last four digits (for example `******1234`) and the customer code. Full mobile, e-mail and address are never returned to them in any customers route or any nested object (Owner decision 2026-10-11, D9). Scope `all` actors receive the unmasked values. Masking is selected by the scope the permission resolved to, so a future role inherits it with no code change (CLAUDE.md §2.1). D9 overrules BR-64d only for the customer list and detail; the customers report keeps its own rule (BR-64d). Walk-in mobiles shown in sale history are masked the same way for `own`.
+
+**Failure mode if unenforced.** A Sub admin exports a warehouse's customers with full phone numbers and addresses.
+
+**Test contract.**
+- `BR-92a` For an `own`-scope actor the list, detail, and every sub-resource response contain no full mobile (no run of more than four consecutive digits from the stored number), no `email`, no address key, asserted recursively.
+- `BR-92b` The masked mobile equals `*` repeated to the original length followed by the last four digits (or the documented fixed mask), and the code and name are present.
+- `BR-92c` For an `all`-scope actor (SUPER_ADMIN, TOHFA_ADMIN) the same routes return the full fields.
+- `BR-92d` Masking follows the scope: the test grants `own` to a role through the permission fixture and sees masking with no change to the handler (no `user.role ===` branch exists in the serializer).
+- `BR-92e` A mobile shorter than four digits is masked fully without error.
+- `BR-92f` D9 does not alter the customers report: the BR-64d test still passes unchanged.
+- `BR-92g` `GET /sales/customers/lookup` by mobile for an `own` actor returns the masked mobile only, and a lookup that matches no in-scope customer is an empty result, not 403.
+- `BR-92h` The customer list `q` is trimmed and must then be 1 to 100 characters (else 422). It matches name or customer code for every actor; it matches the mobile only for an `all` (unmasked) actor and only when `q` holds at least 3 digits (non-digits stripped, substring of the stored mobile's digits). An `own` actor searching by mobile digits gets an empty page, so a masked number cannot be recovered through the filter.
+
+---
+
+### BR-93 — The Sub Warehouse Admin's customer wallet view is read-only
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D10; related to open contradiction 6 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `customers` routes; `customer.wallet.view` |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /customers/{customerId}/wallet` (summary), `/wallet/transactions` and `/wallet/transactions/{txnId}` are the only wallet routes under `/customers`, and they are GET-only (Owner decision 2026-10-11, D10). No credit, debit, adjustment or top-up route exists for the Sub Warehouse Admin through this surface. The same scope and masking rules as BR-91 and BR-92 apply. Amounts are integer-paise `Money` strings. A transaction id belonging to a different customer is 404.
+
+**Failure mode if unenforced.** A Sub admin moves a customer's money through a "view" screen.
+
+**Test contract.**
+- `BR-93a` POST, PUT, PATCH and DELETE on each of the three wallet paths return 404 or 405 for SUB_WH_ADMIN and write nothing.
+- `BR-93b` Permission matrix on the three GET routes: 401 without a token; 403 for FARMER, FARMER_ADMIN, CUSTOMER; 200 for SUB_WH_ADMIN, MAIN_WH_ADMIN, TOHFA_ADMIN, SUPER_ADMIN.
+- `BR-93c` An out-of-scope customer's wallet, transactions and a transaction detail are 404, never 403 (BR-91c).
+- `BR-93d` `GET /wallet/transactions/{txnId}` with a transaction that belongs to another customer is 404.
+- `BR-93e` The wallet summary balance equals the sum of that customer's ledger rows exactly, in integer paise; no float anywhere in the response.
+- `BR-93f` The three GETs write no row and no audit entry beyond access logging; the route list for `/customers` contains no wallet write (route-table assertion).
+
+---
+
+### BR-94 — Payment methods: UPI is pending then confirmed, CARD needs a reference, CASH computes change
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D6 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` service; `sale_payments`; `POST /sales/{id}/payments/upi/confirm` (`payment.record`) |
+| **Scope** | Track 1 |
+
+**Rule.** `CASH` and `WALLET` are confirmed by the server in the sale transaction. `CASH` requires `amount_received >= total` (else 422 `PAYMENT_AMOUNT_INSUFFICIENT`) and the response carries `change = amount_received - total` in paise. `CARD` is a manual entry and requires a non-empty reference (422 on a missing or blank reference); no card number is stored. `UPI` goes through the existing gateway: the sale is inserted with `payment_status` pending and `status` not yet `PICKED_UP`, no stock effect is visible as a completed sale, and it is completed only by `POST /sales/{saleId}/payments/upi/confirm`, which verifies the gateway result and then performs the BR-87 completion in one transaction (Owner decision 2026-10-11, D6). Acting on a sale whose UPI is unconfirmed (for example confirming a different method, or any follow-on action that needs a paid sale) is 409 `PAYMENT_PENDING`.
+
+**Failure mode if unenforced.** A UPI sale counted as revenue before the money arrives, a short cash payment accepted, or a card sale with no trace to reconcile against.
+
+**Test contract.**
+- `BR-94a` CASH with `amount_received` below the total is 422 `PAYMENT_AMOUNT_INSUFFICIENT`, nothing written but a `sale_attempts` row; equal to the total gives `change = 0`.
+- `BR-94b` CASH change is exact integer paise: total 12 345 paise, received 20 000 gives change 7 655 (no float, no rounding).
+- `BR-94c` CARD without a reference, or with a blank one, is 422 and writes nothing; with a reference the reference is stored in `sale_payments` and the sale is `PAID`.
+- `BR-94d` UPI creates the sale pending: `payment_status` is not `PAID`, `status` is not `PICKED_UP`, `completed_at` is null, and the dashboard (BR-96) does not count it.
+- `BR-94e` UPI confirm after a successful gateway result completes the sale (`PAID`, `PICKED_UP`, `completed_at` set), writes the `SALE` stock ledger rows, the invoice and the audit row in one transaction; replaying the confirm moves nothing again (BR-88g).
+- `BR-94f` UPI confirm with a failed or unverified gateway result leaves the sale pending (no stock, no invoice, no revenue) and returns the gateway error; the attempt is logged.
+- `BR-94g` Acting on an unconfirmed UPI sale (for example cancelling as paid, issuing its invoice) is 409 `PAYMENT_PENDING`.
+- `BR-94h` `POST /sales/{id}/payments/upi/confirm` permission matrix: 401 without a token; 403 for MAIN_WH_ADMIN (`none` on `payment.record`), FARMER, FARMER_ADMIN, CUSTOMER; SUB_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN reach the handler; a sale at another warehouse is 404 for SUB_WH_ADMIN, never 403.
+- `BR-94i` The reserved stock of a pending UPI sale is released or expires per the existing hold rule when the gateway times out; no negative balance results.
+- `BR-94j` Every `sale_payments` row is written once and never updated except through its documented state change; the payment amounts sum exactly to the order total.
+
+---
+
+### BR-95 — Market sales draw from the LIVE_MARKET allocation; Direct sales draw from pooled stock
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D2; relates to BR-13 and the `allocation_channel` enum |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` service stock selection; `allocation_channel`, `inventory_batches`, `stock_ledger` |
+| **Scope** | Track 1 |
+
+**Rule.** A `MARKET` sale draws only from stock allocated to the `LIVE_MARKET` channel for the warehouse; a `DIRECT` sale draws from the warehouse's pooled `ACTIVE` batch stock (Owner decision 2026-10-11, D2). A MARKET quantity above the LIVE_MARKET allocation is refused 409 `SALE_STOCK_CHANGED` even when pooled stock exists, and never exceeds the batch's unheld `qty_available` either. **DIRECT availability (owner decision 2026-10-11, superseding the earlier "net of other allocations" reading):** the sum of `qty_available` over the warehouse's sellable batches (status `ACTIVE`, grade not `REJECT`, not expired on the Asia/Kolkata day, GRN not `REJECTED`/`AWAITING_QC`/`QC_PENDING`), minus the stock held by pending UPI sales (order items of `PENDING_PAYMENT` DIRECT and MARKET sales, BR-94). It is **not** limited to the Reserve/Buffer share and **not** net of the ONLINE or LIVE_MARKET allocations (see the BR-12 interaction note); a DIRECT sale does not decrement any allocation row. Known consequence: after a DIRECT sale draws stock an ONLINE or LIVE_MARKET allocation was counting on, that allocation's stored `available_qty` (allocated − consumed − reserved) still counts it; every availability read (customer catalog, cart reservation, allocation dashboard, market-day remaining) is therefore capped by the batch's unclaimed shelf (BR-100), so none of them overstates what is on the shelf. A cart reservation made before the DIRECT sale can still exceed the shelf afterwards; for that, and as the general backstop, the stock ledger trigger refuses the later consumption with 409 (`STOCK_UNAVAILABLE` at online checkout, `SALE_STOCK_CHANGED` for MARKET), never negative stock. Batch choice is FEFO (earliest expiry first) in both cases, and each draw writes a `SALE` row to `stock_ledger` with `order_id`, never to a balance column directly (CLAUDE.md §2.3). `GET /sales/products?channel=DIRECT|MARKET` lists only what that channel can sell.
+
+**Failure mode if unenforced.** Market stock is double-sold to Online customers, or a counter sale sells more than is on the shelf (negative stock), or an online order that lost its stock to the counter fails as a server error instead of a stock conflict.
+
+**Test contract.**
+- `BR-95a` `GET /sales/products?channel=MARKET` returns only products with LIVE_MARKET allocation and quantities equal to that allocation; `channel=DIRECT` returns ALL pooled ACTIVE sellable stock (a 10 kg batch allocated 6/2/1/1 shows 10 kg), not net of other allocations.
+- `BR-95b` A MARKET sale decrements the LIVE_MARKET allocation and the batch through a `SALE` ledger row; a DIRECT sale decrements pooled batch stock and leaves the LIVE_MARKET allocation untouched.
+- `BR-95c` A MARKET sale above the LIVE_MARKET allocation is 409 `SALE_STOCK_CHANGED` although pooled stock would cover it; nothing is written.
+- `BR-95d` A DIRECT sale cannot draw batches that are not `ACTIVE`, are expired, are `REJECT` grade, or whose GRN is rejected or still in QC; it may draw stock allocated to any channel (owner decision 2026-10-11).
+- `BR-95e` FEFO: with two batches the one expiring first is drawn first; a sale spanning both writes two ledger rows whose quantities sum to the line quantity.
+- `BR-95f` `inventory_batches.qty_available` after the sale equals the sum of its ledger rows (trigger-maintained cache, never written directly).
+- `BR-95g` An invalid `channel` value on `GET /sales/products` is 422; HORECA or B2B on this route is 501 or 422, never an empty list that looks like "no stock".
+- `BR-95h` Cross-warehouse: a Sub admin cannot sell stock of another warehouse; a product id from another warehouse is 404, not 403.
+- `BR-95i` A DIRECT sale sells beyond the 20% non-online share up to the total pooled stock minus pending UPI holds (DIRECT and MARKET); one gram more is 409 `SALE_STOCK_CHANGED`; no allocation row changes.
+- `BR-95j` Two concurrent DIRECT sales for the last kilogram (after the allocation share is exceeded): one 201, one 409 `SALE_STOCK_CHANGED`; `qty_available` ends at 0, never negative.
+- `BR-95k` After DIRECT sales drew stock an ONLINE allocation still counts on, the online checkout's SALE ledger movement over the remainder is 409 `STOCK_UNAVAILABLE` (nothing written, allocation not consumed, stock not negative); a MARKET quote is capped at the shelf quantity, not the allocation; the stored ONLINE `available_qty` is unchanged (no allocation write) while the effective ONLINE availability reads the shelf (BR-100).
+
+---
+
+### BR-96 — The sales dashboard counts only paid-and-completed sales
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decisions 2026-10-11, D5, D6; consistent with the revenue definition (BR-63, contradiction 19) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` summary query; `GET /sales/summary` (`sales.dashboard.view`) |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /sales/summary` counts and sums only orders with `payment_status = PAID` and `status = PICKED_UP` and `completed_at` set, for the DIRECT and MARKET channels, dated by the Asia/Kolkata day of `completed_at`. A pending UPI sale, a failed attempt (`sale_attempts`) and a cancelled sale are excluded. Totals are exact integer paise. The summary is confined to the actor's scope (`own` = their warehouse). Broken down by channel and payment method.
+
+**Failure mode if unenforced.** The dashboard shows revenue for UPI payments that never arrived, or for attempts that rolled back.
+
+**Test contract.**
+- `BR-96a` A pending UPI sale is not counted; after `POST /sales/{id}/payments/upi/confirm` it is counted exactly once.
+- `BR-96b` A failed sale (stock changed, insufficient wallet, walk-in wallet) appears in `sale_attempts` and never in the dashboard.
+- `BR-96c` The summary count and total equal the sum of the `PAID` + `PICKED_UP` rows in `GET /sales` for the same filter, in integer paise.
+- `BR-96d` Dates use the Asia/Kolkata day of `completed_at`: a sale completed at 23:59 IST and one at 00:01 IST land on different days.
+- `BR-96e` Scope: a Sub admin's summary excludes other warehouses' sales; TOHFA_ADMIN and SUPER_ADMIN see all; MAIN_WH_ADMIN sees `own`.
+- `BR-96f` Permission matrix: 401 without a token; 403 for FARMER, FARMER_ADMIN, CUSTOMER; 200 for the four admin roles.
+- `BR-96g` Online orders are excluded from this summary (channel filter), and the revenue report (BR-63) is unchanged.
+
+---
+
+### BR-97 — Support replies and reads for the Sub Warehouse Admin strip farmer-identifying internal notes
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D11; extends BR-16 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `customers` support-ticket routes; reuses `support.ticket.respond`; `customer.support_history.view`; `support_messages` append-only at the database level (migration 0066) |
+| **Scope** | Track 1 |
+
+**Rule.** A Sub Warehouse Admin reads a customer's support tickets (`GET /customers/{customerId}/support-tickets`, `.../{ticketId}`) and replies (`POST .../replies`) (Owner decision 2026-10-11, D11). The reply route is **double-gated** (owner decision 2026-10-11, keep both): `customer.support_history.view` is checked first and its resolved scope decides which customers are visible (BR-91), then `support.ticket.respond` (granted `all` to the warehouse admins, so it never confines anything) authorises the write; the caller needs both. Internal notes, attachments and message bodies that name a farmer (farmer name, farm name, farmer id or code, village, batch code, GPS) are stripped or redacted from every response shape returned to an `own` actor, in the same allow-list manner as BR-16: an internal note that names a farmer is removed; other text has the identity replaced by `[redacted]` and the message flagged `redacted: true`. The reply text and attachment key typed by ANY actor are checked: a reply naming a known farmer identity is **refused** with 422 `VALIDATION_FAILED` (never silently rewritten), so a stored reply cannot carry a farmer identity into a customer-facing thread. Replying to a `CLOSED` ticket is 409 `CONFLICT`. Ticket visibility follows BR-91; out-of-scope is 404, never 403. The reply is a ledger-style append, never an edit of earlier messages, and `support_messages` refuses UPDATE, DELETE and TRUNCATE at the database level. The API reports ticket statuses as `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`; the database stores `INVESTIGATING` for the second and the service maps it to `IN_PROGRESS` (the vocabulary of every admin support API). Message `senderRole` is derived (the table has no role column) and `attachmentUrl` is the stored attachment key; openapi `AdminCustomerSupportMessage` documents both.
+
+**Failure mode if unenforced.** A farmer's identity travels from an internal note to the customer through a support reply.
+
+**Test contract.**
+- `BR-97a` A ticket whose internal note contains a farmer name, farm name or farmer id is returned to SUB_WH_ADMIN with that note removed or redacted; asserted recursively for the list, detail and reply responses.
+- `BR-97b` A reply posted by SUB_WH_ADMIN is stored and visible on the thread, 201, with the ticket id and author id only; an attempt to reply to a ticket of an out-of-scope customer is 404.
+- `BR-97c` A reply body containing a known farmer identity (from the redaction list for that customer and ticket) is refused 422 `VALIDATION_FAILED` with `errors["body.message"]`, for every actor scope; nothing is stored or audited, and the customer-facing thread contains no farmer data (BR-16a).
+- `BR-97d` Permission matrix: `GET` tickets requires `customer.support_history.view`; `POST` reply requires BOTH `customer.support_history.view` (checked first, decides visibility) and `support.ticket.respond`; 401 without a token, 403 for FARMER, FARMER_ADMIN and CUSTOMER on these admin routes. The order of the two checks is asserted.
+- `BR-97e` TOHFA_ADMIN and SUPER_ADMIN (scope `all`) still see the unredacted internal note (the strip is for the `own` scope; driven by scope, not role).
+- `BR-97f` The reply writes one audit row inside the same transaction, containing ids only.
+- `BR-97g` Support ticket customer PII follows BR-92: the customer mobile and e-mail in the ticket payload are masked for `own` (the ticket shapes carry no customer contact field at all).
+- `BR-97h` (DB level) `UPDATE`, `DELETE` and `TRUNCATE` on `support_messages` are refused (migration 0066, `app_make_append_only`).
+- `BR-97i` Replying to a `CLOSED` ticket is 409 `CONFLICT` and stores nothing.
+
+---
+
+### BR-98 — Sale totals use integer paise; GST and the active-customer window come from system_config
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11, D7; extends CLAUDE.md §2.2 and §2.7 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `sales` and `customers` services; `system_config.retail_gst_rate_percent` (default 0), `system_config.active_customer_window_days` (default 90); invoice number counter |
+| **Scope** | Track 1 |
+
+**Rule.** All sale arithmetic is in integer paise through `Money`; no float is used at any step (Owner decision 2026-10-11, D7). The GST rate is read from `system_config.retail_gst_rate_percent` (default 0) and never from a constant. GST is computed once per invoice, not per line: `gst = round_half_up(sum_of_line_paise * rate_percent / 100)` in integer arithmetic (add 50 before the integer division by 100 on rate-in-percent times paise), the total is `subtotal + gst`, and the per-line display amounts are informational only and sum to the subtotal exactly. The "active customer" definition used by BR-91 is a customer with a completed order or top-up within `system_config.active_customer_window_days` (default 90) days of now (Asia/Kolkata); "new" is a customer created within the same window. Invoice numbers come from a counter that is gap-free for committed sales, with no collision under concurrency (BR-87h); a rolled-back sale does not consume a number.
+
+**Failure mode if unenforced.** Rs 0.01 rounding drift on every GST sale, a hard-coded 5% or 90-day literal, or invoice numbers with gaps or duplicates that fail an audit.
+
+**Test contract.**
+- `BR-98a` With `retail_gst_rate_percent = 0` the total equals the subtotal exactly and `gst` is 0.
+- `BR-98b` With a rate of 5 and a subtotal of 1 999 paise, GST is 100 paise (99.95 rounds half up), total 2 099; with 1 990 paise GST is 100 paise (99.5 rounds half up) and with 1 989 paise GST is 99 paise; all values are integers.
+- `BR-98c` GST is computed per invoice: two lines of 1 010 paise at rate 5 give GST 101 (from 2 020), not 102 (per-line half-up); the test fails if rounding is per line.
+- `BR-98d` Changing `system_config.retail_gst_rate_percent` in the database changes the next quote and sale with no redeploy; a source grep finds no literal rate in the service (CLAUDE.md §2.7).
+- `BR-98e` A property test over random lines and rates confirms `total = subtotal + gst` in integers, and `Money` values are strings of integer paise (never a float, never a decimal).
+- `BR-98f` `active_customer_window_days` is read from `system_config`: a customer whose last activity is 89 days ago is active at 90 and not at 60; "new" uses the same window on `created_at`.
+- `BR-98g` (DB level) Invoice numbers are unique and gap-free across N concurrent sales; a rolled-back sale does not advance the counter (BR-87a, BR-87h).
+- `BR-98h` The quote total equals the later `POST /sales` total for unchanged price and stock, to the paise.
+- `BR-98i` A missing `system_config` row falls back to the documented default (0 and 90) and logs it, rather than 500 or float arithmetic.
+
+---
+
+### BR-99 — The admin order detail serves every channel, inside the caller's warehouse scope, farm-anonymous and without the handover OTP
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): owner decision 2026-10-11 (a general admin order-detail read; `GET /admin/sales/{saleId}` serves only DIRECT and MARKET); extends BR-16, BR-20, BR-30, BR-90 and BR-92 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders/{orderId}`, permission `order.list.view_all` (existing code); scope predicate in SQL (`warehouseScopeFilter`); allow-list serializer plus a strict response schema |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/orders/{orderId}` returns one order of any channel (`ONLINE`, `DIRECT`, `MARKET`, `HORECA`, `B2B`). The warehouse scope is an explicit SQL predicate: scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse; an order at another warehouse returns the same 404 `problem+json` as an unknown id, never 403 (BR-30). A scope that carries a customer or farmer id fails closed (404) on this admin route, so a CUSTOMER, whose `order.list.view_all` grant is `own`, gets 404 here and keeps using `/orders/{id}`. The response is built by an allow-list (`AdminOrderDetail`): order identity, channel, status, fulfilment type, payment method and status, warehouse `{id, name}`, buyer (customer id, code, name, or the walk-in name) with the mobile masked to its last four digits for every scope (BR-92; like `Sale`, this response never carries a full mobile), lines (crop name, grade, kg to 3 decimals, unit price, GST rate and amount, line total), totals as `Money` strings read from the stored order (never recomputed), the latest invoice reference `{id, invoiceNumber, status}` or null, delivery date and slot, `otpRequired` and `otpVerifiedAt`, a timeline of status changes and times, and `placedAt`, `packedAt`, `completedAt`, `cancelledAt`. Never returned, at any depth: `farmerId`, `sourceFarmerId`, farm, village, GPS, FMB, batch or allocation ids or codes (implementer's choice, consistent with `GET /admin/sales/{saleId}`: no batch identifiers at all), the delivery OTP, its hash or the attempt count (BR-20), the delivery address (customer PII, BR-92), and the history note or actor (free text can name a farmer). The read writes no audit row (BR-35 covers mutations).
+
+**Failure mode if unenforced.** A Sub admin reads another warehouse's orders, or learns by a 403 which order ids exist; a counter screen or support agent sees the farmer behind a lot, or the handover OTP that proves delivery.
+
+**Test contract.**
+- `BR-99a` An order at another warehouse is 404 for SUB_WH_ADMIN with the same `problem+json` body (ignoring the id and trace id) as an unknown id, never 403; scope `all` and MAIN_WH_ADMIN at `own` with no warehouse see it.
+- `BR-99b` The response key set equals the documented set even when the internal record carries farm, batch and OTP fields; the strict schema rejects an unknown key at any depth.
+- `BR-99c` The customer mobile and a walk-in mobile are masked to the last four digits for `own` and `all`; no run of five consecutive digits of a stored mobile appears anywhere in the JSON; a missing mobile is null.
+- `BR-99d` Totals and line amounts are the stored values as exact `Money` strings (`950.50`, `0.10`, `47.53`), and quantities keep three decimals (`0.125`).
+- `BR-99e` Reading a detail writes no `audit_log` row and performs no write.
+- `BR-99f` Permission matrix: 401 without a token; 403 for FARMER and FARMER_ADMIN; 200 for SUB_WH_ADMIN (own warehouse), MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN; CUSTOMER gets 404 on this admin route; a malformed id is 422. `GET /:orderId` does not shadow the POST action routes.
+- `BR-99g` Each of ONLINE, DIRECT, MARKET, HORECA and B2B is returned, schema-valid, with no farm-identity, batch or OTP key at any depth (recursive scan), and neither the farmer's name nor the batch code from the history notes or batch appears in the JSON.
+- `BR-99h` `otpRequired` is true for an unverified OTP order and the plaintext OTP never appears; the invoice reference is present when an invoice exists and null otherwise.
+
+---
+
+### BR-100 — Availability shown to customers and admins never exceeds the shelf
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): consequence of the owner decision 2026-10-11 that DIRECT counter sales draw all pooled ACTIVE stock (BR-95, BR-12 interaction note); extends BR-12c, BR-22 and BR-24 |
+| **Status** | DERIVED |
+| **Layer** | Server-side SQL, one shared fragment (`apps/api/src/db/shelfAvailability.ts`) used by the catalog, cart, allocations and sales-read repos |
+| **Scope** | Track 1 |
+
+**Rule.** A DIRECT sale decrements the batch (`qty_available`, through the ledger) but no allocation row, so an allocation's stored `available_qty` (allocated − consumed − reserved) can count stock that is no longer on the shelf. Every read that presents ONLINE or LIVE_MARKET allocation availability therefore uses the **effective** figure: `effective = max(0, min(allocation.available_qty, shelf_free(batch)))`, where `shelf_free(batch) = max(0, qty_available − Σ reserved_qty of all the batch's allocation rows (cart holds, BR-22) − stock held by pending UPI DIRECT and MARKET sales on the batch (BR-94))`. Because one batch carries one row per channel (`UNIQUE (batch_id, channel)`), the per-row cap is the per-batch cap for one channel; a figure summed over channels of one batch (the cart's total-availability breakdown) is capped per batch by `shelf_free`, so the sum never exceeds the shelf. Sites: the customer catalog (`availableQty` in list, detail, search, featured), the cart reservation (it row-locks the batch as well as the ONLINE allocation, and reserves only when the requested quantity is within the effective figure), the cart's 409 breakdown, the admin allocation dashboard (`availableQtyKg`; the stored allocated/consumed/reserved figures are returned unchanged) and the market-day `remainingQtyKg`. BR-12c stands: online availability is ONLINE-bucket stock only, never Reserve; a request above the ONLINE bucket itself is still 409 `INSUFFICIENT_ALLOCATION`, and a request within the bucket but above the effective figure is 409 `STOCK_UNAVAILABLE`. Write semantics are unchanged: no allocation row is written by a read, and a DIRECT sale still writes no allocation row. With no DIRECT sale (and no other ledger movement outside the allocations) the effective figure equals the stored `available_qty`.
+
+**Failure mode if unenforced.** The catalog and cart offer stock a counter sale already took; customers reserve it and build a cart that fails 409 `STOCK_UNAVAILABLE` at checkout; the dashboard and market-day screens tell staff there is stock that is not on the shelf.
+
+**Test contract.**
+- `BR-100a` After a DIRECT sale takes 9.5 kg of a 10 kg batch allocated ONLINE 7 / LIVE_MARKET 1 / RESERVE 1 / BUFFER 1, the catalog list, detail, search and featured reads show `availableQty` `0.500`, not `7.000`; after the shelf is fully taken the product is not listed and the detail is 404.
+- `BR-100b` In that state a cart add of 1 kg is 409 `STOCK_UNAVAILABLE` with no reservation written; 0.5 kg succeeds; one more gram is then 409 (the shelf is held by the first cart); a request above the ONLINE bucket itself is still 409 `INSUFFICIENT_ALLOCATION` (BR-12c).
+- `BR-100c` The allocation dashboard returns `availableQtyKg` `0.500` for the ONLINE row and the stored `allocatedQtyKg`, `consumedQtyKg` and `reservedQtyKg` unchanged; no allocation row is written by the reads.
+- `BR-100d` The market-day `remainingQtyKg` is capped by the shelf in the same way (`0.500`, not the LIVE_MARKET allocation's `1.000`).
+- `BR-100e` Multi-channel: with cart reservations and pending UPI holds on the batch, the effective ONLINE figure is the shelf minus those claims, and the cart breakdown's total across channels never exceeds the shelf.
+- `BR-100f` With no DIRECT sale, catalog, cart, dashboard and market-day figures equal the stored allocation `available_qty` exactly as before.
+
+---
+
+### BR-101 — The admin order queue and order actions are confined by the resolved scope; a customer-owned scope sees nothing
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): security fix 2026-10-11; extends BR-30, BR-36 and BR-99 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders` (`order.list.view_all`) filters in SQL with `warehouseScopeFilter` on the resolved scope; the action routes (`assign-warehouse`, `pack`, `dispatch`, `verify-otp`) also apply `warehouseVisible` after loading the order |
+| **Scope** | Track 1 |
+
+**Rule.** `docs/rbac.json` grants CUSTOMER `own` on `order.list.view_all` (its own-orders permission), so a CUSTOMER token passes `requirePermission` on `GET /admin/orders`. The list is therefore confined by the resolved scope, never by role names: a scope carrying a customer or farmer id fails closed, so a CUSTOMER gets `200` with an empty page on the admin list (even for its own orders, which it reads through `/orders`) and 404 on `GET /admin/orders/{orderId}` (BR-99). Scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse. A `warehouseId` filter only narrows the scope: naming another warehouse (or an unknown id) returns `200` with an empty page, never 403 (BR-30; this replaces the earlier 403 `WAREHOUSE_SCOPE_VIOLATION`). CUSTOMER, FARMER and FARMER_ADMIN hold `none` on the action permissions and get 403 from `requirePermission`; the action services additionally treat a customer- or farmer-owned scope as 404 with nothing written, so a future grant cannot open them. A list item carries only `id`, `orderNumber`, `status`, `channel`, `fulfillmentType`, `warehouseId`, `itemCount`, `totalAmount`, `paymentStatus`, `deliveryDate`, `placedAt`: no farm identity and no buyer PII. The customer-facing `/orders` routes (`order.view_own` and the rest) are unchanged.
+
+**Failure mode if unenforced.** Any customer with the app lists every order of every customer and warehouse (order numbers, totals, channels, warehouses), and a Sub admin learns from a 403 that another warehouse has orders on a given day.
+
+**Test contract.**
+- `BR-101a` A CUSTOMER token on `GET /admin/orders` gets `200` and `items: []` with no filter, `limit=100`, `deliveryDate`, or a `warehouseId`, including the customer who owns the fixture orders; `GET /admin/orders/{orderId}` is 404; `assign-warehouse`, `pack`, `dispatch` and `verify-otp` are 403 and the order row (status, warehouse, OTP attempts) is unchanged; the action services return 404 and write nothing for a customer-owned scope.
+- `BR-101b` 401 without a token; FARMER and FARMER_ADMIN get 403 on the list.
+- `BR-101c` A Sub admin lists only its warehouse; `warehouseId` of another warehouse is `200` with an empty page, the same body as an unknown warehouse id, never 403.
+- `BR-101d` MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN list both warehouses; `warehouseId` narrows to one.
+- `BR-101e` A list item's key set equals the documented set; no farm-identity, buyer, mobile, address or OTP key at any depth.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -1979,7 +2382,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | 6 | Wallet write authority for MW/SW | §6.3 `Wallet management (customers)`: MW = Y, SW = Own | §8: manual credit/debit is SA/TA only; MW/SW get view | MW = all, SW = own (Ch.6 precedence) — the loosest reading of a money-moving grant | requires client confirmation, priority |
 | 7 | Bank refunds for MW/SW | §6.3 `Process returns (RMA)`: MW = Y, SW = Y (blanket) | §6: bank refund SA/TA only; MW/SW limited to wallet refunds | Bank refund restricted to SA/TA (matrix adds detail Ch.6 omits) | requires client confirmation |
 | 8 | Integration keys and raw DB export | §6.4 + FR-A01: SUPER_ADMIN manages integration keys and has emergency raw DB export, audit-logged | §15 + Principle 11: both are infra-level (EXT); no role manages them in-app | Permissions retained SA-only; no admin UI built | requires client confirmation |
-| 9 | COD vs wallet-first (BR-17) | §2.3 wallet-first; FR-C04 payment methods include COD; Ch.11 open decision 17 asks whether COD is supported at all | Principle: wallet-first checkout enforcement; no COD row | Wallet-first only; COD not implemented | requires client confirmation |
+| 9 | COD vs wallet-first (BR-17) | §2.3 wallet-first; FR-C04 payment methods include COD; Ch.11 open decision 17 asks whether COD is supported at all | Principle: wallet-first checkout enforcement; no COD row | Wallet-first only; COD not implemented (unchanged by the Sub Warehouse sales work of 2026-10-11, BR-85 to BR-98: a counter CASH sale is not COD) | requires client confirmation |
 | 10 | B2B/Horeca allocation source (BR-13) | §2.2: automatic from consolidated inventory | §7: `Manage B2B/Horeca Manual allocation`, SA/TA full | Neither; B2B/Horeca order paths return 501 | requires client confirmation |
 | 11 | Pickup OTP disclosure (BR-20) | FR-C05: "4-digit OTP shared with warehouse staff" | §6: `OTP shared with warehouse staff` = F for MW/SW and CU | OTP is customer-held; the verifying admin never receives it | requires client confirmation |
 | 12 | Farmer application approval by Farmer Admin | §6.1 `Approve farmer applications`: FA = View | §2: `Approve farmer application` FA = N, with a separate view-only queue row | FA has read-only access, no approval path (behaviourally identical) | resolved, recorded for completeness |
@@ -1996,6 +2399,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | 26 | Export permission for Main and CSV layout (BR-76) | Not stated | `report.export.file` MW = `view` | `view` is allowed to export, while SPEC_GAPS #11 says the screens hide Export for `view`. The CSV column layout (long format, sections for aggregates) is the implementer's choice | requires owner confirmation |
 | 27 | New permission codes (BR-74, BR-77, BR-79, BR-80, BR-82, BR-83, BR-84) | Not stated | No such rows | Added to `docs/rbac.json` as spec gaps pending owner approval (12 codes; `finance.expense.approve` and `finance.expense_category.manage` were removed on 2026-10-11 with BR-73): `finance.cash_close.manage`, `task.own.view`, `alert.own.view`, `warehouse.storage_location.manage`, `warehouse.profile.edit`, `auth.profile.edit_own`, `notification.own.admin_preferences`, `help.article.view`, `help.article.manage`, `admin.staff.manage`, `admin.staff.attendance.view`, `admin.staff.attendance.mark` | requires owner approval |
 | 28 | Admin notification categories (BR-82) | Not stated | Not stated | The 14 admin categories are stored preferences only: no admin domain event maps to them yet, so toggling one suppresses nothing | requires owner decision (event mapping) |
+| 29 | Sub Warehouse sales and customers surface (BR-85 to BR-98) | Not stated | No such rows | Decisions D1-D11 were approved by the owner on 2026-10-11; the codes, error codes and schema below are the implementer's names for them and were **approved by the owner on 2026-10-11**, on condition that implementation, database and documentation agree (reconciled the same day: openapi enums now list `DISPATCHED` and wallet `CLOSED`; derived issue/ticket fields documented in BR-91h and BR-97; `support_messages` made append-only by migration 0066; `order_number_seq` owned by migration 0065; the reply route's double gate `customer.support_history.view` + `support.ticket.respond` kept by owner decision). New permission codes added to `docs/rbac.json` as spec gaps (12): `customer.detail.view`, `customer.purchase_history.view`, `customer.wallet.view`, `customer.issues.view`, `customer.support_history.view`, `sales.sale.create`, `sales.history.view`, `sales.dashboard.view`, `sales.market_day.view`, `sales.horeca.view`, `sales.b2b.view`, `payment.record` (Sub = `own`, Super Admin and TOHFA Admin = `all`, Main = `own` on the `*.view` codes and `none` on `sales.sale.create` and `payment.record`; Farmer Admin, Farmer, Customer = `none`). New error codes: `SALE_PRICE_CHANGED` (409), `SALE_STOCK_CHANGED` (409), `WALKIN_WALLET_NOT_ALLOWED` (422), `PAYMENT_PENDING` (409), `PAYMENT_AMOUNT_INSUFFICIENT` (422), and `SALE_CHANNEL_NOT_SUPPORTED` (501) only if no existing not-implemented code applies. New schema (migrations 0059+): `orders.channel` value `DIRECT`; `orders.customer_id` nullable with `walk_in_name`, `walk_in_mobile` and the one-identity CHECK; `sale_payments`; append-only `sale_attempts`; the gap-free invoice number counter; `system_config` keys `retail_gst_rate_percent` (0) and `active_customer_window_days` (90). Existing codes reused: `customer.list.view`, `support.ticket.respond`. D9 (masked mobile for `own` scope) overrules BR-64d for the customer list and detail only; the customers report keeps BR-64d. GST rounding (per invoice, half-up) is the implementer's choice. COD behaviour (contradiction 9) is unchanged by this work: no COD payment method exists in a sale | **Resolved 2026-10-11** (decisions and codes approved by the owner) |
 
 ---
 
@@ -2009,7 +2413,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 2 | Major violation red-flag threshold | §2.1 | BR-05 | Count and manual flag are stored (Track 1, 2026-10-01); the automatic red-flag rule stays deferred because the rule as written is inverted |
 | 3 | Farmer-side certification entry, renewal tracking, expiry countdown | §2.1 | BR-01/BR-02 | Enforcement is server-side in Track 1, but the farmer-facing entry screens ship with the Farmer app (Track 2) |
 | 4 | B2B/Horeca allocation from consolidated inventory | §2.2 | BR-13 | Only the Online channel is in scope; source contradiction unresolved |
-| 5 | Four sales channels | §2.2 | BR-15 | Online only; Market, Horeca and B2B each need their own order, pricing and invoicing path |
+| 5 | Four sales channels | §2.2 | BR-15 | Amended 2026-10-11 (owner decision D1): Market, and the new Direct channel, are now enforced for the Sub Warehouse Admin through BR-85 and BR-95 (row kept for history). Horeca and B2B creation are still not enforced (501); each needs its own order, pricing and invoicing path |
 | 6 | Farmer subscription Rs 500/year and free-tier limits | §2.2 | BR-14 | Billing module is Phase 2; free-tier limits are undefined in both documents |
 | 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Pickup path only; delivery model is contested (contradiction 3) |
 | 8 | Live order tracking beyond packed/picked-up | FR-C04 | — | Dispatch and out-for-delivery states belong to the delivery model that is not in scope |

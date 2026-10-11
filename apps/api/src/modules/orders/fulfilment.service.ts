@@ -6,10 +6,13 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
+import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import {
   fulfilmentRepo,
+  type AdminOrderDetailRecord,
   type FulfilmentRepo,
 } from './fulfilment.repo.js';
+import { adminOrderDetailResponse, type AdminOrderDetailResponse } from './fulfilment.schema.js';
 import type {
   AdminOrdersQuery,
   AdminOrderSummary,
@@ -41,8 +44,11 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export interface FulfilmentService {
+  /**
+   * BR-101: GET /admin/orders. Confined by the resolved scope in SQL (the repo); takes no Actor so
+   * that role names cannot creep back in. Out-of-scope filters and customer-owned scopes are empty.
+   */
   listAdminOrders(
-    actor: Actor,
     scope: ResolvedScope,
     query: AdminOrdersQuery,
   ): Promise<{ items: AdminOrderSummary[]; page: { nextCursor: string | null; hasMore: boolean } }>;
@@ -87,6 +93,13 @@ export interface FulfilmentService {
     orderId: string,
   ): Promise<OrderTracking>;
 
+  /**
+   * BR-99: GET /admin/orders/{orderId}. Any channel; confined to the scope in SQL; allow-list
+   * serialized. Read-only, so no audit row (BR-35 covers mutations). Takes only the scope (no
+   * Actor): authority comes from `order.list.view_all` as resolved by requirePermission.
+   */
+  getAdminOrderDetail(scope: ResolvedScope, orderId: string): Promise<AdminOrderDetailResponse>;
+
   streamOrderEvents(
     actor: Actor,
     scope: ResolvedScope,
@@ -94,6 +107,88 @@ export interface FulfilmentService {
     req: Request,
     res: Response,
   ): Promise<void>;
+}
+
+/**
+ * BR-92: `*` for every character but the last four, e.g. `+919876543210` -> `*********3210`; four
+ * characters or fewer are masked fully. Same output as the sales read (`MaskedMobile`). Applied for
+ * every scope on the admin order detail: like `Sale`, the response never carries a full mobile.
+ */
+export function maskMobile(mobile: string | null): string | null {
+  if (mobile === null) return null;
+  if (mobile.length <= 4) return '*'.repeat(Math.max(mobile.length, 1));
+  return `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
+}
+
+/**
+ * BR-99 allow-list serializer: every documented key is named here and nothing else, so a field
+ * added to the record (or a farm / batch / OTP column joined in later) cannot reach the response.
+ * The strict schema parse is the second fence.
+ */
+export function toAdminOrderDetail(record: AdminOrderDetailRecord): AdminOrderDetailResponse {
+  const buyer =
+    record.customerId !== null
+      ? {
+          kind: 'CUSTOMER' as const,
+          customerId: record.customerId,
+          customerCode: record.customerCode,
+          name: record.customerName ?? '',
+          mobileMasked: maskMobile(record.customerMobile),
+        }
+      : {
+          kind: 'WALK_IN' as const,
+          customerId: null,
+          customerCode: null,
+          name: record.walkInName ?? '',
+          mobileMasked: maskMobile(record.walkInMobile),
+        };
+  return adminOrderDetailResponse.parse({
+    id: record.id,
+    orderNumber: record.orderNumber,
+    channel: record.channel,
+    status: record.status,
+    fulfilmentType: record.fulfilmentType,
+    paymentMethod: record.paymentMethod,
+    paymentStatus: record.paymentStatus,
+    warehouse: { id: record.warehouseId, name: record.warehouseName },
+    buyer,
+    items: record.items.map((item) => ({
+      productId: item.productId,
+      name: item.name,
+      grade: item.grade,
+      qtyKg: item.qtyKg,
+      unitPrice: item.unitPrice,
+      gstRate: item.gstRate,
+      gstAmount: item.gstAmount,
+      lineTotal: item.lineTotal,
+    })),
+    totals: {
+      subtotal: record.subtotal,
+      deliveryFee: record.deliveryFee,
+      discount: record.discount,
+      gst: record.gstAmount,
+      total: record.totalAmount,
+    },
+    invoice:
+      record.invoice === null
+        ? null
+        : { id: record.invoice.id, invoiceNumber: record.invoice.invoiceNumber, status: record.invoice.status },
+    fulfilment: {
+      deliveryDate: record.deliveryDate,
+      deliverySlot: record.deliverySlot,
+      otpRequired: record.otpRequired,
+      otpVerifiedAt: record.otpVerifiedAt,
+    },
+    timeline: record.timeline.map((event) => ({
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      at: event.at,
+    })),
+    placedAt: record.placedAt,
+    packedAt: record.packedAt,
+    completedAt: record.completedAt,
+    cancelledAt: record.cancelledAt,
+  });
 }
 
 export function createFulfilmentService(opts: {
@@ -115,6 +210,10 @@ export function createFulfilmentService(opts: {
     }
   }
 
+  // Legacy role-name confinement, still used by the action routes. Those routes ALSO apply
+  // `warehouseVisible(scope, ...)` (BR-101), which only ever narrows: a scope carrying a customer or
+  // farmer id fails closed to the same 404 as an unknown id, whatever this function returns.
+  // It stays because verify-otp grants SUB_WH_ADMIN `all` in rbac.json yet is confined here.
   function getWarehouseScope(actor: Actor): string | null {
     // If actor has a SUB_WH_ADMIN role or specific assigned warehouse in claims/actor
     const hasOnlySubWh =
@@ -130,20 +229,10 @@ export function createFulfilmentService(opts: {
   }
 
   return {
-    async listAdminOrders(actor, scope, query) {
-      const warehouseScope = getWarehouseScope(actor);
-      if (warehouseScope && query.warehouseId && query.warehouseId !== warehouseScope) {
-        throw new AppError('WAREHOUSE_SCOPE_VIOLATION', {
-          status: 403,
-          detail: 'You may not query orders outside your assigned warehouse.',
-        });
-      }
-
-      const { items, nextCursor, hasMore } = await repo.listAdminOrders(
-        db,
-        warehouseScope,
-        query,
-      );
+    async listAdminOrders(scope, query) {
+      // No 403 for a cross-warehouse `warehouseId`: the repo ANDs it onto the scope predicate and
+      // the page is simply empty (BR-30). A 403 would confirm the other warehouse's orders exist.
+      const { items, nextCursor, hasMore } = await repo.listAdminOrders(db, scope, query);
 
       return { items, page: { nextCursor, hasMore } };
     },
@@ -151,7 +240,7 @@ export function createFulfilmentService(opts: {
     async getAdminOrder(actor, scope, orderId) {
       const warehouseScope = getWarehouseScope(actor);
       const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -170,7 +259,7 @@ export function createFulfilmentService(opts: {
       }
 
       const order = await repo.findOrderForFulfilment(db, orderId);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -210,7 +299,7 @@ export function createFulfilmentService(opts: {
     async packOrder(actor, scope, orderId, _input) {
       const warehouseScope = getWarehouseScope(actor);
       const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -252,7 +341,7 @@ export function createFulfilmentService(opts: {
     async dispatchOrder(actor, scope, orderId, input) {
       const warehouseScope = getWarehouseScope(actor);
       const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order) {
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -306,7 +395,7 @@ export function createFulfilmentService(opts: {
 
     async verifyOtp(actor, scope, orderId, input) {
       const otpHolder = await repo.getOrderDeliveryOtpHolder(db, orderId);
-      if (!otpHolder) {
+      if (!otpHolder || !warehouseVisible(scope, otpHolder.warehouseId)) {
         throw new AppError('NOT_FOUND', {
           status: 404,
           detail: `Order ${orderId} not found.`,
@@ -390,6 +479,16 @@ export function createFulfilmentService(opts: {
 
       const updated = await repo.findOrderForFulfilment(db, orderId);
       return updated!;
+    },
+
+    async getAdminOrderDetail(scope, orderId) {
+      const record = await repo.findAdminOrderDetail(db, scope, orderId);
+      if (record === null) {
+        // Same code and detail for "unknown" and "outside your warehouse" (BR-30): a different
+        // answer would confirm that the order exists.
+        throw new AppError('NOT_FOUND', { detail: `Order "${orderId}" not found.` });
+      }
+      return toAdminOrderDetail(record);
     },
 
     async getOrderTracking(actor, scope, orderId) {

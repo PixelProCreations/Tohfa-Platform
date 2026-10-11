@@ -1,4 +1,5 @@
 import type { Executor } from '../../db/pool.js';
+import { effectiveAvailableSql } from '../../db/shelfAvailability.js';
 import type {
   CategoryView,
   ListProductsQuery,
@@ -39,6 +40,15 @@ export interface CatalogRepo {
   listCategories(db: Executor): Promise<CategoryView[]>;
   getFeaturedProducts(db: Executor, warehouseId?: string): Promise<RawCatalogProductRow[]>;
 }
+
+/**
+ * BR-100: the ONLINE row's availability capped by the batch's unclaimed shelf. A DIRECT counter sale
+ * draws batch stock without decrementing the allocation (BR-95), so the stored available_qty alone
+ * would offer customers stock that is no longer there. `a.available_qty > 0` stays in the WHERE
+ * clauses as a cheap pre-filter (an effective figure is never above it); the HAVING clauses use the
+ * effective sum, so a product whose shelf is fully claimed is not listed.
+ */
+const ONLINE_EFFECTIVE = effectiveAvailableSql('a', 'b');
 
 function buildSortClause(sort: ProductSort): string {
   switch (sort) {
@@ -119,7 +129,7 @@ export const catalogRepo: CatalogRepo = {
                fp.ceiling_price::text,
                '50.00'
              )                                                    AS price_per_kg,
-             SUM(a.available_qty)::text                           AS available_qty,
+             SUM(${ONLINE_EFFECTIVE})::text                           AS available_qty,
              'kg'::text                                           AS unit,
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
@@ -133,7 +143,7 @@ export const catalogRepo: CatalogRepo = {
    LEFT JOIN active_fair_prices fp ON fp.crop_id = b.crop_id AND fp.grade = b.grade
        WHERE ${whereClause}
        GROUP BY cm.id, cm.name, cm.category_id, b.grade, rp.price, fp.ceiling_price, cm.icon_key
-       HAVING SUM(a.available_qty) > 0
+       HAVING SUM(${ONLINE_EFFECTIVE}) > 0
        ${sortClause}
        LIMIT $${limitParam}
     `;
@@ -197,7 +207,7 @@ export const catalogRepo: CatalogRepo = {
                fp.ceiling_price::text,
                '50.00'
              )                                                    AS price_per_kg,
-             SUM(a.available_qty)::text                           AS available_qty,
+             SUM(${ONLINE_EFFECTIVE})::text                           AS available_qty,
              'kg'::text                                           AS unit,
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
@@ -211,7 +221,7 @@ export const catalogRepo: CatalogRepo = {
    LEFT JOIN active_fair_prices fp ON fp.crop_id = b.crop_id AND fp.grade = b.grade
        WHERE ${whereClause}
        GROUP BY cm.id, cm.name, cm.category_id, b.grade, rp.price, fp.ceiling_price, cm.icon_key
-       HAVING SUM(a.available_qty) > 0
+       HAVING SUM(${ONLINE_EFFECTIVE}) > 0
        ORDER BY b.grade ASC
        LIMIT 1
     `;
@@ -274,7 +284,7 @@ export const catalogRepo: CatalogRepo = {
                fp.ceiling_price::text,
                '50.00'
              )                                                    AS price_per_kg,
-             SUM(a.available_qty)::text                           AS available_qty,
+             SUM(${ONLINE_EFFECTIVE})::text                           AS available_qty,
              'kg'::text                                           AS unit,
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
@@ -288,7 +298,7 @@ export const catalogRepo: CatalogRepo = {
    LEFT JOIN active_fair_prices fp ON fp.crop_id = b.crop_id AND fp.grade = b.grade
        WHERE ${whereClause}
        GROUP BY cm.id, cm.name, cm.category_id, b.grade, rp.price, fp.ceiling_price, cm.icon_key
-       HAVING SUM(a.available_qty) > 0
+       HAVING SUM(${ONLINE_EFFECTIVE}) > 0
        ORDER BY cm.name ASC, b.grade ASC
        LIMIT $${limitParam}
     `;
@@ -379,7 +389,7 @@ export const catalogRepo: CatalogRepo = {
                fp.ceiling_price::text,
                '50.00'
              )                                                    AS price_per_kg,
-             SUM(a.available_qty)::text                           AS available_qty,
+             SUM(${ONLINE_EFFECTIVE})::text                           AS available_qty,
              'kg'::text                                           AS unit,
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
@@ -393,8 +403,8 @@ export const catalogRepo: CatalogRepo = {
    LEFT JOIN active_fair_prices fp ON fp.crop_id = b.crop_id AND fp.grade = b.grade
        WHERE ${whereClause}
        GROUP BY cm.id, cm.name, cm.category_id, b.grade, rp.price, fp.ceiling_price, cm.icon_key
-       HAVING SUM(a.available_qty) > 0
-       ORDER BY SUM(a.available_qty) DESC, cm.name ASC
+       HAVING SUM(${ONLINE_EFFECTIVE}) > 0
+       ORDER BY SUM(${ONLINE_EFFECTIVE}) DESC, cm.name ASC
        LIMIT 6
     `;
 

@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
+  adminOrderIdParams,
   adminOrdersQuerySchema,
   assignWarehouseSchema,
   packOrderSchema,
@@ -25,14 +26,24 @@ adminFulfilmentRouter.get(
   requirePermission('order.list.view_all'),
   validate({ query: adminOrdersQuerySchema }),
   asyncHandler(async (req, res) => {
-    const actor = requireActor(req.actor);
+    // BR-101: scope only. CUSTOMER passes requirePermission here (`own`); its scope fails closed.
+    const scope = requireScope(req.scope);
     const query = getValidated(req, 'query', adminOrdersQuerySchema);
-    const result = await fulfilmentService.listAdminOrders(
-      actor,
-      req.scope!,
-      query,
-    );
-    res.status(200).json(result);
+    res.status(200).json(await fulfilmentService.listAdminOrders(scope, query));
+  }),
+);
+
+// BR-99: general admin order detail, any channel. GET only, so it cannot shadow the POST action
+// routes below. Out of scope or unknown is the same 404 (BR-30); the scope predicate is in SQL.
+adminFulfilmentRouter.get(
+  '/:orderId',
+  requireAuth,
+  requirePermission('order.list.view_all'),
+  validate({ params: adminOrderIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const params = getValidated(req, 'params', adminOrderIdParams);
+    res.status(200).json(await fulfilmentService.getAdminOrderDetail(scope, params.orderId));
   }),
 );
 

@@ -116,6 +116,9 @@ import {
   returnRequestsRouter,
 } from './modules/returnRequests/returnRequests.routes.js';
 import { reportsRouter } from './modules/reports/reports.routes.js';
+import { customersRouter } from './modules/customers/customers.routes.js';
+import { salesRouter } from './modules/sales/sales.routes.js';
+import { salesReadRouter } from './modules/sales-read/sales-read.routes.js';
 import {
   adminStaffAttendanceRouter,
   adminWarehouseStaffRouter,
@@ -165,6 +168,9 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/allocation-config', router: adminAllocationConfigRouter },
   { prefix: '/v1/admin', router: adminTopupRouter },
   { prefix: '/v1/admin/orders', router: adminFulfilmentRouter },
+  { prefix: '/v1/admin/customers', router: customersRouter },
+  { prefix: '/v1/admin/sales', router: salesRouter },
+  { prefix: '/v1/admin/sales', router: salesReadRouter },
   { prefix: '/v1/catalog', router: catalogRouter },
   { prefix: '/v1/wallets', router: walletsRouter },
   { prefix: '/v1/wallets', router: topupRouter },

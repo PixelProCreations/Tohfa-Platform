@@ -13,6 +13,13 @@ import type { AuthRepo, OAuthIdentityRow, OtpVerificationRow, RefreshTokenRow } 
 import type { OAuthProviderClient } from './oauth.providers.js';
 import { anActor, databaseReady, describeIfDatabase } from '../../test/factories.js';
 
+/**
+ * The password tests hash and compare with real cost-12 bcrypt (bcryptjs, pure JS) several times;
+ * on a loaded machine that alone passes vitest's default 5s timeout. A longer timeout, not a
+ * cheaper hash, so the tests still exercise the production cost.
+ */
+const BCRYPT_TEST_TIMEOUT_MS = 30_000;
+
 function hashValue(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -918,6 +925,8 @@ describe('Auth Module & BR-32 Test Contract', () => {
         });
         const service = createAuthService(repo);
 
+        // Taken BEFORE the call, for the same reason as in the changePassword test below.
+        const secondsBeforeReset = Math.floor(Date.now() / 1000);
         await service.resetPassword({ challengeId, code: correctCode, newPassword });
 
         expect(consumeOtpCalledWith).toBe(challengeId);
@@ -938,14 +947,16 @@ describe('Auth Module & BR-32 Test Contract', () => {
         // remaining TTL. Before this fix, `isAccessTokenInvalidated` did not
         // exist and this old token would have kept passing `requireAuth`.
         if (await redisAvailableForTest()) {
-          const iatBeforeReset = Math.floor(Date.now() / 1000) - 5;
+          const iatBeforeReset = secondsBeforeReset - 5;
           await expect(isAccessTokenInvalidated(userId, iatBeforeReset)).resolves.toBe(true);
 
           // A token minted AFTER the reset must be unaffected.
           const iatAfterReset = Math.floor(Date.now() / 1000) + 5;
           await expect(isAccessTokenInvalidated(userId, iatAfterReset)).resolves.toBe(false);
         }
-      });
+        // Several cost-12 bcrypt hashes in pure JS take ~5s on a loaded machine: the default 5s
+        // timeout made this flaky in full runs. The assertions are unchanged.
+      }, BCRYPT_TEST_TIMEOUT_MS);
     });
   });
 
@@ -995,7 +1006,7 @@ describe('Auth Module & BR-32 Test Contract', () => {
 
       expect(updateUserPasswordCalls).toBe(0);
       expect(revokeAllUserSessionsCalls).toBe(0);
-    });
+    }, BCRYPT_TEST_TIMEOUT_MS);
 
     it('an account with no password set (OAuth-only) is rejected with UNAUTHENTICATED', async () => {
       const actor = anActor({ userId: '99999999-5555-6666-7777-888888888888' });
@@ -1069,6 +1080,9 @@ describe('Auth Module & BR-32 Test Contract', () => {
         });
         const service = createAuthService(repo);
 
+        // Taken BEFORE the call: "a token issued before the change" must not drift past the stamp
+        // while the slow bcrypt checks below run (they took > 5s on a loaded machine).
+        const secondsBeforeChange = Math.floor(Date.now() / 1000);
         await service.changePassword(actor, { currentPassword: oldPassword, newPassword });
 
         expect(capturedPasswordHash).toBeTypeOf('string');
@@ -1092,13 +1106,13 @@ describe('Auth Module & BR-32 Test Contract', () => {
         // reproduced: change-password succeeded but the OLD access token
         // kept passing GET /auth/me until it naturally expired.
         if (await redisAvailableForTest()) {
-          const iatBeforeChange = Math.floor(Date.now() / 1000) - 5;
+          const iatBeforeChange = secondsBeforeChange - 5;
           await expect(isAccessTokenInvalidated(userId, iatBeforeChange)).resolves.toBe(true);
 
           const iatAfterChange = Math.floor(Date.now() / 1000) + 5;
           await expect(isAccessTokenInvalidated(userId, iatAfterChange)).resolves.toBe(false);
         }
-      });
+      }, BCRYPT_TEST_TIMEOUT_MS);
     });
   });
 });

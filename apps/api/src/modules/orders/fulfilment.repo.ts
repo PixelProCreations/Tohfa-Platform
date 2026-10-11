@@ -7,7 +7,102 @@ import type {
   OrderTrackingEvent,
 } from './fulfilment.schema.js';
 import type { OrderStatus, ProduceGrade, SalesChannel, FulfillmentType, DeliverySlot } from './orders.schema.js';
-import type { Money } from '@tohfa/shared-types';
+import { parseMoney, type Money } from '@tohfa/shared-types';
+import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
+import type {
+  AdminOrderChannel,
+  AdminOrderFulfilmentType,
+  AdminOrderInvoiceStatus,
+  AdminOrderPaymentMethod,
+  AdminOrderPaymentStatus,
+  AdminOrderStatus,
+} from './fulfilment.schema.js';
+
+/**
+ * What `findAdminOrderDetail` loads (BR-99). Internal: the service serializes it through an
+ * allow-list. Deliberately NOT selected: `order_items.batch_id` / `allocation_id` (a batch leads to
+ * `source_farmer_id`, BR-16 / BR-90), `delivery_otp_hash` and `otp_attempts` (BR-20), the delivery
+ * address (customer PII, BR-92), and the history `note` / `changed_by` (free text can name a farmer).
+ */
+export interface AdminOrderDetailRecord {
+  id: string;
+  orderNumber: string;
+  channel: AdminOrderChannel;
+  status: AdminOrderStatus;
+  fulfilmentType: AdminOrderFulfilmentType;
+  paymentMethod: AdminOrderPaymentMethod;
+  paymentStatus: AdminOrderPaymentStatus;
+  warehouseId: string;
+  warehouseName: string;
+  customerId: string | null;
+  customerCode: string | null;
+  customerName: string | null;
+  customerMobile: string | null;
+  walkInName: string | null;
+  walkInMobile: string | null;
+  subtotal: Money;
+  deliveryFee: Money;
+  discount: Money;
+  gstAmount: Money;
+  totalAmount: Money;
+  deliveryDate: string | null;
+  deliverySlot: DeliverySlot | null;
+  otpRequired: boolean;
+  otpVerifiedAt: string | null;
+  invoice: { id: string; invoiceNumber: string; status: AdminOrderInvoiceStatus } | null;
+  placedAt: string;
+  packedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  items: Array<{
+    productId: string;
+    name: string;
+    grade: ProduceGrade;
+    qtyKg: string;
+    unitPrice: Money;
+    gstRate: string;
+    gstAmount: Money;
+    lineTotal: Money;
+  }>;
+  timeline: Array<{ fromStatus: AdminOrderStatus | null; toStatus: AdminOrderStatus; at: string }>;
+}
+
+interface AdminOrderDetailRow {
+  id: string;
+  order_number: string;
+  channel: string;
+  status: string;
+  fulfilment_type: string;
+  payment_method: string;
+  payment_status: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  customer_id: string | null;
+  customer_code: string | null;
+  customer_name: string | null;
+  customer_mobile: string | null;
+  walk_in_name: string | null;
+  walk_in_mobile: string | null;
+  subtotal: string;
+  delivery_fee: string;
+  discount: string;
+  gst_amount: string;
+  total_amount: string;
+  delivery_date: string | null;
+  delivery_slot: string | null;
+  otp_required: boolean;
+  otp_verified_at: Date | null;
+  invoice_id: string | null;
+  invoice_number: string | null;
+  invoice_status: string | null;
+  placed_at: Date;
+  packed_at: Date | null;
+  completed_at: Date | null;
+  cancelled_at: Date | null;
+}
+
+const isoOrNull = (value: Date | null): string | null => (value === null ? null : value.toISOString());
 
 interface FulfilmentOrderRow {
   id: string;
@@ -59,9 +154,15 @@ interface FulfilmentOrderItemRow {
 }
 
 export interface FulfilmentRepo {
+  /**
+   * BR-101 / BR-30: the warehouse scope is an explicit SQL predicate built from the RESOLVED scope
+   * (`warehouseScopeFilter`), and `query.warehouseId` is ANDed on top of it. So a Sub admin naming
+   * another warehouse gets an empty page (never 403), and a scope carrying a customer or farmer id
+   * (CUSTOMER is `own` on `order.list.view_all`) fails closed to an empty page.
+   */
   listAdminOrders(
     db: Executor,
-    warehouseScope: string | null,
+    scope: ResolvedScope,
     query: AdminOrdersQuery,
   ): Promise<{ items: AdminOrderSummary[]; nextCursor: string | null; hasMore: boolean }>;
 
@@ -110,19 +211,26 @@ export interface FulfilmentRepo {
   ): Promise<OrderTracking | null>;
 
   getMaxOtpAttempts(db: Executor): Promise<number>;
+
+  /**
+   * BR-99: one order of any channel, or null when it does not exist OR is outside the scope. The
+   * scope is an explicit SQL predicate (`warehouseScopeFilter`), so both cases are the same null.
+   */
+  findAdminOrderDetail(db: Executor, scope: ResolvedScope, orderId: string): Promise<AdminOrderDetailRecord | null>;
 }
 
 export const fulfilmentRepo: FulfilmentRepo = {
-  async listAdminOrders(db, warehouseScope, query) {
-    const conditions: string[] = ['1=1'];
-    const values: unknown[] = [];
-    let idx = 1;
+  async listAdminOrders(db, scope, query) {
+    // Warehouse isolation from the resolved scope, never from role names: this used to read the
+    // actor's roles and treat "not a Sub admin" as "no filter", which let a CUSTOMER token (`own` on
+    // order.list.view_all) list every order of every customer and warehouse.
+    const filter = warehouseScopeFilter(scope, 'o.warehouse_id', 1);
+    const conditions: string[] = [filter.sql];
+    const values: unknown[] = [...filter.params];
+    let idx = filter.nextIndex;
 
-    // Warehouse isolation
-    if (warehouseScope) {
-      conditions.push(`o.warehouse_id = $${idx++}`);
-      values.push(warehouseScope);
-    } else if (query.warehouseId) {
+    // The caller's filter only ever narrows the scope; outside it the result is empty (BR-30).
+    if (query.warehouseId) {
       conditions.push(`o.warehouse_id = $${idx++}`);
       values.push(query.warehouseId);
     }
@@ -420,5 +528,124 @@ export const fulfilmentRepo: FulfilmentRepo = {
       return Number(row.value);
     }
     return 3;
+  },
+
+  async findAdminOrderDetail(db, scope, orderId) {
+    const filter = warehouseScopeFilter(scope, 'o.warehouse_id', 2);
+    const head = await db.query<AdminOrderDetailRow>(
+      `SELECT o.id, o.order_number, o.channel, o.status::text AS status,
+              o.fulfilment_type::text AS fulfilment_type, o.payment_method::text AS payment_method,
+              o.payment_status, o.warehouse_id, w.name AS warehouse_name,
+              o.customer_id, c.customer_code, u.full_name AS customer_name, u.mobile AS customer_mobile,
+              o.walk_in_name, o.walk_in_mobile,
+              o.subtotal::text AS subtotal, o.delivery_fee::text AS delivery_fee,
+              o.discount::text AS discount, o.gst_amount::text AS gst_amount,
+              o.total_amount::text AS total_amount,
+              o.delivery_date::text AS delivery_date, o.delivery_slot::text AS delivery_slot,
+              (o.delivery_otp_hash IS NOT NULL AND o.otp_verified_at IS NULL) AS otp_required,
+              o.otp_verified_at,
+              inv.id AS invoice_id, inv.invoice_number, inv.status AS invoice_status,
+              o.placed_at, o.packed_at, o.completed_at, o.cancelled_at
+         FROM orders o
+         JOIN warehouses w ON w.id = o.warehouse_id
+         LEFT JOIN customers c ON c.id = o.customer_id
+         LEFT JOIN users u ON u.id = c.user_id
+         LEFT JOIN LATERAL (
+               SELECT i.id, i.invoice_number, i.status
+                 FROM invoices i
+                WHERE i.order_id = o.id
+             ORDER BY i.created_at DESC, i.id DESC
+                LIMIT 1
+         ) inv ON TRUE
+        WHERE o.id = $1::uuid AND ${filter.sql}
+        LIMIT 1`,
+      [orderId, ...filter.params],
+    );
+    const row = head.rows[0];
+    if (row === undefined) return null;
+
+    // The order is already proven visible; the children are read by its id only.
+    const [items, history] = await Promise.all([
+      db.query<{
+        product_id: string;
+        name: string;
+        grade: string;
+        qty_kg: string;
+        unit_price: string;
+        gst_rate: string;
+        gst_amount: string;
+        line_total: string;
+      }>(
+        `SELECT oi.crop_id AS product_id, cm.name, oi.grade::text AS grade, oi.qty_kg::text AS qty_kg,
+                oi.unit_price::text AS unit_price, oi.gst_rate::text AS gst_rate,
+                oi.gst_amount::text AS gst_amount, oi.line_total::text AS line_total
+           FROM order_items oi
+           JOIN crop_master cm ON cm.id = oi.crop_id
+          WHERE oi.order_id = $1
+       ORDER BY oi.created_at, oi.id`,
+        [row.id],
+      ),
+      db.query<{ from_status: string | null; to_status: string; created_at: Date }>(
+        `SELECT h.from_status::text AS from_status, h.to_status::text AS to_status, h.created_at
+           FROM order_status_history h
+          WHERE h.order_id = $1
+       ORDER BY h.created_at, h.id`,
+        [row.id],
+      ),
+    ]);
+
+    return {
+      id: row.id,
+      orderNumber: row.order_number,
+      channel: row.channel as AdminOrderChannel,
+      status: row.status as AdminOrderStatus,
+      fulfilmentType: row.fulfilment_type as AdminOrderFulfilmentType,
+      paymentMethod: row.payment_method as AdminOrderPaymentMethod,
+      paymentStatus: row.payment_status as AdminOrderPaymentStatus,
+      warehouseId: row.warehouse_id,
+      warehouseName: row.warehouse_name,
+      customerId: row.customer_id,
+      customerCode: row.customer_code,
+      customerName: row.customer_name,
+      customerMobile: row.customer_mobile,
+      walkInName: row.walk_in_name,
+      walkInMobile: row.walk_in_mobile,
+      subtotal: parseMoney(row.subtotal),
+      deliveryFee: parseMoney(row.delivery_fee),
+      discount: parseMoney(row.discount),
+      gstAmount: parseMoney(row.gst_amount),
+      totalAmount: parseMoney(row.total_amount),
+      deliveryDate: row.delivery_date,
+      deliverySlot: row.delivery_slot as DeliverySlot | null,
+      otpRequired: row.otp_required,
+      otpVerifiedAt: isoOrNull(row.otp_verified_at),
+      invoice:
+        row.invoice_id === null || row.invoice_number === null || row.invoice_status === null
+          ? null
+          : {
+              id: row.invoice_id,
+              invoiceNumber: row.invoice_number,
+              status: row.invoice_status as AdminOrderInvoiceStatus,
+            },
+      placedAt: row.placed_at.toISOString(),
+      packedAt: isoOrNull(row.packed_at),
+      completedAt: isoOrNull(row.completed_at),
+      cancelledAt: isoOrNull(row.cancelled_at),
+      items: items.rows.map((r) => ({
+        productId: r.product_id,
+        name: r.name,
+        grade: r.grade as ProduceGrade,
+        qtyKg: r.qty_kg,
+        unitPrice: parseMoney(r.unit_price),
+        gstRate: r.gst_rate,
+        gstAmount: parseMoney(r.gst_amount),
+        lineTotal: parseMoney(r.line_total),
+      })),
+      timeline: history.rows.map((r) => ({
+        fromStatus: r.from_status as AdminOrderStatus | null,
+        toStatus: r.to_status as AdminOrderStatus,
+        at: r.created_at.toISOString(),
+      })),
+    };
   },
 };

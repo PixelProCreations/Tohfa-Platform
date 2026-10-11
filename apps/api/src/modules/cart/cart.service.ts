@@ -150,16 +150,19 @@ export function createCartService(opts: {
             });
           }
 
-          if (Number(breakdown.onlineAvailable) < qty) {
+          // BR-12c: above the stored ONLINE bucket itself is an allocation refusal, never a draw on
+          // Reserve. Within the bucket but above the shelf (a DIRECT sale took it, BR-100) is a
+          // stock refusal.
+          if (Number(breakdown.onlineAllocationAvailable) < qty) {
             throw new AppError('INSUFFICIENT_ALLOCATION', {
               status: 409,
-              detail: `Requested ${input.qtyKg} kg exceeds remaining online allocation of ${breakdown.onlineAvailable} kg (BR-12c).`,
+              detail: `Requested ${input.qtyKg} kg exceeds remaining online allocation of ${breakdown.onlineAllocationAvailable} kg (BR-12c).`,
             });
           }
 
           throw new AppError('STOCK_UNAVAILABLE', {
             status: 409,
-            detail: 'Requested quantity is unavailable.',
+            detail: `Only ${breakdown.onlineAvailable} kg of ${priceInfo.cropName} ${grade} is available online now.`,
           });
         }
 
@@ -261,16 +264,19 @@ export function createCartService(opts: {
               });
             }
 
-            if (Number(breakdown.onlineAvailable) < qty) {
+            // BR-12c: above the stored ONLINE bucket itself is an allocation refusal, never a draw on
+            // Reserve. Within the bucket but above the shelf (a DIRECT sale took it, BR-100) is a
+            // stock refusal.
+            if (Number(breakdown.onlineAllocationAvailable) < qty) {
               throw new AppError('INSUFFICIENT_ALLOCATION', {
                 status: 409,
-                detail: `Requested ${itemInput.qtyKg} kg exceeds remaining online allocation of ${breakdown.onlineAvailable} kg (BR-12c).`,
+                detail: `Requested ${itemInput.qtyKg} kg exceeds remaining online allocation of ${breakdown.onlineAllocationAvailable} kg (BR-12c).`,
               });
             }
 
             throw new AppError('STOCK_UNAVAILABLE', {
               status: 409,
-              detail: 'Requested quantity is unavailable.',
+              detail: `Only ${breakdown.onlineAvailable} kg of ${priceInfo.cropName} ${grade} is available online now.`,
             });
           }
 

@@ -32,6 +32,13 @@ export interface IssueInvoiceInput {
   gstInclusive?: boolean;
   placeOfSupply?: string | null;
   issuedBy?: string | null;
+  /**
+   * GST computed ONCE for the whole invoice by the caller (BR-98: the Direct/Market sale rounds
+   * half up on the subtotal, not per line). When set, line totals are taken as taxable values with
+   * no per-line tax, this amount is split CGST/SGST (or IGST) and added on top, and the invoice is
+   * GST-exclusive. When omitted, the per-line computation below is used unchanged.
+   */
+  invoiceGst?: Money;
   lines: Array<{
     lineNo: number;
     description: string;
@@ -180,7 +187,8 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
 
     async issue(tx, input) {
       const fiscalYear = input.fiscalYear ?? calculateCurrentFiscalYear();
-      const gstInclusive = input.gstInclusive ?? (input.invoiceType === 'SALE_RETAIL');
+      const invoiceGst = input.invoiceGst;
+      const gstInclusive = invoiceGst !== undefined ? false : (input.gstInclusive ?? (input.invoiceType === 'SALE_RETAIL'));
       const placeOfSupply = input.placeOfSupply ?? '33-Tamil Nadu';
       const isInterState = placeOfSupply !== '33-Tamil Nadu' && !placeOfSupply.startsWith('33');
 
@@ -198,7 +206,9 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
         let lineTaxablePaise = lineTotalPaise;
         let lineTaxPaise = 0;
 
-        if (line.gstRate > 0) {
+        if (invoiceGst !== undefined) {
+          // Per-invoice GST: the line is taxable value only; the tax is added once below.
+        } else if (line.gstRate > 0) {
           if (gstInclusive) {
             // Split line total into taxable base and tax proportion using allocate
             // base = total / (1 + rate/100)
@@ -227,6 +237,11 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
           tax: fromPaise(lineTaxPaise),
           total: line.total,
         });
+      }
+
+      if (invoiceGst !== undefined) {
+        totalTaxPaise = toPaise(invoiceGst);
+        totalPaisaSum += totalTaxPaise;
       }
 
       // Intra-state vs Inter-state GST splitting
