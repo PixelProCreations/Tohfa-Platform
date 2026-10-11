@@ -189,6 +189,17 @@ export class CounterOffersService {
     });
   }
 
+  /**
+   * BR-10: a negotiation that closes without agreement (farmer reject, expiry) returns the
+   * listing to its prior state. Before approval that is PENDING_APPROVAL, the admin queue. A
+   * listing with a purchase order was ACCEPTED until a warehouse quality counter-offer reopened
+   * it (goods-receipts module), so it goes back to ACCEPTED and is never approved, priced or
+   * purchased a second time. Quality counter-offer design = UNCONFIRMED default (rules.md BR-10).
+   */
+  private async priorListingStatus(tx: Executor, listingId: string): Promise<'ACCEPTED' | 'PENDING_APPROVAL'> {
+    return (await this.repo.hasPurchaseOrder(tx, listingId)) ? 'ACCEPTED' : 'PENDING_APPROVAL';
+  }
+
   // ---------------------------------------------------------- farmer helpers
 
   /** OWN scope narrowing: a foreign listing is indistinguishable from a missing one. */
@@ -589,7 +600,8 @@ export class CounterOffersService {
   /**
    * POST /listings/{id}/counter-offers/{offerId}/reject — the farmer declines
    * the counter; the round closes and the listing returns to the admin queue
-   * for a further decision (BR-10).
+   * for a further decision (BR-10), or to ACCEPTED when it already has a
+   * purchase order (a quality counter-offer; see priorListingStatus).
    */
   async respondReject(
     _actor: Actor,
@@ -632,7 +644,7 @@ export class CounterOffersService {
       const updated = await this.repo.transitionListingStatus(
         tx,
         listingId,
-        'PENDING_APPROVAL',
+        await this.priorListingStatus(tx, listingId),
         ['COUNTER_OFFERED'],
         listing.version,
       );
@@ -799,7 +811,7 @@ export class CounterOffersService {
           const reverted = await this.repo.transitionListingStatus(
             tx,
             listing.id,
-            'PENDING_APPROVAL',
+            await this.priorListingStatus(tx, listing.id),
             ['COUNTER_OFFERED'],
             listing.version,
           );

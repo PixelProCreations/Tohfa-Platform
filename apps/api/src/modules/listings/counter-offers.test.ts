@@ -209,6 +209,9 @@ function buildRepo(store: Store) {
       return max;
     },
 
+    // These listings are still in the approval phase: no purchase order exists for them.
+    hasPurchaseOrder: async () => false,
+
     countFarmerCounters: async (_db: unknown, listingId: string) => {
       let n = 0;
       for (const o of store.offers.values()) {
