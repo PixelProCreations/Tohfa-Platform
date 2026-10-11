@@ -87,7 +87,7 @@ export interface FairPriceLookup {
  * timestamptz -> ISO-8601 UTC ("2026-10-05T07:42:36.490Z"), the `format:
  * date-time` docs/openapi.yaml promises. node-postgres parses timestamptz into
  * a Date, so the columns are selected raw and serialized here, the same way
- * _example/warehouses.repo.ts does it. Never `::text` a timestamptz for the
+ * warehouses/warehouses.repo.ts does it. Never `::text` a timestamptz for the
  * wire: Postgres's own form ("2026-10-05 07:42:36.490266+00") is not RFC 3339
  * and React Native's Hermes engine parses it as NaN.
  *

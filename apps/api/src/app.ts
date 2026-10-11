@@ -22,7 +22,7 @@ import { errorHandler, notFoundHandler } from './http/errorHandler.js';
 import { rejectNulBytes } from './http/rejectNulBytes.js';
 import { logger, newTraceId, runWithContext } from './logger.js';
 import { healthRouter } from './modules/health/health.routes.js';
-import { warehousesRouter } from './modules/_example/warehouses.routes.js';
+import { warehousesRouter } from './modules/warehouses/warehouses.routes.js';
 import { subAdminsRouter, warehouseOpsRouter } from './modules/warehouse-ops/routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';

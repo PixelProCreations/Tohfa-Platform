@@ -3,8 +3,8 @@
  * written here; the full detail read reuses the existing warehouses repo.
  */
 import type { Executor } from '../../db/pool.js';
-import { warehousesRepo } from '../_example/warehouses.repo.js';
-import type { WarehouseDetail } from '../_example/warehouses.schema.js';
+import { warehousesRepo } from '../warehouses/warehouses.repo.js';
+import type { WarehouseDetail } from '../warehouses/warehouses.schema.js';
 import type { OperatingHours } from './warehouse-profile.schema.js';
 
 export interface ProfileRow {

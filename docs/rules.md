@@ -1489,9 +1489,9 @@ See also BR-66.
 ### BR-66 — A warehouse is readable only within the caller's warehouse scope; capacity is derived; capacity changes are permissioned and audited
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.2; BR-23, BR-30; module `apps/api/src/modules/_example/` (the warehouses module); `docs/openapi.yaml` `/warehouses` endpoints |
+| **Source** | Requirements v1.0 §6.2; BR-23, BR-30; module `apps/api/src/modules/warehouses/` (the warehouses module); `docs/openapi.yaml` `/warehouses` endpoints |
 | **Status** | DERIVED (`warehouse.own.view` was added to `docs/rbac.json` on 2026-10-09 as a specification gap pending owner approval; who may set capacity is open contradiction 5) |
-| **Layer** | Server-side, `apps/api/src/modules/_example/` (warehouse predicate from `apps/api/src/rbac/warehouseScope.ts`); `warehouse.own.view` (SUB_WH_ADMIN = own), `warehouse.capacity.set` in `docs/rbac.json` |
+| **Layer** | Server-side, `apps/api/src/modules/warehouses/` (warehouse predicate from `apps/api/src/rbac/warehouseScope.ts`); `warehouse.own.view` (SUB_WH_ADMIN = own), `warehouse.capacity.set` in `docs/rbac.json` |
 | **Scope** | Track 1 |
 
 **Rule.** A warehouse is readable only within the caller's warehouse scope; capacity is a derived read; capacity changes are permissioned and audited.
@@ -1501,7 +1501,7 @@ See also BR-66.
 
 **Failure mode if unenforced.** A Sub Warehouse Admin enumerates other warehouses (a 403 would confirm which ids exist); a capacity figure stored instead of derived drifts from stock; an unaudited or unpermissioned capacity change alters quotas silently; a capacity edit that rewrites batches corrupts the ledger-derived balances.
 
-**Test contract.** (`apps/api/src/modules/_example/warehouses.test.ts`)
+**Test contract.** (`apps/api/src/modules/warehouses/warehouses.test.ts`)
 - `BR-66a` A Sub admin reads its own warehouse and gets 404 for every other and for an unknown id, with no existence signal; Main/Super/Tohfa read all four.
 - `BR-66b` Capacity is derived from `ACTIVE` batches of that warehouse only; utilization is rounded to 2 decimals; over capacity is not clamped; no batches means used 0.
 - `BR-66c` Capacity changes need `warehouse.capacity.set` (Sub is 403); a bad body (missing `capacityKg`, unknown field) is 422.
