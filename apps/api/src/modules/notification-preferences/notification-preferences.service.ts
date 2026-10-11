@@ -14,9 +14,18 @@
 import type { Executor } from '../../db/pool.js';
 import { pool } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { notificationPreferencesRepo, type NotificationPreferencesRepo } from './notification-preferences.repo.js';
 import {
+  adminNotificationPreferencesRepo,
+  notificationPreferencesRepo,
+  type AdminNotificationPreferencesRepo,
+  type NotificationPreferencesRepo,
+} from './notification-preferences.repo.js';
+import {
+  adminNotificationCategories,
   notificationCategories,
+  type AdminNotificationCategory,
+  type AdminNotificationPreferenceResponse,
+  type ListAdminPreferencesResponse,
   type ListPreferencesResponse,
   type NotificationCategory,
   type NotificationPreferenceResponse,
@@ -24,6 +33,7 @@ import {
 
 export interface NotificationPreferencesServiceDeps {
   repo: NotificationPreferencesRepo;
+  adminRepo: AdminNotificationPreferencesRepo;
   db: Executor;
 }
 
@@ -35,12 +45,20 @@ export interface NotificationPreferencesService {
     category: NotificationCategory,
     enabled: boolean,
   ): Promise<NotificationPreferenceResponse>;
+  /** BR-82: all admin categories, always, in screen order; no row = enabled. */
+  listMyAdmin(scope: ResolvedScope): Promise<ListAdminPreferencesResponse>;
+  updateMyAdmin(
+    scope: ResolvedScope,
+    category: AdminNotificationCategory,
+    enabled: boolean,
+  ): Promise<AdminNotificationPreferenceResponse>;
 }
 
 export function createNotificationPreferencesService(
   deps: Partial<NotificationPreferencesServiceDeps> = {},
 ): NotificationPreferencesService {
   const repo = deps.repo ?? notificationPreferencesRepo;
+  const adminRepo = deps.adminRepo ?? adminNotificationPreferencesRepo;
   const db = deps.db ?? pool;
 
   return {
@@ -59,6 +77,21 @@ export function createNotificationPreferencesService(
 
     async updateMine(scope, category, enabled) {
       return repo.upsert(db, scope.userId, category, enabled);
+    },
+
+    async listMyAdmin(scope) {
+      const stored = await adminRepo.listAdminByUserId(db, scope.userId, adminNotificationCategories);
+      const byCategory = new Map(stored.map((p) => [p.category, p.enabled]));
+      return {
+        items: adminNotificationCategories.map((category) => ({
+          category,
+          enabled: byCategory.get(category) ?? true,
+        })),
+      };
+    },
+
+    async updateMyAdmin(scope, category, enabled) {
+      return adminRepo.upsertAdmin(db, scope.userId, category, enabled);
     },
   };
 }

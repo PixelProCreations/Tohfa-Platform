@@ -465,6 +465,8 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-23a` The seed produces exactly 4 warehouse rows with stable codes.
 - `BR-23b` No public endpoint creates a warehouse in Track 1.
 
+See also BR-66.
+
 ---
 
 ### BR-24 — Warehouses hold consolidated inventory across all farmers
@@ -592,6 +594,8 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-30a` SUB_WH_ADMIN of Ooty lists stock → only Ooty rows; count matches a direct query filtered by Ooty.
 - `BR-30b` SUB_WH_ADMIN of Ooty fetches a Coonoor batch by id → 404 with an empty body, never 403.
 - `BR-30c` A write against a Coonoor row is rejected even when the id is valid and guessed correctly.
+
+See also BR-66.
 
 ---
 
@@ -1347,6 +1351,178 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+### BR-61 — A return can only be approved after inspection, and refunded at most once
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.3 `Process returns (RMA)`; Role & Feature Matrix §6 (approve refund, wallet refund, bank refund split); Module 10 "Returns & Issues" prototype (Return Requests, RMA Detail, Inspect Returned Product, Approve/Reject, Refund Status, Return History) |
+| **Status** | DERIVED |
+| **Layer** | Server-side state machine on `return_requests.status`; `rma.refund.approve` / `rma.refund.wallet_process` / `rma.refund.bank_process` in `docs/rbac.json` gate the transitions; the refund endpoints additionally require an `Idempotency-Key` header (root CLAUDE.md §2.4) |
+| **Scope** | Track 1 |
+
+**Rule.** A return request moves through a fixed lifecycle: `PENDING` (filed against one or more `order_items`) → `INSPECTED` (condition, accepted and damaged quantity recorded per item) → `APPROVED` (which also marks the returned `order_items` as `RETURNED`) → exactly one of `REFUNDED` (instant wallet credit via `wallet.move`, `type: 'ORDER_REFUND'`) or `REFUND_PENDING_BANK` (a manual 2-4 day hand-off to SA/TA — `rma.refund.bank_process` grants `none` to MAIN_WH_ADMIN/SUB_WH_ADMIN, per the codebase default recorded for open contradiction #7 "Bank refunds for MW/SW" below; status there is still `requires client confirmation`, so this is the implemented default, not a closed question). A return may be `REJECTED` from `PENDING` or `INSPECTED` instead. `POST .../approve` requires the current status to be exactly `INSPECTED`; both refund endpoints require it to be exactly `APPROVED`. Once a return leaves `APPROVED` there is no path back into it, so "refunded at most once" holds by construction rather than by a flag. Replaying a refund call with the same `Idempotency-Key` (or a different one, after a client retry) must return the same result, never a second wallet credit.
+
+**Failure mode if unenforced.** A return approved without inspection pays out on a claim nobody verified; a refund endpoint callable twice (or callable on a `PENDING`/`REJECTED` return) double-credits the customer's wallet or creates two conflicting manual bank-refund records for one return.
+
+**Test contract.**
+- `BR-61a` `POST .../approve` on a return that is not `INSPECTED` → 409, `code: INVALID_STATE_TRANSITION`.
+- `BR-61b` `POST .../refund/wallet` on a return that is not `APPROVED` → 409, `code: INVALID_STATE_TRANSITION`; no `wallet_transactions` row is written.
+- `BR-61c` `POST .../refund/bank` on a return that is not `APPROVED` → 409, `code: INVALID_STATE_TRANSITION`.
+- `BR-61d` An `APPROVED` return refunded via wallet moves to `REFUNDED` and credits the wallet exactly once; replaying the call — with the same or a different `Idempotency-Key` — returns the same wallet transaction id and does not credit a second time.
+- `BR-61e` A return already `REFUNDED` (or routed to `REFUND_PENDING_BANK`) cannot also be refunded through the other channel.
+
+---
+
+### BR-62 — A warehouse expense is recorded once, for the caller's own warehouse, and audited
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Module 11 Warehouse Finance backend slice, design prototype; tables and seed `db/migrations/0047_expense_finance.sql`; module `apps/api/src/modules/finance/`; `docs/openapi.yaml` expense endpoints |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/finance/` (service + repo, one transaction); `finance.expense.log` in `docs/rbac.json`; warehouse predicate from `apps/api/src/rbac/warehouseScope.ts`; `POST` requires an `Idempotency-Key` header (root CLAUDE.md §2.4) |
+| **Scope** | Track 1 |
+
+**Rule.** A warehouse expense is recorded with status `RECORDED`, by the caller, for the caller's own warehouse.
+1. **Warehouse:** A Sub Warehouse Admin may not record for another warehouse (404, BR-30). An actor not assigned to a warehouse must name an existing active one (422).
+2. **Idempotency:** `POST` requires an `Idempotency-Key`. A replay of the same request returns the original row (200) with no second row and no second audit row. The same key with a different request or a different actor is 409 `IDEMPOTENCY_KEY_REUSED`.
+3. **Fields:** The category must be an active `expense_categories` row. The amount is a `Money` string greater than 0 and at most `numeric(12,2)`. The date is a real calendar date.
+4. **Audit:** Each recording writes one `finance.expense.log` audit row in the same transaction, with a masked image (no vendor or description text; BR-35).
+5. **No workflow:** There is no approval, rejection, edit, cancel or delete workflow for expenses, and no category management (the categories are seeded and read-only), because no permission code exists for one. This is an owner decision (2026-10-11: "expenses and approval: follow the rules exactly as they are"): the only expense permission is `finance.expense.log`. An expense recorded through the API is always `RECORDED`; `APPROVED` and `REJECTED` remain only as legacy values of the original status CHECK, which no endpoint can produce. Adding a workflow is a specification gap, not an inline decision.
+
+**Failure mode if unenforced.** A Sub Warehouse Admin books spend against another warehouse's books; a client retry double-records an expense; an unaudited or free-text-laden audit row leaks vendor detail and breaks the money trail.
+
+**Test contract.** (`apps/api/src/modules/finance/finance.test.ts`; one id, `BR-62a`, is used for every recording case, both mocked-repo and database/HTTP-gated)
+- `BR-62a` Own-warehouse recording, 404 for a foreign warehouse (Sub), 422 for an unassigned actor naming no or an unknown warehouse, missing `Idempotency-Key` 422, replay returns the original (200) with no second row or audit row, key reuse with a different body or actor 409, unknown or inactive category 422, `Money` and calendar-date validation (including the `numeric(12,2)` bound), one masked `finance.expense.log` audit row written on the same transaction executor, and 401/403 on the route.
+- `BR-62` (no letter; `apps/api/src/modules/finance/expense-voucher.test.ts`) No workflow: through the real router, `POST /admin/expenses/{id}/approve`, `/reject`, `/cancel`, `POST /admin/expense-categories`, `PATCH /admin/expense-categories/{id}` and `GET /admin/expense-categories/manage` answer the router's 404 "No route matches" for Main Warehouse Admin and Super Admin and change nothing; the list status filter refuses `CANCELLED`; the database has no decision columns and its status CHECK refuses `CANCELLED`.
+
+---
+
+### BR-63 — Finance reads are warehouse-scoped, and revenue is derived from completed paid orders
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Module 11 Warehouse Finance backend slice, design prototype; `db/migrations/0047_expense_finance.sql` (`finance_report_max_range_days`); module `apps/api/src/modules/finance/`; BR-30 |
+| **Status** | DERIVED (the revenue definition is an UNCONFIRMED owner default, listed in Open contradictions; the Main Warehouse Admin scope was confirmed by the owner 2026-10-11) |
+| **Layer** | Server-side, `apps/api/src/modules/finance/` (every read filtered in SQL by the caller's warehouse scope from `apps/api/src/rbac/warehouseScope.ts`); `system_config.finance_report_max_range_days` |
+| **Scope** | Track 1 |
+
+**Rule.** Expense, revenue and report reads are limited to the caller's warehouse; an out-of-scope row is absent (by-id 404, list/filter empty), never 403.
+1. **Main Warehouse Admin:** an `own` grant with no assigned warehouse sees all four warehouses (see `warehouseScope.ts`). Confirmed by the owner 2026-10-11: a Main Warehouse Admin sees all four warehouses.
+2. **Revenue** is derived from `orders`, never stored: `payment_status = 'PAID'`, `status IN ('DELIVERED', 'PICKED_UP')` and `completed_at` not null. UNCONFIRMED owner default (the `order_status` enum in the database has no `COMPLETED` value).
+3. **Dates:** Revenue dates use the Asia/Kolkata day of `completed_at`.
+4. **Span cap:** Report spans are capped by `system_config.finance_report_max_range_days` (default 366); a wider span is 422.
+5. **Raw aggregates only:** reports return sums and counts; no profit/loss, thresholds or scores.
+
+**Failure mode if unenforced.** One warehouse's admin reads another's spend and takings (and a 403 would confirm which ids exist); unpaid or cancelled orders inflate revenue; a UTC day boundary shifts late-evening sales into the wrong day.
+
+**Test contract.** (`apps/api/src/modules/finance/finance.test.ts`; one id, `BR-63a`, is used for every read case)
+- `BR-63a` Out-of-scope expense or revenue row and unknown id are 404 for a Sub admin, lists and filters are empty; revenue is the PAID + completed-status definition; exact money sums (0.10 + 0.20 = 0.30); `from`/`to` bound `completed_at` by the Asia/Kolkata day; the report span cap is read from `system_config` (366 accepted, 367 is 422); cursor pagination; a foreign cursor is 422.
+
+---
+
+### BR-64 — Reports are read-only, warehouse-scoped aggregates
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Reports backend slice; module `apps/api/src/modules/reports/`; BR-30 |
+| **Status** | DERIVED (the Main Warehouse Admin scope, all four warehouses, was confirmed by the owner 2026-10-11, as in BR-63) |
+| **Layer** | Server-side, `apps/api/src/modules/reports/` (aggregation in SQL); warehouse predicate from `apps/api/src/rbac/warehouseScope.ts`; interim gates `inventory.goods_receipt.record` (receiving report) and `wallet.cash_topup.process` (cash top-up report); `system_config.report_max_range_days` |
+| **Scope** | Track 1 |
+
+**Rule.** Reports are read-only, warehouse-scoped aggregates.
+1. **Scope:** A Sub Warehouse Admin sees only its own warehouse whatever level the permission grants it, and another warehouse's `warehouseId` is 404 `NOT_FOUND`, never 403. A Main Warehouse Admin sees all four and may filter to one.
+2. **Absent, not zero:** A channel, status or day with no rows is absent from the response, never a zero row.
+3. **Customers:** The customers report is counts only (no name, phone, email or address).
+4. **Dates:** Day buckets are Asia/Kolkata days; `from` and `to` are inclusive days. Both must be real calendar dates with `from <= to`, and the span may not exceed `system_config.report_max_range_days` (default 366 when no row), else 422.
+5. **Money:** Money is an exact decimal string computed in the database; average order value is derived from the exact sum and count.
+6. **Read-only:** no report writes anything.
+
+**Failure mode if unenforced.** A Sub Warehouse Admin reads another warehouse's sales or stock; zero-filled rows hide that a channel has no data; float sums misstate takings; a customers report with contact fields leaks personal data.
+
+**Test contract.** (`apps/api/src/modules/reports/reports.test.ts`)
+- `BR-64a` A Sub admin is confined to its own warehouse (even where the permission grants `all`); another warehouse's id is 404, for every report.
+- `BR-64b` A Main admin sees all warehouses and may filter to one.
+- `BR-64c` A channel, status or day with no rows is absent, not a zero row; an empty range is empty lists and 0 / 0.00.
+- `BR-64d` The customers report is counts only.
+- `BR-64e` `from`/`to` must be real calendar dates with `from <= to`; the span cap comes from `system_config.report_max_range_days`, falling back to 366.
+- `BR-64f` Day buckets are Asia/Kolkata days and the range is inclusive of the whole IST day at both ends.
+- `BR-64g` Money is exact (decimal sum computed in the database, average from exact sum and count).
+- `BR-64h` Reports are GET only, 401 without a token and 403 for a farmer, and running every report leaves every source table unchanged.
+
+---
+
+### BR-65 — A user reads and marks read only their own notifications and the system messages visible to them
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): notifications and system-message read backend slice; `db/migrations/0048_announcement_reads.sql`; modules `apps/api/src/modules/notifications/` and `apps/api/src/modules/system-messages/` |
+| **Status** | DERIVED (the Main Warehouse Admin visibility, every warehouse, was confirmed by the owner 2026-10-11) |
+| **Layer** | Server-side, `apps/api/src/modules/notifications/` and `apps/api/src/modules/system-messages/`; the owner id and role codes come from the access token, never the request; interim permission codes `notification.own.view` / `notification.own.mark_read` (no dedicated system-message codes exist); `announcement_reads` (`0048_announcement_reads.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** A user reads and marks read only their own notifications and only the system messages visible to them.
+1. **Notifications:** A notification is readable and markable only by its owner; another user's id, a non-in-app row or an unknown id is 404 `NOT_FOUND`. `POST /notifications/read-all` marks only the caller's unread in-app notifications read in one statement and is idempotent (a replay returns `updated: 0` and moves no read time).
+2. **System-message visibility:** A system message (announcement) is visible when it is not deleted, `starts_at <= now()` and `ends_at` is null or in the future, and its scope matches the caller: `SYSTEM_WIDE` always; `WAREHOUSE` when `warehouse_id` is one of the caller's assigned warehouses, or any warehouse when the caller has none (Main Warehouse Admin; confirmed by the owner 2026-10-11: a Main Warehouse Admin sees all four warehouses), never for farmers or customers; `ROLE` when `role_id` is a role the caller holds; `ZONE` is never shown.
+3. **Invisible means 404:** Anything not visible is 404 on get and on mark-read, and mark-read writes nothing.
+4. **Read state:** Read state is per user (`announcement_reads`); marking read is idempotent and keeps the first `readAt`. Neither action writes an audit row.
+5. **List:** Ordered `starts_at DESC, id DESC` with a microsecond-exact cursor; limit default 20, max 100.
+
+**Failure mode if unenforced.** One user reads or clears another's notifications; a warehouse announcement reaches farmers, customers or another warehouse's staff; an expired or deleted notice stays visible; one admin's read hides the message from everyone else.
+
+**Test contract.** (`apps/api/src/modules/notifications/notifications.read.test.ts` and `notifications.test.ts` for the notification half; `apps/api/src/modules/system-messages/system-messages.test.ts` for the system-message half)
+- `BR-65a` A notification read is the caller's own in-app row only; another user's id, a PUSH row and an unknown id are 404; 401 without a token (notifications).
+- `BR-65b` `read-all` marks only the caller's unread in-app rows read, is idempotent (replay reports 0 and moves no read time), and is not captured by the `/:id` routes (notifications).
+- `BR-65c` System-message visibility by scope: Main admin, Sub admin, farmer; list item has exactly the documented fields, with no farm or warehouse leakage.
+- `BR-65d` Expired, not-yet-started, soft-deleted and out-of-scope messages are invisible: 404 on get; the id param must be a uuid.
+- `BR-65e` Mark-read on an invisible message is 404 and writes nothing; read state is per user; replay keeps the first `readAt`; the status filter splits unread from read.
+- `BR-65f` List ordering and cursor: default limit 20, cap 100, microsecond-apart and tied `starts_at` paginate exactly once; a forged cursor or unknown filter is 422.
+- `BR-65g` List, get and mark-read without a token are 401 (system messages).
+
+---
+
+### BR-66 — A warehouse is readable only within the caller's warehouse scope; capacity is derived; capacity changes are permissioned and audited
+| | |
+|---|---|
+| **Source** | Requirements v1.0 §6.2; BR-23, BR-30; module `apps/api/src/modules/_example/` (the warehouses module); `docs/openapi.yaml` `/warehouses` endpoints |
+| **Status** | DERIVED (`warehouse.own.view` was added to `docs/rbac.json` on 2026-10-09 as a specification gap pending owner approval; who may set capacity is open contradiction 5) |
+| **Layer** | Server-side, `apps/api/src/modules/_example/` (warehouse predicate from `apps/api/src/rbac/warehouseScope.ts`); `warehouse.own.view` (SUB_WH_ADMIN = own), `warehouse.capacity.set` in `docs/rbac.json` |
+| **Scope** | Track 1 |
+
+**Rule.** A warehouse is readable only within the caller's warehouse scope; capacity is a derived read; capacity changes are permissioned and audited.
+1. **Scope:** A Sub Warehouse Admin reads only its own warehouse; any other id and any unknown id returns the same 404 `NOT_FOUND`, never 403 (`warehouse.own.view`, BR-30).
+2. **Capacity is derived, read-only:** `used` = sum of `qty_available` of the warehouse's `ACTIVE` batches; `available` = capacity minus used (negative when over capacity, never clamped); `utilization` = used / capacity x 100 rounded to 2 decimals; a null capacity yields null capacity-derived fields. `used` is a derivation, not a business rule.
+3. **Changing capacity** needs `warehouse.capacity.set`, writes one `warehouse.capacity.set` audit row in the same transaction with before/after images of `capacityKg` only (BR-35), and never touches inventory.
+
+**Failure mode if unenforced.** A Sub Warehouse Admin enumerates other warehouses (a 403 would confirm which ids exist); a capacity figure stored instead of derived drifts from stock; an unaudited or unpermissioned capacity change alters quotas silently; a capacity edit that rewrites batches corrupts the ledger-derived balances.
+
+**Test contract.** (`apps/api/src/modules/_example/warehouses.test.ts`)
+- `BR-66a` A Sub admin reads its own warehouse and gets 404 for every other and for an unknown id, with no existence signal; Main/Super/Tohfa read all four.
+- `BR-66b` Capacity is derived from `ACTIVE` batches of that warehouse only; utilization is rounded to 2 decimals; over capacity is not clamped; no batches means used 0.
+- `BR-66c` Capacity changes need `warehouse.capacity.set` (Sub is 403); a bad body (missing `capacityKg`, unknown field) is 422.
+- `BR-66d` One audit row on the same transaction with masked before/after images; an unknown warehouse writes no audit row.
+- `BR-66e` A capacity change leaves batches and the stock ledger untouched.
+
+---
+
+### BR-67 — A user sees only their own live sessions, and no secrets
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): active-sessions backend slice; module `apps/api/src/modules/auth/`; `docs/openapi.yaml` `GET /auth/me/sessions` and `GET /auth/me` |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/auth/`; the owner comes only from the access token, never the request |
+| **Scope** | Track 1 |
+
+**Rule.** A user sees only their own live sessions and no secrets.
+1. **Live only:** `GET /auth/me/sessions` returns only the caller's sessions that are neither revoked nor expired, newest first, capped at 50.
+2. **Allow-list:** the response holds exactly `id`, `platform`, `userAgent`, `issuedAt`, `lastSeenAt`, `lastSeenIp`, `expiresAt`, and never refresh-token hashes, token ids, device ids or push tokens. `isCurrent` is not returned because the access token carries no session id.
+3. **`/auth/me`:** additionally returns `status`, `createdAt` and `lastLoginAt` (nullable); additive, existing fields unchanged.
+
+**Failure mode if unenforced.** One user sees another's devices and IPs; a leaked refresh-token hash or device id lets an attacker replay or fingerprint a session.
+
+**Test contract.** (`apps/api/src/modules/auth/auth.sessions.test.ts`)
+- `BR-67a` Only live sessions are listed (revoked and expired are excluded); 401 without a token or with a malformed one.
+- `BR-67b` Another user's sessions are never listed.
+- `BR-67c` Exactly the allow-listed keys, no secrets, and no `isCurrent`.
+- `BR-67d` Newest first, capped at 50.
+- `BR-67e` A user with no live sessions gets an empty array, not 404.
+- `BR-67f` Every role can list its own sessions.
+- `BR-67g` `/auth/me` returns `status`, `createdAt` and `lastLoginAt`, with `lastLoginAt` null (not omitted) for a user who has never logged in.
+
 ### BR-68 — Farmer listing writes are idempotent (Idempotency-Key)
 | | |
 |---|---|
@@ -1464,6 +1640,322 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
+BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category management are not defined by the rules; the owner decided to follow the rules as written (BR-62).
+
+---
+
+### BR-74 — A daily cash close is computed from the ledger, stored once, and never changed
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/finance/` (cash-close routes, service, repo); `cash_closes` (`0050_cash_closes.sql`, append-only through `app_make_append_only`); `apps/api/src/http/idempotency.ts` |
+| **Scope** | Track 1 |
+
+**Rule.** For one warehouse and one Asia/Kolkata day the system computes: cash sales (paid completed `CASH` orders, the BR-63 revenue definition), cash top-ups (successful `CASH` top-ups of the warehouse) and cash expenses (every `CASH` expense of that day that is not soft-deleted: expenses are only recorded, BR-62, so no status is excluded). Opening cash is the counted cash of the latest earlier close, 0 if none; expected cash is opening + sales + top-ups - expenses, in exact arithmetic. A close stores those figures with the counted cash, the difference, a note and the closer. `cash_closes` is append-only; there is one close per warehouse and day (a second is 409 `CONFLICT`, with no correction row: the stricter reading); a future day is 422; `Idempotency-Key` is required; one masked audit row is written in the same transaction (no note text). `GET` daily-summary is computed, not stored. Permission `finance.cash_close.manage` (Super Admin, TOHFA Admin and Main all, Sub own). No tolerance is judged on the difference.
+
+**Failure mode if unenforced.** A day is closed twice, figures drift from the ledger, or notes leak through the audit log.
+
+**Test contract.** (`apps/api/src/modules/finance/cash-close.test.ts`)
+- `BR-74a` Request and response schemas (counted cash is a `Money` string, real date, bounded note, strict bodies, negative difference allowed) and the computed cash sales, top-ups and expenses for one warehouse and Kolkata day.
+- `BR-74b` Opening cash is the counted cash of the latest earlier close, 0 with none; later closes and other warehouses are ignored.
+- `BR-74c` A close records the system figures, counted cash, difference, note, closer and one masked audit row in the same transaction; no difference is ever refused.
+- `BR-74d` A second close of the same warehouse and day with a new key is 409 `CONFLICT` and writes nothing; another day or warehouse is fine.
+- `BR-74e` Replay returns the original close with no second row or audit row; a different body is 409 `IDEMPOTENCY_KEY_REUSED`; a missing key is 422.
+- `BR-74f` A future day, an unknown or inactive warehouse is 422; a Main admin must name the warehouse.
+- `BR-74g` A Sub admin closes only its own warehouse and gets 404 for another, for the summary and the close.
+- `BR-74h` Closing an earlier day after a later one is recorded with its own opening; no ordering rule is invented.
+- `BR-74i` A close can never be updated or deleted, the arithmetic is enforced by CHECKs and the day is unique at the database level.
+- `BR-74j` The close list is scoped, newest first, filterable and cursor-paginated; by-id is 404 out of scope.
+- `BR-74k` Every cash-close route is 401 without a token and 403 for farmer, customer and Farmer Admin.
+- `BR-74l` Sub admin over HTTP: summary, close 201, replay 200, second close 409, summary then shows closed.
+- `BR-74m` Main and TOHFA Admin close a named warehouse; they must name it; another Sub warehouse id in the body is 404.
+- `BR-74n` Validation errors are 422 and write nothing (no key, float or negative cash, bad or future date, unknown field or warehouse).
+
+---
+
+### BR-75 — An expense voucher is a derived, read-only document
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/finance/` (voucher route, service) |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/expenses/{id}/voucher` returns a derived read-only payment voucher numbered `VCH-<YYYYMMDD>-<first 8 hex of the expense id>` (a stored sequential number would need a sequence, which is not invented). It carries the expense fields and the recorder's name, and no authorizer (there is no approval workflow, BR-62). It is gated by `finance.expense.log` (an interim gate named in SPEC_GAPS). An out-of-scope expense is 404. Revenue vouchers and a vouchers list are NOT built (the design does not define them).
+
+**Failure mode if unenforced.** A voucher names an authorizer although nobody approves expenses, its number changes between two prints, or it exposes another warehouse's expense.
+
+**Test contract.** (`apps/api/src/modules/finance/expense-voucher.test.ts`)
+- `BR-75a` The number shape is `VCH-<yyyymmdd>-<8 upper-case hex>`; the voucher is derived from the expense (expense fields, recorder name), is the same on every read, and carries no authorizer or decision field, even for a row with a legacy `APPROVED` status.
+- `BR-75b` Warehouse scope: another warehouse, an unknown or a deleted expense is 404; Main reads every warehouse.
+- `BR-75c` Over HTTP the voucher is 401 without a token and 403 for farmer, customer and Farmer Admin; it answers 200 for the own warehouse and Main, 404 for another warehouse, and carries the derived number.
+
+---
+
+### BR-76 — CSV exports are the same scoped, capped read as the source report, with injection-safe cells
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/report-exports/`; `system_config.export_max_rows` (`0051_export_max_rows_config.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/exports/<report>` (one literal path per report: `sales`, `receiving`, `inventory`, `returns`, `customers`, `cash-topups`, `expenses`, `finance-revenue`, `finance-expenses`) returns the same warehouse-scoped, range-capped read as the source report or finance endpoint, as a CSV attachment.
+1. **Permission:** `report.export.file` AND the source data permission; a farmer or customer scope is 403. Main Warehouse Admin holds `view` on `report.export.file` and is allowed (UNCONFIRMED default, contradiction 26).
+2. **Scope:** Sub is confined to its own warehouse; another warehouse's id is 404, and a non-existent id from Main is 404 too.
+3. **Caps:** the span cap is the source report's own (`report_max_range_days` or `finance_report_max_range_days`). More data rows than `system_config.export_max_rows` (default 50000, UNCONFIRMED) is 422 and is never truncated.
+4. **Cells:** a cell starting with `=`, `+`, `-`, `@`, tab or CR is quote-prefixed (injection guard); RFC 4180 quoting; money as 2-decimal strings; no customer PII (the customers export is counts only; the expenses export omits vendor, description and recorder).
+5. **Audit:** one masked `report.export` audit row (report, warehouse, from, to, row count) in the request transaction; none on a refusal.
+6. **Layout:** the column layout (long format with sections for aggregates) is the implementer's choice (UNCONFIRMED).
+
+**Failure mode if unenforced.** A spreadsheet formula runs on the recipient's machine, a Sub admin downloads another warehouse's data, an export silently truncates, or customer PII leaves in a file.
+
+**Test contract.** (`apps/api/src/modules/report-exports/report-exports.test.ts`)
+- `BR-76a` Each of the nine reports returns the exact scoped figures as CSV (2-decimal money strings, Kolkata-day buckets, filters honoured); a header-only file is the header and a CRLF.
+- `BR-76b` A Sub admin gets only its own warehouse in every export, and another warehouse is 404.
+- `BR-76c` A Main admin may export any warehouse id or all, and a non-existent warehouse id is 404.
+- `BR-76d` A cell starting with a trigger character is quote-prefixed and stays prefixed in the file; a number column is never prefixed.
+- `BR-76e` RFC 4180 quoting of commas, double quotes, CR and LF, with CRLF row endings; a null cell is empty.
+- `BR-76f` More rows than `export_max_rows` is 422 on `query.to` and never truncated, exactly the cap is allowed; the migration seeds 50000 and a missing row falls back to it.
+- `BR-76g` The customers export carries counts only (no name, phone, e-mail, customer code or address).
+- `BR-76h` One masked `report.export` audit row on the request transaction; none on a refused request.
+- `BR-76i` Over HTTP: 401 without a token, 403 for farmer, customer and Farmer Admin; Main and Super Admin may export; an unknown report or a write verb is 404.
+- `BR-76j` The nine report names are exactly the documented ones; per-report parameter and range validation (422, no audit row); the inventory snapshot has no range.
+- `BR-76k` The file name is built only from safe characters, whatever the warehouse code holds.
+- `BR-76l` A scope carrying a customer or farmer id is 403 and reads nothing.
+
+---
+
+### BR-77 — Tasks and alerts are derived live from existing records, inside the caller's scope
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/tasks-alerts/`; thresholds in `system_config` (`0052_task_alert_states.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** Tasks and alerts are never stored. `GET /admin/tasks` and `GET /admin/alerts` compute them from: returns (`PENDING` inspection, `INSPECTED` approval), goods receipts `AWAITING_QC`, orders `CONFIRMED` / `PACKED` / `READY_FOR_PICKUP`; and, for alerts, `ACTIVE` batches near expiry, low stock per warehouse + crop + grade, and capacity near full.
+1. **Scope:** Sub sees its own warehouse only; an item whose condition cleared is not returned; a key out of scope, never derived or cleared is 404; a non-visible `warehouseId` filter is 404.
+2. **Allow-list:** titles and messages are machine keys with params (no English in the API; no customer or farmer ids).
+3. **Thresholds** come from `system_config`: `low_stock_threshold_kg`, `alert_batch_expiry_days` (7) and `alert_capacity_utilization_percent` (90). The last two are PLACEHOLDER values (UNCONFIRMED, contradiction 25). A missing or unusable threshold means that alert type is not raised.
+4. **Permissions** `task.own.view` and `alert.own.view` (Super Admin, TOHFA Admin, Main all; Sub own) are spec gaps and are not checked per source.
+5. **Not built:** listing and counter-offer tasks (no warehouse before a purchase order), priority, assignee and in-progress, an expense-approval alert, a goods-receipt mismatch alert, a cash top-up alert, and alert severity.
+
+**Failure mode if unenforced.** A Sub admin sees another warehouse's work, a stale task lingers after its cause is gone, or ids and free text of customers and farmers leak into a notification-style payload.
+
+**Test contract.** (`apps/api/src/modules/tasks-alerts/tasks-alerts.test.ts`)
+- `BR-77a` A `PENDING` return is a `RETURN_INSPECTION` task and an `INSPECTED` one a `RETURN_APPROVAL` task; later states are not tasks.
+- `BR-77b` A goods receipt `AWAITING_QC` is a `GOODS_RECEIPT_QC` task; once checked it is not.
+- `BR-77c` An order is a pack, dispatch or pickup-OTP task by its status, with the delivery date as `dueOn`; other statuses are not tasks.
+- `BR-77d` An `ACTIVE` batch with stock expiring within `alert_batch_expiry_days` (past expiry included) is a `BATCH_NEAR_EXPIRY` alert.
+- `BR-77e` A warehouse + crop + grade whose active stock is below `low_stock_threshold_kg` is a `LOW_STOCK` alert.
+- `BR-77f` A warehouse at or above `alert_capacity_utilization_percent` of its capacity is a `CAPACITY_NEAR_FULL` alert; no capacity, no alert.
+- `BR-77g` A Sub admin sees only its own warehouse, Main sees every warehouse, and a `warehouseId` filter on another warehouse is 404.
+- `BR-77h` Pagination is stable (newest first, ties by key, no skip or repeat, bad cursors 422).
+- `BR-77i` The summary counts open tasks per type, leaves out tasks the caller marked done, and honours the warehouse filter.
+- `BR-77j` Acting on an item that is out of scope, never derived or whose condition has cleared is 404 and writes nothing.
+- `BR-77k` Responses are allow-listed machine data: no customer or farmer id, no user-facing English, keys that match the type.
+- `BR-77l` Every route is 401 without a token and 403 `problem+json` for farmer, customer and Farmer Admin.
+
+---
+
+### BR-78 — What a user does to a task or alert is that user's own state
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/tasks-alerts/`; `task_alert_states` and `system_config.alert_snooze_max_hours` (`0052_task_alert_states.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** Done (task), dismiss and snooze (alert) are stored per user in `task_alert_states`: not audited, not append-only; the last action wins; state is isolated between users. A snooze `until` must be in the future and at most `system_config.alert_snooze_max_hours` (168, a PLACEHOLDER: UNCONFIRMED) ahead (422 on `body.until`). A finished snooze no longer hides the alert. When an item's condition clears, the user's state for it is deleted at their next list (a write inside a GET, limited to that user's own preference rows).
+
+**Failure mode if unenforced.** One admin's dismissal hides an alert from a colleague, a cleared alert that returns stays dismissed forever, or a snooze hides an alert indefinitely.
+
+**Test contract.** (`apps/api/src/modules/tasks-alerts/tasks-alerts.test.ts`)
+- `BR-78a` Done hides a task from the open list and shows it in the done list; dismiss hides an alert from both lists; snooze moves it to the snoozed list with its end time; the last action wins and replays are idempotent.
+- `BR-78b` A snooze that has ended no longer hides the alert.
+- `BR-78c` When the condition clears the state is forgotten, per user and only for that user's own cleared items; a condition that returns starts un-dismissed.
+- `BR-78d` One user's done, dismiss and snooze never touch another user's list; a task key and an alert key never share state; the user id comes from the scope.
+- `BR-78e` Only the canonical item key of the right kind is accepted.
+- `BR-78f` The snooze body is one ISO instant ending in the future and no later than `alert_snooze_max_hours` (168 when missing or unusable).
+- `BR-78g` Dismiss, snooze and done write no `audit_log` row.
+
+---
+
+### BR-79 — A warehouse's storage locations are warehouse-scoped, audited, never deleted, and never touch stock
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (storage locations); `storage_locations` (`0053_storage_locations.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** A warehouse has named storage locations: a code (unique per warehouse, case-insensitively, and immutable), a name, a free-text type, an optional display-only capacity in kg, and an active flag. Reads need `inventory.batch.view` and are warehouse-scoped (another or an unknown warehouse is the same 404). Writes need `warehouse.storage_location.manage` (Super Admin, TOHFA Admin and Main all; Sub none: UNCONFIRMED). One masked audit row is written per change in the same transaction; a no-op writes nothing; there is no delete (deactivate instead). Locations never touch `inventory_batches` (the free-text `storage_location` is not linked) or the stock ledger.
+
+**Failure mode if unenforced.** A Sub admin reads or edits another warehouse's locations, a code is reused so labels become ambiguous, or a location edit silently moves stock.
+
+**Test contract.** (`apps/api/src/modules/warehouse-ops/storage-locations.test.ts`)
+- `BR-79a` A Sub admin lists and reads its own warehouse and gets the same 404 for another and for an unknown warehouse; the list query is strict, paged and searchable.
+- `BR-79b` The code is unique per warehouse, case-insensitively, and reusable in another warehouse; create body validation; a duplicate is 409; roles other than the managers are 403.
+- `BR-79c` Update changes only the named fields, can clear type and capacity, never the code; deactivate and reactivate filter the list; there is no `DELETE` route.
+- `BR-79d` One masked audit row per change in the same transaction, with the real changed field names and no name; it rolls back with the change.
+- `BR-79e` Managing locations never touches `inventory_batches`, the stock ledger or another warehouse.
+- `BR-79f` The service refuses a scope that does not cover the warehouse, even for a write.
+
+---
+
+### BR-80 — Warehouse profile edits are narrow and audited; performance is exact counts only
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (profile and performance); `system_config.report_max_range_days` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Profile:** `PATCH /warehouses/{id}` edits the contact phone (E.164 or null) and operating hours only (strict body). Permission `warehouse.profile.edit` (Super Admin, TOHFA Admin and Main all; Sub none: UNCONFIRMED). `operatingHours` has one strict shape: 7 weekdays, each closed or `HH:MM` open before close, no overnight (UNCONFIRMED default). A no-op writes nothing; otherwise one masked audit row (changed field names, never the phone or hours). No warehouse create or delete exists (BR-23).
+2. **Performance:** `GET /warehouses/{id}/performance?from&to` returns only exact counts and sums for the inclusive Asia/Kolkata range: orders placed, fulfilled (`PICKED_UP` or `DELIVERED`) and cancelled, goods receipts, return requests and stock-ledger movements. The span is capped by `report_max_range_days` (fallback 366). It is gated by the existing `warehouse.all.view`, as in the design (so Sub gets 403), and carries no score, rate, target or ranking.
+3. **Not built:** capacity targets and warehouse documents.
+
+**Failure mode if unenforced.** A profile edit overwrites an immutable column or leaks a phone number through the audit log; the performance read invents a score nobody defined.
+
+**Test contract.** (`apps/api/src/modules/warehouse-ops/warehouse-profile.test.ts`, `warehouse-performance.test.ts`)
+- `BR-80a` The body takes `contactPhone` and `operatingHours`, at least one and nothing else; only those two columns change.
+- `BR-80b` `operatingHours` accepts a full week of closed or open/close days and rejects a missing weekday, unknown key, malformed time, open not before close and contradictory flags.
+- `BR-80c` Roles: 401 without a token, 403 for farmer, customer, Farmer Admin and Sub; Super Admin, TOHFA Admin and Main edit any warehouse; the service refuses a scope that does not cover the warehouse.
+- `BR-80d` One audit row per change, masked (field names only, never the phone or hours), rolled back with the change.
+- `BR-80e` A change that alters nothing writes and audits nothing; an unknown warehouse is 404 with no audit row.
+- `BR-80f` Exact counts and sums for the warehouse and the inclusive IST range, single day works, an empty range is zeros and empty lists.
+- `BR-80g` The response carries only counts, sums and breakdowns: no score, rate, target, ranking or SLA.
+- `BR-80h` The range needs real dates with `from <= to`; the span cap is `report_max_range_days` (the limit itself allowed; 366 if missing).
+- `BR-80i` Another or an unknown warehouse is the same 404; 401 without a token; 403 for farmer, customer, Farmer Admin and Sub.
+- `BR-80j` Reading performance writes nothing (no audit row, no changed table) and has no write route.
+- `BR-23b` There is no endpoint that creates or deletes a warehouse, for any role (asserted in `warehouse-profile.test.ts`).
+
+---
+
+### BR-81 — A Sub Warehouse Admin is created bound to exactly one active warehouse, within a per-warehouse cap
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-ops/` (sub-admin routes, service, repo); `system_config.sub_wh_admin_max_per_warehouse`, `admin_profiles`, `user_roles` (`0054_sub_wh_admin_staffing.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /admin/sub-warehouse-admins` and `GET` (`admin.sub_wh_admin.create`: Super Admin, TOHFA Admin and Main, matching `creationRules`) create only a `SUB_WH_ADMIN` bound to exactly one existing active warehouse: a missing warehouse is 422 `WAREHOUSE_REQUIRED` (BR-25a); a warehouse outside the caller's scope is 404; a taken mobile is 409 and never echoed. The cap is `system_config.sub_wh_admin_max_per_warehouse` live admins (default 5; UNCONFIRMED reading of BR-25 "5 incl. standby", contradiction 24; disabled admins do not count; the warehouse row is locked against concurrent creates; over the cap is 409). The account is created `ACTIVE` with NO password (the admin sets one through forgot-password), with an `admin_profiles` code `SWA-001...` and a `user_roles` row. Account, profile, assignment and one masked audit row (role, warehouse, code; no name or mobile) are one transaction. The list shows live assignments only and never a mobile number. Deactivation of a Sub Warehouse Admin is NOT built (no permission defines who may).
+
+**Failure mode if unenforced.** A Sub admin exists with no warehouse and therefore wide scope, a warehouse accumulates unlimited admins under concurrent creates, or a mobile number leaks.
+
+**Test contract.** (`apps/api/src/modules/warehouse-ops/sub-admins.test.ts`)
+- `BR-81a` The created account is `ACTIVE` with no password and signs in only after the existing forgot-password flow sets one, as `SUB_WH_ADMIN` of that warehouse only.
+- `BR-81b` One account, one admin profile and one warehouse-scoped assignment with `assigned_by` = the creator; the body needs a name and an E.164 mobile and is strict.
+- `BR-81c` An unknown or inactive warehouse is 422, a taken mobile is 409, a scope that does not cover the warehouse is 404.
+- `BR-81d` At most `sub_wh_admin_max_per_warehouse` live admins per warehouse (the 6th under the default is 409), a disabled admin frees its slot, a missing or unusable config falls back to 5; no update or delete route.
+- `BR-81e` One masked audit row in the same transaction (no name, no mobile); it rolls back with the account.
+- `BR-81f` The list shows live assignments only, scoped, never a mobile; Super Admin, TOHFA Admin and Main list, other roles are 403.
+- `BR-23b` No warehouse create or delete exists (see BR-80; `warehouse-profile.test.ts`).
+- `BR-25a` Creating a `SUB_WH_ADMIN` without a warehouse is 422 `WAREHOUSE_REQUIRED` and creates nothing (`sub-admins.test.ts`).
+- `BR-25b` The database rejects a `SUB_WH_ADMIN` assignment without a warehouse inserted directly (`sub-admins.test.ts`).
+- `BR-28a` Exactly the 8 allowed (creator, target) pairs of `creationRules` hold a grant, and `SUB_WH_ADMIN` is creatable by exactly Super Admin, TOHFA Admin and Main (`sub-admins.test.ts`).
+- `BR-28b` A request cannot name a role: this endpoint can only ever create a `SUB_WH_ADMIN` (`sub-admins.test.ts`).
+
+---
+
+### BR-82 — Own-profile edit, admin notification categories, and admin help are narrow, masked and audited
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/auth/` (profile), `apps/api/src/modules/notification-preferences/` (admin categories), `apps/api/src/modules/help-support/` (help); `0055_help_support_admin_notification_categories.sql` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Own profile:** `PATCH /auth/me` (`auth.profile.edit_own`: Super Admin, TOHFA Admin, Farmer Admin, Main and Sub all; farmer and customer none) edits only `fullName` (2-120) and `preferredLocale` (`en` or `ta`). `mobile` or `email` in the request is 403 `FIELD_LOCKED` (BR-33) and nothing is applied; any other key or an empty body is 422. The response is the `GET /auth/me` shape. A real change writes one masked `auth.profile.update_own` audit row (field names only); a no-op writes nothing.
+2. **Admin notification preferences:** `GET /notification-preferences/admin` and `PATCH .../admin/{category}` (`notification.own.admin_preferences`, admin roles only) over 14 categories in screen order: `IN_APP_MASTER`, `GOODS_RECEIVING`, `INVENTORY_ALERTS`, `WAREHOUSE_OPERATIONS`, `TASK_ALERTS`, `EXCEPTION_ALERTS`, `ORDER_CONFIRMED`, `ORDER_DISPATCHED`, `ORDER_DELIVERED`, `WALLET_CREDITED`, `PAYOUT_RELEASED`, `SYSTEM_MESSAGES`, `MAINTENANCE_MESSAGES`, `SECURITY_ALERTS`. Default enabled; sparse ("no row = enabled"); farmers and customers cannot read or set them; the five original categories and their defaults are unchanged. The admin categories are stored preferences only: no admin event maps to them yet (contradiction 28).
+3. **Help and support:** `GET /admin/help` serves published plain-text articles by locale and category plus a contact card (`help.article.view`: admin roles). Article and contact writes are Super Admin and TOHFA Admin only (`help.article.manage`) and are audited masked (no title, body, phone or e-mail). Nothing is seeded and no phone or e-mail is invented (`system_config` `help.contact.phone` / `help.contact.email` are null until set). Admin support tickets are NOT built.
+
+**Failure mode if unenforced.** A user changes their locked mobile or e-mail through a profile screen, a farmer reads or sets admin preferences, or help text and contact details leak into the audit log.
+
+**Test contract.** (`apps/api/src/modules/auth/auth.profile.test.ts`, `apps/api/src/modules/notification-preferences/notification-preferences.admin.test.ts`, `apps/api/src/modules/help-support/help-support.test.ts`)
+- `BR-82a` `PATCH /auth/me` without a token is 401.
+- `BR-82b` The edit changes the trimmed name and/or locale only, leaves every other column alone and returns the `GET /auth/me` shape; invalid values are 422.
+- `BR-82c` `mobile` or `email` is 403 `FIELD_LOCKED` and a valid name in the same request is not applied; any unknown key is 422 and nothing is applied.
+- `BR-82d` One masked audit row with changed field names only, in the same transaction; a no-op writes nothing.
+- `BR-82e` A locale outside `en` / `ta` is 422 and changes nothing; both valid locales are accepted.
+- `BR-82f` The admin preferences routes are 401 without a token.
+- `BR-82g` A farmer cannot set an admin category through the farmer endpoint either (422, nothing stored).
+- `BR-82h` Toggling an admin category persists for the caller only and re-enabling restores it; the original five categories are unchanged and admin rows never leak into that list; the database accepts every admin category and rejects an unknown one.
+- `BR-82i` Help routes are 401 without a token; the migration seeds no article; the contact channels are `null` until set; with nothing configured the reader gets empty articles and a null contact.
+- `BR-82j` Role matrix through the real router: admin roles read published help; farmer, customer and others are 403; only Super Admin and TOHFA Admin write.
+- `BR-82k` A new article is a draft invisible to readers until published; reads filter by locale (default `en`) and category, ordered by `sortOrder` then id; an unsupported locale is 422; managers list drafts too.
+- `BR-82l` Article text is plain text (HTML-looking markup rejected); PATCH changes only the fields sent; publishing an already published article is a 200 no-op with no second audit row.
+- `BR-82m` Create, update, publish, unpublish and contact changes each write one masked audit row (no title, body, phone or e-mail) in the same transaction; a no-op writes none; a null clears a channel.
+
+---
+
+### BR-83 — The warehouse staff roster is warehouse-scoped, soft-deactivated, and masked in audit
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-staff/`; `warehouse_staff` (`0056_warehouse_staff.sql`) |
+| **Scope** | Track 1 |
+
+**Rule.** A staff member belongs to exactly one warehouse and is NOT a user (no login). A row outside the caller's scope is 404, by id and when a warehouse or staff id is used as a read filter for a confined caller. Deactivation is soft (status `INACTIVE`); attendance stays; no hard delete. The phone is personal data: never logged, never in an audit image. Create, update and deactivate each write one masked audit row (ids, staff code `STF-nnnn`, warehouse, status; changed field names) in the same transaction; a no-op `PATCH` or a repeat deactivate writes none. Permissions: reads `admin.staff.list_view` (existing; Sub none); writes `admin.staff.manage` (new: Super Admin and TOHFA Admin all, Main own, Sub none; a spec gap, contradiction 27). **A Sub Warehouse Admin cannot list staff** (owner decision 2026-10-11: the rules are followed as written): it holds none of `admin.staff.list_view`, `admin.staff.manage`, `admin.staff.attendance.view` and `admin.staff.attendance.mark`, so EVERY staff and attendance route answers it 403 (for its own warehouse's staff too) and no response can carry a staff name, designation, phone or id to it. Main `own` means all four warehouses (confirmed by the owner 2026-10-11: a Main Warehouse Admin sees all four warehouses); a Main Warehouse Admin with an assigned warehouse is confined to it.
+
+**Failure mode if unenforced.** A Sub Warehouse Admin obtains the staff list through a roster or attendance route, an admin confined to one warehouse sees or edits another warehouse's staff, a staff phone number leaks through logs or audit, or deactivating a person erases their attendance.
+
+**Test contract.** (`apps/api/src/modules/warehouse-staff/warehouse-staff.test.ts`)
+- `BR-83a` Create body validation (name, optional phone, status defaults to `ACTIVE`, impossible date, unknown fields).
+- `BR-83b` Update body needs at least one field, allows `phone: null`, and is strict.
+- `BR-83c` Creating returns an `STF-` code and `ACTIVE` status, makes no user row, and writes one masked `staff.create` audit row.
+- `BR-83d` An actor with no warehouse must name one (422), an unknown warehouse is 422, a confined actor naming another warehouse gets 404, a confined actor defaults to its own.
+- `BR-83e` An admin confined to one warehouse (a Main admin with an assigned warehouse) lists and reads only that warehouse (another is 404), an unconfined Main and Super Admin see both, and search escapes `LIKE` wildcards.
+- `BR-83f` The list pages in name order with a cursor without repeats or skips; a forged cursor is 422.
+- `BR-83g` Update changes only the given fields, audits field names only, and replaying the same `PATCH` writes nothing.
+- `BR-83h` Deactivation is soft and idempotent (one audit row), the row stays readable as `INACTIVE`, other warehouses see 404, a `PATCH` can reactivate.
+- `BR-83i` The database rejects a malformed phone, blank name, unknown status, unknown warehouse and duplicate staff code.
+- `BR-83j` Every route is 401 without a token and 403 for farmer, customer and Farmer Admin, as `problem+json`.
+- `BR-83k` The role matrix holds through the real router for the roles that keep staff access: Tohfa Admin reads but cannot mark; Main (confined or not) and Super Admin may do everything.
+- `BR-83` (one test per route) A Sub Warehouse Admin gets 403 on every staff and attendance route (all 11 route/verb pairs, both Sub tokens, own warehouse's staff included), `problem+json` `FORBIDDEN` with no staff data, nothing written; a companion test proves the list covers every route the two routers expose.
+- `BR-83l` Staff lifecycle over HTTP: create, get, list with filters, patch, deactivate (idempotent), bad input 422 with nothing written.
+- `BR-83m` Audit rows of the HTTP writes carry ids and statuses only: no name, phone, designation or note.
+
+---
+
+### BR-84 — Staff attendance is one row per staff per day, with an append-only history
+| | |
+|---|---|
+| **Source** | Derived rule (not client-signed): Sub Warehouse backend, modules 11-16 completion, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/warehouse-staff/`; `staff_attendance`, `staff_attendance_history` and its trigger (`0056_warehouse_staff.sql`, `0057_staff_attendance_history.sql`); `system_config.staff_attendance_max_range_days` |
+| **Scope** | Track 1 |
+
+**Rule.** There is one `staff_attendance` row per staff member per Asia/Kolkata day. A re-mark updates it in place, and every creation and real change is copied by a database trigger into the append-only `staff_attendance_history`. Statuses are exactly `PRESENT`, `ABSENT`, `LEAVE` (no half-day in the design). Times are allowed only for `PRESENT`; check-out needs a check-in and cannot precede it. A future day is 422; a deactivated staff member is 409; another warehouse's staff is 404 for an admin confined to one warehouse. A bulk mark (max 200) is all-or-nothing. An identical replay writes no update, history or audit row. Summaries are exact integer counts; a span is capped by `system_config.staff_attendance_max_range_days` (366, an UNCONFIRMED default). Permissions `admin.staff.attendance.view` (Super Admin and TOHFA Admin all, Main own, Sub none) and `admin.staff.attendance.mark` (Super Admin all, TOHFA Admin none, Main own, Sub none) are both new spec gaps (contradiction 27). Sub is none on both by owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access (the roll call, list, summary and history all name staff). Main `own` means all four warehouses (confirmed by the owner 2026-10-11: a Main Warehouse Admin sees all four warehouses). No payroll or salary.
+
+**Failure mode if unenforced.** A correction erases what was first recorded, a future or half-written day is accepted, a partial bulk leaves attendance half applied, a Sub Warehouse Admin reads or marks attendance (and so learns the staff list), or an admin confined to one warehouse marks another warehouse's staff.
+
+**Test contract.** (`apps/api/src/modules/warehouse-staff/warehouse-staff.test.ts`)
+- `BR-84a` The mark body takes exactly `PRESENT`, `ABSENT`, `LEAVE`; times only for a `PRESENT` day; check-out needs a check-in and cannot precede it; bulk needs 1-200 entries with no duplicate staff.
+- `BR-84b` The summary query takes a month or a from/to pair (real dates, `from <= to`); the list query is strict.
+- `BR-84c` Marking creates one row, one history `CREATED` row and one masked audit row; a re-mark updates in place (still one row), keeps both values in history and updates `marked_by`.
+- `BR-84d` Replaying the same mark writes no update, history or audit row.
+- `BR-84e` The history table is append-only (`UPDATE`, `DELETE` and `TRUNCATE` refused); a direct `UPDATE` of an attendance row still leaves a history row.
+- `BR-84f` A future day is 422 and writes nothing; "today" is the Asia/Kolkata date.
+- `BR-84g` A deactivated staff member cannot be marked (409); another warehouse's staff is 404 for an admin confined to one warehouse and markable by an unconfined Main.
+- `BR-84h` The summary arithmetic is exact (per-status counts, marked = sum, unmarked days not counted, totals add up across staff).
+- `BR-84i` Summary and list ranges are capped by `staff_attendance_max_range_days`, read from the database.
+- `BR-84j` A bulk mark is all-or-nothing (rows, history and audit roll back together) and reports created, updated and unchanged.
+- `BR-84k` The roll call lists active staff with their mark or null, counts every bucket, and is confined to the warehouse of an admin assigned to one.
+- `BR-84l` The attendance list filters by staff, status and date, counts every matching row, pages newest day first without repeats, and 404s on another warehouse's staff.
+- `BR-84m` The database enforces one row per staff per day, times only for `PRESENT`, check-out after check-in, and an attendance warehouse matching the staff member's.
+- `BR-84n` A Main admin confined to one warehouse marks its own warehouse (201, then 200 on replay and correction); another warehouse's staff is 404 on mark, bulk, history and filters; an unconfined Main reaches both.
+- `BR-84o` Bad attendance input is 422 and writes nothing (`HALF_DAY`, times on an absent day, future or impossible date, duplicate in bulk, invalid cursor or range).
+- `BR-84p` Bulk, roll call, summary and list answer with their documented shapes for a Main admin confined to one warehouse, and a bulk request is applied entirely or not at all.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -1472,7 +1964,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 | 2 | Automation (BR-38) | FR-F06/FR-F07: auto-reminders, system-suggested treatments, weather risk indicators; §2.2 automatic B2B/Horeca allocation | Principle 5: "All data is entered manually... No automated processes" | No advisory automation; only the three rule-enforcement jobs | requires client confirmation |
 | 3 | Fulfilment model (BR-21) | §2.3 doorstep OTP at delivery hub, FR-C04 delivery slots + out-for-delivery, FR-A04 driver performance, module 14 drivers | Principle 9: "All orders fulfilled via warehouse pickup"; no driver or fleet feature anywhere | Pickup + 4-digit OTP only; delivery slot fields modelled but unused; no driver entity | requires client confirmation |
 | 4 | Audit log scope for Main Warehouse Admin | §6.4: `View audit logs` MW = `Own` | §15: `View system audit logs` MW = `View` (all) | MAIN_WH_ADMIN = `own` (Ch.6 precedence) | requires client confirmation |
-| 5 | Set warehouse capacity | §6.2: SA = Y, TA = Y, MW = Y | §7: SUPER_ADMIN only; TA = N, MW = N | SA/TA/MW may set (Ch.6 precedence); matrix is stricter | requires client confirmation |
+| 5 | Set warehouse capacity | §6.2: SA = Y, TA = Y, MW = Y | §7: SUPER_ADMIN only; TA = N, MW = N | SA/TA/MW may set (Ch.6 precedence); matrix is stricter. MW = all; the new capacity is not checked against current stock (BR-66) | requires client confirmation |
 | 6 | Wallet write authority for MW/SW | §6.3 `Wallet management (customers)`: MW = Y, SW = Own | §8: manual credit/debit is SA/TA only; MW/SW get view | MW = all, SW = own (Ch.6 precedence) — the loosest reading of a money-moving grant | requires client confirmation, priority |
 | 7 | Bank refunds for MW/SW | §6.3 `Process returns (RMA)`: MW = Y, SW = Y (blanket) | §6: bank refund SA/TA only; MW/SW limited to wallet refunds | Bank refund restricted to SA/TA (matrix adds detail Ch.6 omits) | requires client confirmation |
 | 8 | Integration keys and raw DB export | §6.4 + FR-A01: SUPER_ADMIN manages integration keys and has emergency raw DB export, audit-logged | §15 + Principle 11: both are infra-level (EXT); no role manages them in-app | Permissions retained SA-only; no admin UI built | requires client confirmation |
@@ -1485,6 +1977,14 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 | 15 | Soil classification bands (BR-40) | Not specified | Not specified | BR-40 says the bands live in `system_config`, but no authoritative values exist. Seven keys are read: `soil.classification.organic_carbon`, `.ph`, `.ec`, `.tds`, `.nitrogen`, `.phosphorus`, `.potassium`, each `{low, high, belowLabel, insideLabel, aboveLabel}`. The soil repo answers 503 naming the missing keys. The unit-test mock `BANDS` values are only proposals | requires owner to supply the values |
 | 16 | BR-53 display-only vs payout destination (BR-70) | Not specified | Not specified | BR-53 item 1: an account with a null `account_number_token` is display-only and cannot be a payout destination. Taken literally no account could be attached to a payout, which contradicts BR-53 item 4. Tokenisation is an open owner decision, so BR-70 checks ownership and soft-delete only and does not enforce this | requires owner decision (tokenisation) |
 | 17 | Registration submit threshold (BR-69) | Spec: "GPS/FMB boundary — GPS capture with manual lat/lng fallback" | Not specified | Submit requires at least one farm location with a boundary or a GPS position (plus `ID_PROOF` and `FARM_DOC`). This is the implementer's reading of the spec. Whether `aadhaarLast4` and `dob` are required at submit is not decided | requires product confirmation |
+| 19 | Revenue definition (BR-63) | No definition of "revenue" for finance reports | No definition | Orders with `payment_status = PAID`, `status IN (DELIVERED, PICKED_UP)` and `completed_at` not null, dated by the Asia/Kolkata day of `completed_at`; the database `order_status` enum has no `COMPLETED` value | requires client confirmation |
+| 20 | Interim permission codes (BR-64, BR-65) | Not stated | No dedicated codes for these reads | Receiving report gated by `inventory.goods_receipt.record`; cash top-up report by `wallet.cash_topup.process`; system messages by `notification.own.view` / `notification.own.mark_read` | requires client confirmation |
+| 21 | Sales report order statuses (BR-64) | Not stated | Not stated | The sales report counts every order status; it does not filter to completed or paid orders (unlike revenue, BR-63) | requires client confirmation |
+| 24 | Sub Warehouse Admin cap and deactivation (BR-25, BR-81) | BR-25: "5 incl. standby" | Not stated | Read as 5 live admins per warehouse (`sub_wh_admin_max_per_warehouse`), not 5 platform-wide. No permission defines who may deactivate a Sub Warehouse Admin, so deactivation is not built | requires owner confirmation |
+| 25 | Task/alert thresholds and gating (BR-77, BR-78) | Not stated | Not stated | `alert_batch_expiry_days` 7, `alert_capacity_utilization_percent` 90 (and `alert_snooze_max_hours` 168) seeded by `0052` are placeholders. `task.own.view` / `alert.own.view` are not gated per source: a user sees a task even if their role cannot act on it | requires owner values and decision |
+| 26 | Export permission for Main and CSV layout (BR-76) | Not stated | `report.export.file` MW = `view` | `view` is allowed to export, while SPEC_GAPS #11 says the screens hide Export for `view`. The CSV column layout (long format, sections for aggregates) is the implementer's choice | requires owner confirmation |
+| 27 | New permission codes (BR-74, BR-77, BR-79, BR-80, BR-82, BR-83, BR-84) | Not stated | No such rows | Added to `docs/rbac.json` as spec gaps pending owner approval (12 codes; `finance.expense.approve` and `finance.expense_category.manage` were removed on 2026-10-11 with BR-73): `finance.cash_close.manage`, `task.own.view`, `alert.own.view`, `warehouse.storage_location.manage`, `warehouse.profile.edit`, `auth.profile.edit_own`, `notification.own.admin_preferences`, `help.article.view`, `help.article.manage`, `admin.staff.manage`, `admin.staff.attendance.view`, `admin.staff.attendance.mark` | requires owner approval |
+| 28 | Admin notification categories (BR-82) | Not stated | Not stated | The 14 admin categories are stored preferences only: no admin domain event maps to them yet, so toggling one suppresses nothing | requires owner decision (event mapping) |
 
 ---
 
@@ -1503,7 +2003,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Pickup path only; delivery model is contested (contradiction 3) |
 | 8 | Live order tracking beyond packed/picked-up | FR-C04 | — | Dispatch and out-for-delivery states belong to the delivery model that is not in scope |
 | 9 | Rate & review, tags, one-tap reorder | FR-C05 | — | Customer app Phase 5 screens; no backend dependency in the golden thread |
-| 10 | RMA issue categories, ticket lifecycle, bank refunds | FR-C05, matrix §6 | — | Returns module is Phase 2-3; wallet refund path exists in the ledger, no RMA workflow |
+| 10 | RMA issue category taxonomy, customer support-ticket lifecycle | FR-C05, matrix §6 | — | The return/inspect/approve/refund workflow itself is now enforced (BR-61, `apps/api/src/modules/returnRequests/`); a free-text `reason` stands in for a structured issue-category list, and the bank refund is a status + manual hand-off, not a tracked ticket. Issue categories and a support-ticket lifecycle around that are still Phase 2-3 |
 | 11 | Each warehouse has its own Sub Warehouse Admin (5 incl. standby) | §2.4 | BR-25 | Modelled in `user_roles`; no staffing management UI |
 | 12 | Main Warehouse Admin oversees all 4 warehouses | §2.4 | — | RBAC grants exist; the consolidated MW dashboard is Phase 3 |
 | 13 | Inter-warehouse transfers restricted to MW + SA | §2.4 | BR-26 | The ledger has a transfer type; there is no transfer endpoint or UI in this scope |
@@ -1515,3 +2015,5 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 19 | Advisory automation (reminders, treatments, weather risk) | FR-F06/F07 | BR-38 | Blocked on contradiction 2 — do not build either way until the client answers |
 
 Farm rating, 10 categories x 10 points (BR-06), its Farmer-Admin-own-zone edit predicate, and the Farm Rating tier scale (BR-04) moved OUT of this table and into Track 1 on 2026-09-17 — see BR-04 and BR-06 above and `apps/api/src/modules/farm-ratings/`. The Farmer-Admin edit predicate went away on 2026-10-01 with the manual rating edit itself (ratings now come from completed INTERNAL audits only).
+
+The RMA return/inspect/approve/refund workflow (BR-61) moved OUT of this table and into Track 1 on 2026-10-07 — see BR-61 above and `apps/api/src/modules/returnRequests/`. Row 10 above is narrowed accordingly: issue-category taxonomy and the support-ticket lifecycle remain deferred, the refund workflow does not.

@@ -226,6 +226,66 @@
       "source": "inferred — self-service counterpart of auth.session.revoke_own, scoped to BR-39"
     },
     {
+      "code": "auth.profile.edit_own",
+      "module": "Authentication & Onboarding",
+      "description": "Edit own display name and preferred language (admin roles). Mobile number and e-mail are locked identity fields (BR-33) and can never be changed through this permission.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin User Profile screen offers an edit modal but no admin own-profile edit code exists (SPEC_GAPS 1.14); owner approval pending. FARMER=none because farmers already edit through farmer.profile.edit_own; CUSTOMER=none because no customer profile route exists yet"
+    },
+    {
+      "code": "notification.own.admin_preferences",
+      "module": "Notifications & Reports",
+      "description": "View and manage own admin notification categories (goods receiving, inventory, orders, wallet and payout, system) on the admin Notification Settings screen.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin Notification Settings screen shows categories that exist for no farmer or customer, and notification.own.view is granted to every role; owner approval pending"
+    },
+    {
+      "code": "help.article.view",
+      "module": "Notifications & Reports",
+      "description": "Read the published Help & Support FAQ articles and contact channels in the admin app.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin Help & Support screen (FAQ list and contact cards) has no permission code; owner approval pending"
+    },
+    {
+      "code": "help.article.manage",
+      "module": "Notifications & Reports",
+      "description": "Create, edit, publish and unpublish Help & Support FAQ articles and set the Help & Support contact channels.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin Help & Support FAQ content is hard-coded in the prototype; making it admin-managed needs a write code, limited to SA/TA by the builder brief; owner approval pending"
+    },
+    {
       "code": "farmer.application.list_pending",
       "module": "Farmers Management",
       "description": "View the pending farmer-application queue.",
@@ -1669,6 +1729,21 @@
       "source": "reqs 6.2"
     },
     {
+      "code": "warehouse.own.view",
+      "module": "Inventory & Warehouse",
+      "description": "View a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-09: SUB_WH_ADMIN had no code to view its own warehouse; owner approval pending"
+    },
+    {
       "code": "warehouse.capacity.set",
       "module": "Inventory & Warehouse",
       "description": "Set warehouse capacity limits.",
@@ -1682,6 +1757,36 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 6.2 (matrix §7 says SA only — see conflicts)"
+    },
+    {
+      "code": "warehouse.storage_location.manage",
+      "module": "Inventory & Warehouse",
+      "description": "Create, edit, activate and deactivate the storage locations (cold, dry, bulk, staging) of a warehouse.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the Storage Info / Storage Location Detail screens are read-only for both roles and no code governs managing locations; SUB_WH_ADMIN is none because the design says capacity is never editable by a Sub Warehouse Admin; owner approval pending"
+    },
+    {
+      "code": "warehouse.profile.edit",
+      "module": "Inventory & Warehouse",
+      "description": "Edit a warehouse's contact phone and operating hours (nothing else on the warehouse record).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: Warehouse Contact and Operating Information are read-only for both roles in the design and Edit Threshold & Hours (Main Warehouse Settings) has no code; SUB_WH_ADMIN is none; owner approval pending"
     },
     {
       "code": "transfer.inter_warehouse.initiate",
@@ -2389,6 +2494,21 @@
       "source": "reqs 6.3"
     },
     {
+      "code": "finance.cash_close.manage",
+      "module": "Accounts & Finance",
+      "description": "View the daily cash summary and submit the daily cash close / reconciliation for a warehouse (BR-74).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: SPEC_GAPS (Daily Cash / Daily Cash Summary: no code, the prototype says reconciliation authority stays configurable); granted to both warehouse roles because the Daily Cash Summary screen is in both prototypes; owner approval pending"
+    },
+    {
       "code": "finance.dashboard.view",
       "module": "Accounts & Finance",
       "description": "View the financial dashboard.",
@@ -2569,6 +2689,51 @@
         "CUSTOMER": "none"
       },
       "source": "matrix §10"
+    },
+    {
+      "code": "admin.staff.manage",
+      "module": "Workforce & Staff",
+      "description": "Create, edit and deactivate warehouse floor staff records (Module 14, BR-83). Reads of the staff list and detail stay on admin.staff.list_view.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: rbac.json had no code for creating or editing a warehouse staff record; grants copy admin.staff.list_view (Sub none, Main own = all four warehouses, confirmed by the owner 2026-10-11); owner approval pending"
+    },
+    {
+      "code": "admin.staff.attendance.view",
+      "module": "Workforce & Staff",
+      "description": "View warehouse staff attendance: the daily roll call, attendance history and the per-staff summary (Module 14, BR-84). A Sub Warehouse Admin has no access: these views list staff, and Sub cannot list staff.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the attendance screens (Attendance, Attendance Detail, Attendance History, Today's Attendance) had no code; owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access (admin.staff.list_view is none for Sub); Main own = all four warehouses (confirmed by the owner 2026-10-11)"
+    },
+    {
+      "code": "admin.staff.attendance.mark",
+      "module": "Workforce & Staff",
+      "description": "Mark or correct warehouse staff attendance for a day, singly or in bulk (Module 14, BR-84). A Sub Warehouse Admin has no access: marking needs the staff list, and Sub cannot list staff.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: no code existed for marking attendance; floor attendance is a warehouse operation so TOHFA_ADMIN (platform staff) is none (owner approval pending for TOHFA_ADMIN); owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access; Main own = all four warehouses (confirmed by the owner 2026-10-11)"
     },
     {
       "code": "admin.super_admin.create",
@@ -2810,6 +2975,36 @@
         "CUSTOMER": "none"
       },
       "source": "matrix §13 (reqs 6.4 'Configure notifications' is SA only — see conflicts)"
+    },
+    {
+      "code": "task.own.view",
+      "module": "Notifications & Reports",
+      "description": "View the worklist of open tasks derived from warehouse records (a Sub Warehouse Admin only its own warehouse) and mark a task done in one's own list.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: Task / Action Center and Task Details (screens 27, 28) have no code in the matrix; owner approval pending"
+    },
+    {
+      "code": "alert.own.view",
+      "module": "Notifications & Reports",
+      "description": "View live warehouse alerts (a Sub Warehouse Admin only its own warehouse) and dismiss or snooze them in one's own list.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the Alerts queue (screen 23) was mapped to notification.own.view, which is `all` for every role and so cannot confine a Sub Warehouse Admin to its warehouse; owner approval pending"
     },
     {
       "code": "support.ticket.view_all",

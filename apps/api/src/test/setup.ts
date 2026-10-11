@@ -6,7 +6,15 @@
  * environment here; tests that genuinely need a database opt in explicitly via
  * `describeIfDatabase` in factories.ts.
  */
+import http from 'node:http';
+import https from 'node:https';
 import { assertSafeTestDatabase } from './dbSafety.js';
+
+// Node >= 19 keeps HTTP sockets alive by default. supertest starts a fresh server on an
+// ephemeral port for every request, and a reused port lets the next request ride a stale
+// pooled socket: an intermittent "socket hang up". Tests never need connection reuse.
+http.globalAgent = new http.Agent({ keepAlive: false });
+https.globalAgent = new https.Agent({ keepAlive: false });
 
 process.env['NODE_ENV'] = 'test';
 process.env['LOG_LEVEL'] ??= 'silent';

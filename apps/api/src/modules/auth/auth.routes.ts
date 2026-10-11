@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { authRateLimit } from '../../rate-limit/rateLimiter.js';
 import {
   changePasswordBody,
@@ -16,6 +16,7 @@ import {
   resetPasswordBody,
   sendOtpBody,
   terminateSessionParams,
+  updateMeBody,
   verifyOtpBody,
 } from './auth.schema.js';
 import { authService } from './auth.service.js';
@@ -143,6 +144,35 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
     const result = await authService.getMe(actor);
+    res.json(result);
+  }),
+);
+
+// BR-82: an admin edits their own display name and language. The user id comes
+// from the token only. mobile/email are BR-33 locked fields (403 FIELD_LOCKED).
+// Mounted behind its own permission, not auth.principal.view_own, which is
+// read-only and is granted to farmers and customers.
+authRouter.patch(
+  '/me',
+  requireAuth,
+  requirePermission('auth.profile.edit_own'),
+  validate({ body: updateMeBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const body = getValidated(req, 'body', updateMeBody);
+    res.json(await authService.updateMyProfile(scope, body));
+  }),
+);
+
+// BR-67: the caller's own live sessions. The user id is taken from the token
+// only; there is deliberately no `:userId` or query filter.
+authRouter.get(
+  '/me/sessions',
+  requireAuth,
+  requirePermission('auth.principal.view_own'),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const result = await authService.listMySessions(actor);
     res.json(result);
   }),
 );

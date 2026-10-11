@@ -15,7 +15,12 @@
  */
 import type { Executor } from '../../db/pool.js';
 import type { ScopedWhere } from '../../rbac/requirePermission.js';
-import type { ListWarehousesQuery, WarehouseResponse, WarehouseType } from './warehouses.schema.js';
+import type {
+  ListWarehousesQuery,
+  WarehouseCapacityResponse,
+  WarehouseDetail,
+  WarehouseType,
+} from './warehouses.schema.js';
 
 /** Raw row shape as it comes out of Postgres. Never leaves this file. */
 interface WarehouseRow {
@@ -23,21 +28,38 @@ interface WarehouseRow {
   code: string;
   name: string;
   type: string;
+  address: string | null;
   city: string | null;
+  pincode: string | null;
+  lat: string | null;
+  lng: string | null;
   capacity_kg: string | null;
+  operating_hours: unknown;
+  contact_phone: string | null;
+  is_market_day_venue: boolean;
+  market_day_of_week: number | null;
   is_active: boolean;
   created_at: Date;
 }
 
-function toWarehouse(row: WarehouseRow): WarehouseResponse {
+function toWarehouse(row: WarehouseRow): WarehouseDetail {
   return {
     id: row.id,
     code: row.code,
     name: row.name,
     type: row.type as WarehouseType,
+    address: row.address,
     city: row.city,
-    // capacity_kg is NUMERIC, which pg hands us as a string on purpose.
-    capacityKg: row.capacity_kg === null ? null : Number(row.capacity_kg),
+    pincode: row.pincode,
+    // lat/lng are NUMERIC(9,6); pg hands them over as strings on purpose.
+    latitude: row.lat === null ? null : Number(row.lat),
+    longitude: row.lng === null ? null : Number(row.lng),
+    // capacity_kg is NUMERIC(12,3); kept as the decimal string pg returns.
+    capacityKg: row.capacity_kg,
+    contactPhone: row.contact_phone,
+    operatingHours: row.operating_hours,
+    isMarketDayVenue: row.is_market_day_venue,
+    marketDayOfWeek: row.market_day_of_week,
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
   };
@@ -50,8 +72,13 @@ export interface ListArgs {
 }
 
 export interface ListResult {
-  items: WarehouseResponse[];
+  items: WarehouseDetail[];
   total: number;
+}
+
+/** The only warehouse column a capacity change reads or writes. */
+export interface CapacityRow {
+  capacityKg: string | null;
 }
 
 /**
@@ -61,12 +88,32 @@ export interface ListResult {
  */
 export interface WarehousesRepo {
   list(db: Executor, args: ListArgs): Promise<ListResult>;
-  findById(db: Executor, id: string, scope: ScopedWhere): Promise<WarehouseResponse | null>;
+  findById(db: Executor, id: string, scope: ScopedWhere): Promise<WarehouseDetail | null>;
+  /** Capacity plus the derived usage. `scope` placeholders must start at `$2`. */
+  findCapacity(
+    db: Executor,
+    id: string,
+    scope: ScopedWhere,
+  ): Promise<WarehouseCapacityResponse | null>;
+  /** Row-locks the warehouse and returns its current capacity (the before image). */
+  lockCapacity(db: Executor, id: string, scope: ScopedWhere): Promise<CapacityRow | null>;
+  /** Writes `warehouses.capacity_kg` and returns the stored (normalised) value. */
+  setCapacity(db: Executor, id: string, capacityKg: string): Promise<string>;
 }
 
 const SELECT_COLUMNS = `
-  w.id, w.code, w.name, w.type, w.city, w.capacity_kg, w.is_active, w.created_at
+  w.id, w.code, w.name, w.type, w.address, w.city, w.pincode, w.lat, w.lng,
+  w.capacity_kg, w.operating_hours, w.contact_phone, w.is_market_day_venue,
+  w.market_day_of_week, w.is_active, w.created_at
 `;
+
+interface CapacityDbRow {
+  warehouse_id: string;
+  capacity_kg: string | null;
+  used_kg: string;
+  available_kg: string | null;
+  utilization_percent: string | null;
+}
 
 export const warehousesRepo: WarehousesRepo = {
   async list(db, { filters, scope }): Promise<ListResult> {
@@ -119,7 +166,7 @@ export const warehousesRepo: WarehousesRepo = {
     };
   },
 
-  async findById(db, id, scope): Promise<WarehouseResponse | null> {
+  async findById(db, id, scope): Promise<WarehouseDetail | null> {
     const params: unknown[] = [id];
     const scoped = renumber(scope, 2);
     params.push(...scoped.params);
@@ -134,6 +181,72 @@ export const warehousesRepo: WarehousesRepo = {
 
     const row = result.rows[0];
     return row === undefined ? null : toWarehouse(row);
+  },
+
+  async findCapacity(db, id, scope): Promise<WarehouseCapacityResponse | null> {
+    const scoped = renumber(scope, 2);
+
+    // `used` is a read-only derivation, not a rule: only ACTIVE batches count
+    // (DEPLETED/EXPIRED/WRITTEN_OFF no longer occupy space) and all arithmetic
+    // stays in NUMERIC so no float touches a quantity. Nothing is clamped, so
+    // an over-capacity warehouse reports a negative `available`.
+    const result = await db.query<CapacityDbRow>(
+      `SELECT w.id AS warehouse_id,
+              w.capacity_kg::text AS capacity_kg,
+              used.kg::text AS used_kg,
+              (w.capacity_kg - used.kg)::text AS available_kg,
+              round(used.kg * 100 / w.capacity_kg, 2)::text AS utilization_percent
+         FROM warehouses w
+        CROSS JOIN LATERAL (
+              SELECT COALESCE(SUM(b.qty_available), 0)::numeric(14,3) AS kg
+                FROM inventory_batches b
+               WHERE b.warehouse_id = w.id AND b.status = 'ACTIVE'
+        ) used
+        WHERE w.id = $1 AND w.deleted_at IS NULL AND ${scoped.sql}
+        LIMIT 1`,
+      [id, ...scoped.params],
+    );
+
+    const row = result.rows[0];
+    if (row === undefined) return null;
+    return {
+      warehouseId: row.warehouse_id,
+      capacityKg: row.capacity_kg,
+      usedKg: row.used_kg,
+      availableKg: row.available_kg,
+      utilizationPercent: row.utilization_percent === null ? null : Number(row.utilization_percent),
+    };
+  },
+
+  async lockCapacity(db, id, scope): Promise<CapacityRow | null> {
+    const scoped = renumber(scope, 2);
+    const result = await db.query<{ capacity_kg: string | null }>(
+      `SELECT w.capacity_kg::text AS capacity_kg
+         FROM warehouses w
+        WHERE w.id = $1 AND w.deleted_at IS NULL AND ${scoped.sql}
+        LIMIT 1
+          FOR UPDATE OF w`,
+      [id, ...scoped.params],
+    );
+
+    const row = result.rows[0];
+    return row === undefined ? null : { capacityKg: row.capacity_kg };
+  },
+
+  async setCapacity(db, id, capacityKg): Promise<string> {
+    const result = await db.query<{ capacity_kg: string }>(
+      `UPDATE warehouses
+          SET capacity_kg = $2::numeric, updated_at = now()
+        WHERE id = $1
+    RETURNING capacity_kg::text AS capacity_kg`,
+      [id, capacityKg],
+    );
+
+    const row = result.rows[0];
+    if (row === undefined) {
+      throw new Error(`warehouse ${id} vanished between lockCapacity and setCapacity`);
+    }
+    return row.capacity_kg;
   },
 };
 

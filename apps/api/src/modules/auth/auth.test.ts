@@ -71,6 +71,7 @@ function mockRepo(overrides: Partial<AuthRepo> = {}): AuthRepo {
       revoke_reason: null,
     }),
     findSessionById: async () => null,
+    listLiveSessionsForUser: async () => [],
     revokeSession: async () => {},
     revokeAllUserSessions: async () => {},
     createRefreshToken: async (_db, params) => ({

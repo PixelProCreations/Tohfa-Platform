@@ -26,6 +26,29 @@ notificationsRouter.get(
   }),
 );
 
+// Registered before the `/:id` routes so the literal segment is never captured as an id.
+notificationsRouter.post(
+  '/read-all',
+  requireAuth,
+  requirePermission('notification.own.mark_read'),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    res.json(await notificationsService.markAllAsRead(actor));
+  }),
+);
+
+notificationsRouter.get(
+  '/:id',
+  requireAuth,
+  requirePermission('notification.own.view'),
+  validate({ params: notificationIdParam }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const { id } = getValidated(req, 'params', notificationIdParam);
+    res.json(await notificationsService.getMyNotification(actor, id));
+  }),
+);
+
 notificationsRouter.post(
   '/:id/read',
   requireAuth,
