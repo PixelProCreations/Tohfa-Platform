@@ -12,7 +12,17 @@
  * return an empty set, CLAUDE.md 2.1); this only decides what to render.
  */
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
@@ -230,8 +240,14 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
-export function Card({ children }: { children: React.ReactNode }) {
-  return <View style={styles.card}>{children}</View>;
+export function Card({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle> | undefined;
+}) {
+  return <View style={[styles.card, style]}>{children}</View>;
 }
 
 export interface InfoField {
@@ -419,12 +435,11 @@ const styles = StyleSheet.create({
   headerTextGroup: { flex: 1 },
   headerTitle: { ...adminType.title, color: adminColors.onBrand },
   headerSubtitle: { ...adminType.rowMeta, color: adminColors.onBrand, marginTop: 2 },
-  // Was 22% translucent white over the orange header; nearest solid token is brandDeep.
   headerIconButton: {
     width: HEADER_ICON_BUTTON,
     height: HEADER_ICON_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -437,12 +452,13 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.full,
     backgroundColor: adminColors.onBrand,
   },
-  // Was 22% translucent white; nearest solid token is brandDeep (as the inventory selector chips).
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,

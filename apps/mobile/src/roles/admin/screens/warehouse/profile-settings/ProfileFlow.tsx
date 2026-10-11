@@ -41,6 +41,7 @@ import { StorageInfoScreen } from './StorageInfoScreen';
 import { UserProfileScreen } from './UserProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
+import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
 import { PROFILE_WAREHOUSES } from './warehouseFixtures';
 import type { FaqCategory, PermissionCheck, ProfileRoute, WarehouseScope, WarehouseTab } from './types';
 
@@ -78,6 +79,8 @@ export function ProfileFlow({
   const [stack, setStack] = useState<ProfileRoute[]>(() => [initialScreen]);
   // Main's selector pick, shared by the warehouse-facing screens of the flow.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
+  const [reportCategory, setReportCategory] = useState<FaqCategory>('Warehouse Operations');
+  const [submittedTicketId, setSubmittedTicketId] = useState<string>('SUP-00246');
 
   // A host that re-targets the open module restarts the stack, as the other area flows do.
   useEffect(() => {
@@ -123,7 +126,48 @@ export function ProfileFlow({
     case 'SessionSecurity':
       return <SessionSecurityScreen {...common} onLogout={onLogout} />;
     case 'HelpSupport':
-      return <HelpSupportScreen {...common} onReportIssue={onReportIssue} />;
+      return (
+        <HelpSupportScreen
+          {...common}
+          onReportIssue={(cat) => {
+            setReportCategory(cat);
+            if (onReportIssue) {
+              onReportIssue(cat);
+            } else {
+              navigate('ReportIssue');
+            }
+          }}
+        />
+      );
+    case 'ReportIssue':
+      return (
+        <ReportIssueScreen
+          {...common}
+          mode="support"
+          initialCategory={reportCategory}
+          onSubmit={(submittedId) => {
+            setSubmittedTicketId(submittedId);
+            navigate('IssueSubmitted');
+          }}
+        />
+      );
+    case 'IssueSubmitted': {
+      const returnToHelp = () => {
+        setStack((prev) => {
+          const helpIdx = prev.lastIndexOf('HelpSupport');
+          return helpIdx >= 0 ? prev.slice(0, helpIdx + 1) : ['HelpSupport'];
+        });
+      };
+      return (
+        <IssueSubmittedScreen
+          {...common}
+          mode="support"
+          submittedId={submittedTicketId}
+          onBack={returnToHelp}
+          onDone={returnToHelp}
+        />
+      );
+    }
     case 'About':
       return <AboutScreen {...common} />;
     case 'WarehouseProfile':

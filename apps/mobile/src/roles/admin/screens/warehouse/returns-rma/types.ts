@@ -81,6 +81,14 @@ export interface ReturnHistoryRecord {
   reasonTag: string;
   status: 'Completed' | 'Rejected' | 'Approved';
   date: string;
+  customerId?: string | undefined;
+  orderDate?: string | undefined;
+  salesChannel?: string | undefined;
+  warehouseName?: string | undefined;
+  ticketId?: string | undefined;
+  issueCategory?: string | undefined;
+  reportedDate?: string | undefined;
+  description?: string | undefined;
   refundAmount?: string | undefined;
   inspectionResult?: string | undefined;
   returnedQuantity?: string | undefined;

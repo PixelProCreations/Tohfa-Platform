@@ -137,18 +137,6 @@ const OPTION_GROUPS: OptionGroup[] = [
         subtitle: 'Manage account and application settings',
         iconType: 'settings',
       },
-      {
-        id: 'orders',
-        title: 'Customer Orders',
-        subtitle: 'Fulfillment queue, packing slips & dispatch statuses',
-        iconType: 'orders',
-      },
-      {
-        id: 'sales',
-        title: 'Direct / Market Sales',
-        subtitle: 'Point-of-sale registers, stall batches & daily totals',
-        iconType: 'sales',
-      },
     ],
   },
 ];
@@ -582,6 +570,7 @@ export function MoreScreen({
   })).filter((group) => group.items.length > 0);
 
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
+  const [showWarehouseProfileScreen, setShowWarehouseProfileScreen] = useState(false);
   const [showHelpSupportScreen, setShowHelpSupportScreen] = useState(false);
   const [showWarehouseOperationsScreen, setShowWarehouseOperationsScreen] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
@@ -677,7 +666,7 @@ export function MoreScreen({
         break;
       case 'profile':
         if (onNavigateToProfile) onNavigateToProfile();
-        else Alert.alert(item.title, 'Opening Warehouse Profile...');
+        else setShowWarehouseProfileScreen(true);
         break;
       case 'settings':
         if (onNavigateToSettings) {
@@ -760,6 +749,19 @@ export function MoreScreen({
     }
   };
 
+  if (showWarehouseProfileScreen) {
+    return (
+      <ProfileFlow
+        scope={scope}
+        can={can}
+        initialScreen="WarehouseProfile"
+        onBack={() => setShowWarehouseProfileScreen(false)}
+        onLogout={onLogout}
+        onTabChange={onTabChange}
+      />
+    );
+  }
+
   if (showSettingsScreen) {
     return (
       <ProfileFlow
@@ -841,6 +843,14 @@ export function MoreScreen({
             else onTabChange?.('Inventory');
           } else if (module === 'staff') onNavigateToAttendance?.();
           else if (module === 'storage') onNavigateToStorageLocations?.();
+        }}
+        onViewStock={() => {
+          close();
+          onTabChange?.('Inventory');
+        }}
+        onViewProductDetail={() => {
+          close();
+          onTabChange?.('Inventory');
         }}
       />
     );
@@ -1043,8 +1053,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    // Replaces white at 22% on the orange header: no overlay token exists, so a darker solid disc.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },

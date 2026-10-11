@@ -148,11 +148,12 @@ export function FinanceHubScreen({
   if (onOpenWallet && can(FINANCE_CODES.cashTopUp)) {
     candidates.push({ key: 'wallet', label: 'Wallet', icon: <WalletIcon color={iconColor} />, onPress: onOpenWallet });
   }
-  // Sub's hub led with expense/revenue/expenses then daily cash/history/reports; Main's grid is its own order.
-  const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history', 'reports', 'categories', 'vouchers', 'wallet'];
+  // Sub's hub led with 6 quick actions; Main's grid has full set.
+  const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history', 'reports'];
   const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports', 'wallet'];
   const order = isMain ? MAIN_ORDER : SUB_ORDER;
   const actions = candidates
+    .filter((a) => (isMain ? true : SUB_ORDER.includes(a.key)))
     .filter((a) => a.route === undefined || allowed(a.route))
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 

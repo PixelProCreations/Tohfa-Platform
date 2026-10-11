@@ -28,6 +28,7 @@ import {
   Card,
   ExportIcon,
   InfoNote,
+  isAllWarehouses,
   KpiRow,
   ScopeHeader,
   SectionHint,
@@ -63,6 +64,7 @@ export function DailyCashSummaryScreen({
   onNavigateToDailyCash,
 }: DailyCashSummaryScreenProps) {
   const [physicalCount, setPhysicalCount] = useState(String(SYSTEM_CASH));
+  const allWarehouses = isAllWarehouses(scope);
   const canTopUps = can('wallet.cash_topup.process');
 
   const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
@@ -151,9 +153,11 @@ export function DailyCashSummaryScreen({
           A variance never automatically modifies the wallet ledger or cash records — it always surfaces as Review
           Required instead.
         </InfoNote>
-        <View style={styles.actionWrap}>
-          <WalletButton label="Reconcile Cash" onPress={handleReconcile} />
-        </View>
+        {allWarehouses ? (
+          <View style={styles.actionWrap}>
+            <WalletButton label="Reconcile Cash" onPress={handleReconcile} />
+          </View>
+        ) : null}
 
         <SectionTitle>Reconciliation Status</SectionTitle>
         <TouchableOpacity

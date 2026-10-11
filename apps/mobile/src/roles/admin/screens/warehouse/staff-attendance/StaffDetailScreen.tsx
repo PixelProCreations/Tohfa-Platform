@@ -21,6 +21,7 @@
 // Design id: M14-S02
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -45,14 +46,34 @@ import { ProhibitedIcon, RingTimeline, StaffAvatar } from './StaffParts';
 import { STAFF_ROSTER_CODE } from './StaffScreen';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
+function DeliveryTruckIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M1 3h15v13H1zM16 8h4l3 4v4h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
 export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
   staff?: StaffMember | undefined;
   onEditProfile?: ((staff: StaffMember) => void) | undefined;
   /** Attendance summary tap (Main): opens Attendance History. */
   onViewAttendanceHistory?: ((staff: StaffMember) => void) | undefined;
+  onAssignDelivery?: ((staff: StaffMember) => void) | undefined;
 }
 
-export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, onViewAttendanceHistory }: StaffDetailScreenProps) {
+export function StaffDetailScreen({
+  scope,
+  can,
+  onBack,
+  onNavigate,
+  staff,
+  onEditProfile,
+  onViewAttendanceHistory,
+  onAssignDelivery,
+}: StaffDetailScreenProps) {
   if (!can(STAFF_ROSTER_CODE)) {
     return (
       <WalletScreen title="Staff Detail" onBack={onBack}>
@@ -72,6 +93,14 @@ export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, on
     subtitle: item.when,
   }));
 
+  const handleAssignDelivery = () => {
+    if (onAssignDelivery) {
+      onAssignDelivery(member);
+    } else if (onNavigate) {
+      onNavigate('M5S02', { fulfillment: 'Delivery' });
+    }
+  };
+
   const attendanceCard = (
     <InfoCard
       rows={[
@@ -89,9 +118,22 @@ export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, on
       title="Staff Detail"
       onBack={onBack}
       footer={
-        onEditProfile ? (
+        isDriver || onEditProfile ? (
           <WalletFooter>
-            <WalletButton label={`Edit ${isDriver ? 'Driver' : 'Staff'} Profile`} onPress={() => onEditProfile(member)} />
+            {isDriver ? (
+              <WalletButton
+                label="Assign Delivery"
+                icon={<DeliveryTruckIcon color={adminColors.onBrand} />}
+                onPress={handleAssignDelivery}
+              />
+            ) : null}
+            {onEditProfile ? (
+              <WalletButton
+                label={`Edit ${isDriver ? 'Driver' : 'Staff'} Profile`}
+                variant={isDriver ? 'outline' : 'primary'}
+                onPress={() => onEditProfile(member)}
+              />
+            ) : null}
           </WalletFooter>
         ) : undefined
       }

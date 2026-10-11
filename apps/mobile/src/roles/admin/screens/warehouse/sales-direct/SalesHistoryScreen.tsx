@@ -343,8 +343,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -29,7 +29,7 @@ import { AttendanceScreen } from './AttendanceScreen';
 import { EditStaffProfileScreen } from './EditStaffProfileScreen';
 import { StaffDetailScreen } from './StaffDetailScreen';
 import { STAFF_ROSTER_CODE, StaffScreen } from './StaffScreen';
-import type { PermissionCheck, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
+import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StaffStackEntry {
   screen: StaffRoute;
@@ -52,9 +52,18 @@ export interface StaffFlowProps {
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
+  onAssignDelivery?: ((driver?: StaffMember) => void) | undefined;
 }
 
-export function StaffFlow({ scope, can, initialScreen = 'Staff', initialParams, onBack, onTabChange }: StaffFlowProps) {
+export function StaffFlow({
+  scope,
+  can,
+  initialScreen = 'Staff',
+  initialParams,
+  onBack,
+  onTabChange,
+  onAssignDelivery,
+}: StaffFlowProps) {
   const [stack, setStack] = useState<StaffStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // A host that re-targets the open module restarts the stack, as the other
@@ -110,6 +119,7 @@ export function StaffFlow({ scope, can, initialScreen = 'Staff', initialParams, 
           staff={params.staff}
           onEditProfile={(staff) => navigate('EditStaffProfile', { staff })}
           onViewAttendanceHistory={() => navigate('AttendanceHistory')}
+          onAssignDelivery={onAssignDelivery ? () => onAssignDelivery(params.staff) : undefined}
         />
       );
     case 'EditStaffProfile':

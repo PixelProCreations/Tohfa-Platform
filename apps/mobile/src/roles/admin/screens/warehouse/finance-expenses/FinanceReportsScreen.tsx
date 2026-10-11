@@ -283,9 +283,13 @@ export function FinanceReportsScreen({
     'revenue' | 'expense' | 'daily' | 'monthly' | 'categories' | 'vouchers' | null
   >(null);
 
-  const warehouseLabel = scope.warehouseId === undefined ? 'All Warehouses' : (scope.warehouseName ?? '');
+  const isMain = scope.warehouseId === undefined;
+  const warehouseLabel = isMain ? 'All Warehouses' : (scope.warehouseName ?? '');
   const exportAllowed = canExport ?? can('report.export.file');
-  const visibleReports = FINANCE_REPORTS.filter((r) => r.codes.some((code) => can(code))).map((r) => r.item);
+  const visibleReports = FINANCE_REPORTS
+    .filter((r) => (isMain ? true : r.item.id !== 'voucher_report'))
+    .filter((r) => r.codes.some((code) => can(code)))
+    .map((r) => r.item);
 
   const handleTabPress = (tab: WarehouseTab) => {
     if (onTabChange) {

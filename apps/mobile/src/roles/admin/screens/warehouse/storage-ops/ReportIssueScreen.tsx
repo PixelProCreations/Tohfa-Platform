@@ -10,6 +10,13 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { ChevronDownIcon, SendIcon } from './StorageParts';
+import { FAQ_ITEMS } from '../profile-settings/fixtures';
+import {
+  DEMO_SUBMITTED_ID,
+  SUPPORT_CATEGORIES,
+  SUPPORT_REFERENCE_HINT,
+  SUPPORT_SPECIFIC_ISSUES,
+} from './fixtures';
 import type { IssueSeverity, ReportIssueMode, WarehouseScreenBaseProps } from './types';
 
 function CameraIcon({ size = 22, color = '#64748B' }: { size?: number; color?: string }) {
@@ -76,26 +83,44 @@ export interface ReportIssueScreenProps extends WarehouseScreenBaseProps {
 export function ReportIssueScreen({
   onBack,
   mode = 'operational',
+  initialCategory,
   onSubmit,
 }: ReportIssueScreenProps) {
+  const [category, setCategory] = useState<string>(initialCategory ?? 'Warehouse Operations');
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+
   const [issueType, setIssueType] = useState<string | undefined>(undefined);
   const [issueTypePickerOpen, setIssueTypePickerOpen] = useState(false);
 
+  const [referenceId, setReferenceId] = useState('');
   const [location, setLocation] = useState<string | undefined>(undefined);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
 
   const [description, setDescription] = useState('');
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [expandedFaqId, setExpandedFaqId] = useState<string | null>(null);
+
+  const isSupport = mode === 'support' || initialCategory !== undefined;
+  const categoriesList = isSupport ? SUPPORT_CATEGORIES : ISSUE_TYPES;
+  const specificIssuesList = isSupport
+    ? SUPPORT_SPECIFIC_ISSUES[category] ?? ['General Issue', 'Other Issue']
+    : ISSUE_TYPES;
+
+  const relatedFaqs = FAQ_ITEMS.filter((faq) => faq.category === category);
 
   const submit = () => {
-    onSubmit('ISS-0029', {
+    const defaultSubject = isSupport ? (issueType ?? `${category} Support Request`) : (issueType ?? 'Operational Issue');
+    const demoId = isSupport ? (DEMO_SUBMITTED_ID.support ?? 'SUP-00246') : (DEMO_SUBMITTED_ID.operational ?? 'ISS-0029');
+
+    onSubmit(demoId, {
       mode,
-      category: issueType ?? 'Warehouse Operations',
-      specificIssue: issueType ?? 'Operational Issue',
-      subject: issueType ?? 'Operational Issue',
-      description: description.trim() || 'Cold storage maintenance required',
-      location,
-      issueCategory: issueType,
+      category,
+      specificIssue: issueType ?? defaultSubject,
+      subject: defaultSubject,
+      description: description.trim() || `${category} support request`,
+      location: referenceId.trim() || location,
+      referenceId: referenceId.trim() || undefined,
+      issueCategory: issueType ?? category,
     });
   };
 
@@ -109,7 +134,7 @@ export function ReportIssueScreen({
 
   return (
     <WalletScreen
-      title="Report Issue"
+      title={isSupport ? 'Report an Issue' : 'Report Issue'}
       onBack={onBack}
       footer={
         <WalletFooter>
@@ -118,27 +143,104 @@ export function ReportIssueScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Topic / Category Selector */}
         <Text style={styles.labelTitle}>
-          Issue Type <Text style={styles.requiredText}>Required</Text>
+          Topic / Category <Text style={styles.requiredText}>Required</Text>
+        </Text>
+        <TouchableOpacity
+          style={styles.dropdown}
+          onPress={() => {
+            setCategoryPickerOpen((prev) => !prev);
+            setIssueTypePickerOpen(false);
+            setLocationPickerOpen(false);
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={styles.dropdownText}>{category}</Text>
+          <ChevronDownIcon />
+        </TouchableOpacity>
+
+        {categoryPickerOpen ? (
+          <View style={styles.dropdownList}>
+            {categoriesList.map((item) => (
+              <TouchableOpacity
+                key={item}
+                style={[styles.dropdownOption, item === category && styles.dropdownOptionActive]}
+                onPress={() => {
+                  setCategory(item);
+                  setIssueType(undefined);
+                  setCategoryPickerOpen(false);
+                  setExpandedFaqId(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dropdownOptionText, item === category && styles.dropdownOptionTextActive]}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
+        {/* RELATED Q&A FOR THE CHOSEN TOPIC */}
+        {relatedFaqs.length > 0 ? (
+          <View style={styles.faqSection}>
+            <View style={styles.faqHeaderRow}>
+              <Text style={styles.faqHeaderTitle}>RELATED Q&A FOR {category.toUpperCase()}</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{relatedFaqs.length} FAQs</Text>
+              </View>
+            </View>
+            <Text style={styles.faqHeaderSub}>Check if these frequent questions solve your issue:</Text>
+
+            <View style={styles.faqList}>
+              {relatedFaqs.map((faq) => {
+                const expanded = expandedFaqId === faq.id;
+                return (
+                  <View key={faq.id} style={[styles.faqCard, expanded && styles.faqCardExpanded]}>
+                    <TouchableOpacity
+                      style={styles.faqRow}
+                      onPress={() => setExpandedFaqId(expanded ? null : faq.id)}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.faqQuestion, expanded && styles.faqQuestionActive]}>{faq.question}</Text>
+                      <ChevronDownIcon size={16} color={expanded ? adminColors.brand : adminColors.muted} />
+                    </TouchableOpacity>
+                    {expanded ? (
+                      <View style={styles.faqAnswerBox}>
+                        <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Specific Issue Type */}
+        <Text style={[styles.labelTitle, { marginTop: adminSpacing.md }]}>
+          {isSupport ? 'Specific Issue' : 'Issue Type'} <Text style={styles.requiredText}>Required</Text>
         </Text>
         <TouchableOpacity
           style={styles.dropdown}
           onPress={() => {
             setIssueTypePickerOpen((prev) => !prev);
+            setCategoryPickerOpen(false);
             setLocationPickerOpen(false);
           }}
           activeOpacity={0.8}
           accessibilityRole="button"
         >
           <Text style={[styles.dropdownText, !issueType && styles.placeholder]}>
-            {issueType ?? 'Select'}
+            {issueType ?? 'Select specific issue'}
           </Text>
           <ChevronDownIcon />
         </TouchableOpacity>
 
         {issueTypePickerOpen ? (
           <View style={styles.dropdownList}>
-            {ISSUE_TYPES.map((item) => (
+            {specificIssuesList.map((item) => (
               <TouchableOpacity
                 key={item}
                 style={styles.dropdownOption}
@@ -154,41 +256,58 @@ export function ReportIssueScreen({
           </View>
         ) : null}
 
+        {/* Reference / Location */}
         <Text style={styles.labelTitle}>
-          Location <Text style={styles.requiredText}>Required</Text>
+          {isSupport ? 'Reference ID / Tag' : 'Location'}{' '}
+          <Text style={styles.optionalText}>Optional</Text>
         </Text>
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => {
-            setLocationPickerOpen((prev) => !prev);
-            setIssueTypePickerOpen(false);
-          }}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.dropdownText, !location && styles.placeholder]}>
-            {location ?? 'Select'}
-          </Text>
-          <ChevronDownIcon />
-        </TouchableOpacity>
-
-        {locationPickerOpen ? (
-          <View style={styles.dropdownList}>
-            {LOCATIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={styles.dropdownOption}
-                onPress={() => {
-                  setLocation(item);
-                  setLocationPickerOpen(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.dropdownOptionText}>{item}</Text>
-              </TouchableOpacity>
-            ))}
+        {isSupport ? (
+          <View style={styles.inputBox}>
+            <TextInput
+              style={styles.input}
+              placeholder={SUPPORT_REFERENCE_HINT[category] ?? 'e.g. Reference #'}
+              placeholderTextColor={adminColors.placeholder}
+              value={referenceId}
+              onChangeText={setReferenceId}
+            />
           </View>
-        ) : null}
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => {
+                setLocationPickerOpen((prev) => !prev);
+                setCategoryPickerOpen(false);
+                setIssueTypePickerOpen(false);
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.dropdownText, !location && styles.placeholder]}>
+                {location ?? 'Select'}
+              </Text>
+              <ChevronDownIcon />
+            </TouchableOpacity>
+
+            {locationPickerOpen ? (
+              <View style={styles.dropdownList}>
+                {LOCATIONS.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      setLocation(item);
+                      setLocationPickerOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.dropdownOptionText}>{item}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+          </>
+        )}
 
         <Text style={styles.labelTitle}>
           Description <Text style={styles.requiredText}>Required</Text>
@@ -196,7 +315,7 @@ export function ReportIssueScreen({
         <View style={styles.textAreaBox}>
           <TextInput
             style={styles.textArea}
-            placeholder="Enter description"
+            placeholder="Enter issue details..."
             placeholderTextColor={adminColors.placeholder}
             multiline
             numberOfLines={4}
@@ -344,5 +463,104 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#0369A1',
     fontWeight: '500',
+  },
+  dropdownOptionActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  dropdownOptionTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  faqSection: {
+    marginBottom: adminSpacing.lg,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  faqHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  faqHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.ink,
+    letterSpacing: 0.5,
+  },
+  faqHeaderSub: {
+    fontSize: 12,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
+  },
+  badge: {
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: adminRadius.full,
+  },
+  badgeText: {
+    fontSize: 11,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  faqList: {
+    gap: adminSpacing.xs,
+  },
+  faqCard: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    overflow: 'hidden',
+  },
+  faqCardExpanded: {
+    borderColor: adminColors.brandSoft.border,
+    backgroundColor: '#FFFFFF',
+  },
+  faqRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: adminSpacing.sm,
+    gap: adminSpacing.xs,
+  },
+  faqQuestion: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.ink,
+    flex: 1,
+  },
+  faqQuestionActive: {
+    color: adminColors.brand,
+  },
+  faqAnswerBox: {
+    paddingHorizontal: adminSpacing.sm,
+    paddingBottom: adminSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingTop: adminSpacing.xs,
+  },
+  faqAnswer: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: adminColors.muted,
+  },
+  inputBox: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.lg,
+    height: 52,
+    marginBottom: adminSpacing.lg,
+    justifyContent: 'center',
+  },
+  input: {
+    fontSize: 15,
+    color: adminColors.ink,
   },
 });

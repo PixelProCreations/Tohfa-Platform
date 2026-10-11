@@ -630,13 +630,11 @@ const styles = StyleSheet.create({
     flex: 1,
     color: adminColors.onBrand,
   },
-  // Old fill was a 25% white overlay on orange; no overlay token exists, so the
-  // button and pill use the deep-orange token as a solid darker disc.
   addButton: {
     width: 36,
     height: 36,
     borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -646,7 +644,9 @@ const styles = StyleSheet.create({
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 5,
     borderRadius: adminRadius.full,

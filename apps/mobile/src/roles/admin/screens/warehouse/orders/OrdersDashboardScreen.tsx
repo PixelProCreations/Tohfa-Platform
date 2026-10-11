@@ -620,15 +620,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: adminRadius.full,
-    // Was a translucent overlay; no translucent token, so a solid brandDeep chip.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   warehousePill: {
     alignSelf: 'flex-start',
-    // Was a translucent overlay (fill and stroke); no translucent token, so a solid brandDeep pill without a stroke.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     borderRadius: adminRadius.full,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 4.5,
@@ -651,8 +651,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    // Was a translucent overlay in the Main design; no translucent token, so a solid brandDeep chip.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderRadius: adminRadius.full,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 6,

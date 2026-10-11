@@ -19,7 +19,7 @@
  * The old "Load More" button had no handler and is dropped.
  */
 // Design id: M9-S02
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -115,16 +115,15 @@ export function InvoiceListScreen({
   invoices = INITIAL_INVOICES,
 }: InvoiceListScreenProps) {
   const [layout, setLayout] = useState<InvoiceListLayout>(initialLayout);
+  useEffect(() => {
+    setLayout(initialLayout);
+  }, [initialLayout]);
   const [searchQuery, setSearchQuery] = useState('');
   const [historyChip, setHistoryChip] = useState<HistoryChip>('All');
   const [expandedId, setExpandedId] = useState<string | undefined>(invoices[0]?.id);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(appliedFilters?.warehouseId);
   const canView = can('invoice.view_own');
   const warehouseFilter = isAllWarehouses(scope) ? selectedWarehouseId : undefined;
-  const changeLayout = (next: InvoiceListLayout) => {
-    setLayout(next);
-    onLayoutChange?.(next);
-  };
 
   const rows = useMemo(() => {
     const q = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();
@@ -149,31 +148,12 @@ export function InvoiceListScreen({
   }, [rows]);
 
   const headerExtra = (
-    <>
-      <ScopeHeader
-        scope={scope}
-        warehouseOptions={warehouseOptions}
-        selectedWarehouseId={warehouseFilter}
-        onSelectWarehouse={setSelectedWarehouseId}
-      />
-      <View style={styles.segment}>
-        {LAYOUTS.map((option) => {
-          const active = option.key === layout;
-          return (
-            <TouchableOpacity
-              key={option.key}
-              style={[styles.segmentItem, active && styles.segmentItemActive]}
-              onPress={() => changeLayout(option.key)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{option.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </>
+    <ScopeHeader
+      scope={scope}
+      warehouseOptions={warehouseOptions}
+      selectedWarehouseId={warehouseFilter}
+      onSelectWarehouse={setSelectedWarehouseId}
+    />
   );
 
   const renderListCard = (inv: InvoiceRecord) => {

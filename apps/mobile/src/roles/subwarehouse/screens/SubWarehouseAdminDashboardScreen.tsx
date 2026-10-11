@@ -61,7 +61,7 @@ import {
   type PermissionCheck,
   type WarehouseScope,
 } from '../../admin/screens/warehouse/finance-expenses';
-import { ProfileFlow } from '../../admin/screens/warehouse/profile-settings';
+import { ProfileFlow, type ProfileRoute } from '../../admin/screens/warehouse/profile-settings';
 import { InventoryFlow } from '../../admin/screens/warehouse/inventory';
 import { OrdersFlow } from '../../admin/screens/warehouse/orders';
 import {
@@ -412,6 +412,7 @@ interface SubWarehouseAdminDashboardScreenProps {
   onBack?: () => void;
   initialShowOrders?: boolean;
   initialShowTodayOverview?: boolean;
+  initialShowRecentActivity?: boolean;
   initialTab?: SubWHTab;
   initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
   initialInventoryScreen?: string;
@@ -855,6 +856,311 @@ function SubWarehouseTodayOverviewView({
   );
 }
 
+function SubWarehouseRecentActivityView({
+  onBack,
+}: {
+  onBack: () => void;
+}) {
+  const [dateFilter, setDateFilter] = useState<'Today' | 'Yesterday' | 'This Week' | 'All Time'>('Today');
+  const [activityFilter, setActivityFilter] = useState<'All Activities' | 'Inventory' | 'Receiving' | 'Orders' | 'Cash' | 'QC'>('All Activities');
+  const [showDateMenu, setShowDateMenu] = useState(false);
+  const [showActivityMenu, setShowActivityMenu] = useState(false);
+
+  const activities = [
+    {
+      id: 'act-1',
+      title: 'Stock Verification',
+      badge: 'Inventory',
+      subtitle: 'Tomato — Grade 1',
+      date: 'Today',
+      time: '10:25 AM',
+      author: 'By Suresh',
+      type: 'Inventory',
+      stats: {
+        system: '100 KG',
+        counted: '95 KG',
+        variance: '-5 KG',
+      },
+    },
+    {
+      id: 'act-2',
+      title: 'Goods Received',
+      badge: 'Receiving',
+      subtitle: 'GR-00124 · 150 KG Tomato',
+      date: 'Today',
+      time: '10:42 AM',
+      author: 'By Suresh',
+      type: 'Receiving',
+    },
+    {
+      id: 'act-3',
+      title: 'Order Packed',
+      badge: 'Orders',
+      subtitle: 'ORD-10242 · 3 items',
+      date: 'Today',
+      time: '10:20 AM',
+      author: 'By Suresh',
+      type: 'Orders',
+    },
+    {
+      id: 'act-4',
+      title: 'Cash Top-Up',
+      badge: 'Cash',
+      subtitle: '₹2,000 · Customer CUS-1042',
+      date: 'Today',
+      time: '09:55 AM',
+      author: 'By Suresh',
+      type: 'Cash',
+    },
+    {
+      id: 'act-5',
+      title: 'QC Completed',
+      badge: 'QC',
+      subtitle: 'GR-00123 · Carrot, Grade 1 · Accepted in full',
+      date: 'Today',
+      time: '09:20 AM',
+      author: 'By Suresh',
+      type: 'QC',
+    },
+  ];
+
+  const filtered = activities.filter((item) => {
+    if (activityFilter !== 'All Activities' && item.type !== activityFilter) return false;
+    if (dateFilter !== 'All Time' && item.date !== dateFilter && dateFilter !== 'Today') return false;
+    return true;
+  });
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#E67E22' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#E67E22" />
+      {/* Orange Header */}
+      <View style={{ backgroundColor: '#E67E22', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            onPress={onBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF' }}>Recent Activity</Text>
+        </View>
+      </View>
+
+      {/* Main Body */}
+      <View style={{ flex: 1, backgroundColor: '#F8F6F2' }}>
+        {/* Filter Buttons */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 12 }}>
+          {/* Date Filter Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              setShowDateMenu(!showDateMenu);
+              setShowActivityMenu(false);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              paddingVertical: 9,
+              paddingHorizontal: 14,
+              borderWidth: 1,
+              borderColor: '#E8E8E8',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.05,
+              shadowRadius: 2,
+              elevation: 1,
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginRight: 8 }}>{dateFilter}</Text>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+
+          {/* Activity Filter Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              setShowActivityMenu(!showActivityMenu);
+              setShowDateMenu(false);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              paddingVertical: 9,
+              paddingHorizontal: 14,
+              borderWidth: 1,
+              borderColor: '#E8E8E8',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.05,
+              shadowRadius: 2,
+              elevation: 1,
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginRight: 8 }}>{activityFilter}</Text>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+
+        {/* Date Filter Options Dropdown */}
+        {showDateMenu && (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginBottom: 10,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              paddingVertical: 4,
+              elevation: 3,
+              shadowColor: '#000',
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+            }}
+          >
+            {(['Today', 'Yesterday', 'This Week', 'All Time'] as const).map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                onPress={() => {
+                  setDateFilter(opt);
+                  setShowDateMenu(false);
+                }}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  backgroundColor: dateFilter === opt ? '#FEF3C7' : '#FFFFFF',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: dateFilter === opt ? '700' : '500', color: dateFilter === opt ? '#B45309' : '#1F2937' }}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Activity Filter Options Dropdown */}
+        {showActivityMenu && (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginBottom: 10,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              paddingVertical: 4,
+              elevation: 3,
+              shadowColor: '#000',
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+            }}
+          >
+            {(['All Activities', 'Inventory', 'Receiving', 'Orders', 'Cash', 'QC'] as const).map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                onPress={() => {
+                  setActivityFilter(opt);
+                  setShowActivityMenu(false);
+                }}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  backgroundColor: activityFilter === opt ? '#FEF3C7' : '#FFFFFF',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: activityFilter === opt ? '700' : '500', color: activityFilter === opt ? '#B45309' : '#1F2937' }}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Activity Cards List */}
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+          {filtered.map((item) => (
+            <View
+              key={item.id}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#ECE8E3',
+                padding: 16,
+                marginBottom: 14,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.04,
+                shadowRadius: 3,
+                elevation: 1,
+              }}
+            >
+              {/* Header: Title + Badge */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{item.title}</Text>
+                <View
+                  style={{
+                    backgroundColor: '#FDEEE2',
+                    paddingHorizontal: 12,
+                    paddingVertical: 3,
+                    borderRadius: 14,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#C25E1A' }}>{item.badge}</Text>
+                </View>
+              </View>
+
+              {/* Subtitle */}
+              <Text style={{ fontSize: 13.5, color: '#6B7280', marginBottom: item.stats ? 12 : 14 }}>
+                {item.subtitle}
+              </Text>
+
+              {/* Stats Box (Stock Verification) */}
+              {item.stats && (
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.system}</Text>
+                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>SYSTEM</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>{item.stats.counted}</Text>
+                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>COUNTED</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: '#F5F3ED', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#EF4444' }}>{item.stats.variance}</Text>
+                    <Text style={{ fontSize: 10.5, fontWeight: '600', color: '#6B7280', marginTop: 2 }}>VARIANCE</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Footer: Author & Time */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.author}</Text>
+                <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.time}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export function SubWarehouseAdminDashboardScreen({
   scope,
   can,
@@ -863,16 +1169,23 @@ export function SubWarehouseAdminDashboardScreen({
   onBack,
   initialShowOrders = false,
   initialShowTodayOverview = false,
+  initialShowRecentActivity = false,
   initialTab,
   initialReceivingSubView,
   initialInventoryScreen,
 }: SubWarehouseAdminDashboardScreenProps) {
   const [showTodayOverview, setShowTodayOverview] = useState(initialShowTodayOverview);
+  const [showRecentActivity, setShowRecentActivity] = useState(initialShowRecentActivity);
   useEffect(() => {
     if (initialShowTodayOverview) {
       setShowTodayOverview(true);
     }
   }, [initialShowTodayOverview]);
+  useEffect(() => {
+    if (initialShowRecentActivity) {
+      setShowRecentActivity(true);
+    }
+  }, [initialShowRecentActivity]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
@@ -905,6 +1218,7 @@ export function SubWarehouseAdminDashboardScreen({
   // The open Home-tab module: HomeFlow (warehouse snapshot, tasks) owns its stack (W4).
   const [homeEntry, setHomeEntry] = useState<{ screen: HomeRoute; params?: HomeRouteParams | undefined } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [profileInitialScreen, setProfileInitialScreen] = useState<ProfileRoute>('WarehouseProfile');
   const [selectedStorageLocationId, setSelectedStorageLocationId] = useState<string | null>(null);
   // The open storage-ops module (W4, M4 part A): StorageFlow owns the stack from here on.
   // closeOnBack: opened from the Home tab (Recent Activity), so back closes the flow
@@ -1375,6 +1689,20 @@ export function SubWarehouseAdminDashboardScreen({
           setStorageEntry(null);
           setActiveTab(tab);
         }}
+        onViewStock={() => {
+          setStorageEntry(null);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setInventoryInitialScreen('M3S02');
+          setActiveTab('Inventory');
+        }}
+        onViewProductDetail={() => {
+          setStorageEntry(null);
+          setSelectedStorageLocationId(null);
+          setShowStorageInfo(false);
+          setInventoryInitialScreen('M3S02');
+          setActiveTab('Inventory');
+        }}
       />
     );
   }
@@ -1432,12 +1760,20 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showRecentActivity) {
+    return (
+      <SubWarehouseRecentActivityView
+        onBack={() => setShowRecentActivity(false)}
+      />
+    );
+  }
+
   if (showProfile) {
     return (
       <ProfileFlow
         scope={scope}
         can={can}
-        initialScreen="UserProfile"
+        initialScreen={profileInitialScreen}
         onBack={() => setShowProfile(false)}
         onLogout={onSignOut}
         onTabChange={(tab) => {
@@ -1738,6 +2074,12 @@ export function SubWarehouseAdminDashboardScreen({
           setStaffEntry(null);
           setActiveTab(tab);
         }}
+        onAssignDelivery={() => {
+          setStaffEntry(null);
+          setOrdersInitialScreen('M5S02');
+          setOrdersInitialParams({ fulfillment: 'Delivery' });
+          setShowOrdersModule(true);
+        }}
       />
     );
   }
@@ -1842,8 +2184,9 @@ export function SubWarehouseAdminDashboardScreen({
                     style={styles.headerIconBtn}
                     onPress={() => {
                       if (onNavigate) {
-                        onNavigate('SubWarehouseProfile');
+                        onNavigate('SubWarehouseUserProfile');
                       } else {
+                        setProfileInitialScreen('UserProfile');
                         setShowProfile(true);
                       }
                     }}
@@ -2065,13 +2408,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseRecentActivity');
-                    } else {
-                      setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' }, closeOnBack: true });
-                    }
-                  }}
+                  onPress={() => setShowRecentActivity(true)}
                 >
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
@@ -2428,13 +2765,7 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.sectionHeaderBetween}>
                 <Text style={styles.sectionHeading}>Recent Activity</Text>
                 <TouchableOpacity
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseRecentActivity');
-                    } else {
-                      setStorageEntry({ screen: 'Activity', params: { activityPreset: 'Today' }, closeOnBack: true });
-                    }
-                  }}
+                  onPress={() => setShowRecentActivity(true)}
                   activeOpacity={0.75}
                   style={{ paddingVertical: 4 }}
                 >
@@ -2622,8 +2953,12 @@ export function SubWarehouseAdminDashboardScreen({
               else setShowNotifications(true);
             }}
             onNavigateToProfile={() => {
-              if (onNavigate) onNavigate('SubWarehouseProfile');
-              else setShowProfile(true);
+              if (onNavigate) {
+                onNavigate('SubWarehouseProfile');
+              } else {
+                setProfileInitialScreen('WarehouseProfile');
+                setShowProfile(true);
+              }
             }}
             onNavigateToWallet={() => {
               if (onNavigate) onNavigate('WarehouseWalletOperations');

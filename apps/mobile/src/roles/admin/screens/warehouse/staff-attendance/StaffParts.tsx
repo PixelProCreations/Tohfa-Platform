@@ -51,6 +51,15 @@ export function TruckIcon({ size = 20, color = adminColors.muted }: IconProps) {
   );
 }
 
+export function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16 4v4M8 10v4M15 16v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function PersonIcon({ size = 20, color = adminColors.muted }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -142,10 +151,11 @@ export function ChevronDownIcon({ size = 18, color = adminColors.muted }: IconPr
 
 /** Round avatar with the driver truck or the warehouse-staff person, tinted by attendance. */
 export function StaffAvatar({ type, tone, large = false }: { type?: StaffType | undefined; tone?: AdminTone | undefined; large?: boolean }) {
-  const color = tone ? adminColors[tone].text : adminColors.muted;
-  const size = large ? 28 : 20;
+  const color = tone ? adminColors[tone].text : type === 'driver' ? '#475569' : '#D97706';
+  const bgColor = tone !== undefined ? adminColors[tone].bg : type === 'driver' ? '#F1F5F9' : '#FEF3C7';
+  const size = large ? 28 : 22;
   return (
-    <View style={[styles.avatar, large && styles.avatarLarge, tone !== undefined && { backgroundColor: adminColors[tone].bg }]}>
+    <View style={[styles.avatar, large && styles.avatarLarge, { backgroundColor: bgColor }]}>
       {type === 'driver' ? <TruckIcon size={size} color={color} /> : <PersonIcon size={size} color={color} />}
     </View>
   );

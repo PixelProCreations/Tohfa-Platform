@@ -25,11 +25,10 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   CalendarIcon,
-  ChipGroup,
   EmptyState,
+  HeaderIconButton,
   inScope,
   isAllWarehouses,
-  KpiRow,
   ScopeHeader,
   SearchBar,
   SectionTitle,
@@ -39,7 +38,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
-import { attendanceTone, ChevronRightIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
+import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
 import type { StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 /** rbac code for the warehouse roster (not admin.staff.list_view, the admin-account list). */
@@ -89,9 +88,18 @@ export function StaffScreen({
 
   const frame = (children: React.ReactNode) => (
     <WalletScreen
-      title="Staff"
+      title={
+        <View style={styles.headerTitleRow}>
+          <StaffGroupIcon size={22} color={adminColors.onBrand} />
+          <Text style={styles.headerTitleText}>Staff</Text>
+        </View>
+      }
       onBack={onBack}
-      headerRight={<StaffGroupIcon />}
+      headerRight={
+        <HeaderIconButton accessibilityLabel="Filter staff" onPress={() => {}}>
+          <FilterSlidersIcon />
+        </HeaderIconButton>
+      }
       headerExtra={
         <ScopeHeader
           scope={scope}
@@ -188,17 +196,59 @@ export function StaffScreen({
         </TouchableOpacity>
       ) : null}
 
-      <KpiRow
-        items={[
-          { value: String(scoped.length), label: 'TOTAL VISIBLE' },
-          { value: count((m) => m.attendance === 'Present'), label: 'PRESENT TODAY', tone: 'success' },
-          { value: count((m) => m.attendance === 'Absent'), label: 'ABSENT', tone: 'danger' },
-          { value: count((m) => m.attendance === 'On Leave'), label: 'ON LEAVE', tone: 'warning' },
-        ]}
-      />
+      <View style={styles.kpiGrid}>
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
+            <Text style={styles.kpiValue}>{scoped.length}</Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
+            <Text style={[styles.kpiValue, { color: adminColors.success.text }]}>
+              {count((m) => m.attendance === 'Present')}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>ABSENT</Text>
+            <Text style={[styles.kpiValue, { color: adminColors.danger.text }]}>
+              {count((m) => m.attendance === 'Absent')}
+            </Text>
+          </View>
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>ON LEAVE</Text>
+            <Text style={[styles.kpiValue, { color: adminColors.warning.text }]}>
+              {count((m) => m.attendance === 'On Leave')}
+            </Text>
+          </View>
+        </View>
+      </View>
 
-      <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
-      <View style={styles.searchGap} />
+      <View style={styles.infoBox}>
+        <Text style={styles.infoText}>
+          &quot;Total Visible&quot; reflects only records SWA is authorized to see — never a misleading full-company staff count calculated over inaccessible admin records.
+        </Text>
+      </View>
+
+      <View style={styles.chipRow}>
+        {FILTERS.map((item) => {
+          const active = item === filter;
+          return (
+            <TouchableOpacity
+              key={item}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setFilter(item)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Staff name, Staff ID, Driver ID, Role" />
 
       {visible.length === 0 ? <EmptyState title="No staff found" subtitle="Try another name, ID or filter." /> : null}
@@ -237,26 +287,103 @@ export function StaffScreen({
 const BANNER_ICON = 40;
 
 const styles = StyleSheet.create({
-  searchGap: { height: adminSpacing.md },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+  },
+  headerTitleText: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  kpiGrid: {
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  infoBox: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 14,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  infoText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: '#1D4ED8',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: adminColors.card,
+  },
+  chipActive: {
+    borderColor: '#EA580C',
+    backgroundColor: '#FFF7ED',
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  chipTextActive: {
+    color: '#C2410C',
+  },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E2E8F0',
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
   cardInfo: { flex: 1 },
-  name: { ...adminType.rowTitle, color: adminColors.ink },
-  meta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  name: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+  meta: { fontSize: 13, color: '#64748B', marginTop: 3 },
   badgeRow: { flexDirection: 'row', gap: adminSpacing.xs, marginTop: adminSpacing.xs },
   footerText: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
-  divider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md },
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: adminSpacing.md },
   threeCol: { flexDirection: 'row', gap: adminSpacing.sm },
   col: { flex: 1 },
-  colLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  colValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
+  colLabel: { fontSize: 11, color: '#64748B', marginBottom: 4 },
+  colValue: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

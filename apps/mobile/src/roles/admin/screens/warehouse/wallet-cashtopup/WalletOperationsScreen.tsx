@@ -552,8 +552,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    // Was white at 20% over the orange header; no overlay token, so a solid darker brand disc.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -561,8 +560,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    // Was white 20% fill + white 40% border; solid brandDeep, no border.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     borderRadius: adminRadius.full,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 6,

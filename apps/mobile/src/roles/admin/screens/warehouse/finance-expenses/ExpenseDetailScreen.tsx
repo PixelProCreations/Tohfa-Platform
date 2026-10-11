@@ -144,6 +144,7 @@ export function ExpenseDetailScreen({
   onEdit,
   onViewVouchers,
 }: ExpenseDetailScreenProps) {
+  const isMain = scope.warehouseId === undefined;
   const warehouseLabel = warehouse ?? scope.warehouseName ?? 'All Warehouses';
   const canLog = can('finance.expense.log');
 
@@ -408,13 +409,15 @@ export function ExpenseDetailScreen({
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.viewVoucherBtn}
-                onPress={handleViewVoucher}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.viewVoucherBtnText}>View Voucher</Text>
-              </TouchableOpacity>
+              {isMain && onViewVouchers ? (
+                <TouchableOpacity
+                  style={styles.viewVoucherBtn}
+                  onPress={handleViewVoucher}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.viewVoucherBtnText}>View Voucher</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           </>
         )}
