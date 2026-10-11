@@ -134,7 +134,7 @@ export function PaymentScreen({
   onPaymentConfirmed,
 }: PaymentScreenProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Cash');
-  const [receivedAmount, setReceivedAmount] = useState<string>('500');
+  const [receivedAmount, setReceivedAmount] = useState<string>('');
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
 
   // UPI State
@@ -147,15 +147,15 @@ export function PaymentScreen({
   // Wallet State
   const balanceAfter = Math.max(0, walletBalance - amountDue);
 
-  const numericReceived = parseFloat(receivedAmount) || 0;
-  const changeAmount = Math.max(0, numericReceived - amountDue);
+  const numericReceived = parseFloat(receivedAmount);
+  const changeAmount = isNaN(numericReceived) ? 180 : Math.max(0, numericReceived - amountDue);
 
   const handleConfirm = () => {
-    if (selectedMethod === 'Cash' && numericReceived < amountDue) {
-      Alert.alert('Insufficient Amount', `Amount received must be at least ₹${amountDue}.`);
-      return;
+    if (showConfirmPopup) {
+      handleFinalConfirm();
+    } else {
+      setShowConfirmPopup(true);
     }
-    setShowConfirmPopup(true);
   };
 
   const handleFinalConfirm = () => {
@@ -301,7 +301,7 @@ export function PaymentScreen({
                 value={receivedAmount}
                 onChangeText={setReceivedAmount}
                 keyboardType="numeric"
-                placeholder="0"
+                placeholder=""
                 placeholderTextColor={adminColors.placeholder}
               />
               <Text style={styles.currencySymbol}>₹</Text>
@@ -311,6 +311,57 @@ export function PaymentScreen({
               <Text style={styles.changeLabel}>Change</Text>
               <Text style={styles.changeValue}>₹{changeAmount}</Text>
             </View>
+
+            {/* Payment Summary */}
+            <Text style={styles.paymentSummaryHeading}>Payment Summary</Text>
+            <View style={styles.paymentSummaryCard}>
+              <View style={styles.summaryCol}>
+                <Text style={styles.summaryLabel}>Amount</Text>
+                <Text style={styles.summaryValue}>₹{amountDue}</Text>
+              </View>
+              <View style={styles.summaryCol}>
+                <Text style={styles.summaryLabel}>Method</Text>
+                <Text style={styles.summaryValue}>cash</Text>
+              </View>
+            </View>
+
+            {/* Inline Confirm Payment Card (Image 5) */}
+            {showConfirmPopup && (
+              <View style={styles.inlineConfirmCard}>
+                <View style={styles.inlineConfirmHeader}>
+                  <QuestionCircleIcon size={20} color="#854F0B" />
+                  <Text style={styles.inlineConfirmTitle}>Confirm Payment?</Text>
+                </View>
+
+                <View style={styles.inlineConfirmSubBox}>
+                  <View style={styles.inlineConfirmSubCol}>
+                    <Text style={styles.inlineConfirmSubLabel}>Amount</Text>
+                    <Text style={styles.inlineConfirmSubVal}>₹{amountDue}</Text>
+                  </View>
+                  <View style={styles.inlineConfirmSubCol}>
+                    <Text style={styles.inlineConfirmSubLabel}>Method</Text>
+                    <Text style={styles.inlineConfirmSubVal}>{selectedMethod}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.inlineConfirmBtn}
+                  onPress={handleFinalConfirm}
+                  activeOpacity={0.8}
+                >
+                  <CheckmarkOutlineIcon size={18} color="#059669" />
+                  <Text style={styles.inlineConfirmBtnText}>Confirm Payment</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.inlineCancelBtn}
+                  onPress={() => setShowConfirmPopup(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.inlineCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -390,56 +441,6 @@ export function PaymentScreen({
           <Text style={styles.confirmBtnText}>Confirm Payment</Text>
         </TouchableOpacity>
       </View>
-
-      {/* ─── Confirm Payment Popup Modal ─── */}
-      <Modal
-        visible={showConfirmPopup}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowConfirmPopup(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.popupCard}>
-            {/* Header: (?) Confirm Payment? */}
-            <View style={styles.popupHeader}>
-              <QuestionCircleIcon size={20} color={adminColors.brandDeep} />
-              <Text style={styles.popupTitle}>Confirm Payment?</Text>
-            </View>
-
-            {/* Summary Box (Amount & Method) */}
-            <View style={styles.popupSummaryBox}>
-              <View style={styles.popupSummaryCol}>
-                <Text style={styles.popupSummaryLabel}>Amount</Text>
-                <Text style={styles.popupSummaryVal}>₹{amountDue}</Text>
-              </View>
-              <View style={styles.popupSummaryCol}>
-                <Text style={styles.popupSummaryLabel}>Method</Text>
-                <Text style={styles.popupSummaryVal}>{selectedMethod}</Text>
-              </View>
-            </View>
-
-            {/* Confirm Payment Button (Green outline) */}
-            <TouchableOpacity
-              style={styles.popupConfirmBtn}
-              onPress={handleFinalConfirm}
-              activeOpacity={0.8}
-            >
-              <CheckmarkOutlineIcon size={18} color={adminColors.success.text} />
-              <Text style={styles.popupConfirmBtnText}>Confirm Payment</Text>
-            </TouchableOpacity>
-
-            {/* Cancel Button (Orange/brown outline) */}
-            <TouchableOpacity
-              style={styles.popupCancelBtn}
-              onPress={() => setShowConfirmPopup(false)}
-              activeOpacity={0.8}
-            >
-              <CancelCrossIcon size={18} color={adminColors.brandDeep} />
-              <Text style={styles.popupCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -738,5 +739,107 @@ const styles = StyleSheet.create({
   popupCancelBtnText: {
     ...adminType.sectionHead,
     color: adminColors.brandDeep,
+  },
+  paymentSummaryHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#854F0B',
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  paymentSummaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  summaryCol: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  inlineConfirmCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    padding: 16,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  inlineConfirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  inlineConfirmTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#854F0B',
+  },
+  inlineConfirmSubBox: {
+    backgroundColor: '#F6F4EE',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+  },
+  inlineConfirmSubCol: {
+    flex: 1,
+  },
+  inlineConfirmSubLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  inlineConfirmSubVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  inlineConfirmBtn: {
+    borderWidth: 1.5,
+    borderColor: '#059669',
+    borderRadius: 12,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+  },
+  inlineConfirmBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  inlineCancelBtn: {
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    borderRadius: 12,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  inlineCancelBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#854F0B',
   },
 });

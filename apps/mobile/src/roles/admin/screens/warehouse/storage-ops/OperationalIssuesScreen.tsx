@@ -87,13 +87,11 @@ export function OperationalIssuesScreen({
         />
       }
       footer={
-        <WalletFooter>
-          {canReport ? (
-            <WalletButton label="Report Operational Issue" icon={<PlusIcon />} onPress={() => onReportIssue?.()} />
-          ) : (
-            <PermissionNote>Reporting an operational issue needs an issue-reporting permission your role does not have.</PermissionNote>
-          )}
-        </WalletFooter>
+        onReportIssue ? (
+          <WalletFooter>
+            <WalletButton label="Report Operational Issue" icon={<PlusIcon />} onPress={onReportIssue} />
+          </WalletFooter>
+        ) : undefined
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>

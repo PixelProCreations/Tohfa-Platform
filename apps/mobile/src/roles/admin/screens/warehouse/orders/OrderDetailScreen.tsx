@@ -12,7 +12,7 @@
 // Design id: M5S04 (M5S04_OrderDetail)
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import type { OrderScreenBaseProps } from './types';
@@ -45,12 +45,9 @@ function BackArrowIcon() {
 function MoreDotsIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 13a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4zM19 13a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4zM5 13a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4z"
-        fill={adminColors.onBrand}
-        stroke={adminColors.onBrand}
-        strokeWidth="1.5"
-      />
+      <Circle cx="12" cy="6" r="1.8" fill={adminColors.onBrand} />
+      <Circle cx="12" cy="12" r="1.8" fill={adminColors.onBrand} />
+      <Circle cx="12" cy="18" r="1.8" fill={adminColors.onBrand} />
     </Svg>
   );
 }
@@ -74,10 +71,10 @@ function TimelinePendingDot() {
 
 function ChecklistIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 11l3 3L22 4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={adminColors.onBrand} strokeWidth="2" />
       <Path
-        d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+        d="M7 8.5l1.8 1.8 3.5-3.5M14 9h3M7 14.5h10M7 17.5h6"
         stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
@@ -340,22 +337,23 @@ export function OrderDetailScreen({
             <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryReportBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S16', { orderId })}
-          >
-            <Text style={styles.secondaryReportBtnText}>Report Issue</Text>
-          </TouchableOpacity>
+          <View style={styles.secondaryBtnRow}>
+            <TouchableOpacity
+              style={styles.outlineActionBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S16', { orderId })}
+            >
+              <Text style={styles.outlineActionBtnText}>Report Issue</Text>
+            </TouchableOpacity>
 
-          {/* Ungated: docs/rbac.json has no order-cancel permission (spec gap). */}
-          <TouchableOpacity
-            style={styles.cancelOrderBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S17', { orderId })}
-          >
-            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.outlineActionBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S17', { orderId })}
+            >
+              <Text style={styles.outlineActionBtnText}>Order Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
@@ -414,12 +412,11 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.success.bg,
   },
   headerStatusText: { ...adminType.rowTitle, color: adminColors.onBrand },
-  // Was a translucent overlay (white at 22% on orange); no translucent token, so a solid brandDeep chip.
   moreButton: {
     width: MORE_BUTTON,
     height: MORE_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -489,43 +486,46 @@ const styles = StyleSheet.create({
   timelineTitlePending: { ...adminType.body, fontWeight: '700', color: adminColors.muted },
   timelineTime: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   bottomBar: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingBottom: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    backgroundColor: adminColors.canvas,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    paddingTop: 10,
+    backgroundColor: '#FBF8F2',
     gap: 10,
   },
   primaryCheckBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    height: ADMIN_BUTTON_HEIGHT,
+    backgroundColor: '#EA580C',
+    borderRadius: 14,
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+  },
+  primaryCheckBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  secondaryBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    ...adminShadow.md,
   },
-  primaryCheckBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
-  secondaryReportBtn: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.md,
+  outlineActionBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    height: SECONDARY_BUTTON_HEIGHT,
+    borderColor: '#C27038',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryReportBtnText: { ...adminType.sectionHead, color: adminColors.brand },
-  cancelOrderBtn: {
-    backgroundColor: adminColors.danger.bg,
-    borderRadius: adminRadius.md,
-    borderWidth: 1.5,
-    borderColor: adminColors.danger.text,
-    height: SECONDARY_BUTTON_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
+  outlineActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8A421D',
   },
-  cancelOrderBtnText: { ...adminType.sectionHead, color: adminColors.danger.text },
   menuOverlay: { flex: 1, justifyContent: 'flex-end' },
   menuSheet: {
     backgroundColor: adminColors.card,

@@ -32,6 +32,7 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
+
 function CashRegisterHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -323,19 +324,16 @@ export function SalesScreen({
           <View style={styles.headerLeftGroup}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => {
-                if (onBack) onBack();
-                else if (onTabChange) onTabChange('Home');
-              }}
+              onPress={onBack}
               activeOpacity={0.75}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
             >
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
+              <ArrowBackIcon size={22} color="#FFFFFF" />
             </TouchableOpacity>
-            <View style={styles.headerTitleRow}>
-              <CashRegisterHeaderIcon size={24} color={adminColors.onBrand} />
-              <Text style={styles.headerTitleText}>Sales</Text>
-            </View>
+            <CashRegisterHeaderIcon size={24} color="#FFFFFF" />
+            <Text style={styles.headerTitleText}>Sales</Text>
           </View>
 
           <TouchableOpacity
@@ -350,7 +348,6 @@ export function SalesScreen({
             activeOpacity={0.8}
           >
             <BellHeaderIcon />
-            <View style={styles.notifBadgeDot} />
           </TouchableOpacity>
         </View>
 
@@ -586,9 +583,11 @@ export function SalesScreen({
           <Text style={styles.recentSaleCustomer}>Rajesh Kumar · 2 Items</Text>
           <View style={styles.recentSaleBottomRow}>
             <Text style={styles.recentSaleType}>Direct Sale</Text>
-            <Text style={styles.recentSaleTime}>Today · 6:35 PM</Text>
+            <View style={styles.recentSaleRight}>
+              <Text style={styles.recentSaleTime}>Today · 6:35 PM</Text>
+              <Text style={styles.recentSaleAmount}>₹500</Text>
+            </View>
           </View>
-          <Text style={styles.recentSaleAmount}>₹500</Text>
         </TouchableOpacity>
 
         {/* ─── 5. Needs Attention ─── */}
@@ -683,9 +682,9 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -696,25 +695,19 @@ const styles = StyleSheet.create({
   headerLeftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitleText: {
-    ...adminType.title,
+    fontSize: 22,
+    fontWeight: '800',
     color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
@@ -724,9 +717,10 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     alignSelf: 'flex-start',
@@ -734,26 +728,16 @@ const styles = StyleSheet.create({
   },
   warehouseBadgeText: {
     color: adminColors.onBrand,
-    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '600',
   },
   headerBellBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    // Was translucent white over the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-  },
-  notifBadgeDot: {
-    position: 'absolute',
-    top: 7,
-    right: 8,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: adminColors.card,
   },
   scroll: {
     flex: 1,
@@ -764,7 +748,8 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   sectionTitle: {
-    ...adminType.title,
+    fontSize: 16,
+    fontWeight: '800',
     color: adminColors.ink,
     marginBottom: 12,
     marginTop: 6,
@@ -866,8 +851,8 @@ const styles = StyleSheet.create({
   },
   dividerThick: {
     height: 1.5,
-    backgroundColor: adminColors.border,
-    marginVertical: 2,
+    backgroundColor: adminColors.ink,
+    marginVertical: 3,
   },
   totalRow: {
     flexDirection: 'row',
@@ -876,11 +861,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   totalLabel: {
-    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   totalValue: {
-    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   sectionHeaderRow: {
@@ -891,8 +878,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   viewAllText: {
-    ...adminType.sectionHead,
-    color: adminColors.brand,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
   },
   recentSaleCard: {
     backgroundColor: adminColors.card,
@@ -901,53 +889,58 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     padding: 16,
     marginBottom: 10,
-    position: 'relative',
     ...adminShadow.sm,
   },
   recentSaleTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   recentSaleId: {
-    ...adminType.title,
-    color: adminColors.ink,
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
   },
   paidBadge: {
-    backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 9,
+    paddingVertical: 2.5,
     borderRadius: 12,
   },
   paidBadgeText: {
-    color: adminColors.success.text,
-    ...adminType.rowTitle,
+    color: '#059669',
+    fontSize: 12,
+    fontWeight: '700',
   },
   recentSaleCustomer: {
-    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '500',
     color: adminColors.muted,
     marginBottom: 10,
   },
   recentSaleBottomRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingRight: 80,
   },
   recentSaleType: {
-    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '500',
     color: adminColors.muted,
+  },
+  recentSaleRight: {
+    alignItems: 'flex-end',
   },
   recentSaleTime: {
-    ...adminType.body,
+    fontSize: 12,
+    fontWeight: '400',
     color: adminColors.muted,
+    marginBottom: 2,
   },
   recentSaleAmount: {
-    position: 'absolute',
-    right: 16,
-    bottom: 14,
-    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   needsAttentionHeader: {
@@ -955,22 +948,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 18,
-    marginBottom: 4,
+    marginBottom: 10,
   },
   alertsContainer: {
     gap: 10,
-    marginTop: 8,
   },
   alertCardItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingVertical: 14,
-    paddingHorizontal: 14,
-    paddingLeft: 18,
+    paddingHorizontal: 16,
+    paddingLeft: 20,
     position: 'relative',
     overflow: 'hidden',
     ...adminShadow.sm,
@@ -978,14 +970,13 @@ const styles = StyleSheet.create({
   alertAccentBar: {
     position: 'absolute',
     left: 0,
-    top: 0,
-    bottom: 0,
+    top: 8,
+    bottom: 8,
     width: 4,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
+    borderRadius: 2,
   },
   alertIconBox: {
-    marginRight: 12,
+    marginRight: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -993,12 +984,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '700',
     color: adminColors.ink,
     marginBottom: 2,
   },
   alertSub: {
-    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '400',
     color: adminColors.muted,
   },
   bottomNav: {

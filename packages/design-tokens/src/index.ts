@@ -78,8 +78,8 @@ export const tokens: Tokens = rawObj as unknown as Tokens;
  * searched rather than forcing a duplicate grey into the brand palette.
  */
 function lookup(name: ColorName | NeutralName): ColorToken {
-  const palette = tokens.color as Readonly<Record<string, ColorToken | undefined>>;
-  const greys = tokens.neutral as Readonly<Record<string, ColorToken | undefined>>;
+  const palette = (tokens?.color ?? {}) as Readonly<Record<string, ColorToken | undefined>>;
+  const greys = (tokens?.neutral ?? {}) as Readonly<Record<string, ColorToken | undefined>>;
   const token = palette[name] ?? greys[name];
   if (!token) {
     // Unreachable through the typed API; guards against a hand-edited tokens.json
@@ -102,12 +102,12 @@ export function typeStyle(name: TypeStyleName): TypeStyle {
 /** Resolve a role code to the hex value used for its badges and chips. */
 export function roleHex(role: RoleCodeWithColor): string {
   const colorName = tokens.roleColor[role];
-  return tokens.color[colorName].hex;
+  return (tokens.color?.[colorName] ?? lookup(colorName as any))?.hex ?? '#3F7D32';
 }
 
 /** Hex of a raw brand colour. */
 export function hex(name: ColorName): string {
-  return tokens.color[name].hex;
+  return (tokens.color?.[name] ?? lookup(name))?.hex ?? '#3F7D32';
 }
 
 /**
@@ -117,7 +117,7 @@ export function hex(name: ColorName): string {
  * this package exists to prevent.
  */
 export function neutral(name: NeutralName): string {
-  return tokens.neutral[name].hex;
+  return (tokens.neutral?.[name] ?? lookup(name))?.hex ?? '#FFFFFF';
 }
 
 /** Resolve a named elevation shadow (`adminMd`) to its structured value. */

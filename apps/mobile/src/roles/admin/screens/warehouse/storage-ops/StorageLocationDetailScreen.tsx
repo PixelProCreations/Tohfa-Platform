@@ -1,189 +1,273 @@
-/**
- * Storage Location: one storage location's capacity, occupancy and stored
- * stock. Read-only (no stock editing here).
- *
- * Gate (FINAL_LIST 137): the View Stock link and the stored-stock rows (which
- * deep-link into Inventory & Stock) need `inventory.batch.view` (MAIN all, SUB
- * own). That code is an approximation; no rbac code covers storage-location
- * master data (SPEC_GAPS W4u-2).
- *
- * Absorbs Main LocationDetailScreen (pair M4-S04): for the Main view, the
- * Location Information card (location id, warehouse, section, rack / shelf)
- * and the occupancy bar. Sub keeps the locked warehouse pill and the capacity
- * alert. The warehouse label comes from scope (Sub) or the location record
- * (Main), never a hard-coded name; the alert level comes from the warehouse
- * record (fixtures), not a screen constant.
- *
- * Scope: a location of another warehouse is "not found" for a Sub viewer (no
- * 403 leak, CLAUDE.md 2.1).
- */
-// Design id: M4-S04
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing } from '../../../theme';
 import {
-  Card,
-  EmptyState,
-  inScope,
-  InfoCard,
-  InfoNote,
-  isAllWarehouses,
-  ScopeHeader,
+  LockIcon,
   SectionTitle,
-  WalletButton,
-  WalletFooter,
+  StatusBadge,
   WalletScreen,
-  walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { capacityAlertPercentOf, LOCATION_LAYOUT, LOCATION_STOCK, STORAGE_LOCATIONS, storageWarehouseName } from './fixtures';
-import { BoxIcon, formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarningTriangleIcon } from './StorageParts';
-import type { LocationStockItem, StorageLocationItem, WarehouseScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
+
+function BoxOutlineIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ClockOutlineIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 export interface StorageLocationDetailScreenProps extends WarehouseScreenBaseProps {
   locationId?: string | undefined;
-  locations?: readonly StorageLocationItem[] | undefined;
-  stock?: readonly LocationStockItem[] | undefined;
-  /** View Stock: opens Inventory & Stock (host). */
   onViewStock?: (() => void) | undefined;
-  /** A stored-stock row: opens that product in Inventory & Stock (host). */
-  onViewProductDetail?: ((product: string) => void) | undefined;
+  onViewActivity?: (() => void) | undefined;
 }
 
 export function StorageLocationDetailScreen({
-  scope,
-  can,
   onBack,
-  locationId,
-  locations = STORAGE_LOCATIONS,
-  stock = LOCATION_STOCK,
   onViewStock,
-  onViewProductDetail,
+  onViewActivity,
 }: StorageLocationDetailScreenProps) {
-  const location = locations.find((l) => l.id === locationId && inScope(scope, l.warehouseId));
-  if (!location) {
-    return (
-      <WalletScreen title="Storage Location" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Storage location not found" subtitle="It may belong to another warehouse or have been removed." />
-      </WalletScreen>
-    );
-  }
-
-  const allWarehouses = isAllWarehouses(scope);
-  const warehouseName = storageWarehouseName(location.warehouseId);
-  const canViewStock = can(STORAGE_CODES.batchView);
-  const percent = occupancyPercent(location.currentKg, location.capacityKg);
-  const alertAt = capacityAlertPercentOf(location.warehouseId);
-  const nearCapacity = alertAt !== undefined && percent >= alertAt;
-  const layout = LOCATION_LAYOUT.find((l) => l.locationId === location.id);
-  const rows = stock.filter((s) => s.locationId === location.id);
-
   return (
     <WalletScreen
-      title="Storage Location"
+      title="Rack 02 · Shelf 03"
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={allWarehouses ? warehouseName : undefined} />}
-      footer={
-        canViewStock && onViewStock ? (
-          <WalletFooter>
-            <WalletButton label="View Stock" icon={<BoxIcon />} onPress={onViewStock} />
-          </WalletFooter>
-        ) : undefined
-      }
+      headerRight={<StatusBadge label="Occupied" tone="danger" />}
     >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.locationTitle}>
-          {location.name} — {location.code}
-        </Text>
-
-        <InfoCard
-          rows={[
-            [
-              { label: 'Status', value: location.status },
-              { label: 'Capacity', value: formatKg(location.capacityKg) },
-            ],
-            [
-              { label: 'Current Occupancy', value: formatKg(location.currentKg) },
-              { label: 'Available', value: formatKg(Math.max(0, location.capacityKg - location.currentKg)) },
-            ],
-          ]}
-        />
-
-        {nearCapacity ? (
-          <InfoNote tone="danger" icon={<WarningTriangleIcon />}>
-            Storage Capacity Alert — {location.name} is nearing its configured capacity. Current {formatKg(location.currentKg)} of{' '}
-            {formatKg(location.capacityKg)}. This is informational only.
-          </InfoNote>
-        ) : null}
-
-        {allWarehouses ? (
-          <>
-            <SectionTitle>Location Information</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'Location ID', value: location.id },
-                  { label: 'Warehouse', value: warehouseName },
-                ],
-                [
-                  { label: 'Section', value: layout?.section ?? '—' },
-                  { label: 'Rack / Shelf', value: layout?.rackShelf ?? '—' },
-                ],
-              ]}
-            />
-            <SectionTitle>Occupancy</SectionTitle>
-            <Card>
-              <ProgressBar percent={percent} tone={nearCapacity ? 'danger' : 'brand'} />
-              <Text style={styles.occupancyText}>Current {percent}%</Text>
-            </Card>
-          </>
-        ) : null}
-
-        <SectionTitle>Location Usage</SectionTitle>
-        {rows.length === 0 ? (
-          <EmptyState title="Nothing stored here" />
-        ) : (
-          <View style={styles.usageCard}>
-            {rows.map((row, index) => {
-              const tappable = canViewStock && onViewProductDetail !== undefined;
-              return (
-                <TouchableOpacity
-                  key={row.id}
-                  style={[styles.usageRow, index > 0 && styles.usageRowDivider]}
-                  onPress={() => onViewProductDetail?.(row.product)}
-                  disabled={!tappable}
-                  activeOpacity={0.7}
-                  accessibilityRole={tappable ? 'button' : undefined}
-                >
-                  <Text style={styles.usageName}>{row.product}</Text>
-                  <Text style={styles.usageQty}>{formatKg(row.quantityKg)}</Text>
-                </TouchableOpacity>
-              );
-            })}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle>Location Information</SectionTitle>
+        <View style={styles.card}>
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Location ID</Text>
+              <Text style={styles.fieldValue}>LOC-COO-A02-S03</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Storage Type</Text>
+              <Text style={styles.fieldValue}>Cold Storage</Text>
+            </View>
           </View>
-        )}
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Section</Text>
+              <Text style={styles.fieldValue}>A</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Rack</Text>
+              <Text style={styles.fieldValue}>02</Text>
+            </View>
+          </View>
+          <View style={styles.gridRowSingle}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Shelf</Text>
+              <Text style={styles.fieldValue}>03</Text>
+            </View>
+          </View>
+        </View>
 
-        <InfoNote tone="brandSoft">
-          Read-only. Stock is never edited here; View Stock and the product rows open Inventory & Stock.
-        </InfoNote>
+        <SectionTitle>Occupancy</SectionTitle>
+        <View style={styles.card}>
+          <View style={styles.occupancyHeader}>
+            <Text style={styles.occupancyTitle}>Current</Text>
+            <Text style={styles.occupancyPercent}>68%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: '68%' }]} />
+          </View>
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Capacity</Text>
+              <Text style={styles.fieldValue}>500 KG</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Available</Text>
+              <Text style={styles.fieldValue}>160 KG</Text>
+            </View>
+          </View>
+        </View>
+
+        <SectionTitle>Stored Stock</SectionTitle>
+        <View style={styles.stockCard}>
+          <View style={styles.stockHeader}>
+            <Text style={styles.stockTitle}>Tomato</Text>
+            <Text style={styles.stockQty}>140 KG</Text>
+          </View>
+          <Text style={styles.stockSubtitle}>Grade 1</Text>
+        </View>
+
+        <View style={styles.stockCard}>
+          <View style={styles.stockHeader}>
+            <Text style={styles.stockTitle}>Carrot</Text>
+            <Text style={styles.stockQty}>80 KG</Text>
+          </View>
+          <Text style={styles.stockSubtitle}>Grade 1</Text>
+        </View>
+
+        <SectionTitle>Actions</SectionTitle>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={onViewStock}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+        >
+          <BoxOutlineIcon size={20} color="#9A3412" />
+          <Text style={styles.actionButtonText}>View Stock</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={onViewActivity}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+        >
+          <ClockOutlineIcon size={20} color="#9A3412" />
+          <Text style={styles.actionButtonText}>View Activity</Text>
+        </TouchableOpacity>
+
+        <View style={styles.noteCard}>
+          <LockIcon size={16} color="#9A3412" />
+          <Text style={styles.noteText}>
+            SWA views this location's stock and activity here — this is a deep-link into inventory data, not a second stock-editing system.
+          </Text>
+        </View>
       </ScrollView>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  locationTitle: { ...adminType.title, color: adminColors.ink, marginBottom: adminSpacing.md },
-  occupancyText: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
-  usageCard: {
+  scrollContent: {
+    padding: adminSpacing.lg,
+    paddingBottom: 40,
+  },
+  card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.lg,
+    padding: 16,
     marginBottom: adminSpacing.lg,
   },
-  usageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  usageRowDivider: { borderTopWidth: 1, borderTopColor: adminColors.border },
-  usageName: { ...adminType.body, color: adminColors.ink },
-  usageQty: { ...adminType.rowTitle, color: adminColors.ink },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  gridRowSingle: {
+    flexDirection: 'row',
+  },
+  gridCol: {
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  fieldValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  occupancyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  occupancyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  occupancyPercent: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: '#F3EFEA',
+    borderRadius: 4,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#D97706',
+    borderRadius: 4,
+  },
+  stockCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    marginBottom: 10,
+  },
+  stockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  stockTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  stockQty: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  stockSubtitle: {
+    fontSize: 13,
+    color: adminColors.muted,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    backgroundColor: adminColors.card,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    marginBottom: 10,
+  },
+  actionButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9A3412',
+  },
+  noteCard: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 6,
+    alignItems: 'flex-start',
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#92400E',
+    fontWeight: '500',
+  },
 });

@@ -42,10 +42,17 @@ import {
   CheckCircleIcon,
   ChevronRightIcon,
   ClipboardIcon,
+  DonutIcon,
+  HeaderOperationsTitleIcon,
   HistoryIcon,
   PeopleIcon,
+  ReceiveGoodsIcon,
   ReceiveIcon,
+  ReportIssueIcon,
   STORAGE_CODES,
+  ShelfIcon,
+  StaffBadgeIcon,
+  StockVerificationIcon,
   TrendingUpIcon,
   WarehouseIcon,
 } from './StorageParts';
@@ -110,10 +117,10 @@ export function WarehouseOperationsScreen({
   );
 
   const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <WarehouseIcon />, onPress: () => onOpenModule('storage') },
-    { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <TrendingUpIcon color={adminColors.warning.text} />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon />, onPress: onOpenMaterials },
-    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <PeopleIcon color={adminColors.warning.text} />, onPress: () => onOpenModule('staff') },
+    { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <ShelfIcon size={22} color="#A05A2C" />, onPress: () => onOpenModule('storage') },
+    { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <DonutIcon size={22} color="#A05A2C" />, onPress: onOpenCapacity },
+    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color="#A05A2C" />, onPress: onOpenMaterials },
+    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color="#A05A2C" />, onPress: () => onOpenModule('staff') },
     ...(mainView
       ? [
           { label: 'Open Issues', value: String(openIssues.length), sub: 'requires attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
@@ -123,12 +130,11 @@ export function WarehouseOperationsScreen({
   ];
 
   const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', icon: <WarehouseIcon color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon color={adminColors.brand} />, onPress: onOpenMaterials },
-    { label: 'View Capacity', icon: <TrendingUpIcon />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <AlertCircleIcon color={adminColors.brand} />, onPress: onOpenIssues },
-    { label: 'Staff Attendance', icon: <PeopleIcon />, onPress: () => onOpenModule('staff') },
-    { label: 'Receive Goods', icon: <ReceiveIcon color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
+    { label: 'Storage Locations', icon: <ShelfIcon size={24} color="#D97706" />, onPress: () => onOpenModule('storage') },
+    { label: 'Material Handling', icon: <ClipboardIcon size={24} color="#D97706" />, onPress: onOpenMaterials },
+    { label: 'View Capacity', icon: <DonutIcon size={24} color="#D97706" />, onPress: onOpenCapacity },
+    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color="#D97706" />, onPress: onOpenIssues },
+    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color="#2A9D8F" />, onPress: () => onOpenModule('receiving') },
     ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
   ];
 
@@ -137,16 +143,14 @@ export function WarehouseOperationsScreen({
       title="Warehouse Operations"
       onBack={onBack}
       headerRight={
-        onOpenNotifications ? (
-          <HeaderIconButton onPress={onOpenNotifications} accessibilityLabel="Notifications">
-            <BellRingIcon size={20} color={adminColors.onBrand} />
-          </HeaderIconButton>
-        ) : undefined
+        <HeaderIconButton onPress={onOpenNotifications ?? (() => {})} accessibilityLabel="Notifications">
+          <BellRingIcon size={20} color={adminColors.onBrand} />
+        </HeaderIconButton>
       }
       headerExtra={
         <ScopeHeader
           scope={scope}
-          label={isAllWarehouses(scope) ? undefined : `${scope.warehouseName ?? scope.warehouseId} · Operational`}
+          label={isAllWarehouses(scope) ? undefined : `${scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse'} · Operational`}
           warehouseOptions={STORAGE_WAREHOUSES}
           selectedWarehouseId={selectedWarehouseId}
           onSelectWarehouse={mainView ? setSelectedWarehouseId : undefined}
@@ -225,20 +229,8 @@ export function WarehouseOperationsScreen({
             </TouchableOpacity>
           ))}
         </View>
-        <TouchableOpacity style={styles.wideAction} onPress={() => onOpenModule('verification')} activeOpacity={0.8} accessibilityRole="button">
-          <CheckCircleIcon size={18} />
-          <Text style={styles.wideActionText}>Stock Verification</Text>
-        </TouchableOpacity>
 
-        <SectionTitle
-          right={
-            <TouchableOpacity onPress={() => onOpenActivity('Today')} accessibilityRole="button">
-              <Text style={styles.link}>View All</Text>
-            </TouchableOpacity>
-          }
-        >
-          {"Today's Operational Status"}
-        </SectionTitle>
+        <SectionTitle>{"Today's Operational Status"}</SectionTitle>
         <View style={styles.grid}>
           {(
             [
@@ -394,12 +386,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: adminSpacing.sm,
-    backgroundColor: adminColors.success.bg,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     paddingVertical: adminSpacing.md,
     marginTop: adminSpacing.sm,
+    ...adminShadow.sm,
   },
-  wideActionText: { ...adminType.rowTitle, color: adminColors.success.text },
+  wideActionText: { ...adminType.rowTitle, color: adminColors.ink, fontWeight: '700' },
   statusTile: {
     flexBasis: '47%',
     flexGrow: 1,

@@ -1,59 +1,58 @@
-/**
- * Report an Issue: the Help & Support request form, also used for warehouse
- * operational issues.
- *
- * Gate (FINAL_LIST 134): `support.ticket.create_own`. Neither warehouse admin
- * role holds it today (MAIN none, SUB none), so every entry point (Help &
- * Support's CTA, the Operational Issues Report button) is hidden and the
- * screen renders a not-available note if opened directly. Operational-issue
- * reporting needs its own rbac code before shipping (SPEC_GAPS W4v-2); none
- * is invented here.
- *
- * Absorbs Main ReportOperationalIssueScreen (pair M4-S09R): in `operational`
- * mode the form adds the Main fields as optional extras: warehouse (Main
- * picks one; Sub is locked to its own), specific location / rack, issue
- * category and severity. The Main summary / description map onto Subject and
- * Description, so no Main field is lost. `support` mode is the old form.
- */
-// Design id: M4-S09R
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing } from '../../../theme';
 import {
-  ChipGroup,
-  EmptyState,
-  isAllWarehouses,
-  ScopeHeader,
-  SectionTitle,
   WalletButton,
   WalletFooter,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import {
-  DEMO_ATTACHMENTS,
-  DEMO_SUBMITTED_ID,
-  ISSUE_SEVERITIES,
-  OPERATIONAL_ISSUE_CATEGORIES,
-  STORAGE_WAREHOUSES,
-  SUPPORT_CATEGORIES,
-  SUPPORT_REFERENCE_HINT,
-  SUPPORT_SPECIFIC_ISSUES,
-} from './fixtures';
-import { ChevronDownIcon, CloseIcon, PaperclipIcon, PickerModal, SendIcon, STORAGE_CODES } from './StorageParts';
+import { ChevronDownIcon, SendIcon } from './StorageParts';
 import type { IssueSeverity, ReportIssueMode, WarehouseScreenBaseProps } from './types';
 
-const DEFAULT_SUPPORT_CATEGORY = 'Orders';
-const OPERATIONAL_SUPPORT_CATEGORY = 'Warehouse Operations';
-const GENERIC_REFERENCE_HINT = 'e.g. REF-2026-001';
-const FALLBACK_ISSUE = 'General Inquiry';
-
-function specificIssuesOf(category: string): readonly string[] {
-  return SUPPORT_SPECIFIC_ISSUES[category] ?? SUPPORT_SPECIFIC_ISSUES['Other'] ?? [FALLBACK_ISSUE];
+function CameraIcon({ size = 22, color = '#64748B' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="13" r="4" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
 }
 
-/** What the form hands to the host (no submit endpoint yet; SPEC_GAPS W4v-2). */
+function InfoCircleIcon({ size = 18, color = '#0284C7' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+const ISSUE_TYPES = [
+  'Equipment Breakdown',
+  'Facility Damage',
+  'Temperature Alert',
+  'Cleanliness / Safety',
+  'Crate / Pallet Shortage',
+  'Other Issue',
+];
+
+const LOCATIONS = [
+  'Cold Storage · Section A',
+  'Cold Storage · Section B',
+  'Dry Storage · Section C',
+  'Loading Dock / Staging Area',
+  'Sorting Line',
+];
+
 export interface ReportIssueSubmission {
   mode: ReportIssueMode;
   category: string;
@@ -62,7 +61,6 @@ export interface ReportIssueSubmission {
   description: string;
   referenceId?: string | undefined;
   attachmentName?: string | undefined;
-  /** Operational mode only. */
   warehouseId?: string | undefined;
   location?: string | undefined;
   issueCategory?: string | undefined;
@@ -71,224 +69,187 @@ export interface ReportIssueSubmission {
 
 export interface ReportIssueScreenProps extends WarehouseScreenBaseProps {
   mode?: ReportIssueMode | undefined;
-  /** Preselected support category (Help & Support topic). */
   initialCategory?: string | undefined;
-  /** Submitted; receives the demo id the request was filed under. */
   onSubmit: (submittedId: string, submission: ReportIssueSubmission) => void;
 }
 
-export function ReportIssueScreen({ scope, can, onBack, mode = 'support', initialCategory, onSubmit }: ReportIssueScreenProps) {
-  const operational = mode === 'operational';
-  const startCategory =
-    initialCategory !== undefined && SUPPORT_CATEGORIES.includes(initialCategory)
-      ? initialCategory
-      : operational
-        ? OPERATIONAL_SUPPORT_CATEGORY
-        : DEFAULT_SUPPORT_CATEGORY;
+export function ReportIssueScreen({
+  onBack,
+  mode = 'operational',
+  onSubmit,
+}: ReportIssueScreenProps) {
+  const [issueType, setIssueType] = useState<string | undefined>(undefined);
+  const [issueTypePickerOpen, setIssueTypePickerOpen] = useState(false);
 
-  const [category, setCategory] = useState(startCategory);
-  const [specificIssue, setSpecificIssue] = useState(specificIssuesOf(startCategory)[0] ?? FALLBACK_ISSUE);
-  const [picker, setPicker] = useState<'category' | 'specific' | null>(null);
-  const [subject, setSubject] = useState('');
+  const [location, setLocation] = useState<string | undefined>(undefined);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+
   const [description, setDescription] = useState('');
-  const [referenceId, setReferenceId] = useState('');
-  const [attachmentName, setAttachmentName] = useState<string | null>(null);
-  // Operational extras (absorbed Main form). Main picks a warehouse; Sub is locked to its own.
-  const [warehouseId, setWarehouseId] = useState<string | undefined>(scope.warehouseId ?? STORAGE_WAREHOUSES[0]?.warehouseId);
-  const [location, setLocation] = useState('');
-  const [issueCategory, setIssueCategory] = useState(OPERATIONAL_ISSUE_CATEGORIES[0] ?? '');
-  const [severity, setSeverity] = useState<IssueSeverity>('Medium');
+  const [hasPhoto, setHasPhoto] = useState(false);
 
-  if (!can(STORAGE_CODES.issueReport)) {
-    return (
-      <WalletScreen title={operational ? 'Report Operational Issue' : 'Report an Issue'} onBack={onBack}>
-        <EmptyState title="Issue reporting not available" subtitle="Your role does not include raising support or issue requests." />
-      </WalletScreen>
-    );
-  }
-
-  const specificIssues = specificIssuesOf(category);
-  const subjectFollowsIssue = subject.trim() === '' || subject === specificIssue;
-
-  const selectCategory = (next: string) => {
-    setPicker(null);
-    setCategory(next);
-    const first = specificIssuesOf(next)[0] ?? FALLBACK_ISSUE;
-    if (subjectFollowsIssue) setSubject(first);
-    setSpecificIssue(first);
-  };
-  const selectSpecific = (next: string) => {
-    setPicker(null);
-    if (subjectFollowsIssue) setSubject(next);
-    setSpecificIssue(next);
+  const submit = () => {
+    onSubmit('ISS-0029', {
+      mode,
+      category: issueType ?? 'Warehouse Operations',
+      specificIssue: issueType ?? 'Operational Issue',
+      subject: issueType ?? 'Operational Issue',
+      description: description.trim() || 'Cold storage maintenance required',
+      location,
+      issueCategory: issueType,
+    });
   };
 
-  const attach = () => {
-    Alert.alert('Attach File', 'Choose attachment source:', [
-      { text: 'Document / Image', onPress: () => setAttachmentName(DEMO_ATTACHMENTS.document) },
-      { text: 'Camera Photo', onPress: () => setAttachmentName(DEMO_ATTACHMENTS.photo) },
+  const attachPhoto = () => {
+    Alert.alert('Attach Photo', 'Choose photo source:', [
+      { text: 'Take Photo', onPress: () => setHasPhoto(true) },
+      { text: 'Choose from Library', onPress: () => setHasPhoto(true) },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
-  const submit = () => {
-    if (description.trim() === '') {
-      Alert.alert('Validation Error', 'Please enter a description for your issue.');
-      return;
-    }
-    onSubmit(DEMO_SUBMITTED_ID[mode], {
-      mode,
-      category,
-      specificIssue,
-      subject: subject.trim() || specificIssue,
-      description: description.trim(),
-      referenceId: referenceId.trim() || undefined,
-      attachmentName: attachmentName ?? undefined,
-      ...(operational
-        ? { warehouseId, location: location.trim() || undefined, issueCategory, severity }
-        : {}),
-    });
-  };
-
-  const warehouseOptions = STORAGE_WAREHOUSES.map((w) => w.warehouseId ?? '').filter((id) => id !== '');
-  const warehouseLabel = (id: string) => STORAGE_WAREHOUSES.find((w) => w.warehouseId === id)?.warehouseName ?? id;
-
   return (
     <WalletScreen
-      title={operational ? 'Report Operational Issue' : 'Report an Issue'}
-      subtitle={operational ? 'Log warehouse equipment, space or facility issues' : undefined}
+      title="Report Issue"
       onBack={onBack}
-      headerExtra={operational ? <ScopeHeader scope={scope} /> : undefined}
       footer={
         <WalletFooter>
-          <WalletButton label={operational ? 'Submit Issue' : 'Submit Issue Request'} icon={<SendIcon />} onPress={submit} />
+          <WalletButton label="Submit Issue" icon={<SendIcon />} onPress={submit} />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {operational ? (
-          <>
-            {isAllWarehouses(scope) && warehouseId !== undefined ? (
-              <>
-                <SectionTitle>Warehouse</SectionTitle>
-                <ChipGroup options={warehouseOptions} value={warehouseId} onChange={setWarehouseId} labelOf={warehouseLabel} />
-              </>
-            ) : null}
-            <SectionTitle>Specific Location / Rack (optional)</SectionTitle>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Cold Storage, Section A, Rack A-03"
-              placeholderTextColor={adminColors.placeholder}
-              value={location}
-              onChangeText={setLocation}
-            />
-            <SectionTitle>Issue Category</SectionTitle>
-            <ChipGroup options={OPERATIONAL_ISSUE_CATEGORIES} value={issueCategory} onChange={setIssueCategory} />
-            <SectionTitle>Severity Level</SectionTitle>
-            <ChipGroup options={ISSUE_SEVERITIES} value={severity} onChange={setSeverity} />
-          </>
-        ) : null}
-
-        <SectionTitle>Category</SectionTitle>
-        <TouchableOpacity style={styles.dropdown} onPress={() => setPicker('category')} activeOpacity={0.8} accessibilityRole="button">
-          <Text style={styles.dropdownText}>{category}</Text>
-          <ChevronDownIcon />
-        </TouchableOpacity>
-
-        <SectionTitle>{`Specific Issue (${category})`}</SectionTitle>
+        <Text style={styles.labelTitle}>
+          Issue Type <Text style={styles.requiredText}>Required</Text>
+        </Text>
         <TouchableOpacity
-          style={[styles.dropdown, styles.dropdownAccent]}
-          onPress={() => setPicker('specific')}
+          style={styles.dropdown}
+          onPress={() => {
+            setIssueTypePickerOpen((prev) => !prev);
+            setLocationPickerOpen(false);
+          }}
           activeOpacity={0.8}
           accessibilityRole="button"
         >
-          <Text style={styles.dropdownTextAccent}>{specificIssue}</Text>
-          <ChevronDownIcon color={adminColors.brand} />
+          <Text style={[styles.dropdownText, !issueType && styles.placeholder]}>
+            {issueType ?? 'Select'}
+          </Text>
+          <ChevronDownIcon />
         </TouchableOpacity>
 
-        <SectionTitle>Subject</SectionTitle>
-        <TextInput
-          style={styles.input}
-          placeholder={specificIssue}
-          placeholderTextColor={adminColors.placeholder}
-          value={subject}
-          onChangeText={setSubject}
-        />
-
-        <SectionTitle>Description</SectionTitle>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Describe what happened, error message, or details..."
-          placeholderTextColor={adminColors.placeholder}
-          multiline
-          textAlignVertical="top"
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        <SectionTitle>Reference ID (optional)</SectionTitle>
-        <TextInput
-          style={styles.input}
-          placeholder={SUPPORT_REFERENCE_HINT[category] ?? GENERIC_REFERENCE_HINT}
-          placeholderTextColor={adminColors.placeholder}
-          value={referenceId}
-          onChangeText={setReferenceId}
-        />
-
-        <SectionTitle>Attachment</SectionTitle>
-        <View style={styles.attachmentRow}>
-          <TouchableOpacity style={styles.attachmentBox} onPress={attach} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="Attach file">
-            <PaperclipIcon />
-          </TouchableOpacity>
-          {attachmentName !== null ? (
-            <View style={styles.attachedFile}>
-              <Text style={styles.attachedFileText} numberOfLines={1}>
-                {attachmentName}
-              </Text>
-              <TouchableOpacity onPress={() => setAttachmentName(null)} accessibilityRole="button" accessibilityLabel="Remove attachment">
-                <CloseIcon size={14} />
+        {issueTypePickerOpen ? (
+          <View style={styles.dropdownList}>
+            {ISSUE_TYPES.map((item) => (
+              <TouchableOpacity
+                key={item}
+                style={styles.dropdownOption}
+                onPress={() => {
+                  setIssueType(item);
+                  setIssueTypePickerOpen(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dropdownOptionText}>{item}</Text>
               </TouchableOpacity>
-            </View>
-          ) : null}
+            ))}
+          </View>
+        ) : null}
+
+        <Text style={styles.labelTitle}>
+          Location <Text style={styles.requiredText}>Required</Text>
+        </Text>
+        <TouchableOpacity
+          style={styles.dropdown}
+          onPress={() => {
+            setLocationPickerOpen((prev) => !prev);
+            setIssueTypePickerOpen(false);
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.dropdownText, !location && styles.placeholder]}>
+            {location ?? 'Select'}
+          </Text>
+          <ChevronDownIcon />
+        </TouchableOpacity>
+
+        {locationPickerOpen ? (
+          <View style={styles.dropdownList}>
+            {LOCATIONS.map((item) => (
+              <TouchableOpacity
+                key={item}
+                style={styles.dropdownOption}
+                onPress={() => {
+                  setLocation(item);
+                  setLocationPickerOpen(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dropdownOptionText}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
+        <Text style={styles.labelTitle}>
+          Description <Text style={styles.requiredText}>Required</Text>
+        </Text>
+        <View style={styles.textAreaBox}>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Enter description"
+            placeholderTextColor={adminColors.placeholder}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            value={description}
+            onChangeText={setDescription}
+          />
+        </View>
+
+        <Text style={styles.labelTitle}>
+          Photo <Text style={styles.optionalText}>Optional</Text>
+        </Text>
+        <TouchableOpacity
+          style={[styles.photoButton, hasPhoto && styles.photoButtonActive]}
+          onPress={attachPhoto}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+        >
+          <CameraIcon size={22} color={hasPhoto ? adminColors.brand : '#64748B'} />
+          <Text style={[styles.photoButtonText, hasPhoto && styles.photoButtonTextActive]}>
+            {hasPhoto ? 'Photo Added' : 'Add Photo'}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.labelTitle, { marginTop: adminSpacing.lg }]}>Priority</Text>
+        <View style={styles.infoCard}>
+          <InfoCircleIcon size={18} color="#0284C7" />
+          <Text style={styles.infoCardText}>
+            Priority levels are backend-defined — this app doesn't invent a High/Medium/Low scale unless the API provides one.
+          </Text>
         </View>
       </ScrollView>
-
-      <PickerModal
-        visible={picker === 'category'}
-        title="Select Category"
-        options={SUPPORT_CATEGORIES}
-        value={category}
-        onSelect={selectCategory}
-        onClose={() => setPicker(null)}
-      />
-      <PickerModal
-        visible={picker === 'specific'}
-        title="Select Specific Issue"
-        subtitle={category}
-        options={specificIssues}
-        value={specificIssue}
-        onSelect={selectSpecific}
-        onClose={() => setPicker(null)}
-      />
     </WalletScreen>
   );
 }
 
-const ATTACHMENT_BOX = 56;
-const TEXT_AREA_HEIGHT = 110;
-
 const styles = StyleSheet.create({
-  input: {
-    ...adminType.body,
-    color: adminColors.ink,
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
+  labelTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 8,
   },
-  textArea: { minHeight: TEXT_AREA_HEIGHT },
+  requiredText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: adminColors.muted,
+  },
+  optionalText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: adminColors.muted,
+  },
   dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -297,33 +258,91 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    height: 52,
+    marginBottom: adminSpacing.lg,
   },
-  dropdownAccent: { borderColor: adminColors.brandSoft.border, backgroundColor: adminColors.brandTint },
-  dropdownText: { ...adminType.body, color: adminColors.ink, flex: 1 },
-  dropdownTextAccent: { ...adminType.rowTitle, color: adminColors.brandDeep, flex: 1 },
-  attachmentRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
-  attachmentBox: {
-    width: ATTACHMENT_BOX,
-    height: ATTACHMENT_BOX,
-    borderRadius: adminRadius.md,
+  dropdownText: {
+    fontSize: 15,
+    color: adminColors.ink,
+  },
+  placeholder: {
+    color: adminColors.placeholder,
+  },
+  dropdownList: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderStyle: 'dashed',
     borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    marginTop: -adminSpacing.md,
+    marginBottom: adminSpacing.lg,
+    overflow: 'hidden',
+  },
+  dropdownOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  dropdownOptionText: {
+    fontSize: 15,
+    color: '#1E293B',
+  },
+  textAreaBox: {
     backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    height: 120,
+    marginBottom: adminSpacing.lg,
+  },
+  textArea: {
+    flex: 1,
+    fontSize: 15,
+    color: adminColors.ink,
+  },
+  photoButton: {
+    width: 80,
+    height: 72,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+    gap: 4,
   },
-  attachedFile: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
+  photoButtonActive: {
+    borderColor: adminColors.brand,
     backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
   },
-  attachedFileText: { ...adminType.rowMeta, color: adminColors.brandDeep, flex: 1 },
+  photoButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  photoButtonTextActive: {
+    color: adminColors.brand,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  infoCardText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#0369A1',
+    fontWeight: '500',
+  },
 });

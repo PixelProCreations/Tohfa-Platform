@@ -233,7 +233,15 @@ export function ReceivingDashboardScreen({
   return (
     <WalletScreen {...header}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>{"Today's Receiving Overview"}</SectionTitle>
+        <SectionTitle
+          right={
+            <TouchableOpacity onPress={() => onOpenShipments('All')} activeOpacity={0.7} accessibilityRole="button">
+              <Text style={styles.link}>View Details</Text>
+            </TouchableOpacity>
+          }
+        >
+          {"Today's Receiving Overview"}
+        </SectionTitle>
         <View style={styles.grid}>
           {tiles.map((tile) => (
             <TouchableOpacity
@@ -278,13 +286,7 @@ export function ReceivingDashboardScreen({
 
         {issuesInView.length > 0 ? (
           <>
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={onOpenQualityIssues} accessibilityRole="button">
-                  <Text style={styles.link}>View all</Text>
-                </TouchableOpacity>
-              }
-            >
+            <SectionTitle>
               Needs Attention
             </SectionTitle>
             {issuesInView.slice(0, ATTENTION_PREVIEW).map((issue) => {
@@ -439,7 +441,7 @@ const styles = StyleSheet.create({
   cardTitle: { ...adminType.rowTitle, color: adminColors.ink },
   cardMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   cardValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: adminSpacing.xs },
-  link: { ...adminType.caption, color: adminColors.brand },
+  link: { ...adminType.caption, color: adminColors.brand, fontWeight: '700', fontSize: 13 },
   attentionCard: {
     flexDirection: 'row',
     alignItems: 'center',

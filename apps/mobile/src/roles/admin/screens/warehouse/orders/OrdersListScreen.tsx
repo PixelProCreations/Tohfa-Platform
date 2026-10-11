@@ -345,19 +345,6 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
                   </View>
                   <Text style={styles.timeText}>{order.time}</Text>
                 </View>
-
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  activeOpacity={0.8}
-                  onPress={() =>
-                    onNavigate?.(
-                      order.actionScreen,
-                      order.actionStep ? { orderId: order.id, step: order.actionStep } : { orderId: order.id },
-                    )
-                  }
-                >
-                  <Text style={styles.actionBtnText}>{order.action}</Text>
-                </TouchableOpacity>
               </TouchableOpacity>
             );
           })}

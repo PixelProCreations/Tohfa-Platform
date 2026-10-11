@@ -31,7 +31,6 @@ import {
   BillingToast,
   Card,
   DownloadIcon,
-  HeaderIconButton,
   InfoCard,
   InfoNote,
   inScope,
@@ -136,13 +135,6 @@ export function InvoiceDetailScreen({
       title="Invoice Detail"
       subtitle={`${record.invoiceId} · ${record.status}`}
       onBack={onBack}
-      headerRight={
-        canView ? (
-          <HeaderIconButton onPress={handleDownload} accessibilityLabel="Download Invoice">
-            <DownloadIcon />
-          </HeaderIconButton>
-        ) : null
-      }
       footer={
         canView ? (
           <BillingFooter>

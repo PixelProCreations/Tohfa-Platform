@@ -1,62 +1,23 @@
-// Design id: M13-S01
-/**
- * Notifications — the signed-in warehouse admin's own notifications.
- *
- * Behaviour comes from the props-driven WarehouseNotificationsScreen
- * (controlled `notifications`, mark one / mark all read, clear all, Unread
- * filter) plus what only the rewritten Sub list had: the order / wallet /
- * returns / system categories, tap-through to the detail screen and the
- * per-item action routed by the host (Review / Stock / Orders / Wallet /
- * Returns). It also absorbs the Main list (mark-all confirmation), System
- * Messages and Message History, whose rows had the same shape: they are the
- * 'System' and 'Messages' chips here, with the search box they carried.
- *
- * Layout is the ORIGINAL Sub Warehouse notifications design (owner's
- * decision, restoring what the W4k consolidation simplified): orange header
- * with '<warehouse> · N new alerts' and a profile circle at the right; a
- * scrolling row of counted chips (All, Unread, then one per category present);
- * the search box; the Approval / Exception Alerts banner; white cards with a
- * round category icon, title + relative time, message, a status tag pill and,
- * on unread cards, a tinted background with a brand stripe and '● Mark read'.
- * The design had no per-item CTA; the routed action ('Review →') is kept as
- * the tag row's trailing link, and on the detail screen.
- *
- * Gates (FINAL_LIST #62): the list and Read All / Mark read are NOT gated on
- * the client: notification.own.view and notification.own.mark_read are `all`
- * for every role in docs/rbac.json, so a client check carries no information
- * and only denied the list while /auth/me had not loaded. The server still
- * enforces both codes and own-data. An action link still needs the code of
- * the screen it opens (canOpenTarget). Own notifications have no warehouse
- * selector; the header names the viewer's scope.
- */
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { scopeLabel } from '../finance-expenses/FinanceParts';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
 import {
-  EmptyState,
-  HeaderIconButton,
-  SearchBar,
-  StatusBadge,
-  WalletButton,
-  WalletScreen,
-  walletLayout,
-} from '../wallet-cashtopup/WalletParts';
-import {
-  AlertTriangleIcon,
-  CategoryBadge,
-  ChevronRightIcon,
-  ConfirmDialog,
-  DoubleCheckIcon,
   FILTER_LABEL,
-  FilterTabs,
   NOTIFICATION_FILTERS,
-  PersonIcon,
   TARGET_ROW_LABEL,
   canOpenTarget,
   matchesFilter,
-  tagOf,
 } from './NotificationParts';
 import type {
   NotificationFilter,
@@ -85,270 +46,307 @@ export interface NotificationsScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function NotificationsScreen({
-  scope,
   can,
   onBack,
   notifications,
   onMarkAsRead,
   onMarkAllAsRead,
-  onClearAll,
   onSelectNotification,
   onOpenTarget,
-  onOpenAlerts,
   initialFilter = 'All',
-  onOpenProfile,
 }: NotificationsScreenProps) {
   const [filter, setFilter] = useState<NotificationFilter>(initialFilter);
-  const [query, setQuery] = useState('');
-  const [confirmingMarkAll, setConfirmingMarkAll] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
-  // Category chips with nothing in them are hidden (All / Unread / the open chip stay).
-  const filters = useMemo(
-    () =>
-      NOTIFICATION_FILTERS.filter(
-        (f) => f === 'All' || f === 'Unread' || f === filter || notifications.some((n) => matchesFilter(n, f)),
-      ),
-    [notifications, filter],
-  );
+  // All category tabs are always available for horizontal scrolling
+  const filters = NOTIFICATION_FILTERS;
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return notifications.filter((n) => {
-      if (!matchesFilter(n, filter)) return false;
-      if (q === '') return true;
-      return (
-        n.title.toLowerCase().includes(q) ||
-        n.message.toLowerCase().includes(q) ||
-        (n.reference ?? '').toLowerCase().includes(q)
-      );
-    });
-  }, [notifications, filter, query]);
+    return notifications.filter((n) => matchesFilter(n, filter));
+  }, [notifications, filter]);
 
   const openItem = (item: NotificationItem) => {
     if (!item.isRead) onMarkAsRead(item.id);
     onSelectNotification(item);
   };
 
-  const avatar = onOpenProfile ? (
-    <TouchableOpacity
-      style={styles.avatar}
-      onPress={onOpenProfile}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityLabel="Open profile"
-    >
-      <PersonIcon />
-    </TouchableOpacity>
-  ) : (
-    <View style={styles.avatar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <PersonIcon />
-    </View>
-  );
-
   return (
-    <WalletScreen
-      title="Notifications"
-      subtitle={`${scopeLabel(scope)} · ${unreadCount} new ${unreadCount === 1 ? 'alert' : 'alerts'}`}
-      onBack={onBack}
-      headerRight={
-        <View style={styles.headerRight}>
-          {unreadCount > 0 ? (
-            <HeaderIconButton onPress={() => setConfirmingMarkAll(true)} accessibilityLabel="Mark all as read">
-              <DoubleCheckIcon />
-            </HeaderIconButton>
-          ) : null}
-          {avatar}
-        </View>
-      }
-    >
-      <FilterTabs
-        options={filters}
-        value={filter}
-        onChange={setFilter}
-        labelOf={(f) => FILTER_LABEL[f]}
-        countOf={(f) => notifications.filter((n) => matchesFilter(n, f)).length}
-      />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      {/* Header with Warm Orange Accent */}
+      <View style={styles.header}>
+        <SafeAreaView style={styles.headerSafeArea}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M19 12H5M12 19l-7-7 7-7"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
 
-      <ScrollView contentContainerStyle={[walletLayout.scrollContent, styles.list]} showsVerticalScrollIndicator={false}>
-        <SearchBar value={query} onChangeText={setQuery} placeholder="Search title, message, reference ID" />
+            <Text style={styles.headerTitle}>Notifications</Text>
 
-        {onOpenAlerts ? (
-          <TouchableOpacity
-            style={styles.alertsBanner}
-            onPress={onOpenAlerts}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <View style={styles.alertsIcon}>
-              <AlertTriangleIcon size={18} color={adminColors.warning.text} />
-            </View>
-            <Text style={styles.alertsText}>Approval / Exception Alerts</Text>
-            <ChevronRightIcon color={adminColors.warning.text} />
-          </TouchableOpacity>
-        ) : null}
+            <TouchableOpacity
+              onPress={onMarkAllAsRead}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Mark all as read"
+            >
+              <Text style={styles.markAllReadText}>Mark all read</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
 
+      {/* Horizontally scrollable Category Tabs */}
+      <View style={styles.tabsWrapper}>
+        <ScrollView
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          nestedScrollEnabled={true}
+          style={styles.tabsScrollView}
+          contentContainerStyle={styles.tabsScroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          {filters.map((opt) => {
+            const active = opt === filter;
+            const label = FILTER_LABEL[opt] ?? opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.tabChip, active ? styles.tabChipActive : styles.tabChipInactive]}
+                onPress={() => setFilter(opt)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.tabText, active ? styles.tabTextActive : styles.tabTextInactive]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Notifications List */}
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      >
         {visible.length === 0 ? (
-          <EmptyState
-            title="All Caught Up!"
-            subtitle={filter === 'Unread' ? 'No unread notifications at the moment.' : 'No notifications in this category.'}
-          />
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>All Caught Up!</Text>
+            <Text style={styles.emptySubtitle}>No notifications in this category.</Text>
+          </View>
         ) : (
           visible.map((item) => {
             const showAction =
               item.target !== undefined && onOpenTarget !== undefined && canOpenTarget(can, item.target);
-            const tag = tagOf(item);
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.card, !item.isRead && styles.cardUnread]}
+                style={styles.itemRow}
                 onPress={() => openItem(item)}
-                activeOpacity={0.85}
+                activeOpacity={0.75}
                 accessibilityRole="button"
               >
-                <CategoryBadge category={item.category} />
-                <View style={styles.cardBody}>
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={[styles.cardTitle, !item.isRead && styles.cardTitleUnread]} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text style={styles.cardTime}>{item.timestamp}</Text>
-                  </View>
-                  <Text style={styles.cardMessage} numberOfLines={2}>
-                    {item.message}
-                  </Text>
-                  <View style={styles.tagRow}>
-                    <StatusBadge label={tag.label} tone={tag.tone} />
-                    <View style={styles.tagRowActions}>
-                      {showAction && item.target !== undefined ? (
-                        <TouchableOpacity
-                          onPress={() => {
-                            if (!item.isRead) onMarkAsRead(item.id);
-                            if (item.target !== undefined) onOpenTarget?.(item.target, item);
-                          }}
-                          hitSlop={HIT_SLOP}
-                          accessibilityRole="button"
-                        >
-                          <Text style={styles.actionLinkText}>{TARGET_ROW_LABEL[item.target]} →</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {!item.isRead ? (
-                        <TouchableOpacity
-                          style={styles.markReadRow}
-                          onPress={() => onMarkAsRead(item.id)}
-                          hitSlop={HIT_SLOP}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Mark ${item.title} as read`}
-                        >
-                          <View style={styles.unreadDot} />
-                          <Text style={styles.markReadLabel}>Mark read</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  </View>
+                {/* Status Dot */}
+                <View style={[styles.dot, item.isRead ? styles.dotRead : styles.dotUnread]} />
+
+                {/* Content */}
+                <View style={styles.contentCol}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.itemMessage}>{item.message}</Text>
+                  <Text style={styles.itemTimestamp}>{item.timestamp}</Text>
+
+                  {showAction && item.target !== undefined ? (
+                    <TouchableOpacity
+                      style={styles.actionLinkBtn}
+                      onPress={() => {
+                        if (!item.isRead) onMarkAsRead(item.id);
+                        if (item.target !== undefined) onOpenTarget?.(item.target, item);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.actionLinkText}>{TARGET_ROW_LABEL[item.target]} →</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
           })
         )}
-
-        {onClearAll && notifications.length > 0 ? (
-          <View style={styles.clearWrap}>
-            <WalletButton label="Clear all" variant="neutral" onPress={onClearAll} />
-          </View>
-        ) : null}
       </ScrollView>
-
-      <ConfirmDialog
-        visible={confirmingMarkAll}
-        title="Mark All Notifications as Read?"
-        message={`${unreadCount} unread ${unreadCount === 1 ? 'notification' : 'notifications'} will be marked as read.`}
-        confirmLabel="Mark All as Read"
-        onConfirm={() => {
-          onMarkAllAsRead();
-          setConfirmingMarkAll(false);
-        }}
-        onCancel={() => setConfirmingMarkAll(false)}
-      />
-    </WalletScreen>
+    </View>
   );
 }
 
-// Fixed indicator / glyph sizes, not spacing.
-const DOT = 7;
-const AVATAR = 36;
-const ALERT_ICON = 32;
-const STRIPE = 4;
-const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
-
 const styles = StyleSheet.create({
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
-  // Was a translucent white circle over the orange header; nearest solid token is brandDeep.
-  avatar: {
-    width: AVATAR,
-    height: AVATAR,
-    borderRadius: AVATAR / 2,
-    backgroundColor: adminColors.brandDeep,
-    borderWidth: 1,
-    borderColor: adminColors.onBrand,
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: '#F7F4EE',
   },
-  list: { gap: adminSpacing.md, paddingTop: adminSpacing.md },
-  alertsBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.md,
-    backgroundColor: adminColors.warning.bg,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.warning.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
+  header: {
+    backgroundColor: '#F0562A',
   },
-  alertsIcon: {
-    width: ALERT_ICON,
-    height: ALERT_ICON,
-    borderRadius: ALERT_ICON / 2,
-    backgroundColor: adminColors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerSafeArea: {
+    backgroundColor: '#F0562A',
   },
-  alertsText: { ...adminType.rowTitle, color: adminColors.warning.text, flex: 1 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: adminSpacing.md,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    ...adminShadow.sm,
-  },
-  // Original unread card: tinted background with a brand-coloured left stripe.
-  cardUnread: {
-    backgroundColor: adminColors.brandTint,
-    borderLeftWidth: STRIPE,
-    borderLeftColor: adminColors.brand,
-  },
-  cardBody: { flex: 1 },
-  cardHeaderRow: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  backButton: {
+    paddingRight: 10,
+    paddingVertical: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flex: 1,
+    marginLeft: 4,
+  },
+  markAllReadText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textDecorationLine: 'underline',
+  },
+  tabsWrapper: {
+    backgroundColor: '#F7F4EE',
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  tabsScrollView: {
+    flexGrow: 0,
+  },
+  tabsScroll: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  tabChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  tabChipActive: {
+    backgroundColor: '#F0562A',
+  },
+  tabChipInactive: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5DFD7',
+  },
+  tabText: {
+    fontSize: 14,
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  tabTextInactive: {
+    color: '#374151',
+    fontWeight: '600',
+  },
+  list: {
+    flex: 1,
+    backgroundColor: '#F7F4EE',
+  },
+  listContent: {
+    paddingBottom: 30,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBE5DC',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+    marginRight: 10,
+  },
+  dotUnread: {
+    backgroundColor: '#F0562A',
+  },
+  dotRead: {
+    backgroundColor: '#D1CCC4',
+  },
+  contentCol: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 15.5,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    lineHeight: 20,
+  },
+  itemMessage: {
+    fontSize: 13.5,
+    fontWeight: '400',
+    color: '#5F5E5A',
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  itemTimestamp: {
+    fontSize: 12.5,
+    fontWeight: '400',
+    color: '#7E7A75',
+    marginTop: 3,
+  },
+  actionLinkBtn: {
+    marginTop: 5,
+    alignSelf: 'flex-start',
+  },
+  actionLinkText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#7A2E14',
+  },
+  emptyWrap: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
     marginBottom: adminSpacing.xs,
   },
-  cardTitle: { ...adminType.rowTitle, color: adminColors.ink, flex: 1, marginRight: adminSpacing.sm },
-  cardTitleUnread: { color: adminColors.brand },
-  cardTime: { ...adminType.rowMeta, color: adminColors.muted },
-  cardMessage: { ...adminType.body, color: adminColors.muted, marginBottom: adminSpacing.sm },
-  tagRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: adminSpacing.sm },
-  tagRowActions: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
-  actionLinkText: { ...adminType.caption, color: adminColors.brandDeep },
-  markReadRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
-  unreadDot: { width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: adminColors.brand },
-  markReadLabel: { ...adminType.caption, color: adminColors.brand },
-  clearWrap: { marginTop: adminSpacing.sm },
+  emptySubtitle: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
 });
+

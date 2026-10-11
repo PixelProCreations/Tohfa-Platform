@@ -47,6 +47,7 @@ import { OperationalIssuesScreen } from './OperationalIssuesScreen';
 import { ReportIssueScreen } from './ReportIssueScreen';
 import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
+import { StorageLocationsScreen } from './StorageLocationsScreen';
 import { STORAGE_CODES } from './StorageParts';
 import { WarehouseActivityScreen } from './WarehouseActivityScreen';
 import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
@@ -70,9 +71,6 @@ interface StorageStackEntry {
 const ROUTE_CODE: Partial<Record<StorageRoute, string>> = {
   AddMaterial: STORAGE_CODES.materialManage,
   Performance: STORAGE_CODES.allWarehousesView,
-  // Neither warehouse admin role holds it today (SPEC_GAPS W4v-2): unreachable.
-  ReportIssue: STORAGE_CODES.issueReport,
-  IssueSubmitted: STORAGE_CODES.issueReport,
 };
 
 /** True when `can` allows opening `route`. */
@@ -201,6 +199,7 @@ export function StorageFlow({
   const openModule = (module: ActivityModule) => {
     if (module === 'material_handling') navigate('MaterialHandling');
     else if (module === 'operational_issue') navigate('OperationalIssues');
+    else if (module === 'storage') navigate('StorageLocations');
     else onOpenModule?.(module);
   };
 
@@ -238,7 +237,7 @@ export function StorageFlow({
           {...common}
           locationId={params.locationId}
           onViewStock={onViewStock}
-          onViewProductDetail={onViewProductDetail}
+          onViewActivity={viewActivity}
         />
       );
     case 'StorageLocationAssignment':
@@ -319,6 +318,13 @@ export function StorageFlow({
             if (params.reportMode === 'operational') backTo('OperationalIssues');
             else (onSupportRequestDone ?? onBack)();
           }}
+        />
+      );
+    case 'StorageLocations':
+      return (
+        <StorageLocationsScreen
+          {...common}
+          onSelectLocation={(locationId) => navigate('StorageLocationDetail', { locationId })}
         />
       );
     default:

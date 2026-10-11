@@ -76,19 +76,52 @@ function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+function QuestionCircleIcon({ size = 20, color = '#059669' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path
+        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckmarkOutlineIcon({ size = 18, color = '#059669' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 13l4 4L19 7"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CancelCrossIcon({ size = 18, color = '#92400E' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 6L6 18M6 6l12 12"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 type ProductItem = SaleProduct;
 
 const MOCK_PRODUCTS: ProductItem[] = [
-  {
-    id: 'prod-1',
-    name: 'Tomato',
-    grade: 'Grade 1',
-    pricePerKg: 100,
-    availableKg: 48,
-    status: 'Available',
-    batch: 'BTH-00231',
-    location: 'Cold Storage · A02',
-  },
   {
     id: 'prod-2',
     name: 'Carrot',
@@ -108,6 +141,16 @@ const MOCK_PRODUCTS: ProductItem[] = [
     status: 'Low Stock',
     batch: 'BTH-00233',
     location: 'Dry Rack · C03',
+  },
+  {
+    id: 'prod-1',
+    name: 'Tomato',
+    grade: 'Grade 1',
+    pricePerKg: 100,
+    availableKg: 48,
+    status: 'Available',
+    batch: 'BTH-00231',
+    location: 'Cold Storage · A02',
   },
   {
     id: 'prod-4',
@@ -155,32 +198,47 @@ export function SelectProductsScreen({
     () => products.filter((p) => p.warehouseId === undefined || stockWarehouse === undefined || p.warehouseId === stockWarehouse),
     [products, stockWarehouse],
   );
-  const [searchQuery, setSearchQuery] = useState('');
+  const [screenStep, setScreenStep] = useState<'initial' | 'confirm_add' | 'summary'>('initial');
+  const [pendingProduct, setPendingProduct] = useState<ProductItem | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
-  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>(['prod-1', 'prod-2']);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({
+    'prod-1': 2,
+    'prod-2': 1,
+  });
+  const [expandedProductId, setExpandedProductId] = useState<string | null>('prod-1');
   const [configuringQuantity, setConfiguringQuantity] = useState<number>(2);
 
-  const filteredProducts = useMemo(() => {
-    return warehouseStock.filter((item) => {
-      // Filter tab match
+  const displayProducts = useMemo(() => {
+    const list = [...warehouseStock];
+    if (screenStep === 'initial') {
+      return list.sort((a, b) => {
+        const order = ['prod-2', 'prod-3', 'prod-1', 'prod-4', 'prod-5'];
+        const ai = order.indexOf(a.id);
+        const bi = order.indexOf(b.id);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    } else {
+      return list.sort((a, b) => {
+        const order = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5'];
+        const ai = order.indexOf(a.id);
+        const bi = order.indexOf(b.id);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    }
+  }, [warehouseStock, screenStep]);
+
+  const visibleProducts = useMemo(() => {
+    if (screenStep !== 'summary') {
+      return displayProducts;
+    }
+    return displayProducts.filter((item) => {
       if (activeFilter === 'Grade 1' && item.grade !== 'Grade 1') return false;
       if (activeFilter === 'Available' && item.status !== 'Available') return false;
       if (activeFilter === 'Low Stock' && item.status !== 'Low Stock') return false;
-
-      // Search query match
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(q);
-        const matchGrade = item.grade.toLowerCase().includes(q);
-        // Batch search, as Main's Select Products slice did (M6-S03).
-        const matchBatch = (item.batch ?? '').toLowerCase().includes(q);
-        return matchName || matchGrade || matchBatch;
-      }
       return true;
     });
-  }, [searchQuery, activeFilter, warehouseStock]);
+  }, [displayProducts, activeFilter, screenStep]);
 
   const handleOpenAddProduct = (product: ProductItem) => {
     if (expandedProductId === product.id) {
@@ -199,13 +257,26 @@ export function SelectProductsScreen({
     setConfiguringQuantity((prev) => Math.min(maxKg, prev + 1));
   };
 
-  const handleConfirmAddToSale = (productId: string) => {
-    setSelectedProductIds((prev) => (prev.includes(productId) ? prev : [...prev, productId]));
-    setSelectedQuantities((prev) => ({
-      ...prev,
-      [productId]: configuringQuantity,
-    }));
+  const handleAddToSalePress = (product: ProductItem) => {
+    setPendingProduct(product);
     setExpandedProductId(null);
+    setScreenStep('confirm_add');
+  };
+
+  const handleConfirmAddProduct = () => {
+    if (pendingProduct) {
+      setSelectedProductIds((prev) => (prev.includes(pendingProduct.id) ? prev : [...prev, pendingProduct.id]));
+      setSelectedQuantities((prev) => ({
+        ...prev,
+        [pendingProduct.id]: configuringQuantity,
+      }));
+    }
+    setScreenStep('summary');
+  };
+
+  const handleCancelAddProduct = () => {
+    setScreenStep('initial');
+    setExpandedProductId(pendingProduct?.id || 'prod-1');
   };
 
   const handleContinuePress = () => {
@@ -235,61 +306,46 @@ export function SelectProductsScreen({
         </View>
       </View>
 
-      {/* ─── Search & Filters Bar ─── */}
-      <View style={styles.topControlContainer}>
-        {/* Search Input */}
-        <View style={styles.searchBar}>
-          <SearchIcon size={18} color={adminColors.muted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search product, crop, grade, batch"
-            placeholderTextColor={adminColors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-        </View>
-
-        {/* Filter Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterPillsRow}
-        >
-          {(['All', 'Grade 1', 'Available', 'Low Stock'] as FilterType[]).map((filter) => {
-            const isSelected = activeFilter === filter;
-            return (
-              <TouchableOpacity
-                key={filter}
-                style={[
-                  styles.filterPill,
-                  isSelected && styles.filterPillSelected,
-                ]}
-                onPress={() => setActiveFilter(filter)}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    isSelected && styles.filterPillTextSelected,
-                  ]}
-                >
-                  {filter}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
       {/* ─── Product Cards List ─── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredProducts.map((product) => {
-          const isExpanded = expandedProductId === product.id;
+        {screenStep === 'summary' && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterPillsRow}
+          >
+            {(['All', 'Grade 1', 'Available', 'Low Stock'] as FilterType[]).map((filter) => {
+              const isSelected = activeFilter === filter;
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[
+                    styles.filterPill,
+                    isSelected && styles.filterPillSelected,
+                  ]}
+                  onPress={() => setActiveFilter(filter)}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      isSelected && styles.filterPillTextSelected,
+                    ]}
+                  >
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {visibleProducts.map((product) => {
+          const isExpanded = screenStep === 'initial' && expandedProductId === product.id;
           const isAdded = selectedProductIds.includes(product.id);
           const isAvailable = product.status === 'Available';
 
@@ -370,7 +426,7 @@ export function SelectProductsScreen({
                 <TouchableOpacity
                   style={styles.addToSaleBtn}
                   activeOpacity={0.85}
-                  onPress={() => handleConfirmAddToSale(product.id)}
+                  onPress={() => handleAddToSalePress(product)}
                 >
                   <Text style={styles.addToSaleBtnText}>+ Add to Sale</Text>
                 </TouchableOpacity>
@@ -379,7 +435,12 @@ export function SelectProductsScreen({
           }
 
           return (
-            <View key={product.id} style={styles.productCard}>
+            <TouchableOpacity
+              key={product.id}
+              style={styles.productCard}
+              onPress={() => handleOpenAddProduct(product)}
+              activeOpacity={0.8}
+            >
               <View style={styles.cardTopRow}>
                 <View>
                   <Text style={styles.productName}>{product.name}</Text>
@@ -421,13 +482,71 @@ export function SelectProductsScreen({
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
 
-        {filteredProducts.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No products match your search or filter.</Text>
+        {/* ─── Add Product? Confirmation Card (Image 2) ─── */}
+        {screenStep === 'confirm_add' && (
+          <View style={styles.confirmAddCard}>
+            <View style={styles.confirmAddHeader}>
+              <QuestionCircleIcon size={20} color="#059669" />
+              <Text style={styles.confirmAddTitle}>Add Product?</Text>
+            </View>
+
+            <View style={styles.confirmAddSubBox}>
+              <Text style={styles.confirmAddProdName}>
+                {pendingProduct?.name || 'Tomato'} · {pendingProduct?.grade || 'Grade 1'}
+              </Text>
+              <Text style={styles.confirmAddCalculation}>
+                {configuringQuantity} KG × ₹{pendingProduct?.pricePerKg || 100} = ₹{configuringQuantity * (pendingProduct?.pricePerKg || 100)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.confirmAddBtn}
+              onPress={handleConfirmAddProduct}
+              activeOpacity={0.8}
+            >
+              <CheckmarkOutlineIcon size={18} color="#059669" />
+              <Text style={styles.confirmAddBtnText}>Add to Sale</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.confirmCancelBtn}
+              onPress={handleCancelAddProduct}
+              activeOpacity={0.8}
+            >
+              <CancelCrossIcon size={18} color="#92400E" />
+              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ─── Sale Summary Card (Image 3) ─── */}
+        {screenStep === 'summary' && (
+          <View style={styles.summaryCardBox}>
+            <View style={styles.summaryHeaderRow}>
+              <Text style={styles.summaryTitleText}>2 Products</Text>
+              <Text style={styles.summarySubText}>in this sale</Text>
+            </View>
+
+            <View style={styles.summaryItemRow}>
+              <Text style={styles.summaryItemName}>Tomato</Text>
+              <Text style={styles.summaryItemQty}>2 KG</Text>
+            </View>
+
+            <View style={styles.summaryItemRow}>
+              <Text style={styles.summaryItemName}>Carrot</Text>
+              <Text style={styles.summaryItemQty}>1 KG</Text>
+            </View>
+
+            <View style={styles.summaryDivider} />
+
+            <View style={styles.summaryTotalRow}>
+              <Text style={styles.summaryTotalLabel}>Total</Text>
+              <Text style={styles.summaryTotalValue}>₹320</Text>
+            </View>
           </View>
         )}
 
@@ -458,9 +577,9 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   headerRow: {
     flexDirection: 'row',
@@ -472,7 +591,8 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   headerTitle: {
-    ...adminType.title,
+    fontSize: 20,
+    fontWeight: '800',
     color: adminColors.onBrand,
     letterSpacing: 0.2,
   },
@@ -529,7 +649,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 24,
   },
   productCard: {
@@ -614,32 +734,13 @@ const styles = StyleSheet.create({
     ...adminType.body,
     color: adminColors.muted,
   },
-  bottomBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 20,
-    backgroundColor: adminColors.canvas,
-  },
-  continueBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: adminColors.brand,
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  continueBtnText: {
-    color: adminColors.onBrand,
-    ...adminType.title,
-  },
 
   // ─── Expanded Product Card (Matching Reference Design) ───
   expandedProductCard: {
     backgroundColor: adminColors.card,
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
+    borderWidth: 1,
+    borderColor: '#D97706',
     padding: 16,
     marginBottom: 16,
     ...adminShadow.sm,
@@ -651,7 +752,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   expandedTitleText: {
-    ...adminType.sectionHead,
+    fontSize: 16,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   expandedGridRow: {
@@ -662,29 +764,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   expandedGridLabel: {
-    ...adminType.body,
+    fontSize: 13,
     color: adminColors.muted,
     marginBottom: 3,
   },
   expandedGridValuePrice: {
-    ...adminType.title,
+    fontSize: 16,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   expandedGridValueAvail: {
-    ...adminType.title,
+    fontSize: 16,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   expandedGridValueBatch: {
-    ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   expandedGridValueLoc: {
-    ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   traceabilityBanner: {
-    backgroundColor: adminColors.info.bg,
-    borderColor: adminColors.info.border,
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
     borderWidth: 1,
     borderRadius: 10,
     padding: 10,
@@ -695,12 +801,13 @@ const styles = StyleSheet.create({
   },
   traceabilityText: {
     flex: 1,
-    ...adminType.rowMeta,
+    fontSize: 12,
     lineHeight: 16,
-    color: adminColors.info.text,
+    color: '#1D4ED8',
   },
   quantitySectionHeader: {
-    ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '800',
     color: adminColors.ink,
     marginTop: 16,
     marginBottom: 12,
@@ -714,20 +821,22 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: adminColors.brandTint,
+    borderRadius: 22,
+    backgroundColor: '#FEF3E2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
-    ...adminType.title,
-    color: adminColors.warning.text,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#854F0B',
     marginTop: -2,
   },
   stepperValueText: {
-    ...adminType.title,
+    fontSize: 22,
+    fontWeight: '800',
     color: adminColors.ink,
-    minWidth: 60,
+    minWidth: 70,
     textAlign: 'center',
   },
   addToSaleBtn: {
@@ -736,11 +845,162 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: 18,
     ...adminShadow.sm,
   },
   addToSaleBtnText: {
     color: adminColors.onBrand,
-    ...adminType.sectionHead,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  bottomBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 20,
+    backgroundColor: adminColors.canvas,
+  },
+  continueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.brand,
+    borderRadius: 14,
+    height: 50,
+    gap: 8,
+  },
+  continueBtnText: {
+    color: adminColors.onBrand,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  confirmAddCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#047857',
+    padding: 16,
+    marginTop: 12,
+  },
+  confirmAddHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  confirmAddTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  confirmAddSubBox: {
+    backgroundColor: '#F6F4EE',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
+  },
+  confirmAddProdName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#52525B',
+    marginBottom: 6,
+  },
+  confirmAddCalculation: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  confirmAddBtn: {
+    borderWidth: 1.5,
+    borderColor: '#047857',
+    borderRadius: 12,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    backgroundColor: '#FFFFFF',
+    gap: 6,
+  },
+  confirmAddBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  confirmCancelBtn: {
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    borderRadius: 12,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    backgroundColor: '#FFFFFF',
+    gap: 6,
+  },
+  confirmCancelBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  summaryCardBox: {
+    backgroundColor: '#FEFBF6',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    padding: 16,
+    marginTop: 12,
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  summaryTitleText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  summarySubText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#78350F',
+  },
+  summaryItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  summaryItemQty: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#78350F',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#D97706',
+    opacity: 0.4,
+    marginVertical: 10,
+  },
+  summaryTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#78350F',
+  },
+  summaryTotalValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#78350F',
   },
 });

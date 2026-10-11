@@ -411,6 +411,7 @@ interface SubWarehouseAdminDashboardScreenProps {
   onNavigate?: (screen: string, params?: any) => void;
   onBack?: () => void;
   initialShowOrders?: boolean;
+  initialShowTodayOverview?: boolean;
   initialTab?: SubWHTab;
   initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
   initialInventoryScreen?: string;
@@ -563,6 +564,297 @@ export function OrdersModule({
   );
 }
 
+function OverviewTruckIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="1" y="5" width="14" height="12" rx="2" stroke={color} strokeWidth="1.8" />
+      <Path d="M15 8h4l3 3v6h-7V8z" stroke={color} strokeWidth="1.8" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
+      <Circle cx="17.5" cy="18.5" r="2.5" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function OverviewReceiptIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 7h8M8 11h8M8 15h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function OverviewBoxIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
+      <Path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function OverviewRegisterIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="6" y="14" width="12" height="8" rx="1" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function OverviewCashIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="1.8" />
+      <Circle cx="12" cy="12" r="2.5" stroke={color} strokeWidth="1.8" />
+      <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function SubWarehouseTodayOverviewView({
+  onBack,
+  onOpenReceiving,
+  onOpenOrders,
+  onOpenInventory,
+  onOpenSales,
+  onOpenCash,
+}: {
+  onBack: () => void;
+  onOpenReceiving?: () => void;
+  onOpenOrders?: () => void;
+  onOpenInventory?: () => void;
+  onOpenSales?: () => void;
+  onOpenCash?: () => void;
+}) {
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const categories = ['All', 'Receiving', 'Orders', 'Inventory', 'Sales', 'Cash Top-Up'];
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            onPress={onBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>Today's Overview</Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>24 September · Coonoor Warehouse</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={{ flex: 1, backgroundColor: '#F8F5F0' }}>
+        <View style={{ paddingVertical: 12 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
+            {categories.map((cat) => {
+              const active = activeCategory === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  onPress={() => setActiveCategory(cat)}
+                  activeOpacity={0.8}
+                  style={{
+                    backgroundColor: active ? '#F0562A' : '#FFFFFF',
+                    borderRadius: 20,
+                    paddingHorizontal: 18,
+                    paddingVertical: 8,
+                    borderWidth: 1,
+                    borderColor: active ? '#F0562A' : '#ECE8E3',
+                  }}
+                >
+                  <Text style={{ color: active ? '#FFFFFF' : '#4A4A4A', fontWeight: '700', fontSize: 13 }}>{cat}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+          {(activeCategory === 'All' || activeCategory === 'Receiving') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenReceiving}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#ECE8E3',
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewTruckIcon size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Receiving</Text>
+              </View>
+              <View style={{ flexDirection: 'row' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>03</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>total</Text>
+                </View>
+                <View style={{ flex: 1.2 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>01</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending QC</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {(activeCategory === 'All' || activeCategory === 'Orders') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenOrders}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#ECE8E3',
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewReceiptIcon size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Orders</Text>
+              </View>
+              <View style={{ flexDirection: 'row' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>08</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>27</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>completed</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {(activeCategory === 'All' || activeCategory === 'Inventory') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenInventory}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#ECE8E3',
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewBoxIcon size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Inventory</Text>
+              </View>
+              <View style={{ flexDirection: 'row' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>05</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>low stock</Text>
+                </View>
+                <View style={{ flex: 1.5 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>02</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>verification pending</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {(activeCategory === 'All' || activeCategory === 'Sales') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenSales}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#ECE8E3',
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewRegisterIcon size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Sales</Text>
+              </View>
+              <View style={{ flexDirection: 'row' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>42</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
+                </View>
+                <View style={{ flex: 1.5 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹24,850</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {(activeCategory === 'All' || activeCategory === 'Cash Top-Up') && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenCash}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: '#ECE8E3',
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <OverviewCashIcon size={20} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Cash Top-Up</Text>
+              </View>
+              <View style={{ flexDirection: 'row' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>12</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
+                </View>
+                <View style={{ flex: 1.5 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>₹18,500</Text>
+                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export function SubWarehouseAdminDashboardScreen({
   scope,
   can,
@@ -570,10 +862,17 @@ export function SubWarehouseAdminDashboardScreen({
   onNavigate,
   onBack,
   initialShowOrders = false,
+  initialShowTodayOverview = false,
   initialTab,
   initialReceivingSubView,
   initialInventoryScreen,
 }: SubWarehouseAdminDashboardScreenProps) {
+  const [showTodayOverview, setShowTodayOverview] = useState(initialShowTodayOverview);
+  useEffect(() => {
+    if (initialShowTodayOverview) {
+      setShowTodayOverview(true);
+    }
+  }, [initialShowTodayOverview]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
@@ -933,7 +1232,7 @@ export function SubWarehouseAdminDashboardScreen({
             setOrdersInitialParams(null);
             setShowOrdersModule(true);
           } else if (target === 'Operations') {
-            setShowWalletOperations(true);
+            setStorageEntry({ screen: 'Operations' });
           }
         }}
       />
@@ -1059,6 +1358,14 @@ export function SubWarehouseAdminDashboardScreen({
           const close = storageEntry.closeOnBack === true || storageEntry.screen === 'Operations';
           setStorageEntry(close ? null : { screen: 'Operations' });
         }}
+        onOpenNotifications={() => {
+          setStorageEntry(null);
+          if (onNavigate) {
+            onNavigate('SubWarehouseNotifications');
+          } else {
+            setShowNotifications(true);
+          }
+        }}
         onOpenModule={(module) => {
           // Activity records / Today tiles owned by modules outside storage-ops.
           setStorageEntry(null);
@@ -1096,15 +1403,43 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
+  if (showTodayOverview) {
+    return (
+      <SubWarehouseTodayOverviewView
+        onBack={() => setShowTodayOverview(false)}
+        onOpenReceiving={() => {
+          setShowTodayOverview(false);
+          openReceiving();
+        }}
+        onOpenOrders={() => {
+          setShowTodayOverview(false);
+          setShowOrdersModule(true);
+        }}
+        onOpenInventory={() => {
+          setShowTodayOverview(false);
+          setInventoryInitialScreen('M3S01');
+          setActiveTab('Inventory');
+        }}
+        onOpenSales={() => {
+          setShowTodayOverview(false);
+          setShowSalesScreen(true);
+        }}
+        onOpenCash={() => {
+          setShowTodayOverview(false);
+          setShowDailyCashSummary(true);
+        }}
+      />
+    );
+  }
+
   if (showProfile) {
-    // Warehouse Profile (+ Storage / Operating / Contact / Documents) is the
-    // shared ProfileFlow (W4 part B). A storage location opens the shell's detail.
     return (
       <ProfileFlow
         scope={scope}
         can={can}
-        initialScreen="WarehouseProfile"
+        initialScreen="UserProfile"
         onBack={() => setShowProfile(false)}
+        onLogout={onSignOut}
         onTabChange={(tab) => {
           setShowProfile(false);
           setActiveTab(tab);
@@ -1557,11 +1892,17 @@ export function SubWarehouseAdminDashboardScreen({
               </TouchableOpacity>
 
               {/* 2. Today's Overview Grid */}
-              {/* SubWarehouseTodayOverviewScreen was absorbed here (FINAL_LIST 26): its
-                  receiving-completed and verification-pending figures were ported onto
-                  these cards / the Inventory Snapshot, so there is no "View All" any more. */}
               <View style={styles.sectionHeaderBetween}>
                 <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Today's Overview</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowTodayOverview(true);
+                  }}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.viewAllText}>View All</Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.overviewGrid}>
                 {canOrders ? (
@@ -1768,7 +2109,7 @@ export function SubWarehouseAdminDashboardScreen({
                   style={styles.alertCard}
                   onPress={() => {
                     setSelectedShipment(findShipment(scope, 'GR-1021'));
-                    setReceivingWizardStep('quantity_verification');
+                    setReceivingWizardStep('damage_mismatch');
                   }}
                   activeOpacity={0.75}
                 >
@@ -1803,7 +2144,11 @@ export function SubWarehouseAdminDashboardScreen({
                 {canOrders ? (
                 <TouchableOpacity
                   style={styles.alertCard}
-                  onPress={() => Alert.alert('Pickup Pending', '3 customers are waiting for order pickup.')}
+                  onPress={() => {
+                    setOrdersInitialScreen('M5S09');
+                    setOrdersInitialParams(null);
+                    setShowOrdersModule(true);
+                  }}
                   activeOpacity={0.75}
                 >
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
@@ -1820,7 +2165,11 @@ export function SubWarehouseAdminDashboardScreen({
                 {canStock ? (
                 <TouchableOpacity
                   style={styles.alertCard}
-                  onPress={() => Alert.alert('Low Stock Alert', 'Carrot — Grade 1 · Available 12 KG.')}
+                  onPress={() => {
+                    setInventoryInitialScreen('M3S09');
+                    setInventoryInitialParams(null);
+                    setActiveTab('Inventory');
+                  }}
                   activeOpacity={0.75}
                 >
                   <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>

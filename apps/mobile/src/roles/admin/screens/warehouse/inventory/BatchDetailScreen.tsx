@@ -1,6 +1,6 @@
 // Design id: M3S05
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
@@ -34,6 +34,8 @@ function VerifyIcon({ color = adminColors.brandDeep }: { color?: string }) {
 }
 
 export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: BatchDetailScreenProps) {
+  const warehouse = (scope.warehouseName ?? String(routeParams?.warehouseName ?? 'Coonoor')).replace(' Warehouse', '');
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -50,8 +52,11 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
         }
       />
 
-      {/* Static content — no ScrollView */}
-      <View style={styles.body}>
+      <ScrollView 
+        style={styles.body} 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+      >
 
         {/* ── Batch Information ── */}
         <View style={styles.section}>
@@ -74,7 +79,7 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Warehouse</Text>
-                <Text style={styles.fieldValue}>{scope.warehouseName ?? String(routeParams?.warehouseName ?? '—')}</Text>
+                <Text style={styles.fieldValue}>{warehouse}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
@@ -151,7 +156,7 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <Text style={styles.actionBtnText}>View Stock Ledger</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, { marginBottom: 0 }]}
             onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S10'))}
             activeOpacity={0.7}
           >
@@ -160,7 +165,7 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
           </TouchableOpacity>
         </View>
 
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -168,34 +173,37 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: adminColors.brand, // status bar area blends with header
+    backgroundColor: adminColors.brand,
   },
-  // ── Header uses its own paddingTop:44 ──
-  // ── Body fills the rest ──
   body: {
     flex: 1,
     backgroundColor: adminColors.canvas,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
-    justifyContent: 'space-between',
+    paddingTop: 14,
+    paddingBottom: 24,
   },
 
   // Sections
-  section: {},
+  section: {
+    marginBottom: 16,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   sectionTitle: {
-    ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '700',
     color: adminColors.ink,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   sectionMuted: {
-    ...adminType.rowMeta,
+    fontSize: 12,
+    fontWeight: '500',
     color: adminColors.muted,
   },
 
@@ -205,23 +213,26 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   gridRow: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   gridCol: {
     flex: 1,
   },
   fieldLabel: {
-    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '500',
     color: adminColors.muted,
-    letterSpacing: 0.3,
-    marginBottom: 2,
+    letterSpacing: 0.2,
+    marginBottom: 3,
   },
   fieldValue: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
   },
 
@@ -233,7 +244,7 @@ const styles = StyleSheet.create({
   movementCard: {
     flex: 1,
     backgroundColor: adminColors.card,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 4,
     borderRadius: 12,
     alignItems: 'center',
@@ -241,12 +252,14 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
   },
   movementValue: {
-    ...adminType.sectionHead,
+    fontSize: 17,
+    fontWeight: '800',
     color: adminColors.ink,
-    marginBottom: 3,
+    marginBottom: 4,
   },
   movementLabel: {
-    ...adminType.caption,
+    fontSize: 10.5,
+    fontWeight: '600',
     color: adminColors.muted,
     letterSpacing: 0.5,
   },
@@ -257,7 +270,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: adminColors.card,
-    height: 46,
+    height: 48,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1.5,
@@ -265,7 +278,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionBtnText: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.brandDeep,
   },
 
@@ -273,13 +287,14 @@ const styles = StyleSheet.create({
   activeBadge: {
     backgroundColor: adminColors.card,
     paddingHorizontal: 14,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1.5,
     borderColor: adminColors.onBrand,
   },
   activeBadgeText: {
-    ...adminType.rowTitle,
+    fontSize: 12.5,
+    fontWeight: '700',
     color: adminColors.success.text,
   },
 });

@@ -273,7 +273,8 @@ export type StorageRoute =
   | 'OperationalIssues'
   | 'OperationalIssueDetail'
   | 'ReportIssue'
-  | 'IssueSubmitted';
+  | 'IssueSubmitted'
+  | 'StorageLocations';
 
 export interface StorageRouteParams {
   /** Warehouse Activity date preset (default 'All'; 'Today' = the old Today's Operations). */
