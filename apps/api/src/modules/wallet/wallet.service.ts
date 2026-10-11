@@ -4,10 +4,12 @@ import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { isMoney, greaterThan, ZERO, parseMoney, type Money } from '@tohfa/shared-types';
 import {
+  decodeTxnCursor,
   walletRepo,
   toWalletResponse,
   toWalletTransactionResponse,
   type WalletRepo,
+  type WalletTxnCursorKey,
 } from './wallet.repo.js';
 import type {
   ListMyTransactionsQuery,
@@ -85,8 +87,20 @@ export function createWalletService(
     },
 
     async listTransactionsForActor(actor, query): Promise<ListTransactionsResponse> {
+      const { cursor, ...filters } = query;
+      let after: WalletTxnCursorKey | undefined;
+      if (cursor !== undefined && cursor.length > 0) {
+        const decoded = decodeTxnCursor(cursor);
+        if (decoded === null) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'cursor is not a value returned by this endpoint.',
+            errors: { 'query.cursor': ['Invalid cursor.'] },
+          });
+        }
+        after = decoded;
+      }
       const wallet = await this.getWalletForActor(actor);
-      const res = await repo.listTransactions(db, wallet.id, query);
+      const res = await repo.listTransactions(db, wallet.id, after === undefined ? filters : { ...filters, after });
       return {
         items: res.items,
         page: {
@@ -104,10 +118,10 @@ export function createWalletService(
         });
       }
 
-      return await runTx(async (innerTx) => {
-        // Use active transactional executor
-        const activeTx = tx ?? innerTx;
-
+      // A caller that passes `tx` owns the transaction: the move runs on THAT client only. Opening a
+      // pooled transaction of our own as well (as this used to) held a second connection per move
+      // and could exhaust the pool under concurrent sales.
+      const execute = async (activeTx: Executor): Promise<WalletTransactionResponse> => {
         // 2. Resolve target wallet ID
         let walletId = input.walletId;
         if (!walletId) {
@@ -135,6 +149,12 @@ export function createWalletService(
           }
         }
 
+        // The insert runs under a SAVEPOINT. On a duplicate idempotency key (23505) only the failed
+        // INSERT is undone, so the rest of the caller's transaction (an order or sale written before
+        // this) survives and the existing row can be read on the same client. The bare ROLLBACK
+        // this used to issue aborted the caller's whole transaction and let its remaining statements
+        // run in autocommit.
+        await activeTx.query('SAVEPOINT wallet_move');
         try {
           const row = await repo.insertTransaction(activeTx, {
             walletId,
@@ -147,16 +167,14 @@ export function createWalletService(
             remarks: input.remarks ?? null,
             createdBy: input.createdBy !== undefined ? input.createdBy : (scope.userId === '00000000-0000-0000-0000-000000000000' ? null : (scope.userId ?? null)),
           });
+          await activeTx.query('RELEASE SAVEPOINT wallet_move');
           return toWalletTransactionResponse(row);
         } catch (err: unknown) {
           const pgErr = err as { code?: string; hint?: string; message?: string };
+          // Undo only the failed INSERT; the caller's transaction stays usable.
+          await activeTx.query('ROLLBACK TO SAVEPOINT wallet_move');
           // A. Unique constraint violation on idempotency_key
           if (pgErr.code === '23505') {
-            try {
-              await activeTx.query('ROLLBACK');
-            } catch {
-              // Rollback may fail if connection was already closed/aborted
-            }
             const existing = await repo.findTransactionByIdempotencyKey(activeTx, input.idempotencyKey);
             if (existing) {
               const matchesAmount = parseMoney(existing.amount) === parseMoney(input.amount);
@@ -192,7 +210,9 @@ export function createWalletService(
 
           throw err;
         }
-      });
+      };
+
+      return tx === undefined ? runTx(execute) : execute(tx);
     },
   };
 }

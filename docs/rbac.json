@@ -1969,6 +1969,81 @@
       "source": "matrix §6"
     },
     {
+      "code": "customer.detail.view",
+      "module": "Customers Management",
+      "description": "View a customer's profile detail (SWA Module 7, BR-91, BR-92). At scope `own` the customer must be in the actor's warehouse scope (order or top-up at the warehouse, or preferred warehouse) — otherwise 404, never 403; and the response is PII-masked (name, masked mobile, customer code only).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.purchase_history.view",
+      "module": "Customers Management",
+      "description": "View a customer's purchases and orders (SWA Module 7, BR-91). At scope `own` only orders placed at the actor's warehouse are returned. No farm identity in any row (BR-16, BR-90).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.wallet.view",
+      "module": "Customers Management",
+      "description": "Read-only view of a customer's wallet: summary, transactions and transaction detail (SWA Module 7, BR-91, BR-93). Grants no wallet mutation.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.issues.view",
+      "module": "Customers Management",
+      "description": "View the issues (complaints, returns, disputes) a customer has raised (SWA Module 7, BR-91).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.support_history.view",
+      "module": "Customers Management",
+      "description": "View a customer's support tickets and their threads (SWA Module 7, BR-91, BR-97). Internal notes naming a farmer are stripped (BR-16). Replying (`POST /admin/customers/{customerId}/support-tickets/{ticketId}/replies`) is double-gated by owner decision 2026-10-11: this code is checked FIRST and its resolved scope decides which customers are visible (BR-91; out of scope is 404), THEN support.ticket.respond authorises the write. A caller needs both.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
       "code": "catalog.browse",
       "module": "Sales Management",
       "description": "Browse the customer catalog (grade, certification badges, TOHFA branding only).",
@@ -2102,6 +2177,111 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 6.3 (matrix §6 is stricter — see conflicts)"
+    },
+    {
+      "code": "sales.sale.create",
+      "module": "Sales Management",
+      "description": "Create a Direct (at-counter) or Market-day sale, including the customer lookup, sellable product list and quote that precede it (SWA Module 6, BR-85..BR-90, BR-94, BR-95, BR-98). HORECA/B2B creation stays 501 (BR-13). Taking any payment other than none also needs payment.record.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.history.view",
+      "module": "Sales Management",
+      "description": "View the sales history list and sale detail (SWA Module 6, BR-90). At scope `own` only sales at the actor's warehouse.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.dashboard.view",
+      "module": "Sales Management",
+      "description": "View the sales dashboard summary: counts and revenue of paid-and-completed sales only (SWA Module 6, BR-96).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.market_day.view",
+      "module": "Sales Management",
+      "description": "View market-day sales and the LIVE_MARKET allocation they draw from (SWA Module 6, BR-95).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.horeca.view",
+      "module": "Sales Management",
+      "description": "Read-only view of HORECA orders (SWA Module 6, BR-85). Creation stays 501 (BR-13).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.b2b.view",
+      "module": "Sales Management",
+      "description": "Read-only view of B2B orders (SWA Module 6, BR-85). Creation stays 501 (BR-13).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "payment.record",
+      "module": "Sales Management",
+      "description": "Record payment for a Direct/Market sale: CASH and WALLET server-confirmed, UPI confirmed after the gateway callback, CARD by manual reference (SWA Module 6, BR-88, BR-94). Money-moving: Idempotency-Key required.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "order.warehouse.assign",
@@ -3024,7 +3204,7 @@
     {
       "code": "support.ticket.respond",
       "module": "Notifications & Reports",
-      "description": "Respond to a support ticket.",
+      "description": "Respond to a support ticket. Granted at `all` to the warehouse admins because it predates the per-warehouse customer surface, so it never decides customer visibility: the SWA Module 7 reply route (`POST /admin/customers/{customerId}/support-tickets/{ticketId}/replies`, BR-97) additionally requires customer.support_history.view, checked first, whose scope confines the reply to visible customers (owner decision 2026-10-11: keep both gates).",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -3034,7 +3214,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13"
+      "source": "matrix §13; double gate on the SWA M7 reply route: owner decision 2026-10-11"
     },
     {
       "code": "community.group.moderate",

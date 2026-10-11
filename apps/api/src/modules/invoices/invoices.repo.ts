@@ -98,12 +98,18 @@ export const invoicesRepo: InvoicesRepo = {
               ? "PO"
               : "SUB";
 
-    const countRes = await db.query<{ count: string }>(
-      "SELECT count(*)::text AS count FROM invoices WHERE fiscal_year = $1",
-      [fiscalYear],
+    // Gap-free, collision-free counter (migration 0061, BR-87h, BR-98g). next_invoice_number()
+    // row-locks (fiscal_year, series) until THIS transaction ends, so `db` must be the client that
+    // also inserts the invoice: a concurrent issue waits instead of reading the same count, and a
+    // rollback returns the number. The old count(*) + 1 collided under concurrency. Format is
+    // unchanged: TOH/<fiscal_year>/<series>/<seq padded to >= 6 digits>.
+    const result = await db.query<{ invoice_number: string }>(
+      "SELECT next_invoice_number($1, $2) AS invoice_number",
+      [typePrefix, fiscalYear],
     );
-    const seq = (parseInt(countRes.rows[0]?.count ?? "0", 10) + 1).toString().padStart(6, "0");
-    return "TOH/" + fiscalYear + "/" + typePrefix + "/" + seq;
+    const invoiceNumber = result.rows[0]?.invoice_number;
+    if (invoiceNumber === undefined) throw new Error("next_invoice_number returned no row");
+    return invoiceNumber;
   },
 
   async createInvoice(db: Executor, input: CreateInvoiceInput): Promise<InvoiceDetailResponse> {

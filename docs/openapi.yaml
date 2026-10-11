@@ -24,6 +24,9 @@ info:
     * `x-permission` — the permission code from `docs/rbac.json` that the
       gateway checks before the handler runs. `public` means the endpoint is
       unauthenticated (it also carries `security: []`).
+    * `x-additional-permissions` (rare) — further codes the route ALSO requires, checked before
+      `x-permission`; the operation description says why. `pnpm spec:drift` checks they exist in
+      `docs/rbac.json`.
     * `x-business-rules` — the client-locked business rules the handler enforces
       server-side. Rules are never enforced only in the client.
 
@@ -223,6 +226,23 @@ tags:
       Warehouse Staff and Attendance (Module 14): the floor-staff roster of each warehouse and
       their daily attendance. Staff are not users. No payroll, salary or payout exists for them.
       The permission codes beyond `admin.staff.list_view` are documented spec gaps. See BR-83 and BR-84.
+  - name: Customers
+    description: |
+      Customers (Sub Warehouse Module 7): the admin customer list, profile, purchases, orders,
+      read-only wallet, issues and support history. For an actor whose permission resolves to
+      scope `own` (Sub Warehouse Admin; Main Warehouse Admin) only customers linked to the actor's
+      warehouse are visible (BR-91; out of scope is an empty list or 404, never 403), and PII is
+      masked: name, masked mobile and customer code only (BR-92). The permission codes beyond
+      `customer.list.view` and `support.ticket.respond` are documented spec gaps (SWA M6/M7,
+      pending owner approval). See BR-91 to BR-93 and BR-97.
+  - name: Sales
+    description: |
+      Direct (at-counter) and Market-day sales (Sub Warehouse Module 6). A sale is one atomic
+      transaction (BR-87), re-validated at quote and create (BR-89), farm-anonymous (BR-90), paid
+      by CASH, WALLET, CARD or UPI (BR-94), with integer-paise totals and a GST rate from
+      `system_config` (BR-98). Horeca and B2B are read-only here; creating one is 501 (BR-13,
+      BR-85). The `sales.*` and `payment.record` codes are documented spec gaps (SWA M6/M7, pending
+      owner approval). See BR-85 to BR-90 and BR-94 to BR-98.
   - name: Wallet
     description: Customer wallet,Razorpay top-ups, cash top-ups at a warehouse.
   - name: Payouts & Invoices
@@ -9212,9 +9232,11 @@ paths:
       operationId: addCartItem
       summary: Add or increment a cart line
       description: |
-        Reserves stock from the ONLINE allocation bucket. Insufficient sellable stock
-        returns 409 `STOCK_UNAVAILABLE`; exceeding the online allocation for the day
-        returns 409 `INSUFFICIENT_ALLOCATION` (BR-12).
+        Reserves stock from the ONLINE allocation bucket, and only up to what is on the
+        shelf: the ONLINE row's availability capped by the batch's unclaimed stock (BR-100;
+        a DIRECT counter sale may have drawn it). Insufficient sellable stock, including a
+        request within the bucket but above the shelf, returns 409 `STOCK_UNAVAILABLE`;
+        exceeding the online allocation for the day returns 409 `INSUFFICIENT_ALLOCATION` (BR-12).
       x-permission: cart.manage_own
       x-business-rules: [BR-12, BR-22]
       requestBody:
@@ -9291,6 +9313,14 @@ paths:
                 detail: Order total is INR 412.50 and the wallet holds INR 180.00.
                 code: WALLET_INSUFFICIENT
                 traceId: 01J9F1B2C3D4E5F6G7H8J9K5
+        '409':
+          description: |
+            `STOCK_UNAVAILABLE`: the batch behind a cart line no longer holds the reserved quantity,
+            e.g. because a DIRECT counter sale drew it (DIRECT sales do not decrement allocations,
+            BR-95k). Nothing is written: no debit, no order, no ledger row.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
     get:
@@ -9690,9 +9720,18 @@ paths:
       tags: [Fulfilment]
       operationId: listAdminOrders
       summary: Warehouse order queue
-      description: A Sub Warehouse Admin sees only orders assigned to their warehouse; a cross-warehouse filter returns 403 `WAREHOUSE_SCOPE_VIOLATION` (BR-30).
+      description: |
+        Confined by the caller's resolved scope in SQL (BR-101). Scope `all` (SUPER_ADMIN,
+        TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; a Sub Warehouse Admin sees only orders
+        assigned to its warehouse. `warehouseId` only narrows the scope: naming another warehouse
+        (or an unknown id) returns 200 with an empty page, never 403 (BR-30). A scope carrying a
+        customer id (CUSTOMER is `own` on this code, its own-orders grant) fails closed: 200 with an
+        empty page; customers read their orders through `/orders`. FARMER and FARMER_ADMIN get 403
+        `FORBIDDEN`; a Sub Warehouse Admin with no warehouse assigned gets 403
+        `WAREHOUSE_SCOPE_VIOLATION` (a provisioning error, from requirePermission). Items carry no
+        farm identity and no buyer PII.
       x-permission: order.list.view_all
-      x-business-rules: [BR-30]
+      x-business-rules: [BR-101, BR-30]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -9712,18 +9751,37 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403':
-          description: Warehouse scope violation.
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/orders/{orderId}:
+    get:
+      tags: [Fulfilment]
+      operationId: getAdminOrderDetail
+      summary: Admin order detail (any channel)
+      description: |
+        Spec gap (owner decision 2026-10-11): the general admin order detail. Returns an order of
+        any channel (ONLINE, DIRECT, MARKET, HORECA, B2B); `GET /admin/sales/{saleId}` remains the
+        DIRECT/MARKET sale view. A Sub Warehouse Admin sees only its own warehouse: an order at
+        another warehouse is 404 with the same body as an unknown id, never 403 (BR-30). A scope
+        carrying a customer id (CUSTOMER is `own` on this code) fails closed with 404 on this admin
+        route. Farm-anonymous allow-list, no handover OTP, masked buyer mobile (BR-99). Read-only:
+        no audit row.
+      x-permission: order.list.view_all
+      x-business-rules: [BR-99, BR-30, BR-16, BR-20, BR-90, BR-92]
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The order.
           content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
-              example:
-                type: https://api.tohfa.in/problems/warehouse-scope-violation
-                title: Warehouse scope violation
-                status: 403
-                detail: You are assigned to Coonoor and may not query Gudalur.
-                code: WAREHOUSE_SCOPE_VIOLATION
-                traceId: 01J9F1B2C3D4E5F6G7H8J9K6
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOrderDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/orders/{id}/assign-warehouse:
@@ -9928,7 +9986,9 @@ paths:
       summary: Own wallet ledger
       description: |
         Returns the caller's own append-only wallet ledger, newest first. Balances are derived
-        from these rows and are never edited in place (BR-36).
+        from these rows and are never edited in place (BR-36). Ordered by `(created_at, id)`
+        descending; the opaque `cursor` carries both columns, so paging never skips or repeats a
+        row. A `cursor` this endpoint did not issue is 422 `VALIDATION_FAILED`.
       x-permission: wallet.own.view
       x-business-rules: [BR-36]
       parameters:
@@ -9937,6 +9997,7 @@ paths:
         - { name: type, in: query, schema: { $ref: '#/components/schemas/WalletTransactionType' } }
         - { name: from, in: query, schema: { type: string, format: date-time } }
         - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: tab, in: query, schema: { type: string, enum: [all, credits, debits, refunds], default: all }, description: '`credits`/`debits` filter by direction; `refunds` = ORDER_REFUND rows.' }
       responses:
         '200':
           description: Paged ledger rows, newest first.
@@ -9949,6 +10010,7 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/WalletTransaction' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /wallets/me/topups:
@@ -12556,6 +12618,747 @@ paths:
                   fileUrl: { type: string, format: uri }
         '400': { $ref: '#/components/responses/BadRequest' }
 
+  /admin/customers:
+    get:
+      tags: [Customers]
+      operationId: listAdminCustomers
+      summary: List customers
+      description: |
+        Name order, cursor pagination. Scope (BR-91): an actor whose `customer.list.view` resolves to
+        `own` sees only customers with an order or a top-up at its warehouse, or whose
+        `preferred_warehouse_id` is that warehouse; anything else is simply absent (never 403). The
+        filters and `q` cannot widen the scope. `summary` (`total`, `active`, `new`) counts the whole
+        visible set, not just this page; "active" and "new" use
+        `system_config.active_customer_window_days` (default 90, BR-98).
+
+        Masking (BR-92): for an `own` actor every item carries `piiMasked: true`, `mobileMasked` and
+        no `mobile` or `email` key at all. Scope `all` actors get the full values. Masking is driven
+        by the resolved scope, never by a role check. See `q` for search.
+      x-permission: customer.list.view
+      x-business-rules: [BR-91, BR-92, BR-98]
+      parameters:
+        - name: q
+          in: query
+          description: |
+            Trimmed first; the trimmed value must be 1 to 100 characters, so a whitespace-only `q`
+            is 422 `VALIDATION_FAILED`. Matches a case-insensitive substring of the customer's name
+            or customer code (`%` and `_` are literal, not wildcards). Mobile search applies only to
+            an actor whose scope is `all` (unmasked) AND only when `q` contains at least 3 digits:
+            the digits of `q` (every non-digit removed) are then matched as a substring of the
+            stored mobile's digits. An `own` (masked) actor can never match on the mobile, so a
+            full number cannot be recovered digit by digit through the filter (BR-92).
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - { $ref: '#/components/parameters/CustomerStatusFilterParam' }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of customers, plus the summary of the visible set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCustomerListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}:
+    get:
+      tags: [Customers]
+      operationId: getAdminCustomer
+      summary: Customer profile
+      description: |
+        404, not 403, when the customer does not exist or is outside the caller's scope (BR-91), with
+        the same body in both cases. For an `own` actor the response is masked (BR-92): name, masked
+        mobile, customer code and non-personal aggregates only; `mobile`, `email` and `addresses` are
+        absent.
+      x-permission: customer.detail.view
+      x-business-rules: [BR-91, BR-92]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+      responses:
+        '200':
+          description: The customer.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCustomerDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/purchases:
+    get:
+      tags: [Customers]
+      operationId: listAdminCustomerPurchases
+      summary: Customer purchase history (line level)
+      description: |
+        One row per purchased order line, newest first. For an `own` actor only lines of orders at
+        its warehouse are returned (BR-91g). Farm-anonymous: no farmer or farm field at any depth
+        (BR-16, BR-90). 404 when the customer is outside the scope (BR-91).
+      x-permission: customer.purchase_history.view
+      x-business-rules: [BR-91, BR-90]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of purchase lines.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminCustomerPurchase' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/orders:
+    get:
+      tags: [Customers]
+      operationId: listAdminCustomerOrders
+      summary: Customer orders
+      description: |
+        The customer's orders, newest first, across every channel (ONLINE, DIRECT, MARKET, HORECA,
+        B2B). For an `own` actor only orders at its warehouse (BR-91g). 404 when the customer is
+        outside the scope (BR-91).
+      x-permission: customer.purchase_history.view
+      x-business-rules: [BR-91, BR-90]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminCustomerOrder' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/wallet:
+    get:
+      tags: [Customers]
+      operationId: getAdminCustomerWallet
+      summary: Customer wallet summary (read-only)
+      description: |
+        Read-only (BR-93): there is no credit, debit, adjustment or top-up route under
+        `/admin/customers`. `balance` equals the sum of the customer's ledger rows exactly. 404 when
+        the customer is outside the scope (BR-91).
+      x-permission: customer.wallet.view
+      x-business-rules: [BR-93, BR-91]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+      responses:
+        '200':
+          description: The wallet summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCustomerWalletSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/wallet/transactions:
+    get:
+      tags: [Customers]
+      operationId: listAdminCustomerWalletTransactions
+      summary: Customer wallet transactions (read-only)
+      description: |
+        The customer's wallet ledger, newest first. GET only (BR-93). 404 when the customer is
+        outside the scope (BR-91).
+      x-permission: customer.wallet.view
+      x-business-rules: [BR-93, BR-91]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of ledger rows.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WalletTransaction' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/wallet/transactions/{txnId}:
+    get:
+      tags: [Customers]
+      operationId: getAdminCustomerWalletTransaction
+      summary: Customer wallet transaction detail (read-only)
+      description: |
+        One ledger row. 404 when the customer is outside the scope, or the transaction belongs to a
+        different customer's wallet (BR-93d).
+      x-permission: customer.wallet.view
+      x-business-rules: [BR-93, BR-91]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { name: txnId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The ledger row.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletTransaction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/issues:
+    get:
+      tags: [Customers]
+      operationId: listAdminCustomerIssues
+      summary: Customer issues
+      description: |
+        The issues the customer has raised (return requests), newest first by `(created_at, id)`.
+        For an `own` actor only issues on orders at its warehouse. 404 when the customer is outside
+        the scope (BR-91). No farmer or farm field (BR-16). `reference`, `refundAmount` and
+        `resolvedAt` are derived; `AdminCustomerIssue` documents how.
+      x-permission: customer.issues.view
+      x-business-rules: [BR-91]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of issues.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminCustomerIssue' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/support-tickets:
+    get:
+      tags: [Customers]
+      operationId: listAdminCustomerSupportTickets
+      summary: Customer support tickets
+      description: |
+        The customer's support tickets, newest first. 404 when the customer is outside the scope
+        (BR-91). The ticket shape carries no farmer identity (BR-97) and no customer contact data at
+        all (so nothing to mask, BR-92, BR-97g). Status `IN_PROGRESS` is the database's
+        `INVESTIGATING` (see `AdminCustomerSupportTicket.status`).
+      x-permission: customer.support_history.view
+      x-business-rules: [BR-97, BR-91, BR-92]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of tickets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminCustomerSupportTicket' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/support-tickets/{ticketId}:
+    get:
+      tags: [Customers]
+      operationId: getAdminCustomerSupportTicket
+      summary: Customer support ticket thread
+      description: |
+        The ticket and its messages, oldest first. For an `own` actor, internal notes and message
+        content naming a farmer (farmer name, farm name, farmer id, village, GPS) are removed or
+        redacted (BR-97, BR-16), and `redacted` is true on any message so altered; scope `all`
+        actors see the unredacted thread. 404 when the customer is outside the scope or the ticket
+        is not this customer's (BR-91).
+      x-permission: customer.support_history.view
+      x-business-rules: [BR-97, BR-91, BR-92]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { name: ticketId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The ticket thread.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCustomerSupportTicketDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/customers/{customerId}/support-tickets/{ticketId}/replies:
+    post:
+      tags: [Customers]
+      operationId: replyAdminCustomerSupportTicket
+      summary: Reply to a customer support ticket
+      description: |
+        Appends a reply to the thread as a new `support_messages` row (append-only at the database
+        level, migration 0065); earlier messages are never edited (BR-97). One audit row (ids only)
+        is written in the same transaction (BR-97f).
+
+        Double gate (owner decision 2026-10-11, BR-97d): the route checks
+        `customer.support_history.view` FIRST, whose resolved scope decides which customers are
+        visible (BR-91), and THEN `support.ticket.respond` (`x-permission`), which authorises the
+        write. The caller needs both; `x-additional-permissions` lists the first. 403 `FORBIDDEN`
+        when either is not granted.
+
+        Errors: 404 `NOT_FOUND` when the customer is outside the visibility scope or the ticket is
+        not this customer's (BR-91). 409 `CONFLICT` when the ticket is `CLOSED` (BR-97i). 422
+        `VALIDATION_FAILED` for an invalid body, and when the message or the attachment key names a
+        farmer identity known for this customer (farmer name, farm name, farmer id or code, village,
+        batch code, GPS position), with `errors["body.message"]` set; nothing is stored (BR-97c,
+        BR-16). The 422 applies to every actor, whatever its scope.
+      x-permission: support.ticket.respond
+      x-additional-permissions: [customer.support_history.view]
+      x-business-rules: [BR-97, BR-91]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+        - { name: ticketId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCustomerSupportReplyRequest' }
+      responses:
+        '201':
+          description: Reply stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCustomerSupportMessage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          $ref: '#/components/responses/Conflict'
+          description: '`CONFLICT`: the ticket is CLOSED (BR-97i).'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+          description: '`VALIDATION_FAILED`: invalid body, or the reply names a farmer identity (BR-97c).'
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/summary:
+    get:
+      tags: [Sales]
+      operationId: getAdminSalesSummary
+      summary: Sales dashboard summary
+      description: |
+        Counts and revenue of DIRECT and MARKET sales that are `payment_status = PAID`,
+        `status = PICKED_UP` and have `completed_at` set, only (BR-96). Pending UPI sales, failed
+        attempts and cancelled sales are excluded. Days are Asia/Kolkata days of `completed_at`;
+        `to` defaults to today and `from` to `to`. The span is capped by
+        `system_config.report_max_range_days` (default 366), else 422. Exact integer-paise sums,
+        shown as `Money`. Both channels and all four methods are always present (zero-filled).
+        Confined to the caller's scope (`own` = its warehouse); a `warehouseId` outside the scope is
+        404. `needsAttention` (spec gap, SWA M6 read slice) is derived, not stored; see the schema.
+      x-permission: sales.dashboard.view
+      x-business-rules: [BR-96, BR-98]
+      parameters:
+        - { $ref: '#/components/parameters/SalesFromParam' }
+        - { $ref: '#/components/parameters/SalesToParam' }
+        - { name: warehouseId, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesDashboardSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/customers/lookup:
+    get:
+      tags: [Sales]
+      operationId: lookupAdminSaleCustomer
+      summary: Find a customer at the counter
+      description: |
+        Exactly one of `mobile`, `code` or `q` (422 otherwise). `mobile` matches on the last 10
+        digits; `code` is case-insensitive exact; `q` (spec gap, SWA M6 write side) matches name or
+        customer code (substring) or, with 4+ digits, mobile digits. Matches only customers in the
+        caller's customer scope (BR-91: an order or a SUCCESS top-up at the warehouse, or
+        `preferred_warehouse_id`); no match is an empty `items`, never 403. The mobile is always
+        returned masked (`mobileMasked`, BR-92g). `walletBalance` lets the counter offer WALLET payment.
+      x-permission: sales.sale.create
+      x-business-rules: [BR-91, BR-92, BR-85]
+      parameters:
+        - { name: mobile, in: query, required: false, schema: { type: string, pattern: '^\+?[0-9]{10,15}$' } }
+        - { name: code, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 40 } }
+        - { name: q, in: query, required: false, description: 'Spec gap: name, customer code or mobile digits.', schema: { type: string, minLength: 2, maxLength: 100 } }
+      responses:
+        '200':
+          description: Matching customers (zero or more).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/SaleCustomerMatch' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/products:
+    get:
+      tags: [Sales]
+      operationId: listAdminSaleProducts
+      summary: Products sellable on a channel
+      description: |
+        `channel=MARKET` lists only products with a LIVE_MARKET allocation at the warehouse, with
+        `availableQtyKg` equal to what remains of it (never more than the batch's unheld stock);
+        `channel=DIRECT` lists ALL pooled ACTIVE batch stock (BR-95). Any other channel value is 422
+        (BR-95g). Farm-anonymous allow-list: grade, certification badges and TOHFA branding only (BR-90).
+
+        DIRECT availability (owner decision 2026-10-11): the sum of `qty_available` over sellable
+        batches minus the stock held by pending UPI sales (`PENDING_PAYMENT` DIRECT and MARKET sale
+        items). It is NOT net of the ONLINE or LIVE_MARKET allocations and not limited to the
+        RESERVE/BUFFER share; a DIRECT sale does not decrement any allocation (BR-95i, BR-12 note).
+        Sellable = ACTIVE, unexpired (Asia/Kolkata day), non-REJECT batches whose GRN is not
+        REJECTED / AWAITING_QC / QC_PENDING. The price is the active
+        retail price, else the active fair-price ceiling; a product with neither is not listed (no
+        default price). `batchCode` / `storageLocation` name the batch FEFO draws first.
+      x-permission: sales.sale.create
+      x-business-rules: [BR-95, BR-90, BR-85]
+      parameters:
+        - { name: channel, in: query, required: true, schema: { $ref: '#/components/schemas/SaleChannel' } }
+        - { name: q, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { name: warehouseId, in: query, required: false, description: 'Spec gap: required for an actor with no assigned warehouse (scope all); a Sub admin may omit it, and another warehouse is 404.', schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of sellable products.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SaleProduct' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/quote:
+    post:
+      tags: [Sales]
+      operationId: quoteAdminSale
+      summary: Price a sale before taking payment
+      description: |
+        Checks stock and price and returns the priced lines and totals in integer paise, GST once per
+        invoice at `system_config.retail_gst_rate_percent` (BR-89, BR-98). Writes nothing (BR-89f).
+        A quantity above available stock is 409 `SALE_STOCK_CHANGED`; available stock is the same
+        figure as `GET /admin/sales/products` (DIRECT: all pooled sellable stock minus pending UPI
+        holds; MARKET: the LIVE_MARKET allocation capped at the shelf, BR-95). Echo `totals.total` back as
+        `expectedTotal` on `POST /admin/sales`. Farm-anonymous (BR-90).
+      x-permission: sales.sale.create
+      x-business-rules: [BR-89, BR-90, BR-95, BR-98]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleQuoteRequest' }
+      responses:
+        '200':
+          description: The quote.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaleQuote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SaleConflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '501': { $ref: '#/components/responses/SaleChannelNotSupported' }
+
+  /admin/sales:
+    post:
+      tags: [Sales]
+      operationId: createAdminSale
+      summary: Create a Direct or Market sale
+      description: |
+        One transaction: payment, order, items, `SALE` stock ledger rows, invoice number and audit row
+        commit together or not at all; the response and any event follow the commit; a failed
+        attempt is recorded in `sale_attempts` (BR-87). The sale is stamped with the caller's own
+        warehouse (BR-85f). Stock and price are re-checked: 409 `SALE_STOCK_CHANGED` or
+        `SALE_PRICE_CHANGED` when they differ from the quote whose total was echoed as
+        `expectedTotal` (BR-89). MARKET draws from the LIVE_MARKET allocation, DIRECT from all pooled
+        ACTIVE stock minus pending UPI holds, FEFO (BR-95). A DIRECT sale never decrements an
+        allocation row, so it may take stock an ONLINE or LIVE_MARKET allocation still shows as
+        available; that later consumption is then refused 409 at the stock ledger (BR-95k).
+
+        Buyer: exactly one of `customer` or `walkIn` (BR-86, 422 otherwise). A walk-in paying by
+        WALLET is 422 `WALKIN_WALLET_NOT_ALLOWED`. Payment (BR-94): CASH needs `amountReceived >=
+        total` (422 `PAYMENT_AMOUNT_INSUFFICIENT`) and returns `totals.changeGiven`; CARD needs a
+        non-blank `cardRef`; WALLET is debited by the server inside the transaction (BR-88,
+        insufficient balance is 422 `WALLET_INSUFFICIENT`); UPI returns 201 with the sale
+        `PENDING_PAYMENT` / payment `PENDING` and no invoice until
+        `POST /admin/sales/{saleId}/payments/upi/confirm`. Every other method returns the sale
+        `PICKED_UP` / `PAID` with `completedAt` set (BR-85d).
+
+        Channel HORECA or B2B is 501 `SALE_CHANNEL_NOT_SUPPORTED` and writes nothing (BR-13,
+        BR-85e). The service also requires `payment.record`; a caller without it is 403 before any
+        write (BR-85g). `Idempotency-Key` is required: a replay returns the original response and
+        moves money once (BR-88).
+      x-permission: sales.sale.create
+      x-business-rules: [BR-85, BR-86, BR-87, BR-88, BR-89, BR-90, BR-94, BR-95, BR-98, BR-13]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleCreateRequest' }
+      responses:
+        '201':
+          description: Sale created (UPI sales are created pending). An idempotent replay returns this original response.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sale' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SaleConflict' }
+        '422': { $ref: '#/components/responses/SalePaymentInvalid' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '501': { $ref: '#/components/responses/SaleChannelNotSupported' }
+    get:
+      tags: [Sales]
+      operationId: listAdminSales
+      summary: Sales history
+      description: |
+        DIRECT and MARKET sales, newest first, including pending UPI sales (filter by
+        `paymentStatus`). Confined to the caller's scope (`own` = its warehouse). Farm-anonymous
+        allow-list (BR-90); walk-in and customer mobiles are always masked (a sale response never
+        carries a full mobile, SaleBuyer, BR-92).
+        A sale is dated by the Asia/Kolkata day of `completed_at`, or of `placed_at` while it has
+        none (pending or cancelled), so the PAID + PICKED_UP rows of a day equal that day's summary
+        (BR-96c). `to` defaults to today and `from` to `to`; when `q` or `customerId` is given with
+        neither `from` nor `to`, the search is not date-bounded. Span cap as in `/admin/sales/summary`.
+      x-permission: sales.history.view
+      x-business-rules: [BR-90, BR-92, BR-85, BR-96]
+      parameters:
+        - { name: channel, in: query, required: false, schema: { $ref: '#/components/schemas/SaleChannel' } }
+        - { name: status, in: query, required: false, description: 'Spec gap (SWA M6 read slice).', schema: { $ref: '#/components/schemas/SaleStatus' } }
+        - { name: paymentStatus, in: query, required: false, schema: { $ref: '#/components/schemas/SalePaymentStatus' } }
+        - { name: paymentMethod, in: query, required: false, schema: { $ref: '#/components/schemas/SalePaymentMethod' } }
+        - { name: customerId, in: query, required: false, description: 'Spec gap (SWA M6 read slice). Registered-customer sales only; the scope still applies.', schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/SalesFromParam' }
+        - { $ref: '#/components/parameters/SalesToParam' }
+        - { name: q, in: query, required: false, description: 'Sale number, invoice number or walk-in name (substring, case-insensitive), or a buyer mobile (EXACT match only, as typed or with +91 before a 10-digit number, so a masked number cannot be recovered digit by digit, BR-92). Mobile and walk-in name search are a spec gap (SWA M6 read slice).', schema: { type: string, minLength: 1, maxLength: 60 } }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of sales.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SaleListItem' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/{saleId}:
+    get:
+      tags: [Sales]
+      operationId: getAdminSale
+      summary: Sale detail
+      description: |
+        404, not 403, when the sale does not exist or is at a warehouse outside the caller's scope.
+        Farm-anonymous allow-list at every depth (BR-90); the invoice seller is TOHFA.
+      x-permission: sales.history.view
+      x-business-rules: [BR-90, BR-92]
+      parameters:
+        - { $ref: '#/components/parameters/SaleIdPathParam' }
+      responses:
+        '200':
+          description: The sale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sale' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/{saleId}/payments/upi/confirm:
+    post:
+      tags: [Sales]
+      operationId: confirmAdminSaleUpiPayment
+      summary: Confirm a pending UPI sale payment
+      description: |
+        Verifies the gateway result for the sale's pending UPI payment and, on success, completes the
+        sale in one transaction: payment `CONFIRMED`, order `PICKED_UP` / `PAID` with `completedAt`,
+        `SALE` stock ledger rows, invoice number and audit row (BR-94, BR-87). A failed or unverified
+        gateway result leaves the sale pending (422, attempt logged). Confirming an already confirmed
+        sale returns it unchanged with no second effect (BR-88g). A sale that is not a UPI sale, or
+        whose payment FAILED, is 409. `Idempotency-Key` is required. 404 for a sale outside the
+        caller's scope, never 403.
+      x-permission: payment.record
+      x-business-rules: [BR-94, BR-87, BR-88, BR-90]
+      parameters:
+        - { $ref: '#/components/parameters/SaleIdPathParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleUpiConfirmRequest' }
+      responses:
+        '200':
+          description: The completed sale.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sale' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/market-day:
+    get:
+      tags: [Sales]
+      operationId: getAdminSalesMarketDay
+      summary: Market-day view
+      description: |
+        For one Asia/Kolkata day (default today): the LIVE_MARKET allocation per product with sold and
+        remaining quantities, the paid-and-completed MARKET totals (BR-96), and a page of that day's
+        MARKET sales (BR-95). Confined to the caller's scope; a `warehouseId` outside it is 404.
+        Farm-anonymous (BR-90).
+      x-permission: sales.market_day.view
+      x-business-rules: [BR-95, BR-96, BR-90]
+      parameters:
+        - { name: date, in: query, required: false, schema: { type: string, format: date } }
+        - { name: warehouseId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: The market-day view.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesMarketDay' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/horeca:
+    get:
+      tags: [Sales]
+      operationId: listAdminSalesHoreca
+      summary: Horeca orders (read-only)
+      description: |
+        Read-only list of HORECA orders in the caller's scope, newest first (BR-85h). There is no
+        mutating verb; creating a Horeca sale is 501 (BR-13). Farm-anonymous (BR-90).
+      x-permission: sales.horeca.view
+      x-business-rules: [BR-85, BR-90, BR-13]
+      parameters:
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of Horeca orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ChannelOrderListItem' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/sales/b2b:
+    get:
+      tags: [Sales]
+      operationId: listAdminSalesB2b
+      summary: B2B orders (read-only)
+      description: |
+        Read-only list of B2B orders in the caller's scope, newest first (BR-85h). There is no
+        mutating verb; creating a B2B sale is 501 (BR-13). Farm-anonymous (BR-90).
+      x-permission: sales.b2b.view
+      x-business-rules: [BR-85, BR-90, BR-13]
+      parameters:
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: A page of B2B orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ChannelOrderListItem' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -12639,6 +13442,39 @@ components:
         different body returns 409 `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours.
       schema: { type: string, format: uuid }
 
+    CustomerIdPathParam:
+      name: customerId
+      in: path
+      required: true
+      description: Customer id. Outside the caller's customer scope it is 404, never 403 (BR-91).
+      schema: { type: string, format: uuid }
+    SaleIdPathParam:
+      name: saleId
+      in: path
+      required: true
+      description: Sale (order) id. At a warehouse outside the caller's scope it is 404, never 403.
+      schema: { type: string, format: uuid }
+    CustomerStatusFilterParam:
+      name: status
+      in: query
+      required: false
+      description: |
+        Derived, not stored: `ACTIVE` = a completed order or top-up within
+        `system_config.active_customer_window_days` (default 90), `INACTIVE` = none in that window,
+        `NEW` = created within that window (BR-98).
+      schema: { type: string, enum: [ACTIVE, INACTIVE, NEW] }
+    SalesFromParam:
+      name: from
+      in: query
+      required: false
+      description: First Asia/Kolkata calendar day, inclusive, `YYYY-MM-DD`. Defaults to `to` (so to today when `to` is omitted too); not after `to`.
+      schema: { type: string, format: date }
+    SalesToParam:
+      name: to
+      in: query
+      required: false
+      description: Last Asia/Kolkata calendar day, inclusive, `YYYY-MM-DD`. Defaults to today.
+      schema: { type: string, format: date }
   responses:
     BadRequest:
       description: Malformed request.
@@ -12788,6 +13624,54 @@ components:
         text/csv:
           schema: { type: string }
 
+    SaleConflict:
+      description: |
+        `SALE_STOCK_CHANGED`: stock (or, for MARKET, the LIVE_MARKET allocation) is below a line's
+        quantity (BR-89, BR-95). `SALE_PRICE_CHANGED`: the server total differs from `expectedTotal`
+        (BR-89). `IDEMPOTENCY_KEY_REUSED`: the key was used with a different body (BR-88).
+        `CONFLICT` with `meta.reason = PRICE_NOT_SET`: the product has neither an active retail
+        price nor an active fair-price ceiling, so it cannot be priced (no default price is used).
+        `meta` carries the fresh values so the counter can re-confirm (`meta.lines[]` with
+        `requestedQtyKg` / `availableQtyKg` for stock; `meta.expectedTotal` / `meta.currentTotal` /
+        `meta.quote` for price). Nothing is written but a `sale_attempts` row (a quote writes nothing).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://api.tohfa.in/problems/sale-stock-changed
+            title: Stock changed since the quote
+            status: 409
+            detail: Only 1.250 kg of Carrot / GRADE_1 is available now.
+            code: SALE_STOCK_CHANGED
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KK
+    SalePaymentInvalid:
+      description: |
+        Validation or a payment rule (BR-86, BR-88, BR-94): `VALIDATION_FAILED` (for example both
+        or neither of `customer` and `walkIn`, or CARD without `cardRef`),
+        `WALKIN_WALLET_NOT_ALLOWED`, `PAYMENT_AMOUNT_INSUFFICIENT` or `WALLET_INSUFFICIENT`.
+        Nothing is written but a `sale_attempts` row.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://api.tohfa.in/problems/payment-amount-insufficient
+            title: Amount received is less than the total
+            status: 422
+            detail: Received 100.00 but the total is 123.45.
+            code: PAYMENT_AMOUNT_INSUFFICIENT
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KL
+    SaleChannelNotSupported:
+      description: '`SALE_CHANNEL_NOT_SUPPORTED`: Horeca and B2B sale creation is not available in Track 1 (BR-13, BR-85e).'
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            type: https://api.tohfa.in/problems/sale-channel-not-supported
+            title: Sales channel not supported yet
+            status: 501
+            detail: Horeca and B2B sales cannot be created in Track 1.
+            code: SALE_CHANNEL_NOT_SUPPORTED
+            traceId: 01J9F1B2C3D4E5F6G7H8J9KM
   headers:
     ReportExportContentDisposition:
       description: |
@@ -13111,6 +13995,12 @@ components:
         * `CROP_PLOT_ALREADY_GROWING` — the plot already has another live crop in status GROWING (BR-46).
         * `LIVESTOCK_ALREADY_EXITED` — the animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47).
         * `TRAINING_FULL` — the training workshop has reached full capacity (BR-59).
+        * `SALE_PRICE_CHANGED` — a sale line price differs from the quote the client echoed back; re-quote and confirm (BR-89). HTTP 409.
+        * `SALE_STOCK_CHANGED` — stock or the LIVE_MARKET allocation fell below a sale line quantity since the quote (BR-89, BR-95). HTTP 409.
+        * `WALKIN_WALLET_NOT_ALLOWED` — a walk-in sale (no customer record) cannot be paid by WALLET (BR-86). HTTP 422.
+        * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
+        * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
+        * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
       required: [type, title, status, code]
       properties:
         type:
@@ -13301,7 +14191,8 @@ components:
 
     SalesChannel:
       type: string
-      enum: [ONLINE, MARKET, HORECA, B2B]
+      enum: [ONLINE, MARKET, HORECA, B2B, DIRECT]
+      description: '`DIRECT` is an at-counter sale at a sub-warehouse (owner decision D2, BR-85); `MARKET` is a live market-day sale (BR-95).'
 
     InvoiceType:
       type: string
@@ -16918,6 +17809,17 @@ components:
         channel: { $ref: '#/components/schemas/AllocationChannel' }
         allocatedQtyKg: { $ref: '#/components/schemas/Quantity' }
         consumedQtyKg: { $ref: '#/components/schemas/Quantity' }
+        reservedQtyKg:
+          $ref: '#/components/schemas/Quantity'
+          description: Stored quantity held by customer carts (BR-22).
+        availableQtyKg:
+          $ref: '#/components/schemas/Quantity'
+          description: |
+            Effective availability (BR-100): allocated − consumed − reserved, capped by the batch's
+            unclaimed shelf (`qty_available` minus all cart reservations on the batch and pending UPI
+            DIRECT/MARKET holds). A DIRECT counter sale draws the batch without decrementing any
+            allocation (BR-95), so this can be below allocated − consumed − reserved; it never exceeds
+            what is on the shelf.
         computedBy: { type: string, enum: [AUTO, MANUAL] }
         overriddenBy: { type: [string, 'null'], format: uuid }
 
@@ -16981,7 +17883,11 @@ components:
         categoryId: { type: string, format: uuid }
         grade: { $ref: '#/components/schemas/Grade' }
         pricePerKg: { $ref: '#/components/schemas/Money' }
-        availableQty: { $ref: '#/components/schemas/Quantity' }
+        availableQty:
+          $ref: '#/components/schemas/Quantity'
+          description: |
+            Pooled ONLINE availability (BR-24): each batch's ONLINE allocation capped by that batch's
+            unclaimed shelf (BR-100), so it never offers stock a DIRECT counter sale already took.
         unit: { type: string, enum: [kg] }
         photos: { type: array, items: { type: string, format: uri } }
         certificationBadges: { type: array, items: { $ref: '#/components/schemas/CertificationType' } }
@@ -17142,7 +18048,9 @@ components:
 
     WalletTransaction:
       type: object
-      required: [id, walletId, txnType, amount, balanceAfter, performedAt]
+      description: 'Serialized by one function (`toWalletTransactionResponse`) everywhere: every key is always present, null where noted.'
+      required: [id, walletId, txnType, amount, balanceAfter, refType, refId, fiscalCashTag, warehouseId, performedBy, performedAt, remarks]
+      additionalProperties: false
       properties:
         id: { type: string, format: uuid }
         walletId: { type: string, format: uuid }
@@ -18620,3 +19528,739 @@ components:
         changedBy: { type: [string, 'null'], format: uuid }
         note: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
+
+    # --- SWA Module 7: customers (BR-91, BR-92, BR-93, BR-97) -------------------------------
+
+    MaskedMobile:
+      type: string
+      pattern: '^\*+[0-9]{0,4}$'
+      description: |
+        A mobile number masked to its last four digits: `*` for every other character, e.g.
+        `******1234` (BR-92). A stored number of four characters or fewer is masked fully.
+      examples: ['********1234']
+
+    AdminCustomerListItem:
+      type: object
+      description: |
+        Allow-list. For an actor whose permission resolved to scope `own`, `piiMasked` is true and
+        `mobile` and `email` are ABSENT (not null) — only `name`, `mobileMasked` and `customerCode`
+        identify the customer (BR-92). Scope `all` actors also receive `mobile` and `email`.
+        No farm field ever appears (BR-16).
+      required: [id, customerCode, name, mobileMasked, customerType, status, isNew, preferredWarehouseId, totalOrders, lastActivityAt, piiMasked, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        customerCode: { type: string }
+        name: { type: string }
+        mobileMasked: { $ref: '#/components/schemas/MaskedMobile' }
+        mobile: { type: string, description: Full mobile. Present only when `piiMasked` is false (scope `all`). }
+        email: { type: [string, 'null'], format: email, description: Present only when `piiMasked` is false (scope `all`). }
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        status: { type: string, enum: [ACTIVE, INACTIVE], description: 'Derived from `system_config.active_customer_window_days` (BR-98).' }
+        isNew: { type: boolean, description: Created within the active-customer window (BR-98). }
+        preferredWarehouseId: { type: [string, 'null'], format: uuid }
+        totalOrders: { type: integer, minimum: 0 }
+        lastActivityAt: { type: [string, 'null'], format: date-time }
+        piiMasked: { type: boolean, description: True when the caller's scope is `own` (BR-92). }
+        createdAt: { type: string, format: date-time }
+
+    AdminCustomerListResponse:
+      type: object
+      required: [items, page, summary]
+      additionalProperties: false
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AdminCustomerListItem' } }
+        page: { $ref: '#/components/schemas/PageMeta' }
+        summary:
+          type: object
+          description: Counts over the whole visible set (all pages), never beyond the caller's scope (BR-91e).
+          required: [total, active, new]
+          additionalProperties: false
+          properties:
+            total: { type: integer, minimum: 0 }
+            active: { type: integer, minimum: 0 }
+            new: { type: integer, minimum: 0 }
+
+    AdminCustomerDetail:
+      type: object
+      description: |
+        Allow-list. For scope `own` (`piiMasked: true`) `mobile`, `email` and `addresses` are ABSENT;
+        only `name`, `mobileMasked`, `customerCode` and non-personal aggregates are returned (BR-92).
+        No farm field ever appears (BR-16).
+      required: [id, customerCode, name, mobileMasked, customerType, businessName, status, isNew, preferredWarehouseId, totalOrders, lifetimeValue, walletBalance, lastOrderAt, lastActivityAt, piiMasked, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        customerCode: { type: string }
+        name: { type: string }
+        mobileMasked: { $ref: '#/components/schemas/MaskedMobile' }
+        mobile: { type: string, description: Present only when `piiMasked` is false. }
+        email: { type: [string, 'null'], format: email, description: Present only when `piiMasked` is false. }
+        addresses:
+          type: array
+          description: Present only when `piiMasked` is false. Default address first, then by creation.
+          items:
+            type: object
+            required: [id, label, line1, line2, city, state, pincode, isDefault]
+            additionalProperties: false
+            properties:
+              id: { type: string, format: uuid }
+              label: { type: [string, 'null'] }
+              line1: { type: string }
+              line2: { type: [string, 'null'] }
+              city: { type: string }
+              state: { type: [string, 'null'] }
+              pincode: { type: string }
+              isDefault: { type: boolean }
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'], description: B2B/Horeca account business name (not a person). }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        isNew: { type: boolean }
+        preferredWarehouseId: { type: [string, 'null'], format: uuid }
+        totalOrders: { type: integer, minimum: 0 }
+        lifetimeValue: { $ref: '#/components/schemas/Money' }
+        walletBalance: { $ref: '#/components/schemas/Money', description: 'Sum of the wallet ledger; `0.00` when the customer has no wallet.' }
+        lastOrderAt: { type: [string, 'null'], format: date-time }
+        lastActivityAt: { type: [string, 'null'], format: date-time }
+        piiMasked: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    AdminCustomerPurchase:
+      type: object
+      description: One purchased order line. Farm-anonymous allow-list (BR-16, BR-90).
+      required: [orderId, orderNumber, channel, warehouseId, productId, productName, grade, qtyKg, unitPrice, lineTotal, purchasedAt]
+      additionalProperties: false
+      properties:
+        orderId: { type: string, format: uuid }
+        orderNumber: { type: string }
+        channel: { $ref: '#/components/schemas/SalesChannel' }
+        warehouseId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productName: { type: string }
+        grade: { $ref: '#/components/schemas/Grade' }
+        qtyKg: { $ref: '#/components/schemas/Quantity' }
+        unitPrice: { $ref: '#/components/schemas/Money' }
+        lineTotal: { $ref: '#/components/schemas/Money' }
+        purchasedAt: { type: string, format: date-time }
+
+    AdminCustomerOrder:
+      type: object
+      description: Farm-anonymous allow-list (BR-16, BR-90).
+      required: [id, orderNumber, channel, status, paymentStatus, paymentMethod, warehouseId, itemCount, totalAmount, invoiceNumber, placedAt, completedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: string }
+        channel: { $ref: '#/components/schemas/SalesChannel' }
+        status: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, PACKED, DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, PICKED_UP, CANCELLED, RETURNED], description: 'Every value of the database `order_status` enum (DISPATCHED since migration 0015).' }
+        paymentStatus: { $ref: '#/components/schemas/SalePaymentStatus' }
+        paymentMethod: { type: [string, 'null'], enum: [WALLET, UPI, CARD, NETBANKING, CASH, null] }
+        warehouseId: { type: string, format: uuid }
+        itemCount: { type: integer, minimum: 0 }
+        totalAmount: { $ref: '#/components/schemas/Money' }
+        invoiceNumber: { type: [string, 'null'], description: 'Latest non-cancelled SALE_RETAIL or SALE_B2B invoice of the order; null when none.' }
+        placedAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+
+    AdminCustomerWalletSummary:
+      type: object
+      description: Read-only (BR-93). `balance` equals the sum of the ledger exactly.
+      required: [customerId, walletId, balance, currency, status, transactionCount, lastTransactionAt]
+      additionalProperties: false
+      properties:
+        customerId: { type: string, format: uuid }
+        walletId: { type: string, format: uuid }
+        balance: { $ref: '#/components/schemas/Money' }
+        currency: { type: string, enum: [INR] }
+        status: { type: string, enum: [ACTIVE, FROZEN, CLOSED], description: 'Every value the `wallets.status` CHECK allows (migration 0007).' }
+        transactionCount: { type: integer, minimum: 0 }
+        lastTransactionAt: { type: [string, 'null'], format: date-time }
+
+    AdminCustomerIssue:
+      type: object
+      description: |
+        An issue the customer raised (currently a return request, `return_requests`). No farm field
+        (BR-16). Every value except `id`, `kind`, `orderId`, `orderNumber`, `status`, `reason` and
+        `createdAt` is DERIVED, not stored (see each property).
+      required: [id, kind, reference, orderId, orderNumber, status, reason, createdAt, resolvedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid, description: 'The return request id; the only identifier to use for lookups.' }
+        kind: { type: string, enum: [RETURN] }
+        reference:
+          type: string
+          pattern: '^RET-[0-9A-F]{8}$'
+          description: |
+            Display label, derived: `RET-` followed by the first 8 hexadecimal characters of `id`,
+            upper-cased (e.g. id `7a1b2c3d-...` gives `RET-7A1B2C3D`). `return_requests` has no
+            number column. It is stable for the row but NOT guaranteed unique; never use it as a key.
+        orderId: { type: [string, 'null'], format: uuid }
+        orderNumber: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/ReturnStatus' }
+        reason: { type: [string, 'null'] }
+        refundAmount:
+          $ref: '#/components/schemas/Money'
+          description: |
+            Derived: the sum over the request's items of `order_items.unit_price * accepted_qty`,
+            rounded to 2 decimals. ABSENT (not null) until an inspection has recorded an accepted
+            quantity on at least one item. It is the value of the accepted goods, not proof that a
+            refund was paid (see `status`).
+        createdAt: { type: string, format: date-time }
+        resolvedAt:
+          type: [string, 'null']
+          format: date-time
+          description: 'Derived: the earliest `return_request_status_history` row whose `to_status` is REJECTED or REFUNDED; null while the request is open.'
+
+    AdminCustomerSupportTicket:
+      type: object
+      description: |
+        A customer's support ticket (`support_tickets`, migration 0008). Allow-list with no farmer
+        field (BR-97, BR-16). There is no `closedAt`: the table records no close time.
+      required: [id, ticketNumber, categoryCode, subject, status, priority, messageCount, resolvedAt, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        ticketNumber: { type: string }
+        categoryCode: { type: string, enum: [QUALITY, QUANTITY, MISSING, WRONG_ITEM, DAMAGED, LATE, PAYMENT, OTHER], description: '`support_tickets.category` as stored.' }
+        subject: { type: string, description: 'For an `own` actor, farmer-identifying text is replaced by `[redacted]` (BR-97).' }
+        status:
+          type: string
+          enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED]
+          description: |
+            API vocabulary, shared with `/admin/support-tickets`. The database stores
+            `INVESTIGATING` for the second state; it is returned as `IN_PROGRESS`. The other values
+            are returned as stored.
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        messageCount: { type: integer, minimum: 0, description: 'Messages the caller can see: for an `own` actor, internal notes removed under BR-97 are not counted.' }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time, description: '`support_tickets.updated_at`, or `createdAt` when the ticket was never updated (the column is nullable).' }
+
+    AdminCustomerSupportMessage:
+      type: object
+      description: |
+        One thread message (`support_messages`, append-only since migration 0065, BR-97). For an
+        `own` actor internal notes naming a farmer are removed and any farmer-identifying text is
+        replaced by `[redacted]`, with `redacted: true` (BR-97).
+      required: [id, ticketId, senderUserId, senderRole, message, isInternal, redacted, attachmentUrl, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: string, format: uuid }
+        senderUserId: { type: [string, 'null'], format: uuid }
+        senderRole:
+          type: string
+          description: |
+            DERIVED (support_messages has no sender-role column): `CUSTOMER` when the sender is the
+            ticket's customer; otherwise the sender's highest currently valid role code (lowest
+            `roles.hierarchy_level`, ties by code), falling back to the sender's `users.user_type`.
+            On a reply response it is the role the replying actor acted as.
+        message: { type: string }
+        isInternal: { type: boolean, description: An internal staff note, never shown to the customer. }
+        redacted: { type: boolean }
+        attachmentUrl:
+          type: [string, 'null']
+          description: |
+            The stored `support_messages.attachment_key` as is (a storage key, not a signed URL).
+            For an `own` actor it is null when the key itself names a farmer (BR-97).
+        createdAt: { type: string, format: date-time }
+
+    AdminCustomerSupportTicketDetail:
+      type: object
+      description: |
+        `AdminCustomerSupportTicket` plus `description` and the thread (oldest first). Same
+        allow-list rules (BR-97, BR-16).
+      required: [id, ticketNumber, categoryCode, subject, status, priority, messageCount, resolvedAt, createdAt, updatedAt, description, messages]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        ticketNumber: { type: string }
+        categoryCode: { type: string, enum: [QUALITY, QUANTITY, MISSING, WRONG_ITEM, DAMAGED, LATE, PAYMENT, OTHER] }
+        subject: { type: string }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED], description: 'DB `INVESTIGATING` is returned as `IN_PROGRESS` (see `AdminCustomerSupportTicket.status`).' }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        messageCount: { type: integer, minimum: 0 }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        description: { type: string, description: '`support_tickets.description`, or an empty string when it is NULL; redacted like `subject` for an `own` actor.' }
+        messages: { type: array, items: { $ref: '#/components/schemas/AdminCustomerSupportMessage' } }
+
+    AdminCustomerSupportReplyRequest:
+      type: object
+      description: |
+        Body of `POST /admin/customers/{customerId}/support-tickets/{ticketId}/replies`. Both fields
+        are trimmed before validation; a whitespace-only `message` is 422 like an empty one.
+      required: [message]
+      additionalProperties: false
+      properties:
+        message: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUrl: { type: string, minLength: 1, maxLength: 2048, description: 'A storage key, stored as given in `support_messages.attachment_key`.' }
+
+    # --- SWA Module 6: Direct / Market sales (BR-85 .. BR-90, BR-94 .. BR-98) ----------------
+
+    SaleChannel:
+      type: string
+      enum: [DIRECT, MARKET]
+      description: '`DIRECT` = at-counter sale from pooled ACTIVE stock; `MARKET` = live market day from the LIVE_MARKET allocation (BR-95).'
+
+    SaleCreateChannel:
+      type: string
+      enum: [DIRECT, MARKET, HORECA, B2B]
+      description: '`HORECA` and `B2B` are accepted by the schema only so that they are refused 501 `SALE_CHANNEL_NOT_SUPPORTED` rather than 422 (BR-13, BR-85e).'
+
+    SalePaymentMethod:
+      type: string
+      enum: [CASH, UPI, CARD, WALLET]
+
+    SalePaymentStatus:
+      type: string
+      enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED]
+      description: The order's `payment_status`. A Direct/Market sale is `PAID` at creation except UPI, which is `PENDING` until confirmed (BR-94).
+
+    SaleStatus:
+      type: string
+      enum: [PENDING_PAYMENT, PICKED_UP, CANCELLED]
+      description: '`PICKED_UP` = completed at the counter (BR-85d). `PENDING_PAYMENT` only for an unconfirmed UPI sale (BR-94).'
+
+    SaleItemRequest:
+      type: object
+      additionalProperties: false
+      required: [productId, grade, qtyKg]
+      properties:
+        productId: { type: string, format: uuid }
+        grade: { $ref: '#/components/schemas/Grade' }
+        qtyKg: { $ref: '#/components/schemas/Quantity' }
+
+    SaleCustomerRef:
+      type: object
+      additionalProperties: false
+      required: [customerId]
+      properties:
+        customerId: { type: string, format: uuid, description: A customer in the caller's scope (BR-91); otherwise 404. }
+
+    SaleWalkIn:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        mobile: { type: string, pattern: '^\+[1-9][0-9]{7,14}$', description: Optional, E.164. }
+
+    SaleQuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, items]
+      properties:
+        channel: { $ref: '#/components/schemas/SaleCreateChannel' }
+        items: { type: array, minItems: 1, maxItems: 100, description: 'One line per productId + grade (a repeat is 422).', items: { $ref: '#/components/schemas/SaleItemRequest' } }
+        warehouseId: { type: string, format: uuid, description: 'Spec gap: the selling warehouse. Required for an actor with no assigned warehouse (scope all); a Sub admin may omit it (its own warehouse) and another warehouse is 404 (BR-85f).' }
+
+    SalePaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [method]
+      properties:
+        method: { $ref: '#/components/schemas/SalePaymentMethod' }
+        amountReceived: { $ref: '#/components/schemas/Money', description: 'CASH only, required: must be >= the total (BR-94).' }
+        cardRef: { type: string, minLength: 1, maxLength: 120, description: 'CARD only, required, non-blank manual reference. No card number is stored (BR-94).' }
+
+    SaleCreateRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        Exactly one of `customer` or `walkIn` (BR-86). Client-sent prices are never trusted: the
+        server re-prices and compares to `expectedTotal`, the `totals.total` of the quote the counter
+        confirmed; a difference is 409 `SALE_PRICE_CHANGED` (BR-89).
+      required: [channel, items, expectedTotal, payment]
+      oneOf:
+        - { required: [customer] }
+        - { required: [walkIn] }
+      properties:
+        channel: { $ref: '#/components/schemas/SaleCreateChannel' }
+        customer: { $ref: '#/components/schemas/SaleCustomerRef' }
+        walkIn: { $ref: '#/components/schemas/SaleWalkIn' }
+        items: { type: array, minItems: 1, maxItems: 100, description: 'One line per productId + grade (a repeat is 422).', items: { $ref: '#/components/schemas/SaleItemRequest' } }
+        expectedTotal: { $ref: '#/components/schemas/Money' }
+        payment: { $ref: '#/components/schemas/SalePaymentRequest' }
+        warehouseId: { type: string, format: uuid, description: 'Spec gap: the selling warehouse. Required for an actor with no assigned warehouse (scope all); a Sub admin may omit it (its own warehouse) and another warehouse is 404 (BR-85f).' }
+
+    SaleUpiConfirmRequest:
+      type: object
+      additionalProperties: false
+      required: [upiTxnRef]
+      properties:
+        upiTxnRef: { type: string, minLength: 1, maxLength: 120, description: The gateway / UPI transaction reference to verify. }
+
+    SaleLine:
+      type: object
+      description: Farm-anonymous allow-list (BR-90). Lines are informational and sum to `subtotal` exactly (BR-98).
+      additionalProperties: false
+      required: [productId, name, grade, qtyKg, unitPrice, lineTotal]
+      properties:
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        grade: { $ref: '#/components/schemas/Grade' }
+        qtyKg: { $ref: '#/components/schemas/Quantity' }
+        unitPrice: { $ref: '#/components/schemas/Money' }
+        lineTotal: { $ref: '#/components/schemas/Money' }
+
+    SaleTotals:
+      type: object
+      description: |
+        Integer-paise arithmetic, shown as `Money` (BR-98). `gst` is computed once on the subtotal at
+        `system_config.retail_gst_rate_percent`, half-up; `total = subtotal + gst`. `changeGiven` is
+        `amountReceived - total` for a CASH sale, else null. `changeGiven` is optional because the
+        quote and the create path may omit it; `GET /admin/sales/{saleId}` always sends it.
+      additionalProperties: false
+      required: [subtotal, gst, total]
+      properties:
+        subtotal: { $ref: '#/components/schemas/Money' }
+        gst: { $ref: '#/components/schemas/Money' }
+        total: { $ref: '#/components/schemas/Money' }
+        changeGiven: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+
+    SaleQuote:
+      type: object
+      additionalProperties: false
+      required: [channel, lines, totals, gstRatePercent, quotedAt]
+      properties:
+        channel: { $ref: '#/components/schemas/SaleCreateChannel' }
+        lines: { type: array, items: { $ref: '#/components/schemas/SaleLine' } }
+        totals: { $ref: '#/components/schemas/SaleTotals' }
+        gstRatePercent: { type: string, pattern: '^[0-9]{1,2}(\.[0-9]{1,2})?$', description: 'From system_config.retail_gst_rate_percent (BR-98).' }
+        quotedAt: { type: string, format: date-time }
+
+    AdminOrderDetail:
+      type: object
+      description: |
+        Spec gap (BR-99): `GET /admin/orders/{orderId}`, any channel. Allow-list serializer with
+        `additionalProperties: false` at every depth: no `farmerId`, `sourceFarmerId`, farm,
+        village, GPS, FMB, batch or allocation identifier anywhere (BR-16, BR-90); no delivery OTP,
+        OTP hash or attempt count (BR-20); no delivery address; the buyer mobile is masked to its
+        last four digits for every scope (BR-92). Money values are the stored order amounts.
+      additionalProperties: false
+      required: [id, orderNumber, channel, status, fulfilmentType, paymentMethod, paymentStatus, warehouse, buyer, items, totals, invoice, fulfilment, timeline, placedAt, packedAt, completedAt, cancelledAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: string }
+        channel: { type: string, enum: [ONLINE, DIRECT, MARKET, HORECA, B2B] }
+        status: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, PACKED, DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, PICKED_UP, CANCELLED, RETURNED] }
+        fulfilmentType: { type: string, enum: [PICKUP, DELIVERY] }
+        paymentMethod: { type: string, enum: [WALLET, UPI, CARD, NETBANKING, CASH] }
+        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED] }
+        warehouse:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        buyer:
+          type: object
+          description: '`CUSTOMER` (customer id and code) or `WALK_IN` (walk-in name). Mobile masked for every scope.'
+          additionalProperties: false
+          required: [kind, customerId, customerCode, name, mobileMasked]
+          properties:
+            kind: { type: string, enum: [CUSTOMER, WALK_IN] }
+            customerId: { type: [string, 'null'], format: uuid }
+            customerCode: { type: [string, 'null'] }
+            name: { type: string }
+            mobileMasked: { oneOf: [{ $ref: '#/components/schemas/MaskedMobile' }, { type: 'null' }] }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, name, grade, qtyKg, unitPrice, gstRate, gstAmount, lineTotal]
+            properties:
+              productId: { type: string, format: uuid, description: The crop id. }
+              name: { type: string }
+              grade: { $ref: '#/components/schemas/Grade' }
+              qtyKg: { type: string, pattern: '^[0-9]{1,9}\.[0-9]{3}$' }
+              unitPrice: { $ref: '#/components/schemas/Money' }
+              gstRate: { type: string, pattern: '^[0-9]{1,3}\.[0-9]{2}$', description: GST rate in percent, as stored on the line. }
+              gstAmount: { $ref: '#/components/schemas/Money' }
+              lineTotal: { $ref: '#/components/schemas/Money' }
+        totals:
+          type: object
+          additionalProperties: false
+          required: [subtotal, deliveryFee, discount, gst, total]
+          properties:
+            subtotal: { $ref: '#/components/schemas/Money' }
+            deliveryFee: { $ref: '#/components/schemas/Money' }
+            discount: { $ref: '#/components/schemas/Money' }
+            gst: { $ref: '#/components/schemas/Money' }
+            total: { $ref: '#/components/schemas/Money' }
+        invoice:
+          description: The latest invoice for the order, or null.
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [id, invoiceNumber, status]
+              properties:
+                id: { type: string, format: uuid }
+                invoiceNumber: { type: string }
+                status: { type: string, enum: [DRAFT, ISSUED, CANCELLED, CREDIT_NOTED] }
+            - type: 'null'
+        fulfilment:
+          type: object
+          description: Delivery or pickup facts. Never the OTP or its hash (BR-20); `otpRequired` is true while an OTP is set and not yet verified.
+          additionalProperties: false
+          required: [deliveryDate, deliverySlot, otpRequired, otpVerifiedAt]
+          properties:
+            deliveryDate: { type: [string, 'null'], format: date }
+            deliverySlot: { oneOf: [{ $ref: '#/components/schemas/DeliverySlot' }, { type: 'null' }] }
+            otpRequired: { type: boolean }
+            otpVerifiedAt: { type: [string, 'null'], format: date-time }
+        timeline:
+          type: array
+          description: '`order_status_history`, oldest first. Status changes and times only; the note and the actor are not exposed.'
+          items:
+            type: object
+            additionalProperties: false
+            required: [fromStatus, toStatus, at]
+            properties:
+              fromStatus: { type: [string, 'null'] }
+              toStatus: { type: string }
+              at: { type: string, format: date-time }
+        placedAt: { type: string, format: date-time }
+        packedAt: { type: [string, 'null'], format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        cancelledAt: { type: [string, 'null'], format: date-time }
+
+    SaleBuyer:
+      type: object
+      description: |
+        `CUSTOMER` (with `customerId` and `customerCode`) or `WALK_IN`. The mobile is masked for an
+        `own` actor (BR-92); the full mobile is never in a sale response. Every key is always
+        present; `customerId` and `customerCode` are null for a walk-in.
+      additionalProperties: false
+      required: [kind, customerId, customerCode, name, mobileMasked]
+      properties:
+        kind: { type: string, enum: [CUSTOMER, WALK_IN] }
+        customerId: { type: [string, 'null'], format: uuid }
+        customerCode: { type: [string, 'null'] }
+        name: { type: string }
+        mobileMasked: { oneOf: [{ $ref: '#/components/schemas/MaskedMobile' }, { type: 'null' }] }
+
+    SalePayment:
+      type: object
+      description: CASH, WALLET and CARD are `CONFIRMED` at creation; UPI is `PENDING` until confirmed, or `FAILED` (BR-94).
+      additionalProperties: false
+      required: [method, status, amount, amountReceived, cardRef, upiTxnRef, confirmedAt]
+      properties:
+        method: { $ref: '#/components/schemas/SalePaymentMethod' }
+        status: { type: string, enum: [PENDING, CONFIRMED, FAILED] }
+        amount: { $ref: '#/components/schemas/Money' }
+        amountReceived: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        cardRef: { type: [string, 'null'] }
+        upiTxnRef: { type: [string, 'null'] }
+        confirmedAt: { type: [string, 'null'], format: date-time }
+
+    Sale:
+      type: object
+      description: |
+        A Direct or Market sale. Allow-list serializer: no `farmerId`, farmer or farm name, village,
+        GPS or FMB key at any depth (BR-90, BR-16). The invoice seller is TOHFA.
+      additionalProperties: false
+      required: [id, saleNumber, channel, status, paymentStatus, warehouseId, buyer, items, totals, payment, invoiceNumber, invoiceId, createdAt, completedAt]
+      properties:
+        id: { type: string, format: uuid }
+        saleNumber: { type: string, description: The order number. }
+        channel: { $ref: '#/components/schemas/SaleChannel' }
+        status: { $ref: '#/components/schemas/SaleStatus' }
+        paymentStatus: { $ref: '#/components/schemas/SalePaymentStatus' }
+        warehouseId: { type: string, format: uuid }
+        buyer: { $ref: '#/components/schemas/SaleBuyer' }
+        items: { type: array, items: { $ref: '#/components/schemas/SaleLine' } }
+        totals: { $ref: '#/components/schemas/SaleTotals' }
+        payment: { $ref: '#/components/schemas/SalePayment' }
+        invoiceNumber: { type: [string, 'null'], description: Null until the sale completes (pending UPI). Gap-free for committed sales (BR-98). }
+        invoiceId: { type: [string, 'null'], format: uuid }
+        timeline:
+          type: array
+          description: |
+            Spec gap (SWA M6 read slice). Always present on `GET /admin/sales/{saleId}` and absent
+            from the `POST /admin/sales` and UPI-confirm responses. The sale's
+            `order_status_history`, oldest first. Status changes and times only; the free-text note
+            and the actor are not exposed (BR-90).
+          items:
+            type: object
+            additionalProperties: false
+            required: [fromStatus, toStatus, at]
+            properties:
+              fromStatus: { type: [string, 'null'] }
+              toStatus: { type: string }
+              at: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+
+    SaleListItem:
+      type: object
+      description: Farm-anonymous allow-list (BR-90).
+      additionalProperties: false
+      required: [id, saleNumber, channel, status, paymentStatus, paymentMethod, warehouseId, buyer, itemCount, total, invoiceNumber, createdAt, completedAt]
+      properties:
+        id: { type: string, format: uuid }
+        saleNumber: { type: string }
+        channel: { $ref: '#/components/schemas/SaleChannel' }
+        status: { $ref: '#/components/schemas/SaleStatus' }
+        paymentStatus: { $ref: '#/components/schemas/SalePaymentStatus' }
+        paymentMethod: { $ref: '#/components/schemas/SalePaymentMethod' }
+        warehouseId: { type: string, format: uuid }
+        buyer: { $ref: '#/components/schemas/SaleBuyer' }
+        itemCount: { type: integer, minimum: 0 }
+        total: { $ref: '#/components/schemas/Money' }
+        invoiceNumber: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+
+    SaleCustomerMatch:
+      type: object
+      description: A counter lookup hit. Masked for `own` actors (BR-92g); no email or address.
+      additionalProperties: false
+      required: [customerId, customerCode, name, mobileMasked, walletBalance]
+      properties:
+        customerId: { type: string, format: uuid }
+        customerCode: { type: string }
+        name: { type: string }
+        mobileMasked: { $ref: '#/components/schemas/MaskedMobile' }
+        walletBalance: { $ref: '#/components/schemas/Money' }
+
+    SaleProduct:
+      type: object
+      description: |
+        FARM-ANONYMOUS allow-list (BR-90, BR-16): grade, certification badges and TOHFA branding
+        only. `availableQtyKg` is what the requested channel can sell (BR-95): for DIRECT, all pooled
+        sellable stock minus pending UPI holds (not net of allocations); for MARKET, the LIVE_MARKET
+        allocation remaining, capped at the batch's unheld stock.
+      additionalProperties: false
+      required: [productId, name, categoryId, grade, unitPrice, availableQtyKg, unit, photos, certificationBadges, batchCode, storageLocation]
+      properties:
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        categoryId: { type: string, format: uuid }
+        grade: { $ref: '#/components/schemas/Grade' }
+        unitPrice: { $ref: '#/components/schemas/Money' }
+        availableQtyKg: { $ref: '#/components/schemas/Quantity' }
+        unit: { type: string, enum: [kg] }
+        photos: { type: array, items: { type: string, format: uri } }
+        certificationBadges: { type: array, items: { $ref: '#/components/schemas/CertificationType' } }
+        batchCode: { type: [string, 'null'], description: 'Spec gap: the TOHFA batch code FEFO will draw first (BR-90d). Never a farmer identifier.' }
+        storageLocation: { type: [string, 'null'], description: 'Spec gap: free-text storage label of that batch.' }
+
+    SalesCountRevenue:
+      type: object
+      required: [count, revenue]
+      properties:
+        count: { type: integer, minimum: 0 }
+        revenue: { $ref: '#/components/schemas/Money' }
+
+    SalesDashboardSummary:
+      type: object
+      description: Paid-and-completed DIRECT and MARKET sales only (BR-96).
+      required: [from, to, warehouseId, count, revenue, byChannel, byPaymentMethod, needsAttention]
+      additionalProperties: false
+      properties:
+        needsAttention:
+          type: object
+          description: |
+            Spec gap (SWA M6 read slice): counts derived on read, in the same scope and `warehouseId`.
+            `paymentPending` = open (not cancelled) DIRECT/MARKET sales with `status = PENDING_PAYMENT`,
+            `payment_status = PENDING` or a PENDING `sale_payments` row, whenever placed (outstanding
+            work, not bounded by `from`/`to`). `failedSales` = `sale_attempts` rows in the window
+            (BR-87); `stockIssues` = the subset with reason `SALE_STOCK_CHANGED` (BR-89, BR-95).
+            `invoiceIssues` = completed sales (BR-96) in the window with no ISSUED invoice (BR-98).
+          additionalProperties: false
+          required: [paymentPending, stockIssues, failedSales, invoiceIssues]
+          properties:
+            paymentPending: { type: integer, minimum: 0 }
+            stockIssues: { type: integer, minimum: 0 }
+            failedSales: { type: integer, minimum: 0 }
+            invoiceIssues: { type: integer, minimum: 0 }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        count: { type: integer, minimum: 0 }
+        revenue: { $ref: '#/components/schemas/Money' }
+        byChannel:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/SalesCountRevenue'
+              - type: object
+                required: [channel]
+                properties:
+                  channel: { $ref: '#/components/schemas/SaleChannel' }
+        byPaymentMethod:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/SalesCountRevenue'
+              - type: object
+                required: [method]
+                properties:
+                  method: { $ref: '#/components/schemas/SalePaymentMethod' }
+
+    SalesMarketDay:
+      type: object
+      description: One market day (BR-95, BR-96). Farm-anonymous (BR-90).
+      required: [date, warehouseId, totals, byPaymentMethod, allocation, items, page]
+      additionalProperties: false
+      properties:
+        date: { type: string, format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        totals: { $ref: '#/components/schemas/SalesCountRevenue' }
+        byPaymentMethod:
+          type: array
+          description: |
+            Spec gap (SWA M6 read slice): the day's paid-and-completed MARKET sales (BR-96) split by
+            method (cash vs UPI vs card vs wallet), all four methods present, zero-filled.
+          items:
+            allOf:
+              - $ref: '#/components/schemas/SalesCountRevenue'
+              - type: object
+                required: [method]
+                properties:
+                  method: { $ref: '#/components/schemas/SalePaymentMethod' }
+        allocation:
+          type: array
+          description: |
+            The CURRENT LIVE_MARKET allocation per product and grade, over ACTIVE batches of market-day
+            venue warehouses (`is_market_day_venue`): sold = `consumed_qty`, remaining =
+            `available_qty` (allocated - consumed - reserved). Not dated: allocations carry no day.
+            A warehouse that is not a venue has an empty allocation, zero totals and no items.
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, name, grade, allocatedQtyKg, soldQtyKg, remainingQtyKg]
+            properties:
+              productId: { type: string, format: uuid }
+              name: { type: string }
+              grade: { $ref: '#/components/schemas/Grade' }
+              allocatedQtyKg: { $ref: '#/components/schemas/Quantity' }
+              soldQtyKg: { $ref: '#/components/schemas/Quantity' }
+              remainingQtyKg:
+                $ref: '#/components/schemas/Quantity'
+                description: LIVE_MARKET allocated − consumed − reserved, capped per batch by the unclaimed shelf (BR-100).
+        items: { type: array, items: { $ref: '#/components/schemas/SaleListItem' } }
+        page: { $ref: '#/components/schemas/PageMeta' }
+
+    ChannelOrderListItem:
+      type: object
+      description: A read-only Horeca or B2B order (BR-85h). Farm-anonymous allow-list (BR-90).
+      additionalProperties: false
+      required: [id, orderNumber, channel, status, paymentStatus, warehouseId, customerCode, businessName, itemCount, total, placedAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: string }
+        channel: { type: string, enum: [HORECA, B2B] }
+        status: { type: string, enum: [PENDING_PAYMENT, CONFIRMED, PACKED, DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, PICKED_UP, CANCELLED, RETURNED], description: 'Every `order_status` enum value (DISPATCHED was missing).' }
+        paymentStatus: { $ref: '#/components/schemas/SalePaymentStatus' }
+        warehouseId: { type: string, format: uuid }
+        customerCode: { type: [string, 'null'] }
+        businessName: { type: [string, 'null'] }
+        itemCount: { type: integer, minimum: 0 }
+        total: { $ref: '#/components/schemas/Money' }
+        placedAt: { type: string, format: date-time }

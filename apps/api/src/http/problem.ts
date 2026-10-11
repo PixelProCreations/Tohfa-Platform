@@ -87,6 +87,12 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   CROP_PLOT_ALREADY_GROWING: 409,
   LIVESTOCK_ALREADY_EXITED: 409,
   TRAINING_FULL: 409,
+  SALE_PRICE_CHANGED: 409,
+  SALE_STOCK_CHANGED: 409,
+  WALKIN_WALLET_NOT_ALLOWED: 422,
+  PAYMENT_PENDING: 409,
+  PAYMENT_AMOUNT_INSUFFICIENT: 422,
+  SALE_CHANNEL_NOT_SUPPORTED: 501,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -145,6 +151,12 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   CROP_PLOT_ALREADY_GROWING: 'Plot already has a crop in progress',
   LIVESTOCK_ALREADY_EXITED: 'Animal has already left the herd',
   TRAINING_FULL: 'Training workshop capacity reached',
+  SALE_PRICE_CHANGED: 'Price changed since the quote',
+  SALE_STOCK_CHANGED: 'Stock changed since the quote',
+  WALKIN_WALLET_NOT_ALLOWED: 'Walk-in sales cannot be paid by wallet',
+  PAYMENT_PENDING: 'Payment is not yet confirmed',
+  PAYMENT_AMOUNT_INSUFFICIENT: 'Amount received is less than the total',
+  SALE_CHANNEL_NOT_SUPPORTED: 'Sales channel not supported yet',
 };
 
 /**
