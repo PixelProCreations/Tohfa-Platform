@@ -874,16 +874,16 @@ export default function App(): React.JSX.Element {
       (selectedSaleRecord as SaleRecord | null) ??
       (saleId
         ? {
-            id: saleId,
-            customerName: stringParam(params['customerName']) ?? 'Walk-in Customer',
-            customerCode: stringParam(params['customerCode']),
-            channel: stringParam(params['channel']) ?? 'Direct Sale',
-            dateText: stringParam(params['dateText']) ?? '',
-            amount: typeof params['amount'] === 'number' ? params['amount'] : 0,
-            status: stringParam(params['status']) ?? 'Completed',
-            invoiceNo: stringParam(params['invoiceNo']),
-            paymentMethod: stringParam(params['paymentMethod']),
-          }
+          id: saleId,
+          customerName: stringParam(params['customerName']) ?? 'Walk-in Customer',
+          customerCode: stringParam(params['customerCode']),
+          channel: stringParam(params['channel']) ?? 'Direct Sale',
+          dateText: stringParam(params['dateText']) ?? '',
+          amount: typeof params['amount'] === 'number' ? params['amount'] : 0,
+          status: stringParam(params['status']) ?? 'Completed',
+          invoiceNo: stringParam(params['invoiceNo']),
+          paymentMethod: stringParam(params['paymentMethod']),
+        }
         : undefined);
     return {
       sale,
@@ -923,37 +923,37 @@ export default function App(): React.JSX.Element {
       customer:
         customerName !== undefined || customerId !== undefined
           ? {
-              name: customerName,
-              id: customerId,
-              code: customerId,
-              phone: stringParam(params['customerPhone']),
-              ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : undefined,
-              lastPurchase: stringParam(params['customerPurchases']),
-            }
+            name: customerName,
+            id: customerId,
+            code: customerId,
+            phone: stringParam(params['customerPhone']),
+            ordersCount: typeof params['customerOrders'] === 'number' ? params['customerOrders'] : undefined,
+            lastPurchase: stringParam(params['customerPurchases']),
+          }
           : undefined,
       issue:
         issueNo !== undefined
           ? ({
-              issueNo,
-              orderNo: stringParam(params['orderNo']),
-              category: stringParam(params['category']),
-              status: stringParam(params['status']),
-              dateText: stringParam(params['dateText']),
-              product: stringParam(params['product']),
-              quantity: stringParam(params['quantity']),
-              description: stringParam(params['description']),
-            } as CustomersRouteParams['issue'])
+            issueNo,
+            orderNo: stringParam(params['orderNo']),
+            category: stringParam(params['category']),
+            status: stringParam(params['status']),
+            dateText: stringParam(params['dateText']),
+            product: stringParam(params['product']),
+            quantity: stringParam(params['quantity']),
+            description: stringParam(params['description']),
+          } as CustomersRouteParams['issue'])
           : undefined,
       ticket:
         ticketNo !== undefined
           ? ({
-              ticketNo,
-              orderRef: stringParam(params['orderRef']),
-              subject: stringParam(params['subject']),
-              status: stringParam(params['status']),
-              dateText: stringParam(params['dateText']),
-              resolvedBy: stringParam(params['resolvedBy']),
-            } as CustomersRouteParams['ticket'])
+            ticketNo,
+            orderRef: stringParam(params['orderRef']),
+            subject: stringParam(params['subject']),
+            status: stringParam(params['status']),
+            dateText: stringParam(params['dateText']),
+            resolvedBy: stringParam(params['resolvedBy']),
+          } as CustomersRouteParams['ticket'])
           : undefined,
       defaultFilter: stringParam(params['defaultFilter']),
     };
@@ -968,42 +968,42 @@ export default function App(): React.JSX.Element {
     const expense =
       expenseId !== undefined
         ? {
-            expenseId,
-            amount: typeof amount === 'number' || typeof amount === 'string' ? amount : undefined,
-            category: stringParam(params['category']),
-            date: stringParam(params['date']),
-            description: stringParam(params['description']),
-            paymentMethod: stringParam(params['paymentMethod']),
-            vendorPayee: stringParam(params['vendorPayee']),
-            warehouse: stringParam(params['warehouse']),
-            createdBy: stringParam(params['createdBy']),
-            status: stringParam(params['status']),
-          }
+          expenseId,
+          amount: typeof amount === 'number' || typeof amount === 'string' ? amount : undefined,
+          category: stringParam(params['category']),
+          date: stringParam(params['date']),
+          description: stringParam(params['description']),
+          paymentMethod: stringParam(params['paymentMethod']),
+          vendorPayee: stringParam(params['vendorPayee']),
+          warehouse: stringParam(params['warehouse']),
+          createdBy: stringParam(params['createdBy']),
+          status: stringParam(params['status']),
+        }
         : undefined;
     const method = stringParam(params['paymentMethod']);
     return {
       revenue:
         revenueId !== undefined
           ? {
-              revenueId,
-              finalAmount: stringParam(params['finalAmount']),
-              salesChannel: stringParam(params['salesChannel']),
-              transactionDate: stringParam(params['transactionDate']),
-            }
+            revenueId,
+            finalAmount: stringParam(params['finalAmount']),
+            salesChannel: stringParam(params['salesChannel']),
+            transactionDate: stringParam(params['transactionDate']),
+          }
           : undefined,
       expense,
       // An expense key opened with an expense id is an edit (the form prefills).
       expenseDraft:
         expense !== undefined
           ? {
-              expenseId: expense.expenseId,
-              amount: String(expense.amount ?? ''),
-              category: expense.category ?? '',
-              date: expense.date ?? '',
-              description: expense.description ?? '',
-              paymentMethod: method === 'UPI' || method === 'Bank' ? method : 'Cash',
-              vendorPayee: expense.vendorPayee ?? '',
-            }
+            expenseId: expense.expenseId,
+            amount: String(expense.amount ?? ''),
+            category: expense.category ?? '',
+            date: expense.date ?? '',
+            description: expense.description ?? '',
+            paymentMethod: method === 'UPI' || method === 'Bank' ? method : 'Cash',
+            vendorPayee: expense.vendorPayee ?? '',
+          }
           : undefined,
       isReceiptView: params['isReceiptView'] === 'true' || params['isReceiptView'] === true,
     };
@@ -1303,19 +1303,25 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' || screen === 'SubWarehouseRecentActivity' ? (
           // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
-          <SubWarehouseAdminDashboardScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialTab={params?.initialTab as any}
-            initialReceivingSubView={params?.initialReceivingSubView as any}
-            initialInventoryScreen={params?.initialInventoryScreen as any}
-            initialShowOrders={!!params?.showOrders}
-            initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
-            initialShowRecentActivity={screen === 'SubWarehouseRecentActivity' || !!params?.showRecentActivity}
-            onSignOut={() => navigate('Welcome')}
-            onNavigate={(s, p) => navigate(s as ScreenName, p)}
-            onBack={goBack}
-          />
+          params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN' ? (
+            <MainWarehouseAdminDashboardScreen
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : (
+            <SubWarehouseAdminDashboardScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialTab={params?.initialTab as any}
+              initialReceivingSubView={params?.initialReceivingSubView as any}
+              initialInventoryScreen={params?.initialInventoryScreen as any}
+              initialShowOrders={!!params?.showOrders}
+              initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
+              onSignOut={() => navigate('Welcome')}
+              onNavigate={(s, p) => navigate(s as ScreenName, p)}
+              onBack={goBack}
+            />
+          )
         ) : screen === 'SubWarehouseOverview' ? (
           // Was SubWarehouseOverviewScreen: the shared single-warehouse WarehouseSnapshotScreen (W4), scope-locked.
           <HomeFlow

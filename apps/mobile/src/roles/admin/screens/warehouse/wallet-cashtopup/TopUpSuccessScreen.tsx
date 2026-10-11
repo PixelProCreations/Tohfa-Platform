@@ -16,7 +16,6 @@ import type { WalletTransactionRecord, WarehouseScreenBaseProps } from './types'
 import {
   BellRingIcon,
   InfoCard,
-  InfoNote,
   ReceiptIcon,
   SuccessCircleIcon,
   WalletButton,
@@ -87,11 +86,6 @@ export function TopUpSuccessScreen({ scope, onBack, transaction = {}, onDone, on
           <BellRingIcon />
           <Text style={styles.notificationText}>Customer notification sent</Text>
         </View>
-
-        <InfoNote tone="info">
-          Success is never shown before the server confirms the transaction — the balance is never simulated by editing
-          the display.
-        </InfoNote>
       </ScrollView>
     </WalletScreen>
   );

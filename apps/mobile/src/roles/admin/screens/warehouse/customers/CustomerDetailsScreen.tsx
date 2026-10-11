@@ -246,10 +246,6 @@ export function CustomerDetailsScreen({
             {canCashTopUp ? <QuickAction label="Cash Top-Up" icon={<CashIcon />} onPress={onNavigateToCashTopUp} /> : null}
             <QuickAction label="View Issues" icon={<AlertIcon />} onPress={onNavigateToIssues} />
           </View>
-
-          {allWarehouses ? (
-            <NoteBox text="Customer profiles are view-only here: no edit, disable or delete." />
-          ) : null}
         </>
       ) : null}
 

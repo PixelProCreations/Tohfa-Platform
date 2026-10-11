@@ -118,7 +118,7 @@ export function UsersIcon() {
 export interface CustomersScreenProps {
   title: string;
   subtitle?: string | undefined;
-  onBack: () => void;
+  onBack?: (() => void) | undefined;
   /** Icon left of the title (the list's group icon). */
   titleIcon?: React.ReactNode;
   /** Right side of the header row (bell, filter, reset). */
@@ -146,16 +146,18 @@ export function CustomersScreen({
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.8}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <BackArrowIcon />
-          </TouchableOpacity>
+          {onBack ? (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.8}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <BackArrowIcon />
+            </TouchableOpacity>
+          ) : null}
           {titleIcon}
           <View style={styles.headerTextGroup}>
             <Text style={styles.headerTitle}>{title}</Text>

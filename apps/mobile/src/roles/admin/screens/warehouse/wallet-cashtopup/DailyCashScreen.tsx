@@ -33,7 +33,6 @@ import {
   CashIcon,
   ChipGroup,
   EmptyState,
-  InfoNote,
   ScopeHeader,
   SectionTitle,
   StoreIcon,
@@ -146,9 +145,6 @@ export function DailyCashScreen({
           <Text style={styles.cardLabel}>Expected Closing Cash</Text>
           <Text style={styles.cardBigValue}>{formatRupees(EXPECTED_CLOSING)}</Text>
         </Card>
-        <InfoNote tone="brandSoft">
-          Expected Closing = Opening + Cash In - Cash Out, calculated server-side and never manually overridable.
-        </InfoNote>
 
         <SectionTitle>Cash Reconciliation</SectionTitle>
         <Card>

@@ -1,11 +1,11 @@
 // Design id: M8-S01
 import React from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
-import type { AttentionCategory, WalletCustomer, WarehouseScreenBaseProps } from './types';
+import type { AttentionCategory, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from './WalletParts';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -175,6 +175,56 @@ function AlertTriangleIcon({ size = 16, color = adminColors.ink }: { size?: numb
   );
 }
 
+function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ChevronDownSmallIcon({ color = adminColors.onBrand }: { color?: string }) {
+  return (
+    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CheckSmallIcon({ color = adminColors.brand }: { color?: string }) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function WarningTriangleAccentIcon({ color = adminColors.warning.text }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 9v4M12 17h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+const WAREHOUSE_WALLET_SUMMARIES = [
+  { id: 'WH-OOTY', name: 'Ooty', amount: '₹5,000' },
+  { id: 'WH-COON', name: 'Coonoor', amount: '₹7,500' },
+];
+
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 /**
  * Wallet Operations hub, shared by Main and Sub Warehouse.
@@ -200,6 +250,7 @@ export interface WalletOperationsScreenProps extends WarehouseScreenBaseProps {
   /** Today's counters (mock until the wallet-operations API exists). */
   todayTopUpsCount?: number | undefined;
   cashCollectedTotal?: number | undefined;
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
 export function WalletOperationsScreen({
@@ -216,14 +267,29 @@ export function WalletOperationsScreen({
   onOpenCustomerWallet,
   todayTopUpsCount = 24,
   cashCollectedTotal = 18500,
+  warehouseOptions = [
+    { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
+    { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
+    { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
+    { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
+  ],
 }: WalletOperationsScreenProps) {
   const isLockedToWarehouse = scope.warehouseId !== undefined;
   const warehouseLabel = isLockedToWarehouse ? scope.warehouseName ?? '' : 'All Warehouses';
+  const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<string | undefined>(undefined);
+  const [showWarehouseModal, setShowWarehouseModal] = React.useState(false);
 
   // BR-18: a cash top-up cannot complete without the fiscal cash tag, so the
   // flow is only offered to admins who hold both permissions. Server re-checks.
   const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
   const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
+
+  const selectedWarehouseName =
+    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? 'All Warehouses';
+
+  const visibleWarehouseSummaries = selectedWarehouseId
+    ? WAREHOUSE_WALLET_SUMMARIES.filter((w) => w.id === selectedWarehouseId)
+    : WAREHOUSE_WALLET_SUMMARIES;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -240,15 +306,17 @@ export function WalletOperationsScreen({
         <View style={styles.headerBanner}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleGroup}>
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={onBack}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityLabel="Go back"
-              >
-                <ArrowBackIcon size={24} color={adminColors.onBrand} />
-              </TouchableOpacity>
+              {onBack ? (
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={onBack}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityLabel="Go back"
+                >
+                  <ArrowBackIcon size={24} color={adminColors.onBrand} />
+                </TouchableOpacity>
+              ) : null}
               <WalletHeaderIcon size={24} color={adminColors.onBrand} />
               <Text style={styles.headerTitleText}>Wallet Operations</Text>
             </View>
@@ -267,16 +335,256 @@ export function WalletOperationsScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Lock + "Active" only when the admin is pinned to one warehouse; Main sees all. */}
-          <View style={styles.assignedWarehousePill}>
-            {isLockedToWarehouse && <LockBadgeIcon size={12} color={adminColors.onBrand} />}
-            <Text style={styles.assignedWarehouseText}>
-              {isLockedToWarehouse ? `${warehouseLabel} · Active` : warehouseLabel}
-            </Text>
-          </View>
+          {isLockedToWarehouse ? (
+            /* Subwarehouse Lock + Active pill */
+            <View style={styles.assignedWarehousePill}>
+              <LockBadgeIcon size={12} color={adminColors.onBrand} />
+              <Text style={styles.assignedWarehouseText}>{`${warehouseLabel} · Active`}</Text>
+            </View>
+          ) : (
+            /* Main Warehouse Dropdown Pill */
+            <>
+              <TouchableOpacity
+                style={styles.dropdownBtn}
+                activeOpacity={0.8}
+                onPress={() => setShowWarehouseModal(true)}
+              >
+                <BuildingWarehouseIcon color={adminColors.onBrand} />
+                <Text style={styles.dropdownBtnText}>
+                  {selectedWarehouseId ? selectedWarehouseName : 'All Warehouses'}
+                </Text>
+                <ChevronDownSmallIcon />
+              </TouchableOpacity>
+
+              <Modal
+                visible={showWarehouseModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowWarehouseModal(false)}
+              >
+                <TouchableOpacity
+                  style={styles.modalOverlay}
+                  activeOpacity={1}
+                  onPress={() => setShowWarehouseModal(false)}
+                >
+                  <View style={styles.dropdownModalCard}>
+                    <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
+
+                    <TouchableOpacity
+                      style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
+                      onPress={() => {
+                        setSelectedWarehouseId(undefined);
+                        setShowWarehouseModal(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownModalItemText,
+                          selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
+                        ]}
+                      >
+                        All Warehouses
+                      </Text>
+                      {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
+                    </TouchableOpacity>
+
+                    {warehouseOptions
+                      .filter((w) => w.warehouseId !== undefined)
+                      .map((w) => {
+                        const isSelected = selectedWarehouseId === w.warehouseId;
+                        return (
+                          <TouchableOpacity
+                            key={w.warehouseId}
+                            style={[styles.dropdownModalItem, isSelected && styles.dropdownModalItemActive]}
+                            onPress={() => {
+                              setSelectedWarehouseId(w.warehouseId);
+                              setShowWarehouseModal(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownModalItemText,
+                                isSelected && styles.dropdownModalItemTextActive,
+                              ]}
+                            >
+                              {w.warehouseName ?? w.warehouseId}
+                            </Text>
+                            {isSelected ? <CheckSmallIcon /> : null}
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </View>
+                </TouchableOpacity>
+              </Modal>
+            </>
+          )}
         </View>
 
         {/* ─── Main Content Body ─── */}
+        {!isLockedToWarehouse ? (
+          // Main Warehouse Content (Matches M8-01 Wallet Operations design)
+          <View style={styles.mainContainer}>
+            {/* 1. 4 KPI Cards (2x2 Grid) - Static */}
+            <View style={styles.mainKpiGrid}>
+              <View style={styles.mainKpiCard}>
+                <Text style={styles.mainKpiLabel}>TODAY'S CASH TOP-UPS</Text>
+                <Text style={styles.mainKpiValue}>₹18,500</Text>
+              </View>
+
+              <View style={styles.mainKpiCard}>
+                <Text style={styles.mainKpiLabel}>TRANSACTIONS</Text>
+                <Text style={styles.mainKpiValue}>12</Text>
+              </View>
+
+              <View style={styles.mainKpiCard}>
+                <Text style={styles.mainKpiLabel}>CUSTOMERS SERVED</Text>
+                <Text style={styles.mainKpiValue}>10</Text>
+              </View>
+
+              <View style={styles.mainKpiCard}>
+                <Text style={styles.mainKpiLabel}>PENDING / ATTENTION</Text>
+                <Text style={styles.mainKpiValue}>2</Text>
+              </View>
+            </View>
+
+            {/* 2. Quick Actions */}
+            <Text style={styles.sectionHeading}>Quick Actions</Text>
+            <View style={styles.mainQuickGrid}>
+              <TouchableOpacity
+                style={styles.mainQuickCard}
+                onPress={onNavigateToCustomerSearch}
+                activeOpacity={0.75}
+              >
+                <View style={styles.quickActionIconWrap}>
+                  <UserSearchIcon size={22} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickActionLabel}>Customer Search</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mainQuickCard}
+                onPress={onNavigateToCashTopUp}
+                activeOpacity={0.75}
+              >
+                <View style={styles.quickActionIconWrap}>
+                  <CashIcon size={22} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mainQuickCard}
+                onPress={onNavigateToTopUpHistory}
+                activeOpacity={0.75}
+              >
+                <View style={styles.quickActionIconWrap}>
+                  <HistoryClockIcon size={22} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickActionLabel}>Top-Up History</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mainQuickCard}
+                onPress={onNavigateToDailySummary}
+                activeOpacity={0.75}
+              >
+                <View style={styles.quickActionIconWrap}>
+                  <ScalesIcon size={22} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickActionLabel}>Daily Cash Summary</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 3. Today's Cash Activity */}
+            <Text style={styles.sectionHeading}>Today's Cash Activity</Text>
+            <View style={styles.cashActivityCard}>
+              <View style={styles.cashActivityRow}>
+                <Text style={styles.cashActivityLabel}>Cash Received</Text>
+                <Text style={styles.cashActivityValue}>₹18,500</Text>
+              </View>
+              <View style={styles.cashActivityDivider} />
+
+              <View style={styles.cashActivityRow}>
+                <Text style={styles.cashActivityLabel}>Successful Top-Ups</Text>
+                <Text style={styles.cashActivityValue}>12</Text>
+              </View>
+              <View style={styles.cashActivityDivider} />
+
+              <View style={styles.cashActivityRow}>
+                <Text style={styles.cashActivityLabel}>Failed</Text>
+                <Text style={styles.cashActivityValue}>1</Text>
+              </View>
+              <View style={styles.cashActivityDivider} />
+
+              <View style={styles.cashActivityRow}>
+                <Text style={styles.cashActivityLabel}>Reconciliation</Text>
+                <Text style={[styles.cashActivityValue, { color: adminColors.warning.text }]}>Pending</Text>
+              </View>
+            </View>
+
+            {/* 4. Warehouse Summary */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeadingNoMargin}>Warehouse Summary</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={onNavigateToDailySummary}>
+                <Text style={styles.viewLinkText}>View →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.whSummaryList}>
+              {visibleWarehouseSummaries.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.whSummaryCard}
+                  activeOpacity={0.75}
+                  onPress={onNavigateToDailySummary}
+                >
+                  <Text style={styles.whSummaryName}>{item.name}</Text>
+                  <View style={styles.greenAmountBadge}>
+                    <Text style={styles.greenAmountBadgeText}>{item.amount}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 5. Needs Attention */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeadingNoMargin}>Needs Attention</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigateToAttention('all')}>
+                <Text style={styles.viewLinkText}>View →</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.attentionAccentCard}
+              activeOpacity={0.75}
+              onPress={() => onNavigateToAttention('failed')}
+            >
+              <View style={styles.attentionAccentBar} />
+              <View style={styles.attentionAccentContent}>
+                <WarningTriangleAccentIcon color={adminColors.warning.text} />
+                <View style={styles.attentionTextWrap}>
+                  <Text style={styles.attentionCardTitle}>1 failed top-up</Text>
+                  <Text style={styles.attentionCardSub}>Requires review</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.attentionAccentCard}
+              activeOpacity={0.75}
+              onPress={() => onNavigateToAttention('pending')}
+            >
+              <View style={styles.attentionAccentBar} />
+              <View style={styles.attentionAccentContent}>
+                <WarningTriangleAccentIcon color={adminColors.warning.text} />
+                <View style={styles.attentionTextWrap}>
+                  <Text style={styles.attentionCardTitle}>Daily cash reconciliation pending</Text>
+                  <Text style={styles.attentionCardSub}>2 transactions pending review</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          // Sub Warehouse Content (untouched)
         <View style={styles.mainContainer}>
           {/* 1. KPI Overview Grid (2x2) */}
           <View style={styles.kpiGrid}>
@@ -496,6 +804,7 @@ export function WalletOperationsScreen({
             </TouchableOpacity>
           </View>
         </View>
+        )}
       </ScrollView>
 
       <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} />
@@ -770,6 +1079,228 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   attentionSub: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+
+  // ─── Main Warehouse Styles ───
+  dropdownBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  dropdownBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: adminSpacing.xl,
+  },
+  dropdownModalCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.lg,
+    ...adminShadow.md,
+  },
+  dropdownModalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+  },
+  dropdownModalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+  },
+  dropdownModalItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  dropdownModalItemText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  dropdownModalItemTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  mainKpiCard: {
+    width: '48.5%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  mainKpiLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  mainKpiValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  mainQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  mainQuickCard: {
+    width: '48.5%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  noticeCallout: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: adminSpacing.md,
+    marginBottom: 20,
+  },
+  noticeCalloutText: {
+    ...adminType.body,
+    color: adminColors.brandDeep,
+    lineHeight: 19,
+  },
+  cashActivityCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 20,
+    ...adminShadow.sm,
+  },
+  cashActivityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cashActivityLabel: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  cashActivityValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  cashActivityDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionHeadingNoMargin: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+  },
+  viewLinkText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+    fontWeight: '600',
+  },
+  whSummaryList: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  whSummaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...adminShadow.sm,
+  },
+  whSummaryName: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  greenAmountBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  greenAmountBadgeText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    fontWeight: '700',
+  },
+  attentionAccentCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    marginBottom: 12,
+    ...adminShadow.sm,
+  },
+  attentionAccentBar: {
+    width: 4.5,
+    backgroundColor: adminColors.warning.text,
+  },
+  attentionAccentContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  attentionCardTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  attentionCardSub: {
     ...adminType.rowMeta,
     color: adminColors.muted,
     marginTop: 2,

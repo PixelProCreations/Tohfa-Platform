@@ -44,9 +44,11 @@ export interface OrdersListScreenProps extends OrderScreenBaseProps {
 
 /** Neutral placeholder until the host passes the real warehouse list (same ids as the mock orders). */
 const DEFAULT_WAREHOUSES: WarehouseOption[] = [
-  { id: 'WH-COON', name: 'Warehouse 1' },
-  { id: 'WH-2', name: 'Warehouse 2' },
-  { id: 'WH-3', name: 'Warehouse 3' },
+  { id: 'WH-COON', name: 'Coonoor' },
+  { id: 'WH-OOTY', name: 'Ooty' },
+  { id: 'WH-2', name: 'Ooty' },
+  { id: 'WH-3', name: 'Kotagiri' },
+  { id: 'WH-4', name: 'Gudalur' },
 ];
 
 type OrderStatus = 'Confirmed' | 'Ready for Pickup' | 'Packing' | 'Quantity Issue' | 'Completed';
@@ -72,10 +74,10 @@ const ORDERS: OrderRow[] = [
   {
     id: 'ORD-1024',
     warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
+    warehouseName: 'Coonoor',
     customer: 'Arun Kumar',
     status: 'Confirmed',
-    items: '3 Items',
+    items: '4 Items',
     amount: '₹850',
     fulfillment: 'Pickup',
     time: 'Today · 10:32 AM',
@@ -85,7 +87,7 @@ const ORDERS: OrderRow[] = [
   {
     id: 'ORD-1023',
     warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
+    warehouseName: 'Coonoor',
     customer: 'Priya',
     status: 'Ready for Pickup',
     items: '5 Items',
@@ -99,8 +101,8 @@ const ORDERS: OrderRow[] = [
   },
   {
     id: 'ORD-1022',
-    warehouseId: 'WH-2',
-    warehouseName: 'Warehouse 2',
+    warehouseId: 'WH-OOTY',
+    warehouseName: 'Ooty',
     customer: 'Ganesh K.',
     status: 'Packing',
     items: '2 Items',
@@ -113,7 +115,7 @@ const ORDERS: OrderRow[] = [
   {
     id: 'ORD-1021',
     warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
+    warehouseName: 'Coonoor',
     customer: 'Divya R.',
     status: 'Confirmed',
     items: '4 Items',
@@ -165,7 +167,7 @@ const ORDERS: OrderRow[] = [
   {
     id: 'ORD-1018',
     warehouseId: 'WH-3',
-    warehouseName: 'Warehouse 3',
+    warehouseName: 'Kotagiri',
     customer: 'Meena S.',
     status: 'Quantity Issue',
     items: '2 Items',
@@ -180,7 +182,7 @@ const ORDERS: OrderRow[] = [
   {
     id: 'ORD-1010',
     warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
+    warehouseName: 'Coonoor',
     customer: 'Rahul Kumar',
     status: 'Completed',
     items: '3 Items',

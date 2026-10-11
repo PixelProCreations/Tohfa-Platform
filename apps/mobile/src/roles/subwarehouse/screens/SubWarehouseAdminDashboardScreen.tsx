@@ -1754,7 +1754,7 @@ export function SubWarehouseAdminDashboardScreen({
         }}
         onOpenCash={() => {
           setShowTodayOverview(false);
-          setShowDailyCashSummary(true);
+          setShowCashTopUp(true);
         }}
       />
     );

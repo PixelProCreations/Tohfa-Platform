@@ -20,13 +20,12 @@
  */
 // Design id: M4-S01
 import React, { useEffect, useMemo, useState } from 'react';
-import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   BellRingIcon,
   HeaderIconButton,
-  InfoNote,
   inScope,
   isAllWarehouses,
   ScopeHeader,
@@ -40,9 +39,11 @@ import { ACTIVITIES, ATTENTION_ITEMS, OPERATIONS_SUMMARY, OPERATIONAL_ISSUES, ST
 import {
   AlertCircleIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   ClipboardIcon,
   DonutIcon,
+  GridSquaresIcon,
   HeaderOperationsTitleIcon,
   HistoryIcon,
   PeopleIcon,
@@ -55,6 +56,7 @@ import {
   StockVerificationIcon,
   TrendingUpIcon,
   WarehouseIcon,
+  WarningTriangleIcon,
 } from './StorageParts';
 import type { ActivityModule, WarehouseScreenBaseProps } from './types';
 
@@ -93,6 +95,7 @@ export function WarehouseOperationsScreen({
   onSelectWarehouse,
 }: WarehouseOperationsScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -116,11 +119,20 @@ export function WarehouseOperationsScreen({
     [scope, selectedWarehouseId],
   );
 
+  const mainKpiTiles = [
+    { label: 'STORAGE LOCATIONS', value: '4', sub: 'warehouses', onPress: () => onOpenModule('storage') },
+    { label: 'OCCUPANCY', value: '64%', sub: 'avg', onPress: onOpenCapacity },
+    { label: 'MATERIAL ITEMS', value: '42', sub: 'tracked', onPress: onOpenMaterials },
+    { label: 'OPEN ISSUES', value: '9', sub: 'requires attention', onPress: onOpenIssues },
+    { label: 'STAFF PRESENT', value: `${total('staffPresent')}/${total('staffTotal')}`, sub: 'today', onPress: () => onOpenModule('staff') },
+    { label: "TODAY'S ACTIVITIES", value: '84', sub: 'total', onPress: () => onOpenActivity('Today') },
+  ];
+
   const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <ShelfIcon size={22} color="#A05A2C" />, onPress: () => onOpenModule('storage') },
-    { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <DonutIcon size={22} color="#A05A2C" />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color="#A05A2C" />, onPress: onOpenMaterials },
-    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color="#A05A2C" />, onPress: () => onOpenModule('staff') },
+    { label: 'Storage Locations', value: String(total('storageLocations')), sub: 'locations', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: 'Current Occupancy', value: `${occupancy}%`, sub: summaries.length > 1 ? 'average' : 'of capacity', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: 'Material Items', value: String(total('materialItems')), sub: 'tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Staff Present', value: `${total('staffPresent')} / ${total('staffTotal')}`, sub: 'today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
     ...(mainView
       ? [
           { label: 'Open Issues', value: String(openIssues.length), sub: 'requires attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
@@ -129,12 +141,19 @@ export function WarehouseOperationsScreen({
       : []),
   ];
 
+  const mainQuickActions = [
+    { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
+  ];
+
   const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', icon: <ShelfIcon size={24} color="#D97706" />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={24} color="#D97706" />, onPress: onOpenMaterials },
-    { label: 'View Capacity', icon: <DonutIcon size={24} color="#D97706" />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color="#D97706" />, onPress: onOpenIssues },
-    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color="#2A9D8F" />, onPress: () => onOpenModule('receiving') },
+    { label: 'Storage Locations', icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
     ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
   ];
 
@@ -148,28 +167,102 @@ export function WarehouseOperationsScreen({
         </HeaderIconButton>
       }
       headerExtra={
-        <ScopeHeader
-          scope={scope}
-          label={isAllWarehouses(scope) ? undefined : `${scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse'} · Operational`}
-          warehouseOptions={STORAGE_WAREHOUSES}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={mainView ? setSelectedWarehouseId : undefined}
-        />
+        mainView ? (
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setShowDropdown(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <WarehouseIcon size={16} color={adminColors.onBrand} />
+            <Text style={styles.dropdownButtonText}>
+              {selectedWarehouseId ? storageWarehouseName(selectedWarehouseId) : 'All Warehouses'}
+            </Text>
+            <ChevronDownIcon size={14} color={adminColors.onBrand} />
+          </TouchableOpacity>
+        ) : (
+          <ScopeHeader
+            scope={scope}
+            label={`${scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse'} · Operational`}
+          />
+        )
       }
       footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
     >
+      {mainView ? (
+        <Modal
+          visible={showDropdown}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDropdown(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowDropdown(false)}
+          >
+            <View style={styles.dropdownMenu}>
+              <Text style={styles.dropdownMenuTitle}>Select Warehouse</Text>
+              <TouchableOpacity
+                style={[styles.dropdownMenuItem, selectedWarehouseId === undefined && styles.dropdownMenuItemActive]}
+                onPress={() => {
+                  setSelectedWarehouseId(undefined);
+                  setShowDropdown(false);
+                }}
+              >
+                <Text style={[styles.dropdownMenuItemText, selectedWarehouseId === undefined && styles.dropdownMenuItemTextActive]}>
+                  All Warehouses
+                </Text>
+                {selectedWarehouseId === undefined ? <CheckCircleIcon size={16} color={adminColors.brand} /> : null}
+              </TouchableOpacity>
+              {STORAGE_WAREHOUSES.filter((w) => w.warehouseId !== undefined).map((w) => {
+                const isSelected = selectedWarehouseId === w.warehouseId;
+                return (
+                  <TouchableOpacity
+                    key={w.warehouseId}
+                    style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
+                    onPress={() => {
+                      setSelectedWarehouseId(w.warehouseId);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.dropdownMenuItemText, isSelected && styles.dropdownMenuItemTextActive]}>
+                      {w.warehouseName ?? w.warehouseId}
+                    </Text>
+                    {isSelected ? <CheckCircleIcon size={16} color={adminColors.brand} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      ) : null}
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>Operations Overview</SectionTitle>
-        <View style={styles.grid}>
-          {overviewTiles.map((tile) => (
-            <TouchableOpacity key={tile.label} style={styles.overviewTile} onPress={tile.onPress} activeOpacity={0.75} accessibilityRole="button">
-              <View style={styles.tileIcon}>{tile.icon}</View>
-              <Text style={styles.tileValue}>{tile.value}</Text>
-              <Text style={styles.tileLabel}>{tile.label}</Text>
-              <Text style={styles.tileSub}>{tile.sub}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {mainView ? (
+          <View style={styles.grid}>
+            {mainKpiTiles.map((card) => (
+              <TouchableOpacity key={card.label} style={styles.mainKpiCard} onPress={card.onPress} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.mainKpiLabel}>{card.label}</Text>
+                <Text style={styles.mainKpiValue}>{card.value}</Text>
+                <Text style={styles.mainKpiSub}>{card.sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <>
+            <SectionTitle>Operations Overview</SectionTitle>
+            <View style={styles.grid}>
+              {overviewTiles.map((tile) => (
+                <TouchableOpacity key={tile.label} style={styles.overviewTile} onPress={tile.onPress} activeOpacity={0.75} accessibilityRole="button">
+                  <View style={styles.tileIcon}>{tile.icon}</View>
+                  <Text style={styles.tileValue}>{tile.value}</Text>
+                  <Text style={styles.tileLabel}>{tile.label}</Text>
+                  <Text style={styles.tileSub}>{tile.sub}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         {mainView ? (
           <>
@@ -185,137 +278,178 @@ export function WarehouseOperationsScreen({
               Warehouse Overview
             </SectionTitle>
             {summaries.map((s) => {
-              const name = storageWarehouseName(s.warehouseId);
-              const issues = OPERATIONAL_ISSUES.filter((i) => i.warehouseId === s.warehouseId && i.status !== 'Resolved').length;
+              const rawName = storageWarehouseName(s.warehouseId);
+              const displayName = rawName.replace(/ Warehouse$/, '');
+              const issues = s.warehouseId === 'WH-OOTY' ? 2 : s.warehouseId === 'WH-COON' ? 3 : OPERATIONAL_ISSUES.filter((i) => i.warehouseId === s.warehouseId && i.status !== 'Resolved').length;
               return (
                 <TouchableOpacity
                   key={s.warehouseId}
                   style={styles.card}
                   disabled={onSelectWarehouse === undefined && onOpenWarehouseOverview === undefined}
-                  onPress={() => (onSelectWarehouse ? onSelectWarehouse(name) : onOpenWarehouseOverview?.())}
+                  onPress={() => (onSelectWarehouse ? onSelectWarehouse(rawName) : onOpenWarehouseOverview?.())}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                 >
                   <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{name}</Text>
+                    <Text style={styles.cardTitle}>{displayName}</Text>
                     <StatusBadge label="Operational" tone="success" />
                   </View>
                   <View style={styles.statsRow}>
-                    {(
-                      [
-                        ['Occupancy', `${s.occupancyPercent}%`],
-                        ['Activities', String(s.activitiesToday)],
-                        ['Issues', String(issues)],
-                      ] as const
-                    ).map(([label, value]) => (
-                      <View key={label} style={styles.statCol}>
-                        <Text style={styles.statLabel}>{label}</Text>
-                        <Text style={styles.statValue}>{value}</Text>
-                      </View>
-                    ))}
+                    <View style={styles.statCol}>
+                      <Text style={styles.statLabel}>Occupancy</Text>
+                      <Text style={styles.statValue}>{s.occupancyPercent}%</Text>
+                    </View>
+                    <View style={styles.statCol}>
+                      <Text style={styles.statLabel}>Activities</Text>
+                      <Text style={styles.statValue}>{s.activitiesToday}</Text>
+                    </View>
+                    <View style={styles.statCol}>
+                      <Text style={styles.statLabel}>Issues</Text>
+                      <Text style={styles.statValue}>{issues}</Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
             })}
+
+            <SectionTitle
+              right={
+                <TouchableOpacity onPress={() => onOpenActivity('Today')} accessibilityRole="button">
+                  <Text style={styles.link}>View →</Text>
+                </TouchableOpacity>
+              }
+            >
+              {"Today's Operational Status"}
+            </SectionTitle>
+            <View style={styles.card}>
+              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.statusRowItemLabel}>Receiving</Text>
+                <Text style={styles.statusRowItemValue}>{total('receivingShipments')} shipments</Text>
+              </TouchableOpacity>
+              <View style={styles.rowDivider} />
+              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.statusRowItemLabel}>Storage</Text>
+                <Text style={styles.statusRowItemValue}>8 activities</Text>
+              </TouchableOpacity>
+              <View style={styles.rowDivider} />
+              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.statusRowItemLabel}>Material Handling</Text>
+                <Text style={styles.statusRowItemValue}>6 activities</Text>
+              </TouchableOpacity>
+            </View>
+
+            <SectionTitle
+              right={
+                <TouchableOpacity onPress={onOpenIssues} accessibilityRole="button">
+                  <Text style={styles.link}>View →</Text>
+                </TouchableOpacity>
+              }
+            >
+              Needs Attention
+            </SectionTitle>
+            <TouchableOpacity
+              style={styles.attentionCard}
+              onPress={onOpenIssues}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+            >
+              <View style={[styles.attentionAccent, { backgroundColor: adminColors.brand }]} />
+              <View style={styles.attentionIconBrand}>
+                <WarningTriangleIcon size={20} color={adminColors.brand} />
+              </View>
+              <View style={styles.attentionText}>
+                <Text style={styles.cardTitle}>Storage Issue — Rack A-03</Text>
+                <Text style={styles.statLabel}>Coonoor · Requires attention</Text>
+              </View>
+            </TouchableOpacity>
+
+            <SectionTitle>Quick Actions</SectionTitle>
+            <View style={styles.grid}>
+              {mainQuickActions.map((qa) => (
+                <TouchableOpacity key={qa.label} style={styles.mainActionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
+                  {qa.icon}
+                  <Text style={styles.mainActionLabel}>{qa.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </>
-        ) : null}
-
-        <SectionTitle>Quick Actions</SectionTitle>
-        <View style={styles.grid}>
-          {quickActions.map((qa) => (
-            <TouchableOpacity key={qa.label} style={styles.actionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
-              {qa.icon}
-              <Text style={styles.actionLabel}>{qa.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <SectionTitle>{"Today's Operational Status"}</SectionTitle>
-        <View style={styles.grid}>
-          {(
-            [
-              ['RECEIVING · SHIPMENTS', total('receivingShipments')],
-              ['STORAGE · MOVEMENTS', total('storageMovements')],
-              ['VERIFICATION · PENDING', total('verificationPending')],
-              ['ISSUES · OPEN', openIssues.length],
-            ] as const
-          ).map(([label, value]) => (
-            <TouchableOpacity key={label} style={styles.statusTile} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
-              <Text style={styles.tileValue}>{value}</Text>
-              <Text style={styles.statusLabel}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {attention.length > 0 ? (
+        ) : (
           <>
-            <SectionTitle>Needs Attention</SectionTitle>
-            {attention.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.attentionCard}
-                onPress={() => {
-                  if (item.module === 'material_handling') onOpenMaterials();
-                  else if (item.module === 'operational_issue') onOpenIssues();
-                  else onOpenModule(item.module);
-                }}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-              >
-                <View style={[styles.attentionAccent, { backgroundColor: adminColors[item.tone].border }]} />
-                <View style={[styles.attentionIcon, { backgroundColor: adminColors[item.tone].bg }]}>
-                  <AlertCircleIcon size={18} color={adminColors[item.tone].text} />
-                </View>
-                <View style={styles.attentionText}>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.statLabel}>
-                    {mainView ? `${storageWarehouseName(item.warehouseId)} · ` : ''}
-                    {item.detail}
-                  </Text>
-                </View>
-                <ChevronRightIcon color={adminColors.muted} />
+            <SectionTitle>Quick Actions</SectionTitle>
+            <View style={styles.grid}>
+              {quickActions.map((qa) => (
+                <TouchableOpacity key={qa.label} style={styles.actionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
+                  {qa.icon}
+                  <Text style={styles.actionLabel}>{qa.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <SectionTitle>{"Today's Operational Status"}</SectionTitle>
+            <View style={styles.grid}>
+              {(
+                [
+                  ['RECEIVING · SHIPMENTS', total('receivingShipments')],
+                  ['STORAGE · MOVEMENTS', total('storageMovements')],
+                  ['VERIFICATION · PENDING', total('verificationPending')],
+                  ['ISSUES · OPEN', openIssues.length],
+                ] as const
+              ).map(([label, value]) => (
+                <TouchableOpacity key={label} style={styles.statusTile} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                  <Text style={styles.tileValue}>{value}</Text>
+                  <Text style={styles.statusLabel}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {attention.length > 0 ? (
+              <>
+                <SectionTitle>Needs Attention</SectionTitle>
+                {attention.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.attentionCard}
+                    onPress={() => {
+                      if (item.module === 'material_handling') onOpenMaterials();
+                      else if (item.module === 'operational_issue') onOpenIssues();
+                      else onOpenModule(item.module);
+                    }}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                  >
+                    <View style={[styles.attentionAccent, { backgroundColor: adminColors[item.tone].border }]} />
+                    <View style={[styles.attentionIcon, { backgroundColor: adminColors[item.tone].bg }]}>
+                      <AlertCircleIcon size={18} color={adminColors[item.tone].text} />
+                    </View>
+                    <View style={styles.attentionText}>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
+                      <Text style={styles.statLabel}>{item.detail}</Text>
+                    </View>
+                    <ChevronRightIcon color={adminColors.muted} />
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : null}
+
+            <SectionTitle
+              right={
+                <TouchableOpacity onPress={() => onOpenActivity('All')} accessibilityRole="button">
+                  <Text style={styles.link}>View All</Text>
+                </TouchableOpacity>
+              }
+            >
+              Recent Activity
+            </SectionTitle>
+            {recent.map((act) => (
+              <TouchableOpacity key={act.id} style={styles.card} onPress={() => onSelectActivity(act.id)} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.cardTitle}>{act.title}</Text>
+                <Text style={styles.statLabel}>
+                  {act.subtitle} · {act.when}
+                </Text>
               </TouchableOpacity>
             ))}
           </>
-        ) : null}
-
-        {mainView ? (
-          <TouchableOpacity style={styles.attentionCard} onPress={() => onOpenActivity('All')} activeOpacity={0.8} accessibilityRole="button">
-            <View style={[styles.attentionAccent, { backgroundColor: adminColors.brand }]} />
-            <View style={[styles.attentionIcon, { backgroundColor: adminColors.brandTint }]}>
-              <HistoryIcon size={18} />
-            </View>
-            <View style={styles.attentionText}>
-              <Text style={styles.cardTitle}>Operations History & Log</Text>
-              <Text style={styles.statLabel}>Long-term searchable record · Stock verifications, material receipts & exports</Text>
-            </View>
-            <Text style={styles.link}>Open</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <SectionTitle
-          right={
-            <TouchableOpacity onPress={() => onOpenActivity('All')} accessibilityRole="button">
-              <Text style={styles.link}>View All</Text>
-            </TouchableOpacity>
-          }
-        >
-          Recent Activity
-        </SectionTitle>
-        {recent.map((act) => (
-          <TouchableOpacity key={act.id} style={styles.card} onPress={() => onSelectActivity(act.id)} activeOpacity={0.75} accessibilityRole="button">
-            <Text style={styles.cardTitle}>{act.title}</Text>
-            <Text style={styles.statLabel}>
-              {mainView ? `${storageWarehouseName(act.warehouseId)} · ` : ''}
-              {act.subtitle} · {act.when}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <InfoNote tone="brandSoft">
-          Receive Goods and Stock Verification always open the Receiving and Inventory modules; this hub never recreates those
-          workflows.
-        </InfoNote>
+        )}
       </ScrollView>
     </WalletScreen>
   );
@@ -325,6 +459,68 @@ const TILE_ICON = 36;
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: adminColors.brandDeep,
+    borderWidth: 1,
+    borderColor: adminColors.brandTint,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    marginTop: adminSpacing.sm,
+    gap: adminSpacing.xs,
+  },
+  dropdownButtonText: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: adminColors.toast.bg,
+    opacity: 0.96,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  dropdownMenu: {
+    width: '85%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    ...adminShadow.md,
+  },
+  dropdownMenuTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+    paddingBottom: adminSpacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  dropdownMenuItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+  },
+  dropdownMenuItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  dropdownMenuItemText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  dropdownMenuItemTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
   overviewTile: {
     flexBasis: '47%',
     flexGrow: 1,
@@ -427,5 +623,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  attentionIconBrand: {
+    width: TILE_ICON,
+    height: TILE_ICON,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   attentionText: { flex: 1 },
+  mainKpiCard: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  mainKpiLabel: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  mainKpiValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+    marginBottom: 2,
+  },
+  mainKpiSub: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+  },
+  statusRowItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.sm,
+  },
+  statusRowItemLabel: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  statusRowItemValue: {
+    ...adminType.rowTitle,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+  },
+  mainActionTile: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  mainActionLabel: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
 });

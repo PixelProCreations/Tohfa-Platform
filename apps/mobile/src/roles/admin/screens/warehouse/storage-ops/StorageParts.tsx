@@ -207,7 +207,7 @@ export function ReceiveGoodsIcon({ size = 20, color = adminColors.success.text }
   );
 }
 
-export function StockVerificationIcon({ size = 20, color = '#2A9D8F' }: IconProps) {
+export function StockVerificationIcon({ size = 20, color = adminColors.success.text }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
@@ -220,12 +220,12 @@ export function StockVerificationIcon({ size = 20, color = '#2A9D8F' }: IconProp
 export function HeaderOperationsTitleIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="7" cy="7" r="3" stroke="#FFFFFF" strokeWidth="2" />
-      <Path d="M2 19v-2a4 4 0 0 1 7-2.6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="16.5" cy="8.5" r="2.5" stroke="#FFFFFF" strokeWidth="1.8" />
-      <Path d="M16.5 4.5v1M16.5 11.5v1M12.5 8.5h1M19.5 8.5h1" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
-      <Circle cx="16" cy="16" r="3.5" stroke="#FFFFFF" strokeWidth="1.8" />
-      <Path d="M16 11v1.5M16 19.5V21M11 16h1.5M19.5 16H21" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
+      <Circle cx="7" cy="7" r="3" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M2 19v-2a4 4 0 0 1 7-2.6" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="16.5" cy="8.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="1.8" />
+      <Path d="M16.5 4.5v1M16.5 11.5v1M12.5 8.5h1M19.5 8.5h1" stroke={adminColors.onBrand} strokeWidth="1.8" strokeLinecap="round" />
+      <Circle cx="16" cy="16" r="3.5" stroke={adminColors.onBrand} strokeWidth="1.8" />
+      <Path d="M16 11v1.5M16 19.5V21M11 16h1.5M19.5 16H21" stroke={adminColors.onBrand} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -235,6 +235,17 @@ export function CheckCircleIcon({ size = 14, color = adminColors.success.text }:
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
       <Path d="M8 12l2.5 2.5L16 9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function GridSquaresIcon({ size = 22, color = adminColors.onBrand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }

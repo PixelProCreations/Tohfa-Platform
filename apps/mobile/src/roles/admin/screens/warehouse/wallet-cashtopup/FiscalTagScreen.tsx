@@ -22,11 +22,9 @@ import type { CashTopUpDraft, WarehouseScreenBaseProps } from './types';
 import {
   ArrowForwardIcon,
   InfoCard,
-  InfoNote,
   PermissionNote,
   SectionHint,
   SectionTitle,
-  ShieldCheckIcon,
   WalletButton,
   WalletFooter,
   WalletScreen,
@@ -120,17 +118,6 @@ export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp 
           autoCapitalize="characters"
         />
         {error ? <Text style={styles.errorText}>Fiscal cash tag is required.</Text> : null}
-
-        <InfoNote tone="success" icon={<ShieldCheckIcon />}>
-          Gated by permission: wallet.cash_topup.fiscal_tag — also enforced server-side.
-        </InfoNote>
-        <InfoNote tone="info">
-          One physical fiscal cash tag cannot fund two wallet credits — a duplicate tag is rejected as a clear conflict.
-        </InfoNote>
-
-        <TouchableOpacity style={styles.demoButton} onPress={handleSimulateDuplicate} activeOpacity={0.75}>
-          <Text style={styles.demoButtonText}>Simulate duplicate tag error (demo)</Text>
-        </TouchableOpacity>
       </ScrollView>
     </WalletScreen>
   );
