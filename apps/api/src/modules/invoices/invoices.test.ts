@@ -1,6 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'vitest';
 import { pool } from '../../db/pool.js';
-import { databaseReady, describeIfDatabase } from '../../test/factories.js';
+import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { insertUser } from '../../test/dbFixtures.js';
 import { invoicesService } from './invoices.service.js';
 import { fromPaise, equals, add, ZERO, RoleCode } from '@tohfa/shared-types';
 
@@ -114,8 +115,18 @@ describeIfDatabase('Invoices Module (S-38)', () => {
       const distinctVillageName = 'HiddenMistyValleyVillage88';
       const distinctFarmerName = 'Shanmugam Subramanian Unique';
 
+      // The PDF is rendered for the customer who owns the invoice (BR-36: getPdf checks it).
+      const customerUserId = await insertUser(client, 'CUSTOMER', 'BR-16b Customer');
+      const customerId = newId();
+      await client.query(`INSERT INTO customers (id, user_id, customer_code) VALUES ($1, $2, $3)`, [
+        customerId,
+        customerUserId,
+        `BR16B-${customerId.slice(0, 8)}`,
+      ]);
+
       const invoice = await invoicesService.issue(client, {
         invoiceType: 'SALE_RETAIL',
+        customerId,
         fiscalYear: '2026-27',
         placeOfSupply: '33-Tamil Nadu',
         totalAmount: fromPaise(15000),
@@ -128,7 +139,7 @@ describeIfDatabase('Invoices Module (S-38)', () => {
 
       // Generate PDF buffer
       const pdfBuffer = await invoicesService.getPdf(
-        { userId: '00000000-0000-0000-0000-000000000001', customerId: 'cust-1', farmerId: null, roles: [{ code: RoleCode.CUSTOMER }] },
+        { userId: customerUserId, customerId, farmerId: null, roles: [{ code: RoleCode.CUSTOMER }] },
         invoice.id,
       );
 
@@ -148,6 +159,8 @@ describeIfDatabase('Invoices Module (S-38)', () => {
 
       await pool.query('DELETE FROM invoice_lines WHERE invoice_id = $1', [invoice.id]);
       await pool.query('DELETE FROM invoices WHERE id = $1', [invoice.id]);
+      await pool.query('DELETE FROM customers WHERE id = $1', [customerId]);
+      await pool.query('DELETE FROM users WHERE id = $1', [customerUserId]);
     } finally {
       client.release();
     }

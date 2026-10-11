@@ -74,13 +74,54 @@ export interface CreateInvoiceInput {
   }>;
 }
 
+/**
+ * Which invoices a caller may read (built by `invoiceVisibility` in the service).
+ *
+ * ONE value feeds the list, the detail and the PDF download, and both queries below turn it into
+ * SQL through the same `visibilitySql`, so the three can never disagree. They did: until
+ * 2026-10-11 the list was scoped while the detail and the PDF returned any invoice to any
+ * logged-in user (BR-36). An invisible invoice is simply not found, never 403, so its existence
+ * is not disclosed (BR-30, BR-36).
+ */
+export type InvoiceVisibility =
+  | { kind: 'all' }
+  | { kind: 'customer'; customerId: string }
+  | { kind: 'farmer'; farmerId: string }
+  /** Invoices of orders placed at one of these warehouses (Sub Warehouse Admin, BR-30). */
+  | { kind: 'warehouses'; warehouseIds: string[] }
+  | { kind: 'none' };
+
+/** Appends its parameter (if any) to `values` and returns a boolean SQL expression on `invoices`. */
+function visibilitySql(visibility: InvoiceVisibility, values: unknown[]): string {
+  switch (visibility.kind) {
+    case 'all':
+      return 'TRUE';
+    case 'customer':
+      values.push(visibility.customerId);
+      return 'invoices.customer_id = $' + values.length;
+    case 'farmer':
+      values.push(visibility.farmerId);
+      return 'invoices.farmer_id = $' + values.length;
+    case 'warehouses':
+      values.push(visibility.warehouseIds);
+      return (
+        'EXISTS (SELECT 1 FROM orders o WHERE o.id = invoices.order_id AND o.warehouse_id = ANY($' +
+        values.length +
+        '::uuid[]))'
+      );
+    case 'none':
+      return 'FALSE';
+  }
+}
+
 export interface InvoicesRepo {
   generateInvoiceNumber(db: Executor, fiscalYear: string, type: InvoiceType): Promise<string>;
   createInvoice(db: Executor, input: CreateInvoiceInput): Promise<InvoiceDetailResponse>;
-  findById(db: Executor, id: string): Promise<InvoiceDetailResponse | null>;
+  /** The invoice when it exists AND `visibility` covers it; otherwise null (one answer for both). */
+  findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailResponse | null>;
   listInvoices(
     db: Executor,
-    scope: { customerId?: string | null; farmerId?: string | null; all?: boolean },
+    visibility: InvoiceVisibility,
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }>;
 }
@@ -201,10 +242,12 @@ export const invoicesRepo: InvoicesRepo = {
     };
   },
 
-  async findById(db: Executor, id: string): Promise<InvoiceDetailResponse | null> {
+  async findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailResponse | null> {
+    const values: unknown[] = [id];
+    const visible = visibilitySql(visibility, values);
     const invRes = await db.query<InvoiceDbRow>(
-      "SELECT * FROM invoices WHERE id = $1",
-      [id],
+      "SELECT * FROM invoices WHERE invoices.id = $1 AND " + visible,
+      values,
     );
     const invoice = invRes.rows[0];
     if (!invoice) return null;
@@ -253,23 +296,11 @@ export const invoicesRepo: InvoicesRepo = {
 
   async listInvoices(
     db: Executor,
-    scope: { customerId?: string | null; farmerId?: string | null; all?: boolean },
+    visibility: InvoiceVisibility,
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }> {
-    const conditions: string[] = [];
     const values: unknown[] = [];
-
-    if (!scope.all) {
-      if (scope.customerId) {
-        values.push(scope.customerId);
-        conditions.push("customer_id = $" + values.length);
-      } else if (scope.farmerId) {
-        values.push(scope.farmerId);
-        conditions.push("farmer_id = $" + values.length);
-      } else {
-        return { items: [], page: { nextCursor: null, hasMore: false } };
-      }
-    }
+    const conditions: string[] = [visibilitySql(visibility, values)];
 
     if (query.type) {
       values.push(query.type);
@@ -291,7 +322,7 @@ export const invoicesRepo: InvoicesRepo = {
       conditions.push("created_at < $" + values.length);
     }
 
-    const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+    const whereClause = "WHERE " + conditions.join(" AND ");
     const limitPlusOne = query.limit + 1;
     values.push(limitPlusOne);
 
