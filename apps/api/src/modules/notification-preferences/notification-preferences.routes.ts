@@ -14,7 +14,11 @@ import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { notificationPreferencesService } from './notification-preferences.service.js';
-import { updatePreferenceBody, updatePreferenceParam } from './notification-preferences.schema.js';
+import {
+  updateAdminPreferenceParam,
+  updatePreferenceBody,
+  updatePreferenceParam,
+} from './notification-preferences.schema.js';
 
 export const notificationPreferencesRouter: Router = Router();
 
@@ -25,6 +29,32 @@ notificationPreferencesRouter.get(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     res.json(await notificationPreferencesService.listMine(scope));
+  }),
+);
+
+// BR-82: admin Notification Settings categories. '/admin/:category' has two
+// segments, so it can never be mistaken for '/:category'. Own permission:
+// farmers and customers hold none, so they get 403 here and can never set these.
+notificationPreferencesRouter.get(
+  '/admin',
+  requireAuth,
+  requirePermission('notification.own.admin_preferences'),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await notificationPreferencesService.listMyAdmin(scope));
+  }),
+);
+
+notificationPreferencesRouter.patch(
+  '/admin/:category',
+  requireAuth,
+  requirePermission('notification.own.admin_preferences'),
+  validate({ params: updateAdminPreferenceParam, body: updatePreferenceBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { category } = getValidated(req, 'params', updateAdminPreferenceParam);
+    const { enabled } = getValidated(req, 'body', updatePreferenceBody);
+    res.json(await notificationPreferencesService.updateMyAdmin(scope, category, enabled));
   }),
 );
 

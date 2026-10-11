@@ -548,3 +548,29 @@ export const authRepo: AuthRepo = {
     return result.rows[0] ?? null;
   },
 };
+
+/**
+ * BR-82: the own-profile write. Kept OUT of `AuthRepo` on purpose: it is a
+ * separate, additive surface, so the interface the existing service tests
+ * mock stays exactly as it was.
+ *
+ * `fullName` and `preferredLocale` are the ONLY columns a user may change
+ * here. `mobile`, `email`, `status` and `user_type` are deliberately not
+ * parameters, so no caller can reach them through this function.
+ */
+export const authProfileRepo = {
+  async updateUserProfile(
+    db: Executor,
+    userId: string,
+    changes: { fullName?: string | undefined; preferredLocale?: 'en' | 'ta' | undefined },
+  ): Promise<void> {
+    await db.query(
+      `UPDATE users
+          SET full_name = COALESCE($2, full_name),
+              preferred_locale = COALESCE($3, preferred_locale),
+              updated_at = now()
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [userId, changes.fullName ?? null, changes.preferredLocale ?? null],
+    );
+  },
+};

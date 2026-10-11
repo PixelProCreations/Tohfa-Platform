@@ -3,12 +3,13 @@ import bcrypt from 'bcryptjs';
 import { type RoleCode } from '@tohfa/shared-types';
 import { signOAuthLinkToken, signTokenPair, verifyOAuthLinkToken, verifyRefreshToken } from '../../auth/jwt.js';
 import type { Actor } from '../../auth/requireAuth.js';
+import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { markTokensInvalidBefore } from '../../auth/tokenInvalidation.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { config } from '../../config.js';
-import { pool, withTransaction } from '../../db/pool.js';
+import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
-import { authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
+import { authProfileRepo, authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
 import { smsTransport } from '../notifications/sms/index.js';
 import type {
@@ -21,6 +22,7 @@ import type {
   RegisterCustomerBody,
   ResetPasswordBody,
   SendOtpBody,
+  UpdateMeBody,
   VerifyOtpBody,
 } from './auth.schema.js';
 
@@ -73,6 +75,8 @@ export interface AuthService {
   changePassword(actor: Actor, input: ChangePasswordBody): Promise<void>;
   terminateSession(actor: Actor, sessionId: string): Promise<void>;
   getMe(actor: Actor): Promise<unknown>;
+  /** BR-82: edit own fullName / preferredLocale. Returns the GET /auth/me shape. */
+  updateMyProfile(scope: ResolvedScope, input: UpdateMeBody): Promise<unknown>;
   listMySessions(actor: Actor): Promise<MySessionResponse[]>;
   loginWithOAuth(
     provider: OAuthProviderCode,
@@ -82,6 +86,37 @@ export interface AuthService {
   ): Promise<unknown>;
   linkOAuthIdentity(actor: Actor, input: OAuthLinkBody): Promise<unknown>;
   unlinkOAuthIdentity(actor: Actor, provider: OAuthProviderCode): Promise<void>;
+}
+
+/** The GET /auth/me response; PATCH /auth/me answers with the same shape. */
+async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<unknown> {
+  const user = await repo.findUserById(db, userId);
+  if (user === null) {
+    throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+  }
+
+  const roles = await repo.getUserRoles(db, user.id);
+  const permissions = await repo.getUserPermissions(db, user.id);
+
+  return {
+    id: user.id,
+    fullName: user.full_name,
+    mobile: user.mobile,
+    email: user.email,
+    userType: user.user_type,
+    preferredLocale: user.preferred_locale,
+    status: user.status,
+    createdAt: user.created_at.toISOString(),
+    lastLoginAt: user.last_login_at === null ? null : user.last_login_at.toISOString(),
+    roles: roles.map((r) => ({
+      code: r.role_code,
+      warehouseId: r.warehouse_id ?? undefined,
+      warehouseName: r.warehouse_name ?? undefined,
+      zoneId: r.zone_id ?? undefined,
+      zoneName: r.zone_name ?? undefined,
+    })),
+    permissions,
+  };
 }
 
 export function createAuthService(
@@ -817,33 +852,54 @@ export function createAuthService(
     },
 
     async getMe(actor) {
-      const user = await repo.findUserById(pool, actor.userId);
-      if (user === null) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+      return buildMe(repo, pool, actor.userId);
+    },
+
+    async updateMyProfile(scope, input) {
+      // BR-33 / BR-82: mobile and email are locked identity fields. Refused
+      // before anything is read or written, so the other fields of the same
+      // request are not applied either.
+      if ('mobile' in input || 'email' in input) {
+        throw new AppError('FIELD_LOCKED', {
+          status: 403,
+          detail: 'Mobile number and e-mail are locked fields and cannot be modified here (BR-33).',
+        });
       }
 
-      const roles = await repo.getUserRoles(pool, user.id);
-      const permissions = await repo.getUserPermissions(pool, user.id);
+      await withTransaction(async (tx) => {
+        const user = await repo.findUserById(tx, scope.userId);
+        if (user === null) {
+          throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+        }
 
-      return {
-        id: user.id,
-        fullName: user.full_name,
-        mobile: user.mobile,
-        email: user.email,
-        userType: user.user_type,
-        preferredLocale: user.preferred_locale,
-        status: user.status,
-        createdAt: user.created_at.toISOString(),
-        lastLoginAt: user.last_login_at === null ? null : user.last_login_at.toISOString(),
-        roles: roles.map((r) => ({
-          code: r.role_code,
-          warehouseId: r.warehouse_id ?? undefined,
-          warehouseName: r.warehouse_name ?? undefined,
-          zoneId: r.zone_id ?? undefined,
-          zoneName: r.zone_name ?? undefined,
-        })),
-        permissions,
-      };
+        // Only what really changes is written and audited; a repeat of the
+        // current values is a successful no-op.
+        const changed: string[] = [];
+        const changes: { fullName?: string; preferredLocale?: 'en' | 'ta' } = {};
+        if (input.fullName !== undefined && input.fullName !== user.full_name) {
+          changes.fullName = input.fullName;
+          changed.push('fullName');
+        }
+        if (input.preferredLocale !== undefined && input.preferredLocale !== user.preferred_locale) {
+          changes.preferredLocale = input.preferredLocale;
+          changed.push('preferredLocale');
+        }
+        if (changed.length === 0) return;
+
+        await authProfileRepo.updateUserProfile(tx, scope.userId, changes);
+        // Masked image: field NAMES only. The name itself is personal data and
+        // never goes into the audit log.
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'auth.profile.update_own',
+          entityType: 'user',
+          entityId: scope.userId,
+          changedFields: changed,
+        });
+      });
+
+      return buildMe(repo, pool, scope.userId);
     },
 
     async listMySessions(actor) {

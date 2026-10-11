@@ -1,6 +1,10 @@
 
 import type { Executor } from '../../db/pool.js';
-import type { NotificationCategory, NotificationPreferenceResponse } from './notification-preferences.schema.js';
+import type {
+  AdminNotificationCategory,
+  NotificationCategory,
+  NotificationPreferenceResponse,
+} from './notification-preferences.schema.js';
 
 /** Raw row shape as it comes out of Postgres. Never leaves this file. */
 interface NotificationPreferenceRow {
@@ -65,5 +69,50 @@ export const notificationPreferencesRepo: NotificationPreferencesRepo = {
       [userId, category],
     );
     return result.rows[0]?.enabled ?? true;
+  },
+};
+
+/**
+ * BR-82: the admin-category reads and writes. A separate object (not part of
+ * `NotificationPreferencesRepo`) so the interface existing tests fake stays
+ * exactly as it was. Same table, same sparse "no row = enabled" rule.
+ */
+export interface AdminNotificationPreferencesRepo {
+  /** Stored admin-category rows only; categories never touched are absent. */
+  listAdminByUserId(
+    db: Executor,
+    userId: string,
+    categories: readonly AdminNotificationCategory[],
+  ): Promise<Array<{ category: AdminNotificationCategory; enabled: boolean }>>;
+  upsertAdmin(
+    db: Executor,
+    userId: string,
+    category: AdminNotificationCategory,
+    enabled: boolean,
+  ): Promise<{ category: AdminNotificationCategory; enabled: boolean }>;
+}
+
+export const adminNotificationPreferencesRepo: AdminNotificationPreferencesRepo = {
+  async listAdminByUserId(db, userId, categories) {
+    const result = await db.query<{ category: AdminNotificationCategory; enabled: boolean }>(
+      `SELECT category, enabled
+         FROM notification_preferences
+        WHERE user_id = $1 AND category = ANY($2::text[])`,
+      [userId, [...categories]],
+    );
+    return result.rows.map((row) => ({ category: row.category, enabled: row.enabled }));
+  },
+
+  async upsertAdmin(db, userId, category, enabled) {
+    const result = await db.query<{ category: AdminNotificationCategory; enabled: boolean }>(
+      `INSERT INTO notification_preferences (user_id, category, enabled)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, category) DO UPDATE
+         SET enabled = EXCLUDED.enabled
+       RETURNING category, enabled`,
+      [userId, category, enabled],
+    );
+    const row = result.rows[0]!;
+    return { category: row.category, enabled: row.enabled };
   },
 };
