@@ -53,15 +53,6 @@ function InvoiceIcon({ size = 22, color = adminColors.brandDeep }: { size?: numb
   );
 }
 
-function PaymentIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="12" r="2" stroke={color} strokeWidth="2" />
-      <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function HistoryIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
@@ -146,12 +137,6 @@ export function RevenueDetailScreen({
   if (onViewInvoice && can(FINANCE_CODES.invoiceView)) {
     actions.push({ key: 'invoice', label: 'View Invoice', icon: <InvoiceIcon />, onPress: onViewInvoice });
   }
-  actions.push({
-    key: 'payment',
-    label: 'View Payment',
-    icon: <PaymentIcon />,
-    onPress: () => Alert.alert('Payment', `${paymentMethod} · ${paymentStatus} · ${amount}`),
-  });
   if (onViewTransactionHistory) {
     actions.push({ key: 'history', label: 'Transaction History', icon: <HistoryIcon />, onPress: onViewTransactionHistory });
   }

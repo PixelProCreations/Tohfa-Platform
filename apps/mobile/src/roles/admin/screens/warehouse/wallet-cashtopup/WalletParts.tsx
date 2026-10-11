@@ -218,7 +218,7 @@ export function ShieldCheckIcon({ size = 16, color = adminColors.success.text }:
 // ─── Frame ───────────────────────────────────────────────────────────────────
 
 export interface WalletScreenProps {
-  title: string;
+  title: React.ReactNode;
   subtitle?: string | undefined;
   onBack?: (() => void) | undefined;
   headerLeft?: React.ReactNode;
@@ -253,7 +253,7 @@ export function WalletScreen({ title, subtitle, onBack, headerLeft, headerRight,
             </TouchableOpacity>
           ) : null}
           <View style={styles.headerTextGroup}>
-            <Text style={styles.headerTitle}>{title}</Text>
+            {typeof title === 'string' ? <Text style={styles.headerTitle}>{title}</Text> : title}
             {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
           </View>
           {headerRight}

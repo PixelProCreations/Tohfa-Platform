@@ -20,7 +20,7 @@
  */
 // Design id: M9-S03
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -31,6 +31,7 @@ import {
   BillingToast,
   Card,
   DownloadIcon,
+  HeaderIconButton,
   InfoCard,
   InfoNote,
   inScope,
@@ -65,6 +66,8 @@ function TimelineCheckIcon() {
   );
 }
 
+
+
 export function InvoiceDetailScreen({
   scope,
   can,
@@ -74,8 +77,19 @@ export function InvoiceDetailScreen({
   onDownload,
   onShare,
 }: InvoiceDetailScreenProps) {
+  const [showPreview, setShowPreview] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!showPreview) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setShowPreview(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [showPreview]);
+
   useEffect(
     () => () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -84,6 +98,7 @@ export function InvoiceDetailScreen({
   );
 
   const canView = can('invoice.view_own');
+  const allWarehouses = isAllWarehouses(scope);
   const record: InvoiceDetailRecord = { ...invoice, invoiceId };
 
   if (!inScope(scope, record.warehouseId)) {
@@ -96,13 +111,66 @@ export function InvoiceDetailScreen({
     );
   }
 
-  const handleDownload = () => {
+  const handlePdfDownload = () => {
     setShowToast(true);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setShowToast(false), TOAST_MS);
     onDownload?.(invoiceId);
   };
+
+  const handleDownload = () => {
+    if (!allWarehouses) {
+      setShowPreview(true);
+      return;
+    }
+    handlePdfDownload();
+  };
+
   const handleShare = () => (onShare ? onShare(invoiceId) : Alert.alert('Share', `Sharing ${invoiceId}...`));
+
+  if (showPreview) {
+    return (
+      <BillingScreen
+        title="Invoice Preview"
+        onBack={() => setShowPreview(false)}
+        footer={
+          canView ? (
+            <BillingFooter>
+              {showToast ? <BillingToast message="Invoice downloaded" /> : null}
+              <BillingButton label="Download PDF" icon={<DownloadIcon />} onPress={handlePdfDownload} />
+              <BillingButton label="Share" variant="outline" onPress={handleShare} />
+            </BillingFooter>
+          ) : null
+        }
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Card style={styles.previewCard}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewBrandTitle}>TOHFA</Text>
+              <Text style={styles.previewDocLabel}>Invoice · {record.invoiceId}</Text>
+              <View style={styles.brandDivider} />
+            </View>
+
+            <View style={styles.previewRow}>
+              <Text style={styles.previewLabel}>Customer</Text>
+              <Text style={styles.previewValue}>{record.customerName}</Text>
+            </View>
+
+            {record.items.map((item, index) => (
+              <View key={`${item.name}-${index}`} style={styles.previewRow}>
+                <Text style={styles.previewLabel}>
+                  {item.name} · {item.quantity}
+                </Text>
+                <Text style={styles.previewValue}>{item.lineTotal}</Text>
+              </View>
+            ))}
+
+            <Text style={styles.previewGrandTotal}>{record.total}</Text>
+          </Card>
+        </ScrollView>
+      </BillingScreen>
+    );
+  }
 
   const infoRows = [
     [
@@ -135,6 +203,13 @@ export function InvoiceDetailScreen({
       title="Invoice Detail"
       subtitle={`${record.invoiceId} · ${record.status}`}
       onBack={onBack}
+      headerRight={
+        canView ? (
+          <HeaderIconButton onPress={handleDownload} accessibilityLabel="Download Invoice">
+            <DownloadIcon />
+          </HeaderIconButton>
+        ) : null
+      }
       footer={
         canView ? (
           <BillingFooter>
@@ -300,4 +375,58 @@ const styles = StyleSheet.create({
   timelineTime: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
 
   generatedBy: { marginTop: adminSpacing.md, borderRadius: adminRadius.lg },
+
+  previewCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  previewHeader: {
+    alignItems: 'center',
+    marginBottom: adminSpacing.sm,
+  },
+  previewBrandTitle: {
+    ...adminType.sectionHead,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
+  previewDocLabel: {
+    ...adminType.rowMeta,
+    fontSize: 12,
+    color: adminColors.muted,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.sm,
+  },
+  previewLabel: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.muted,
+  },
+  previewValue: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  previewGrandTotal: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
 });

@@ -127,7 +127,7 @@ export function BillingFlow({
       return (
         <InvoiceListScreen
           {...common}
-          initialLayout={listLayout ?? params.layout}
+          initialLayout={params.layout ?? listLayout ?? 'list'}
           onLayoutChange={setListLayout}
           warehouseOptions={warehouseOptions}
           appliedFilters={filters}

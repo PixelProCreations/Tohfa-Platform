@@ -39,23 +39,34 @@ export interface IssueSubmittedScreenProps extends WarehouseScreenBaseProps {
   mode?: ReportIssueMode | undefined;
   submittedId?: string | undefined;
   onDone: () => void;
+  showViewIssueButton?: boolean | undefined;
 }
 
 export function IssueSubmittedScreen({
+  onBack,
+  mode = 'operational',
   submittedId = 'ISS-0029',
   onDone,
+  showViewIssueButton,
 }: IssueSubmittedScreenProps) {
+  const isSupport = mode === 'support';
+  const showButton = showViewIssueButton ?? !isSupport;
+  const handleBack = onBack ?? onDone;
+
   return (
     <WalletScreen
       title="Issue Submitted"
+      onBack={handleBack}
       footer={
-        <WalletFooter>
-          <WalletButton
-            label="View Issue"
-            icon={<EyeIcon />}
-            onPress={onDone}
-          />
-        </WalletFooter>
+        showButton ? (
+          <WalletFooter>
+            <WalletButton
+              label="View Issue"
+              icon={<EyeIcon />}
+              onPress={onDone}
+            />
+          </WalletFooter>
+        ) : undefined
       }
     >
       <ScrollView contentContainerStyle={[walletLayout.scrollContent, styles.content]} showsVerticalScrollIndicator={false}>

@@ -17,7 +17,8 @@
  * the category chips are the filter.
  */
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -46,6 +47,35 @@ const CATEGORIES: readonly CategoryFilter[] = ['All', 'Registration', 'Complianc
 
 export interface DocumentsScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   documents?: readonly WarehouseDocItem[] | undefined;
+}
+
+function EyeIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function DownloadTrayIcon({ size = 20, color = '#9A3412' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 export function DocumentsScreen({
@@ -81,35 +111,95 @@ export function DocumentsScreen({
   const footer = onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined;
 
   if (openDoc !== null) {
+    const issuedDate =
+      (openDoc as any).issuedDate ??
+      openDoc.dateNote.match(/Issued\s+([0-9A-Za-z\s]+?)(?:\s*·|$)/i)?.[1]?.trim() ??
+      '01 Jan 2026';
+    const expiryDate =
+      openDoc.expiry ??
+      openDoc.dateNote.match(/Expires?\s+([0-9A-Za-z\s]+?)(?:\s*·|$)/i)?.[1]?.trim() ??
+      '31 Dec 2026';
+    const issuingAuthority = (openDoc as any).issuingAuthority ?? 'TOHFA Regional Office';
+    const rawWhName = warehouseNameOf(scope, openDoc.warehouseId, warehouseOptions);
+    const warehouseShortName = rawWhName.replace(/\s+Warehouse$/i, '') || 'Coonoor';
+
+    const docDetailRows = [
+      [
+        { label: 'Document Name', value: openDoc.name },
+        { label: 'Document ID', value: openDoc.code },
+      ],
+      [
+        { label: 'Document Type', value: openDoc.category },
+        { label: 'Status', value: openDoc.status },
+      ],
+      [
+        { label: 'Issued Date', value: issuedDate },
+        { label: 'Expiry Date', value: expiryDate },
+      ],
+      [
+        { label: 'Issuing Authority', value: issuingAuthority },
+        { label: 'Warehouse', value: warehouseShortName },
+      ],
+    ];
+
+    const detailHeader = (
+      <ScopeHeader
+        scope={scope}
+        label={rawWhName}
+      />
+    );
+
     return (
-      <WalletScreen title="Document Detail" onBack={() => setOpenDoc(null)} footer={footer}>
-        <ScrollView contentContainerStyle={warehouseProfileLayout.scrollContent} showsVerticalScrollIndicator={false}>
-          <InfoCard
-            rows={[
-              [
-                { label: 'Document Name', value: openDoc.name },
-                { label: 'Document ID', value: openDoc.code },
-              ],
-              [
-                { label: 'Status', value: openDoc.status },
-                { label: 'Expiry', value: openDoc.expiry ?? '—' },
-              ],
-              [
-                { label: 'Category', value: openDoc.category },
-                { label: 'Warehouse', value: warehouseNameOf(scope, openDoc.warehouseId, warehouseOptions) },
-              ],
-            ]}
-          />
-          <View style={warehouseProfileLayout.gap} />
-          <View style={styles.actionRow}>
-            <WalletButton label="View" variant="outline" flex disabled onPress={() => undefined} />
-            <WalletButton label="Download" variant="outline" flex disabled onPress={() => undefined} />
+      <WalletScreen
+        title="Document Detail"
+        onBack={() => setOpenDoc(null)}
+        headerExtra={detailHeader}
+        footer={footer}
+      >
+        <ScrollView
+          contentContainerStyle={warehouseProfileLayout.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.detailSectionTitle}>
+            {openDoc.name} — {openDoc.code}
+          </Text>
+
+          <InfoCard rows={docDetailRows} />
+
+          <Text style={[styles.detailSectionTitle, styles.previewSectionTitle]}>
+            Document Preview
+          </Text>
+
+          <View style={styles.previewBox}>
+            <Text style={styles.previewPlaceholderText}>PDF / Image Preview</Text>
           </View>
-          <PermissionNote>Document files are not available in the app yet.</PermissionNote>
-          <View style={warehouseProfileLayout.gap} />
-          <InfoNote tone="danger" icon={<BlockIcon size={16} color={adminColors.danger.text} />}>
-            No Edit, Delete, Replace, Approve or Verify here.
-          </InfoNote>
+
+          <View style={styles.previewActionsRow}>
+            <TouchableOpacity
+              style={styles.previewActionBtn}
+              onPress={() => Alert.alert('View Document', `Opening ${openDoc.name} preview...`)}
+              activeOpacity={0.75}
+            >
+              <EyeIcon size={20} color="#9A3412" />
+              <Text style={styles.previewActionText}>View</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.previewActionBtn}
+              onPress={() => Alert.alert('Download Document', `Downloading ${openDoc.name} (${openDoc.code})...`)}
+              activeOpacity={0.75}
+            >
+              <DownloadTrayIcon size={20} color="#9A3412" />
+              <Text style={styles.previewActionText}>Download</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.restrictionBanner}>
+            <BlockIcon size={20} color="#DC2626" />
+            <Text style={styles.restrictionBannerText}>
+              No Edit, Delete, Replace, Approve, or Verify Document — those aren't granted to SWA by the role matrix.
+            </Text>
+          </View>
         </ScrollView>
       </WalletScreen>
     );
@@ -186,4 +276,68 @@ const styles = StyleSheet.create({
   docTitle: { ...adminType.rowTitle, color: adminColors.ink },
   docMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
+  detailSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: adminSpacing.sm,
+  },
+  previewSectionTitle: {
+    marginTop: adminSpacing.lg,
+  },
+  previewBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    height: 190,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.md,
+  },
+  previewPlaceholderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  previewActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: adminSpacing.md,
+  },
+  previewActionBtn: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  previewActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#451a03',
+  },
+  restrictionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    marginTop: adminSpacing.xs,
+  },
+  restrictionBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#dc2626',
+    lineHeight: 18,
+  },
 });

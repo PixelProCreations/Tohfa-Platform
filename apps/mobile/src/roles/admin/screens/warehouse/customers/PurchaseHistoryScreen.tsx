@@ -21,6 +21,7 @@ import {
   EmptyState,
   FilterIcon,
   HeaderIconButton,
+  isAllWarehouses,
   SearchField,
   StatTiles,
   StatusBadge,
@@ -53,6 +54,7 @@ function hasActiveFilters(f: PurchaseFilterState | undefined): boolean {
 }
 
 export function PurchaseHistoryScreen({
+  scope,
   onBack,
   customer,
   appliedFilters,
@@ -61,6 +63,7 @@ export function PurchaseHistoryScreen({
   purchases = INITIAL_PURCHASES,
 }: PurchaseHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const allWarehouses = scope ? isAllWarehouses(scope) : false;
   const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
 
   const query = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();
@@ -83,10 +86,10 @@ export function PurchaseHistoryScreen({
       );
     })
     .sort((a, b) => {
-      if (sortBy === 'Oldest First') return a.id.localeCompare(b.id);
+      if (sortBy === 'Oldest First') return b.id.localeCompare(a.id);
       if (sortBy === 'Highest Amount') return amountOf(b) - amountOf(a);
       if (sortBy === 'Lowest Amount') return amountOf(a) - amountOf(b);
-      return b.id.localeCompare(a.id);
+      return a.id.localeCompare(b.id);
     });
 
   return (
@@ -119,25 +122,36 @@ export function PurchaseHistoryScreen({
               <StatusBadge label={purchase.status} tone={purchase.status === 'Paid' ? 'success' : 'warning'} />
             </View>
             <Text style={cardStyles.meta}>{purchase.dateText}</Text>
-            {purchase.items && purchase.items.length > 0 ? (
-              <View style={styles.items}>
-                {purchase.items.map((item, idx) => (
-                  <View key={item}>
-                    <Text style={cardStyles.body}>{item}</Text>
-                    {idx < (purchase.items?.length ?? 0) - 1 ? <View style={cardStyles.divider} /> : null}
+            {allWarehouses ? (
+              <>
+                {purchase.items && purchase.items.length > 0 ? (
+                  <View style={styles.items}>
+                    {purchase.items.map((item, idx) => (
+                      <View key={item}>
+                        <Text style={cardStyles.body}>{item}</Text>
+                        {idx < (purchase.items?.length ?? 0) - 1 ? <View style={cardStyles.divider} /> : null}
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                ) : (
+                  <Text style={[cardStyles.body, styles.items]} numberOfLines={2}>
+                    {purchase.itemsSummary}
+                  </Text>
+                )}
+                <View style={cardStyles.divider} />
+                <View style={cardStyles.rowBetween}>
+                  <Text style={cardStyles.meta}>{purchase.channel ?? ''}</Text>
+                  <Text style={cardStyles.amount}>{purchase.amount}</Text>
+                </View>
+              </>
             ) : (
-              <Text style={[cardStyles.body, styles.items]} numberOfLines={2}>
-                {purchase.itemsSummary}
-              </Text>
+              <View style={styles.subWhBottomRow}>
+                <Text style={[cardStyles.body, styles.subWhItemsSummary]} numberOfLines={2}>
+                  {purchase.itemsSummary}
+                </Text>
+                <Text style={cardStyles.amount}>{purchase.amount}</Text>
+              </View>
             )}
-            <View style={cardStyles.divider} />
-            <View style={cardStyles.rowBetween}>
-              <Text style={cardStyles.meta}>{purchase.channel ?? ''}</Text>
-              <Text style={cardStyles.amount}>{purchase.amount}</Text>
-            </View>
           </TouchableOpacity>
         ))
       )}
@@ -147,4 +161,14 @@ export function PurchaseHistoryScreen({
 
 const styles = StyleSheet.create({
   items: { marginTop: adminSpacing.sm },
+  subWhBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: adminSpacing.sm,
+  },
+  subWhItemsSummary: {
+    flex: 1,
+    paddingRight: adminSpacing.md,
+  },
 });

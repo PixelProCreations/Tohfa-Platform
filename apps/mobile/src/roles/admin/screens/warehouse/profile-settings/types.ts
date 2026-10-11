@@ -122,7 +122,9 @@ export type ProfileRoute =
   | 'OperatingInfo'
   | 'Contact'
   | 'Documents'
-  | 'WarehouseSettings';
+  | 'WarehouseSettings'
+  | 'ReportIssue'
+  | 'IssueSubmitted';
 
 // ─── Part B: warehouse-facing profile screens ────────────────────────────────
 //

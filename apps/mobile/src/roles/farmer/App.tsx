@@ -269,6 +269,8 @@ export type ScreenName =
   | 'MainWarehouseAdminDashboard'
   | 'SubWarehouseAdminDashboard'
   | 'SubWarehouseProfile'
+  | 'SubWarehouseWarehouseProfile'
+  | 'SubWarehouseUserProfile'
   | 'SubWarehouseOverview'
   | 'SubWarehouseRecentActivity'
   | 'SubWarehouseStorageInfo'
@@ -758,7 +760,9 @@ const PROFILE_ROUTE_ENTRY: Partial<Record<ScreenName, ProfileRoute>> = {
   SubWarehouseHelpSupport: 'HelpSupport',
   // Part B: the warehouse-facing profile screens (Profile -> Storage /
   // Operating / Contact / Documents are also reachable inside the flow).
-  SubWarehouseProfile: 'UserProfile',
+  SubWarehouseProfile: 'WarehouseProfile',
+  SubWarehouseWarehouseProfile: 'WarehouseProfile',
+  SubWarehouseUserProfile: 'UserProfile',
   SubWarehouseStorageInfo: 'StorageInfo',
   SubWarehouseOperatingInfo: 'OperatingInfo',
   SubWarehouseContact: 'Contact',
@@ -1297,7 +1301,7 @@ export default function App(): React.JSX.Element {
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
-        ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' ? (
+        ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' || screen === 'SubWarehouseRecentActivity' ? (
           // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
           <SubWarehouseAdminDashboardScreen
             scope={SUB_WAREHOUSE_SCOPE}
@@ -1307,6 +1311,7 @@ export default function App(): React.JSX.Element {
             initialInventoryScreen={params?.initialInventoryScreen as any}
             initialShowOrders={!!params?.showOrders}
             initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
+            initialShowRecentActivity={screen === 'SubWarehouseRecentActivity' || !!params?.showRecentActivity}
             onSignOut={() => navigate('Welcome')}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
             onBack={goBack}

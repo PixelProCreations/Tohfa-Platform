@@ -570,7 +570,7 @@ export function ReportsScreen({
               >
                 <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
-              <Text style={styles.headerTitleText}>Sales Order Detail</Text>
+              <Text style={styles.headerTitleText}>{isMain ? 'Sales Order Detail' : 'Sales detail'}</Text>
             </View>
           </View>
         </View>
@@ -4390,8 +4390,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    // Was white at 0.22 on the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -4412,16 +4411,14 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Was white at 0.2 on the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     paddingHorizontal: 12,
     paddingVertical: 5.5,
     borderRadius: 20,
     alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
-    // Was white at 0.25 on the orange header; no overlay token exists, so a solid deep-orange fill.
-    borderColor: adminColors.brandDeep,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   warehouseBadgeText: {
     color: adminColors.onBrand,
@@ -4432,8 +4429,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    // Was white at 0.22 on the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -5161,16 +5157,14 @@ const styles = StyleSheet.create({
   warehouseLockPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Was white at 0.2 on the orange header; no overlay token exists, so a solid deep-orange fill.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     paddingHorizontal: 12,
     paddingVertical: 5.5,
     borderRadius: 20,
     alignSelf: 'flex-start',
     gap: 6,
     borderWidth: 1,
-    // Was white at 0.25 on the orange header; no overlay token exists, so a solid deep-orange fill.
-    borderColor: adminColors.brandDeep,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   warehouseLockPillText: {
     color: adminColors.onBrand,

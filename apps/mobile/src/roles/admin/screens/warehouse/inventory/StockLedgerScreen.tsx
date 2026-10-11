@@ -419,9 +419,9 @@ const styles = StyleSheet.create({
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.brandDeep,
-    borderWidth: 1.5,
-    borderColor: adminColors.onBrand,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,

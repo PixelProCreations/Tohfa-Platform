@@ -32,6 +32,8 @@ export interface OrdersListRouteParams {
   defaultFilter?: string | undefined;
   /** Main view only: open the list narrowed to this warehouse. */
   warehouseId?: string | undefined;
+  /** Filter by fulfillment type: 'Delivery' | 'Pickup'. */
+  fulfillment?: 'Delivery' | 'Pickup' | undefined;
 }
 
 export interface OrdersListScreenProps extends OrderScreenBaseProps {
@@ -118,6 +120,45 @@ const ORDERS: OrderRow[] = [
     amount: '₹960',
     fulfillment: 'Delivery',
     time: 'Today · 08:55 AM',
+    action: 'Prepare Delivery',
+    actionScreen: 'M5S13',
+  },
+  {
+    id: 'ORD-1019',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Warehouse 1',
+    customer: 'Kavitha M.',
+    status: 'Packing',
+    items: '3 Items',
+    amount: '₹720',
+    fulfillment: 'Delivery',
+    time: 'Today · 08:30 AM',
+    action: 'Prepare Delivery',
+    actionScreen: 'M5S13',
+  },
+  {
+    id: 'ORD-1015',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Warehouse 1',
+    customer: 'Suresh R.',
+    status: 'Confirmed',
+    items: '5 Items',
+    amount: '₹1,450',
+    fulfillment: 'Delivery',
+    time: 'Today · 08:15 AM',
+    action: 'Prepare Delivery',
+    actionScreen: 'M5S13',
+  },
+  {
+    id: 'ORD-1012',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Warehouse 1',
+    customer: 'Ananya S.',
+    status: 'Confirmed',
+    items: '2 Items',
+    amount: '₹580',
+    fulfillment: 'Delivery',
+    time: 'Today · 07:45 AM',
     action: 'Prepare Delivery',
     actionScreen: 'M5S13',
   },
@@ -246,6 +287,7 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
   const filteredOrders = ORDERS.filter((order) => {
     if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) return false;
     if (routeParams?.defaultFilter && order.status !== routeParams.defaultFilter) return false;
+    if (routeParams?.fulfillment && order.fulfillment !== routeParams.fulfillment) return false;
     return order.id.toLowerCase().includes(query) || order.customer.toLowerCase().includes(query);
   });
 
@@ -392,8 +434,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: adminRadius.full,
-    // Was a translucent overlay; no translucent token, so a solid brandDeep chip.
-    backgroundColor: adminColors.brandDeep,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -13,7 +13,8 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { adminSpacing } from '../../../theme';
-import { InfoCard, isAllWarehouses, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
+import { InfoCard, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
+import { INITIAL_RMA_ITEMS } from './fixtures';
 import type { ReturnHistoryRecord, WarehouseScreenBaseProps } from './types';
 
 export interface ReturnHistoryDetailScreenProps extends WarehouseScreenBaseProps {
@@ -25,27 +26,63 @@ const NOT_AVAILABLE = '—';
 export function ReturnHistoryDetailScreen({ scope, record, onBack }: ReturnHistoryDetailScreenProps) {
   const isRejected = record.status === 'Rejected';
   const decision = record.decision ?? (isRejected ? 'Rejected' : 'Approved');
+  const matchedRma = INITIAL_RMA_ITEMS.find(
+    (item) => item.rmaId === record.rmaId || item.orderId === record.orderId,
+  );
+
+  const customerName = record.customerName || matchedRma?.customerName || 'Ravi Kumar';
+  const customerId = record.customerId || matchedRma?.customerId || 'CUS-001245';
+  const orderId = record.orderId || matchedRma?.orderId || 'ORD-002145';
+  const orderDate = record.orderDate || matchedRma?.orderDate || '24 Sep 2026';
+  const warehouse =
+    record.warehouseName ||
+    (scope.warehouseName ? scope.warehouseName.replace(/ Sub-Warehouse| Warehouse/, '') : 'Coonoor');
+  const salesChannel = record.salesChannel || matchedRma?.salesChannel || 'Online Order';
+  const ticketId = record.ticketId || matchedRma?.ticketId || 'TKT-2026-00125';
+  const issueCategory = record.issueCategory || record.reasonTag || matchedRma?.issueCategory || 'Damaged';
+  const reportedDate = record.reportedDate || matchedRma?.reportedDate || record.date || '25 Sep 2026';
+  const description =
+    record.description || matchedRma?.description || 'Customer reported damaged produce after pickup.';
+  const processedBy = record.processedBy ? record.processedBy.replace('Warehouse Admin', 'SWA') : 'SWA – Suresh';
 
   return (
-    <ReturnsScreen title="Return History Detail" subtitle={record.rmaId} onBack={onBack}>
+    <ReturnsScreen title="Return History Detail" onBack={onBack}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {isAllWarehouses(scope) ? (
-          <>
-            <SectionTitle>RMA</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: 'RMA', value: record.rmaId },
-                  { label: 'Customer', value: record.customerName },
-                ],
-                [
-                  { label: 'Decision', value: decision },
-                  { label: 'Refund', value: record.refundAmount ?? NOT_AVAILABLE },
-                ],
-              ]}
-            />
-          </>
-        ) : null}
+        <SectionTitle>Customer</SectionTitle>
+        <InfoCard
+          rows={[
+            [
+              { label: 'Customer', value: customerName },
+              { label: 'Customer ID', value: customerId },
+            ],
+          ]}
+        />
+
+        <SectionTitle>Order</SectionTitle>
+        <InfoCard
+          rows={[
+            [
+              { label: 'Order ID', value: orderId },
+              { label: 'Date', value: orderDate },
+            ],
+            [
+              { label: 'Warehouse', value: warehouse },
+              { label: 'Sales Channel', value: salesChannel },
+            ],
+          ]}
+        />
+
+        <SectionTitle>Issue</SectionTitle>
+        <InfoCard
+          rows={[
+            [
+              { label: 'Ticket ID', value: ticketId },
+              { label: 'Issue Category', value: issueCategory },
+            ],
+            [{ label: 'Reported Date', value: reportedDate }],
+            [{ label: 'Description', value: description }],
+          ]}
+        />
 
         <SectionTitle>Inspection</SectionTitle>
         <InfoCard
@@ -65,7 +102,7 @@ export function ReturnHistoryDetailScreen({ scope, record, onBack }: ReturnHisto
               { label: 'Decision', value: decision },
               { label: 'Decision Date', value: record.decisionDate ?? record.date },
             ],
-            [{ label: 'Processed By', value: record.processedBy ?? NOT_AVAILABLE }],
+            [{ label: 'Processed By', value: processedBy }],
           ]}
         />
 

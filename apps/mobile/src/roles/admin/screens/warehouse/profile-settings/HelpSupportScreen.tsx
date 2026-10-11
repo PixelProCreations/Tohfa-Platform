@@ -188,8 +188,21 @@ export function HelpSupportScreen({
   const [query, setQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(faqs[0]?.id ?? null);
 
-  // Display only: the server enforces support.ticket.* again.
-  const reportIssue = can(PROFILE_CODES.ticketCreate) ? onReportIssue : undefined;
+  const handleReportIssue = (cat: FaqCategory) => {
+    if (onReportIssue) {
+      onReportIssue(cat);
+    } else {
+      Alert.alert(
+        'Report an Issue',
+        `Submit a support request for ${cat}?\nOur support desk will respond shortly.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Proceed', onPress: () => Alert.alert('Request Received', `Issue logged under category: ${cat}`) },
+        ],
+      );
+    }
+  };
+
   const showTickets = can(PROFILE_CODES.ticketViewAll);
 
   const visibleFaqs = useMemo(() => {
@@ -216,7 +229,11 @@ export function HelpSupportScreen({
 
   return (
     <WalletScreen title="Help & Support" onBack={onBack}>
-      <ScrollView contentContainerStyle={profileLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={profileLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.searchWrap}>
           <SearchBar value={query} onChangeText={setQuery} placeholder="Search FAQs, topics, or issues..." />
         </View>
@@ -309,11 +326,9 @@ export function HelpSupportScreen({
                   {expanded ? (
                     <View style={styles.faqAnswerBox}>
                       <Text style={styles.faqAnswer}>{faq.answer}</Text>
-                      {reportIssue ? (
-                        <TouchableOpacity style={styles.faqReport} onPress={() => reportIssue(faq.category)} accessibilityRole="button">
-                          <Text style={styles.link}>Need help with this? Report an issue →</Text>
-                        </TouchableOpacity>
-                      ) : null}
+                      <TouchableOpacity style={styles.faqReport} onPress={() => handleReportIssue(faq.category)} accessibilityRole="button">
+                        <Text style={styles.link}>Need help with this? Report an issue →</Text>
+                      </TouchableOpacity>
                     </View>
                   ) : null}
                 </View>
@@ -340,15 +355,13 @@ export function HelpSupportScreen({
           />
         </View>
 
-        {reportIssue ? (
-          <View style={styles.reportButton}>
-            <WalletButton
-              label="Report an Issue"
-              icon={<HelpCircleIcon color={adminColors.onBrand} />}
-              onPress={() => reportIssue(category ?? 'Warehouse Operations')}
-            />
-          </View>
-        ) : null}
+        <View style={styles.reportButton}>
+          <WalletButton
+            label="Report an Issue"
+            icon={<HelpCircleIcon color={adminColors.onBrand} />}
+            onPress={() => handleReportIssue(category ?? 'Warehouse Operations')}
+          />
+        </View>
 
         {showTickets ? (
           <>
@@ -592,6 +605,7 @@ const styles = StyleSheet.create({
   contactBadgeText: { ...adminType.caption, color: adminColors.brandDeep },
 
   reportButton: { marginTop: adminSpacing.lg },
+  scrollPaddingBottom: { paddingBottom: 80 },
 
   ticketCard: {
     flexDirection: 'row',
