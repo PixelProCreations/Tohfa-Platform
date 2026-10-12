@@ -15,7 +15,7 @@
  */
 // Design id: M10-S01
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -94,6 +94,23 @@ function PendingDotsIcon({ color }: { color: string }) {
   );
 }
 
+function SearchIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m21 21-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FilterSlidersIcon({ size = 18, color = '#9E9690' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 interface MetricTile {
   key: string;
   label: string;
@@ -146,6 +163,133 @@ export function ReturnsIssuesScreen({
       <Text style={styles.warehousePillText}>{scope.warehouseName ?? scope.warehouseId} · Active</Text>
     </View>
   );
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  if (allWarehouses) {
+    const mainItems = visibleItems.filter((item) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        item.rmaId.toLowerCase().includes(q) ||
+        item.orderId.toLowerCase().includes(q) ||
+        item.customerName.toLowerCase().includes(q) ||
+        item.productName.toLowerCase().includes(q)
+      );
+    });
+
+    return (
+      <ReturnsScreen
+        title="RETURNS & ISSUES"
+        onBack={onBack}
+        headerRight={
+          onNavigateToNotifications ? (
+            <TouchableOpacity
+              style={styles.mainBellBtn}
+              onPress={onNavigateToNotifications}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+            >
+              <BellIcon />
+            </TouchableOpacity>
+          ) : null
+        }
+        headerExtra={
+          <WarehouseSelector
+            scope={scope}
+            options={warehouseOptions}
+            selectedId={selectedWarehouseId}
+            onSelect={setSelectedWarehouseId}
+          />
+        }
+        footer={null}
+      >
+        <ScrollView contentContainerStyle={styles.mainScrollContent} showsVerticalScrollIndicator={false}>
+          {/* Main Warehouse 4 KPI Cards (2x2 Grid) */}
+          <View style={styles.mainKpiRow}>
+            <View style={styles.mainKpiBox}>
+              <Text style={styles.mainKpiLabel}>PENDING</Text>
+              <Text style={styles.mainKpiValue}>05</Text>
+            </View>
+            <View style={styles.mainKpiBox}>
+              <Text style={styles.mainKpiLabel}>UNDER REVIEW</Text>
+              <Text style={styles.mainKpiValue}>03</Text>
+            </View>
+          </View>
+          <View style={styles.mainKpiRow}>
+            <View style={styles.mainKpiBox}>
+              <Text style={styles.mainKpiLabel}>APPROVED</Text>
+              <Text style={styles.mainKpiValue}>12</Text>
+            </View>
+            <View style={styles.mainKpiBox}>
+              <Text style={styles.mainKpiLabel}>REFUND PENDING</Text>
+              <Text style={styles.mainKpiValue}>02</Text>
+            </View>
+          </View>
+
+          {/* Search Bar */}
+          <View style={styles.mainSearchBar}>
+            <SearchIcon />
+            <TextInput
+              style={styles.mainSearchInput}
+              placeholder="Search RMA, order or customer"
+              placeholderTextColor="#9E9690"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <FilterSlidersIcon />
+          </View>
+
+          {/* RMA Cards */}
+          {mainItems.map((item) => {
+            const isApproved = item.status === 'Approved';
+            const badgeBg = isApproved ? '#DEF7EC' : '#FEF3C7';
+            const badgeText = isApproved ? '#03543F' : '#D97706';
+            const displayPrice = item.lineTotal || (item.productName === 'Tomato' ? '₹450' : '₹120');
+            const displayProduct = item.productName === 'Tomato' ? 'Organic Tomato · 1.8 KG' : `${item.productName} · ${item.requestedQuantity}`;
+            const displayMeta = item.productName === 'Tomato' ? 'Damaged Product · 25 Sep, 10:40 AM' : `${item.issueCategory} · ${item.timestampText}`;
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.mainListCard}
+                onPress={() => onSelectRma(item)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.mainCardHeader}>
+                  <Text style={styles.mainRmaId}>{item.rmaId}</Text>
+                  <View style={[styles.mainBadge, { backgroundColor: badgeBg }]}>
+                    <Text style={[styles.mainBadgeText, { color: badgeText }]}>{item.status === 'New' ? 'Under Review' : item.status}</Text>
+                  </View>
+                </View>
+                <Text style={styles.mainCustomerLine}>{item.customerName} · {item.orderId}</Text>
+
+                <View style={styles.mainDivider} />
+
+                <View style={styles.mainProductRow}>
+                  <Text style={styles.mainProductName}>{displayProduct}</Text>
+                  <Text style={styles.mainProductPrice}>{displayPrice}</Text>
+                </View>
+                <View style={styles.mainProductRow}>
+                  <Text style={styles.mainProductMeta}>{displayMeta}</Text>
+                  <Text style={styles.mainViewLink}>View →</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+
+          {mainItems.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No RMA records found</Text>
+            </View>
+          ) : null}
+
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      </ReturnsScreen>
+    );
+  }
 
   return (
     <ReturnsScreen
@@ -367,4 +511,126 @@ const styles = StyleSheet.create({
   timestampText: { ...adminType.rowMeta, color: adminColors.muted },
   emptyState: { padding: adminSpacing.xxl, alignItems: 'center' },
   emptyText: { ...adminType.body, color: adminColors.muted },
+
+  // Main Warehouse Dashboard Styles
+  mainScrollContent: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  mainBellBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainKpiRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  mainKpiBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E8DED5',
+  },
+  mainKpiLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#6B6560',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  mainKpiValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E1612',
+  },
+  mainSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8DED5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    marginTop: 6,
+  },
+  mainSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    padding: 0,
+    marginHorizontal: 10,
+    color: '#1E1612',
+  },
+  mainListCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8DED5',
+    padding: 16,
+    marginBottom: 12,
+  },
+  mainCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  mainRmaId: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E1612',
+  },
+  mainBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  mainBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  mainCustomerLine: {
+    fontSize: 12,
+    color: '#6B6560',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  mainDivider: {
+    height: 1,
+    backgroundColor: '#F0E7DD',
+    marginVertical: 12,
+  },
+  mainProductRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  mainProductName: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#1E1612',
+  },
+  mainProductPrice: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#8A5A30',
+  },
+  mainProductMeta: {
+    fontSize: 11.5,
+    color: '#6B6560',
+    fontWeight: '500',
+  },
+  mainViewLink: {
+    fontSize: 11.5,
+    color: '#8A5A30',
+    fontWeight: '800',
+  },
 });

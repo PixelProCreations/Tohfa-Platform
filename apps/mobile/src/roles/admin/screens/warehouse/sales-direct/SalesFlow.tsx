@@ -170,8 +170,9 @@ export function SalesFlow({
           saleWarehouseId={saleWarehouse.warehouseId}
           onContinue={(items) => {
             setCart(items);
-            setTotal(320);
-            navigate('Payment');
+            const sum = items.reduce((acc, it) => acc + (it.pricePerKg * (it.selectedQty ?? 1)), 0);
+            setTotal(sum || 320);
+            navigate('SaleSummary');
           }}
         />
       );
@@ -180,6 +181,7 @@ export function SalesFlow({
         <SaleSummaryScreen
           {...common}
           items={cart}
+          saleWarehouse={saleWarehouse}
           onContinueToCustomer={(nextTotal, count) => {
             setTotal(nextTotal);
             setItemsCount(count);

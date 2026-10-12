@@ -30,6 +30,7 @@ import {
   BillingScreen,
   HeaderIconButton,
   inScope,
+  isAllWarehouses,
   ScopeHeader,
   SectionTitle,
   StatusBadge,
@@ -69,6 +70,42 @@ function TileIcon({ d, color = adminColors.brand }: { d: string; color?: string 
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d={d} stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GenerateInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M12 18v-6M9 15h6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ViewInvoicesIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function InvoiceHistoryIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 3v5h5M12 7v5l4 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GstInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M9 15l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -130,6 +167,110 @@ export function BillingHubScreen({
   const recent = visible[0];
   const required = INVOICE_REQUIRED_TRANSACTION;
   const showRequired = canGenerate && inScope(scope, required.warehouseId, selectedWarehouseId);
+
+  if (isAllWarehouses(scope)) {
+    return (
+      <BillingScreen
+        title="Billing & Invoices"
+        onBack={onBack}
+        headerRight={
+          onNavigateToNotifications ? (
+            <HeaderIconButton onPress={onNavigateToNotifications} accessibilityLabel="Notifications">
+              <BellIcon />
+            </HeaderIconButton>
+          ) : null
+        }
+        headerExtra={
+          <ScopeHeader
+            scope={scope}
+            warehouseOptions={warehouseOptions}
+            selectedWarehouseId={selectedWarehouseId}
+            onSelectWarehouse={setSelectedWarehouseId}
+          />
+        }
+        footer={null}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Main Warehouse 4 KPI Cards (2x2 Grid) */}
+          <View style={styles.mainKpiGrid}>
+            <View style={styles.mainKpiCard}>
+              <Text style={styles.mainKpiLabel}>TODAY'S INVOICES</Text>
+              <Text style={styles.mainKpiValue}>42</Text>
+            </View>
+            <View style={styles.mainKpiCard}>
+              <Text style={styles.mainKpiLabel}>GENERATED</Text>
+              <Text style={styles.mainKpiValue}>38</Text>
+            </View>
+            <View style={styles.mainKpiCard}>
+              <Text style={styles.mainKpiLabel}>PENDING</Text>
+              <Text style={styles.mainKpiValue}>3</Text>
+            </View>
+            <View style={styles.mainKpiCard}>
+              <Text style={styles.mainKpiLabel}>FAILED</Text>
+              <Text style={styles.mainKpiValue}>1</Text>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <Text style={styles.mainSectionTitle}>Quick Actions</Text>
+          <View style={styles.mainActionGrid}>
+            <TouchableOpacity style={styles.mainActionCard} onPress={() => onGenerateInvoice()} activeOpacity={0.7}>
+              <View style={styles.mainActionIconWrap}>
+                <GenerateInvoiceIcon size={26} />
+              </View>
+              <Text style={styles.mainActionLabel}>Generate Invoice</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
+              <View style={styles.mainActionIconWrap}>
+                <ViewInvoicesIcon size={26} />
+              </View>
+              <Text style={styles.mainActionLabel}>View Invoices</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
+              <View style={styles.mainActionIconWrap}>
+                <InvoiceHistoryIcon size={26} />
+              </View>
+              <Text style={styles.mainActionLabel}>Invoice History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
+              <View style={styles.mainActionIconWrap}>
+                <GstInvoiceIcon size={26} />
+              </View>
+              <Text style={styles.mainActionLabel}>GST Invoice</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Recent Invoices */}
+          <Text style={styles.mainSectionTitle}>Recent Invoices</Text>
+          <TouchableOpacity
+            style={styles.mainInvoiceCard}
+            onPress={() => onNavigateToInvoiceDetail('INV-2026-001245')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.mainInvoiceTop}>
+              <Text style={styles.mainInvoiceNumber}>INV-2026-001245</Text>
+              <View style={styles.mainBadgeGenerated}>
+                <Text style={styles.mainBadgeText}>Generated</Text>
+              </View>
+            </View>
+
+            <Text style={styles.mainCustomerName}>Arun Kumar</Text>
+
+            <View style={styles.mainCardDivider} />
+
+            <View style={styles.mainInvoiceBottom}>
+              <Text style={styles.mainOrderId}>ORD-2026-00982</Text>
+              <Text style={styles.mainAmount}>₹2,100</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      </BillingScreen>
+    );
+  }
 
   return (
     <BillingScreen
@@ -302,4 +443,125 @@ const styles = StyleSheet.create({
   invoiceAmount: { ...adminType.sectionHead, color: adminColors.ink },
   recentActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
   emptyText: { ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.lg },
+
+  // Main Warehouse Dashboard Styles
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  mainKpiCard: {
+    width: '48.4%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8DED5',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+  },
+  mainKpiLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#6B6560',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  mainKpiValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E1612',
+    lineHeight: 28,
+  },
+  mainSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#8A5A30',
+    marginBottom: 10,
+  },
+  mainActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  mainActionCard: {
+    width: '48.4%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8DED5',
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainActionIconWrap: {
+    marginBottom: 8,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainActionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E1612',
+    textAlign: 'center',
+  },
+  mainInvoiceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8DED5',
+    padding: 16,
+    marginBottom: 16,
+  },
+  mainInvoiceTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  mainInvoiceNumber: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E1612',
+  },
+  mainBadgeGenerated: {
+    backgroundColor: '#E6F4EA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  mainBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#137333',
+  },
+  mainCustomerName: {
+    fontSize: 12,
+    color: '#6B6560',
+    marginBottom: 10,
+  },
+  mainCardDivider: {
+    height: 1,
+    backgroundColor: '#F0E7DD',
+    marginBottom: 10,
+  },
+  mainInvoiceBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  mainOrderId: {
+    fontSize: 12,
+    color: '#6B6560',
+  },
+  mainAmount: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E1612',
+  },
 });
