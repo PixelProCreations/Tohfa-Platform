@@ -8,20 +8,34 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
+  Platform,
 } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { SWAHeader } from '../../swa/components';
 
 export type StockAdjustmentRequestScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function DownArrowRedIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M6 14l6 6 6-6" stroke={adminColors.danger.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 4v16M6 14l6 6 6-6" stroke="#EF4444" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -29,8 +43,8 @@ function DownArrowRedIcon() {
 function RadioSelectedIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={adminColors.brand} strokeWidth="2.2" fill={adminColors.card} />
-      <Circle cx="12" cy="12" r="4.5" fill={adminColors.brand} />
+      <Circle cx="12" cy="12" r="10" stroke="#F0562A" strokeWidth="2.2" fill="#FFFFFF" />
+      <Circle cx="12" cy="12" r="4.5" fill="#F0562A" />
     </Svg>
   );
 }
@@ -38,25 +52,25 @@ function RadioSelectedIcon() {
 function RadioUnselectedIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={adminColors.placeholder} strokeWidth="1.8" fill={adminColors.card} />
+      <Circle cx="12" cy="12" r="10" stroke="#D4D4D8" strokeWidth="1.8" fill="#FFFFFF" />
     </Svg>
   );
 }
 
 function CameraAddIcon() {
   return (
-    <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
         d="M19 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l1.5-2.5h4"
-        stroke={adminColors.muted}
+        stroke="#71717A"
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="11" cy="14" r="3.5" stroke={adminColors.muted} strokeWidth="1.8" />
+      <Circle cx="11" cy="14" r="3.5" stroke="#71717A" strokeWidth="1.8" />
       <Path
         d="M18 4v5M15.5 6.5h5"
-        stroke={adminColors.muted}
+        stroke="#71717A"
         strokeWidth="1.8"
         strokeLinecap="round"
       />
@@ -69,15 +83,15 @@ function SendPlaneWhiteIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 4l19 8-19 8 5-8-5-8z"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M8 12h14"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
+        stroke="#FFFFFF"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -100,13 +114,30 @@ export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routePar
   const [notes, setNotes] = useState('');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <SWAHeader
-          title="Stock Adjustment Request"
-          onBack={onBack}
-        />
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
 
+      {/* Top SafeArea for Header */}
+      <SafeAreaView style={styles.topSafeArea}>
+        <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Back"
+              >
+                <BackArrowIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>Stock Adjustment Request</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+
+      <View style={styles.body}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Top 3 Quantity Summary Cards */}
           <View style={styles.summaryRow}>
@@ -120,7 +151,7 @@ export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routePar
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryValueRed}>-5 KG</Text>
-              <Text style={styles.summaryLabelRed}>VARIANCE</Text>
+              <Text style={styles.summaryLabel}>VARIANCE</Text>
             </View>
           </View>
 
@@ -164,8 +195,7 @@ export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routePar
               style={styles.notesInput}
               multiline
               numberOfLines={4}
-              placeholder="Add additional notes about this adjustment..."
-              placeholderTextColor={adminColors.muted}
+              placeholder=""
               value={notes}
               onChangeText={setNotes}
             />
@@ -184,30 +214,57 @@ export function StockAdjustmentRequestScreen({ can, onNavigate, onBack, routePar
 
         {/* Fixed Submit Button at Bottom (only with stock_adjustment.create) */}
         {canCreateAdjustment ? (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.submitBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M3S17', { ...(routeParams ?? {}), reason: selectedReason, notes, submitted: true })}
-          >
-            <SendPlaneWhiteIcon />
-            <Text style={styles.submitBtnText}>Submit Adjustment Request</Text>
-          </TouchableOpacity>
-        </View>
+          <SafeAreaView style={styles.bottomSafeArea}>
+            <View style={styles.bottomBar}>
+              <TouchableOpacity
+                style={styles.submitBtn}
+                activeOpacity={0.85}
+                onPress={() => onNavigate?.('M3S17', { ...(routeParams ?? {}), reason: selectedReason, notes, submitted: true })}
+              >
+                <SendPlaneWhiteIcon />
+                <Text style={styles.submitBtnText}>Submit Adjustment Request</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         ) : null}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     flex: 1,
-    backgroundColor: adminColors.brand,
+    backgroundColor: '#F0562A',
   },
-  container: {
+  topSafeArea: {
+    backgroundColor: '#F0562A',
+  },
+  header: {
+    backgroundColor: '#F0562A',
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  body: {
     flex: 1,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: '#FAF7F2',
   },
   content: {
     flex: 1,
@@ -217,144 +274,161 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 14,
+    borderColor: '#EAE6DF',
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 2,
   },
   summaryLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    letterSpacing: 0.5,
-    marginTop: 2,
+    fontFamily: 'Poppins',
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#5C6B62',
+    letterSpacing: 0.8,
   },
   summaryValueRed: {
-    ...adminType.kpiValue,
-    color: adminColors.danger.text,
-  },
-  summaryLabelRed: {
-    ...adminType.caption,
-    color: adminColors.danger.text,
-    letterSpacing: 0.5,
-    marginTop: 2,
+    fontFamily: 'Poppins',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#EF4444',
+    marginBottom: 2,
   },
   sectionHeader: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#18181B',
     marginBottom: 8,
-    marginTop: 6,
   },
   adjustmentBadge: {
-    backgroundColor: adminColors.danger.bg,
+    backgroundColor: '#FEE2E2',
     borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   adjustmentBadgeText: {
-    ...adminType.sectionHead,
-    color: adminColors.danger.text,
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EF4444',
     letterSpacing: 0.3,
   },
   reasonHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginBottom: 8,
   },
   requiredText: {
-    ...adminType.body,
-    color: adminColors.muted,
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#71717A',
   },
   reasonsCard: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#EAE6DF',
     overflow: 'hidden',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   reasonRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 13,
+    paddingVertical: 11,
     paddingHorizontal: 16,
   },
   reasonBorderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: adminColors.canvas,
+    borderBottomColor: '#F4F1EA',
   },
   reasonText: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#18181B',
   },
   notesBox: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    height: 84,
+    borderColor: '#EAE6DF',
+    height: 68,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   notesInput: {
-    ...adminType.body,
-    flex: 1,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#18181B',
     textAlignVertical: 'top',
     padding: 0,
+    flex: 1,
   },
   evidenceBox: {
-    width: 76,
-    height: 76,
+    width: 68,
+    height: 68,
     borderRadius: 16,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: adminColors.placeholder,
-    backgroundColor: adminColors.card,
+    borderColor: '#D4D4D8',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   evidenceText: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginTop: 5,
+    fontFamily: 'Poppins',
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#71717A',
+    marginTop: 4,
+  },
+  bottomSafeArea: {
+    backgroundColor: '#FAF7F2',
   },
   bottomBar: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    paddingTop: 8,
-    backgroundColor: adminColors.canvas,
+    paddingBottom: Platform.OS === 'android' ? 16 : 12,
+    paddingTop: 6,
+    backgroundColor: '#FAF7F2',
   },
   submitBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: 14,
-    height: 50,
+    backgroundColor: '#F0562A',
+    borderRadius: 16,
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    ...adminShadow.sm,
   },
   submitBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.onBrand,
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
+

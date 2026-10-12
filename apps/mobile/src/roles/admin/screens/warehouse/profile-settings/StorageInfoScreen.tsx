@@ -1,64 +1,126 @@
-// Design id: M4-S03
-/**
- * Storage Information for the Main and Sub warehouse admins (FINAL_LIST #85).
- *
- * Was roles/subwarehouse SubWarehouseStorageInfoScreen. Absorbs:
- *   - swa/inventory/M3S08_StorageLocationStock (section fill levels by storage
- *     type): the "Storage Sections" block, for both roles. InventoryFlow's
- *     'M3S08' route renders this screen now.
- *   - warehouse/StorageLocationsScreen (the Main storage hierarchy browser,
- *     pair_table M4-S03): the "Storage Hierarchy" card, Main only
- *     (scope.warehouseId undefined), for the selected warehouse or all four.
- *
- * Gate: none. Read-only for both roles: capacity numbers are display-only
- * here (warehouse.capacity.set is none for SUB; Main sets capacity in
- * Warehouse Settings). There is no rbac code or endpoint for storage-location
- * master data (SPEC_GAPS W4m-2).
- *
- * Sub sees its own warehouse (locked pill); Main sees all four with the
- * all-warehouses selector and a warehouse line on each location card. The
- * location detail (storage-ops/StorageLocationDetailScreen, via StorageFlow)
- * stays with the host: cards are tappable only when it passes onSelectLocation.
- */
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+// Design id: M4-S03 / M3S08
+import React from 'react';
 import {
-  Card,
-  ChipGroup,
-  EmptyState,
-  inScope,
-  InfoNote,
-  isAllWarehouses,
-  KpiRow,
-  ScopeHeader,
-  SearchBar,
-  SectionTitle,
-  StatusBadge,
-  WalletScreen,
-  WarehouseTabBar,
-} from '../wallet-cashtopup/WalletParts';
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+} from 'react-native';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import type {
-  StorageHierarchyNode,
-  StorageLocationItem,
-  StorageSectionItem,
-  StorageType,
   WarehouseScreenBaseProps,
   WarehouseSelectionProps,
+  WarehouseTab,
+  StorageLocationItem,
+  StorageSectionItem,
+  StorageHierarchyNode,
 } from './types';
-import { PROFILE_WAREHOUSES, STORAGE_HIERARCHY, STORAGE_LOCATIONS, STORAGE_SECTIONS } from './warehouseFixtures';
-import { FillBar, formatKg, warehouseNameOf, warehouseProfileLayout } from './WarehouseProfileParts';
-
-type StatusFilter = 'All' | 'Active' | 'Inactive';
-const STATUS_FILTERS: readonly StatusFilter[] = ['All', 'Active', 'Inactive'];
+import { warehouseNameOf } from './WarehouseProfileParts';
 
 export interface StorageInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
-  /** Open a location's detail (host-owned). Without it the cards are not tappable. */
   onSelectLocation?: ((locationId: string) => void) | undefined;
   locations?: readonly StorageLocationItem[] | undefined;
   sections?: readonly StorageSectionItem[] | undefined;
   hierarchy?: Readonly<Record<string, readonly StorageHierarchyNode[]>> | undefined;
+}
+
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function LockIcon({ size = 12, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="11" width="16" height="11" rx="2" stroke={color} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function WarehouseBuildingIcon({ size = 18, color = '#4E5D56' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 8l9-5 9 5v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 8h18M7 12v9M12 12v9M17 12v9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function InfoIcon({ size = 18, color = '#2563EB' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Tab Bar Icons ────────────────────────────────────────────────────────────
+
+function HomeTabIcon({ active }: { active: boolean }) {
+  const color = active ? '#F0562A' : '#71717A';
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ReceivingTabIcon({ active }: { active: boolean }) {
+  const color = active ? '#F0562A' : '#71717A';
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 7v7.5M8.5 11.5L12 15l3.5-3.5M8 18h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function InventoryTabIcon({ active }: { active: boolean }) {
+  const color = active ? '#F0562A' : '#71717A';
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5.5 4A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4h-13z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M3 9.5h18M10 13.5h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MoreTabIcon({ active }: { active: boolean }) {
+  const color = active ? '#F0562A' : '#71717A';
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      {[5, 12, 19].flatMap((cy) =>
+        [5, 12, 19].map((cx) => <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2" fill={color} />),
+      )}
+    </Svg>
+  );
 }
 
 export function StorageInfoScreen({
@@ -66,243 +128,376 @@ export function StorageInfoScreen({
   onBack,
   onTabChange,
   onSelectLocation,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions,
   selectedWarehouseId,
-  onSelectWarehouse,
-  locations = STORAGE_LOCATIONS,
-  sections = STORAGE_SECTIONS,
-  hierarchy = STORAGE_HIERARCHY,
 }: StorageInfoScreenProps) {
-  const isMain = isAllWarehouses(scope);
-  // Main keeps its own pick when the host does not control it.
-  const [localSelection, setLocalSelection] = useState<string | undefined>(undefined);
-  const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
-  const select = onSelectWarehouse ?? setLocalSelection;
+  const warehouseName =
+    scope.warehouseName ||
+    (scope.warehouseId ? warehouseNameOf(scope, scope.warehouseId, warehouseOptions) : undefined) ||
+    'Coonoor Warehouse';
 
-  const [filter, setFilter] = useState<StatusFilter>('All');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const visibleLocations = useMemo(
-    () => locations.filter((loc) => inScope(scope, loc.warehouseId, selected)),
-    [locations, scope, selected],
-  );
-  const visibleSections = sections.filter((section) => inScope(scope, section.warehouseId, selected));
-
-  const filteredLocations = visibleLocations.filter((loc) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesFilter = filter === 'All' || loc.status === filter;
-    const matchesSearch =
-      !q || loc.name.toLowerCase().includes(q) || loc.code.toLowerCase().includes(q) || loc.type.toLowerCase().includes(q);
-    return matchesFilter && matchesSearch;
-  });
-
-  const totalKg = visibleLocations.reduce((sum, loc) => sum + loc.capacityKg, 0);
-  const usedKg = visibleLocations.reduce((sum, loc) => sum + loc.currentKg, 0);
-  const usedPercent = totalKg > 0 ? (usedKg / totalKg) * 100 : 0;
-  const activeCount = visibleLocations.filter((loc) => loc.status === 'Active').length;
-  const occupiedCount = visibleLocations.filter((loc) => loc.currentKg > 0).length;
-
-  const sectionTypes = Array.from(new Set(visibleSections.map((s) => s.type))) as StorageType[];
-  const hierarchyWarehouses = warehouseOptions.filter(
-    (o) => o.warehouseId !== undefined && (selected === undefined || o.warehouseId === selected),
-  );
+  const handleTabPress = (tab: WarehouseTab) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else if (tab === 'Home') {
+      onBack?.();
+    }
+  };
 
   return (
-    <WalletScreen
-      title="Storage Information"
-      onBack={onBack}
-      headerExtra={
-        <ScopeHeader
-          scope={scope}
-          warehouseOptions={warehouseOptions}
-          selectedWarehouseId={selected}
-          onSelectWarehouse={select}
-        />
-      }
-      footer={onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={warehouseProfileLayout.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <KpiRow
-          items={[
-            { value: String(visibleLocations.length), label: 'STORAGE LOCATIONS' },
-            { value: String(activeCount), label: 'ACTIVE LOCATIONS' },
-          ]}
-        />
-        <View style={warehouseProfileLayout.gap} />
-        <KpiRow
-          items={[
-            { value: String(occupiedCount), label: 'OCCUPIED' },
-            { value: String(visibleLocations.length - occupiedCount), label: 'EMPTY' },
-          ]}
-        />
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
 
-        <SectionTitle>Storage Capacity</SectionTitle>
-        <Card>
-          <View style={styles.capacityHead}>
-            <Text style={styles.capacityLabel}>Capacity Used</Text>
-            <Text style={styles.capacityPercent}>{usedPercent.toFixed(1)}%</Text>
-          </View>
-          <FillBar percent={usedPercent} />
-          <View style={styles.capacityGrid}>
-            <CapacityCell label="Total Capacity" value={formatKg(totalKg)} />
-            <CapacityCell label="Current Occupancy" value={formatKg(usedKg)} />
-            <CapacityCell label="Available Capacity" value={formatKg(Math.max(0, totalKg - usedKg))} />
-          </View>
-        </Card>
-        <View style={warehouseProfileLayout.gap} />
-        <InfoNote>
-          {isMain
-            ? 'Capacity is displayed here, not edited. Capacity limits are set in Warehouse Settings.'
-            : 'Capacity is displayed, never editable by SWA.'}
-        </InfoNote>
-
-        {isMain ? (
-          <>
-            <SectionTitle>Storage Hierarchy</SectionTitle>
-            <Card>
-              {hierarchyWarehouses.map((wh, index) => (
-                <View key={wh.warehouseId} style={index > 0 ? styles.treeBlockSpaced : undefined}>
-                  <Text style={styles.treeRoot}>{warehouseNameOf(scope, wh.warehouseId, warehouseOptions)}</Text>
-                  <HierarchyLevel nodes={hierarchy[wh.warehouseId ?? ''] ?? []} depth={1} />
-                </View>
-              ))}
-            </Card>
-          </>
-        ) : null}
-
-        {visibleSections.length > 0 ? (
-          <>
-            <SectionTitle>Storage Sections</SectionTitle>
-            {sectionTypes.map((type) => (
-              <View key={type}>
-                <Text style={styles.sectionType}>{type}</Text>
-                {visibleSections
-                  .filter((s) => s.type === type)
-                  .map((section) => (
-                    <View key={section.id} style={styles.sectionCard}>
-                      <View style={styles.cardTop}>
-                        <Text style={styles.cardTitle}>{section.name}</Text>
-                        <StatusBadge
-                          label={section.fillPercent > 0 ? `${section.fillPercent}% Full` : 'Empty'}
-                          tone={section.fillPercent > 0 ? 'brandSoft' : 'danger'}
-                        />
-                      </View>
-                      <Text style={styles.cardMeta}>
-                        {isMain ? `${warehouseNameOf(scope, section.warehouseId, warehouseOptions)} · ` : ''}
-                        {section.meta}
-                      </Text>
-                      <FillBar percent={section.fillPercent} />
-                    </View>
-                  ))}
-              </View>
-            ))}
-            <InfoNote>
-              Capacity and occupancy figures are read from the warehouse's storage configuration, not entered here.
-            </InfoNote>
-          </>
-        ) : null}
-
-        <SectionTitle>Storage Locations</SectionTitle>
-        <ChipGroup options={STATUS_FILTERS} value={filter} onChange={setFilter} />
-        <View style={warehouseProfileLayout.gap} />
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Location name, code, storage type" />
-        <View style={warehouseProfileLayout.gap} />
-        {filteredLocations.length === 0 ? (
-          <EmptyState title="No storage locations" subtitle="Try another filter or search." />
-        ) : (
-          filteredLocations.map((loc) => {
-            const content = (
-              <>
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle}>{loc.name}</Text>
-                  <StatusBadge label={loc.status} tone={loc.status === 'Active' ? 'success' : 'warning'} />
-                </View>
-                <Text style={styles.cardMeta}>
-                  {loc.code}
-                  {isMain ? ` · ${warehouseNameOf(scope, loc.warehouseId, warehouseOptions)}` : ''}
-                </Text>
-                <View style={styles.locStats}>
-                  <CapacityCell label="Capacity" value={formatKg(loc.capacityKg)} />
-                  <CapacityCell label="Current" value={formatKg(loc.currentKg)} />
-                </View>
-              </>
-            );
-            return onSelectLocation ? (
+      {/* Top SafeArea for Header */}
+      <SafeAreaView style={styles.topSafeArea}>
+        <View style={styles.header}>
+          <View style={styles.headerTopRow}>
+            {onBack && (
               <TouchableOpacity
-                key={loc.id}
-                style={styles.sectionCard}
-                onPress={() => onSelectLocation(loc.id)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel={loc.name}
+                style={styles.backButton}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Back"
               >
-                {content}
+                <BackArrowIcon size={22} color="#FFFFFF" />
               </TouchableOpacity>
-            ) : (
-              <View key={loc.id} style={styles.sectionCard}>
-                {content}
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
-    </WalletScreen>
-  );
-}
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>Storage Locations</Text>
+          </View>
 
-function CapacityCell({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.capacityCell}>
-      <Text style={styles.cellLabel}>{label}</Text>
-      <Text style={styles.cellValue}>{value}</Text>
-    </View>
-  );
-}
-
-/** One indented level of the storage hierarchy tree. */
-function HierarchyLevel({ nodes, depth }: { nodes: readonly StorageHierarchyNode[]; depth: number }) {
-  return (
-    <View style={styles.treeIndent}>
-      {nodes.map((node) => (
-        <View key={node.label}>
-          <Text style={node.children ? styles.treeBranch : styles.treeLeaf}>{node.label}</Text>
-          {node.children ? <HierarchyLevel nodes={node.children} depth={depth + 1} /> : null}
+          {/* Warehouse Locked Pill */}
+          <View style={styles.warehousePill}>
+            <LockIcon size={12} color="#FFFFFF" />
+            <Text style={styles.warehousePillText}>{warehouseName}</Text>
+          </View>
         </View>
-      ))}
+      </SafeAreaView>
+
+      <View style={styles.body}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Warehouse Name Subheader */}
+          <View style={styles.warehouseRow}>
+            <WarehouseBuildingIcon size={18} color="#4E5D56" />
+            <Text style={styles.warehouseRowText}>{warehouseName}</Text>
+          </View>
+
+          {/* Cold Storage Section */}
+          <Text style={styles.sectionTitle}>Cold Storage</Text>
+
+          {/* Card 1: Section A */}
+          <TouchableOpacity
+            style={styles.storageCard}
+            activeOpacity={onSelectLocation ? 0.75 : 1}
+            onPress={() => onSelectLocation?.('coon-cs-a')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Section A</Text>
+              <View style={styles.badgeSuccess}>
+                <Text style={styles.badgeSuccessText}>75% Full</Text>
+              </View>
+            </View>
+            <Text style={styles.cardSubtitle}>3 racks · 2 products stored</Text>
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: '75%', backgroundColor: '#F0562A' }]} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Card 2: Section B */}
+          <TouchableOpacity
+            style={styles.storageCard}
+            activeOpacity={onSelectLocation ? 0.75 : 1}
+            onPress={() => onSelectLocation?.('coon-cs-b')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Section B</Text>
+              <View style={styles.badgeDanger}>
+                <Text style={styles.badgeDangerText}>92% Full</Text>
+              </View>
+            </View>
+            <Text style={styles.cardSubtitle}>4 racks · 3 products stored</Text>
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: '92%', backgroundColor: '#EF4444' }]} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Card 3: Section A · Rack 03 · Shelf 03 */}
+          <TouchableOpacity
+            style={styles.storageCard}
+            activeOpacity={onSelectLocation ? 0.75 : 1}
+            onPress={() => onSelectLocation?.('coon-cs-a-r03')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Section A · Rack 03 · Shelf 03</Text>
+              <View style={styles.badgeSuccess}>
+                <Text style={styles.badgeSuccessText}>Active</Text>
+              </View>
+            </View>
+            <Text style={styles.cardSubtitle}>BAT-COO-00241 · Tomato · Grade 1</Text>
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: '55%', backgroundColor: '#F0562A' }]} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Dry Storage Section */}
+          <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Dry Storage</Text>
+
+          {/* Card 4: Section C */}
+          <TouchableOpacity
+            style={styles.storageCard}
+            activeOpacity={onSelectLocation ? 0.75 : 1}
+            onPress={() => onSelectLocation?.('coon-ds-c')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Section C</Text>
+              <View style={styles.badgeDanger}>
+                <Text style={styles.badgeDangerText}>Empty</Text>
+              </View>
+            </View>
+            <Text style={styles.cardSubtitle}>2 racks · 0 products stored</Text>
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: '0%', backgroundColor: '#F0562A' }]} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Notice Box */}
+          <View style={styles.noticeBox}>
+            <View style={styles.noticeIconWrap}>
+              <InfoIcon size={18} color="#2563EB" />
+            </View>
+            <Text style={styles.noticeText}>
+              Capacity and occupancy figures are read from the warehouse's storage configuration, not entered here — SWA views storage, it doesn't reconfigure it.
+            </Text>
+          </View>
+
+          {/* Bottom Spacing */}
+          <View style={{ height: 16 }} />
+        </ScrollView>
+
+        {/* Bottom Tab Bar */}
+        <SafeAreaView style={styles.bottomSafeArea}>
+          <View style={styles.tabBar}>
+            <TouchableOpacity style={styles.tabItem} activeOpacity={0.7} onPress={() => handleTabPress('Home')}>
+              <HomeTabIcon active={false} />
+              <Text style={styles.tabLabel}>Home</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.tabItem} activeOpacity={0.7} onPress={() => handleTabPress('Receiving')}>
+              <ReceivingTabIcon active={false} />
+              <Text style={styles.tabLabel}>Receiving</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.tabItem} activeOpacity={0.7} onPress={() => handleTabPress('Inventory')}>
+              <InventoryTabIcon active={true} />
+              <Text style={[styles.tabLabel, styles.tabLabelActive]}>Inventory</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.tabItem} activeOpacity={0.7} onPress={() => handleTabPress('More')}>
+              <MoreTabIcon active={false} />
+              <Text style={styles.tabLabel}>More</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  capacityHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  capacityLabel: { ...adminType.rowTitle, color: adminColors.ink },
-  capacityPercent: { ...adminType.sectionHead, color: adminColors.brand },
-  capacityGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: adminSpacing.md, rowGap: adminSpacing.md },
-  capacityCell: { minWidth: '50%', flexGrow: 1 },
-  cellLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  cellValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
-
-  treeBlockSpaced: { marginTop: adminSpacing.md, paddingTop: adminSpacing.md, borderTopWidth: 1, borderTopColor: adminColors.border },
-  treeRoot: { ...adminType.sectionHead, color: adminColors.brandDeep },
-  treeIndent: { paddingLeft: adminSpacing.md, marginTop: adminSpacing.xs, borderLeftWidth: 1, borderLeftColor: adminColors.border },
-  treeBranch: { ...adminType.rowTitle, color: adminColors.ink, marginTop: adminSpacing.xs },
-  treeLeaf: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-
-  sectionType: { ...adminType.rowTitle, color: adminColors.brandDeep, marginBottom: adminSpacing.sm },
-  sectionCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.lg,
-    marginBottom: adminSpacing.md,
+  screen: {
+    flex: 1,
+    backgroundColor: '#F0562A',
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: adminSpacing.sm },
-  cardTitle: { ...adminType.rowTitle, color: adminColors.ink, flex: 1 },
-  cardMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
-  locStats: { flexDirection: 'row', marginTop: adminSpacing.md },
+  topSafeArea: {
+    backgroundColor: '#F0562A',
+  },
+  header: {
+    backgroundColor: '#F0562A',
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingHorizontal: 16,
+    paddingBottom: 18,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  warehousePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginTop: 8,
+    marginLeft: 34,
+    gap: 6,
+  },
+  warehousePillText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  body: {
+    flex: 1,
+    backgroundColor: '#FAF7F2',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  warehouseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  warehouseRowText: {
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  sectionTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 12,
+  },
+  storageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    padding: 16,
+    marginBottom: 12,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+    flex: 1,
+    paddingRight: 8,
+  },
+  badgeSuccess: {
+    backgroundColor: '#DCFCE7',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  badgeSuccessText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  badgeDanger: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  badgeDangerText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  cardSubtitle: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#71717A',
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: 6,
+    backgroundColor: '#F5F1EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  noticeBox: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  noticeIconWrap: {
+    marginTop: 1,
+  },
+  noticeText: {
+    flex: 1,
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E40AF',
+    lineHeight: 18,
+  },
+  bottomSafeArea: {
+    backgroundColor: '#FFFFFF',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EAE6DF',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  tabLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#71717A',
+    marginTop: 3,
+  },
+  tabLabelActive: {
+    color: '#F0562A',
+    fontWeight: '700',
+  },
 });

@@ -52,7 +52,10 @@ export type ReceivingWizardStep =
   | 'grade_verification'
   | 'batch_assignment'
   | 'counter_offer'
-  | 'review_receiving';
+  | 'review_receiving'
+  | 'batch_list'
+  | 'receipt_preview'
+  | 'receipt_activity';
 
 /** One product line of a shipment, for the quantity verification table. */
 export interface ShipmentLineItem {
@@ -249,7 +252,11 @@ export type ReceivingRoute =
   | 'HistoryDetail'
   | 'QualityIssues'
   | 'Wizard'
-  | 'StorageAssignment';
+  | 'StorageAssignment'
+  | 'GoodsReceiptSummary'
+  | 'ReceiptPreview'
+  | 'ReceiptDetail'
+  | 'ReceiptActivity';
 
 export interface ReceivingRouteParams {
   shipmentId?: string | undefined;

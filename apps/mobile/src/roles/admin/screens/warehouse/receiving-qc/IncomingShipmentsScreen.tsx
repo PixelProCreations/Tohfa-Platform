@@ -19,7 +19,6 @@ import {
   ChipGroup,
   EmptyState,
   HeaderIconButton,
-  InfoNote,
   ScopeHeader,
   SlidersIcon,
   StatusBadge,
@@ -125,12 +124,6 @@ export function IncomingShipmentsScreen({
           </View>
         ) : null}
 
-        {mainView ? (
-          <InfoNote tone="brandSoft">
-            Shipment Type is limited to two documented contexts: Farmer Admin → Main Warehouse (consolidated produce) and
-            Warehouse Transfer — no other type is invented.
-          </InfoNote>
-        ) : null}
 
         {rows.length === 0 ? <EmptyState title="No shipments" subtitle="Nothing matches this status and these filters." /> : null}
 
