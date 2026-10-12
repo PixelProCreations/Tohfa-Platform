@@ -127,6 +127,8 @@ export interface ApprovalAlertItem {
   warehouseName?: string | undefined;
   /** Related record; absent = nothing to open (e.g. an escalation note). */
   record?: AlertRecordTarget | undefined;
+  /** Display end of the viewer's own snooze (IST); absent when the alert is not snoozed. */
+  snoozedUntil?: string | undefined;
 }
 
 /** Routes of NotificationsFlow. The old App.tsx keys map onto these (NOTIFICATIONS_ROUTE_ENTRY). */

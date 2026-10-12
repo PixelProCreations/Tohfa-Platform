@@ -107,5 +107,31 @@
   "datetime.minutesAgo": "{{count}} minutes ago",
   "datetime.hourAgo": "1 hour ago",
   "datetime.hoursAgo": "{{count}} hours ago",
-  "datetime.daysAgo": "{{count}} days ago"
+  "datetime.daysAgo": "{{count}} days ago",
+
+  "alert.batch_near_expiry.title": "Batch near expiry",
+  "alert.batch_near_expiry.message": "Batch {{batchCode}} expires on {{expiryOn}} · {{qtyAvailableKg}} left",
+  "alert.low_stock.title": "Low stock",
+  "alert.low_stock.message": "Grade {{grade}} stock is {{totalQtyKg}}, below {{thresholdKg}}",
+  "alert.capacity_near_full.title": "Warehouse nearly full",
+  "alert.capacity_near_full.message": "{{utilizationPercent}}% used · {{usedKg}} of {{capacityKg}}",
+  "alert.unknown.title": "Warehouse alert",
+  "alert.unknown.message": "A warehouse condition needs attention.",
+
+  "alerts.filter.active": "Active",
+  "alerts.filter.snoozed": "Snoozed",
+  "alerts.dismiss": "Dismiss",
+  "alerts.snoozedUntil": "Snoozed until {{time}}",
+  "alerts.empty.active": "No alerts right now.",
+  "alerts.empty.snoozed": "No snoozed alerts.",
+  "alerts.actionFailed.title": "The alert could not be updated",
+
+  "notifications.title": "Notifications",
+  "notifications.markAllRead": "Mark all read",
+  "notifications.filter.all": "All",
+  "notifications.filter.unread": "Unread",
+  "notifications.empty.title": "All caught up",
+  "notifications.empty.subtitle": "New notifications will appear here.",
+  "notifications.empty.unread": "No unread notifications.",
+  "notifications.actionFailed.title": "Notifications could not be updated"
 }
