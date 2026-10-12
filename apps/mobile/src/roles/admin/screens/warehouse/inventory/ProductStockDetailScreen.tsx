@@ -1,13 +1,35 @@
 // Design id: M3S03
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type {
+  AllocationChannelKey,
+  AllocationDashboard,
+  InventoryLiveStateProps,
+  InventoryScreenBaseProps,
+  ProductStock,
+  StockLevel,
+} from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
-import { SAMPLE_PRODUCT_STOCK_DETAIL } from './fixtures';
 
-export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
+export interface ProductStockDetailScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The product named by the route's cropId + grade; undefined when the warehouse has none of it. */
+  product?: ProductStock | undefined;
+  /** This product's channel allocations. */
+  allocation?: AllocationDashboard | undefined;
+}
+
+const LEVEL_LABEL = {
+  inStock: 'inventory.level.inStock',
+  low: 'inventory.level.low',
+  out: 'inventory.level.out',
+} as const satisfies Record<StockLevel, string>;
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 
@@ -49,38 +71,78 @@ function ActionVerifyIcon({ color = adminColors.brand }: { color?: string }) {
   );
 }
 
-export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductStockDetailScreenProps) {
+export function ProductStockDetailScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  product,
+  allocation,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+}: ProductStockDetailScreenProps) {
+  // Stock verification has no server API (availability.ts), so its action is hidden.
+  const canVerify = isAreaAvailable('stockCounts', can);
+  const view = queryViewState({ isLoading, error, itemCount: product === undefined ? 0 : 1 });
+  const channel = (key: AllocationChannelKey) => {
+    const grams = allocation?.channels.find((c) => c.channel === key)?.allocatedGrams;
+    return grams === undefined ? t('inventory.noValue') : formatKg(grams);
+  };
+  const productRef = product === undefined ? undefined : { cropId: product.cropId, grade: product.grade };
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title={SAMPLE_PRODUCT_STOCK_DETAIL.name}
-          subtitle={SAMPLE_PRODUCT_STOCK_DETAIL.grade}
+          title={product?.productName ?? ''}
+          subtitle={product?.gradeLabel}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
           badge={
-            <View style={styles.availableBadge}>
-              <Text style={styles.availableBadgeText}>Available</Text>
-            </View>
+            product === undefined ? undefined : (
+              <View style={styles.availableBadge}>
+                <Text style={styles.availableBadgeText}>{t(LEVEL_LABEL[product.level])}</Text>
+              </View>
+            )
           }
         />
         
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
+        >
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+          {view === 'empty' ? <AdminEmptyState title={t('inventory.product.notFound')} /> : null}
+          {product === undefined ? null : (
+          <>
           {/* Stock Summary - 3 Separate White Cards */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stock Summary</Text>
             <View style={styles.summaryCards}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.available}</Text>
+                <Text style={styles.summaryValue}>{formatKg(product.availableGrams)}</Text>
                 <Text style={styles.summaryLabel}>AVAILABLE</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.reserved}</Text>
+                <Text style={styles.summaryValue}>{formatKg(product.reservedGrams)}</Text>
                 <Text style={styles.summaryLabel}>RESERVED</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.allocated}</Text>
+                <Text style={styles.summaryValue}>{product.allocatedGrams === null ? t('inventory.noValue') : formatKg(product.allocatedGrams)}</Text>
                 <Text style={styles.summaryLabel}>ALLOCATED</Text>
               </View>
             </View>
@@ -93,21 +155,21 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>ONLINE</Text>
-                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.online}</Text>
+                  <Text style={styles.allocationValue}>{channel('online')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>LIVE MARKET</Text>
-                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.liveMarket}</Text>
+                  <Text style={styles.allocationValue}>{channel('liveMarket')}</Text>
                 </View>
               </View>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>RESERVE</Text>
-                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.reserve}</Text>
+                  <Text style={styles.allocationValue}>{channel('reserve')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>BUFFER</Text>
-                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.buffer}</Text>
+                  <Text style={styles.allocationValue}>{channel('buffer')}</Text>
                 </View>
               </View>
             </View>
@@ -120,16 +182,16 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
               <View style={styles.infoRowTop}>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Active Batches</Text>
-                  <Text style={styles.infoValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.activeBatches}</Text>
+                  <Text style={styles.infoValue}>{product.activeBatchCount}</Text>
                 </View>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Storage Locations</Text>
-                  <Text style={styles.infoValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.storageLocations}</Text>
+                  <Text style={styles.infoValue}>{product.storageLocations.length}</Text>
                 </View>
               </View>
               <View style={styles.primaryStorageRow}>
                 <Text style={styles.infoLabel}>Primary Storage</Text>
-                <Text style={styles.primaryStorageValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.primaryStorage}</Text>
+                <Text style={styles.primaryStorageValue}>{product.primaryStorage ?? t('inventory.noValue')}</Text>
               </View>
             </View>
           </View>
@@ -140,7 +202,7 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
             
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => onNavigate?.('M3S04')}
+              onPress={() => onNavigate?.('M3S04', productRef)}
               activeOpacity={0.7}
             >
               <ActionBatchesIcon color={adminColors.brandDeep} />
@@ -165,6 +227,7 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
               <Text style={styles.actionButtonText}>View Storage Locations</Text>
             </TouchableOpacity>
 
+            {canVerify ? (
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => onNavigate?.('M3S10')}
@@ -173,7 +236,10 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
               <ActionVerifyIcon color={adminColors.brandDeep} />
               <Text style={styles.actionButtonText}>Verify Stock</Text>
             </TouchableOpacity>
+            ) : null}
           </View>
+          </>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>

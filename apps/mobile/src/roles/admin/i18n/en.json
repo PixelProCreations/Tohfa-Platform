@@ -161,5 +161,20 @@
   "inventory.channel.liveMarket": "Live market",
   "inventory.channel.reserve": "Reserve",
   "inventory.channel.buffer": "Buffer",
-  "inventory.channel.unknown": "Other"
+  "inventory.channel.unknown": "Other",
+  "inventory.noValue": "—",
+  "inventory.totals.incomplete": "Some stock could not be read, so these totals may be incomplete.",
+  "inventory.empty.stock": "No stock in this warehouse yet.",
+  "inventory.empty.search": "No products match your search.",
+  "inventory.empty.batches": "No batches found.",
+  "inventory.empty.ledger": "No stock movements yet.",
+  "inventory.empty.allocations": "Nothing is allocated yet.",
+  "inventory.empty.lowStock": "No products are below the low-stock threshold.",
+  "inventory.batch.notFound": "This batch could not be found.",
+  "inventory.batch.availableCaption": "AVAILABLE",
+  "inventory.level.inStock": "In stock",
+  "inventory.level.low": "Low stock",
+  "inventory.level.out": "Out of stock",
+  "inventory.product.notFound": "This product has no stock in this warehouse.",
+  "inventory.batch.receivedOn": "Received {{date}}"
 }

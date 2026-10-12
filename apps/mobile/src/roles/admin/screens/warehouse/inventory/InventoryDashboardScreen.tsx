@@ -1,14 +1,36 @@
 // Design id: M3S01
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
-import type { InventoryScreenBaseProps } from './types';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, StockLevel, StockSummary } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
-import { SAMPLE_INVENTORY_TOTALS, SAMPLE_TOP_STOCK_PRODUCTS } from './fixtures';
 
-export type InventoryDashboardScreenProps = InventoryScreenBaseProps;
+export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Stock per product over the ACTIVE batches (useStockSummary). */
+  summary?: StockSummary | undefined;
+  /** All allocation rows of the warehouse, summed; null = not known. */
+  allocatedGrams?: number | null | undefined;
+  /** LOW_STOCK alerts raised by the server for the warehouse; null = not known. */
+  lowStockCount?: number | null | undefined;
+  /** False when a walk stopped early or a quantity could not be read. */
+  complete?: boolean | undefined;
+}
+
+/** How many products "Top Stock Products" lists (a layout choice, not a business rule). */
+const TOP_PRODUCTS = 3;
+
+const LEVEL_LABEL = {
+  inStock: 'inventory.level.inStock',
+  low: 'inventory.level.low',
+  out: 'inventory.level.out',
+} as const satisfies Record<StockLevel, string>;
 
 // ─── Pixel-Perfect Custom SVGs matching Design Mockup ─────────────────────────
 
@@ -144,11 +166,26 @@ export function InventoryDashboardScreen({
   onNavigate,
   onTabChange,
   warehouseOptions,
+  selectedWarehouseId,
+  onSelectWarehouse,
+  summary,
+  allocatedGrams = null,
+  lowStockCount = null,
+  complete = true,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
 }: InventoryDashboardScreenProps) {
-  // Main (no warehouseId) gets the all-warehouses selector; Sub is locked to its own.
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
   // The ledger tile needs at least the own-warehouse ledger grant (rbac: MAIN all, SUB own).
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
+  // Stock verification has no server API (availability.ts), so its tile is hidden.
+  const canVerify = isAreaAvailable('stockCounts', can);
+  const products = summary?.products ?? [];
+  // An empty warehouse still shows its zero tiles; only loading and error replace them.
+  const view = queryViewState({ isLoading, error, itemCount: products.length });
+  const kg = (grams: number | null) => (grams === null ? t('inventory.noValue') : formatKg(grams));
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -192,19 +229,38 @@ export function InventoryDashboardScreen({
                 scope={scope}
                 options={warehouseOptions}
                 selectedId={selectedWarehouseId}
-                onSelect={setSelectedWarehouseId}
+                onSelect={(id) => onSelectWarehouse?.(id)}
               />
             )}
           </View>
         </View>
         
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
+        >
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+          <>
           {/* Total Available Stock - White Card with Brown Text */}
           <View style={styles.totalStockCard}>
-            <Text style={styles.totalStockValue}>{SAMPLE_INVENTORY_TOTALS.totalAvailable}</Text>
+            <Text style={styles.totalStockValue}>{kg(summary?.totalAvailableGrams ?? null)}</Text>
             <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
+            {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
           </View>
-
           {/* 6 Stats Grid - 2 columns x 3 rows (matching reference mockup exactly) */}
           <View style={styles.statsGrid}>
             {/* Row 1 Left: Available */}
@@ -214,7 +270,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatAvailableIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.available}</Text>
+              <Text style={styles.statValue}>{kg(summary?.totalAvailableGrams ?? null)}</Text>
               <Text style={styles.statLabel}>Available</Text>
             </TouchableOpacity>
 
@@ -225,7 +281,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatReservedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.reserved}</Text>
+              <Text style={styles.statValue}>{kg(summary?.totalReservedGrams ?? null)}</Text>
               <Text style={styles.statLabel}>Reserved</Text>
             </TouchableOpacity>
 
@@ -236,7 +292,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatAllocatedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.allocated}</Text>
+              <Text style={styles.statValue}>{kg(allocatedGrams)}</Text>
               <Text style={styles.statLabel}>Allocated</Text>
             </TouchableOpacity>
 
@@ -247,20 +303,22 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatLowStockIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.lowStockValue}>{SAMPLE_INVENTORY_TOTALS.lowStockCount}</Text>
+              <Text style={styles.lowStockValue}>{lowStockCount === null ? t('inventory.noValue') : String(lowStockCount).padStart(2, '0')}</Text>
               <Text style={styles.statLabel}>Low Stock</Text>
             </TouchableOpacity>
 
-            {/* Row 3 Left: Verification Pending */}
+            {/* Row 3 Left: Verification Pending (no API: hidden, availability.ts) */}
+            {canVerify ? (
             <TouchableOpacity 
               style={styles.statCard}
               onPress={() => onNavigate?.('M3S10')}
               activeOpacity={0.7}
             >
               <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.verificationPending}</Text>
+              <Text style={styles.statValue}>{t('inventory.noValue')}</Text>
               <Text style={styles.statLabel}>Verification Pending</Text>
             </TouchableOpacity>
+            ) : null}
 
             {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
             {canViewLedger ? (
@@ -285,45 +343,46 @@ export function InventoryDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            {SAMPLE_TOP_STOCK_PRODUCTS.map((product) => (
+            {products.length === 0 ? <AdminEmptyState title={t('inventory.empty.stock')} /> : null}
+            {products.slice(0, TOP_PRODUCTS).map((product) => (
               <TouchableOpacity
-                key={product.name}
+                key={product.key}
                 style={styles.productCard}
-                onPress={() => onNavigate?.(product.lowStock ? 'M3S09' : 'M3S03')}
+                onPress={() =>
+                  onNavigate?.(product.level === 'low' ? 'M3S09' : 'M3S03', { cropId: product.cropId, grade: product.grade })
+                }
                 activeOpacity={0.7}
               >
                 <View style={styles.productHeader}>
                   <View>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    <Text style={styles.productGrade}>{product.grade}</Text>
+                    <Text style={styles.productName}>{product.productName}</Text>
+                    <Text style={styles.productGrade}>{product.gradeLabel}</Text>
                   </View>
-                  {product.lowStock ? (
-                    <View style={styles.lowStockBadge}>
-                      <Text style={styles.lowStockBadgeText}>Low Stock</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.availableBadge}>
-                      <Text style={styles.availableBadgeText}>Available</Text>
-                    </View>
-                  )}
+                  <View style={product.level === 'inStock' ? styles.availableBadge : styles.lowStockBadge}>
+                    <Text style={product.level === 'inStock' ? styles.availableBadgeText : styles.lowStockBadgeText}>
+                      {t(LEVEL_LABEL[product.level])}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.productStats}>
                   <View style={styles.productStat}>
                     <Text style={styles.productStatLabel}>Available</Text>
-                    <Text style={styles.productStatValue}>{product.available}</Text>
+                    <Text style={styles.productStatValue}>{kg(product.availableGrams)}</Text>
                   </View>
                   <View style={styles.productStat}>
                     <Text style={styles.productStatLabel}>Reserved</Text>
-                    <Text style={styles.productStatValue}>{product.reserved}</Text>
+                    <Text style={styles.productStatValue}>{kg(product.reservedGrams)}</Text>
                   </View>
                   <View style={styles.productStat}>
                     <Text style={styles.productStatLabel}>Allocated</Text>
-                    <Text style={styles.productStatValue}>{product.allocated}</Text>
+                    <Text style={styles.productStatValue}>{kg(product.allocatedGrams)}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
+          </>
+          )}
         </ScrollView>
 
         <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
@@ -419,6 +478,12 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.muted,
     letterSpacing: 1.4,
+  },
+  incompleteNote: {
+    ...adminType.caption,
+    color: adminColors.warning.text,
+    marginTop: adminSpacing.sm,
+    textAlign: 'center',
   },
   // Stats Grid - 2 columns x 3 rows - WHITE background with subtle borders, LEFT-ALIGNED
   statsGrid: {

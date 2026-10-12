@@ -12,6 +12,12 @@
  *     (owner decision 2026-10-11, superseding the withdrawn
  *     `warehouse.staff.list_view`).
  *
+ *   - Two inventory areas have no server API either (API integration plan,
+ *     phase 3): stock adjustments (POST /admin/stock-adjustments is in the
+ *     spec but has no server route, and there is no list or approve endpoint)
+ *     and stock counts (physical count, stock verification and variance
+ *     review have no endpoint). Hidden the same way.
+ *
  * Hiding is display only. The server refuses what it has no route for, and
  * authorises everything else on the caller's token (root CLAUDE.md 2.1).
  */
@@ -24,6 +30,8 @@ export type WarehouseArea =
   | 'warehouseActivity'
   | 'warehouseDocuments'
   | 'interWarehouseTransfers'
+  | 'stockAdjustments'
+  | 'stockCounts'
   | 'staff';
 
 export const AREAS_WITHOUT_API: readonly WarehouseArea[] = [
@@ -32,6 +40,8 @@ export const AREAS_WITHOUT_API: readonly WarehouseArea[] = [
   'warehouseActivity',
   'warehouseDocuments',
   'interWarehouseTransfers',
+  'stockAdjustments',
+  'stockCounts',
 ];
 
 /** The docs/rbac.json code that lists the warehouse staff roster. */
@@ -62,4 +72,18 @@ export function storageRouteArea(route: string): WarehouseArea | undefined {
   return Object.prototype.hasOwnProperty.call(STORAGE_ROUTE_AREA, route)
     ? STORAGE_ROUTE_AREA[route as StorageRoute]
     : undefined;
+}
+
+/** The hidden area an inventory route (design id, InventoryFlow) belongs to. */
+const INVENTORY_ROUTE_AREA: Readonly<Record<string, WarehouseArea>> = {
+  M3S10: 'stockCounts', // stock verification
+  M3S11: 'stockCounts', // physical count
+  M3S12: 'stockCounts', // variance review
+  M3S13: 'stockAdjustments', // adjustment request
+  M3S14: 'stockAdjustments', // adjustment history
+  M3S17: 'stockAdjustments', // adjustment detail / approval
+};
+
+export function inventoryRouteArea(route: string): WarehouseArea | undefined {
+  return Object.prototype.hasOwnProperty.call(INVENTORY_ROUTE_AREA, route) ? INVENTORY_ROUTE_AREA[route] : undefined;
 }

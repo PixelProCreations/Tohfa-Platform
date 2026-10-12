@@ -166,6 +166,7 @@ import {
   type WarehouseScope,
   WarehouseScopeGate,
   isAreaAvailable,
+  inventoryRouteArea,
   storageRouteArea,
   type WarehouseArea,
   FinanceFlow,
@@ -798,13 +799,17 @@ const PROFILE_ROUTE_ENTRY: Partial<Record<ScreenName, ProfileRoute>> = {
 /**
  * The warehouse area a route key opens, for isAreaAvailable; undefined when the
  * key is not gated. Five areas have no API and Staff needs admin.staff.list_view
- * (owner decision 2), so navigate() refuses these keys even if a stale handler
- * or notification still points at one. The screens stay in the code.
+ * (owner decision 2), and the legacy inventory keys into stock counts and
+ * adjustments have no API either (phase 3), so navigate() refuses these keys
+ * even if a stale handler or notification still points at one. The screens
+ * stay in the code.
  */
 function warehouseAreaForScreen(screen: ScreenName): WarehouseArea | undefined {
   if (screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer') return 'interWarehouseTransfers';
   if (STAFF_ROUTE_ENTRY[screen] !== undefined) return 'staff';
   if (PROFILE_ROUTE_ENTRY[screen] === 'Documents') return 'warehouseDocuments';
+  const inventory = INVENTORY_ROUTE_ENTRY[screen];
+  if (inventory !== undefined) return inventoryRouteArea(inventory);
   const storage = STORAGE_ROUTE_ENTRY[screen];
   return storage !== undefined ? storageRouteArea(storage.route) : undefined;
 }
@@ -1156,7 +1161,8 @@ export default function App(): React.JSX.Element {
   const openSubWarehouseModule = useCallback(
     (module: ActivityModule) => {
       if (module === 'receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-      else if (module === 'verification') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' });
+      else if (module === 'verification' && isAreaAvailable('stockCounts', warehouseCan))
+        navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S10' });
       else if (module === 'storage') navigate('SubWarehouseStorageInfo');
       else if (module === 'orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
       else if (module === 'cash') navigate('SubWarehouseCashTopUp');

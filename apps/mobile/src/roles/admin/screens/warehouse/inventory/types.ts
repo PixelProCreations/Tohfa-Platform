@@ -14,6 +14,7 @@
  *   warehouse/StockAdjustmentApprovalScreen -> AdjustmentDetailScreen (M3S17)
  * Their Main-only content now renders when `scope.warehouseId` is undefined.
  */
+import type { Grade } from '../../../api/inventory';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses/types';
 
 export type {
@@ -24,8 +25,18 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 
-/** Route params passed between inventory screens. Loose on purpose: they come from deep links. */
+/**
+ * Route params passed between inventory screens. Loose on purpose: they come
+ * from deep links. The live screens read only these, through InventoryFlow:
+ * `cropId` + `grade` (a product), `batchId` (a batch uuid), `initialTab`.
+ */
 export type InventoryRouteParams = Record<string, any> | null;
+
+/** One product (crop + grade) as a route param. */
+export interface InventoryProductRef {
+  cropId: string;
+  grade: Grade;
+}
 
 /** Props every inventory screen takes: the warehouse base props plus optional route params. */
 export interface InventoryScreenBaseProps extends WarehouseScreenBaseProps {
@@ -36,6 +47,18 @@ export interface InventoryScreenBaseProps extends WarehouseScreenBaseProps {
    * Supplied by the host; the screens never hard-code warehouse names.
    */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
+  /** The Main selector's warehouse (undefined = all). Owned by InventoryFlow; ignored for a Sub scope. */
+  selectedWarehouseId?: string | undefined;
+  onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
+}
+
+/** The request state a live inventory screen draws (pick it with queryViewState). */
+export interface InventoryLiveStateProps {
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
 }
 
 // ─── Live inventory (./mappers.ts) ───────────────────────────────────────────
@@ -170,121 +193,6 @@ export interface LowStockRow {
 }
 
 // ─── Design-sample shapes (./fixtures.ts) ────────────────────────────────────
-// Display strings exactly as the design samples show them ('95 KG', 'Grade 1').
-
-/** One product row of the stock list sample (M3S02). */
-export interface SampleStockItem {
-  name: string;
-  grade: string;
-  status: 'Healthy Stock' | 'Low Stock' | 'Out of Stock';
-  available: string;
-  reserved: string;
-  allocated: string;
-}
-
-/** The inventory dashboard sample totals (M3S01). */
-export interface SampleInventoryTotals {
-  totalAvailable: string;
-  available: string;
-  reserved: string;
-  allocated: string;
-  lowStockCount: string;
-  verificationPending: string;
-}
-
-/** One "Top Stock Products" card of the inventory dashboard sample (M3S01). */
-export interface SampleTopStockProduct {
-  name: string;
-  grade: string;
-  lowStock: boolean;
-  available: string;
-  reserved: string;
-  allocated: string;
-}
-
-/** The product stock detail sample (M3S03). */
-export interface SampleProductStockDetail {
-  name: string;
-  grade: string;
-  available: string;
-  reserved: string;
-  allocated: string;
-  online: string;
-  liveMarket: string;
-  reserve: string;
-  buffer: string;
-  activeBatches: string;
-  storageLocations: string;
-  primaryStorage: string;
-}
-
-/** One batch card of the batch list sample (M3S04). */
-export interface SampleBatchListItem {
-  id: string;
-  product: string;
-  grade: string;
-  status: string;
-  available: string;
-  storage: string;
-  dateText: string;
-}
-
-/** The batch detail sample (M3S05). */
-export interface SampleBatchDetail {
-  batchCode: string;
-  product: string;
-  grade: string;
-  status: string;
-  storageLocation: string;
-  receivedQty: string;
-  availableQty: string;
-  receivedDate: string;
-  goodsReceipt: string;
-  sourceFarmer: string;
-  movementReceived: string;
-  movementDispatched: string;
-  movementReserved: string;
-}
-
-/** One batch row of the cross-warehouse batch list (absorbed Main StockLedgerScreen). */
-export interface StockBatchItem {
-  id: string;
-  name: string;
-  quantityKg: number;
-  batchId: string;
-  zone: string;
-  receivedDate: string;
-  warehouseName?: string | undefined;
-}
-
-/** One ledger card of the stock ledger sample (M3S06). Optional fields are drawn only when set. */
-export interface SampleLedgerMovement {
-  type: string;
-  quantity: string;
-  product: string;
-  time: string;
-  batch?: string | undefined;
-  order?: string | undefined;
-  ref?: string | undefined;
-  balance?: string | undefined;
-}
-
-/** One channel card of the stock allocation sample (M3S07). */
-export interface SampleAllocation {
-  channel: string;
-  allocated: string;
-  consumed: string;
-  reserved: string;
-  available: string;
-}
-
-/** One low-stock row. `warehouseName` is shown in the Main (all-warehouses) view. */
-export interface LowStockItem {
-  name: string;
-  available: string;
-  threshold: string;
-  warehouseName?: string | undefined;
-}
 
 /** One adjustment row. `warehouseId` is the warehouse the adjustment was created in. */
 export interface AdjustmentHistoryItem {

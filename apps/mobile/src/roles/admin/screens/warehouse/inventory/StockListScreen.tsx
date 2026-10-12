@@ -1,15 +1,38 @@
 // Design id: M3S02
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { adminColors, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, ProductStock, StockLevel } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
-import { SAMPLE_STOCK_ITEMS } from './fixtures';
 
-export interface StockListScreenProps extends InventoryScreenBaseProps {
-  initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
+export interface StockListScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify' | undefined;
+  /** Stock per product (useStockSummary), most available first. */
+  products?: readonly ProductStock[] | undefined;
+  /** False when a walk stopped early or a quantity could not be read. */
+  complete?: boolean | undefined;
+}
+
+const LEVEL_LABEL = {
+  inStock: 'inventory.level.inStock',
+  low: 'inventory.level.low',
+  out: 'inventory.level.out',
+} as const satisfies Record<StockLevel, string>;
+
+/** Products whose name or grade contains the search text (case-insensitive). */
+function matching(products: readonly ProductStock[], query: string): readonly ProductStock[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === '') return products;
+  return products.filter(
+    (p) => p.productName.toLowerCase().includes(needle) || p.gradeLabel.toLowerCase().includes(needle),
+  );
 }
 
 // ─── Custom Icons matching Design Mockup (Pure Path - zero Hermes/SVG errors) ─
@@ -122,14 +145,24 @@ export function StockListScreen({
   onBack,
   initialTab = 'Stock',
   warehouseOptions,
+  selectedWarehouseId,
+  onSelectWarehouse,
+  products = [],
+  complete = true,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
 }: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
-  // Main (no warehouseId) may pick a warehouse; Sub is locked to its own.
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
+  // Stock verification has no server API (availability.ts), so its tab is hidden.
+  const canVerify = isAreaAvailable('stockCounts', can);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const stockItems = SAMPLE_STOCK_ITEMS;
+  const view = queryViewState({ isLoading, error, itemCount: products.length });
+  const stockItems = matching(products, searchQuery);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -137,8 +170,6 @@ export function StockListScreen({
         <SWAHeader 
           title="Stock List"
           onBack={onBack}
-          showFilter={true}
-          onFilterPress={() => onNavigate?.('M3S16')}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
           bottomContent={
@@ -146,7 +177,7 @@ export function StockListScreen({
               scope={scope}
               options={warehouseOptions}
               selectedId={selectedWarehouseId}
-              onSelect={setSelectedWarehouseId}
+              onSelect={(id) => onSelectWarehouse?.(id)}
             />
           }
         />
@@ -191,7 +222,8 @@ export function StockListScreen({
             <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
-          {/* Verify Tab */}
+          {/* Verify Tab (no API: hidden, availability.ts) */}
+          {canVerify ? (
           <TouchableOpacity 
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}
             onPress={() => {
@@ -203,9 +235,23 @@ export function StockListScreen({
             <VerifyTabIcon color={activeTab === 'Verify' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>Verify</Text>
           </TouchableOpacity>
+          ) : null}
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
+        >
           {/* Search Bar */}
           <View style={styles.searchContainer}>
             <SearchIcon color={adminColors.muted} />
@@ -218,24 +264,30 @@ export function StockListScreen({
             />
           </View>
 
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+          {view === 'empty' ? <AdminEmptyState title={t('inventory.empty.stock')} /> : null}
+          {view === 'ready' && stockItems.length === 0 ? <AdminEmptyState title={t('inventory.empty.search')} /> : null}
+          {view === 'ready' && !complete ? <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text> : null}
+
           {/* Stock Items */}
-          {stockItems.map((item, index) => {
-            const isHealthy = item.status === 'Healthy Stock';
+          {stockItems.map((item) => {
+            const isHealthy = item.level === 'inStock';
             return (
               <TouchableOpacity
-                key={index}
+                key={item.key}
                 style={styles.stockCard}
-                onPress={() => onNavigate?.('M3S03', { product: item })}
+                onPress={() => onNavigate?.('M3S03', { cropId: item.cropId, grade: item.grade })}
                 activeOpacity={0.7}
               >
                 <View style={styles.stockHeader}>
                   <View style={styles.stockTitleColumn}>
-                    <Text style={styles.stockName}>{item.name}</Text>
-                    <Text style={styles.stockGrade}>{item.grade}</Text>
+                    <Text style={styles.stockName}>{item.productName}</Text>
+                    <Text style={styles.stockGrade}>{item.gradeLabel}</Text>
                   </View>
                   <View style={[styles.statusBadge, isHealthy ? styles.healthyBadge : styles.alertBadge]}>
                     <Text style={[styles.statusBadgeText, isHealthy ? styles.healthyBadgeText : styles.alertBadgeText]}>
-                      {item.status}
+                      {t(LEVEL_LABEL[item.level])}
                     </Text>
                   </View>
                 </View>
@@ -245,15 +297,17 @@ export function StockListScreen({
                   <View style={styles.stockStatsGroup}>
                     <View style={styles.stockStat}>
                       <Text style={styles.stockStatLabel}>Available</Text>
-                      <Text style={styles.stockStatValue}>{item.available}</Text>
+                      <Text style={styles.stockStatValue}>{formatKg(item.availableGrams)}</Text>
                     </View>
                     <View style={styles.stockStat}>
                       <Text style={styles.stockStatLabel}>Reserved</Text>
-                      <Text style={styles.stockStatValue}>{item.reserved}</Text>
+                      <Text style={styles.stockStatValue}>{formatKg(item.reservedGrams)}</Text>
                     </View>
                     <View style={styles.stockStat}>
                       <Text style={styles.stockStatLabel}>Allocated</Text>
-                      <Text style={styles.stockStatValue}>{item.allocated}</Text>
+                      <Text style={styles.stockStatValue}>
+                        {item.allocatedGrams === null ? t('inventory.noValue') : formatKg(item.allocatedGrams)}
+                      </Text>
                     </View>
                   </View>
 
@@ -272,6 +326,11 @@ export function StockListScreen({
 }
 
 const styles = StyleSheet.create({
+  incompleteNote: {
+    ...adminType.caption,
+    color: adminColors.warning.text,
+    marginBottom: adminSpacing.sm,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: adminColors.brand,

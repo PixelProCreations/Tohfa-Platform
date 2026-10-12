@@ -1,58 +1,111 @@
 // Design id: M3S04
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import { SWAHeader } from '../../swa/components';
-import { SAMPLE_BATCH_LIST } from './fixtures';
 
-export type BatchListScreenProps = InventoryScreenBaseProps;
+export interface BatchListScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The batches (of one product when the route names one), page by page. */
+  batches?: readonly BatchRow[] | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
+}
 
-export function BatchListScreen({ scope, onNavigate, onBack }: BatchListScreenProps) {
-  const batches = SAMPLE_BATCH_LIST;
+export function BatchListScreen({
+  scope,
+  onNavigate,
+  onBack,
+  routeParams,
+  batches = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
+}: BatchListScreenProps) {
+  const view = queryViewState({ isLoading, error, itemCount: batches.length });
+  // Opened from a product: name it from its batches (the route carries only ids).
+  const first = routeParams?.['cropId'] === undefined ? undefined : batches[0];
+  const subtitle = first === undefined ? undefined : t('inventory.product.label', { product: first.productName, grade: first.gradeLabel });
+
+  const renderBatch = ({ item: batch }: { item: BatchRow }) => (
+    <TouchableOpacity
+      style={styles.batchCard}
+      onPress={() => onNavigate?.('M3S05', { batchId: batch.id })}
+      activeOpacity={0.7}
+    >
+      <View style={styles.batchHeader}>
+        <Text style={styles.batchId}>{batch.batchCode}</Text>
+        <View style={styles.activeBadge}>
+          <Text style={styles.activeBadgeText}>{batch.statusLabel}</Text>
+        </View>
+      </View>
+      <Text style={styles.batchProduct}>{batch.productName} · {batch.gradeLabel}</Text>
+
+      <View style={styles.batchStatsRow}>
+        <View style={styles.batchStatCol}>
+          <Text style={styles.batchStatLabel}>Available</Text>
+          <Text style={styles.batchStatValueAvailable}>
+            {batch.availableGrams === null ? t('inventory.noValue') : formatKg(batch.availableGrams)}
+          </Text>
+        </View>
+        <View style={styles.batchStatCol}>
+          <Text style={styles.batchStatLabel}>Storage</Text>
+          <Text style={styles.batchStatValueStorage}>{batch.storageLocation ?? t('inventory.noValue')}</Text>
+        </View>
+      </View>
+
+      {batch.receivedOn === '' ? null : (
+        <Text style={styles.batchDate}>{t('inventory.batch.receivedOn', { date: batch.receivedOn })}</Text>
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
           title="Batches"
-          subtitle="Tomato · Grade 1 · 5 Active Batches"
+          subtitle={subtitle}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
         />
         
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {batches.map((batch, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.batchCard}
-            onPress={() => onNavigate?.('M3S05')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.batchHeader}>
-              <Text style={styles.batchId}>{batch.id}</Text>
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>{batch.status}</Text>
-              </View>
-            </View>
-            <Text style={styles.batchProduct}>{batch.product} · {batch.grade}</Text>
-            
-            <View style={styles.batchStatsRow}>
-              <View style={styles.batchStatCol}>
-                <Text style={styles.batchStatLabel}>Available</Text>
-                <Text style={styles.batchStatValueAvailable}>{batch.available}</Text>
-              </View>
-              <View style={styles.batchStatCol}>
-                <Text style={styles.batchStatLabel}>Storage</Text>
-                <Text style={styles.batchStatValueStorage}>{batch.storage}</Text>
-              </View>
-            </View>
-            
-            <Text style={styles.batchDate}>{batch.dateText}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        {view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : (
+          <FlatList
+            style={styles.content}
+            data={batches}
+            keyExtractor={(batch) => batch.id}
+            renderItem={renderBatch}
+            showsVerticalScrollIndicator={false}
+            onEndReached={hasMore ? onLoadMore : undefined}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={onRefresh}
+                  colors={[adminColors.brand]}
+                  tintColor={adminColors.brand}
+                />
+              ) : undefined
+            }
+            ListEmptyComponent={<AdminEmptyState title={t('inventory.empty.batches')} />}
+            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

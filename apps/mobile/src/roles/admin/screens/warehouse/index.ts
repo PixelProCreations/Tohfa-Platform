@@ -6,9 +6,11 @@ export {
   type WarehouseAdminRouteParams,
 } from './warehouse-admin';
 
-// Which areas are offered at all: five have no API, Staff needs admin.staff.list_view (owner decision 2).
+// Which areas are offered at all: five have no API, Staff needs admin.staff.list_view (owner decision 2);
+// stock adjustments and stock counts have no API either (phase 3).
 export {
   AREAS_WITHOUT_API,
+  inventoryRouteArea,
   isAreaAvailable,
   storageRouteArea,
   STAFF_AREA_CODE,

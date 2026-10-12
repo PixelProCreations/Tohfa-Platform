@@ -133,3 +133,51 @@ describe('App.tsx (Sub shell routes and links)', () => {
     expect(guardedNear(APP, /navigate\('SubWarehouseAttendance'\)/, /isAreaAvailable\('staff', warehouseCan\)/, 0)).toEqual([]);
   });
 });
+
+describe('Inventory: stock counts and stock adjustments (no API, phase 3)', () => {
+  const INVENTORY = 'roles/admin/screens/warehouse/inventory';
+  const FLOW = read(`${INVENTORY}/InventoryFlow.tsx`);
+  const LIVE_SCREENS = [
+    'InventoryDashboardScreen',
+    'StockListScreen',
+    'ProductStockDetailScreen',
+    'BatchListScreen',
+    'BatchDetailScreen',
+    'StockLedgerScreen',
+    'StockAllocationDashboardScreen',
+    'LowStockScreen',
+  ].map((name) => ({ name, source: read(`${INVENTORY}/${name}.tsx`) }));
+  const HIDDEN_ROUTE = /onNavigate\?\.\('M3S1[0-4]'|onNavigate\?\.\('M3S17'/;
+
+  it('InventoryFlow refuses a hidden route (navigate and initial screen) and opens the dashboard', () => {
+    expect(FLOW).toMatch(/const area = inventoryRouteArea\(screen\);\s*return area === undefined \|\| isAreaAvailable\(area, can\);/);
+    expect(FLOW).toMatch(/if \(!isRouteAvailable\(screen\)\) return;/);
+    expect(FLOW).toMatch(/const screen = isRouteAvailable\(current\.screen\) \? current\.screen : HOME_SCREEN;/);
+  });
+
+  it('every link from a live screen into verification or adjustments is behind canVerify', () => {
+    const unguarded = LIVE_SCREENS.flatMap(({ name, source }) => {
+      if (!HIDDEN_ROUTE.test(source)) return [];
+      expect(source).toMatch(/const canVerify = isAreaAvailable\('stockCounts', can\);/);
+      return guardedNear(source, HIDDEN_ROUTE, /canVerify \? \(/, 6).map((hit) => `${name} ${hit}`);
+    });
+    expect(unguarded).toEqual([]);
+  });
+
+  it('the live screens read no sample data and open neither the filters nor the movement-detail samples', () => {
+    for (const { name, source } of LIVE_SCREENS) {
+      expect({ name, fixtures: /from '\.\/fixtures'/.test(source) }).toEqual({ name, fixtures: false });
+      expect({ name, filters: /'M3S16'/.test(source) }).toEqual({ name, filters: false });
+      expect({ name, movementDetail: /'M3S15'/.test(source) }).toEqual({ name, movementDetail: false });
+    }
+  });
+
+  it('Sub dashboard: both verification entry points are gated on stockCounts', () => {
+    expect(guardedNear(SUB_DASHBOARD, /setInventoryInitialScreen\('M3S10'\)/, /isAreaAvailable\('stockCounts', can\)/, 2)).toEqual([]);
+  });
+
+  it('App.tsx: the verification module link is gated, and the legacy inventory keys map to their area', () => {
+    expect(guardedNear(APP, /initialInventoryScreen: 'M3S10'/, /isAreaAvailable\('stockCounts', warehouseCan\)/, 1)).toEqual([]);
+    expect(APP).toMatch(/const inventory = INVENTORY_ROUTE_ENTRY\[screen\];\s*if \(inventory !== undefined\) return inventoryRouteArea\(inventory\);/);
+  });
+});

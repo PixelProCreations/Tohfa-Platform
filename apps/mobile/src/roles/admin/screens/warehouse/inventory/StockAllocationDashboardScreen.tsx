@@ -1,13 +1,42 @@
 // Design id: M3S07
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type {
+  AllocationChannelKey,
+  AllocationDashboard,
+  InventoryLiveStateProps,
+  InventoryScreenBaseProps,
+} from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
-import { SAMPLE_ALLOCATIONS } from './fixtures';
 
-export type StockAllocationDashboardScreenProps = InventoryScreenBaseProps;
+export interface StockAllocationDashboardScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Per-channel totals (GET /admin/allocations, every page). */
+  dashboard?: AllocationDashboard | undefined;
+  /** Allocation rows behind the totals; 0 = nothing allocated yet. */
+  rowCount?: number | undefined;
+  /** False when the walk stopped early. */
+  complete?: boolean | undefined;
+}
+
+/** Card title and accent colours per channel, as the design draws them. */
+const CHANNEL_COLORS: Record<AllocationChannelKey, { titleColor: string; borderColor: string }> = {
+  online: { titleColor: adminColors.brandDeep, borderColor: adminColors.brand },
+  liveMarket: { titleColor: adminColors.success.text, borderColor: adminColors.success.text },
+  reserve: { titleColor: adminColors.brandDeep, borderColor: adminColors.info.text },
+  buffer: { titleColor: adminColors.brandDeep, borderColor: adminColors.warning.text },
+  unknown: { titleColor: adminColors.brandDeep, borderColor: adminColors.border },
+};
+
+function kg(grams: number | null): string {
+  return grams === null ? t('inventory.noValue') : formatKg(grams);
+}
 
 
 function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
@@ -66,15 +95,24 @@ function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   );
 }
 
-export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: StockAllocationDashboardScreenProps) {
-  // Accent colours per card, in the design's channel order (the sample rows follow it).
-  const channelColors = [
-    { titleColor: adminColors.brandDeep, borderColor: adminColors.brand },
-    { titleColor: adminColors.success.text, borderColor: adminColors.success.text },
-    { titleColor: adminColors.brandDeep, borderColor: adminColors.info.text },
-    { titleColor: adminColors.brandDeep, borderColor: adminColors.warning.text },
-  ];
-  const allocations = SAMPLE_ALLOCATIONS.map((row, index) => ({ ...row, ...channelColors[index] }));
+export function StockAllocationDashboardScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  dashboard,
+  rowCount = 0,
+  complete = true,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+}: StockAllocationDashboardScreenProps) {
+  // Stock verification has no server API (availability.ts), so its tab is hidden.
+  const canVerify = isAreaAvailable('stockCounts', can);
+  const view = queryViewState({ isLoading, error, itemCount: rowCount });
+  const allocations = (dashboard?.channels ?? []).map((summary) => ({ ...summary, ...CHANNEL_COLORS[summary.channel] }));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -117,7 +155,8 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
             <Text style={[styles.tabCardText, styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
-          {/* Verify Tab */}
+          {/* Verify Tab (no API: hidden, availability.ts) */}
+          {canVerify ? (
           <TouchableOpacity 
             style={styles.tabCard}
             onPress={() => onNavigate?.('M3S10')}
@@ -126,57 +165,84 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
             <VerifyTabIcon color={adminColors.ink} />
             <Text style={styles.tabCardText}>Verify</Text>
           </TouchableOpacity>
+          ) : null}
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
+        >
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+          {view === 'empty' ? <AdminEmptyState title={t('inventory.empty.allocations')} /> : null}
+          {view === 'ready' ? (
+          <>
           {/* Total Stock Split Header & Multi-color Progress Bar */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Total Stock Split</Text>
             <Text style={styles.sectionSubtitle}>Values from config</Text>
           </View>
 
-          {/* Multi-color Split Bar matching Reference Design */}
+          {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
+
+          {/* Multi-color Split Bar: each channel's share of allocated grams, in integer basis points */}
           <View style={styles.multiSplitBar}>
-            <View style={[styles.splitSegment, { flex: 420, backgroundColor: adminColors.brand }]} />
-            <View style={[styles.splitSegment, { flex: 120, backgroundColor: adminColors.success.text }]} />
-            <View style={[styles.splitSegment, { flex: 80, backgroundColor: adminColors.info.text }]} />
-            <View style={[styles.splitSegment, { flex: 60, backgroundColor: adminColors.warning.text }]} />
+            {allocations
+              .filter((alloc) => alloc.shareBasisPoints > 0)
+              .map((alloc) => (
+                <View
+                  key={alloc.channel}
+                  style={[styles.splitSegment, { flex: alloc.shareBasisPoints, backgroundColor: alloc.borderColor }]}
+                />
+              ))}
           </View>
 
           {/* 4 Allocation Cards with curved left colored accent */}
-          {allocations.map((alloc, index) => (
-            <View key={index} style={styles.allocationCard}>
+          {allocations.map((alloc) => (
+            <View key={alloc.channel} style={styles.allocationCard}>
               <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
               <View style={styles.cardContent}>
                 <Text style={[styles.channelName, { color: alloc.titleColor }]}>
-                  {alloc.channel}
+                  {alloc.label}
                 </Text>
 
                 {/* 4 Stat Boxes Row */}
                 <View style={styles.statsBoxRow}>
                   <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.allocated}</Text>
+                    <Text style={styles.statValue}>{kg(alloc.allocatedGrams)}</Text>
                     <Text style={styles.statLabel}>ALLOCATED</Text>
                   </View>
 
                   <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.consumed}</Text>
+                    <Text style={styles.statValue}>{kg(alloc.consumedGrams)}</Text>
                     <Text style={styles.statLabel}>CONSUMED</Text>
                   </View>
 
                   <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.reserved}</Text>
+                    <Text style={styles.statValue}>{kg(alloc.reservedGrams)}</Text>
                     <Text style={styles.statLabel}>RESERVED</Text>
                   </View>
 
                   <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.available}</Text>
+                    <Text style={styles.statValue}>{kg(alloc.availableGrams)}</Text>
                     <Text style={styles.statLabel}>AVAILABLE</Text>
                   </View>
                 </View>
               </View>
             </View>
           ))}
+          </>
+          ) : null}
 
           <View style={{ height: 24 }} />
         </ScrollView>
@@ -186,6 +252,11 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
 }
 
 const styles = StyleSheet.create({
+  incompleteNote: {
+    ...adminType.caption,
+    color: adminColors.warning.text,
+    marginBottom: adminSpacing.sm,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: adminColors.brand,
@@ -301,6 +372,8 @@ const styles = StyleSheet.create({
   channelName: {
     ...adminType.sectionHead,
     marginBottom: 12,
+    // The design shows channel names in capitals; the label itself stays translatable.
+    textTransform: 'uppercase',
   },
   statsBoxRow: {
     flexDirection: 'row',

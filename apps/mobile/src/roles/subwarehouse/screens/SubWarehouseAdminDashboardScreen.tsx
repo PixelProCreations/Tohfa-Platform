@@ -1605,6 +1605,8 @@ export function SubWarehouseAdminDashboardScreen({
         openReceiving('Shipments');
         break;
       case 'verification':
+        // Stock verification has no server API (availability.ts).
+        if (!isAreaAvailable('stockCounts', can)) break;
         setInventoryInitialScreen('M3S10');
         setActiveTab('Inventory');
         break;
@@ -2902,10 +2904,10 @@ export function SubWarehouseAdminDashboardScreen({
             onNavigateToReceiveGoods={() => {
               openReceiving('Shipments');
             }}
-            onNavigateToStockVerification={() => {
+            onNavigateToStockVerification={isAreaAvailable('stockCounts', can) ? () => {
               setInventoryInitialScreen('M3S10');
               setActiveTab('Inventory');
-            }}
+            } : undefined}
             onNavigateToSettings={() => {
               if (onNavigate) onNavigate('SubWarehouseSettings');
               else setShowSettingsScreen(true);

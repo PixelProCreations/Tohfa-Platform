@@ -1,18 +1,24 @@
 // Design id: M3S06
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps, StockBatchItem } from './types';
-import { SAMPLE_LEDGER_MOVEMENTS, SAMPLE_STOCK_BATCHES } from './fixtures';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps, StockMovementRow } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type { StockBatchItem } from './types';
-
-export interface StockLedgerScreenProps extends InventoryScreenBaseProps {
-  /** Batches for the all-warehouses view; defaults to the design sample. */
-  batches?: readonly StockBatchItem[] | undefined;
+export interface StockLedgerScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Ledger rows, newest first (GET /admin/stock-ledger), page by page. */
+  movements?: readonly StockMovementRow[] | undefined;
+  /** The warehouse's batches: the all-warehouses batch list (view_all) reads them. */
+  batches?: readonly BatchRow[] | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
 }
 
 // ─── Custom Icons matching Design Mockup ─────────────────────────────────────
@@ -126,19 +132,28 @@ export function StockLedgerScreen({
   onNavigate,
   onBack,
   warehouseOptions,
-  batches = SAMPLE_STOCK_BATCHES,
+  selectedWarehouseId,
+  onSelectWarehouse,
+  movements = [],
+  batches = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
 }: StockLedgerScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Ledger');
   // rbac: stock_ledger.view_all MAIN=all, SUB=none. With it the ledger spans
   // warehouses (selector + cross-warehouse batch list, from the absorbed Main
-  // screen); without it the ledger is forced to scope.warehouseId (view_own).
+  // screen); without it the flow pins every request to scope.warehouseId (view_own).
   const canViewAll = can('inventory.stock_ledger.view_all');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
-    canViewAll ? undefined : scope.warehouseId,
-  );
-  // 'Verify / Adjust a Batch': stock_adjustment.create MAIN=all, SUB=own.
-  const canAdjust = can('inventory.stock_adjustment.create');
-  const firstBatch = batches[0];
+  // Stock verification has no server API (availability.ts), so its tab is hidden;
+  // so is the old 'Verify / Adjust a Batch' button (physical count, no API).
+  const canVerify = isAreaAvailable('stockCounts', can);
+  const view = queryViewState({ isLoading, error, itemCount: movements.length });
+  const activeBatches = batches.filter((batch) => batch.status === 'active');
 
   return (
     <View style={styles.safeArea}>
@@ -147,8 +162,6 @@ export function StockLedgerScreen({
         <SWAHeader 
           title="Stock Ledger"
           onBack={onBack}
-          showFilter={true}
-          onFilterPress={() => onNavigate?.('M3S16')}
           showWarehouse={!canViewAll}
           warehouseName={scope.warehouseName}
           bottomContent={
@@ -157,7 +170,7 @@ export function StockLedgerScreen({
                 scope={{}}
                 options={warehouseOptions}
                 selectedId={selectedWarehouseId}
-                onSelect={setSelectedWarehouseId}
+                onSelect={(id) => onSelectWarehouse?.(id)}
               />
             ) : null
           }
@@ -198,6 +211,7 @@ export function StockLedgerScreen({
             <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
+          {canVerify ? (
           <TouchableOpacity 
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}
             onPress={() => {
@@ -209,147 +223,119 @@ export function StockLedgerScreen({
             <VerifyTabIcon color={activeTab === 'Verify' ? adminColors.onBrand : adminColors.ink} />
             <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>Verify</Text>
           </TouchableOpacity>
+          ) : null}
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Card 1: RECEIPT */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
-                <DownArrowGreenIcon />
-                <Text style={styles.receiptTypeText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.type}</Text>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                colors={[adminColors.brand]}
+                tintColor={adminColors.brand}
+              />
+            ) : undefined
+          }
+        >
+          {view === 'loading' ? <AdminLoadingState /> : null}
+          {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+          {view === 'empty' ? <AdminEmptyState title={t('inventory.empty.ledger')} /> : null}
+
+          {/* One card per ledger row. The tone follows the delta's own sign (BR-37).
+              Rows do not open the movement detail: that screen is a design sample. */}
+          {movements.map((movement) => (
+            <View key={movement.id} style={styles.ledgerCard}>
+              <View style={styles.cardTopRow}>
+                <View style={styles.typeWithIconRow}>
+                  {movement.kind === 'reservation' ? (
+                    <LockSmallIcon />
+                  ) : movement.direction === 'in' ? (
+                    <DownArrowGreenIcon />
+                  ) : movement.direction === 'out' ? (
+                    <UpArrowRedIcon />
+                  ) : (
+                    <BranchArrowIcon />
+                  )}
+                  <Text
+                    style={
+                      movement.direction === 'in'
+                        ? styles.receiptTypeText
+                        : movement.direction === 'out'
+                          ? styles.dispatchTypeText
+                          : styles.allocationTypeText
+                    }
+                  >
+                    {movement.typeLabel}
+                  </Text>
+                </View>
+                <Text
+                  style={
+                    movement.direction === 'in'
+                      ? styles.receiptQuantityText
+                      : movement.direction === 'out'
+                        ? styles.dispatchQuantityText
+                        : styles.neutralQuantityText
+                  }
+                >
+                  {movement.deltaText}
+                </Text>
               </View>
-              <Text style={styles.receiptQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.quantity}</Text>
-            </View>
 
-            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.receipt.product}</Text>
+              {movement.productLabel === undefined ? null : (
+                <Text style={styles.productTitle}>{movement.productLabel}</Text>
+              )}
 
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.batch}</Text></Text>
-              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.time}</Text>
-            </View>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Ref <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.ref}</Text></Text>
-              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.balance}</Text></Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 2: DISPATCH */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
-                <UpArrowRedIcon />
-                <Text style={styles.dispatchTypeText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.type}</Text>
+              <View style={styles.metaRow}>
+                {movement.batchCode === undefined ? (
+                  <View />
+                ) : (
+                  <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>{movement.batchCode}</Text></Text>
+                )}
+                <Text style={styles.timeText}>{movement.performedAt}</Text>
               </View>
-              <Text style={styles.dispatchQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.quantity}</Text>
+
+              {movement.balanceText === '' ? null : (
+                <View style={[styles.metaRow, styles.metaRowEnd]}>
+                  <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{movement.balanceText}</Text></Text>
+                </View>
+              )}
             </View>
-
-            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.product}</Text>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.order}</Text></Text>
-              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.time}</Text>
-            </View>
-
-            <View style={[styles.metaRow, { justifyContent: 'flex-end' }]}>
-              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.balance}</Text></Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 3: ALLOCATION_ONLINE */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
-                <BranchArrowIcon />
-                <Text style={styles.allocationTypeText}>{SAMPLE_LEDGER_MOVEMENTS.allocation.type}</Text>
-              </View>
-              <Text style={styles.neutralQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.allocation.quantity}</Text>
-            </View>
-
-            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.allocation.product}</Text>
-
-            <View style={[styles.metaRow, { justifyContent: 'flex-end', marginTop: 4 }]}>
-              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.allocation.time}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 4: RESERVATION_HOLD */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
-                <LockSmallIcon />
-                <Text style={styles.allocationTypeText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.type}</Text>
-              </View>
-              <Text style={styles.neutralQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.quantity}</Text>
-            </View>
-
-            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.reservation.product}</Text>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.order}</Text></Text>
-              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.time}</Text>
-            </View>
-          </TouchableOpacity>
+          ))}
 
           {/* Load Earlier Movements */}
-          <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7}>
-            <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
-          </TouchableOpacity>
+          {hasMore ? (
+            <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7} onPress={onLoadMore}>
+              <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Batches across warehouses (absorbed Main StockLedgerScreen) */}
-          {canViewAll ? (
+          {canViewAll && activeBatches.length > 0 ? (
             <>
               <Text style={styles.batchSectionTitle}>Batches across warehouses</Text>
-              {batches.map((item) => (
+              {activeBatches.map((item) => (
                 <View key={item.id} style={styles.batchCard}>
                   <View style={styles.batchRow}>
-                    <Text style={styles.batchName}>{item.name}</Text>
-                    <Text style={styles.batchName}>{item.quantityKg} kg</Text>
+                    <Text style={styles.batchName}>{item.productName}</Text>
+                    <Text style={styles.batchName}>
+                      {item.availableGrams === null ? t('inventory.noValue') : formatKg(item.availableGrams)}
+                    </Text>
                   </View>
                   <View style={styles.batchRow}>
                     <Text style={styles.batchMeta}>
-                      Batch {item.batchId} · {item.zone}
-                      {item.warehouseName ? ` · ${item.warehouseName}` : ''}
+                      Batch {item.batchCode}
+                      {item.storageLocation === null ? '' : ` · ${item.storageLocation}`}
                     </Text>
-                    <Text style={styles.batchMeta}>{item.receivedDate}</Text>
+                    <Text style={styles.batchMeta}>
+                      {item.receivedOn === '' ? '' : t('inventory.batch.receivedOn', { date: item.receivedOn })}
+                    </Text>
                   </View>
                 </View>
               ))}
             </>
-          ) : null}
-
-          {canAdjust && firstBatch ? (
-            <TouchableOpacity
-              style={styles.adjustBtn}
-              activeOpacity={0.8}
-              onPress={() =>
-                onNavigate?.('M3S11', {
-                  produceName: firstBatch.name,
-                  batchId: firstBatch.batchId,
-                  zone: firstBatch.zone,
-                  systemCount: firstBatch.quantityKg,
-                })
-              }
-            >
-              <Text style={styles.adjustBtnText}>Verify / Adjust a Batch</Text>
-            </TouchableOpacity>
           ) : null}
         </ScrollView>
       </View>
@@ -378,18 +364,7 @@ const styles = StyleSheet.create({
   batchRow: { flexDirection: 'row', justifyContent: 'space-between' },
   batchName: { ...adminType.rowTitle, color: adminColors.ink },
   batchMeta: { ...adminType.rowMeta, color: adminColors.muted },
-  adjustBtn: {
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
-    paddingVertical: adminSpacing.md,
-    marginHorizontal: adminSpacing.lg,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.xl,
-    alignItems: 'center',
-  },
-  adjustBtnText: { ...adminType.sectionHead, color: adminColors.ink },
+  metaRowEnd: { justifyContent: 'flex-end' },
   safeArea: {
     flex: 1,
     backgroundColor: adminColors.brand, // status bar blends with header

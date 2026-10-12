@@ -13,6 +13,7 @@ import { DEMO_ROLE_PERMISSIONS } from '../permissions/demoGrants';
 import {
   AREAS_WITHOUT_API,
   STAFF_AREA_CODE,
+  inventoryRouteArea,
   isAreaAvailable,
   storageRouteArea,
   type WarehouseArea,
@@ -24,9 +25,20 @@ const mainCan = makeCan(DEMO_ROLE_PERMISSIONS.MAIN_WH_ADMIN);
 const allowAll = () => true;
 
 describe('AREAS_WITHOUT_API', () => {
-  it('lists exactly the five areas the server has no API for', () => {
+  it('lists exactly the areas the server has no API for: the five of decision 2, plus stock adjustments and counts', () => {
     expect([...AREAS_WITHOUT_API].sort()).toEqual(
-      ['interWarehouseTransfers', 'materialHandling', 'operationalIssues', 'warehouseActivity', 'warehouseDocuments'].sort(),
+      [
+        'interWarehouseTransfers',
+        'materialHandling',
+        'operationalIssues',
+        'warehouseActivity',
+        'warehouseDocuments',
+        // Phase 3: POST /admin/stock-adjustments has no server route and there is
+        // no list or approve endpoint; physical count, verification and variance
+        // review have no endpoint at all.
+        'stockAdjustments',
+        'stockCounts',
+      ].sort(),
     );
   });
 
@@ -85,6 +97,33 @@ describe('storageRouteArea', () => {
   it('leaves the routes with an API (and Help & Support issue reports) ungated', () => {
     for (const route of ['Operations', 'StorageLocations', 'StorageLocationDetail', 'Capacity', 'ReportIssue', 'IssueSubmitted']) {
       expect({ route, area: storageRouteArea(route) }).toEqual({ route, area: undefined });
+    }
+  });
+});
+
+describe('inventoryRouteArea', () => {
+  it('maps the inventory routes with no API to their area', () => {
+    const expected: Record<string, WarehouseArea> = {
+      M3S10: 'stockCounts', // stock verification
+      M3S11: 'stockCounts', // physical count
+      M3S12: 'stockCounts', // variance review
+      M3S13: 'stockAdjustments', // adjustment request
+      M3S14: 'stockAdjustments', // adjustment history
+      M3S17: 'stockAdjustments', // adjustment detail / approval
+    };
+    for (const [route, area] of Object.entries(expected)) {
+      expect({ route, area: inventoryRouteArea(route) }).toEqual({ route, area });
+      expect({ route, sub: isAreaAvailable(area, subCan), main: isAreaAvailable(area, mainCan) }).toEqual({
+        route,
+        sub: false,
+        main: false,
+      });
+    }
+  });
+
+  it('leaves the read-only inventory routes with an API ungated', () => {
+    for (const route of ['M3S01', 'M3S02', 'M3S03', 'M3S04', 'M3S05', 'M3S06', 'M3S07', 'M3S08', 'M3S09']) {
+      expect({ route, area: inventoryRouteArea(route) }).toEqual({ route, area: undefined });
     }
   });
 });

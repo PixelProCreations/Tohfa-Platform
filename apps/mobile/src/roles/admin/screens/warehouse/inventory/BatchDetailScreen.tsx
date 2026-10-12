@@ -1,13 +1,24 @@
 // Design id: M3S05
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager, RefreshControl } from 'react-native';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { adminColors } from '../../../theme';
+import { isAreaAvailable } from '../availability';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
-import { SAMPLE_BATCH_DETAIL } from './fixtures';
 
-export type BatchDetailScreenProps = InventoryScreenBaseProps;
+export interface BatchDetailScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The batch named by the route's batchId (GET /admin/batches/{id}). */
+  batch?: BatchRow | undefined;
+}
+
+function kg(grams: number | null): string {
+  return grams === null ? t('inventory.noValue') : formatKg(grams);
+}
 
 function LedgerIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
@@ -34,8 +45,23 @@ function VerifyIcon({ color = adminColors.brandDeep }: { color?: string }) {
   );
 }
 
-export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: BatchDetailScreenProps) {
-  const warehouse = (scope.warehouseName ?? String(routeParams?.warehouseName ?? 'Coonoor')).replace(' Warehouse', '');
+export function BatchDetailScreen({
+  scope,
+  can,
+  onNavigate,
+  onBack,
+  batch,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+}: BatchDetailScreenProps) {
+  // The batch carries only a warehouse uuid; the name is the viewer's own scope's.
+  const warehouse = scope.warehouseName?.replace(' Warehouse', '') ?? t('inventory.noValue');
+  // Stock verification has no server API (availability.ts), so its action is hidden.
+  const canVerify = isAreaAvailable('stockCounts', can);
+  const view = queryViewState({ isLoading, error, itemCount: batch === undefined ? 0 : 1 });
 
   return (
     <View style={styles.root}>
@@ -43,13 +69,15 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
 
       {/* Fixed Header */}
       <SWAHeader
-        title={SAMPLE_BATCH_DETAIL.batchCode}
-        subtitle={`${SAMPLE_BATCH_DETAIL.product} · ${SAMPLE_BATCH_DETAIL.grade}`}
+        title={batch?.batchCode ?? ''}
+        subtitle={batch === undefined ? undefined : `${batch.productName} · ${batch.gradeLabel}`}
         onBack={onBack}
         badge={
-          <View style={styles.activeBadge}>
-            <Text style={styles.activeBadgeText}>{SAMPLE_BATCH_DETAIL.status}</Text>
-          </View>
+          batch === undefined ? undefined : (
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>{batch.statusLabel}</Text>
+            </View>
+          )
         }
       />
 
@@ -57,7 +85,22 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
         style={styles.body} 
         contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              colors={[adminColors.brand]}
+              tintColor={adminColors.brand}
+            />
+          ) : undefined
+        }
       >
+        {view === 'loading' ? <AdminLoadingState /> : null}
+        {view === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+        {view === 'empty' ? <AdminEmptyState title={t('inventory.batch.notFound')} /> : null}
+        {batch === undefined ? null : (
+        <>
 
         {/* ── Batch Information ── */}
         <View style={styles.section}>
@@ -66,17 +109,17 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Batch Code</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.batchCode}</Text>
+                <Text style={styles.fieldValue}>{batch.batchCode}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Product</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.product}</Text>
+                <Text style={styles.fieldValue}>{batch.productName}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Grade</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.grade}</Text>
+                <Text style={styles.fieldValue}>{batch.gradeLabel}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Warehouse</Text>
@@ -86,60 +129,43 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Storage Location</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.storageLocation}</Text>
+                <Text style={styles.fieldValue}>{batch.storageLocation ?? t('inventory.noValue')}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Received Quantity</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.receivedQty}</Text>
+                <Text style={styles.fieldValue}>{kg(batch.receivedGrams)}</Text>
               </View>
             </View>
             <View style={[styles.gridRow, { marginBottom: 0 }]}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Available Quantity</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.availableQty}</Text>
+                <Text style={styles.fieldValue}>{kg(batch.availableGrams)}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Received Date</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.receivedDate}</Text>
+                <Text style={styles.fieldValue}>{batch.receivedOn === '' ? t('inventory.noValue') : batch.receivedOn}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* ── Traceability ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Traceability</Text>
-            <Text style={styles.sectionMuted}>Internal only</Text>
-          </View>
-          <View style={styles.card}>
-            <View style={[styles.gridRow, { marginBottom: 0 }]}>
-              <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Goods Receipt</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.goodsReceipt}</Text>
-              </View>
-              <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Source Farmer</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.sourceFarmer}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+        {/* Traceability is not shown: the batch carries only the goods receipt and
+            farmer uuids, no human reference to show (spec gap). */}
 
         {/* ── Stock Movement Summary ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
           <View style={styles.movementRow}>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>{SAMPLE_BATCH_DETAIL.movementReceived}</Text>
+              <Text style={styles.movementValue}>{kg(batch.receivedGrams)}</Text>
               <Text style={styles.movementLabel}>RECEIVED</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>{SAMPLE_BATCH_DETAIL.movementDispatched}</Text>
-              <Text style={styles.movementLabel}>DISPATCHED</Text>
+              <Text style={styles.movementValue}>{kg(batch.availableGrams)}</Text>
+              <Text style={styles.movementLabel}>{t('inventory.batch.availableCaption')}</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>{SAMPLE_BATCH_DETAIL.movementReserved}</Text>
+              <Text style={styles.movementValue}>{kg(batch.reservedGrams)}</Text>
               <Text style={styles.movementLabel}>RESERVED</Text>
             </View>
           </View>
@@ -150,12 +176,13 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
           <Text style={styles.sectionTitle}>Actions</Text>
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S06'))}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S06', { batchId: batch.id }))}
             activeOpacity={0.7}
           >
             <LedgerIcon />
             <Text style={styles.actionBtnText}>View Stock Ledger</Text>
           </TouchableOpacity>
+          {canVerify ? (
           <TouchableOpacity
             style={[styles.actionBtn, { marginBottom: 0 }]}
             onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S10'))}
@@ -164,7 +191,10 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <VerifyIcon />
             <Text style={styles.actionBtnText}>Verify Stock</Text>
           </TouchableOpacity>
+          ) : null}
         </View>
+        </>
+        )}
 
       </ScrollView>
     </View>
@@ -190,22 +220,11 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 16,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: adminColors.ink,
     marginBottom: 8,
-  },
-  sectionMuted: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: adminColors.muted,
   },
 
   // Card
