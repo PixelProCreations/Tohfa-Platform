@@ -1,50 +1,56 @@
 // Design id: M5S02 (M5S02_OrdersList)
 /**
- * Orders list — every customer order the viewer can see, with search and a
- * per-row next action.
+ * Orders list — the warehouse order queue (GET /admin/orders), page by page,
+ * newest first.
  *
  * Scope decides what is listed and shown:
  *   - `scope.warehouseId` set (Sub Warehouse): only that warehouse's orders,
  *     no warehouse label or selector (there is only one warehouse to show).
- *   - undefined (Main Warehouse): all warehouses, a warehouse selector, and a
- *     warehouse label on each row.
- * The filter here is presentation only; the server returns only in-scope
- * orders (CLAUDE.md 2.1).
+ *     The flow always sends that warehouse's uuid (BR-30, BR-101).
+ *   - undefined (Main Warehouse): all warehouses, and a selector of the
+ *     warehouses the host passes (held by the flow).
+ * The server returns only in-scope orders (CLAUDE.md 2.1).
  *
- * Gates: the row actions are navigation into screens that gate themselves;
- * nothing here is gated.
+ * A row shows the order number and item count: the list carries no customer
+ * name (BR-101), and the detail is not fetched per row; the name is on the
+ * detail. The search box narrows the rows already loaded by order number (the
+ * API has no search). The filter button is gone: the filters screen is not
+ * wired to any request. `status` (from a dashboard tile) is the server filter.
+ *
+ * Gates: the rows open the detail, which gates its own actions.
  */
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
+import type { OrderListStatusFilter } from '../../../api/orders';
+import { t } from '../../../i18n';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import { SAMPLE_LIST_WAREHOUSES, SAMPLE_ORDERS } from './fixtures';
-import type { OrderScreenBaseProps, OrderWarehouseOption, SampleOrderRow, SampleOrderStatus } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { listStatusOf, orderStatusLabel } from './mappers';
+import { orderToneColors } from './statusTone';
+import type { OrderListRow, OrderScreenBaseProps, OrdersLiveStateProps, OrdersWarehouseSelector } from './types';
 
-/** Params the host navigator forwards from the previous screen. */
-export interface OrdersListRouteParams {
-  /** Only list orders whose status equals this. */
-  defaultFilter?: string | undefined;
-  /** Main view only: open the list narrowed to this warehouse. */
-  warehouseId?: string | undefined;
-  /** Filter by fulfillment type: 'Delivery' | 'Pickup'. */
-  fulfillment?: 'Delivery' | 'Pickup' | undefined;
+export interface OrdersListScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps, OrdersWarehouseSelector {
+  /** The server-side status filter the list was opened with, if any. */
+  status?: OrderListStatusFilter | undefined;
+  /** The loaded rows, page by page. */
+  orders?: readonly OrderListRow[] | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
 }
-
-export interface OrdersListScreenProps extends OrderScreenBaseProps {
-  routeParams?: OrdersListRouteParams | undefined;
-  /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
-  warehouses?: OrderWarehouseOption[] | undefined;
-}
-
-const STATUS_TONE: Record<SampleOrderStatus, { bg: string; text: string }> = {
-  Confirmed: adminColors.warning,
-  Packing: adminColors.warning,
-  'Ready for Pickup': adminColors.success,
-  Completed: adminColors.success,
-  'Quantity Issue': adminColors.danger,
-};
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -54,18 +60,6 @@ function BackArrowIcon() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function FilterSlidersIcon() {
-  const c = adminColors.onBrand;
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M3.5 8h17" stroke={c} strokeWidth="2.2" strokeLinecap="round" />
-      <Path d="M15.5 4.5v7" stroke={c} strokeWidth="2.4" strokeLinecap="round" />
-      <Path d="M3.5 16h17" stroke={c} strokeWidth="2.2" strokeLinecap="round" />
-      <Path d="M8.5 12.5v7" stroke={c} strokeWidth="2.4" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -119,41 +113,117 @@ function BuildingWarehouseIcon({ color }: { color: string }) {
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
-export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = SAMPLE_LIST_WAREHOUSES }: OrdersListScreenProps) {
+export function OrdersListScreen({
+  scope,
+  onBack,
+  onNavigate,
+  status,
+  orders = [],
+  warehouseOptions = [],
+  selectedWarehouseId,
+  onSelectWarehouse,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
+}: OrdersListScreenProps) {
   const isAllWarehouses = scope.warehouseId === undefined;
   const [searchQuery, setSearchQuery] = useState('');
-  const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | 'Delivery' | 'Pickup'>(
-    routeParams?.fulfillment ?? 'All',
+  const query = searchQuery.trim().toLowerCase();
+  const filteredOrders = query === '' ? orders : orders.filter((order) => order.orderNumber.toLowerCase().includes(query));
+  const view = queryViewState({ isLoading, error, itemCount: orders.length });
+
+  const warehouses = warehouseOptions.flatMap((w) =>
+    w.warehouseId === undefined ? [] : [{ id: w.warehouseId, name: w.warehouseName ?? w.warehouseCode ?? w.warehouseId }],
   );
+  const warehouseNameOf = (order: OrderListRow): string | undefined =>
+    warehouses.find((wh) => wh.id === order.warehouseId)?.name;
+  const selectorOptions: { id: string | undefined; name: string }[] = [
+    { id: undefined, name: t('orders.list.allWarehouses') },
+    ...warehouses,
+  ];
 
-  useEffect(() => {
-    if (routeParams?.fulfillment) {
-      setFulfillmentFilter(routeParams.fulfillment);
-    }
-  }, [routeParams?.fulfillment]);
+  const countLabel =
+    status === undefined
+      ? t(hasMore ? 'orders.list.countMore' : 'orders.list.count', { count: orders.length })
+      : t(hasMore ? 'orders.list.countStatusMore' : 'orders.list.countStatus', {
+          count: orders.length,
+          status: orderStatusLabel(listStatusOf(status)),
+        });
 
-  // Main view only; a Sub admin is pinned to scope.warehouseId below.
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
-    isAllWarehouses ? routeParams?.warehouseId : undefined,
+  const renderOrder = ({ item: order }: { item: OrderListRow }) => {
+    const tone = orderToneColors(order.tone);
+    const warehouseName = isAllWarehouses ? warehouseNameOf(order) : undefined;
+    return (
+      <TouchableOpacity style={styles.orderCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S04', { orderId: order.id })}>
+        <View style={styles.cardTopRow}>
+          <Text style={styles.orderIdText}>{order.orderNumber}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
+            <Text style={[styles.statusBadgeText, { color: tone.text }]}>{order.statusLabel}</Text>
+          </View>
+        </View>
+
+        {warehouseName !== undefined ? (
+          <View style={styles.warehouseRow}>
+            <BuildingWarehouseIcon color={adminColors.muted} />
+            <Text style={styles.warehouseText}>{warehouseName}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.itemsPriceRow}>
+          <Text style={styles.itemsCountText}>{order.itemsLabel}</Text>
+          <Text style={styles.amountText}>{order.amountLabel}</Text>
+        </View>
+
+        <View style={styles.fulfillmentRow}>
+          <View style={styles.fulfillmentLeft}>
+            {order.fulfilment === 'delivery' ? <DeliveryTruckSmallIcon /> : <StorefrontIcon />}
+            <Text style={styles.fulfillmentText}>{order.fulfilmentLabel}</Text>
+          </View>
+          <Text style={styles.timeText}>{order.placedLabel}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const listHeader = (
+    <>
+      {isAllWarehouses && warehouses.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.whChipScroll} contentContainerStyle={styles.whChipRow}>
+          {selectorOptions.map((wh) => {
+            const isActive = wh.id === selectedWarehouseId;
+            return (
+              <TouchableOpacity
+                key={wh.id ?? 'all'}
+                style={[styles.whChip, isActive && styles.whChipActive]}
+                activeOpacity={0.75}
+                onPress={() => onSelectWarehouse?.(wh.id)}
+              >
+                <BuildingWarehouseIcon color={isActive ? adminColors.onBrand : adminColors.ink} />
+                <Text style={[styles.whChipText, isActive && styles.whChipTextActive]}>{wh.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      <Text style={styles.orderCountLabel}>{countLabel}</Text>
+
+      <View style={styles.searchBox}>
+        <SearchIcon />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={t('orders.list.searchPlaceholder')}
+          placeholderTextColor={adminColors.placeholder}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+    </>
   );
-
-  const warehouseFilter = isAllWarehouses ? selectedWarehouseId : (scope.warehouseCode ?? scope.warehouseId);
-  const query = searchQuery.toLowerCase();
-
-  const filteredOrders = SAMPLE_ORDERS.filter((order) => {
-    if (fulfillmentFilter !== 'All') {
-      if (order.fulfillment !== fulfillmentFilter) return false;
-    } else if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
-      return false;
-    }
-    if (routeParams?.defaultFilter && order.status !== routeParams.defaultFilter) return false;
-    return order.id.toLowerCase().includes(query) || order.customer.toLowerCase().includes(query);
-  });
-
-  const warehouseNameOf = (order: SampleOrderRow): string =>
-    warehouses.find((wh) => wh.id === order.warehouseId)?.name ?? order.warehouseName;
-
-  const selectorOptions: { id: string | undefined; name: string }[] = [{ id: undefined, name: 'All warehouses' }, ...warehouses];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -165,117 +235,31 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Orders</Text>
           </View>
-
-          <TouchableOpacity style={styles.filterButton} activeOpacity={0.75} onPress={() => onNavigate?.('M5S03')}>
-            <FilterSlidersIcon />
-          </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {isAllWarehouses ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.whChipScroll}
-              contentContainerStyle={styles.whChipRow}
-            >
-              {selectorOptions.map((wh) => {
-                const isActive = wh.id === selectedWarehouseId;
-                return (
-                  <TouchableOpacity
-                    key={wh.id ?? 'all'}
-                    style={[styles.whChip, isActive && styles.whChipActive]}
-                    activeOpacity={0.75}
-                    onPress={() => setSelectedWarehouseId(wh.id)}
-                  >
-                    <BuildingWarehouseIcon color={isActive ? adminColors.onBrand : adminColors.ink} />
-                    <Text style={[styles.whChipText, isActive && styles.whChipTextActive]}>{wh.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          ) : null}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <Text style={styles.orderCountLabel}>
-              {filteredOrders.length} {fulfillmentFilter !== 'All' ? `${fulfillmentFilter} ` : ''}Orders
-            </Text>
-            {fulfillmentFilter !== 'All' && (
-              <TouchableOpacity
-                onPress={() => setFulfillmentFilter('All')}
-                activeOpacity={0.7}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: '#FFF1EB',
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  gap: 4,
-                }}
-              >
-                <DeliveryTruckSmallIcon />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#F0562A' }}>
-                  {fulfillmentFilter} Only ✕
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.searchBox}>
-            <SearchIcon />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search order / customer / phone"
-              placeholderTextColor={adminColors.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-
-          {filteredOrders.map((order) => {
-            const tone = STATUS_TONE[order.status];
-            return (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.orderCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S04', { orderId: order.id })}
-              >
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.orderIdText}>{order.id}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: tone.text }]}>{order.status}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.customerNameText}>{order.customer}</Text>
-
-                {isAllWarehouses ? (
-                  <View style={styles.warehouseRow}>
-                    <BuildingWarehouseIcon color={adminColors.muted} />
-                    <Text style={styles.warehouseText}>{warehouseNameOf(order)}</Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.itemsPriceRow}>
-                  <Text style={styles.itemsCountText}>{order.items}</Text>
-                  <Text style={styles.amountText}>{order.amount}</Text>
-                </View>
-
-                <View style={styles.fulfillmentRow}>
-                  <View style={styles.fulfillmentLeft}>
-                    {order.fulfillment === 'Pickup' ? <StorefrontIcon /> : <DeliveryTruckSmallIcon />}
-                    <Text style={styles.fulfillmentText}>{order.fulfillment}</Text>
-                  </View>
-                  <Text style={styles.timeText}>{order.time}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
+        {view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : (
+          <FlatList
+            style={styles.content}
+            data={filteredOrders}
+            keyExtractor={(order) => order.id}
+            renderItem={renderOrder}
+            ListHeaderComponent={listHeader}
+            showsVerticalScrollIndicator={false}
+            onEndReached={hasMore ? onLoadMore : undefined}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+              ) : undefined
+            }
+            ListEmptyComponent={<AdminEmptyState title={t(query === '' ? 'orders.empty.list' : 'orders.empty.search')} />}
+            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : <View style={styles.bottomSpacer} />}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -312,14 +296,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-  },
-  filterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     flex: 1,
@@ -410,11 +386,6 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     ...adminType.caption,
   },
-  customerNameText: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 6,
-  },
   warehouseRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -457,18 +428,6 @@ const styles = StyleSheet.create({
   timeText: {
     ...adminType.rowMeta,
     color: adminColors.muted,
-  },
-  actionBtn: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.sm,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  actionBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
   },
   bottomSpacer: {
     height: adminSpacing.lg,

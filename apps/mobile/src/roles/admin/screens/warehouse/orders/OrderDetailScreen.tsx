@@ -1,26 +1,50 @@
 /**
- * Order Detail — everything about one customer order, with the next actions
- * (check stock, report an issue, cancel) and a menu for invoice and history.
+ * Order Detail — everything about one customer order (GET
+ * /admin/orders/{orderId}), with its next action and a menu for the history.
+ *
+ * Live data (API integration plan, phase 5): the detail is farm-anonymous and
+ * carries no OTP (BR-99); the buyer's mobile is masked (BR-92). Money is shown
+ * from integer paise and weight from integer grams (./mappers.ts).
+ *
+ * The next action follows the status (nextOrderAction): a confirmed order is
+ * packed, a packed pickup order is marked ready, an order ready for pickup has
+ * its pickup code verified.
  *
  * Gates (docs/rbac.json; the server re-checks every action, CLAUDE.md 2.1):
- *   - Cancel Order (bottom bar and menu): docs/rbac.json has NO order-cancel
- *     permission, so both entries stay ungated exactly as before. Spec gap,
- *     reported for SPEC_GAPS.md; do not invent a code here.
+ *   - Pack: `order.mark_packed`; mark ready: `order.dispatch`; verify pickup:
+ *     `order.pickup_otp.verify`. Without the code the button is not rendered.
+ *   - Check Stock, Report Issue, Cancel Order and View Invoice are hidden: no
+ *     stock-check endpoint, no admin issue or cancel route (docs/rbac.json has
+ *     no order-cancel permission either), and order invoices are phase 7
+ *     (availability.ts).
  *   - This screen has no warehouse assign / reassign control, so
  *     `order.warehouse.assign` is not consulted.
  */
 // Design id: M5S04 (M5S04_OrderDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar, RefreshControl } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { SAMPLE_CUSTOMER, SAMPLE_ORDER_ID, sampleOrderDetail } from './fixtures';
-import type { OrderScreenBaseProps } from './types';
+import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { t, type TranslationKey } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { nextOrderAction } from './mappers';
+import type { OrderDetailView, OrderNextAction, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
 
-export interface OrderDetailScreenProps extends OrderScreenBaseProps {
-  customerName?: string | undefined;
+export interface OrderDetailScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
 }
+
+const NEXT_ACTION_LABEL: Readonly<Record<OrderNextAction['kind'], TranslationKey>> = {
+  pack: 'orders.action.pack',
+  markReady: 'orders.action.markReady',
+  verifyPickup: 'orders.action.verifyPickup',
+};
+
+/** How many timeline rows the card shows before "View full timeline". */
+const TIMELINE_PREVIEW_ROWS = 3;
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -59,14 +83,6 @@ function TimelineCheckDot() {
   );
 }
 
-function TimelinePendingDot() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={adminColors.muted} strokeWidth="2" fill={adminColors.canvas} />
-    </Svg>
-  );
-}
-
 function ChecklistIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -85,23 +101,61 @@ function ChecklistIcon() {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function OrderDetailScreen({
-  orderId = SAMPLE_ORDER_ID,
-  customerName = SAMPLE_CUSTOMER,
-  scope,
+  order,
+  can,
   onBack,
   onNavigate,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
 }: OrderDetailScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
 
-  // Sample data keyed off two demo invoice ids, as in the old M5S04, until orders are wired.
-  const { displayDate, displayCustomer, displayStatus, phone, items: orderItemsList, subtotal, gst, total } =
-    sampleOrderDetail(orderId, customerName);
-  // The order's warehouse comes from the viewer's scope; no warehouse name is hard-coded.
-  const warehouseName = scope.warehouseName ?? '—';
+  if (view !== 'ready' || order === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+                <BackArrowIcon />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>{t('orders.detail.title')}</Text>
+            </View>
+          </View>
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+            <AdminEmptyState title={t('orders.empty.notFound')} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const next = nextOrderAction(order, can);
+  const timelinePreview = order.timeline.slice(-TIMELINE_PREVIEW_ROWS);
+  const pickupStatus =
+    order.status === 'pickedUp' || order.status === 'delivered'
+      ? t('orders.detail.pickupDone')
+      : order.status === 'cancelled' || order.status === 'returned'
+        ? order.statusLabel
+        : t('orders.detail.pickupPending');
+  const otpState = order.otpVerifiedLabel !== null
+    ? t('orders.detail.otpVerified', { at: order.otpVerifiedLabel })
+    : order.otpRequired
+      ? t('orders.detail.otpRequired')
+      : t('orders.detail.otpNotSet');
 
   const openFromMenu = (screen: string) => {
     setShowMenu(false);
-    onNavigate?.(screen, { orderId });
+    onNavigate?.(screen, { orderId: order.id });
   };
 
   return (
@@ -114,10 +168,10 @@ export function OrderDetailScreen({
               <BackArrowIcon />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>{orderId}</Text>
+              <Text style={styles.headerTitle}>{order.orderNumber}</Text>
               <View style={styles.headerStatusRow}>
                 <View style={styles.statusDot} />
-                <Text style={styles.headerStatusText}>{displayStatus}</Text>
+                <Text style={styles.headerStatusText}>{order.statusLabel}</Text>
               </View>
             </View>
           </View>
@@ -127,28 +181,36 @@ export function OrderDetailScreen({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+            ) : undefined
+          }
+        >
           <Text style={styles.sectionHeader}>Order Summary</Text>
           <View style={styles.card}>
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order ID</Text>
-                <Text style={styles.colValue}>{orderId}</Text>
+                <Text style={styles.colValue}>{order.orderNumber}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order Date</Text>
-                <Text style={styles.colValue}>{displayDate}</Text>
+                <Text style={styles.colValue}>{order.placedLabel}</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, styles.rowGap]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Status</Text>
-                <Text style={styles.colValue}>{displayStatus}</Text>
+                <Text style={styles.colValue}>{order.statusLabel}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Warehouse</Text>
-                <Text style={styles.colValue}>{warehouseName}</Text>
+                <Text style={styles.colValue}>{order.warehouseName}</Text>
               </View>
             </View>
           </View>
@@ -158,11 +220,11 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Customer</Text>
-                <Text style={styles.colValue}>{displayCustomer}</Text>
+                <Text style={styles.colValue}>{order.buyerName}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Phone</Text>
-                <Text style={styles.colValue}>{phone}</Text>
+                <Text style={styles.colValue}>{order.buyerMobileMasked ?? t('orders.noValue')}</Text>
               </View>
             </View>
           </View>
@@ -172,26 +234,29 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Fulfillment</Text>
-                <Text style={styles.colValue}>Warehouse Pickup</Text>
+                <Text style={styles.colValue}>{order.fulfilmentLabel}</Text>
               </View>
               <View style={styles.col}>
-                <Text style={styles.colLabel}>Pickup Warehouse</Text>
-                <Text style={styles.colValue}>{warehouseName}</Text>
+                <Text style={styles.colLabel}>{order.fulfilment === 'delivery' ? t('orders.detail.deliveryDate') : 'Pickup Warehouse'}</Text>
+                <Text style={styles.colValue}>
+                  {order.fulfilment === 'delivery' ? order.deliveryDateLabel ?? t('orders.noValue') : order.warehouseName}
+                </Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.sectionHeader}>Order Items ({orderItemsList.length})</Text>
+          <Text style={styles.sectionHeader}>Order Items ({order.itemCount})</Text>
           <View style={styles.card}>
-            {orderItemsList.map((item, idx) => (
-              <View key={item.name}>
+            {order.lines.length === 0 ? <Text style={styles.orderItemSub}>{t('orders.empty.lines')}</Text> : null}
+            {order.lines.map((item, idx) => (
+              <View key={item.key}>
                 <View style={styles.orderItemHeaderRow}>
                   <Text style={styles.orderItemName}>{item.name}</Text>
-                  <Text style={styles.orderItemPrice}>{item.price}</Text>
+                  <Text style={styles.orderItemPrice}>{item.lineTotalLabel}</Text>
                 </View>
-                <Text style={styles.orderItemSub}>{item.grade}</Text>
+                <Text style={styles.orderItemSub}>{item.gradeLabel}</Text>
                 <Text style={styles.orderItemSub}>{item.qtyDetail}</Text>
-                {idx < orderItemsList.length - 1 && <View style={styles.divider} />}
+                {idx < order.lines.length - 1 && <View style={styles.divider} />}
               </View>
             ))}
           </View>
@@ -200,26 +265,26 @@ export function OrderDetailScreen({
           <View style={styles.card}>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Subtotal</Text>
-              <Text style={styles.amountValue}>{subtotal}</Text>
+              <Text style={styles.amountValue}>{order.totals.subtotalLabel}</Text>
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Discount</Text>
-              <Text style={styles.amountValue}>₹0</Text>
+              <Text style={styles.amountValue}>{order.totals.discountLabel}</Text>
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>GST</Text>
-              <Text style={styles.amountValue}>{gst}</Text>
+              <Text style={styles.amountValue}>{order.totals.gstLabel}</Text>
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Delivery Fee</Text>
-              <Text style={styles.amountValue}>₹0</Text>
+              <Text style={styles.amountValue}>{order.totals.deliveryFeeLabel}</Text>
             </View>
 
             <View style={styles.amountDivider} />
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>{total}</Text>
+              <Text style={styles.totalValue}>{order.totals.totalLabel}</Text>
             </View>
           </View>
 
@@ -228,11 +293,11 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Payment Status</Text>
-                <Text style={styles.colValue}>Paid</Text>
+                <Text style={styles.colValue}>{order.paymentStatusLabel}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Payment Method</Text>
-                <Text style={styles.colValue}>Wallet</Text>
+                <Text style={styles.colValue}>{order.paymentMethodLabel}</Text>
               </View>
             </View>
           </View>
@@ -242,96 +307,51 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Pickup Status</Text>
-                <Text style={styles.colValue}>Pending</Text>
+                <Text style={styles.colValue}>{pickupStatus}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Pickup OTP</Text>
-                <Text style={styles.colValue}>Verification required</Text>
+                <Text style={styles.colValue}>{otpState}</Text>
               </View>
             </View>
-            <View style={[styles.twoColRow, styles.rowGap]}>
-              <View style={styles.col}>
-                <Text style={styles.colLabel}>Order Pickup Type</Text>
-                <Text style={styles.colValue}>Direct Pickup</Text>
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.sectionHeader}>Notes</Text>
-          <View style={styles.card}>
-            <Text style={styles.notesText}>Please pack tomatoes separately if possible.</Text>
           </View>
 
           <View style={styles.timelineHeaderRow}>
             <Text style={styles.sectionHeaderPlain}>Order Timeline</Text>
-            <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S15', { orderId })}>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S15', { orderId: order.id })}>
               <Text style={styles.viewTimelineLink}>View full timeline</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.timelineCard}>
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineIndicatorCol}>
-                <TimelineCheckDot />
-                <View style={styles.timelineDoneLine} />
+            {timelinePreview.length === 0 ? <Text style={styles.timelineTime}>{t('orders.empty.timeline')}</Text> : null}
+            {timelinePreview.map((event, index) => (
+              <View key={event.key} style={styles.timelineRow}>
+                <View style={styles.timelineIndicatorCol}>
+                  <TimelineCheckDot />
+                  {index < timelinePreview.length - 1 ? <View style={styles.timelineDoneLine} /> : null}
+                </View>
+                <View style={styles.timelineTextCol}>
+                  <Text style={styles.timelineTitle}>{event.label}</Text>
+                  <Text style={styles.timelineTime}>{event.atLabel}</Text>
+                </View>
               </View>
-              <View style={styles.timelineTextCol}>
-                <Text style={styles.timelineTitle}>Order Placed</Text>
-                <Text style={styles.timelineTime}>10:32 AM</Text>
-              </View>
-            </View>
-
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineIndicatorCol}>
-                <TimelineCheckDot />
-                <View style={styles.timelinePendingLine} />
-              </View>
-              <View style={styles.timelineTextCol}>
-                <Text style={styles.timelineTitle}>Order Confirmed</Text>
-                <Text style={styles.timelineTime}>10:34 AM</Text>
-              </View>
-            </View>
-
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineIndicatorCol}>
-                <TimelinePendingDot />
-              </View>
-              <View style={styles.timelineTextCol}>
-                <Text style={styles.timelineTitlePending}>Stock Checked</Text>
-                <Text style={styles.timelineTime}>—</Text>
-              </View>
-            </View>
+            ))}
           </View>
         </ScrollView>
 
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCheckBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S05', { orderId })}
-          >
-            <ChecklistIcon />
-            <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
-          </TouchableOpacity>
-
-          <View style={styles.secondaryBtnRow}>
+        {next !== null ? (
+          <View style={styles.bottomBar}>
             <TouchableOpacity
-              style={styles.outlineActionBtn}
+              style={styles.primaryCheckBtn}
               activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S16', { orderId })}
+              onPress={() => onNavigate?.(next.screen, { orderId: order.id, step: next.step })}
             >
-              <Text style={styles.outlineActionBtnText}>Report Issue</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S17', { orderId })}
-            >
-              <Text style={styles.outlineActionBtnText}>Order Cancel</Text>
+              <ChecklistIcon />
+              <Text style={styles.primaryCheckBtnText}>{t(NEXT_ACTION_LABEL[next.kind])}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        ) : null}
 
         <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
           {/* Was a translucent overlay; no translucent token, so the scrim is transparent and the sheet carries adminShadow.lg. */}
@@ -339,17 +359,9 @@ export function OrderDetailScreen({
             <View style={styles.menuSheet}>
               <Text style={styles.menuTitle}>Order Actions</Text>
 
-              <TouchableOpacity style={styles.modalOption} onPress={() => openFromMenu('M5S18')}>
-                <Text style={styles.modalOptionText}>View Invoice</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.modalOption} onPress={() => openFromMenu('M5S15')}>
+              {/* View Invoice (phase 7) and Cancel Order (no admin cancel route) are hidden. */}
+              <TouchableOpacity style={[styles.modalOption, styles.modalOptionLast]} onPress={() => openFromMenu('M5S15')}>
                 <Text style={styles.modalOptionText}>Status History</Text>
-              </TouchableOpacity>
-
-              {/* Ungated: docs/rbac.json has no order-cancel permission (spec gap). */}
-              <TouchableOpacity style={[styles.modalOption, styles.modalOptionLast]} onPress={() => openFromMenu('M5S17')}>
-                <Text style={[styles.modalOptionText, styles.modalOptionDanger]}>Cancel Order</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -363,7 +375,6 @@ export function OrderDetailScreen({
 const BACK_BUTTON = 32;
 const MORE_BUTTON = 36;
 const STATUS_DOT = 7;
-const SECONDARY_BUTTON_HEIGHT = 48;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: adminColors.brand },
@@ -436,7 +447,6 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { ...adminType.sectionHead, color: adminColors.ink },
   totalValue: { ...adminType.title, color: adminColors.ink },
-  notesText: { ...adminType.body, color: adminColors.ink },
   timelineHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -457,10 +467,8 @@ const styles = StyleSheet.create({
   timelineRow: { flexDirection: 'row', minHeight: 46 },
   timelineIndicatorCol: { alignItems: 'center', width: 20, marginRight: 10 },
   timelineDoneLine: { width: 2, flex: 1, backgroundColor: adminColors.success.text, marginVertical: 3 },
-  timelinePendingLine: { width: 2, flex: 1, backgroundColor: adminColors.border, marginVertical: 3 },
   timelineTextCol: { flex: 1, paddingBottom: 10 },
   timelineTitle: { ...adminType.body, fontWeight: '700', color: adminColors.ink },
-  timelineTitlePending: { ...adminType.body, fontWeight: '700', color: adminColors.muted },
   timelineTime: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   bottomBar: {
     paddingHorizontal: 16,
@@ -483,26 +491,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  secondaryBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  outlineActionBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#C27038',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineActionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8A421D',
-  },
   menuOverlay: { flex: 1, justifyContent: 'flex-end' },
   menuSheet: {
     backgroundColor: adminColors.card,
@@ -518,5 +506,4 @@ const styles = StyleSheet.create({
   modalOption: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: adminColors.border },
   modalOptionLast: { borderBottomWidth: 0 },
   modalOptionText: { ...adminType.sectionHead, color: adminColors.ink },
-  modalOptionDanger: { color: adminColors.danger.text },
 });

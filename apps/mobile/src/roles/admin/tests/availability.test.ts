@@ -15,6 +15,7 @@ import {
   STAFF_AREA_CODE,
   inventoryRouteArea,
   isAreaAvailable,
+  ordersRouteArea,
   storageRouteArea,
   type WarehouseArea,
 } from '../screens/warehouse/availability';
@@ -38,6 +39,15 @@ describe('AREAS_WITHOUT_API', () => {
         // review have no endpoint at all.
         'stockAdjustments',
         'stockCounts',
+        // Phase 5: there is no admin cancel route, no admin order-issue route, no
+        // stock-check endpoint, delivery dispatch is not enabled in Track 1 (BR-21;
+        // no delivery-partner list, no address in the admin detail), and order
+        // invoices are wired in phase 7.
+        'orderCancellation',
+        'orderIssues',
+        'orderStockCheck',
+        'orderDelivery',
+        'orderInvoices',
       ].sort(),
     );
   });
@@ -125,5 +135,37 @@ describe('inventoryRouteArea', () => {
     for (const route of ['M3S01', 'M3S02', 'M3S03', 'M3S04', 'M3S05', 'M3S06', 'M3S07', 'M3S08', 'M3S09']) {
       expect({ route, area: inventoryRouteArea(route) }).toEqual({ route, area: undefined });
     }
+  });
+});
+
+describe('ordersRouteArea', () => {
+  it('maps the order routes with no API to their area', () => {
+    const expected: Record<string, WarehouseArea> = {
+      M5S05: 'orderStockCheck', // stock check + shortage
+      M5S13: 'orderDelivery', // delivery preparation
+      M5S14: 'orderDelivery', // dispatch to a delivery partner
+      M5S16: 'orderIssues', // report an order issue
+      M5S17: 'orderCancellation', // cancel order
+      M5S18: 'orderInvoices', // order invoice (phase 7)
+    };
+    for (const [route, area] of Object.entries(expected)) {
+      expect({ route, area: ordersRouteArea(route) }).toEqual({ route, area });
+      expect({ route, sub: isAreaAvailable(area, subCan), main: isAreaAvailable(area, mainCan) }).toEqual({
+        route,
+        sub: false,
+        main: false,
+      });
+    }
+  });
+
+  it('leaves the order routes with an API ungated', () => {
+    for (const route of ['M5S01', 'M5S02', 'M5S03', 'M5S04', 'M5S07', 'M5S09', 'M5S11', 'M5S15']) {
+      expect({ route, area: ordersRouteArea(route) }).toEqual({ route, area: undefined });
+    }
+  });
+
+  it('maps the long route keys too', () => {
+    expect(ordersRouteArea('M5S17_CancelOrder')).toBe('orderCancellation');
+    expect(ordersRouteArea('M5S04_OrderDetail')).toBeUndefined();
   });
 });

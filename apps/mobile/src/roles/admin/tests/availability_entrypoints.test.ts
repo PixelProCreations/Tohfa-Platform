@@ -181,3 +181,38 @@ describe('Inventory: stock counts and stock adjustments (no API, phase 3)', () =
     expect(APP).toMatch(/const inventory = INVENTORY_ROUTE_ENTRY\[screen\];\s*if \(inventory !== undefined\) return inventoryRouteArea\(inventory\);/);
   });
 });
+
+describe('Orders: cancel, issues, stock check, delivery and invoice (no API, phase 5)', () => {
+  const ORDERS = 'roles/admin/screens/warehouse/orders';
+  const FLOW = read(`${ORDERS}/OrdersFlow.tsx`);
+  const LIVE_SCREENS = [
+    'OrdersDashboardScreen',
+    'OrdersListScreen',
+    'OrderDetailScreen',
+    'ReadyForPickupScreen',
+    'OrderStatusHistoryScreen',
+    'PackingScreen',
+    'PickupOtpScreen',
+  ].map((name) => ({ name, source: read(`${ORDERS}/${name}.tsx`) }));
+  // M5S05 stock check, M5S13/M5S14 delivery, M5S16 issues, M5S17 cancel, M5S18 invoice.
+  const HIDDEN_ROUTE = /'M5S(05|13|14|16|17|18)'/;
+
+  it('OrdersFlow refuses a hidden route (navigate and initial screen) and opens the dashboard', () => {
+    expect(FLOW).toMatch(/const area = ordersRouteArea\(screen\);\s*return area === undefined \|\| isAreaAvailable\(area, can\);/);
+    expect(FLOW).toMatch(/if \(!isRouteAvailable\(screen\)\) return;/);
+    expect(FLOW).toMatch(/const screen = isRouteAvailable\(current\.screen\) \? current\.screen : HOME_SCREEN;/);
+  });
+
+  it('the live screens link to no hidden route and read no sample data', () => {
+    for (const { name, source } of LIVE_SCREENS) {
+      expect({ name, hidden: source.match(HIDDEN_ROUTE)?.[0] ?? null }).toEqual({ name, hidden: null });
+      expect({ name, fixtures: /from '\.\/fixtures'/.test(source) }).toEqual({ name, fixtures: false });
+    }
+  });
+
+  it('BR-20: the pickup OTP is never pre-filled', () => {
+    const pickup = read(`${ORDERS}/PickupOtpScreen.tsx`);
+    expect(pickup).toMatch(/const \[otp, setOtp\] = useState\(''\);/);
+    expect(pickup).not.toMatch(/'4', '8', '2', '1'|4821'|otpDigits/);
+  });
+});

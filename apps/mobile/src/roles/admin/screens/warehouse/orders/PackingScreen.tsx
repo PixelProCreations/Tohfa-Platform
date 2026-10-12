@@ -9,35 +9,47 @@
  * Gates (docs/rbac.json; the server re-checks everything, CLAUDE.md 2.1):
  *   - "Confirm Packing" (packing step) and "Yes, Confirm Packing" (confirm
  *     step) both lead to marking the order packed: `order.mark_packed`.
- *   - The onward "Mark Ready for Pickup" / "Prepare for Dispatch" actions on
- *     the packed confirmation have no code assigned yet and stay ungated.
+ *   - "Mark Ready for Pickup" on the packed result is POST .../dispatch, which
+ *     moves a PACKED pickup order to READY_FOR_PICKUP: `order.dispatch`.
+ *   - "Prepare for Dispatch (Delivery)" is hidden: delivery dispatch is not
+ *     enabled in Track 1 (BR-21; availability.ts 'orderDelivery').
+ *
+ * Live data (API integration plan, phase 5): the order is GET
+ * /admin/orders/{orderId}; "Yes, Confirm Packing" is POST .../pack and "Mark
+ * Ready for Pickup" POST .../dispatch, each with an Idempotency-Key and safe to
+ * retry (orderActions.ts: after a timeout the order is re-read, and a status
+ * that already moved counts as done). The whole order is packed as ordered:
+ * the detail sends no order-item ids, so `packedLines` cannot be built (spec
+ * gap), and the packed-quantity, packaging, notes and photo fields, which
+ * nothing would send, are hidden. The tick list is a packing aid only.
  */
 // Design id: M5S07 (Packing), absorbs M5S08 (Confirm Packing)
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Modal,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { SAMPLE_ORDER_ID, SAMPLE_PACKING_CHECKLIST, SAMPLE_PACKING_SUMMARY } from './fixtures';
-import type { OrderScreenBaseProps, PackingStep, WarehouseNavigate } from './types';
+import type { DispatchOrderBody, PackOrderBody } from '../../../api/orders';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps, PackingStep, WarehouseNavigate } from './types';
+import type { LiveOrderAction } from './useOrdersData';
 
-export interface PackingScreenProps extends OrderScreenBaseProps {
+export interface PackingScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
   /** Which step to open on; the host passes `params.step` (old M5S08 links use 'confirm'). */
   initialStep?: PackingStep | undefined;
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
+  /** POST .../pack. */
+  pack?: LiveOrderAction<PackOrderBody> | undefined;
+  /** POST .../dispatch (a pickup order -> READY_FOR_PICKUP). */
+  markReady?: LiveOrderAction<DispatchOrderBody> | undefined;
 }
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-const PACKAGE_OPTIONS = ['Select', 'Crate / Corrugated Box', 'Plastic Bag', 'Paper Pouch', 'Insulated Box'];
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -75,34 +87,11 @@ function EmptyCheckboxIcon() {
   return <View style={styles.emptyCheckbox} />;
 }
 
-function ChevronDownIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 function InfoCircleIcon() {
   return (
     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
       <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function CameraPhotoIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-        stroke={adminColors.muted}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="13" r="4" stroke={adminColors.muted} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -185,62 +174,41 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
   );
 }
 
-interface ChecklistItem {
-  id: string;
-  name: string;
-  checked: boolean;
+/** A refused or failed write, worded for warehouse staff (adminErrorKey), never the server's detail. */
+function WriteError({ error }: { error: unknown }) {
+  if (error === null || error === undefined) return null;
+  return (
+    <View style={styles.errorBox}>
+      <Text style={styles.errorText}>{t(adminErrorKey(error))}</Text>
+    </View>
+  );
 }
 
 /**
- * The packing form's state lives in the parent so that stepping back from the
- * confirmation does not wipe what the packer already ticked and typed.
+ * The packer's tick list lives in the parent so that stepping back from the
+ * confirmation does not wipe what was already ticked. It is a packing aid
+ * only: nothing from it is sent (see the header).
  */
-function usePackingForm() {
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(SAMPLE_PACKING_CHECKLIST);
-  const [packedQty, setPackedQty] = useState('');
-  const [packageType, setPackageType] = useState('Select');
-  const [showPackagePicker, setShowPackagePicker] = useState(false);
-  const [packageCount, setPackageCount] = useState('2');
-  const [notes, setNotes] = useState('');
-  const [hasPhoto, setHasPhoto] = useState(false);
-
-  const toggleCheck = (id: string) => {
-    setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)));
-  };
-
-  return {
-    checklist,
-    toggleCheck,
-    packedQty,
-    setPackedQty,
-    packageType,
-    setPackageType,
-    showPackagePicker,
-    setShowPackagePicker,
-    packageCount,
-    setPackageCount,
-    notes,
-    setNotes,
-    hasPhoto,
-    setHasPhoto,
-  };
+function usePackingChecklist() {
+  const [checked, setChecked] = useState<Readonly<Record<string, boolean>>>({});
+  const toggle = (key: string) => setChecked((prev) => ({ ...prev, [key]: prev[key] !== true }));
+  return { checked, toggle };
 }
 
-type PackingForm = ReturnType<typeof usePackingForm>;
+type PackingChecklist = ReturnType<typeof usePackingChecklist>;
 
 // ─── Step: packing (M5S07) ───────────────────────────────────────────────────
 
 interface PackingStepViewProps {
-  orderId: string;
-  form: PackingForm;
+  order: OrderDetailView;
+  checklist: PackingChecklist;
   canMarkPacked: boolean;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: PackingStepViewProps) {
-  const { checklist } = form;
-  const checkedCount = checklist.filter((c) => c.checked).length;
+function PackingStepView({ order, checklist, canMarkPacked, onBack, onConfirm }: PackingStepViewProps) {
+  const checkedCount = order.lines.filter((line) => checklist.checked[line.key] === true).length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -249,114 +217,32 @@ function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: Pa
 
         <View style={styles.subtitleRow}>
           <Text style={styles.subtitleText}>
-            {orderId} · {checkedCount} / {checklist.length} Items
+            {order.orderNumber} · {checkedCount} / {order.lines.length} Items
           </Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Packing Checklist</Text>
           <View style={styles.checklistCard}>
-            {checklist.map((item, index) => (
+            {order.lines.map((line, index) => (
               <TouchableOpacity
-                key={item.id}
-                style={[styles.checklistItem, index < checklist.length - 1 && styles.checklistItemBorder]}
+                key={line.key}
+                style={[styles.checklistItem, index < order.lines.length - 1 && styles.checklistItemBorder]}
                 activeOpacity={0.7}
-                onPress={() => form.toggleCheck(item.id)}
+                onPress={() => checklist.toggle(line.key)}
               >
-                {item.checked ? <GreenCheckboxIcon /> : <EmptyCheckboxIcon />}
-                <Text style={styles.checklistText}>{item.name}</Text>
+                {checklist.checked[line.key] === true ? <GreenCheckboxIcon /> : <EmptyCheckboxIcon />}
+                <Text style={styles.checklistText}>{line.checklistLabel}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>Item Detail</Text>
-          <View style={styles.itemDetailCard}>
-            <View style={styles.twoColRow}>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Tomato</Text>
-                <Text style={styles.detailValue}>Grade 1</Text>
-              </View>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>Cold Storage · Rack 02</Text>
-              </View>
-            </View>
-
-            <View style={[styles.twoColRow, styles.twoColRowSpaced]}>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Required</Text>
-                <Text style={styles.detailValue}>2 KG</Text>
-              </View>
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Packed</Text>
-                <Text style={styles.detailValue}>2 KG</Text>
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Packed Quantity</Text>
-          <View style={styles.packedQtyInputContainer}>
-            <TextInput
-              style={styles.packedQtyTextInput}
-              value={form.packedQty}
-              onChangeText={form.setPackedQty}
-              placeholder=""
-              keyboardType="numeric"
-            />
-            <Text style={styles.unitText}>KG</Text>
-          </View>
-
+          {/* Packed quantity, packaging, notes and photo are not sent anywhere
+              (the detail carries no order-item id for packedLines), so they are hidden. */}
           <View style={styles.infoBox}>
             <InfoCircleIcon />
-            <Text style={styles.infoText}>
-              Packed quantity cannot exceed the ordered quantity without a supported exception workflow.
-            </Text>
+            <Text style={styles.infoText}>{t('orders.packing.wholeOrder')}</Text>
           </View>
-
-          <Text style={styles.sectionTitle}>Package Information</Text>
-
-          <TouchableOpacity style={styles.dropdownBox} activeOpacity={0.7} onPress={() => form.setShowPackagePicker(true)}>
-            <View style={styles.dropdownContent}>
-              <Text style={styles.dropdownLabel}>PACKAGING TYPE</Text>
-              <Text style={styles.dropdownValue}>{form.packageType}</Text>
-            </View>
-            <ChevronDownIcon />
-          </TouchableOpacity>
-
-          <View style={styles.textInputBox}>
-            <TextInput
-              style={styles.singleLineInput}
-              value={form.packageCount}
-              onChangeText={form.setPackageCount}
-              placeholder="Number of packages"
-              placeholderTextColor={adminColors.placeholder}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={styles.labelWithOptionalRow}>
-            <Text style={styles.fieldLabel}>Packing Notes</Text>
-            <Text style={styles.optionalText}>Optional</Text>
-          </View>
-          <View style={styles.notesInputBox}>
-            <TextInput
-              style={styles.notesTextInput}
-              value={form.notes}
-              onChangeText={form.setNotes}
-              placeholder="Add packing observations or special handling..."
-              placeholderTextColor={adminColors.placeholder}
-              multiline
-            />
-          </View>
-
-          <View style={styles.labelWithOptionalRow}>
-            <Text style={styles.fieldLabel}>Package Photo</Text>
-            <Text style={styles.optionalText}>Optional</Text>
-          </View>
-          <TouchableOpacity style={styles.photoBox} activeOpacity={0.7} onPress={() => form.setHasPhoto(!form.hasPhoto)}>
-            <CameraPhotoIcon />
-            <Text style={styles.photoText}>{form.hasPhoto ? '1 Photo' : 'Add Photo'}</Text>
-          </TouchableOpacity>
 
           <View style={styles.scrollSpacer} />
         </ScrollView>
@@ -369,34 +255,6 @@ function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: Pa
             </TouchableOpacity>
           </View>
         ) : null}
-
-        <Modal
-          visible={form.showPackagePicker}
-          transparent
-          animationType="fade"
-          onRequestClose={() => form.setShowPackagePicker(false)}
-        >
-          {/* Was a translucent overlay; no translucent token, so the scrim is dropped and the card floats on adminShadow.lg. */}
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => form.setShowPackagePicker(false)}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Packaging Type</Text>
-              {PACKAGE_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.modalOption, form.packageType === opt && styles.modalOptionSelected]}
-                  onPress={() => {
-                    form.setPackageType(opt);
-                    form.setShowPackagePicker(false);
-                  }}
-                >
-                  <Text style={[styles.modalOptionText, form.packageType === opt && styles.modalOptionTextSelected]}>
-                    {opt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -405,61 +263,66 @@ function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: Pa
 // ─── Step: confirm (folded M5S08) ────────────────────────────────────────────
 
 interface ConfirmStepViewProps {
-  orderId: string;
+  order: OrderDetailView;
+  checkedCount: number;
   canMarkPacked: boolean;
+  canMarkReady: boolean;
+  pack: LiveOrderAction<PackOrderBody>;
+  markReady: LiveOrderAction<DispatchOrderBody>;
   onBack: () => void;
   onNavigate?: WarehouseNavigate | undefined;
 }
 
-function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: ConfirmStepViewProps) {
-  // M5S08 showed its "Order Packed" result in place after confirming; that
-  // stays a sub-state of this step rather than becoming a third step.
-  const [isPacked, setIsPacked] = useState(false);
+function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pack, markReady, onBack, onNavigate }: ConfirmStepViewProps) {
+  // The packed result shows once this screen packed the order or the order is
+  // already past CONFIRMED (opened from the detail to mark it ready).
+  const [packedHere, setPackedHere] = useState(false);
+  const isPacked = packedHere || order.status !== 'confirmed';
 
   if (isPacked) {
+    // Only a PACKED pickup order is marked ready (POST .../dispatch); delivery
+    // dispatch is not enabled in Track 1 (BR-21), so that button is hidden.
+    const offerReady = canMarkReady && order.status === 'packed' && order.fulfilment === 'pickup';
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <Header title="Order Packed" onBack={() => setIsPacked(false)} />
+          <Header title="Order Packed" onBack={onBack} />
 
           <View style={styles.contentPacked}>
             <View style={styles.heroContainer}>
               <View style={styles.successCircleBadge}>
                 <BigSuccessCheckIcon />
               </View>
-              <Text style={styles.heroTitle}>Order Packed</Text>
+              <Text style={styles.heroTitle}>{order.status === 'confirmed' || order.status === 'packed' ? 'Order Packed' : order.statusLabel}</Text>
             </View>
 
             <View style={styles.packedSummaryCard}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Order</Text>
-                <Text style={styles.detailValue}>{orderId}</Text>
+                <Text style={styles.detailValue}>{order.orderNumber}</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Packed at</Text>
-                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.packedAt}</Text>
+                <Text style={styles.detailValue}>{order.packedLabel ?? t('orders.noValue')}</Text>
               </View>
             </View>
+
+            <WriteError error={markReady.error} />
           </View>
 
-          <View style={styles.bottomBarPacked}>
-            <TouchableOpacity
-              style={[styles.primaryBtn, styles.stackedBtnGap]}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S09', { orderId })}
-            >
-              <PersonCheckIcon />
-              <Text style={styles.primaryBtnText}>Mark Ready for Pickup</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.outlineBtn}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S13', { orderId })}
-            >
-              <Text style={styles.outlineBtnText}>Prepare for Dispatch (Delivery)</Text>
-            </TouchableOpacity>
-          </View>
+          {offerReady ? (
+            <View style={styles.bottomBarPacked}>
+              <TouchableOpacity
+                style={[styles.primaryBtn, markReady.isPending && styles.primaryBtnPending]}
+                activeOpacity={0.8}
+                disabled={markReady.isPending}
+                onPress={() => markReady.run({}, () => onNavigate?.('M5S09'))}
+              >
+                <PersonCheckIcon />
+                <Text style={styles.primaryBtnText}>{markReady.isPending ? t('orders.action.saving') : 'Mark Ready for Pickup'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </SafeAreaView>
     );
@@ -480,22 +343,24 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
             <View style={styles.twoColRow}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Order</Text>
-                <Text style={styles.detailValue}>{orderId}</Text>
+                <Text style={styles.detailValue}>{order.orderNumber}</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Items</Text>
-                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.items}</Text>
+                <Text style={styles.detailValue}>
+                  {checkedCount} / {order.lines.length}
+                </Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, styles.twoColRowSpaced]}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Total Quantity</Text>
-                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.totalQuantity}</Text>
+                <Text style={styles.detailValue}>{order.totalGrams === null ? t('orders.noValue') : formatKg(order.totalGrams)}</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Customer</Text>
-                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.customer}</Text>
+                <Text style={styles.detailValue}>{order.buyerName}</Text>
               </View>
             </View>
           </View>
@@ -508,14 +373,22 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
             </View>
           ))}
 
+          <WriteError error={pack.error} />
+
           <View style={styles.scrollSpacer} />
         </ScrollView>
 
         {canMarkPacked ? (
           <View style={styles.bottomBar}>
-            <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={() => setIsPacked(true)}>
+            <TouchableOpacity
+              style={[styles.primaryBtn, pack.isPending && styles.primaryBtnPending]}
+              activeOpacity={0.8}
+              disabled={pack.isPending}
+              // The whole order, as ordered: packedLines needs order-item ids the detail does not send.
+              onPress={() => pack.run({}, () => setPackedHere(true))}
+            >
               <CheckmarkIcon />
-              <Text style={styles.primaryBtnText}>Yes, Confirm Packing</Text>
+              <Text style={styles.primaryBtnText}>{pack.isPending ? t('orders.action.saving') : 'Yes, Confirm Packing'}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -530,19 +403,47 @@ export function PackingScreen({
   can,
   onBack,
   onNavigate,
-  orderId = SAMPLE_ORDER_ID,
+  order,
   initialStep = 'packing',
+  isLoading = false,
+  error,
+  onRetry,
+  pack,
+  markReady,
 }: PackingScreenProps) {
   const [step, setStep] = useState<PackingStep>(initialStep);
-  const form = usePackingForm();
-  const canMarkPacked = can('order.mark_packed');
+  const checklist = usePackingChecklist();
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
 
-  if (step === 'confirm') {
+  if (view !== 'ready' || order === undefined || pack === undefined || markReady === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Header title="Packing" onBack={onBack} />
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+            <AdminEmptyState title={t('orders.empty.notFound')} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const canMarkPacked = can('order.mark_packed');
+  // An order already past CONFIRMED has nothing to pack: open on its packed result.
+  if (step === 'confirm' || order.status !== 'confirmed') {
     return (
       <ConfirmStepView
-        orderId={orderId}
+        order={order}
+        checkedCount={order.lines.filter((line) => checklist.checked[line.key] === true).length}
         canMarkPacked={canMarkPacked}
-        onBack={() => setStep('packing')}
+        canMarkReady={can('order.dispatch')}
+        pack={pack}
+        markReady={markReady}
+        onBack={initialStep === 'confirm' || order.status !== 'confirmed' ? onBack : () => setStep('packing')}
         onNavigate={onNavigate}
       />
     );
@@ -550,8 +451,8 @@ export function PackingScreen({
 
   return (
     <PackingStepView
-      orderId={orderId}
-      form={form}
+      order={order}
+      checklist={checklist}
       canMarkPacked={canMarkPacked}
       onBack={onBack}
       onConfirm={() => setStep('confirm')}
@@ -559,11 +460,9 @@ export function PackingScreen({
   );
 }
 
-// Fixed control sizes (not spacing): checkbox, photo tile, success badge, notes box.
+// Fixed control sizes (not spacing): checkbox, success badge.
 const CHECKBOX_SIZE = 22;
-const PHOTO_TILE = 68;
 const SUCCESS_BADGE = 68;
-const NOTES_HEIGHT = 76;
 
 const card = {
   backgroundColor: adminColors.card,
@@ -630,24 +529,11 @@ const styles = StyleSheet.create({
     marginRight: adminSpacing.md,
   },
   checklistText: { ...adminType.body, fontWeight: '700', color: adminColors.ink },
-  itemDetailCard: { ...card, padding: adminSpacing.lg },
   twoColRow: { flexDirection: 'row', justifyContent: 'space-between' },
   twoColRowSpaced: { marginTop: 14 },
   detailCol: { flex: 1 },
   detailLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: 3 },
   detailValue: { ...adminType.sectionHead, color: adminColors.ink },
-  packedQtyInputContainer: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    height: ADMIN_BUTTON_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: adminSpacing.lg,
-  },
-  packedQtyTextInput: { ...adminType.sectionHead, flex: 1, color: adminColors.ink, height: '100%' },
-  unitText: { ...adminType.body, fontWeight: '700', color: adminColors.muted },
   infoBox: {
     backgroundColor: adminColors.info.bg,
     borderWidth: 1,
@@ -661,62 +547,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   infoText: { ...adminType.rowMeta, flex: 1, fontWeight: '600', color: adminColors.info.text },
-  dropdownBox: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dropdownContent: { flex: 1 },
-  dropdownLabel: { ...adminType.caption, color: adminColors.muted, letterSpacing: 0.5, marginBottom: 2 },
-  dropdownValue: { ...adminType.body, fontWeight: '600', color: adminColors.ink },
-  fieldLabel: { ...adminType.body, fontWeight: '700', color: adminColors.ink },
-  labelWithOptionalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: adminSpacing.lg,
-    marginBottom: adminSpacing.sm,
-  },
-  optionalText: { ...adminType.rowMeta, color: adminColors.muted },
-  textInputBox: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    height: ADMIN_BUTTON_HEIGHT,
-    paddingHorizontal: adminSpacing.lg,
-    justifyContent: 'center',
-    marginTop: adminSpacing.sm,
-  },
-  singleLineInput: { ...adminType.sectionHead, color: adminColors.ink, height: '100%' },
-  notesInputBox: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    height: NOTES_HEIGHT,
-  },
-  notesTextInput: { ...adminType.body, color: adminColors.ink, textAlignVertical: 'top', height: '100%' },
-  photoBox: {
-    width: PHOTO_TILE,
-    height: PHOTO_TILE,
-    borderRadius: adminRadius.sm,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    borderStyle: 'dashed',
-    backgroundColor: adminColors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoText: { ...adminType.caption, color: adminColors.muted, marginTop: adminSpacing.xs },
   bottomBar: {
     backgroundColor: adminColors.canvas,
     paddingHorizontal: adminSpacing.lg,
@@ -735,24 +565,15 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   primaryBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
-  stackedBtnGap: { marginBottom: 10 },
-  outlineBtn: {
-    backgroundColor: adminColors.brandTint,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: adminRadius.lg,
-    height: ADMIN_BUTTON_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
+  primaryBtnPending: { backgroundColor: adminColors.brandTint },
+  errorBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.md,
   },
-  outlineBtnText: { ...adminType.sectionHead, color: adminColors.brand },
-  modalOverlay: { flex: 1, justifyContent: 'center', padding: adminSpacing.input },
-  modalCard: { backgroundColor: adminColors.card, borderRadius: adminRadius.lg, padding: 18, ...adminShadow.lg },
-  modalTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.md },
-  modalOption: { paddingVertical: adminSpacing.md, paddingHorizontal: 10, borderRadius: adminRadius.xs },
-  modalOptionSelected: { backgroundColor: adminColors.brandTint },
-  modalOptionText: { ...adminType.body, color: adminColors.ink },
-  modalOptionTextSelected: { fontWeight: '700', color: adminColors.brand },
+  errorText: { ...adminType.body, color: adminColors.danger.text },
 
   // Confirm step
   confirmPromptBox: {
