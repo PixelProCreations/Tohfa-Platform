@@ -134,7 +134,40 @@ interface RequestOptions {
   /** Required on every non-idempotent write. See docs/rules.md. */
   idempotencyKey?: string | undefined;
   signal?: AbortSignal | undefined;
+  /**
+   * Opt-in deadline (ms) for this request. When set, the request aborts after
+   * `timeoutMs` OR when `signal` aborts, whichever comes first. Without it the
+   * old rule stands: a 5 s timeout only when no `signal` is passed, none at
+   * all when one is (so a caller's signal used to switch the timeout off).
+   */
+  timeoutMs?: number | undefined;
   _isRetry?: boolean | undefined;
+}
+
+/**
+ * A signal that aborts after `timeoutMs` or when `outer` aborts. Linked by
+ * hand with an 'abort' listener rather than `AbortSignal.any`/`.timeout`,
+ * which Hermes does not ship. `outer` itself is never aborted by the timeout.
+ * `dispose` clears the timer and the listener once the request settles.
+ */
+function linkedTimeoutSignal(
+  outer: AbortSignal | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal; dispose: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const onOuterAbort = (): void => controller.abort();
+  if (outer !== undefined) {
+    if (outer.aborted) controller.abort();
+    else outer.addEventListener('abort', onOuterAbort);
+  }
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      clearTimeout(timer);
+      outer?.removeEventListener('abort', onOuterAbort);
+    },
+  };
 }
 
 function correlationId(): string {
@@ -215,14 +248,18 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   let response: Response;
-  const controller = options.signal ? null : new AbortController();
+  // Opt-in deadline (timeoutMs) covers the whole attempt, emulator fallback
+  // included. Without it, the original behaviour below is unchanged.
+  const deadline = options.timeoutMs === undefined ? null : linkedTimeoutSignal(options.signal, options.timeoutMs);
+  const requestSignal = deadline?.signal ?? options.signal;
+  const controller = deadline !== null || options.signal ? null : new AbortController();
   const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
   try {
     response = await fetch(resolveUrl(path), {
       method: options.method ?? 'GET',
       headers,
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-      signal: options.signal ?? controller?.signal,
+      signal: requestSignal ?? controller?.signal,
     });
   } catch (error) {
     if (isAndroidLocalhostFallbackCandidate(API_BASE_URL)) {
@@ -232,7 +269,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
           method: options.method ?? 'GET',
           headers,
           ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          ...(requestSignal === undefined ? {} : { signal: requestSignal }),
         });
         API_BASE_URL = 'http://10.0.2.2:3000';
       } catch {
@@ -243,6 +280,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+    deadline?.dispose();
   }
 
   // Handle mid-session 401 token expiry with collapsed refresh and single retry
