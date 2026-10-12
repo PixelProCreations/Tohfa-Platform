@@ -43,9 +43,8 @@ import { TransfersFlow, type TransferRoute } from '../warehouse/transfers';
 import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/warehouse-admin';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
-  MAIN_NOTIFICATIONS,
   NotificationsFlow,
-  type NotificationItem,
+  useUnreadNotificationCount,
   type NotificationsRoute,
 } from '../warehouse/notifications';
 
@@ -851,8 +850,8 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   });
   const can = useMemo(() => makeCan(permissions), [permissions]);
   const canAllView = can(HOME_CODES.allView);
-  const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
-  const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
+  // The bell badge: the server's unread total; NotificationsFlow owns the list and the read writes.
+  const unreadNotifCount = useUnreadNotificationCount();
 
   // Filter options from the seeded warehouses (not a written-in list): 'Ooty', ..., 'Gudalur Market'.
   const WAREHOUSE_OPTIONS = [
@@ -955,10 +954,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
       scope={MAIN_WAREHOUSE_SCOPE}
       can={can}
       initialScreen={initialScreen}
-      notifications={whNotifications}
-      onMarkAsRead={(id) => setWhNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))}
-      onMarkAllAsRead={() => setWhNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
-      onClearAll={() => setWhNotifications([])}
       onBack={goBackWh}
       onOpenTarget={(target) => {
         if (target === 'ReviewReceiving' || target === 'Receiving') openTab('Receiving');

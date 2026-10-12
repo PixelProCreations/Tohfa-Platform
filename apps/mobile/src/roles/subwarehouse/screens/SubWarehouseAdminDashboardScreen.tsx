@@ -27,8 +27,7 @@ import {
 } from '../../admin/screens/warehouse/receiving-qc';
 import {
   NotificationsFlow,
-  SUB_NOTIFICATIONS,
-  type NotificationItem,
+  useUnreadNotificationCount,
   type NotificationsRoute,
   type NotificationsRouteParams,
 } from '../../admin/screens/warehouse/notifications';
@@ -1288,23 +1287,9 @@ export function SubWarehouseAdminDashboardScreen({
     }
   }, [initialTab, initialReceivingSubView, initialInventoryScreen]);
   const [user, setUser] = useState<UserMe | null>(null);
-  const [notifications, setNotifications] = useState<readonly NotificationItem[]>(SUB_NOTIFICATIONS);
-
-  const unreadNotifCount = notifications.filter(n => !n.isRead).length;
-
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(item => (item.id === id ? { ...item, isRead: true } : item))
-    );
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(item => ({ ...item, isRead: true })));
-  };
-
-  const handleClearAll = () => {
-    setNotifications([]);
-  };
+  // The bell badge: the server's unread total (GET /notifications). The
+  // NotificationsFlow owns the list and the read writes, which refetch this.
+  const unreadNotifCount = useUnreadNotificationCount();
 
   /** Switch tab; the Receiving tab opens on its dashboard. */
   const navigateTo = (tab: SubWHTab) => {
@@ -1464,10 +1449,6 @@ export function SubWarehouseAdminDashboardScreen({
         can={can}
         initialScreen={notificationsEntry.screen}
         initialParams={notificationsEntry.params}
-        notifications={notifications}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        onClearAll={handleClearAll}
         onBack={() => setNotificationsEntry(null)}
         onTabChange={(tab) => {
           setNotificationsEntry(null);

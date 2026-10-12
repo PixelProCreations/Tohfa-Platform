@@ -16,6 +16,7 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
+import type { TranslationKey } from '../../../i18n';
 import { WalletButton } from '../wallet-cashtopup/WalletParts';
 import type {
   AlertRecordTarget,
@@ -35,6 +36,11 @@ export const NOTIFICATION_CODES = {
   view: 'notification.own.view',
   /** Mark one / all read (and clear). `all` for every role; not gated client-side either. */
   markRead: 'notification.own.mark_read',
+  /**
+   * Live warehouse alerts and dismiss / snooze in one's own list (SUB own,
+   * MAIN all; no farmer or customer). Gates the Dismiss control.
+   */
+  alerts: 'alert.own.view',
 } as const;
 
 /**
@@ -80,8 +86,8 @@ export const TARGET_DETAIL_LABEL: Record<NotificationTarget, string> = {
 
 /**
  * Code of the record an alert's "Open record" link opens. Viewing a record is
- * not approving it: approve / snooze / dismiss have no code (SPEC_GAPS W4k-2)
- * and are not rendered. Transfer accepts either inter-warehouse transfer code.
+ * not approving it (there is no approve). Dismiss is gated by
+ * NOTIFICATION_CODES.alerts. Transfer accepts either inter-warehouse transfer code.
  */
 const ALERT_RECORD_CODES: Record<AlertRecordTarget, readonly string[]> = {
   ExpenseRecord: ['finance.expense.log'],
@@ -97,50 +103,27 @@ export function canOpenAlertRecord(can: PermissionCheck, record: AlertRecordTarg
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
 
-/** Categories behind each category filter tab (the base's tabs + the Sub list's). */
-const FILTER_CATEGORIES: Record<Exclude<NotificationFilter, 'All' | 'Unread'>, readonly NotificationCategory[]> = {
-  Receiving: ['shipment', 'received'],
-  Quality: ['quality', 'mismatch'],
-  Orders: ['order'],
-  Inventory: ['inventory'],
-  Finance: ['wallet'],
-  Returns: ['returns'],
-  System: ['system'],
-  Messages: ['message'],
-};
+/**
+ * The list's filter tabs. GET /notifications has no category, only the
+ * `unreadOnly` filter, so All and Unread are the only tabs that can work; the
+ * server applies Unread, so a paged list is never filtered on the device.
+ */
+export type LiveNotificationFilter = Extract<NotificationFilter, 'All' | 'Unread'>;
 
-export const NOTIFICATION_FILTERS: readonly NotificationFilter[] = [
-  'All',
-  'Orders',
-  'Inventory',
-  'Receiving',
-  'Finance',
-  'Returns',
-  'Quality',
-  'System',
-  'Messages',
-];
+export const NOTIFICATION_FILTERS: readonly LiveNotificationFilter[] = ['All', 'Unread'];
+
+/** Chip label key of each filter. */
+export const FILTER_LABEL_KEY: Record<LiveNotificationFilter, TranslationKey> = {
+  All: 'notifications.filter.all',
+  Unread: 'notifications.filter.unread',
+};
 
 /**
- * Chip label of each filter.
+ * The tab a route opens on. The legacy System Messages / Message History
+ * entries asked for category tabs that no longer exist, so they open All.
  */
-export const FILTER_LABEL: Record<NotificationFilter, string> = {
-  All: 'All',
-  Orders: 'Orders',
-  Inventory: 'Inventory',
-  Receiving: 'Receiving',
-  Finance: 'Finance',
-  Returns: 'Returns',
-  Quality: 'Quality',
-  System: 'System',
-  Messages: 'Messages',
-  Unread: 'Unread',
-};
-
-export function matchesFilter(item: NotificationItem, filter: NotificationFilter): boolean {
-  if (filter === 'All') return true;
-  if (filter === 'Unread') return !item.isRead;
-  return FILTER_CATEGORIES[filter].includes(item.category);
+export function liveFilterOf(filter: NotificationFilter | undefined): LiveNotificationFilter {
+  return filter === 'Unread' ? 'Unread' : 'All';
 }
 
 /** Horizontally scrolling filter tabs with counts ("Unread (3)"). */

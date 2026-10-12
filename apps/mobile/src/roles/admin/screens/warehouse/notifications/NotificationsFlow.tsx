@@ -14,17 +14,33 @@
  * Action targets (Review / Receiving / Stock / Orders / Wallet / Returns) and
  * alert records live outside this module, so they go to the host through
  * `onOpenTarget` / `onOpenAlertRecord`; the screens offer them only when the
- * target's own code passes. The list is controlled when the host passes
- * `notifications` (the shells keep it for their bell badge); otherwise the flow
- * keeps the mock list for the scope itself.
+ * target's own code passes.
+ *
+ * Data is live and owned here, not by the hosts: the list is GET /notifications
+ * (All / Unread, server-filtered), the reads are real writes that refetch every
+ * notifications query (including the hosts' bell count, which reads
+ * useUnreadNotificationCount), and the alerts are GET /admin/alerts with a real
+ * dismiss. Each route's container fetches only its own data. Clear-all and
+ * snooze have no control: there is no clear endpoint, and the spec gives no
+ * snooze length (only a server maximum), so the app cannot pick one.
  */
 import React, { useEffect, useState } from 'react';
+import { Alert } from 'react-native';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
 import { useFlowBack } from '../useFlowBack';
 
-import { ApprovalAlertsScreen } from './ApprovalAlertsScreen';
-import { defaultNotifications, NOTIFICATION_WAREHOUSES } from './fixtures';
+import { ApprovalAlertsScreen, type AlertStateFilter } from './ApprovalAlertsScreen';
 import { NotificationDetailScreen } from './NotificationDetailScreen';
+import { NOTIFICATION_CODES, liveFilterOf, type LiveNotificationFilter } from './NotificationParts';
 import { NotificationsScreen } from './NotificationsScreen';
+import {
+  useAlertList,
+  useDismissAlert,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotificationList,
+} from './useNotificationsData';
 import type {
   ApprovalAlertItem,
   NotificationItem,
@@ -47,15 +63,6 @@ export interface NotificationsFlowProps {
   can: PermissionCheck;
   initialScreen?: NotificationsRoute | undefined;
   initialParams?: NotificationsRouteParams | undefined;
-  /** Controlled list (the shells' bell badge reads it). Omit to let the flow keep the mock list. */
-  notifications?: readonly NotificationItem[] | undefined;
-  onMarkAsRead?: ((id: string) => void) | undefined;
-  onMarkAllAsRead?: (() => void) | undefined;
-  onClearAll?: (() => void) | undefined;
-  /** Alert rows for the approval / exception alerts screen (defaults to the mock queue). */
-  alerts?: readonly ApprovalAlertItem[] | undefined;
-  /** Warehouses for the Main alerts selector (ignored for a Sub scope). */
-  warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
@@ -70,39 +77,24 @@ export function NotificationsFlow({
   can,
   initialScreen = 'Notifications',
   initialParams,
-  notifications,
-  onMarkAsRead,
-  onMarkAllAsRead,
-  onClearAll,
-  alerts,
-  warehouseOptions = NOTIFICATION_WAREHOUSES,
   onBack,
   onTabChange,
   onOpenTarget,
   onOpenAlertRecord,
 }: NotificationsFlowProps) {
   const [stack, setStack] = useState<NotificationsStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  const [localItems, setLocalItems] = useState<readonly NotificationItem[]>(() => defaultNotifications(scope));
+  // Kept here, not in the list screen, so the tab survives a visit to the detail.
+  const [filter, setFilter] = useState<LiveNotificationFilter>(() => liveFilterOf(initialParams?.filter));
+  const [alertState, setAlertState] = useState<AlertStateFilter>('active');
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Params are compared by value (hosts build them inline).
   const paramsKey = JSON.stringify(initialParams ?? null);
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
+    setFilter(liveFilterOf(initialParams?.filter));
     // paramsKey stands in for initialParams (compared by value, see above).
   }, [initialScreen, paramsKey]);
-
-  const controlled = notifications !== undefined;
-  const items = notifications ?? localItems;
-  const markAsRead = (id: string) => {
-    if (controlled) onMarkAsRead?.(id);
-    else setLocalItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-  };
-  const markAllAsRead = () => {
-    if (controlled) onMarkAllAsRead?.();
-    else setLocalItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  };
-  const clearAll = controlled ? onClearAll : () => setLocalItems([]);
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: NotificationsRouteParams = current.params ?? {};
@@ -127,30 +119,117 @@ export function NotificationsFlow({
   switch (current.screen) {
     case 'Notifications':
       return (
-        <NotificationsScreen
+        <LiveNotificationsRoute
           {...common}
-          notifications={items}
-          initialFilter={params.filter}
-          onMarkAsRead={markAsRead}
-          onMarkAllAsRead={markAllAsRead}
-          onClearAll={clearAll}
+          filter={filter}
+          onFilterChange={setFilter}
           onSelectNotification={(item) => navigate('NotificationDetail', { notification: item })}
           onOpenTarget={onOpenTarget}
-          onOpenAlerts={() => navigate('ApprovalAlerts')}
         />
       );
     case 'NotificationDetail':
       return <NotificationDetailScreen {...common} notification={params.notification} onOpenTarget={onOpenTarget} />;
     case 'ApprovalAlerts':
       return (
-        <ApprovalAlertsScreen
+        <LiveAlertsRoute
           {...common}
-          alerts={alerts}
-          warehouseOptions={warehouseOptions}
+          state={alertState}
+          onStateChange={setAlertState}
           onOpenRecord={onOpenAlertRecord}
         />
       );
     default:
       return null;
   }
+}
+
+interface RouteCommon {
+  scope: WarehouseScope;
+  can: PermissionCheck;
+  onBack: () => void;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
+}
+
+function showWriteError(titleKey: 'notifications.actionFailed.title' | 'alerts.actionFailed.title', err: unknown) {
+  Alert.alert(t(titleKey), t(adminErrorKey(err)));
+}
+
+/** The list route: GET /notifications for the open tab, plus the read writes (BR-65). */
+function LiveNotificationsRoute({
+  filter,
+  onFilterChange,
+  onSelectNotification,
+  onOpenTarget,
+  ...common
+}: RouteCommon & {
+  filter: LiveNotificationFilter;
+  onFilterChange: (filter: LiveNotificationFilter) => void;
+  onSelectNotification: (item: NotificationItem) => void;
+  onOpenTarget?: ((target: NotificationTarget, item: NotificationItem) => void) | undefined;
+}) {
+  const list = useNotificationList(filter === 'Unread');
+  const markRead = useMarkNotificationRead();
+  const markAll = useMarkAllNotificationsRead();
+  return (
+    <NotificationsScreen
+      {...common}
+      notifications={list.items}
+      filter={filter}
+      onFilterChange={onFilterChange}
+      // A failed single read is not worth an interruption: the row stays
+      // unread and the next refresh shows the server's state.
+      onMarkAsRead={(id) => markRead.mutate(id)}
+      onMarkAllAsRead={() => markAll.mutate(undefined, { onError: (err) => showWriteError('notifications.actionFailed.title', err) })}
+      markAllPending={markAll.isPending}
+      onSelectNotification={onSelectNotification}
+      onOpenTarget={onOpenTarget}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+/** The alerts route: GET /admin/alerts in the viewer's scope, plus dismiss (BR-78). */
+function LiveAlertsRoute({
+  state,
+  onStateChange,
+  onOpenRecord,
+  ...common
+}: RouteCommon & {
+  state: AlertStateFilter;
+  onStateChange: (state: AlertStateFilter) => void;
+  onOpenRecord?: ((alert: ApprovalAlertItem) => void) | undefined;
+}) {
+  const list = useAlertList(common.scope, state);
+  const dismiss = useDismissAlert();
+  // alert.own.view also covers dismiss in one's own list (docs/rbac.json); the
+  // server checks it again. Without it there is nothing to dismiss anyway.
+  const canDismiss = common.can(NOTIFICATION_CODES.alerts);
+  return (
+    <ApprovalAlertsScreen
+      {...common}
+      alerts={list.items}
+      state={state}
+      onStateChange={onStateChange}
+      onOpenRecord={onOpenRecord}
+      onDismiss={
+        canDismiss
+          ? (alert) => dismiss.mutate(alert.id, { onError: (err) => showWriteError('alerts.actionFailed.title', err) })
+          : undefined
+      }
+      dismissingId={dismiss.isPending ? dismiss.variables : undefined}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
 }

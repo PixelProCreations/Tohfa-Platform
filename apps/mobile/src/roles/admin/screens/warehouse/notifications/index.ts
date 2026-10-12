@@ -6,13 +6,7 @@ export { NotificationDetailScreen, type NotificationDetailScreenProps } from './
 export { ApprovalAlertsScreen, type ApprovalAlertsScreenProps } from './ApprovalAlertsScreen';
 export { NotificationsFlow, type NotificationsFlowProps, type NotificationsStackEntry } from './NotificationsFlow';
 export { DEFAULT_TAG, NOTIFICATION_CODES, canOpenAlertRecord, canOpenTarget, tagOf } from './NotificationParts';
-export {
-  APPROVAL_ALERTS,
-  MAIN_NOTIFICATIONS,
-  NOTIFICATION_WAREHOUSES,
-  SUB_NOTIFICATIONS,
-  defaultNotifications,
-} from './fixtures';
+export { useUnreadNotificationCount } from './useNotificationsData';
 export type {
   AlertRecordTarget,
   ApprovalAlertItem,
