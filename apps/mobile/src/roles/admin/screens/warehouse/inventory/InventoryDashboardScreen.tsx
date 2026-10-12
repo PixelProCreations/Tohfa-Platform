@@ -207,71 +207,47 @@ export function InventoryDashboardScreen({
           {/* 6 Stats Grid - 2 columns x 3 rows (matching reference mockup exactly) */}
           <View style={styles.statsGrid}>
             {/* Row 1 Left: Available */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
+            <View style={styles.statCard}>
               <StatAvailableIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>1,245 KG</Text>
               <Text style={styles.statLabel}>Available</Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Row 1 Right: Reserved */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
+            <View style={styles.statCard}>
               <StatReservedIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>320 KG</Text>
               <Text style={styles.statLabel}>Reserved</Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Row 2 Left: Allocated */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S07')}
-              activeOpacity={0.7}
-            >
+            <View style={styles.statCard}>
               <StatAllocatedIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>580 KG</Text>
               <Text style={styles.statLabel}>Allocated</Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Row 2 Right: Low Stock */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S09')}
-              activeOpacity={0.7}
-            >
+            <View style={styles.statCard}>
               <StatLowStockIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.lowStockValue}>05</Text>
               <Text style={styles.statLabel}>Low Stock</Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Row 3 Left: Verification Pending */}
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S10')}
-              activeOpacity={0.7}
-            >
+            <View style={styles.statCard}>
               <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />
               <Text style={styles.statValue}>02</Text>
               <Text style={styles.statLabel}>Verification Pending</Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
             {canViewLedger ? (
-              <TouchableOpacity
-                style={styles.statCard}
-                onPress={() => onNavigate?.('M3S06')}
-                activeOpacity={0.7}
-              >
+              <View style={styles.statCard}>
                 <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />
                 <Text style={styles.statValue}>View</Text>
                 <Text style={styles.statLabel}>Stock Ledger</Text>
-              </TouchableOpacity>
+              </View>
             ) : null}
           </View>
 

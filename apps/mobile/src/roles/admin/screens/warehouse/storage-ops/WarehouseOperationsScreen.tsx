@@ -241,11 +241,11 @@ export function WarehouseOperationsScreen({
         {mainView ? (
           <View style={styles.grid}>
             {mainKpiTiles.map((card) => (
-              <TouchableOpacity key={card.label} style={styles.mainKpiCard} onPress={card.onPress} activeOpacity={0.75} accessibilityRole="button">
+              <View key={card.label} style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>{card.label}</Text>
                 <Text style={styles.mainKpiValue}>{card.value}</Text>
                 <Text style={styles.mainKpiSub}>{card.sub}</Text>
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         ) : (
@@ -253,12 +253,12 @@ export function WarehouseOperationsScreen({
             <SectionTitle>Operations Overview</SectionTitle>
             <View style={styles.grid}>
               {overviewTiles.map((tile) => (
-                <TouchableOpacity key={tile.label} style={styles.overviewTile} onPress={tile.onPress} activeOpacity={0.75} accessibilityRole="button">
+                <View key={tile.label} style={styles.overviewTile}>
                   <View style={styles.tileIcon}>{tile.icon}</View>
                   <Text style={styles.tileValue}>{tile.value}</Text>
                   <Text style={styles.tileLabel}>{tile.label}</Text>
                   <Text style={styles.tileSub}>{tile.sub}</Text>
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
           </>

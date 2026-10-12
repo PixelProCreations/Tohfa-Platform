@@ -558,73 +558,53 @@ export function OrdersDashboardScreen({
             </View>
 
             <View style={styles.statusGrid}>
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ status: 'New' }))}
-              >
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardTop}>
                   <NewBadgeIcon />
                 </View>
                 <Text style={styles.statusNumber}>12</Text>
                 <Text style={styles.statusLabel}>New Orders</Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ status: 'Confirmed' }))}
-              >
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardTop}>
                   <CheckCircleTickIcon />
                 </View>
                 <Text style={styles.statusNumber}>8</Text>
                 <Text style={styles.statusLabel}>Confirmed</Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S07', { orderId: 'ORD-1022' })}
-              >
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardTop}>
                   <PackageBoxIcon />
                 </View>
                 <Text style={styles.statusNumber}>5</Text>
                 <Text style={styles.statusLabel}>Packing</Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity style={styles.statusCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S09')}>
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardTop}>
                   <ReadyPickupIcon />
                 </View>
                 <Text style={styles.statusNumber}>7</Text>
                 <Text style={styles.statusLabel}>Ready for Pickup</Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S13', { orderId: 'ORD-1021' })}
-              >
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardTop}>
                   <DeliveryTruckIcon />
                 </View>
                 <Text style={styles.statusNumber}>3</Text>
                 <Text style={styles.statusLabel}>Delivery</Text>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S16', { orderId: 'ORD-1018' })}
-              >
+              <View style={styles.statusCard}>
                 <View style={styles.statusCardTop}>
                   <ErrorExclamationIcon />
                 </View>
                 <Text style={[styles.statusNumber, styles.statusNumberDanger]}>2</Text>
                 <Text style={styles.statusLabel}>Order Issues</Text>
-              </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView

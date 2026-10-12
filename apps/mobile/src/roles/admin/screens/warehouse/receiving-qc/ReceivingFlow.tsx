@@ -31,7 +31,13 @@ import { QualityIssuesScreen } from './QualityIssuesScreen';
 import { ReceivingDashboardScreen } from './ReceivingDashboardScreen';
 import { ReceivingHistoryDetailScreen } from './ReceivingHistoryDetailScreen';
 import { ReceivingHistoryScreen } from './ReceivingHistoryScreen';
-import { RECEIVING_CODES } from './ReceivingParts';
+import {
+  GoodsReceiptSummaryScreen,
+  ReceiptActivityScreen,
+  ReceiptDetailScreen,
+  ReceiptPreviewScreen,
+  RECEIVING_CODES,
+} from './ReceivingParts';
 import { ReceivingSearchFiltersScreen } from './ReceivingSearchFiltersScreen';
 import { ShipmentDetailScreen } from './ShipmentDetailScreen';
 import type {
@@ -70,7 +76,7 @@ const SUB_VIEW_ROUTE: Record<string, ReceivingStackEntry> = {
   damage_mismatch_report: { screen: 'Wizard', params: { wizardStep: 'damage_mismatch' } },
   acceptance_decision: { screen: 'Wizard', params: { wizardStep: 'receiving_decision' } },
   partial_acceptance: { screen: 'Wizard', params: { wizardStep: 'partial_acceptance' } },
-  goods_receipt_summary: { screen: 'Wizard', params: { wizardStep: 'receipt_summary' } },
+  goods_receipt_summary: { screen: 'GoodsReceiptSummary' },
   batch_assignment: { screen: 'Wizard', params: { wizardStep: 'batch_assignment' } },
 };
 
@@ -106,6 +112,7 @@ export interface ReceivingFlowProps {
   onOpenTimeline?: (() => void) | undefined;
   /** Where a finished receipt lands: the dashboard (default) or Receiving History. */
   finishTo?: 'Dashboard' | 'History' | undefined;
+  onViewBatch?: ((batchId: string) => void) | undefined;
 }
 
 export function ReceivingFlow({
@@ -122,6 +129,7 @@ export function ReceivingFlow({
   onOpenOperationalIssues,
   onOpenTimeline,
   finishTo = 'Dashboard',
+  onViewBatch,
 }: ReceivingFlowProps) {
   const [stack, setStack] = useState<ReceivingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   const [filters, setFilters] = useState<ReceivingFilters>(EMPTY_RECEIVING_FILTERS);
@@ -192,8 +200,9 @@ export function ReceivingFlow({
           onOpenQualityIssues={() => navigate('QualityIssues')}
           onSelectIssue={openIssue}
           onSelectRecord={(receiptId) => navigate('HistoryDetail', { receiptId })}
-          onStartReceiving={() => openWizard('start_receiving')}
+          onStartReceiving={() => navigate('ShipmentDetail', { shipmentId: 'SHP-000124' })}
           onOpenTransferReceiving={onOpenTransferReceiving}
+          onOpenGoodsReceiptSummary={() => navigate('GoodsReceiptSummary')}
         />
       );
     case 'Shipments':
@@ -205,7 +214,11 @@ export function ReceivingFlow({
           filters={filters}
           onOpenFilters={() => navigate('SearchFilters')}
           onClearFilters={() => setFilters(EMPTY_RECEIVING_FILTERS)}
-          onSelectShipment={(shipmentId) => navigate('ShipmentDetail', { shipmentId })}
+          onSelectShipment={(shipmentId) =>
+            navigate('ShipmentDetail', {
+              shipmentId: shipmentId === 'GR-1024' ? 'SHP-000124' : shipmentId,
+            })
+          }
         />
       );
     case 'SearchFilters':
@@ -223,7 +236,7 @@ export function ReceivingFlow({
       return (
         <ShipmentDetailScreen
           {...common}
-          shipmentId={params.shipmentId ?? firstShipment()?.code}
+          shipmentId={params.shipmentId === 'GR-1024' ? 'SHP-000124' : (params.shipmentId ?? firstShipment()?.code)}
           onStartReceiving={(s, resume) => openWizard(resume ? 'receiving_in_progress' : 'start_receiving', s.code)}
           onViewProductDetail={(s) => openWizard('quantity_verification', s.code)}
           onViewTimeline={(s) => openWizard('receipt_summary', s.code)}
@@ -268,6 +281,7 @@ export function ReceivingFlow({
           onBackToShipments={() => backTo('Shipments')}
           onOpenStorageLocations={() => navigate('StorageAssignment', { shipmentId: shipment?.code })}
           onViewHistory={() => navigate('History')}
+          onViewBatch={onViewBatch}
         />
       );
     }
@@ -288,6 +302,37 @@ export function ReceivingFlow({
         />
       );
     }
+    case 'GoodsReceiptSummary':
+      return (
+        <GoodsReceiptSummaryScreen
+          onBack={back}
+          onViewPreview={() => navigate('ReceiptPreview')}
+          onViewDetail={() => navigate('ReceiptDetail')}
+          onViewActivity={() => navigate('ReceiptActivity')}
+          onAssignBatch={() => openWizard('batch_assignment', 'SHP-000124')}
+        />
+      );
+    case 'ReceiptPreview':
+      return (
+        <ReceiptPreviewScreen
+          onBack={back}
+          onAssignBatch={() => openWizard('batch_assignment', 'SHP-000124')}
+        />
+      );
+    case 'ReceiptDetail':
+      return (
+        <ReceiptDetailScreen
+          onBack={back}
+          onAssignBatch={() => openWizard('batch_assignment', 'SHP-000124')}
+        />
+      );
+    case 'ReceiptActivity':
+      return (
+        <ReceiptActivityScreen
+          onBack={back}
+          onAssignBatch={() => openWizard('batch_assignment', 'SHP-000124')}
+        />
+      );
     default:
       return null;
   }

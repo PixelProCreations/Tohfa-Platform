@@ -172,9 +172,140 @@ type WarehouseSubView =
   // Module 7: Customers (the shared CustomersFlow owns its own sub-screens, W4)
   | 'customers_list'
   // Module 9: Billing & Invoices (the shared BillingFlow owns its own sub-screens, W4)
-  | 'billing_invoices';
+  | 'billing_invoices'
+  | 'warehouse_stock'
+  | 'consolidated_stock'
+  | 'consolidated_stock_detail'
+  | 'pending_actions'
+  | 'stock_allocation';
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
+
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function SlidersIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M8 4v4M16 10v4M10 16v4" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ConsolidatedLayersIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2L2 7l10 5 10-5-10-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 17l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 12l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LowStockZigzagIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 8l6 6 4-4 7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 17h5v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function AllocationPieIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z" stroke={color} strokeWidth="2" />
+      <Path d="M12 2v20" stroke={color} strokeWidth="2" />
+      <Path d="M12 12h10" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function DistributionBarChartIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 20V10" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Path d="M18 20V4" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Path d="M6 20V16" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function AvailabilityBoxIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8.5h16v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5v-11z" stroke={color} strokeWidth="2" />
+      <Path d="M2.5 4.5A1.5 1.5 0 0 1 4 3h16a1.5 1.5 0 0 1 1.5 1.5V7a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 7V4.5z" stroke={color} strokeWidth="2" />
+      <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ComparisonScaleIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3v18M5 21h14" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 7h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M4 7l-2 5a3 3 0 0 0 6 0L6 7" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18 7l-2 5a3 3 0 0 0 6 0L20 7" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ProductDetailFruitIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="14" r="7.5" stroke={color} strokeWidth="2" />
+      <Path d="M12 6.5C12 4.5 13.5 3 15 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 6c1-1 3-1 4 0" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ActionBatchesIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M3 10h18" stroke={color} strokeWidth="2" />
+      <Path d="M8 4v16" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function ActionLedgerIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 20V5.5L7.5 3.5 10 5.5l2-2 2 2 2-2 3 2V20H5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8 9h8M8 13h8M8 16.5h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function MovementUpIcon({ size = 20, color = '#F0562A' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 19V5M5 12l7-7 7 7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 function Grid4SquaresIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
   // Lucide LayoutDashboard (exact match to design top-left greeting icon)
@@ -791,8 +922,10 @@ const WAREHOUSE_ADMIN_ENTRY: Partial<Record<WarehouseSubView, WarehouseAdminRout
 
 /** Old Main inventory sub-views -> shared InventoryFlow route keys (design ids). */
 const INVENTORY_ENTRY = {
+  warehouse_stock: 'M3S02',
   stock_ledger: 'M3S06',
-  verify_stock: 'M3S11',
+  stock_allocation: 'M3S07',
+  verify_stock: 'M3S10',
   stock_adjustment_approval: 'M3S17',
   low_stock_alerts: 'M3S09',
 } as const;
@@ -803,6 +936,53 @@ const INVENTORY_ENTRY = {
  * MoreScreen is role-neutral, so this shell supplies them via onNavigateTo*.
  */
 type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings';
+
+const MAIN_HOME_KPIS: Record<string, {
+  totalStock: string;
+  incomingGoods: string;
+  pendingTransfers: string;
+  todayOrders: string;
+  sales: string;
+  openIssues: string;
+}> = {
+  'All Warehouses': { totalStock: '12,840', incomingGoods: '1,240', pendingTransfers: '5', todayOrders: '312', sales: '₹1,45,100', openIssues: '7' },
+  'Ooty': { totalStock: '5,420', incomingGoods: '580', pendingTransfers: '2', todayOrders: '142', sales: '₹68,400', openIssues: '3' },
+  'Coonoor': { totalStock: '3,850', incomingGoods: '350', pendingTransfers: '1', todayOrders: '96', sales: '₹44,200', openIssues: '2' },
+  'Kotagiri': { totalStock: '2,320', incomingGoods: '210', pendingTransfers: '1', todayOrders: '52', sales: '₹22,100', openIssues: '1' },
+  'Gudalur Market': { totalStock: '1,250', incomingGoods: '100', pendingTransfers: '1', todayOrders: '22', sales: '₹10,400', openIssues: '1' },
+};
+
+const MAIN_TODAYS_OPERATIONS: Record<string, {
+  incoming: { expected: number; arrived: number; discrepancies: number };
+  orders: { ready: number; dispatched: number; exceptions: number };
+  quality: { pending: number; damage: number; rejected: number };
+}> = {
+  'All Warehouses': {
+    incoming: { expected: 24, arrived: 19, discrepancies: 2 },
+    orders: { ready: 86, dispatched: 154, exceptions: 3 },
+    quality: { pending: 6, damage: 3, rejected: 1 },
+  },
+  'Ooty': {
+    incoming: { expected: 10, arrived: 8, discrepancies: 1 },
+    orders: { ready: 38, dispatched: 72, exceptions: 1 },
+    quality: { pending: 3, damage: 1, rejected: 1 },
+  },
+  'Coonoor': {
+    incoming: { expected: 7, arrived: 6, discrepancies: 1 },
+    orders: { ready: 26, dispatched: 48, exceptions: 1 },
+    quality: { pending: 2, damage: 1, rejected: 0 },
+  },
+  'Kotagiri': {
+    incoming: { expected: 5, arrived: 4, discrepancies: 0 },
+    orders: { ready: 16, dispatched: 24, exceptions: 1 },
+    quality: { pending: 1, damage: 1, rejected: 0 },
+  },
+  'Gudalur Market': {
+    incoming: { expected: 2, arrived: 1, discrepancies: 0 },
+    orders: { ready: 6, dispatched: 10, exceptions: 0 },
+    quality: { pending: 0, damage: 0, rejected: 0 },
+  },
+};
 
 export interface MainWarehouseAdminDashboardScreenProps {
   onSignOut: () => void;
@@ -815,6 +995,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [receivingSubView, setReceivingSubView] = useState<ReceivingSubView>('dashboard');
   const [whSubView, setWhSubView] = useState<WarehouseSubView>('overview');
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
+  const [ordersInitialScreen, setOrdersInitialScreen] = useState<string>('M5S01');
   const [whHistory, setWhHistory] = useState<WarehouseSubView[]>([]);
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -854,11 +1035,13 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
   const unreadNotifCount = whNotifications.filter((n) => !n.isRead).length;
 
-  // Filter options from the seeded warehouses (not a written-in list): 'Ooty', ..., 'Gudalur Market'.
   const WAREHOUSE_OPTIONS = [
     'All Warehouses',
     ...PROFILE_WAREHOUSES.map((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '')),
   ];
+
+  const homeKpi = MAIN_HOME_KPIS[selectedWHFilter] ?? MAIN_HOME_KPIS['All Warehouses']!;
+  const homeOps = MAIN_TODAYS_OPERATIONS[selectedWHFilter] ?? MAIN_TODAYS_OPERATIONS['All Warehouses']!;
 
   const navigateWh = (view: WarehouseSubView) => {
     setWhHistory((prev) => [...prev, whSubView]);
@@ -866,6 +1049,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const goBackWh = () => {
+    setOrdersInitialScreen('M5S01');
     if (whHistory.length > 0) {
       setWhHistory((prev) => {
         const next = [...prev];
@@ -976,927 +1160,195 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     />
   );
 
-  const renderWarehouseOverviewScreen = () => {
-    if (!canAllView) {
-      return (
-        <View style={styles.subScreenContainer}>
-          <View style={styles.subHeaderBanner}>
-            <View style={styles.subHeaderRow}>
-              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
-            </View>
-          </View>
-          <EmptyState
-            title="Multi-warehouse view not available"
-            subtitle="The all-warehouses overview needs warehouse.all.view."
-          />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Warehouse Overview</Text>
-          </View>
-          <Text style={styles.subHeaderSubtitle}>All 4 warehouses at a glance</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {OVERVIEW_WAREHOUSES.map((wh) => (
+  const renderConsolidatedStockScreen = () => (
+    <View style={styles.consolidatedContainer}>
+      <SafeAreaView style={styles.consolidatedHeaderSafeArea}>
+        <View style={styles.consolidatedHeader}>
+          <View style={styles.consolidatedHeaderLeft}>
             <TouchableOpacity
-              key={wh.id}
-              style={styles.whOverviewCard}
-              onPress={() => {
-                setSelectedWHName(`${wh.name} Warehouse`);
-                navigateWh('warehouse_city_detail');
-              }}
-              activeOpacity={0.8}
+              style={styles.consolidatedBackBtn}
+              onPress={goBackWh}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Back"
             >
-              <View style={styles.whOverviewHeaderRow}>
-                <Text style={styles.whOverviewTitle}>{wh.name}</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: wh.capacityBg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: wh.capacityColor }]}>{wh.capacityLabel}</Text>
-                </View>
-              </View>
-
-              <View style={styles.whProgressBarTrack}>
-                <View style={[styles.whProgressBarFill, { width: wh.progressWidth, backgroundColor: wh.progressColor }]} />
-              </View>
-
-              <View style={styles.whOverviewStatsRow}>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Stock</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.stock}</Text>
-                </View>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Receipts</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.receipts}</Text>
-                </View>
-                <View style={styles.whOverviewStatCol}>
-                  <Text style={styles.whOverviewStatLabel}>Issues</Text>
-                  <Text style={styles.whOverviewStatVal}>{wh.issues}</Text>
-                </View>
-              </View>
+              <BackArrowIcon size={22} color="#FFFFFF" />
             </TouchableOpacity>
-          ))}
+            <View>
+              <Text style={styles.consolidatedHeaderTitle}>Consolidated Stock</Text>
+              <Text style={styles.consolidatedHeaderSubtitle}>Same product across all four warehouses</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.consolidatedFilterBtn} activeOpacity={0.7}>
+            <SlidersIcon size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
-          <Text style={styles.overviewSectionHeading}>More Views</Text>
+      <ScrollView
+        style={styles.consolidatedBody}
+        contentContainerStyle={styles.consolidatedBodyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.consolidatedTableCard}>
+          {/* Table Header */}
+          <View style={styles.consolidatedTableHeader}>
+            <Text style={[styles.consolidatedColHeader, { flex: 1.4 }]}>PRODUCT</Text>
+            <Text style={[styles.consolidatedColHeader, { flex: 1, textAlign: 'center' }]}>OOTY/COO</Text>
+            <Text style={[styles.consolidatedColHeader, { flex: 1, textAlign: 'center' }]}>KOT/GUD</Text>
+            <Text style={[styles.consolidatedColHeader, { flex: 1, textAlign: 'right' }]}>TOTAL</Text>
+          </View>
 
-          <View style={styles.moreViewsGrid}>
+          {/* Table Data Row */}
+          <TouchableOpacity
+            style={styles.consolidatedTableRow}
+            onPress={() => navigateWh('consolidated_stock_detail')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.consolidatedProductName, { flex: 1.4 }]}>Tomato G1</Text>
+            <Text style={[styles.consolidatedCellText, { flex: 1, textAlign: 'center' }]}>120/80</Text>
+            <Text style={[styles.consolidatedCellText, { flex: 1, textAlign: 'center' }]}>50/40</Text>
+            <Text style={[styles.consolidatedTotalText, { flex: 1, textAlign: 'right' }]}>290 KG</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  const renderConsolidatedStockDetailScreen = () => (
+    <View style={styles.consolidatedContainer}>
+      <SafeAreaView style={styles.consolidatedHeaderSafeArea}>
+        <View style={styles.consolidatedHeader}>
+          <View style={styles.consolidatedHeaderLeft}>
             <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('warehouse_comparison')}
-              activeOpacity={0.8}
+              style={styles.consolidatedBackBtn}
+              onPress={goBackWh}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Back"
             >
-              <ScaleBalanceIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Comparison</Text>
+              <BackArrowIcon size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.consolidatedHeaderTitle}>Consolidated Detail</Text>
+              <Text style={styles.consolidatedHeaderSubtitle}>Same product across all four warehouses</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.consolidatedFilterBtn} activeOpacity={0.7}>
+            <SlidersIcon size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      <ScrollView
+        style={styles.consolidatedBody}
+        contentContainerStyle={styles.consolidatedBodyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.consolidatedDetailSectionTitle}>
+          Consolidated Stock Detail — Tomato Grade 1
+        </Text>
+
+        {/* 2 columns x 3 rows grid of white cards */}
+        <View style={styles.consolidatedGrid}>
+          {/* Row 1 */}
+          <View style={styles.consolidatedGridRow}>
+            <TouchableOpacity style={styles.consolidatedActionCard} activeOpacity={0.7}>
+              <DistributionBarChartIcon size={26} color="#F0562A" />
+              <Text style={styles.consolidatedActionCardLabel}>Distribution</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={styles.consolidatedActionCard} activeOpacity={0.7}>
+              <AvailabilityBoxIcon size={26} color="#F0562A" />
+              <Text style={styles.consolidatedActionCardLabel}>Availability</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Row 2 */}
+          <View style={styles.consolidatedGridRow}>
+            <TouchableOpacity style={styles.consolidatedActionCard} activeOpacity={0.7}>
+              <ComparisonScaleIcon size={26} color="#F0562A" />
+              <Text style={styles.consolidatedActionCardLabel}>Comparison</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.consolidatedActionCard} activeOpacity={0.7}>
+              <ProductDetailFruitIcon size={26} color="#F0562A" />
+              <Text style={styles.consolidatedActionCardLabel}>Product Detail</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Row 3 */}
+          <View style={styles.consolidatedGridRow}>
             <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('warehouse_performance')}
-              activeOpacity={0.8}
-            >
-              <TrendingUpLineIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Performance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('warehouse_capacity')}
-              activeOpacity={0.8}
-            >
-              <CapacityCircularIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Capacity Summary</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.moreViewTile}
-              onPress={() => navigateWh('manage_warehouses')}
-              activeOpacity={0.8}
-            >
-              <GearCogIcon size={24} color={PALETTE.primary} />
-              <Text style={styles.moreViewTileLabel}>Manage Warehouses</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderWarehouseComparisonScreen = () => {
-    if (!canAllView) {
-      return (
-        <View style={styles.subScreenContainer}>
-          <View style={styles.subHeaderBanner}>
-            <View style={styles.subHeaderRow}>
-              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
-            </View>
-          </View>
-          <EmptyState title="Not available" subtitle="Comparison requires warehouse.all.view." />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Warehouse Comparison</Text>
-
-          <View style={styles.comparisonCard}>
-            {OVERVIEW_WAREHOUSES.map((wh, idx) => (
-              <React.Fragment key={wh.id}>
-                {idx > 0 && <View style={styles.rowDivider} />}
-                <View style={styles.comparisonRow}>
-                  <Text style={styles.comparisonWhName}>{wh.name}</Text>
-                  <Text style={styles.comparisonWhStat}>{wh.comparisonStat}</Text>
-                </View>
-              </React.Fragment>
-            ))}
-          </View>
-
-          <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Common units and the same time period across every row — this is a side-by-side comparison, not four separate summaries.
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderWarehousePerformanceScreen = () => {
-    if (!canAllView) {
-      return (
-        <View style={styles.subScreenContainer}>
-          <View style={styles.subHeaderBanner}>
-            <View style={styles.subHeaderRow}>
-              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
-            </View>
-          </View>
-          <EmptyState title="Not available" subtitle="Performance requires warehouse.all.view." />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
-
-          <View style={styles.metricsGridCard}>
-            <View style={styles.twoByTwoRow}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Receipts (MTD)</Text>
-                <Text style={styles.twoByTwoVal}>68,400 KG</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Sales (MTD)</Text>
-                <Text style={styles.twoByTwoVal}>₹1,45,10,000</Text>
-              </View>
-            </View>
-            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Quality Issues</Text>
-                <Text style={styles.twoByTwoVal}>18</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Avg Turnaround</Text>
-                <Text style={styles.twoByTwoVal}>2.4 days</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Only metrics actually defined by the backend are shown — no invented performance figures.
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderWarehouseCapacityScreen = () => {
-    if (!canAllView) {
-      return (
-        <View style={styles.subScreenContainer}>
-          <View style={styles.subHeaderBanner}>
-            <View style={styles.subHeaderRow}>
-              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-                <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
-            </View>
-          </View>
-          <EmptyState title="Not available" subtitle="Capacity summary requires warehouse.all.view." />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Capacity Summary</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Warehouse Capacity Summary</Text>
-
-          <View style={styles.metricsGridCard}>
-            <View style={styles.twoByTwoRow}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
-                <Text style={styles.twoByTwoVal}>12,840 KG</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
-                <Text style={styles.twoByTwoVal}>4,160 KG</Text>
-              </View>
-            </View>
-            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Storage Areas</Text>
-                <Text style={styles.twoByTwoVal}>28</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Utilization</Text>
-                <Text style={styles.twoByTwoVal}>75.5%</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.overviewNoticeBox}>
-            <Text style={styles.overviewNoticeText}>
-              Capacity exceptions (a warehouse nearing its configured limit) are flagged here for visibility only — not resolved from this screen.
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderManageWarehousesScreen = () => {
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Manage Warehouses</Text>
-          </View>
-          <Text style={styles.subHeaderSubtitle}>Configure and monitor warehouse hubs</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Warehouse Hubs</Text>
-
-          {OVERVIEW_WAREHOUSES.map((wh) => (
-            <View key={wh.id} style={styles.whOverviewCard}>
-              <View style={styles.whOverviewHeaderRow}>
-                <Text style={styles.whOverviewTitle}>{wh.name} Warehouse</Text>
-                <View style={[styles.whCapacityPill, { backgroundColor: PALETTE.greenPillBg }]}>
-                  <Text style={[styles.whCapacityPillText, { color: PALETTE.greenProgress }]}>Active</Text>
-                </View>
-              </View>
-
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                {wh.name} Regional Facility · Primary storage and distribution hub
-              </Text>
-
-              <View style={styles.manageBtnRow}>
-                <TouchableOpacity
-                  style={styles.manageWhActionBtn}
-                  onPress={() => {
-                    setSelectedWHName(`${wh.name} Warehouse`);
-                    navigateWh('warehouse_city_detail');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.manageWhActionText}>View Details</Text>
-                </TouchableOpacity>
-
-                {can('warehouse.capacity.set') && (
-                  <TouchableOpacity
-                    style={[styles.manageWhActionBtn, styles.manageWhSecondaryBtn]}
-                    onPress={() => navigateWh('warehouse_settings')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.manageWhActionText, { color: PALETTE.primary }]}>Capacity Limits</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))}
-
-          {can('admin.sub_wh_admin.create') && (
-            <View style={[styles.whOverviewCard, { marginTop: 4, borderColor: PALETTE.border }]}>
-              <Text style={styles.whOverviewTitle}>Sub-Warehouse Admins</Text>
-              <Text style={[styles.whOverviewStatLabel, { marginTop: 4 }]}>
-                Manage role access, account status, and credentials for regional sub-warehouse admins.
-              </Text>
-              <TouchableOpacity
-                style={[styles.manageWhActionBtn, { marginTop: 12, backgroundColor: PALETTE.primary }]}
-                onPress={() => navigateWh('manage_swas')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.manageWhActionText, { color: '#FFFFFF' }]}>Manage SWA Accounts</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderAlertsActionCenterScreen = () => {
-    const visibleAlerts = alertsList.filter((alert) => {
-      if (alertStatusFilter === 'Unread' && alert.status !== 'unread') return false;
-      if (alertStatusFilter === 'Resolved' && alert.status !== 'resolved') return false;
-      if (alertPriorityFilter === 'Critical' && alert.priority !== 'Critical') return false;
-      if (alertWhFilter !== 'All Warehouses' && alert.warehouse !== alertWhFilter) return false;
-      return true;
-    });
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
-          </View>
-          <Text style={styles.subHeaderSubtitle}>Warehouse-level problems requiring attention</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {/* Filter Row 1 */}
-          <View style={styles.actionCenterFiltersRow}>
-            {(['All', 'Unread', 'Resolved'] as const).map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.actionCenterChip,
-                  alertStatusFilter === status && styles.actionCenterChipActive,
-                ]}
-                onPress={() => setAlertStatusFilter(status)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.actionCenterChipText,
-                    alertStatusFilter === status && styles.actionCenterChipTextActive,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Filter Row 2 */}
-          <View style={styles.actionCenterFiltersRow}>
-            {(['All Priority', 'Critical'] as const).map((prio) => (
-              <TouchableOpacity
-                key={prio}
-                style={[
-                  styles.actionCenterChip,
-                  alertPriorityFilter === prio && styles.actionCenterChipActive,
-                ]}
-                onPress={() => setAlertPriorityFilter(prio)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.actionCenterChipText,
-                    alertPriorityFilter === prio && styles.actionCenterChipTextActive,
-                  ]}
-                >
-                  {prio}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              style={styles.actionCenterChip}
-              onPress={() => {
-                const whs = ['All Warehouses', 'Ooty', 'Coonoor', 'Kotagiri', 'Gudalur Market'];
-                const curIdx = whs.indexOf(alertWhFilter);
-                setAlertWhFilter(whs[(curIdx + 1) % whs.length] ?? 'All Warehouses');
-              }}
+              style={styles.consolidatedActionCard}
+              onPress={() => navigateWh('stock_ledger')}
               activeOpacity={0.7}
             >
-              <Text style={styles.actionCenterChipText}>
-                {alertWhFilter === 'All Warehouses' ? 'All Warehouses ▾' : `${alertWhFilter} ▾`}
-              </Text>
+              <ActionBatchesIcon size={26} color="#F0562A" />
+              <Text style={styles.consolidatedActionCardLabel}>View Batches</Text>
             </TouchableOpacity>
-          </View>
 
-          <View style={{ height: 6 }} />
-
-          {/* Alerts List */}
-          {visibleAlerts.map((alert) => (
             <TouchableOpacity
-              key={alert.id}
-              style={styles.actionCenterAlertCard}
-              onPress={() => {
-                setSelectedAlert(alert);
-                navigateWh('alert_detail');
-              }}
-              activeOpacity={0.8}
+              style={styles.consolidatedActionCard}
+              onPress={() => navigateWh('stock_ledger')}
+              activeOpacity={0.7}
             >
-              <View
-                style={[
-                  styles.alertAccentBar,
-                  { backgroundColor: alert.priority === 'Critical' ? PALETTE.red : PALETTE.primary },
-                ]}
-              />
-              <View style={styles.actionCenterCardContent}>
-                {alert.category === 'Low Stock' ? (
-                  <WarningTriangleIcon size={22} color={PALETTE.red} />
-                ) : alert.category === 'Operational' ? (
-                  <AlertEscalationIcon size={22} color={PALETTE.red} />
-                ) : (
-                  <AlertClockIcon size={22} color={PALETTE.primary} />
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.actionCenterAlertTitle}>{alert.title}</Text>
-                  <Text style={styles.actionCenterAlertSub}>{alert.subtitle}</Text>
-                </View>
-              </View>
+              <ActionLedgerIcon size={26} color="#F0562A" />
+              <Text style={styles.consolidatedActionCardLabel}>View Ledger</Text>
             </TouchableOpacity>
-          ))}
-
-          {visibleAlerts.length === 0 && (
-            <EmptyState title="No alerts" subtitle="There are no active alerts matching your filter criteria." />
-          )}
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderAlertDetailScreen = () => {
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Alert Detail</Text>
           </View>
         </View>
+      </ScrollView>
+    </View>
+  );
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Alert Detail</Text>
-
-          <View style={styles.alertDetailCard}>
-            <View style={styles.alertDetailGridRow}>
-              <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Alert ID</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.id}</Text>
-              </View>
-              <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Category</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.category}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.alertDetailGridRow, { marginTop: 14 }]}>
-              <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Warehouse</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.warehouse}</Text>
-              </View>
-              <View style={styles.alertDetailGridCol}>
-                <Text style={styles.alertDetailFieldLabel}>Priority</Text>
-                <Text style={styles.alertDetailFieldValue}>{selectedAlert.priority}</Text>
-              </View>
-            </View>
-
-            <View style={{ marginTop: 14 }}>
-              <Text style={styles.alertDetailFieldLabel}>Time</Text>
-              <Text style={styles.alertDetailFieldValue}>{selectedAlert.time}</Text>
-            </View>
-
-            <View style={{ marginTop: 14 }}>
-              <Text style={styles.alertDetailFieldLabel}>Description</Text>
-              <Text style={[styles.alertDetailFieldValue, { fontWeight: '500', lineHeight: 20 }]}>
-                {selectedAlert.description}
-              </Text>
-            </View>
-
-            <View style={styles.alertDetailBtnRow}>
-              <TouchableOpacity
-                style={styles.openRelatedBtn}
-                onPress={() => {
-                  navigateWh(selectedAlert.relatedRoute);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.openRelatedBtnText}>Open Related Record</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.acknowledgeBtn}
-                onPress={() => {
-                  setAlertsList((prev) =>
-                    prev.map((a) => (a.id === selectedAlert.id ? { ...a, status: 'resolved' } : a))
-                  );
-                  Alert.alert('Alert Acknowledged', `Alert ${selectedAlert.id} has been marked as acknowledged.`);
-                  goBackWh();
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.acknowledgeBtnText}>Acknowledge</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderStockAndTransferScreen = () => {
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
+  const renderPendingActionsScreen = () => (
+    <View style={styles.consolidatedContainer}>
+      <SafeAreaView style={styles.consolidatedHeaderSafeArea}>
+        <View style={styles.consolidatedHeader}>
+          <View style={styles.consolidatedHeaderLeft}>
+            <TouchableOpacity
+              style={styles.consolidatedBackBtn}
+              onPress={goBackWh}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Back"
+            >
+              <BackArrowIcon size={22} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Stock & Transfer Overview</Text>
+            <Text style={styles.consolidatedHeaderTitle}>Pending Actions</Text>
           </View>
-          <Text style={styles.subHeaderSubtitle}>Consolidated inventory + inter-warehouse transfers</Text>
         </View>
+      </SafeAreaView>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
-          {/* 1. Consolidated Stock Section */}
-          <View style={styles.overviewSectionHeaderRow}>
-            <Text style={styles.overviewSectionTitle}>Consolidated Stock</Text>
-            <TouchableOpacity onPress={() => navigateWh('consolidated_stock')} activeOpacity={0.7}>
-              <Text style={styles.viewAllLink}>View All →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.stockTableCard}>
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Ooty</Text>
-              <Text style={styles.stockTableVal}>3,420 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Coonoor</Text>
-              <Text style={styles.stockTableVal}>3,180 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Kotagiri</Text>
-              <Text style={styles.stockTableVal}>2,940 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Gudalur Market</Text>
-              <Text style={styles.stockTableVal}>3,300 KG</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableTotalLabel}>Total</Text>
-              <Text style={styles.stockTableTotalVal}>12,840 KG</Text>
-            </View>
-          </View>
-
-          {/* 2. Low Stock & Surplus Section */}
-          <View style={styles.overviewSectionHeaderRow}>
-            <Text style={styles.overviewSectionTitle}>Low Stock & Surplus</Text>
-            <TouchableOpacity onPress={() => navigateWh('low_stock_surplus')} activeOpacity={0.7}>
-              <Text style={styles.viewAllLink}>View All →</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.lowStockSummaryCard} onPress={() => navigateWh('low_stock_surplus')} activeOpacity={0.8}>
-            <Text style={styles.lowStockSummaryText}>
-              3 products below target · 2 warehouses with surplus available
-            </Text>
-          </TouchableOpacity>
-
-          {/* 3. Transfers Section */}
-          <View style={styles.overviewSectionHeaderRow}>
-            <Text style={styles.overviewSectionTitle}>Transfers</Text>
-            <TouchableOpacity onPress={() => navigateWh('transfer_tracking')} activeOpacity={0.7}>
-              <Text style={styles.viewAllLink}>View All →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.stockTableCard}>
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Pending</Text>
-              <Text style={styles.stockTableVal}>2</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>In Transit</Text>
-              <Text style={styles.stockTableVal}>2</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Received</Text>
-              <Text style={styles.stockTableVal}>1</Text>
-            </View>
-            <View style={styles.stockTableRowDivider} />
-            <View style={styles.stockTableRow}>
-              <Text style={styles.stockTableLabel}>Exceptions</Text>
-              <Text style={[styles.stockTableVal, { color: PALETTE.red }]}>1</Text>
-            </View>
-          </View>
-
-          <View style={{ height: 90 }} />
-        </ScrollView>
-
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
+      <ScrollView
+        style={styles.consolidatedBody}
+        contentContainerStyle={styles.consolidatedBodyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.pendingActionsSectionTitle}>Pending Actions</Text>
+        <View style={styles.pendingActionsCard}>
           <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
+            style={styles.pendingActionsRow}
+            onPress={() => navigateWh('low_stock_alerts')}
+            activeOpacity={0.7}
           >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
+            <Text style={styles.pendingActionsRowLabel}>Low Stock Alerts</Text>
+            <Text style={styles.pendingActionsRowValRed}>5</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  const renderConsolidatedStockScreen = () => {
-    const filteredProducts = CONSOLIDATED_PRODUCTS.filter(
-      (p) => !stockSearchQuery || p.product.toLowerCase().includes(stockSearchQuery.toLowerCase())
-    );
-
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Consolidated Stock</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
-          {/* Search Box */}
-          <View style={styles.stockSearchBar}>
-            <SearchIcon size={18} color={PALETTE.subTextMuted} />
-            <TextInput
-              style={styles.stockSearchInput}
-              placeholder="Product, grade, batch..."
-              placeholderTextColor={PALETTE.subTextMuted}
-              value={stockSearchQuery}
-              onChangeText={setStockSearchQuery}
-            />
-          </View>
-
-          {/* Product Cards */}
-          {filteredProducts.map((p) => (
-            <View key={p.product} style={styles.consolidatedProductCard}>
-              <Text style={styles.consolidatedProductTitle}>{p.product}</Text>
-              {p.rows.map((row) => (
-                <View key={row.wh}>
-                  <View style={styles.stockTableRowDivider} />
-                  <View style={styles.stockTableRow}>
-                    <Text style={styles.stockTableLabel}>{row.wh}</Text>
-                    <Text style={styles.stockTableVal}>{row.kg}</Text>
-                  </View>
-                </View>
-              ))}
-              <View style={styles.stockTableRowDivider} />
-              <View style={styles.stockTableRow}>
-                <Text style={styles.stockTableTotalLabel}>Total</Text>
-                <Text style={styles.stockTableTotalVal}>{p.total}</Text>
-              </View>
-            </View>
-          ))}
-
-          {filteredProducts.length === 0 && (
-            <EmptyState title="No matching stock" subtitle="No products match your search keyword." />
-          )}
-
-          <View style={{ height: 90 }} />
-        </ScrollView>
-
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
+          <View style={styles.pendingActionsDivider} />
           <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
+            style={styles.pendingActionsRow}
+            onPress={() => navigateWh('stock_adjustment_approval')}
+            activeOpacity={0.7}
           >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
+            <Text style={styles.pendingActionsRowLabel}>Adjustments Awaiting Approval</Text>
+            <Text style={styles.pendingActionsRowVal}>2</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    );
-  };
-
-  const renderLowStockSurplusScreen = () => {
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Low Stock & Surplus</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Low Stock & Surplus</Text>
-
-          {LOW_STOCK_ITEMS.map((item, idx) => (
-            <View key={`${item.product}-${item.warehouse}-${idx}`} style={styles.lowStockDetailCard}>
-              <View style={styles.alertDetailGridRow}>
-                <View style={styles.alertDetailGridCol}>
-                  <Text style={styles.alertDetailFieldLabel}>Product</Text>
-                  <Text style={styles.alertDetailFieldValue}>{item.product}</Text>
-                </View>
-                <View style={styles.alertDetailGridCol}>
-                  <Text style={styles.alertDetailFieldLabel}>Warehouse</Text>
-                  <Text style={styles.alertDetailFieldValue}>{item.warehouse}</Text>
-                </View>
-              </View>
-
-              <View style={[styles.alertDetailGridRow, { marginTop: 14 }]}>
-                <View style={styles.alertDetailGridCol}>
-                  <Text style={styles.alertDetailFieldLabel}>Current</Text>
-                  <Text style={styles.alertDetailFieldValue}>{item.current}</Text>
-                </View>
-                <View style={styles.alertDetailGridCol}>
-                  <Text style={styles.alertDetailFieldLabel}>Target</Text>
-                  <Text style={styles.alertDetailFieldValue}>{item.target}</Text>
-                </View>
-              </View>
-            </View>
-          ))}
-
-          <View style={{ height: 90 }} />
-        </ScrollView>
-
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  const renderTransferTrackingScreen = () => {
-    return (
-      <View style={styles.subScreenContainer}>
-        <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={PALETTE.headerText} />
-            </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Transfer Tracking</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
-          <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
-
-          <View style={styles.trackingCard}>
-            {TRACKING_TRANSFERS.map((t, idx) => {
-              const isLast = idx === TRACKING_TRANSFERS.length - 1;
-              const isTransit = t.status === 'In Transit';
-              return (
-                <View key={t.id}>
-                  <View style={styles.trackingItemRow}>
-                    <View style={styles.trackingIconWrap}>
-                      <TransferArrowsIcon size={18} color={PALETTE.primary} />
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.trackingHeaderRow}>
-                        <Text style={styles.trackingTitleText}>
-                          {t.id} · {t.route}
-                        </Text>
-                        <View
-                          style={[
-                            styles.trackingBadgePill,
-                            { backgroundColor: isTransit ? adminColors.info.bg : PALETTE.greenPillBg },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.trackingBadgeText,
-                              { color: isTransit ? adminColors.info.text : PALETTE.greenProgress },
-                            ]}
-                          >
-                            {t.status}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text style={styles.trackingSubText}>{t.details}</Text>
-                    </View>
-                  </View>
-                  {!isLast && <View style={styles.stockTableRowDivider} />}
-                </View>
-              );
-            })}
-          </View>
-
-          <View style={{ height: 90 }} />
-        </ScrollView>
-
-        {/* Pinned Bottom Button */}
-        <View style={styles.fixedBottomBar}>
-          <TouchableOpacity
-            style={styles.initiateTransferBtn}
-            onPress={() => {
-              if (can(HOME_CODES.transferInitiate)) {
-                navigateWh('initiate_new_transfer');
-              } else {
-                Alert.alert('Permission Denied', 'Transfer initiation requires transfer.inter_warehouse.initiate permission.');
-              }
-            }}
-            activeOpacity={0.8}
-          >
-            <TransferArrowsWhiteIcon size={18} />
-            <Text style={styles.initiateTransferBtnText}>Initiate Stock Transfer</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
+      </ScrollView>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.root}>
@@ -1981,30 +1433,38 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 {/* Total Stock */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.totalStock}</Text>
                   <Text style={styles.kpiSub}>KG</Text>
                 </View>
 
                 {/* Incoming Goods */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>INCOMING GOODS</Text>
-                  <Text style={styles.kpiValue}>1,240</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.incomingGoods}</Text>
                   <Text style={styles.kpiSub}>KG today</Text>
                 </View>
 
                 {/* Pending Transfers */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>PENDING TRANSFERS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.pendingTransfers}</Text>
                   <Text style={styles.kpiSub}>transfers</Text>
                 </View>
 
                 {/* Today's Orders */}
-                <View style={styles.kpiCard}>
+                <TouchableOpacity
+                  style={styles.kpiCard}
+                  onPress={() => {
+                    setOrdersInitialScreen('M5S02');
+                    navigateWh('customer_orders');
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.kpiLabel}>TODAY'S ORDERS</Text>
-                  <Text style={styles.kpiValue}>312</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.todayOrders}</Text>
                   <Text style={styles.kpiSub}>orders</Text>
-                </View>
+                </TouchableOpacity>
 
                 {/* Sales */}
                 <TouchableOpacity
@@ -2013,17 +1473,19 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   activeOpacity={0.75}
                 >
                   <Text style={styles.kpiLabel}>SALES</Text>
-                  <Text style={styles.kpiValue}>₹1,45,100</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.sales}</Text>
                   <Text style={styles.kpiSub}>today</Text>
                 </TouchableOpacity>
 
                 {/* Open Issues */}
                 <View style={styles.kpiCard}>
                   <Text style={styles.kpiLabel}>OPEN ISSUES</Text>
-                  <Text style={styles.kpiValue}>7</Text>
+                  <Text style={styles.kpiValue}>{homeKpi.openIssues}</Text>
                   <Text style={styles.kpiSub}>issues</Text>
                 </View>
               </View>
+
+
 
               {/* ─── 2. Warehouse Overview ─── */}
               <View style={styles.sectionHeaderRow}>
@@ -2039,1101 +1501,1153 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               </View>
 
               {/* Ooty Progress Card */}
-              <TouchableOpacity
-                style={styles.whProgressCard}
-                onPress={() => {
-                  setSelectedWHName('Ooty Warehouse');
-                  navigateWh('warehouse_city_detail');
-                }}
-                activeOpacity={0.8}
-              >
+              <View style={styles.whProgressCard}>
                 <View style={styles.whProgressTopRow}>
                   <Text style={styles.whProgressTitle}>Ooty</Text>
-                  <ChevronRightGrayIcon size={16} />
                 </View>
                 <View style={styles.progressBarTrack}>
                   <View style={[styles.progressBarFill, { width: '75%', backgroundColor: PALETTE.goldProgress }]} />
                 </View>
-              </TouchableOpacity>
+              </View>
 
               {/* Coonoor Progress Card */}
-              <TouchableOpacity
-                style={styles.whProgressCard}
-                onPress={() => {
-                  setSelectedWHName('Coonoor Warehouse');
-                  navigateWh('warehouse_city_detail');
-                }}
-                activeOpacity={0.8}
-              >
+              <View style={styles.whProgressCard}>
                 <View style={styles.whProgressTopRow}>
                   <Text style={styles.whProgressTitle}>Coonoor</Text>
-                  <ChevronRightGrayIcon size={16} />
                 </View>
                 <View style={styles.progressBarTrack}>
                   <View style={[styles.progressBarFill, { width: '58%', backgroundColor: PALETTE.greenProgress }]} />
                 </View>
-              </TouchableOpacity>
+              </View>
 
               {/* ─── 3. Today's Operations ─── */}
-              <Text style={styles.sectionHeading}>Today's Operations</Text>
+              <Text style={[styles.sectionHeading, { marginTop: 16, marginBottom: 10 }]}>Today's Operations</Text>
               <View style={styles.operationsCard}>
                 {/* Incoming Goods */}
-                <TouchableOpacity
-                  style={styles.operationsSection}
-                  onPress={() => {
-                    setActiveTab('Receiving');
-                    setReceivingSubView('dashboard');
-                  }}
-                  activeOpacity={0.7}
-                >
+                <View style={styles.operationsSection}>
                   <Text style={styles.operationsTitle}>Incoming Goods</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Expected <Text style={styles.operationsMetricBold}>24</Text>
+                      Expected <Text style={styles.operationsMetricBold}>{homeOps.incoming.expected}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Arrived <Text style={styles.operationsMetricBold}>19</Text>
+                      Arrived <Text style={styles.operationsMetricBold}>{homeOps.incoming.arrived}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Discrepancies <Text style={styles.operationsMetricRed}>2</Text>
+                      Discrepancies <Text style={styles.operationsMetricRed}>{homeOps.incoming.discrepancies}</Text>
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 <View style={styles.operationsDivider} />
 
                 {/* Order Fulfilment */}
-                <TouchableOpacity
-                  style={styles.operationsSection}
-                  onPress={() => navigateWh('customer_orders')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.operationsTitle}>Order Fulfilment</Text>
+                <View style={styles.operationsSection}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setOrdersInitialScreen('M5S02');
+                      navigateWh('customer_orders');
+                    }}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.operationsTitle}>Order Fulfilment</Text>
+                  </TouchableOpacity>
                   <View style={styles.operationsMetricsRow}>
-                    <Text style={styles.operationsMetricText}>
-                      Ready <Text style={styles.operationsMetricBold}>86</Text>
-                    </Text>
-                    <Text style={styles.operationsMetricText}>
-                      Dispatched <Text style={styles.operationsMetricBold}>154</Text>
-                    </Text>
-                    <Text style={styles.operationsMetricText}>
-                      Exceptions <Text style={styles.operationsMetricRed}>3</Text>
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOrdersInitialScreen('M5S09');
+                        navigateWh('customer_orders');
+                      }}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.operationsMetricText}>
+                        Ready <Text style={styles.operationsMetricBold}>{homeOps.orders.ready}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOrdersInitialScreen('M5S02');
+                        navigateWh('customer_orders');
+                      }}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.operationsMetricText}>
+                        Dispatched <Text style={styles.operationsMetricBold}>{homeOps.orders.dispatched}</Text>
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOrdersInitialScreen('M5S16');
+                        navigateWh('customer_orders');
+                      }}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.operationsMetricText}>
+                        Exceptions <Text style={styles.operationsMetricRed}>{homeOps.orders.exceptions}</Text>
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 <View style={styles.operationsDivider} />
 
                 {/* Quality Issues */}
-                <TouchableOpacity
-                  style={styles.operationsSection}
-                  onPress={() => navigateWh('operational_issues')}
-                  activeOpacity={0.7}
-                >
+                <View style={styles.operationsSection}>
                   <Text style={styles.operationsTitle}>Quality Issues</Text>
                   <View style={styles.operationsMetricsRow}>
                     <Text style={styles.operationsMetricText}>
-                      Pending <Text style={styles.operationsMetricBold}>6</Text>
+                      Pending <Text style={styles.operationsMetricBold}>{homeOps.quality.pending}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Damage <Text style={styles.operationsMetricBold}>3</Text>
+                      Damage <Text style={styles.operationsMetricBold}>{homeOps.quality.damage}</Text>
                     </Text>
                     <Text style={styles.operationsMetricText}>
-                      Rejected <Text style={styles.operationsMetricRed}>1</Text>
+                      Rejected <Text style={styles.operationsMetricRed}>{homeOps.quality.rejected}</Text>
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 <View style={styles.operationsDivider} />
 
                 {/* Warehouse-wise Activity Timeline */}
-                <TouchableOpacity
-                  style={styles.operationsSection}
-                  onPress={() => navigateWh('activity_timeline_ops')}
-                  activeOpacity={0.7}
-                >
+                <View style={styles.operationsSection}>
                   <Text style={styles.operationsTitle}>Warehouse-wise Activity Timeline</Text>
                   <Text style={styles.operationsTimelineSub}>
                     Goods Received — GR-04512 · Kotagiri · 09:45 AM
                   </Text>
-                </TouchableOpacity>
+                </View>
               </View>
 
-              {/* ─── 4. Alerts & Pending Actions ─── */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Alerts & Pending Actions</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('alerts_action_center')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View All →</Text>
-                </TouchableOpacity>
-              </View>
+            {/* ─── 4. Alerts & Pending Actions ─── */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Alerts & Pending Actions</Text>
               <TouchableOpacity
-                style={styles.alertCard}
+                onPress={() => navigateWh('alerts_action_center')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllLink}>View All →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.alertCard}>
+              <View style={styles.alertAccentBar} />
+              <View style={styles.alertContentRow}>
+                <WarningTriangleIcon size={24} color={PALETTE.red} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.alertTitle}>Coonoor stock below target</Text>
+                  <Text style={styles.alertSub}>Warehouse exceptions, escalations and transfer issues</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ─── 5. Recent Activity ─── */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeading}>Recent Activity</Text>
+              <TouchableOpacity
+                onPress={() => navigateWh('warehouse_activity')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllLink}>View All →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.recentActivityCard}>
+              {/* Activity 1 */}
+              <View style={styles.activityItemRow}>
+                <View style={styles.activityIconBox}>
+                  <TruckIcon size={18} color={PALETTE.primary} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.activityTitle}>Transfer TRF-00284 in transit</Text>
+                  <Text style={styles.activitySub}>Coonoor → Ooty</Text>
+                </View>
+                <Text style={styles.activityTime}>10:20 AM</Text>
+              </View>
+
+              <View style={styles.activityDivider} />
+
+              {/* Activity 2 */}
+              <View style={styles.activityItemRow}>
+                <View style={styles.activityIconBox}>
+                  <InboxReceiveIcon size={18} color={PALETTE.primary} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.activityTitle}>Goods received</Text>
+                  <Text style={styles.activitySub}>Kotagiri warehouse</Text>
+                </View>
+                <Text style={styles.activityTime}>09:45 AM</Text>
+              </View>
+            </View>
+
+            {/* ─── 6. Quick Actions ─── */}
+            <Text style={styles.sectionHeading}>Quick Actions</Text>
+            <View style={styles.quickActionsGrid}>
+              {/* 1. Stock Overview */}
+              <TouchableOpacity
+                style={styles.quickActionCard}
                 onPress={() => {
-                  const firstAlert = alertsList[0] ?? DEFAULT_ALERTS[0]!;
-                  setSelectedAlert(firstAlert);
-                  navigateWh('alerts_action_center');
+                  navigateWh('stock_and_transfer');
                 }}
                 activeOpacity={0.8}
               >
-                <View style={styles.alertAccentBar} />
-                <View style={styles.alertContentRow}>
-                  <WarningTriangleIcon size={24} color={PALETTE.red} />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.alertTitle}>Coonoor stock below target</Text>
-                    <Text style={styles.alertSub}>Warehouse exceptions, escalations and transfer issues</Text>
-                  </View>
-                </View>
+                <StockBoxIcon size={26} color={PALETTE.primary} />
+                <Text style={styles.quickActionLabel}>Stock Overview</Text>
               </TouchableOpacity>
 
-              {/* ─── 5. Recent Activity ─── */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Recent Activity</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('warehouse_activity')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View All →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.recentActivityCard}>
-                {/* Activity 1 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.activityIconBox}>
-                    <TruckIcon size={18} color={PALETTE.primary} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.activityTitle}>Transfer TRF-00284 in transit</Text>
-                    <Text style={styles.activitySub}>Coonoor → Ooty</Text>
-                  </View>
-                  <Text style={styles.activityTime}>10:20 AM</Text>
-                </TouchableOpacity>
-
-                <View style={styles.activityDivider} />
-
-                {/* Activity 2 */}
-                <TouchableOpacity
-                  style={styles.activityItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Kotagiri Warehouse');
-                    navigateWh('warehouse_city_detail');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.activityIconBox}>
-                    <InboxReceiveIcon size={18} color={PALETTE.primary} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.activityTitle}>Goods received</Text>
-                    <Text style={styles.activitySub}>Kotagiri warehouse</Text>
-                  </View>
-                  <Text style={styles.activityTime}>09:45 AM</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* ─── 6. Quick Actions ─── */}
-              <Text style={styles.sectionHeading}>Quick Actions</Text>
-              <View style={styles.quickActionsGrid}>
-                {/* 1. Stock Overview */}
-                <TouchableOpacity
-                  style={styles.quickActionCard}
-                  onPress={() => {
-                    navigateWh('stock_and_transfer');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <StockBoxIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Stock Overview</Text>
-                </TouchableOpacity>
-
-                {/* 2. Manage Warehouses */}
-                <TouchableOpacity
-                  style={styles.quickActionCard}
-                  onPress={() => {
-                    navigateWh('manage_warehouses');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <BuildingWarehouseIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Manage Warehouses</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ height: 16 }} />
+              {/* 2. Manage Warehouses */}
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => {
+                  navigateWh('manage_warehouses');
+                }}
+                activeOpacity={0.8}
+              >
+                <BuildingWarehouseIcon size={26} color={PALETTE.primary} />
+                <Text style={styles.quickActionLabel}>Manage Warehouses</Text>
+              </TouchableOpacity>
             </View>
+
+            <View style={{ height: 16 }} />
+          </View>
           </ScrollView>
         )}
 
 
-        {/* ─── Receiving Tab ─── */}
-        {activeTab === 'Receiving' && (
-          receivingSubView === 'transfer_receiving' || receivingSubView === 'transfer_receiving_inspection' ? (
-            // Shared transfers flow (W4): arrivals for all warehouses; the
-            // inspection step opens inside the flow for the tapped transfer
-            // (Start Inspection / Complete need transfer.inter_warehouse.receive).
-            <TransfersFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="TransferReceiving"
-              onBack={() => setReceivingSubView('dashboard')}
-            />
-          ) : (
-            // Shared receiving flow (W4): dashboard, incoming shipments, search &
-            // filters, shipment detail, the wizard, storage assignment, receiving
-            // history (+ detail) and quality issues, all warehouses. Every old
-            // sub-view key opens the matching route; the flow owns the stack.
-            <ReceivingFlow
-              key={receivingSubView}
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen={receivingRouteFor(receivingSubView).screen}
-              initialParams={receivingRouteFor(receivingSubView).params}
-              receiverName={user?.fullName}
-              finishTo="History"
-              onBack={() => {
-                if (receivingSubView !== 'dashboard') {
-                  setReceivingSubView('dashboard');
-                } else {
-                  setActiveTab('Home');
-                  setWhSubView('overview');
-                }
-              }}
-              onTabChange={handleMoreTabChange}
-              onOpenTransferReceiving={() => setReceivingSubView('transfer_receiving')}
-              onOpenOperationalIssues={() => {
-                setActiveTab('Home');
-                navigateWh('operational_issues');
-              }}
-              onOpenTimeline={() => {
-                setActiveTab('Home');
-                navigateWh('activity_timeline_ops');
-              }}
-            />
-          )
-        )}
-
-        {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
-        {activeTab === 'Inventory' && whSubView === 'overview' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollPad}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.headerBanner}>
-              {/* Header Title Row */}
-              <View style={styles.headerTopRow}>
-                <View style={styles.headerTitleWrap}>
-                  <Grid4SquaresIcon size={20} color="#FFFFFF" />
-                  <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
-                </View>
-              </View>
-
-              {/* Warehouse Dropdown Filter Pill */}
-              <TouchableOpacity
-                style={styles.whFilterPill}
-                onPress={() => setShowFilterModal(true)}
-                activeOpacity={0.8}
-              >
-                <BuildingWarehouseIcon size={15} color="#FFFFFF" />
-                <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
-                <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Content Container */}
-            <View style={styles.contentBody}>
-              {/* 1. KPI 2x2 Grid */}
-              <View style={styles.kpiGrid}>
-                {/* Total Stock */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>TOTAL STOCK</Text>
-                  <Text style={styles.kpiValue}>12,840 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Incoming Today */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>INCOMING TODAY</Text>
-                  <Text style={styles.kpiValue}>1,240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Allocated */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>ALLOCATED</Text>
-                  <Text style={styles.kpiValue}>240 KG</Text>
-                  <Text style={styles.kpiSub}>KG</Text>
-                </TouchableOpacity>
-
-                {/* Low Stock SKUs */}
-                <TouchableOpacity
-                  style={styles.kpiCard}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.kpiLabel}>LOW STOCK SKUS</Text>
-                  <Text style={styles.kpiValue}>5</Text>
-                  <Text style={styles.kpiSub}>SKUs</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 2. Warehouse Summary */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Warehouse Summary</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Ooty Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Ooty</Text>
-                  <Text style={styles.summaryItemValue}>3,420 KG</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => {
-                    setSelectedWHName('Coonoor Warehouse');
-                    navigateWh('stock_ledger');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Coonoor</Text>
-                  <Text style={styles.summaryItemValue}>3,180 KG</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 3. Inventory Activity */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Inventory Activity</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('stock_ledger')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.summaryListCard}
-                onPress={() => navigateWh('stock_ledger')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.inventoryActivityText}>
-                  Receipt → Batch Created → Allocation → Reservation → Sale / Transfer / Adjustment
-                </Text>
-              </TouchableOpacity>
-
-              {/* 4. Pending Actions */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeading}>Pending Actions</Text>
-                <TouchableOpacity
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewAllLink}>View →</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.summaryListCard}>
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('low_stock_alerts')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Low Stock Alerts</Text>
-                  <Text style={[styles.summaryItemValue, { color: PALETTE.primary }]}>5</Text>
-                </TouchableOpacity>
-
-                <View style={styles.summaryDivider} />
-
-                <TouchableOpacity
-                  style={styles.summaryItemRow}
-                  onPress={() => navigateWh('stock_adjustment_approval')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.summaryItemName}>Adjustments Awaiting Approval</Text>
-                  <Text style={styles.summaryItemValue}>2</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 5. Quick Actions (Stock Verification & Inter-Warehouse Transfer) */}
-              <View style={styles.quickActionsDualRow}>
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('verify_stock')}
-                  activeOpacity={0.8}
-                >
-                  <StockVerificationIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Stock Verification</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.quickActionDualCard}
-                  onPress={() => navigateWh('inter_warehouse_transfer')}
-                  activeOpacity={0.8}
-                >
-                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionDualLabel}>Inter-Warehouse Transfer</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ height: 20 }} />
-            </View>
-          </ScrollView>
-        )}
-
-        {/* ─── More Tab ─── */}
-        {activeTab === 'More' && whSubView === 'overview' && moreSubScreen !== null && (
-          moreSubScreen === 'wallet' ? (
-            <WalletFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              onBack={() => setMoreSubScreen(null)}
-              onTabChange={handleMoreTabChange}
-              onNavigateToNotifications={() => {
-                setMoreSubScreen(null);
-                navigateWh('warehouse_notifications');
-              }}
-            />
-          ) : moreSubScreen === 'finance' ? (
-            // Shared finance flow (W4); MAIN_WAREHOUSE_SCOPE shows all four warehouses.
-            <FinanceFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              onBack={() => setMoreSubScreen(null)}
-              onTabChange={handleMoreTabChange}
-              onNavigateToNotifications={() => {
-                setMoreSubScreen(null);
-                navigateWh('warehouse_notifications');
-              }}
-              onOpenWallet={() => setMoreSubScreen('wallet')}
-              onNavigateToCustomerOrders={() => {
-                setMoreSubScreen(null);
-                navigateWh('customer_orders');
-              }}
-              onNavigateToInvoiceList={() => {
-                setMoreSubScreen(null);
-                navigateWh('billing_invoices');
-              }}
-            />
-          ) : moreSubScreen === 'reports' ? (
-            // Shared reports hub (W4); MAIN_WAREHOUSE_SCOPE shows the All-warehouses selector.
-            // MAIN holds report.export.file as `view` only, so Generate/Download stay off.
-            <ReportsScreen
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              canExport={false}
-              onBack={() => setMoreSubScreen(null)}
-              onNavigateToNotifications={() => {
-                setMoreSubScreen(null);
-                navigateWh('warehouse_notifications');
-              }}
-            />
-          ) : moreSubScreen === 'returns' ? (
-            // Shared RMA flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
-            <ReturnsFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              onBack={() => setMoreSubScreen(null)}
-              onTabChange={handleMoreTabChange}
-            />
-          ) : moreSubScreen === 'staff' ? (
-            // Shared staff & attendance flow (W4, M14) replaces the nested
-            // MainWarehouseStaff* / MainWarehouseAttendance screens. The roster needs
-            // warehouse.staff.list_view (MAIN all); MAIN_WAREHOUSE_SCOPE shows the selector.
-            <StaffFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="Staff"
-              onBack={() => setMoreSubScreen(null)}
-              onTabChange={handleMoreTabChange}
-            />
-          ) : moreSubScreen === 'settings' ? (
-            // Shared account hub (W4): Profile, Notification Settings, Security,
-            // Change Password, Session & Security, Help & Support, About, Logout.
-            <ProfileFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="Settings"
-              onBack={() => setMoreSubScreen(null)}
-              onLogout={onSignOut}
-              onTabChange={handleMoreTabChange}
-            />
-          ) : (
-            // The old Warehouse Management hub (MainWarehouseAdminScreen) was absorbed into the
-            // shared Warehouse Overview (W4 warehouse-admin); its Add Warehouse action was dropped (BR-23).
-            <WarehouseAdminFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="WarehouseOverview"
-              onBack={() => setMoreSubScreen(null)}
-              onNavigateComparison={() => {
-                setMoreSubScreen(null);
-                navigateWh('stock_and_transfer');
-              }}
-            />
-          )
-        )}
-        {activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null && (
-          <MoreScreen
+      {/* ─── Receiving Tab ─── */}
+      {activeTab === 'Receiving' && (
+        receivingSubView === 'transfer_receiving' || receivingSubView === 'transfer_receiving_inspection' ? (
+          // Shared transfers flow (W4): arrivals for all warehouses; the
+          // inspection step opens inside the flow for the tapped transfer
+          // (Start Inspection / Complete need transfer.inter_warehouse.receive).
+          <TransfersFlow
             scope={MAIN_WAREHOUSE_SCOPE}
             can={can}
-            onBack={() => setActiveTab('Home')}
-            onNavigateToDashboard={() => {
+            initialScreen="TransferReceiving"
+            onBack={() => setReceivingSubView('dashboard')}
+          />
+        ) : (
+          // Shared receiving flow (W4): dashboard, incoming shipments, search &
+          // filters, shipment detail, the wizard, storage assignment, receiving
+          // history (+ detail) and quality issues, all warehouses. Every old
+          // sub-view key opens the matching route; the flow owns the stack.
+          <ReceivingFlow
+            key={receivingSubView}
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={receivingRouteFor(receivingSubView).screen}
+            initialParams={receivingRouteFor(receivingSubView).params}
+            receiverName={user?.fullName}
+            finishTo="History"
+            onBack={() => {
+              if (receivingSubView !== 'dashboard') {
+                setReceivingSubView('dashboard');
+              } else {
+                setActiveTab('Home');
+                setWhSubView('overview');
+              }
+            }}
+            onTabChange={handleMoreTabChange}
+            onOpenTransferReceiving={() => setReceivingSubView('transfer_receiving')}
+            onOpenOperationalIssues={() => {
+              setActiveTab('Home');
+              navigateWh('operational_issues');
+            }}
+            onOpenTimeline={() => {
+              setActiveTab('Home');
+              navigateWh('activity_timeline_ops');
+            }}
+          />
+        )
+      )}
+
+      {/* ─── Inventory Tab (Image 1 Mockup · #F0562A) ─── */}
+      {activeTab === 'Inventory' && whSubView === 'overview' && (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Banner */}
+          <View style={styles.headerBanner}>
+            {/* Header Title Row */}
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerTitleWrap}>
+                <Grid4SquaresIcon size={20} color="#FFFFFF" />
+                <Text style={styles.headerGreetingText}>Inventory & Stock</Text>
+              </View>
+            </View>
+
+            {/* Warehouse Dropdown Filter Pill */}
+            <TouchableOpacity
+              style={styles.whFilterPill}
+              onPress={() => setShowFilterModal(true)}
+              activeOpacity={0.8}
+            >
+              <BuildingWarehouseIcon size={15} color="#FFFFFF" />
+              <Text style={styles.whFilterPillText}>{selectedWHFilter}</Text>
+              <ChevronDownWhiteIcon size={13} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Content Container */}
+          <View style={styles.contentBody}>
+            {/* 1. 8 Stat Cards (2 columns x 4 rows) */}
+            <View style={styles.invStatsGrid}>
+              {/* Row 1 Left: TOTAL STOCK */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>TOTAL STOCK</Text>
+                <Text style={styles.invStatValue}>12,840 KG</Text>
+                <Text style={styles.invStatSub}>KG</Text>
+              </View>
+
+              {/* Row 1 Right: AVAILABLE STOCK */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>AVAILABLE STOCK</Text>
+                <Text style={styles.invStatValue}>9,240 KG</Text>
+                <Text style={styles.invStatSub}>KG</Text>
+              </View>
+
+              {/* Row 2 Left: ALLOCATED */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>ALLOCATED</Text>
+                <Text style={styles.invStatValue}>2,100 KG</Text>
+                <Text style={styles.invStatSub}>KG</Text>
+              </View>
+
+              {/* Row 2 Right: RESERVED */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>RESERVED</Text>
+                <Text style={styles.invStatValue}>1,500 KG</Text>
+                <Text style={styles.invStatSub}>KG</Text>
+              </View>
+
+              {/* Row 3 Left: LOW STOCK */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>LOW STOCK</Text>
+                <Text style={styles.invStatValue}>14</Text>
+                <Text style={styles.invStatSub}>products</Text>
+              </View>
+
+              {/* Row 3 Right: PENDING VERIFICATION */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>PENDING VERIFICATION</Text>
+                <Text style={styles.invStatValue}>6</Text>
+                <Text style={styles.invStatSub}>items</Text>
+              </View>
+
+              {/* Row 4 Left: VARIANCE DETECTED */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>VARIANCE DETECTED</Text>
+                <Text style={styles.invStatValue}>2</Text>
+                <Text style={styles.invStatSub}>items</Text>
+              </View>
+
+              {/* Row 4 Right: PENDING ADJUSTMENTS */}
+              <View style={styles.invStatCard}>
+                <Text style={styles.invStatLabel}>PENDING ADJUSTMENTS</Text>
+                <Text style={styles.invStatValue}>3</Text>
+                <Text style={styles.invStatSub}>requests</Text>
+              </View>
+            </View>
+
+
+            {/* 3. Warehouse Overview */}
+            <Text style={styles.invSectionTitle}>Warehouse Overview</Text>
+            <View style={styles.invCardList}>
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Ooty</Text>
+                <Text style={styles.invRowVal}>3,420 KG</Text>
+              </View>
+              <View style={styles.invRowDivider} />
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Coonoor</Text>
+                <Text style={styles.invRowVal}>3,180 KG</Text>
+              </View>
+              <View style={styles.invRowDivider} />
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Kotagiri</Text>
+                <Text style={styles.invRowVal}>2,940 KG</Text>
+              </View>
+              <View style={styles.invRowDivider} />
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Gudalur Market</Text>
+                <Text style={styles.invRowVal}>3,300 KG</Text>
+              </View>
+            </View>
+
+            {/* 4. Inventory Health (Image 2) */}
+            <Text style={[styles.invSectionTitle, { marginTop: 16 }]}>Inventory Health</Text>
+            <View style={styles.invHealthCard}>
+              <View style={styles.invHealthRow}>
+                <View style={styles.invHealthCol}>
+                  <Text style={styles.invHealthLabel}>Normal</Text>
+                  <Text style={[styles.invHealthVal, { color: '#16A34A' }]}>62 products</Text>
+                </View>
+                <View style={styles.invHealthCol}>
+                  <Text style={styles.invHealthLabel}>Low</Text>
+                  <Text style={[styles.invHealthVal, { color: '#D97706' }]}>14 products</Text>
+                </View>
+              </View>
+              <View style={[styles.invHealthRow, { marginTop: 14 }]}>
+                <View style={styles.invHealthCol}>
+                  <Text style={styles.invHealthLabel}>Critical</Text>
+                  <Text style={[styles.invHealthVal, { color: '#EF4444' }]}>3 products</Text>
+                </View>
+                <View style={styles.invHealthCol}>
+                  <Text style={styles.invHealthLabel}>Verification Pending</Text>
+                  <Text style={[styles.invHealthVal, { color: '#18181B' }]}>6</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 5. Recent Stock Movements (Image 2) */}
+            <View style={styles.invSectionHeaderRow}>
+              <Text style={styles.invSectionTitle}>Recent Stock Movements</Text>
+              <TouchableOpacity onPress={() => navigateWh('stock_ledger')} activeOpacity={0.7}>
+                <Text style={styles.invViewAllLink}>View →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.invMovementCard}>
+              <View style={styles.invMovementIconCircle}>
+                <MovementUpIcon size={20} color="#F0562A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.invMovementTitle}>MV-000928 · RECEIPT</Text>
+                <Text style={styles.invMovementSubtitle}>Ooty · Tomato · BT-000128</Text>
+              </View>
+              <Text style={styles.invMovementAmount}>+100 KG</Text>
+            </View>
+
+            {/* 6. Pending Actions (Image 2) */}
+            <View style={styles.invSectionHeaderRow}>
+              <Text style={styles.invSectionTitle}>Pending Actions</Text>
+              <TouchableOpacity
+                onPress={() => navigateWh('pending_actions')}
+                activeOpacity={0.7}
+                hitSlop={{ top: 16, bottom: 16, left: 24, right: 24 }}
+                accessibilityLabel="View Pending Actions"
+              >
+                <Text style={styles.invViewAllLink}>View →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.invCardList}>
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Verification</Text>
+                <Text style={styles.invRowVal}>6</Text>
+              </View>
+              <View style={styles.invRowDivider} />
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Adjustment</Text>
+                <Text style={styles.invRowVal}>3</Text>
+              </View>
+              <View style={styles.invRowDivider} />
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Transfer Receiving</Text>
+                <Text style={styles.invRowVal}>2</Text>
+              </View>
+              <View style={styles.invRowDivider} />
+              <View style={styles.invRowItem}>
+                <Text style={styles.invRowName}>Stock Exception</Text>
+                <Text style={styles.invRowVal}>1</Text>
+              </View>
+            </View>
+
+            {/* 7. Quick Actions (Image 2 & Image 3) */}
+            <Text style={[styles.invSectionTitle, { marginTop: 16 }]}>Quick Actions</Text>
+            <View style={styles.invQuickActionsGrid}>
+              {/* Row 1 */}
+              <View style={styles.invQuickActionsRow}>
+                <TouchableOpacity
+                  style={styles.invQuickActionCard}
+                  onPress={() => navigateWh('consolidated_stock')}
+                  activeOpacity={0.7}
+                >
+                  <ConsolidatedLayersIcon size={28} color="#F0562A" />
+                  <Text style={styles.invQuickActionLabel}>Consolidated Stock</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.invQuickActionCard}
+                  onPress={() => navigateWh('warehouse_stock')}
+                  activeOpacity={0.7}
+                >
+                  <BuildingWarehouseIcon size={28} color="#F0562A" />
+                  <Text style={styles.invQuickActionLabel}>Warehouse Stock</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 2 */}
+              <View style={styles.invQuickActionsRow}>
+                <TouchableOpacity
+                  style={styles.invQuickActionCard}
+                  onPress={() => navigateWh('verify_stock')}
+                  activeOpacity={0.7}
+                >
+                  <StockVerificationIcon size={28} color="#F0562A" />
+                  <Text style={styles.invQuickActionLabel}>Stock Verification</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.invQuickActionCard}
+                  onPress={() => navigateWh('stock_allocation')}
+                  activeOpacity={0.7}
+                >
+                  <AllocationPieIcon size={28} color="#F0562A" />
+                  <Text style={styles.invQuickActionLabel}>Allocation</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 3 */}
+              <View style={styles.invQuickActionsRow}>
+                <TouchableOpacity
+                  style={styles.invQuickActionCard}
+                  onPress={() => navigateWh('low_stock_alerts')}
+                  activeOpacity={0.7}
+                >
+                  <LowStockZigzagIcon size={28} color="#F0562A" />
+                  <Text style={styles.invQuickActionLabel}>Low Stock</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.invQuickActionCard}
+                  onPress={() => navigateWh('inter_warehouse_transfer')}
+                  activeOpacity={0.7}
+                >
+                  <HorizontalTransferIcon size={28} color="#F0562A" />
+                  <Text style={styles.invQuickActionLabel}>Create Transfer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={{ height: 24 }} />
+          </View>
+        </ScrollView>
+      )}
+
+      {/* ─── More Tab ─── */}
+      {activeTab === 'More' && whSubView === 'overview' && moreSubScreen !== null && (
+        moreSubScreen === 'wallet' ? (
+          <WalletFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            onBack={() => setMoreSubScreen(null)}
+            onTabChange={handleMoreTabChange}
+            onNavigateToNotifications={() => {
+              setMoreSubScreen(null);
+              navigateWh('warehouse_notifications');
+            }}
+          />
+        ) : moreSubScreen === 'finance' ? (
+          // Shared finance flow (W4); MAIN_WAREHOUSE_SCOPE shows all four warehouses.
+          <FinanceFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            onBack={() => setMoreSubScreen(null)}
+            onTabChange={handleMoreTabChange}
+            onNavigateToNotifications={() => {
+              setMoreSubScreen(null);
+              navigateWh('warehouse_notifications');
+            }}
+            onOpenWallet={() => setMoreSubScreen('wallet')}
+            onNavigateToCustomerOrders={() => {
+              setMoreSubScreen(null);
+              navigateWh('customer_orders');
+            }}
+            onNavigateToInvoiceList={() => {
+              setMoreSubScreen(null);
+              navigateWh('billing_invoices');
+            }}
+          />
+        ) : moreSubScreen === 'reports' ? (
+          // Shared reports hub (W4); MAIN_WAREHOUSE_SCOPE shows the All-warehouses selector.
+          // MAIN holds report.export.file as `view` only, so Generate/Download stay off.
+          <ReportsScreen
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            canExport={false}
+            onBack={() => setMoreSubScreen(null)}
+            onNavigateToNotifications={() => {
+              setMoreSubScreen(null);
+              navigateWh('warehouse_notifications');
+            }}
+          />
+        ) : moreSubScreen === 'returns' ? (
+          // Shared RMA flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
+          <ReturnsFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            onBack={() => setMoreSubScreen(null)}
+            onTabChange={handleMoreTabChange}
+          />
+        ) : moreSubScreen === 'staff' ? (
+          // Shared staff & attendance flow (W4, M14) replaces the nested
+          // MainWarehouseStaff* / MainWarehouseAttendance screens. The roster needs
+          // warehouse.staff.list_view (MAIN all); MAIN_WAREHOUSE_SCOPE shows the selector.
+          <StaffFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="Staff"
+            onBack={() => setMoreSubScreen(null)}
+            onTabChange={handleMoreTabChange}
+          />
+        ) : moreSubScreen === 'settings' ? (
+          // Shared account hub (W4): Profile, Notification Settings, Security,
+          // Change Password, Session & Security, Help & Support, About, Logout.
+          <ProfileFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="Settings"
+            onBack={() => setMoreSubScreen(null)}
+            onLogout={onSignOut}
+            onTabChange={handleMoreTabChange}
+          />
+        ) : (
+          // The old Warehouse Management hub (MainWarehouseAdminScreen) was absorbed into the
+          // shared Warehouse Overview (W4 warehouse-admin); its Add Warehouse action was dropped (BR-23).
+          <WarehouseAdminFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="WarehouseOverview"
+            onBack={() => setMoreSubScreen(null)}
+            onNavigateComparison={() => {
+              setMoreSubScreen(null);
+              navigateWh('stock_and_transfer');
+            }}
+          />
+        )
+      )}
+      {activeTab === 'More' && whSubView === 'overview' && moreSubScreen === null && (
+        <MoreScreen
+          scope={MAIN_WAREHOUSE_SCOPE}
+          can={can}
+          onBack={() => setActiveTab('Home')}
+          onNavigateToDashboard={() => {
+            setActiveTab('Home');
+            setWhSubView('overview');
+            setWhHistory([]);
+          }}
+          onLogout={onSignOut}
+          onTabChange={handleMoreTabChange}
+          // The admin hub lists every warehouse (FINAL_LIST: warehouse.all.view).
+          onProfileCardPress={can('warehouse.all.view') ? () => setMoreSubScreen('admin') : undefined}
+          onNavigateToWallet={() => setMoreSubScreen('wallet')}
+          onNavigateToReturns={() => setMoreSubScreen('returns')}
+          onNavigateToFinance={() => setMoreSubScreen('finance')}
+          onNavigateToReports={() => setMoreSubScreen('reports')}
+          onNavigateToStaff={() => setMoreSubScreen('staff')}
+          onNavigateToOrders={() => {
+            setOrdersInitialScreen('M5S01');
+            navigateWh('customer_orders');
+          }}
+          onNavigateToSales={() => navigateWh('sales')}
+          onNavigateToCustomers={() => navigateWh('customers_list')}
+          onNavigateToBilling={() => navigateWh('billing_invoices')}
+          onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
+          onNavigateToProfile={() => navigateWh('profile')}
+          onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+          // The More row is the account hub ("Manage account and application settings",
+          // FINAL_LIST #84); warehouse settings stay reachable from Warehouse Overview.
+          onNavigateToSettings={() => setMoreSubScreen('settings')}
+        />
+      )}
+
+      {/* ─── Sub Views for Interactive Navigation (shared across all tabs) ─── */}
+      {whSubView !== 'overview' && (
+        whSubView === 'profile' ? (
+          // The admin's own profile is the shared UserProfileScreen (W4, absorbs
+          // MainWarehouseProfileScreen); Main sees the all-warehouses account.
+          <ProfileFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="UserProfile"
+            onBack={goBackWh}
+            onLogout={onSignOut}
+            onTabChange={handleMoreTabChange}
+          />
+        ) : whSubView === 'dashboard_operations' ||
+          whSubView === 'todays_operations' ||
+          whSubView === 'todays_operations_overview' ? (
+          // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
+          // shared Warehouse Activity as its Today preset: the six-tile strip and the
+          // monitoring card show for the all-warehouses scope.
+          renderActivityFlow(ACTIVITY_TODAY_PARAMS)
+        ) : whSubView === 'warehouse_operations' ? (
+          // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
+          // selector (replaces the shell's filter modal here); per-warehouse cards,
+          // Open Issues / Operations History tiles need warehouse.all.view. Materials,
+          // capacity, issues and activity open inside the flow.
+          <StorageFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="Operations"
+            onBack={goBackWh}
+            onOpenModule={openMainModule}
+            onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
+            onOpenNotifications={() => navigateWh('warehouse_notifications')}
+            onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
+            onSelectWarehouse={(whName) => {
+              setSelectedWHName(whName);
+              navigateWh('warehouse_city_detail');
+            }}
+            onManageCapacity={() => navigateWh('warehouse_settings')}
+          />
+        ) : whSubView === 'warehouse_overview' ? (
+          renderWarehouseOverviewScreen()
+        ) : whSubView === 'warehouse_comparison' ? (
+          renderWarehouseComparisonScreen()
+        ) : whSubView === 'manage_warehouses' ? (
+          renderManageWarehousesScreen()
+        ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
+          // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
+          // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
+          <WarehouseAdminFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
+            initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
+            onBack={goBackWh}
+            onNavigateComparison={() => navigateWh('warehouse_comparison')}
+            onViewOperationsHistory={() => navigateWh('operations_history')}
+            onViewStaffAttendance={() => navigateWh('staff_attendance')}
+          />
+        ) : whSubView === 'warehouse_notifications' ? (
+          renderNotificationsFlow('Notifications')
+        ) : whSubView === 'storage_locations' ? (
+          // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
+          // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
+          <ProfileFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="StorageInfo"
+            onBack={() => navigateWh('warehouse_operations')}
+            onSelectStorageLocation={(locId) => {
+              setSelectedLocationId(locId);
+              navigateWh('location_detail');
+            }}
+          />
+        ) : whSubView === 'location_detail' ? (
+          // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
+          // card and occupancy bar were ported. View Stock needs inventory.batch.view.
+          <StorageFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="StorageLocationDetail"
+            initialParams={{ locationId: selectedLocationId }}
+            onBack={() => navigateWh('storage_locations')}
+            onViewStock={() => {
+              setActiveTab('Inventory');
+              setWhSubView('overview');
+            }}
+          />
+        ) : whSubView === 'material_handling' ? (
+          // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
+          // actions were ported into the shared screens (inventory.material_handling.manage).
+          <StorageFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="MaterialHandling"
+            onBack={() => navigateWh('warehouse_operations')}
+            onViewActivity={() => navigateWh('warehouse_activity')}
+          />
+        ) : whSubView === 'material_detail' ? (
+          <StorageFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="MaterialDetail"
+            initialParams={{ materialId: selectedMaterialId }}
+            onBack={goBackWh}
+            onViewActivity={() => navigateWh('warehouse_activity')}
+          />
+        ) : whSubView === 'warehouse_capacity' ? (
+          renderWarehouseCapacityScreen()
+        ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
+          // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
+          // shared activity log (All preset): search, warehouse selector, rows with
+          // warehouse + operator, detail, and CSV export with report.export.file.
+          renderActivityFlow(ACTIVITY_ALL_PARAMS)
+        ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
+          // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
+          // warehouse's issues with the selector and opens their detail. The
+          // report form (operational mode, with Main's warehouse / rack /
+          // severity fields) needs support.ticket.create_own, which MAIN does
+          // not hold today, so the Report button is replaced by a note.
+          <StorageFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
+            initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
+            onBack={() => navigateWh('warehouse_operations')}
+          />
+        ) : whSubView === 'staff_attendance' ? (
+          // The dropped Staff & Attendance hub was Main's only attendance entry
+          // (Manage SWAs card, operations hub); it opens the shared Attendance
+          // overview now (W4, M14). Attendance has no rbac code (ungated).
+          <StaffFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="Attendance"
+            initialParams={ATTENDANCE_ALL_PARAMS}
+            onBack={goBackWh}
+          />
+        ) : whSubView === 'needs_attention' ? (
+          // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
+          <HomeFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="NeedsAttention"
+            initialParams={{ category: attentionCategory }}
+            onBack={goBackWh}
+          />
+        ) : whSubView === 'stock_and_transfer' ? (
+          renderStockAndTransferScreen()
+        ) : whSubView === 'consolidated_stock' ? (
+          renderConsolidatedStockScreen()
+        ) : whSubView === 'low_stock_surplus' ? (
+          renderLowStockSurplusScreen()
+        ) : whSubView === 'transfer_tracking' ? (
+          renderTransferTrackingScreen()
+        ) : whSubView === 'quick_actions_overview' ? (
+          <HomeFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="QuickActions"
+            onBack={goBackWh}
+            onOpenTarget={openHomeTarget}
+          />
+        ) : whSubView === 'alerts_action_center' ? (
+          renderNotificationsFlow('ApprovalAlerts')
+        ) : whSubView === 'warehouse_stock' ||
+          whSubView === 'stock_ledger' ||
+          whSubView === 'stock_allocation' ||
+          whSubView === 'verify_stock' ||
+          whSubView === 'stock_adjustment_approval' ||
+          whSubView === 'low_stock_alerts' ? (
+          // The four Main-only inventory screens were folded into the shared
+          // inventory area (W4); each old sub-view opens the flow on its survivor.
+          <InventoryFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={INVENTORY_ENTRY[whSubView]}
+            initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
+            onBack={goBackWh}
+            onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
+            warehouseOptions={PROFILE_WAREHOUSES}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+          />
+        ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
+          // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
+          // list -> initiate. The flow owns the (mock) transfer list; Initiate
+          // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
+          <TransfersFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={TRANSFER_ENTRY[whSubView]}
+            onBack={goBackWh}
+          />
+        ) : whSubView === 'warehouse_settings' ? (
+          // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
+          // on warehouse.capacity.set; opens on the warehouse the overview showed.
+          <ProfileFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="WarehouseSettings"
+            initialWarehouseId={warehouseIdForName(selectedWHName)}
+            onBack={goBackWh}
+          />
+        ) : whSubView === 'warehouse_performance' ? (
+          renderWarehousePerformanceScreen()
+        ) : whSubView === 'incoming_goods_ops' ? (
+          // Incoming Goods was the receiving summary again: it is the shared
+          // receiving dashboard now (W4), opened from the operations hub.
+          <ReceivingFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="Dashboard"
+            receiverName={user?.fullName}
+            finishTo="History"
+            onBack={goBackWh}
+            onOpenTransferReceiving={() => {
+              setActiveTab('Receiving');
+              setReceivingSubView('transfer_receiving');
+            }}
+            onOpenOperationalIssues={() => navigateWh('operational_issues')}
+            onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+          />
+        ) : whSubView === 'order_fulfilment_ops' ? (
+          <OrdersFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={ordersInitialScreen}
+            onBack={goBackWh}
+            onViewIssue={() => navigateWh('operational_issues')}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+          />
+        ) : whSubView === 'quality_issues_ops' ? (
+          // Shared receiving Quality Issues (W4, read-only list); issues open the
+          // wizard step / shipment inside the flow, damage reports Operational Issues.
+          <ReceivingFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen="QualityIssues"
+            receiverName={user?.fullName}
+            finishTo="History"
+            onBack={goBackWh}
+            onOpenOperationalIssues={() => navigateWh('operational_issues')}
+            onOpenTimeline={() => navigateWh('activity_timeline_ops')}
+          />
+        ) : whSubView === 'customers_list' ? (
+          // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
+          // customers with the all-warehouses selector. Wallet, cash top-up (the
+          // wallet operations hub), order detail and RMA open inside the flow;
+          // New Sale goes to the Main direct-sale flow.
+          <CustomersFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            onBack={goBackWh}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+            inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
+            onOpenExternal={(target) => {
+              if (target === 'NewSale') navigateWh('direct_sale_new');
+            }}
+            renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
+              if (target === 'CustomerWallet' || target === 'CashTopUp') {
+                // The shared wallet flow opened on this customer's wallet or
+                // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
+                return (
+                  <WalletFlow
+                    scope={MAIN_WAREHOUSE_SCOPE}
+                    can={can}
+                    initialScreen={target}
+                    initialParams={walletParamsForCustomer(p.customer)}
+                    onBack={nav.back}
+                  />
+                );
+              }
+              if (target === 'OrderDetail') {
+                return (
+                  <OrdersFlow
+                    scope={MAIN_WAREHOUSE_SCOPE}
+                    can={can}
+                    initialScreen="M5S04"
+                    initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
+                    onBack={nav.back}
+                    onViewIssue={() => navigateWh('operational_issues')}
+                  />
+                );
+              }
+              if (target === 'RmaDetail') {
+                return (
+                  <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
+                );
+              }
+              return null;
+            }}
+          />
+        ) : whSubView === 'customer_orders' ? (
+          <OrdersFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={ordersInitialScreen}
+            onBack={goBackWh}
+            onViewIssue={() => navigateWh('operational_issues')}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+          />
+        ) : whSubView === 'billing_invoices' ? (
+          // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
+          <BillingFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            onBack={goBackWh}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+          />
+        ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
+          // Shared direct sales flow (warehouse/sales-direct), all warehouses.
+          <SalesFlow
+            scope={MAIN_WAREHOUSE_SCOPE}
+            can={can}
+            initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
+            initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
+            onBack={goBackWh}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
+            onNavigateToNeedsAttention={(category) => {
+              setAttentionCategory(category ?? 'all');
+              navigateWh('needs_attention');
+            }}
+          />
+        ) : whSubView === 'consolidated_stock' ? (
+          renderConsolidatedStockScreen()
+        ) : whSubView === 'consolidated_stock_detail' ? (
+          renderConsolidatedStockDetailScreen()
+        ) : whSubView === 'pending_actions' ? (
+          renderPendingActionsScreen()
+        ) : null
+      )}
+    </View>
+
+      {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */ }
+  {/* Receiving draws its own tab bar (ReceivingFlow dashboard); transfers have none. */ }
+  {
+    ((activeTab === 'Home' &&
+      (whSubView === 'overview' ||
+        whSubView === 'warehouse_operations' ||
+        whSubView === 'warehouse_overview' ||
+        whSubView === 'warehouse_city_detail' ||
+        whSubView === 'dashboard_operations' ||
+        whSubView === 'todays_operations' ||
+        whSubView === 'todays_operations_overview' ||
+        whSubView === 'storage_locations' ||
+        whSubView === 'material_handling' ||
+        whSubView === 'warehouse_capacity' ||
+        whSubView === 'warehouse_activity' ||
+        whSubView === 'operational_issues' ||
+        whSubView === 'report_operational_issue' ||
+        whSubView === 'staff_attendance' ||
+        whSubView === 'operations_history' ||
+        whSubView === 'incoming_goods_ops' ||
+        whSubView === 'order_fulfilment_ops' ||
+        whSubView === 'quality_issues_ops' ||
+        whSubView === 'activity_timeline_ops' ||
+        whSubView === 'warehouse_performance' ||
+        whSubView === 'manage_warehouses' ||
+        whSubView === 'warehouse_settings' ||
+        whSubView === 'alerts_action_center' ||
+        whSubView === 'alert_detail' ||
+        whSubView === 'stock_and_transfer' ||
+        whSubView === 'consolidated_stock' ||
+        whSubView === 'low_stock_surplus' ||
+        whSubView === 'transfer_tracking' ||
+        whSubView === 'quick_actions_overview')) ||
+      (activeTab === 'More' && whSubView !== 'overview') ||
+      (activeTab === 'Inventory' && whSubView === 'overview')) && (
+        <View style={styles.bottomTabBar}>
+          {/* Home */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => {
               setActiveTab('Home');
               setWhSubView('overview');
               setWhHistory([]);
             }}
-            onLogout={onSignOut}
-            onTabChange={handleMoreTabChange}
-            // The admin hub lists every warehouse (FINAL_LIST: warehouse.all.view).
-            onProfileCardPress={can('warehouse.all.view') ? () => setMoreSubScreen('admin') : undefined}
-            onNavigateToWallet={() => setMoreSubScreen('wallet')}
-            onNavigateToReturns={() => setMoreSubScreen('returns')}
-            onNavigateToFinance={() => setMoreSubScreen('finance')}
-            onNavigateToReports={() => setMoreSubScreen('reports')}
-            onNavigateToStaff={() => setMoreSubScreen('staff')}
-            onNavigateToOrders={() => navigateWh('customer_orders')}
-            onNavigateToSales={() => navigateWh('sales')}
-            onNavigateToCustomers={() => navigateWh('customers_list')}
-            onNavigateToBilling={() => navigateWh('billing_invoices')}
-            onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
-            onNavigateToProfile={() => navigateWh('profile')}
-            onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-            // The More row is the account hub ("Manage account and application settings",
-            // FINAL_LIST #84); warehouse settings stay reachable from Warehouse Overview.
-            onNavigateToSettings={() => setMoreSubScreen('settings')}
-          />
-        )}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <HomeTabNavIcon active={activeTab === 'Home'} />
+            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+          </TouchableOpacity>
 
-        {/* ─── Sub Views for Interactive Navigation (shared across all tabs) ─── */}
-        {whSubView !== 'overview' && (
-          whSubView === 'profile' ? (
-            // The admin's own profile is the shared UserProfileScreen (W4, absorbs
-            // MainWarehouseProfileScreen); Main sees the all-warehouses account.
-            <ProfileFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="UserProfile"
-              onBack={goBackWh}
-              onLogout={onSignOut}
-              onTabChange={handleMoreTabChange}
-            />
-          ) : whSubView === 'dashboard_operations' ||
-            whSubView === 'todays_operations' ||
-            whSubView === 'todays_operations_overview' ? (
-              // Today's Operations (Monitoring + Overview, M4-S02 / M1-S02) folded into the
-              // shared Warehouse Activity as its Today preset: the six-tile strip and the
-              // monitoring card show for the all-warehouses scope.
-              renderActivityFlow(ACTIVITY_TODAY_PARAMS)
-            ) : whSubView === 'warehouse_operations' ? (
-              // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
-              // selector (replaces the shell's filter modal here); per-warehouse cards,
-              // Open Issues / Operations History tiles need warehouse.all.view. Materials,
-              // capacity, issues and activity open inside the flow.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Operations"
-                onBack={goBackWh}
-                onOpenModule={openMainModule}
-                onExportActivity={() => Alert.alert('Export Successful', 'Operational history log has been exported to CSV.')}
-                onOpenNotifications={() => navigateWh('warehouse_notifications')}
-                onOpenWarehouseOverview={() => navigateWh('warehouse_overview')}
-                onSelectWarehouse={(whName) => {
-                  setSelectedWHName(whName);
-                  navigateWh('warehouse_city_detail');
-                }}
-                onManageCapacity={() => navigateWh('warehouse_settings')}
-              />
-            ) : whSubView === 'warehouse_overview' ? (
-              renderWarehouseOverviewScreen()
-            ) : whSubView === 'warehouse_comparison' ? (
-              renderWarehouseComparisonScreen()
-            ) : whSubView === 'manage_warehouses' ? (
-              renderManageWarehousesScreen()
-            ) : WAREHOUSE_ADMIN_ENTRY[whSubView] !== undefined ? (
-              // Main warehouse-admin flow (W4): City Detail -> Settings / Capacity / Documents;
-              // Manage SWAs. Guarded on warehouse.all.view / admin.sub_wh_admin.create.
-              <WarehouseAdminFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={WAREHOUSE_ADMIN_ENTRY[whSubView]}
-                initialParams={whSubView === 'warehouse_city_detail' ? { warehouseId: warehouseIdForName(selectedWHName) } : undefined}
-                onBack={goBackWh}
-                onNavigateComparison={() => navigateWh('warehouse_comparison')}
-                onViewOperationsHistory={() => navigateWh('operations_history')}
-                onViewStaffAttendance={() => navigateWh('staff_attendance')}
-              />
-            ) : whSubView === 'warehouse_notifications' ? (
-              renderNotificationsFlow('Notifications')
-            ) : whSubView === 'storage_locations' ? (
-              // StorageLocationsScreen was absorbed into the shared StorageInfoScreen
-              // (W4 part B): Main sees all four warehouses plus the storage hierarchy.
-              <ProfileFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StorageInfo"
-                onBack={() => navigateWh('warehouse_operations')}
-                onSelectStorageLocation={(locId) => {
-                  setSelectedLocationId(locId);
-                  navigateWh('location_detail');
-                }}
-              />
-            ) : whSubView === 'location_detail' ? (
-              // Shared storage-ops location detail (W4, M4-S04); Main's Location Information
-              // card and occupancy bar were ported. View Stock needs inventory.batch.view.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="StorageLocationDetail"
-                initialParams={{ locationId: selectedLocationId }}
-                onBack={() => navigateWh('storage_locations')}
-                onViewStock={() => {
-                  setActiveTab('Inventory');
-                  setWhSubView('overview');
-                }}
-              />
-            ) : whSubView === 'material_handling' ? (
-              // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
-              // actions were ported into the shared screens (inventory.material_handling.manage).
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialHandling"
-                onBack={() => navigateWh('warehouse_operations')}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'material_detail' ? (
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="MaterialDetail"
-                initialParams={{ materialId: selectedMaterialId }}
-                onBack={goBackWh}
-                onViewActivity={() => navigateWh('warehouse_activity')}
-              />
-            ) : whSubView === 'warehouse_capacity' ? (
-              renderWarehouseCapacityScreen()
-            ) : whSubView === 'warehouse_activity' || whSubView === 'operations_history' || whSubView === 'activity_timeline_ops' ? (
-              // Warehouse Activity, Operations History and Activity Timeline (M4-S08) are the
-              // shared activity log (All preset): search, warehouse selector, rows with
-              // warehouse + operator, detail, and CSV export with report.export.file.
-              renderActivityFlow(ACTIVITY_ALL_PARAMS)
-            ) : whSubView === 'operational_issues' || whSubView === 'report_operational_issue' ? (
-              // Shared storage-ops issues (W4, M4-S09 / M4-S09R): Main sees every
-              // warehouse's issues with the selector and opens their detail. The
-              // report form (operational mode, with Main's warehouse / rack /
-              // severity fields) needs support.ticket.create_own, which MAIN does
-              // not hold today, so the Report button is replaced by a note.
-              <StorageFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={whSubView === 'report_operational_issue' ? 'ReportIssue' : 'OperationalIssues'}
-                initialParams={whSubView === 'report_operational_issue' ? REPORT_OPERATIONAL_PARAMS : undefined}
-                onBack={() => navigateWh('warehouse_operations')}
-              />
-            ) : whSubView === 'staff_attendance' ? (
-              // The dropped Staff & Attendance hub was Main's only attendance entry
-              // (Manage SWAs card, operations hub); it opens the shared Attendance
-              // overview now (W4, M14). Attendance has no rbac code (ungated).
-              <StaffFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Attendance"
-                initialParams={ATTENDANCE_ALL_PARAMS}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'needs_attention' ? (
-              // Sales hub Needs Attention (W4s-4): the shared queue, all four warehouses.
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="NeedsAttention"
-                initialParams={{ category: attentionCategory }}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'stock_and_transfer' ? (
-              renderStockAndTransferScreen()
-            ) : whSubView === 'consolidated_stock' ? (
-              renderConsolidatedStockScreen()
-            ) : whSubView === 'low_stock_surplus' ? (
-              renderLowStockSurplusScreen()
-            ) : whSubView === 'transfer_tracking' ? (
-              renderTransferTrackingScreen()
-            ) : whSubView === 'quick_actions_overview' ? (
-              <HomeFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="QuickActions"
-                onBack={goBackWh}
-                onOpenTarget={openHomeTarget}
-              />
-            ) : whSubView === 'alerts_action_center' ? (
-              renderAlertsActionCenterScreen()
-            ) : whSubView === 'alert_detail' ? (
-              renderAlertDetailScreen()
-            ) : whSubView === 'stock_ledger' ||
-              whSubView === 'verify_stock' ||
-              whSubView === 'stock_adjustment_approval' ||
-              whSubView === 'low_stock_alerts' ? (
-              // The four Main-only inventory screens were folded into the shared
-              // inventory area (W4); each old sub-view opens the flow on its survivor.
-              <InventoryFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={INVENTORY_ENTRY[whSubView]}
-                initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
-                onBack={goBackWh}
-                onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : TRANSFER_ENTRY[whSubView] !== undefined ? (
-              // Shared transfers flow (W4): list -> detail -> receiving -> inspection,
-              // list -> initiate. The flow owns the (mock) transfer list; Initiate
-              // and Cancel need transfer.inter_warehouse.initiate (MAIN all).
-              <TransfersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={TRANSFER_ENTRY[whSubView]}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'warehouse_settings' ? (
-              // Shared profile-settings WarehouseSettingsScreen (W4 part B), route-guarded
-              // on warehouse.capacity.set; opens on the warehouse the overview showed.
-              <ProfileFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="WarehouseSettings"
-                initialWarehouseId={warehouseIdForName(selectedWHName)}
-                onBack={goBackWh}
-              />
-            ) : whSubView === 'warehouse_performance' ? (
-              renderWarehousePerformanceScreen()
-            ) : whSubView === 'incoming_goods_ops' ? (
-              // Incoming Goods was the receiving summary again: it is the shared
-              // receiving dashboard now (W4), opened from the operations hub.
-              <ReceivingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="Dashboard"
-                receiverName={user?.fullName}
-                finishTo="History"
-                onBack={goBackWh}
-                onOpenTransferReceiving={() => {
-                  setActiveTab('Receiving');
-                  setReceivingSubView('transfer_receiving');
-                }}
-                onOpenOperationalIssues={() => navigateWh('operational_issues')}
-                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'order_fulfilment_ops' ? (
-              <OrdersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onViewIssue={() => navigateWh('operational_issues')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'quality_issues_ops' ? (
-              // Shared receiving Quality Issues (W4, read-only list); issues open the
-              // wizard step / shipment inside the flow, damage reports Operational Issues.
-              <ReceivingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen="QualityIssues"
-                receiverName={user?.fullName}
-                finishTo="History"
-                onBack={goBackWh}
-                onOpenOperationalIssues={() => navigateWh('operational_issues')}
-                onOpenTimeline={() => navigateWh('activity_timeline_ops')}
-              />
-            ) : whSubView === 'customers_list' ? (
-              // Shared customer flow (W4); MAIN_WAREHOUSE_SCOPE lists every warehouse's
-              // customers with the all-warehouses selector. Wallet, cash top-up (the
-              // wallet operations hub), order detail and RMA open inside the flow;
-              // New Sale goes to the Main direct-sale flow.
-              <CustomersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-                inlineExternalRoutes={MAIN_CUSTOMER_INLINE_ROUTES}
-                onOpenExternal={(target) => {
-                  if (target === 'NewSale') navigateWh('direct_sale_new');
-                }}
-                renderExternalScreen={(target, p: CustomersRouteParams, nav) => {
-                  if (target === 'CustomerWallet' || target === 'CashTopUp') {
-                    // The shared wallet flow opened on this customer's wallet or
-                    // cash top-up (prefilled; resolves SPEC_GAPS W4h-7 for top-ups).
-                    return (
-                      <WalletFlow
-                        scope={MAIN_WAREHOUSE_SCOPE}
-                        can={can}
-                        initialScreen={target}
-                        initialParams={walletParamsForCustomer(p.customer)}
-                        onBack={nav.back}
-                      />
-                    );
-                  }
-                  if (target === 'OrderDetail') {
-                    return (
-                      <OrdersFlow
-                        scope={MAIN_WAREHOUSE_SCOPE}
-                        can={can}
-                        initialScreen="M5S04"
-                        initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: p.customer?.name }}
-                        onBack={nav.back}
-                        onViewIssue={() => navigateWh('operational_issues')}
-                      />
-                    );
-                  }
-                  if (target === 'RmaDetail') {
-                    return (
-                      <ReturnsFlow scope={MAIN_WAREHOUSE_SCOPE} can={can} initialScreen="ReturnsIssues" onBack={nav.back} />
-                    );
-                  }
-                  return null;
-                }}
-              />
-            ) : whSubView === 'customer_orders' ? (
-              <OrdersFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onViewIssue={() => navigateWh('operational_issues')}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : whSubView === 'billing_invoices' ? (
-              // Shared billing flow (W4); MAIN_WAREHOUSE_SCOPE shows the all-warehouses selector.
-              <BillingFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-              />
-            ) : MAIN_SALES_ENTRY[whSubView] !== undefined ? (
-              // Shared direct sales flow (warehouse/sales-direct), all warehouses.
-              <SalesFlow
-                scope={MAIN_WAREHOUSE_SCOPE}
-                can={can}
-                initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
-                initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
-                onBack={goBackWh}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  setWhSubView('overview');
-                  setWhHistory([]);
-                }}
-                onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
-                onNavigateToNeedsAttention={(category) => {
-                  setAttentionCategory(category ?? 'all');
-                  navigateWh('needs_attention');
-                }}
-              />
-            ) : null
-          )}
+          {/* Receiving */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => {
+              setActiveTab('Receiving');
+              setReceivingSubView('dashboard');
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <ReceivingTabNavIcon active={false} />
+            <Text style={styles.tabLabel}>Receiving</Text>
+          </TouchableOpacity>
+
+          {/* Inventory */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => {
+              setActiveTab('Inventory');
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <InventoryTabNavIcon active={activeTab === 'Inventory'} />
+            <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+          </TouchableOpacity>
+
+          {/* More */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => {
+              setActiveTab('More');
+              setWhSubView('overview');
+              setWhHistory([]);
+            }}
+            accessibilityRole="tab"
+            activeOpacity={0.7}
+          >
+            <MoreTabNavIcon active={false} />
+            <Text style={styles.tabLabel}>More</Text>
+          </TouchableOpacity>
+        </View>
+      )
+  }
+
+  {/* ─── Warehouse Filter Dropdown Modal ─── */ }
+  <Modal
+    visible={showFilterModal}
+    transparent
+    animationType="fade"
+    onRequestClose={() => setShowFilterModal(false)}
+  >
+    <Pressable style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
+      <View style={styles.filterModalCard}>
+        <Text style={styles.filterModalTitle}>Select Warehouse Scope</Text>
+        {WAREHOUSE_OPTIONS.map((wh) => {
+          const isSelected = selectedWHFilter === wh;
+          return (
+            <TouchableOpacity
+              key={wh}
+              style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
+              onPress={() => {
+                setSelectedWHFilter(wh);
+                if (wh !== 'All Warehouses') {
+                  setSelectedWHName(`${wh} Warehouse`);
+                }
+                setShowFilterModal(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>
+                {wh}
+              </Text>
+              {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
+            </TouchableOpacity>
+          );
+        })}
       </View>
-
-      {/* ─── Bottom Navigation Tab Bar (Home, Receiving, Inventory, More) ─── */}
-      {/* Receiving draws its own tab bar (ReceivingFlow dashboard); transfers have none. */}
-      {((activeTab === 'Home' &&
-          (whSubView === 'overview' ||
-            whSubView === 'warehouse_operations' ||
-            whSubView === 'warehouse_overview' ||
-            whSubView === 'warehouse_city_detail' ||
-            whSubView === 'dashboard_operations' ||
-            whSubView === 'todays_operations' ||
-            whSubView === 'todays_operations_overview' ||
-            whSubView === 'storage_locations' ||
-            whSubView === 'material_handling' ||
-            whSubView === 'warehouse_capacity' ||
-            whSubView === 'warehouse_activity' ||
-            whSubView === 'operational_issues' ||
-            whSubView === 'report_operational_issue' ||
-            whSubView === 'staff_attendance' ||
-            whSubView === 'operations_history' ||
-            whSubView === 'incoming_goods_ops' ||
-            whSubView === 'order_fulfilment_ops' ||
-            whSubView === 'quality_issues_ops' ||
-            whSubView === 'activity_timeline_ops' ||
-            whSubView === 'warehouse_performance' ||
-            whSubView === 'manage_warehouses' ||
-            whSubView === 'warehouse_settings' ||
-            whSubView === 'alerts_action_center' ||
-            whSubView === 'alert_detail' ||
-            whSubView === 'stock_and_transfer' ||
-            whSubView === 'consolidated_stock' ||
-            whSubView === 'low_stock_surplus' ||
-            whSubView === 'transfer_tracking' ||
-            whSubView === 'quick_actions_overview' ||
-            whSubView === 'sales')) ||
-        (activeTab === 'More' && (whSubView !== 'overview' || moreSubScreen === 'returns')) ||
-        (activeTab === 'Inventory')) && (
-          <View style={styles.bottomTabBar}>
-            {/* Home */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => {
-                setActiveTab('Home');
-                setWhSubView('overview');
-                setWhHistory([]);
-                setMoreSubScreen(null);
-              }}
-              accessibilityRole="tab"
-              activeOpacity={0.7}
-            >
-              <HomeTabNavIcon active={activeTab === 'Home'} />
-              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
-            </TouchableOpacity>
-
-            {/* Receiving */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => {
-                setActiveTab('Receiving');
-                setReceivingSubView('dashboard');
-                setWhSubView('overview');
-                setWhHistory([]);
-                setMoreSubScreen(null);
-              }}
-              accessibilityRole="tab"
-              activeOpacity={0.7}
-            >
-              <ReceivingTabNavIcon active={false} />
-              <Text style={styles.tabLabel}>Receiving</Text>
-            </TouchableOpacity>
-
-            {/* Inventory */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => {
-                setActiveTab('Inventory');
-                setWhSubView('overview');
-                setWhHistory([]);
-                setMoreSubScreen(null);
-              }}
-              accessibilityRole="tab"
-              activeOpacity={0.7}
-            >
-              <InventoryTabNavIcon active={activeTab === 'Inventory'} />
-              <Text style={[styles.tabLabel, activeTab === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
-            </TouchableOpacity>
-
-            {/* More */}
-            <TouchableOpacity
-              style={styles.tabItem}
-              onPress={() => {
-                setActiveTab('More');
-                setWhSubView('overview');
-                setWhHistory([]);
-                setMoreSubScreen(null);
-              }}
-              accessibilityRole="tab"
-              activeOpacity={0.7}
-            >
-              <MoreTabNavIcon active={activeTab === 'More'} />
-              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-      {/* ─── Warehouse Filter Dropdown Modal ─── */}
-      <Modal
-        visible={showFilterModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowFilterModal(false)}>
-          <View style={styles.filterModalCard}>
-            <Text style={styles.filterModalTitle}>Select Warehouse Scope</Text>
-            {WAREHOUSE_OPTIONS.map((wh) => {
-              const isSelected = selectedWHFilter === wh;
-              return (
-                <TouchableOpacity
-                  key={wh}
-                  style={[styles.filterOptionRow, isSelected && styles.filterOptionRowActive]}
-                  onPress={() => {
-                    setSelectedWHFilter(wh);
-                    if (wh !== 'All Warehouses') {
-                      setSelectedWHName(`${wh} Warehouse`);
-                    }
-                    setShowFilterModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>
-                    {wh}
-                  </Text>
-                  {isSelected && <Text style={styles.filterCheckmark}>✓</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
+    </Pressable>
+  </Modal>
+    </SafeAreaView >
   );
 }
 
@@ -3735,539 +3249,388 @@ const styles = StyleSheet.create({
     padding: 4,
     marginRight: 4,
   },
-  subScreenContainer: {
-    flex: 1,
-    backgroundColor: PALETTE.pageBg,
-  },
-  subHeaderBanner: {
-    backgroundColor: PALETTE.headerBg,
-    paddingTop: 14,
-    paddingBottom: 18,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  subHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  subHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  subHeaderSubtitle: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    marginTop: 4,
-    marginLeft: 34,
-  },
-  backBtn: {
-    padding: 2,
-  },
-  subScrollPad: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  whOverviewCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  whOverviewHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  whOverviewTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  whCapacityPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  whCapacityPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  whProgressBarTrack: {
-    height: 6,
-    backgroundColor: PALETTE.trackBg,
-    borderRadius: 4,
-    marginVertical: 10,
-    overflow: 'hidden',
-  },
-  whProgressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  whOverviewStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  whOverviewStatCol: {
-    flex: 1,
-  },
-  whOverviewStatLabel: {
-    fontSize: 11,
-    color: PALETTE.subTextMuted,
-    fontWeight: '500',
-  },
-  whOverviewStatVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginTop: 2,
-  },
-  overviewSectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: PALETTE.brandBrown,
-    marginTop: 10,
-    marginBottom: 12,
-  },
-  moreViewsGrid: {
+
+  // ─── Inventory Tab (Images 1, 2, 3) ───
+  invStatsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 24,
-  },
-  moreViewTile: {
-    width: '48%',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  moreViewTileLabel: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginTop: 8,
-  },
-  comparisonCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  comparisonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    rowGap: 10,
+    marginTop: 10,
+  },
+  invStatCard: {
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
     paddingVertical: 14,
+    paddingHorizontal: 14,
   },
-  comparisonWhName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  comparisonWhStat: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: PALETTE.divider,
-  },
-  metricsGridCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  twoByTwoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  twoByTwoCol: {
-    flex: 1,
-  },
-  twoByTwoLabel: {
+  invStatLabel: {
+    fontFamily: 'Poppins',
     fontSize: 11,
-    color: PALETTE.subTextMuted,
-    fontWeight: '500',
-  },
-  twoByTwoVal: {
-    fontSize: 16,
     fontWeight: '700',
-    color: PALETTE.textInk,
+    color: '#71717A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  invStatValue: {
+    fontFamily: 'Poppins',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#18181B',
     marginTop: 4,
+    marginBottom: 2,
   },
-  overviewNoticeBox: {
-    backgroundColor: PALETTE.primarySoft,
-    borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
+  invStatSub: {
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#71717A',
+  },
+  invNoticeBox: {
+    backgroundColor: '#FDF4EC',
     borderRadius: 14,
-    padding: 14,
-    marginTop: 14,
-    marginBottom: 20,
-  },
-  overviewNoticeText: {
-    fontSize: 12,
-    color: PALETTE.brandBrown,
-    lineHeight: 17,
-    fontWeight: '500',
-  },
-  manageBtnRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    marginTop: 12,
-  },
-  manageWhActionBtn: {
-    flex: 1,
-    backgroundColor: PALETTE.primarySoft,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manageWhSecondaryBtn: {
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
-  },
-  manageWhActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.orangeDeep,
-  },
-  actionCenterFiltersRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  actionCenterChip: {
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCenterChipActive: {
-    backgroundColor: PALETTE.primary,
-    borderColor: PALETTE.primary,
-  },
-  actionCenterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PALETTE.brandBrown,
-  },
-  actionCenterChipTextActive: {
-    color: PALETTE.headerText,
-    fontWeight: '700',
-  },
-  actionCenterAlertCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    marginBottom: 10,
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  actionCenterCardContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  actionCenterAlertTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-    marginBottom: 3,
-  },
-  actionCenterAlertSub: {
-    fontSize: 12,
-    color: PALETTE.subTextMuted,
-    fontWeight: '500',
-  },
-  alertDetailCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    padding: 18,
-    marginTop: 12,
-  },
-  alertDetailGridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  alertDetailGridCol: {
-    flex: 1,
-  },
-  alertDetailFieldLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: PALETTE.subTextMuted,
-    marginBottom: 4,
-  },
-  alertDetailFieldValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  alertDetailBtnRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  openRelatedBtn: {
-    flex: 1,
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  openRelatedBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.primary,
-  },
-  acknowledgeBtn: {
-    flex: 1,
-    backgroundColor: PALETTE.pageBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  acknowledgeBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textSecondary,
-  },
-  subScrollWithFooter: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 110,
-  },
-  overviewSectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginTop: 14,
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  overviewSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.orangeDeep,
-  },
-  stockTableCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  stockTableRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 11,
-  },
-  stockTableLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PALETTE.textInk,
-  },
-  stockTableVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  stockTableRowDivider: {
-    height: 1,
-    backgroundColor: PALETTE.divider,
-  },
-  stockTableTotalLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  stockTableTotalVal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.textInk,
-  },
-  lowStockSummaryCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  lowStockSummaryText: {
+  invNoticeText: {
+    flex: 1,
+    fontFamily: 'Poppins',
     fontSize: 12,
-    fontWeight: '500',
-    color: PALETTE.brandBrown,
+    fontWeight: '600',
+    color: '#7C2D12',
     lineHeight: 18,
   },
-  fixedBottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: PALETTE.pageBg,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.borderLight,
-  },
-  initiateTransferBtn: {
-    backgroundColor: PALETTE.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
+  invSectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 10,
   },
-  initiateTransferBtnText: {
-    color: PALETTE.headerText,
-    fontSize: 14,
-    fontWeight: '700',
+  invSectionTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#8A4E15',
   },
-  stockSearchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 14,
-    gap: 8,
-  },
-  stockSearchInput: {
-    flex: 1,
-    fontSize: 13,
-    color: PALETTE.textInk,
-    paddingVertical: 0,
-  },
-  consolidatedProductCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 12,
-  },
-  consolidatedProductTitle: {
+  invViewAllLink: {
+    fontFamily: 'Poppins',
     fontSize: 13,
     fontWeight: '700',
-    color: PALETTE.brandBrown,
-    marginBottom: 4,
+    color: '#F0562A',
   },
-  lowStockDetailCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
+  invCardList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.borderLight,
-    padding: 16,
-    marginTop: 12,
-  },
-  trackingCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.borderLight,
+    borderColor: '#EAE6DF',
     paddingHorizontal: 16,
     paddingVertical: 4,
-    marginTop: 12,
   },
-  trackingItemRow: {
+  invRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 12,
+  },
+  invRowName: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  invRowVal: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  invRowDivider: {
+    height: 1,
+    backgroundColor: '#F0ECE4',
+  },
+  invHealthCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    padding: 16,
+  },
+  invHealthRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  invHealthCol: {
+    flex: 1,
+  },
+  invHealthLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#5C6B62',
+  },
+  invHealthVal: {
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  invMovementCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  trackingIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: PALETTE.primarySoft,
+  invMovementIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FDE8E1',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trackingHeaderRow: {
+  invMovementTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  invMovementSubtitle: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#71717A',
+    marginTop: 2,
+  },
+  invMovementAmount: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  invQuickActionsGrid: {
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  invQuickActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  invQuickActionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    paddingVertical: 20,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invQuickActionLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#18181B',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+
+  // ─── Consolidated Stock Screens (Images 4 & 5) ───
+  consolidatedContainer: {
+    flex: 1,
+    backgroundColor: '#FAF7F2',
+  },
+  consolidatedHeaderSafeArea: {
+    backgroundColor: '#F0562A',
+  },
+  consolidatedHeader: {
+    backgroundColor: '#F0562A',
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  consolidatedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  consolidatedBackBtn: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  consolidatedHeaderTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  consolidatedHeaderSubtitle: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 2,
+  },
+  consolidatedFilterBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  consolidatedBody: {
+    flex: 1,
+    backgroundColor: '#FAF7F2',
+  },
+  consolidatedBodyContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  consolidatedTableCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    overflow: 'hidden',
+  },
+  consolidatedTableHeader: {
+    backgroundColor: '#F5F2EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  consolidatedColHeader: {
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#71717A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  consolidatedTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  consolidatedProductName: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  consolidatedCellText: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  consolidatedTotalText: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  consolidatedDetailSectionTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 14,
+  },
+  consolidatedGrid: {
+    gap: 12,
+  },
+  consolidatedGridRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  consolidatedActionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    paddingVertical: 22,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  consolidatedActionCardLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#18181B',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  pendingActionsSectionTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#52290D',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  pendingActionsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    overflow: 'hidden',
+  },
+  pendingActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  trackingTitleText: {
-    fontSize: 13,
+  pendingActionsRowLabel: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
     fontWeight: '700',
-    color: PALETTE.textInk,
+    color: '#111827',
   },
-  trackingBadgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  trackingBadgeText: {
-    fontSize: 11,
+  pendingActionsRowValRed: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
     fontWeight: '700',
+    color: '#EF4444',
   },
-  trackingSubText: {
-    fontSize: 12,
-    color: PALETTE.subTextMuted,
-    fontWeight: '500',
+  pendingActionsRowVal: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  pendingActionsDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginHorizontal: 16,
   },
 });
 

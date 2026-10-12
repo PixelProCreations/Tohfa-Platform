@@ -1,9 +1,8 @@
 // Design id: M3S02
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
+import { adminColors } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
-import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
@@ -11,24 +10,19 @@ export interface StockListScreenProps extends InventoryScreenBaseProps {
   initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
 }
 
-// ─── Custom Icons matching Design Mockup (Pure Path - zero Hermes/SVG errors) ─
-
 function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      {/* Top lid */}
       <Path
         d="M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v2A1.5 1.5 0 0 1 17.5 8h-11A1.5 1.5 0 0 1 5 6.5v-2z"
         stroke={color}
         strokeWidth="1.8"
       />
-      {/* Bottom crate */}
       <Path
         d="M5.5 8h13a1 1 0 0 1 1 1v10.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4.5 19.5V9a1 1 0 0 1 1-1z"
         stroke={color}
         strokeWidth="1.8"
       />
-      {/* Handle slot */}
       <Path
         d="M9.5 13.5h5"
         stroke={color}
@@ -71,19 +65,16 @@ function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
 function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      {/* Outer rounded card */}
       <Path
         d="M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15z"
         stroke={color}
         strokeWidth="1.8"
       />
-      {/* Checkbox box */}
       <Path
         d="M7 6.5h4.5v4.5H7z"
         stroke={color}
         strokeWidth="1.4"
       />
-      {/* Checkmark inside checkbox */}
       <Path
         d="M8 8.8l1 1 2-2"
         stroke={color}
@@ -91,7 +82,6 @@ function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Text lines */}
       <Path d="M14 7.5h2.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
       <Path d="M14 10h2.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
       <Path d="M7 14.5h10" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
@@ -119,85 +109,89 @@ export function StockListScreen({
   can,
   onNavigate,
   onBack,
+  onTabChange,
   initialTab = 'Stock',
-  warehouseOptions,
 }: StockListScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>(initialTab);
-  // Main (no warehouseId) may pick a warehouse; Sub is locked to its own.
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
-  const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const stockItems = [
     {
+      id: 'tomato',
       name: 'Tomato',
       grade: 'Grade 1',
       status: 'Healthy Stock',
       available: '245 KG',
       reserved: '50 KG',
       allocated: '120 KG',
+      hasView: true,
+      routeProduct: 'Tomato G1',
     },
     {
+      id: 'carrot',
       name: 'Carrot',
       grade: 'Grade 1',
       status: 'Low Stock',
       available: '12 KG',
       reserved: '0 KG',
       allocated: '0 KG',
+      hasView: true,
+      routeProduct: 'Carrot G1',
     },
     {
+      id: 'beetroot',
       name: 'Beetroot',
       grade: 'Grade 1',
       status: 'Healthy Stock',
       available: '60 KG',
       reserved: '5 KG',
       allocated: '15 KG',
+      hasView: false,
     },
     {
+      id: 'spinach',
       name: 'Spinach',
       grade: 'Grade 2',
       status: 'Out of Stock',
       available: '0 KG',
       reserved: '0 KG',
       allocated: '0 KG',
+      hasView: false,
     },
   ];
+
+  const filteredItems = stockItems.filter(item => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return item.name.toLowerCase().includes(q) || item.grade.toLowerCase().includes(q);
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader
           title="Stock List"
           onBack={onBack}
           showFilter={true}
           onFilterPress={() => onNavigate?.('M3S16')}
-          warehouseLocked={scope.warehouseId !== undefined}
-          warehouseName={scope.warehouseName}
-          bottomContent={
-            <WarehouseSelector
-              scope={scope}
-              options={warehouseOptions}
-              selectedId={selectedWarehouseId}
-              onSelect={setSelectedWarehouseId}
-            />
-          }
         />
 
-        {/* 4 Rounded Tab Cards (positioned UP, directly below header matching reference) */}
+        {/* 4 Rounded Tab Cards */}
         <View style={styles.tabCardsRow}>
           {/* Stock Tab */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Stock' && styles.activeTabCard]}
             onPress={() => setActiveTab('Stock')}
             activeOpacity={0.7}
           >
-            <StockTabBoxIcon color={activeTab === 'Stock' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>Stock</Text>
+            <StockTabBoxIcon color={activeTab === 'Stock' ? '#FFFFFF' : '#3B4856'} />
+            <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>
+              Stock
+            </Text>
           </TouchableOpacity>
 
-          {/* Ledger Tab (only with a ledger grant) */}
-          {canViewLedger ? (
-          <TouchableOpacity 
+          {/* Ledger Tab */}
+          <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Ledger' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Ledger');
@@ -205,13 +199,14 @@ export function StockListScreen({
             }}
             activeOpacity={0.7}
           >
-            <LedgerTabIcon color={activeTab === 'Ledger' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>Ledger</Text>
+            <LedgerTabIcon color={activeTab === 'Ledger' ? '#FFFFFF' : '#3B4856'} />
+            <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>
+              Ledger
+            </Text>
           </TouchableOpacity>
-          ) : null}
 
           {/* Allocation Tab */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Allocation' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Allocation');
@@ -219,12 +214,14 @@ export function StockListScreen({
             }}
             activeOpacity={0.7}
           >
-            <AllocationTabIcon color={activeTab === 'Allocation' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
+            <AllocationTabIcon color={activeTab === 'Allocation' ? '#FFFFFF' : '#3B4856'} />
+            <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>
+              Allocation
+            </Text>
           </TouchableOpacity>
 
           {/* Verify Tab */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tabCard, activeTab === 'Verify' && styles.activeTabCard]}
             onPress={() => {
               setActiveTab('Verify');
@@ -232,33 +229,43 @@ export function StockListScreen({
             }}
             activeOpacity={0.7}
           >
-            <VerifyTabIcon color={activeTab === 'Verify' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>Verify</Text>
+            <VerifyTabIcon color={activeTab === 'Verify' ? '#FFFFFF' : '#3B4856'} />
+            <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>
+              Verify
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <SearchIcon color={adminColors.muted} />
+            <SearchIcon color="#8A7E75" />
             <TextInput
               style={styles.searchInput}
               placeholder="Search product, crop or batch"
-              placeholderTextColor={adminColors.muted}
+              placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
 
-          {/* Stock Items */}
-          {stockItems.map((item, index) => {
+          {/* Product Cards */}
+          {filteredItems.map((item) => {
             const isHealthy = item.status === 'Healthy Stock';
             return (
               <TouchableOpacity
-                key={index}
+                key={item.id}
                 style={styles.stockCard}
-                onPress={() => onNavigate?.('M3S03', { product: item })}
-                activeOpacity={0.7}
+                onPress={() => {
+                  if (item.hasView) {
+                    onNavigate?.('M3S03', { product: item.routeProduct });
+                  }
+                }}
+                activeOpacity={item.hasView ? 0.7 : 1}
               >
                 <View style={styles.stockHeader}>
                   <View style={styles.stockTitleColumn}>
@@ -289,10 +296,12 @@ export function StockListScreen({
                     </View>
                   </View>
 
-                  <View style={styles.viewLinkRow}>
-                    <Text style={styles.viewLink}>View</Text>
-                    <Text style={styles.viewChevron}>›</Text>
-                  </View>
+                  {item.hasView ? (
+                    <View style={styles.viewLinkRow}>
+                      <Text style={styles.viewLink}>View</Text>
+                      <Text style={styles.viewChevron}>›</Text>
+                    </View>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -310,7 +319,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: '#FAF7F2',
   },
   tabCardsRow: {
     flexDirection: 'row',
@@ -321,35 +330,44 @@ const styles = StyleSheet.create({
   },
   tabCard: {
     flex: 1,
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E8E2D8',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    ...adminShadow.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   activeTabCard: {
     backgroundColor: adminColors.brand,
     borderColor: adminColors.brand,
   },
   tabCardText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3B4856',
+    fontFamily: 'Poppins',
   },
   activeTabCardText: {
-    color: adminColors.onBrand,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   content: {
     flex: 1,
   },
+  contentContainer: {
+    paddingBottom: 24,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 12,
@@ -357,22 +375,24 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E8E2D8',
   },
   searchInput: {
-    ...adminType.body,
     flex: 1,
     marginLeft: 10,
-    color: adminColors.ink,
+    fontSize: 13.5,
+    fontFamily: 'Poppins',
+    color: '#1D2420',
+    paddingVertical: 0,
   },
   stockCard: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginBottom: 12,
     padding: 16,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E8E2D8',
   },
   stockHeader: {
     flexDirection: 'row',
@@ -384,12 +404,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stockName: {
-    ...adminType.title,
-    color: adminColors.ink,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1D2420',
+    fontFamily: 'Poppins',
   },
   stockGrade: {
-    ...adminType.body,
-    color: adminColors.muted,
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#5C6B63',
+    fontFamily: 'Poppins',
     marginTop: 2,
   },
   statusBadge: {
@@ -398,19 +422,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusBadgeText: {
-    ...adminType.caption,
+    fontSize: 11.5,
+    fontWeight: '700',
+    fontFamily: 'Poppins',
   },
   healthyBadge: {
-    backgroundColor: adminColors.success.bg,
+    backgroundColor: '#E6F5ED',
   },
   healthyBadgeText: {
-    color: adminColors.success.text,
+    color: '#1E8E5A',
   },
   alertBadge: {
-    backgroundColor: adminColors.danger.bg,
+    backgroundColor: '#FCE9E9',
   },
   alertBadgeText: {
-    color: adminColors.danger.text,
+    color: '#DC2626',
   },
   stockBottomRow: {
     flexDirection: 'row',
@@ -426,13 +452,17 @@ const styles = StyleSheet.create({
     minWidth: 54,
   },
   stockStatLabel: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: '#5C6B63',
+    fontFamily: 'Poppins',
     marginBottom: 3,
   },
   stockStatValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+    fontSize: 16.5,
+    fontWeight: '700',
+    color: '#1D2420',
+    fontFamily: 'Poppins',
   },
   viewLinkRow: {
     flexDirection: 'row',
@@ -441,13 +471,15 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   viewLink: {
-    ...adminType.sectionHead,
-    color: adminColors.brand,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8B3A1C',
+    fontFamily: 'Poppins',
   },
   viewChevron: {
-    ...adminType.sectionHead,
-    color: adminColors.brand,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#8B3A1C',
     marginTop: -1,
   },
 });
-

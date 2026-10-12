@@ -1,21 +1,30 @@
 // Design id: M3S07
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+  Platform,
+  StatusBar,
+} from 'react-native';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Path } from 'react-native-svg';
-import { SWAHeader } from '../../swa/components';
+import { WarehouseSelector } from './WarehouseSelector';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 export type StockAllocationDashboardScreenProps = InventoryScreenBaseProps;
 
+// ─── Custom Icons matching Reference Mockup Exactly ─────────────────────────
 
-function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+        d="M19 12H5M12 19l-7-7 7-7"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -23,335 +32,482 @@ function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
   );
 }
 
-function LedgerTabIcon({ color = adminColors.ink }: { color?: string }) {
+function LockSmallIcon({ size = 13, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"
+        d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"
+        stroke={color}
+        strokeWidth="2.2"
+      />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function StockTabBoxIcon({ color = '#5C6B62' }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v1.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1.5z"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path
+        d="M5 9v9.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V9"
+        stroke={color}
+        strokeWidth="1.8"
+      />
+      <Path d="M10 13.5h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function LedgerTabIcon({ color = '#5C6B62' }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 4.5l2 1.5 2-1.5 2 1.5 2-1.5 2 1.5 2-1.5 2 1.5V20H6V4.5z"
         stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M9 9h6M9 12.5h6M9 16h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M9.5 10.5h5M9.5 14h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function AllocationTabIcon({ color = adminColors.ink }: { color?: string }) {
+function AllocationTabIcon({ color = '#FFFFFF' }: { color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z"
-        stroke={color}
-        strokeWidth="1.8"
-      />
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z" stroke={color} strokeWidth="1.8" />
       <Path d="M12 2v20" stroke={color} strokeWidth="1.8" />
       <Path d="M12 12h10" stroke={color} strokeWidth="1.8" />
     </Svg>
   );
 }
 
-function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
+function VerifyTabIcon({ color = '#5C6B62' }: { color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="1.8" />
+      <Path d="M7 8.5h3.5M7 12h3.5M7 15.5h3.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
       <Path
-        d="M5 4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-15z"
+        d="M12.5 12l1.8 1.8 3.5-3.5"
         stroke={color}
         strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <Path d="M9 11.5l2 2 4-4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: StockAllocationDashboardScreenProps) {
-  const allocations = [
+const DEFAULT_WAREHOUSE_OPTIONS = [
+  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
+  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
+  { warehouseId: 'WH-KTYM', warehouseName: 'Kotagiri Warehouse' },
+  { warehouseId: 'WH-GDLR', warehouseName: 'Gudalur Warehouse' },
+];
+
+export function StockAllocationDashboardScreen({
+  scope,
+  can,
+  onBack,
+  onNavigate,
+  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+}: StockAllocationDashboardScreenProps) {
+  const canViewAll = can('inventory.stock_ledger.view_all');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
+
+  const isAllWarehouses = canViewAll && selectedWarehouseId === undefined;
+
+  // Single warehouse data (Coonoor) matching reference Image 2 exactly
+  const singleCards = [
     {
-      channel: 'ONLINE',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.brand,
+      title: 'ONLINE',
+      color: '#EA580C',
       allocated: '420 KG',
       consumed: '180 KG',
       reserved: '120 KG',
       available: '120 KG',
+      allocatedVal: 420,
     },
     {
-      channel: 'LIVE MARKET',
-      titleColor: adminColors.success.text,
-      borderColor: adminColors.success.text,
+      title: 'LIVE MARKET',
+      color: '#0F766E',
       allocated: '120 KG',
       consumed: '40 KG',
       reserved: '30 KG',
       available: '50 KG',
+      allocatedVal: 120,
     },
     {
-      channel: 'RESERVE',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.info.text,
+      title: 'RESERVE',
+      color: '#2563EB',
       allocated: '80 KG',
       consumed: '20 KG',
       reserved: '20 KG',
       available: '40 KG',
+      allocatedVal: 80,
     },
     {
-      channel: 'BUFFER',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.warning.text,
+      title: 'BUFFER',
+      color: '#CA8A04',
       allocated: '60 KG',
       consumed: '10 KG',
       reserved: '10 KG',
       available: '40 KG',
+      allocatedVal: 60,
     },
   ];
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <SWAHeader 
-          title="Stock Allocation"
-          onBack={onBack}
-          showWarehouse={true}
-          warehouseName={scope.warehouseName}
-        />
+  // Consolidated / All Warehouses data (4x aggregated)
+  const allCards = [
+    {
+      title: 'ONLINE',
+      color: '#EA580C',
+      allocated: '1,680 KG',
+      consumed: '720 KG',
+      reserved: '480 KG',
+      available: '480 KG',
+      allocatedVal: 1680,
+    },
+    {
+      title: 'LIVE MARKET',
+      color: '#0F766E',
+      allocated: '480 KG',
+      consumed: '160 KG',
+      reserved: '120 KG',
+      available: '200 KG',
+      allocatedVal: 480,
+    },
+    {
+      title: 'RESERVE',
+      color: '#2563EB',
+      allocated: '320 KG',
+      consumed: '80 KG',
+      reserved: '80 KG',
+      available: '160 KG',
+      allocatedVal: 320,
+    },
+    {
+      title: 'BUFFER',
+      color: '#CA8A04',
+      allocated: '240 KG',
+      consumed: '40 KG',
+      reserved: '40 KG',
+      available: '160 KG',
+      allocatedVal: 240,
+    },
+  ];
 
-        {/* 4 Rounded Tab Cards */}
+  const cards = isAllWarehouses ? allCards : singleCards;
+
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <SafeAreaView style={styles.headerSafeArea}>
+        <View style={styles.headerBand}>
+          <View style={styles.headerTopRow}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Back"
+              >
+                <BackArrowIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Stock Allocation
+            </Text>
+          </View>
+
+          {/* Role-based Warehouse Pill / Selector */}
+          {!canViewAll || scope.warehouseId !== undefined ? (
+            <View style={styles.warehousePill}>
+              <LockSmallIcon size={13} color="#FFFFFF" />
+              <Text style={styles.warehousePillText}>{scope.warehouseName ?? 'Coonoor Warehouse'}</Text>
+            </View>
+          ) : (
+            <View style={{ marginTop: 10 }}>
+              <WarehouseSelector
+                scope={scope}
+                options={warehouseOptions}
+                selectedId={selectedWarehouseId}
+                onSelect={setSelectedWarehouseId}
+              />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+
+      <View style={styles.container}>
+        {/* 4 Tab Cards Row */}
         <View style={styles.tabCardsRow}>
-          {/* Stock Tab */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.tabCard}
             onPress={() => onNavigate?.('M3S02')}
             activeOpacity={0.7}
           >
-            <StockTabBoxIcon color={adminColors.ink} />
+            <StockTabBoxIcon color="#5C6B62" />
             <Text style={styles.tabCardText}>Stock</Text>
           </TouchableOpacity>
 
-          {/* Ledger Tab */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.tabCard}
             onPress={() => onNavigate?.('M3S06')}
             activeOpacity={0.7}
           >
-            <LedgerTabIcon color={adminColors.ink} />
+            <LedgerTabIcon color="#5C6B62" />
             <Text style={styles.tabCardText}>Ledger</Text>
           </TouchableOpacity>
 
-          {/* Allocation Tab (Active) */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tabCard, styles.activeTabCard]}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
           >
-            <AllocationTabIcon color={adminColors.onBrand} />
+            <AllocationTabIcon color="#FFFFFF" />
             <Text style={[styles.tabCardText, styles.activeTabCardText]}>Allocation</Text>
           </TouchableOpacity>
 
-          {/* Verify Tab */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.tabCard}
             onPress={() => onNavigate?.('M3S10')}
             activeOpacity={0.7}
           >
-            <VerifyTabIcon color={adminColors.ink} />
+            <VerifyTabIcon color="#5C6B62" />
             <Text style={styles.tabCardText}>Verify</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Total Stock Split Header & Multi-color Progress Bar */}
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Total Stock Split</Text>
-            <Text style={styles.sectionSubtitle}>Values from config</Text>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Total Stock Split */}
+          <View style={styles.splitHeaderRow}>
+            <Text style={styles.splitHeaderTitle}>Total Stock Split</Text>
+            <Text style={styles.splitHeaderSub}>Values from config</Text>
           </View>
 
-          {/* Multi-color Split Bar matching Reference Design */}
-          <View style={styles.multiSplitBar}>
-            <View style={[styles.splitSegment, { flex: 420, backgroundColor: adminColors.brand }]} />
-            <View style={[styles.splitSegment, { flex: 120, backgroundColor: adminColors.success.text }]} />
-            <View style={[styles.splitSegment, { flex: 80, backgroundColor: adminColors.info.text }]} />
-            <View style={[styles.splitSegment, { flex: 60, backgroundColor: adminColors.warning.text }]} />
+          {/* Segmented Horizontal Bar */}
+          <View style={styles.splitBar}>
+            <View style={[styles.barSegment, { flex: cards[0]?.allocatedVal ?? 1, backgroundColor: '#EA580C' }]} />
+            <View style={[styles.barSegment, { flex: cards[1]?.allocatedVal ?? 1, backgroundColor: '#0F766E' }]} />
+            <View style={[styles.barSegment, { flex: cards[2]?.allocatedVal ?? 1, backgroundColor: '#2563EB' }]} />
+            <View style={[styles.barSegment, { flex: cards[3]?.allocatedVal ?? 1, backgroundColor: '#CA8A04' }]} />
           </View>
 
-          {/* 4 Allocation Cards with curved left colored accent */}
-          {allocations.map((alloc, index) => (
-            <View key={index} style={styles.allocationCard}>
-              <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
-              <View style={styles.cardContent}>
-                <Text style={[styles.channelName, { color: alloc.titleColor }]}>
-                  {alloc.channel}
-                </Text>
+          {/* 4 Channel Allocation Cards */}
+          {cards.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.channelCard, { borderLeftColor: item.color }]}
+              onPress={() => onNavigate?.('M3S02')}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.channelTitle}>{item.title}</Text>
 
-                {/* 4 Stat Boxes Row */}
-                <View style={styles.statsBoxRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.allocated}</Text>
-                    <Text style={styles.statLabel}>ALLOCATED</Text>
-                  </View>
+              <View style={styles.statGrid}>
+                <View style={styles.statPill}>
+                  <Text style={styles.statValue}>{item.allocated}</Text>
+                  <Text style={styles.statLabel}>ALLOCATED</Text>
+                </View>
 
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.consumed}</Text>
-                    <Text style={styles.statLabel}>CONSUMED</Text>
-                  </View>
+                <View style={styles.statPill}>
+                  <Text style={styles.statValue}>{item.consumed}</Text>
+                  <Text style={styles.statLabel}>CONSUMED</Text>
+                </View>
 
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.reserved}</Text>
-                    <Text style={styles.statLabel}>RESERVED</Text>
-                  </View>
+                <View style={styles.statPill}>
+                  <Text style={styles.statValue}>{item.reserved}</Text>
+                  <Text style={styles.statLabel}>RESERVED</Text>
+                </View>
 
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.available}</Text>
-                    <Text style={styles.statLabel}>AVAILABLE</Text>
-                  </View>
+                <View style={styles.statPill}>
+                  <Text style={styles.statValue}>{item.available}</Text>
+                  <Text style={styles.statLabel}>AVAILABLE</Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
 
-          <View style={{ height: 24 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: adminColors.brand,
+    backgroundColor: '#F0562A',
   },
-  container: {
-    flex: 1,
-    backgroundColor: adminColors.canvas,
+  headerSafeArea: {
+    backgroundColor: '#F0562A',
   },
-  warehousePillRow: {
+  headerBand: {
+    backgroundColor: '#F0562A',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   warehousePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.brandTint,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    marginTop: 10,
     gap: 6,
   },
   warehousePillText: {
-    ...adminType.rowTitle,
-    color: adminColors.brandDeep,
+    fontFamily: 'Poppins',
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF7F2',
   },
   tabCardsRow: {
     flexDirection: 'row',
+    marginTop: 16,
+    marginBottom: 16,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-    gap: 8,
+    gap: 10,
   },
   tabCard: {
     flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
+    height: 74,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 12,
+    borderColor: '#EAE6DF',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 6,
   },
   activeTabCard: {
-    backgroundColor: adminColors.brand,
-    borderColor: adminColors.brand,
+    backgroundColor: '#F0562A',
+    borderColor: '#F0562A',
   },
   tabCardText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#5C6B62',
   },
   activeTabCardText: {
-    color: adminColors.onBrand,
-    fontWeight: '700',
+    color: '#FFFFFF',
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 4,
   },
-  sectionHeaderRow: {
+  contentContainer: {
+    paddingBottom: 24,
+  },
+  splitHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-    marginTop: 4,
   },
-  sectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+  splitHeaderTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
   },
-  sectionSubtitle: {
-    ...adminType.body,
-    color: adminColors.muted,
+  splitHeaderSub: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#71717A',
   },
-  multiSplitBar: {
-    height: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
+  splitBar: {
+    height: 12,
+    borderRadius: 6,
     overflow: 'hidden',
+    flexDirection: 'row',
     marginBottom: 16,
   },
-  splitSegment: {
+  barSegment: {
     height: '100%',
   },
-  allocationCard: {
-    backgroundColor: adminColors.card,
+  channelCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginBottom: 14,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  leftAccentStripe: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 5.5,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-  },
-  cardContent: {
+    borderColor: '#EAE6DF',
+    borderLeftWidth: 5,
+    paddingHorizontal: 14,
     paddingVertical: 16,
-    paddingLeft: 18,
-    paddingRight: 14,
+    marginBottom: 14,
   },
-  channelName: {
-    ...adminType.sectionHead,
+  channelTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#78350F',
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
-  statsBoxRow: {
+  statGrid: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: 6,
   },
-  statBox: {
+  statPill: {
     flex: 1,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: '#F5F3EF',
     borderRadius: 10,
     paddingVertical: 10,
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: 2,
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 3,
   },
   statLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
+    fontFamily: 'Poppins',
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#71717A',
     letterSpacing: 0.4,
   },
 });
