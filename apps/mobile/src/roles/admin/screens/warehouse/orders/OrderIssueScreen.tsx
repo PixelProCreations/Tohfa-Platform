@@ -22,6 +22,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { isAreaAvailable } from '../availability';
+import { SAMPLE_NEW_ISSUE_ID, SAMPLE_ORDER_ID } from './fixtures';
 import type { OrderIssueStep, OrderScreenBaseProps } from './types';
 
 export interface OrderIssueScreenProps extends OrderScreenBaseProps {
@@ -32,10 +33,6 @@ export interface OrderIssueScreenProps extends OrderScreenBaseProps {
   /** "View Issue" on the submitted step. Without it the screen navigates to 'M4S09'. */
   onViewIssue?: (() => void) | undefined;
 }
-
-// Mock ids, as hard-coded by the old M5S16 / M5S16B screens until issues are wired to the API.
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_NEW_ISSUE_ID = 'ISS-0028';
 
 const ISSUE_TYPES = ['Quality', 'Quantity', 'Missing', 'Wrong', 'Damaged', 'Late'];
 

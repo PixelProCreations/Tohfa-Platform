@@ -15,7 +15,8 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAr
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import type { OrderScreenBaseProps } from './types';
+import { SAMPLE_READY_COUNT_LABEL, SAMPLE_READY_ORDERS } from './fixtures';
+import type { OrderScreenBaseProps, SampleReadyOrder } from './types';
 
 export type ReadyForPickupScreenProps = OrderScreenBaseProps;
 
@@ -66,35 +67,7 @@ function PackageIcon() {
   );
 }
 
-interface ReadyOrder {
-  id: string;
-  customer: string;
-  items: string;
-  amount: string;
-  time: string;
-  packed: string;
-}
-
-const READY_ORDERS: ReadyOrder[] = [
-  {
-    id: 'ORD-1024',
-    customer: 'Arun Kumar',
-    items: '4 Items',
-    amount: '₹850',
-    time: 'Ready for 2h 15m',
-    packed: 'Packed 11:15 AM',
-  },
-  {
-    id: 'ORD-1023',
-    customer: 'Priya',
-    items: '5 Items',
-    amount: '₹1,240',
-    time: 'Ready for 3h 40m',
-    packed: 'Packed 09:45 AM',
-  },
-];
-
-function OrderCardBody({ order }: { order: ReadyOrder }) {
+function OrderCardBody({ order }: { order: SampleReadyOrder }) {
   return (
     <>
       <View style={styles.cardTopRow}>
@@ -125,7 +98,7 @@ export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickup
   const [searchQuery, setSearchQuery] = useState('');
   const canVerify = can('order.pickup_otp.verify');
 
-  const filteredOrders = READY_ORDERS.filter(
+  const filteredOrders = SAMPLE_READY_ORDERS.filter(
     (order) =>
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customer.toLowerCase().includes(searchQuery.toLowerCase())
@@ -142,7 +115,7 @@ export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickup
         </View>
 
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>7 Orders</Text>
+          <Text style={styles.subtitleText}>{SAMPLE_READY_COUNT_LABEL}</Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>

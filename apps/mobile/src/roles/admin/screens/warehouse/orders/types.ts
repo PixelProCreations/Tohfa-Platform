@@ -43,3 +43,87 @@ export type DispatchStep = 'dispatch' | 'confirm' | 'dispatched';
 
 /** OrderIssueScreen steps (M5S16 form, folded M5S16B submitted). */
 export type OrderIssueStep = 'form' | 'submitted';
+
+// ─── Sample data shapes (./fixtures.ts) ──────────────────────────────────────
+// The design samples the order screens were built on. They live in fixtures.ts
+// so the screens can be moved to live data one at a time.
+
+/** A warehouse offered by the Main all-warehouses selector. */
+export interface OrderWarehouseOption {
+  id: string;
+  name: string;
+}
+
+/** The status words the sample order list uses. */
+export type SampleOrderStatus = 'Confirmed' | 'Ready for Pickup' | 'Packing' | 'Quantity Issue' | 'Completed';
+
+/** One row of the sample order list (M5S02). */
+export interface SampleOrderRow {
+  id: string;
+  warehouseId: string;
+  warehouseName: string;
+  customer: string;
+  status: SampleOrderStatus;
+  items: string;
+  amount: string;
+  fulfillment: 'Pickup' | 'Delivery';
+  time: string;
+  action: string;
+  /** Route key of the screen that performs `action`. */
+  actionScreen: string;
+  /** Step inside `actionScreen`, for actions that land on a folded step. */
+  actionStep?: string;
+}
+
+/** One sample order waiting at the counter (M5S09). */
+export interface SampleReadyOrder {
+  id: string;
+  customer: string;
+  items: string;
+  amount: string;
+  time: string;
+  packed: string;
+}
+
+/** One event of the sample status timeline (M5S15). */
+export interface SampleStatusEvent {
+  id: string;
+  title: string;
+  time: string;
+  date: string;
+  performedBy: string;
+}
+
+/** One line of the sample order detail (M5S04). */
+export interface SampleOrderItem {
+  name: string;
+  grade: string;
+  qtyDetail: string;
+  price: string;
+}
+
+/** The sample order detail (M5S04): keyed off two demo invoice ids, as the old M5S04 did. */
+export interface SampleOrderDetail {
+  displayDate: string;
+  displayCustomer: string;
+  displayStatus: string;
+  phone: string;
+  items: SampleOrderItem[];
+  subtotal: string;
+  gst: string;
+  total: string;
+}
+
+/** One row of the sample packing checklist (M5S07). */
+export interface SamplePackingItem {
+  id: string;
+  name: string;
+  checked: boolean;
+}
+
+/** One warehouse's sample order count (Main dashboard). */
+export interface SampleWarehouseOrderCount {
+  id: string;
+  name: string;
+  orders: number;
+}

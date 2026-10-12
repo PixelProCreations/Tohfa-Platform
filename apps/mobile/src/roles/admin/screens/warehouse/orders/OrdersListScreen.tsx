@@ -19,12 +19,8 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAr
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import type { OrderScreenBaseProps } from './types';
-
-interface WarehouseOption {
-  id: string;
-  name: string;
-}
+import { SAMPLE_LIST_WAREHOUSES, SAMPLE_ORDERS } from './fixtures';
+import type { OrderScreenBaseProps, OrderWarehouseOption, SampleOrderRow, SampleOrderStatus } from './types';
 
 /** Params the host navigator forwards from the previous screen. */
 export interface OrdersListRouteParams {
@@ -39,162 +35,10 @@ export interface OrdersListRouteParams {
 export interface OrdersListScreenProps extends OrderScreenBaseProps {
   routeParams?: OrdersListRouteParams | undefined;
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
-  warehouses?: WarehouseOption[] | undefined;
+  warehouses?: OrderWarehouseOption[] | undefined;
 }
 
-/** Neutral placeholder until the host passes the real warehouse list (same ids as the mock orders). */
-const DEFAULT_WAREHOUSES: WarehouseOption[] = [
-  { id: 'WH-COON', name: 'Coonoor' },
-  { id: 'WH-OOTY', name: 'Ooty' },
-  { id: 'WH-2', name: 'Ooty' },
-  { id: 'WH-3', name: 'Kotagiri' },
-  { id: 'WH-4', name: 'Gudalur' },
-];
-
-type OrderStatus = 'Confirmed' | 'Ready for Pickup' | 'Packing' | 'Quantity Issue' | 'Completed';
-
-interface OrderRow {
-  id: string;
-  warehouseId: string;
-  warehouseName: string;
-  customer: string;
-  status: OrderStatus;
-  items: string;
-  amount: string;
-  fulfillment: 'Pickup' | 'Delivery';
-  time: string;
-  action: string;
-  /** Route key of the screen that performs `action`. */
-  actionScreen: string;
-  /** Step inside `actionScreen`, for actions that land on a folded step. */
-  actionStep?: string;
-}
-
-const ORDERS: OrderRow[] = [
-  {
-    id: 'ORD-1024',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Arun Kumar',
-    status: 'Confirmed',
-    items: '4 Items',
-    amount: '₹850',
-    fulfillment: 'Pickup',
-    time: 'Today · 10:32 AM',
-    action: 'Check Stock',
-    actionScreen: 'M5S05',
-  },
-  {
-    id: 'ORD-1023',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Priya',
-    status: 'Ready for Pickup',
-    items: '5 Items',
-    amount: '₹1,240',
-    fulfillment: 'Pickup',
-    time: 'Today · 09:45 AM',
-    action: 'Verify Pickup',
-    // Was M5S10, now the 'verify' step of the pickup wizard.
-    actionScreen: 'M5S11',
-    actionStep: 'verify',
-  },
-  {
-    id: 'ORD-1022',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty',
-    customer: 'Ganesh K.',
-    status: 'Packing',
-    items: '2 Items',
-    amount: '₹420',
-    fulfillment: 'Pickup',
-    time: 'Today · 09:10 AM',
-    action: 'Pack',
-    actionScreen: 'M5S07',
-  },
-  {
-    id: 'ORD-1021',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Divya R.',
-    status: 'Confirmed',
-    items: '4 Items',
-    amount: '₹960',
-    fulfillment: 'Delivery',
-    time: 'Today · 08:55 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1019',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
-    customer: 'Kavitha M.',
-    status: 'Packing',
-    items: '3 Items',
-    amount: '₹720',
-    fulfillment: 'Delivery',
-    time: 'Today · 08:30 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1015',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
-    customer: 'Suresh R.',
-    status: 'Confirmed',
-    items: '5 Items',
-    amount: '₹1,450',
-    fulfillment: 'Delivery',
-    time: 'Today · 08:15 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1012',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
-    customer: 'Ananya S.',
-    status: 'Confirmed',
-    items: '2 Items',
-    amount: '₹580',
-    fulfillment: 'Delivery',
-    time: 'Today · 07:45 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1018',
-    warehouseId: 'WH-3',
-    warehouseName: 'Kotagiri',
-    customer: 'Meena S.',
-    status: 'Quantity Issue',
-    items: '2 Items',
-    amount: '₹310',
-    fulfillment: 'Pickup',
-    time: 'Yesterday · 4:20 PM',
-    action: 'Review Shortage',
-    // Was M5S06, now the 'shortage' step of the stock check.
-    actionScreen: 'M5S05',
-    actionStep: 'shortage',
-  },
-  {
-    id: 'ORD-1010',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Rahul Kumar',
-    status: 'Completed',
-    items: '3 Items',
-    amount: '₹850',
-    fulfillment: 'Pickup',
-    time: 'Yesterday · 2:10 PM',
-    action: 'View Invoice',
-    actionScreen: 'M5S18',
-  },
-];
-
-const STATUS_TONE: Record<OrderStatus, { bg: string; text: string }> = {
+const STATUS_TONE: Record<SampleOrderStatus, { bg: string; text: string }> = {
   Confirmed: adminColors.warning,
   Packing: adminColors.warning,
   'Ready for Pickup': adminColors.success,
@@ -275,7 +119,7 @@ function BuildingWarehouseIcon({ color }: { color: string }) {
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
-export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = DEFAULT_WAREHOUSES }: OrdersListScreenProps) {
+export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = SAMPLE_LIST_WAREHOUSES }: OrdersListScreenProps) {
   const isAllWarehouses = scope.warehouseId === undefined;
   const [searchQuery, setSearchQuery] = useState('');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | 'Delivery' | 'Pickup'>(
@@ -296,7 +140,7 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
   const warehouseFilter = isAllWarehouses ? selectedWarehouseId : (scope.warehouseCode ?? scope.warehouseId);
   const query = searchQuery.toLowerCase();
 
-  const filteredOrders = ORDERS.filter((order) => {
+  const filteredOrders = SAMPLE_ORDERS.filter((order) => {
     if (fulfillmentFilter !== 'All') {
       if (order.fulfillment !== fulfillmentFilter) return false;
     } else if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
@@ -306,7 +150,7 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
     return order.id.toLowerCase().includes(query) || order.customer.toLowerCase().includes(query);
   });
 
-  const warehouseNameOf = (order: OrderRow): string =>
+  const warehouseNameOf = (order: SampleOrderRow): string =>
     warehouses.find((wh) => wh.id === order.warehouseId)?.name ?? order.warehouseName;
 
   const selectorOptions: { id: string | undefined; name: string }[] = [{ id: undefined, name: 'All warehouses' }, ...warehouses];

@@ -15,14 +15,12 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Mod
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { SAMPLE_CUSTOMER, SAMPLE_ORDER_ID, sampleOrderDetail } from './fixtures';
 import type { OrderScreenBaseProps } from './types';
 
 export interface OrderDetailScreenProps extends OrderScreenBaseProps {
   customerName?: string | undefined;
 }
-
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_CUSTOMER = 'Arun Kumar';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -95,32 +93,11 @@ export function OrderDetailScreen({
 }: OrderDetailScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
 
-  // Mock data keyed off two demo invoice ids, as in the old M5S04, until orders are wired.
-  const isInv251 = orderId === 'INV-00251' || orderId === 'ORD-00251';
-  const isInv238 = orderId === 'INV-00238' || orderId === 'ORD-00238';
-
-  const displayDate = isInv251 ? '24 Sep, 10:42 AM' : isInv238 ? '20 Sep, 11:15 AM' : '24 Sep, 10:32 AM';
-  const displayCustomer = customerName || (isInv251 || isInv238 ? 'Rajesh Kumar' : SAMPLE_CUSTOMER);
-  const displayStatus = isInv251 || isInv238 ? 'Paid · Completed' : 'Confirmed';
+  // Sample data keyed off two demo invoice ids, as in the old M5S04, until orders are wired.
+  const { displayDate, displayCustomer, displayStatus, phone, items: orderItemsList, subtotal, gst, total } =
+    sampleOrderDetail(orderId, customerName);
   // The order's warehouse comes from the viewer's scope; no warehouse name is hard-coded.
   const warehouseName = scope.warehouseName ?? '—';
-
-  const orderItemsList = isInv251
-    ? [{ name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' }]
-    : isInv238
-      ? [
-          { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
-          { name: 'Carrot', grade: 'Grade 1', qtyDetail: '1 KG × ₹150', price: '₹150' },
-          { name: 'Beans', grade: 'Grade 1', qtyDetail: '2 KG × ₹150', price: '₹300' },
-        ]
-      : [
-          { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
-          { name: 'Carrot', grade: 'Grade 1', qtyDetail: '3 KG × ₹120', price: '₹360' },
-        ];
-
-  const subtotal = isInv251 ? '₹200' : isInv238 ? '₹650' : '₹560';
-  const gst = isInv251 || isInv238 ? '₹0' : '₹28';
-  const total = isInv251 ? '₹200' : isInv238 ? '₹650' : '₹588';
 
   const openFromMenu = (screen: string) => {
     setShowMenu(false);
@@ -185,7 +162,7 @@ export function OrderDetailScreen({
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Phone</Text>
-                <Text style={styles.colValue}>+91 98765 43210</Text>
+                <Text style={styles.colValue}>{phone}</Text>
               </View>
             </View>
           </View>

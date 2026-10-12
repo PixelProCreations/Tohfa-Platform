@@ -18,35 +18,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Mod
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import type { OrderScreenBaseProps } from './types';
-
-interface WarehouseOption {
-  id: string;
-  name: string;
-}
+import { SAMPLE_DASHBOARD_COUNTS, SAMPLE_DASHBOARD_WAREHOUSES, SAMPLE_WAREHOUSE_SUMMARY } from './fixtures';
+import type { OrderScreenBaseProps, OrderWarehouseOption } from './types';
 
 export interface OrdersDashboardScreenProps extends OrderScreenBaseProps {
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
-  warehouses?: WarehouseOption[] | undefined;
+  warehouses?: OrderWarehouseOption[] | undefined;
 }
-
-/**
- * Neutral placeholder until the host passes the real warehouse list.
- */
-const DEFAULT_WAREHOUSES: WarehouseOption[] = [
-  { id: 'WH-COON', name: 'Coonoor' },
-  { id: 'WH-OOTY', name: 'Ooty' },
-  { id: 'WH-KOTA', name: 'Kotagiri' },
-  { id: 'WH-GUDA', name: 'Gudalur' },
-];
-
-/** Mock per-warehouse order summary */
-const WAREHOUSE_SUMMARY = [
-  { id: 'WH-COON', name: 'Coonoor', orders: 16 },
-  { id: 'WH-OOTY', name: 'Ooty', orders: 12 },
-];
-
-
 
 const FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed', 'Issues'];
 
@@ -292,7 +270,7 @@ export function OrdersDashboardScreen({
   onBack,
   onNavigate,
   onTabChange,
-  warehouses = DEFAULT_WAREHOUSES,
+  warehouses = SAMPLE_DASHBOARD_WAREHOUSES,
 }: OrdersDashboardScreenProps) {
   const [activeFilterPill, setActiveFilterPill] = useState('All');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
@@ -306,8 +284,8 @@ export function OrdersDashboardScreen({
 
 
   const visibleWarehouseSummary = selectedWarehouseId
-    ? WAREHOUSE_SUMMARY.filter((w) => w.id === selectedWarehouseId)
-    : WAREHOUSE_SUMMARY;
+    ? SAMPLE_WAREHOUSE_SUMMARY.filter((w) => w.id === selectedWarehouseId)
+    : SAMPLE_WAREHOUSE_SUMMARY;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -431,22 +409,22 @@ export function OrdersDashboardScreen({
             <View style={styles.mainKpiGrid}>
               <View style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>TOTAL ORDERS</Text>
-                <Text style={styles.mainKpiValue}>48</Text>
+                <Text style={styles.mainKpiValue}>{SAMPLE_DASHBOARD_COUNTS.mainTotal}</Text>
               </View>
 
               <View style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>NEW ORDERS</Text>
-                <Text style={styles.mainKpiValue}>8</Text>
+                <Text style={styles.mainKpiValue}>{SAMPLE_DASHBOARD_COUNTS.mainNew}</Text>
               </View>
 
               <View style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>READY PICKUP</Text>
-                <Text style={styles.mainKpiValue}>9</Text>
+                <Text style={styles.mainKpiValue}>{SAMPLE_DASHBOARD_COUNTS.mainReady}</Text>
               </View>
 
               <View style={styles.mainKpiCard}>
                 <Text style={styles.mainKpiLabel}>ISSUES</Text>
-                <Text style={styles.mainKpiValue}>2</Text>
+                <Text style={styles.mainKpiValue}>{SAMPLE_DASHBOARD_COUNTS.mainIssues}</Text>
               </View>
             </View>
 
@@ -566,7 +544,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.statusCardTop}>
                   <NewBadgeIcon />
                 </View>
-                <Text style={styles.statusNumber}>12</Text>
+                <Text style={styles.statusNumber}>{SAMPLE_DASHBOARD_COUNTS.subNew}</Text>
                 <Text style={styles.statusLabel}>New Orders</Text>
               </TouchableOpacity>
 
@@ -578,7 +556,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.statusCardTop}>
                   <CheckCircleTickIcon />
                 </View>
-                <Text style={styles.statusNumber}>8</Text>
+                <Text style={styles.statusNumber}>{SAMPLE_DASHBOARD_COUNTS.subConfirmed}</Text>
                 <Text style={styles.statusLabel}>Confirmed</Text>
               </TouchableOpacity>
 
@@ -590,7 +568,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.statusCardTop}>
                   <PackageBoxIcon />
                 </View>
-                <Text style={styles.statusNumber}>5</Text>
+                <Text style={styles.statusNumber}>{SAMPLE_DASHBOARD_COUNTS.subPacking}</Text>
                 <Text style={styles.statusLabel}>Packing</Text>
               </TouchableOpacity>
 
@@ -598,7 +576,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.statusCardTop}>
                   <ReadyPickupIcon />
                 </View>
-                <Text style={styles.statusNumber}>7</Text>
+                <Text style={styles.statusNumber}>{SAMPLE_DASHBOARD_COUNTS.subReady}</Text>
                 <Text style={styles.statusLabel}>Ready for Pickup</Text>
               </TouchableOpacity>
 
@@ -610,7 +588,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.statusCardTop}>
                   <DeliveryTruckIcon />
                 </View>
-                <Text style={styles.statusNumber}>3</Text>
+                <Text style={styles.statusNumber}>{SAMPLE_DASHBOARD_COUNTS.subDelivery}</Text>
                 <Text style={styles.statusLabel}>Delivery</Text>
               </TouchableOpacity>
 
@@ -622,7 +600,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.statusCardTop}>
                   <ErrorExclamationIcon />
                 </View>
-                <Text style={[styles.statusNumber, styles.statusNumberDanger]}>2</Text>
+                <Text style={[styles.statusNumber, styles.statusNumberDanger]}>{SAMPLE_DASHBOARD_COUNTS.subIssues}</Text>
                 <Text style={styles.statusLabel}>Order Issues</Text>
               </TouchableOpacity>
             </View>
@@ -708,15 +686,15 @@ export function OrdersDashboardScreen({
             <Text style={styles.sectionHeader}>Today's Summary</Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>24</Text>
+                <Text style={styles.summaryValue}>{SAMPLE_DASHBOARD_COUNTS.todayOrders}</Text>
                 <Text style={styles.summaryLabel}>TODAY'S ORDERS</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>16</Text>
+                <Text style={styles.summaryValue}>{SAMPLE_DASHBOARD_COUNTS.todayCompleted}</Text>
                 <Text style={styles.summaryLabel}>COMPLETED</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>8</Text>
+                <Text style={styles.summaryValue}>{SAMPLE_DASHBOARD_COUNTS.todayPending}</Text>
                 <Text style={styles.summaryLabel}>PENDING</Text>
               </View>
             </View>

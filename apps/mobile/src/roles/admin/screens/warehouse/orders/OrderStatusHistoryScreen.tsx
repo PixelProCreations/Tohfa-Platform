@@ -13,34 +13,10 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Sta
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import type { OrderScreenBaseProps } from './types';
+import { SAMPLE_ORDER_ID, SAMPLE_STATUS_EVENTS } from './fixtures';
+import type { OrderScreenBaseProps, SampleStatusEvent } from './types';
 
 export type OrderStatusHistoryScreenProps = OrderScreenBaseProps;
-
-interface StatusEvent {
-  id: string;
-  title: string;
-  time: string;
-  date: string;
-  performedBy: string;
-}
-
-// Mock timeline, as hard-coded by the old M5S15 screen. The old M5S15B received
-// date and performer as fixed values for every event; they are kept per event here.
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_EVENT_DATE = '24 Sep 2026';
-const SAMPLE_PERFORMER = 'Warehouse Admin';
-
-const STATUS_EVENTS: StatusEvent[] = [
-  { id: '1', title: 'Order Placed', time: '24 Sep · 10:32 AM' },
-  { id: '2', title: 'Order Confirmed', time: '10:34 AM' },
-  { id: '3', title: 'Stock Checked', time: '10:40 AM' },
-  { id: '4', title: 'Packed', time: '11:15 AM' },
-  { id: '5', title: 'Ready for Pickup', time: '11:20 AM' },
-  { id: '6', title: 'Customer Arrived', time: '12:18 PM' },
-  { id: '7', title: 'OTP Verified', time: '12:19 PM' },
-  { id: '8', title: 'Picked Up', time: '12:20 PM' },
-].map((e) => ({ ...e, date: SAMPLE_EVENT_DATE, performedBy: SAMPLE_PERFORMER }));
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -85,7 +61,7 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 // ─── Event detail (folded M5S15B) ────────────────────────────────────────────
 
-function EventDetailCard({ event, orderId }: { event: StatusEvent; orderId: string }) {
+function EventDetailCard({ event, orderId }: { event: SampleStatusEvent; orderId: string }) {
   return (
     <View style={styles.detailCard}>
       <View style={styles.twoColRow}>
@@ -140,8 +116,8 @@ export function OrderStatusHistoryScreen({ orderId = SAMPLE_ORDER_ID, onBack }: 
           <Text style={styles.orderRefLabel}>{orderId}</Text>
 
           <View style={styles.timelineContainer}>
-            {STATUS_EVENTS.map((event, index) => {
-              const isLast = index === STATUS_EVENTS.length - 1;
+            {SAMPLE_STATUS_EVENTS.map((event, index) => {
+              const isLast = index === SAMPLE_STATUS_EVENTS.length - 1;
               const isOpen = expandedId === event.id;
               return (
                 <View key={event.id} style={styles.stepRow}>

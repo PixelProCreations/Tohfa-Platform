@@ -13,15 +13,12 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Ale
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { SAMPLE_INVOICE_NO, SAMPLE_ORDER_ID } from './fixtures';
 import type { OrderScreenBaseProps } from './types';
 
 export type OrderInvoiceScreenProps = OrderScreenBaseProps;
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-/** Mock order / invoice the design hard-coded; callers pass the real order once invoices are wired. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const MOCK_INVOICE_NO = 'INV-2026-001024';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -66,7 +63,7 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
   const canViewInvoice = can('invoice.view_own');
 
   const handleDownload = () => {
-    Alert.alert('Invoice Downloaded', `Invoice ${MOCK_INVOICE_NO} downloaded successfully.`);
+    Alert.alert('Invoice Downloaded', `Invoice ${SAMPLE_INVOICE_NO} downloaded successfully.`);
   };
 
   const handleShare = () => {
@@ -84,7 +81,7 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
         </View>
 
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{MOCK_INVOICE_NO}</Text>
+          <Text style={styles.subtitleText}>{SAMPLE_INVOICE_NO}</Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -92,7 +89,7 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
             <View style={styles.brandHeader}>
               <Text style={styles.brandTitle}>TOHFA</Text>
               <Text style={styles.brandSub}>Nilgiris Horticulture Organic Farmers Association</Text>
-              <Text style={styles.invoiceCode}>{MOCK_INVOICE_NO}</Text>
+              <Text style={styles.invoiceCode}>{SAMPLE_INVOICE_NO}</Text>
             </View>
 
             <View style={styles.divider} />

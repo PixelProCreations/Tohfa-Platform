@@ -21,6 +21,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } fr
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { SAMPLE_ORDER_ID, SAMPLE_PICKUP } from './fixtures';
 import type { OrderScreenBaseProps, PickupStep } from './types';
 
 export interface PickupOtpScreenProps extends OrderScreenBaseProps {
@@ -32,10 +33,6 @@ export interface PickupOtpScreenProps extends OrderScreenBaseProps {
 
 const STEP_ORDER: readonly PickupStep[] = ['verify', 'otp', 'handover'];
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-/** Mock order the designs hard-coded; callers pass the real order once pickups are wired. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const MOCK_CUSTOMER = 'Arun Kumar';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -190,16 +187,16 @@ function VerifyStep({
         <Text style={styles.sectionTitle}>Customer</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Customer" value={MOCK_CUSTOMER} />
-            <Field label="Phone" value="+91 XXXXX XXXXX" />
+            <Field label="Customer" value={SAMPLE_PICKUP.customer} />
+            <Field label="Phone" value={SAMPLE_PICKUP.phone} />
           </View>
         </View>
 
         <Text style={styles.sectionTitle}>Order Summary</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Items" value="4 Items" />
-            <Field label="Total" value="₹850" />
+            <Field label="Items" value={SAMPLE_PICKUP.items} />
+            <Field label="Total" value={SAMPLE_PICKUP.total} />
           </View>
           <View style={styles.rowGap}>
             <Field label="Pickup Warehouse" value={warehouseName} />
@@ -217,7 +214,7 @@ function VerifyStep({
         <View style={[styles.card, styles.cardAfterInfo]}>
           <View style={styles.twoColRow}>
             <Field label="Order ID" value={orderId} />
-            <Field label="Customer Name" value={MOCK_CUSTOMER} />
+            <Field label="Customer Name" value={SAMPLE_PICKUP.customer} />
           </View>
         </View>
 
@@ -237,7 +234,7 @@ function VerifyStep({
 // ─── Step: otp (the original M5S11) ──────────────────────────────────────────
 
 function OtpStep({ orderId, onBack, onConfirm }: StepProps & { onConfirm: (() => void) | undefined }) {
-  const [otp] = useState(['4', '8', '2', '1']);
+  const [otp] = useState(SAMPLE_PICKUP.otpDigits);
   const [isVerified] = useState(true);
 
   return (
@@ -329,15 +326,15 @@ function HandoverStep({
           <View style={styles.card}>
             <View style={styles.twoColRow}>
               <Field label="Order" value={orderId} />
-              <Field label="Completed" value="24 Sep · 12:20 PM" />
+              <Field label="Completed" value={SAMPLE_PICKUP.completedAt} />
             </View>
           </View>
 
           <Text style={styles.sectionTitle}>Final Information</Text>
           <View style={styles.card}>
             <View style={styles.twoColRow}>
-              <Field label="Customer" value={MOCK_CUSTOMER} />
-              <Field label="Items" value="4" />
+              <Field label="Customer" value={SAMPLE_PICKUP.customer} />
+              <Field label="Items" value={SAMPLE_PICKUP.itemCount} />
             </View>
             <View style={[styles.twoColRow, styles.rowGap]}>
               <Field label="Payment" value="Paid" />
@@ -378,10 +375,10 @@ function HandoverStep({
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <Field label="Order" value={orderId} />
-            <Field label="Customer" value={MOCK_CUSTOMER} />
+            <Field label="Customer" value={SAMPLE_PICKUP.customer} />
           </View>
           <View style={[styles.twoColRow, styles.rowGap]}>
-            <Field label="Items" value="4" />
+            <Field label="Items" value={SAMPLE_PICKUP.itemCount} />
             <Field label="OTP" value="Verified ✓" />
           </View>
         </View>

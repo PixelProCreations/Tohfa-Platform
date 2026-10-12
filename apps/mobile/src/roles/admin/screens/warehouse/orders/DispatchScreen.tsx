@@ -34,28 +34,13 @@ import {
   adminShadow,
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
+import { SAMPLE_DELIVERY_ORDER_ID, SAMPLE_DELIVERY_PARTNERS, SAMPLE_DISPATCH, SAMPLE_PARTNER_PLACEHOLDER } from './fixtures';
 import type { DispatchStep, OrderScreenBaseProps } from './types';
 
 export interface DispatchScreenProps extends OrderScreenBaseProps {
   /** Step to open on; an old M5S14B / M5S14C link maps to 'confirm' / 'dispatched'. */
   initialStep?: DispatchStep | undefined;
 }
-
-const PARTNER_PLACEHOLDER = 'Select delivery person';
-
-// Mock data until the order API is wired.
-const DELIVERY_PARTNERS = [
-  PARTNER_PLACEHOLDER,
-  'Ramesh Kumar (Van #04)',
-  'Suresh M. (Bike #12)',
-  'Anand P. (Runner #02)',
-  'Karthik S. (Van #08)',
-];
-const MOCK_CUSTOMER = 'Divya R.';
-const MOCK_ITEM_COUNT = 4;
-const MOCK_DELIVERY_ADDRESS = 'Ooty Road';
-// Slot codes come from configuration/API; this is the mock order's slot.
-const MOCK_DELIVERY_SLOT = 'AFTERNOON_12_4';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -188,7 +173,7 @@ interface DispatchDetailsStepProps {
 }
 
 function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: DispatchDetailsStepProps) {
-  const [selectedPartner, setSelectedPartner] = useState<string>(PARTNER_PLACEHOLDER);
+  const [selectedPartner, setSelectedPartner] = useState<string>(SAMPLE_PARTNER_PLACEHOLDER);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
   return (
@@ -204,17 +189,17 @@ function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: Dispat
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Field label="Customer" value={MOCK_CUSTOMER} />
+              <Field label="Customer" value={SAMPLE_DISPATCH.customer} />
             </View>
             <View style={styles.col}>
-              <Field label="Items" value={String(MOCK_ITEM_COUNT)} />
+              <Field label="Items" value={String(SAMPLE_DISPATCH.itemCount)} />
             </View>
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Address" value={MOCK_DELIVERY_ADDRESS} />
+            <Field label="Delivery Address" value={SAMPLE_DISPATCH.deliveryAddress} />
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Slot" value={MOCK_DELIVERY_SLOT} />
+            <Field label="Delivery Slot" value={SAMPLE_DISPATCH.deliverySlot} />
           </View>
         </View>
 
@@ -232,14 +217,14 @@ function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: Dispat
 
           {isDropdownOpen && (
             <View style={styles.dropdownMenu}>
-              {DELIVERY_PARTNERS.map((partner, index) => {
+              {SAMPLE_DELIVERY_PARTNERS.map((partner, index) => {
                 const isSelected = selectedPartner === partner;
                 return (
                   <TouchableOpacity
                     key={partner}
                     style={[
                       styles.dropdownItem,
-                      index === DELIVERY_PARTNERS.length - 1 && styles.dropdownItemLast,
+                      index === SAMPLE_DELIVERY_PARTNERS.length - 1 && styles.dropdownItemLast,
                       isSelected && styles.dropdownItemSelected,
                     ]}
                     activeOpacity={0.7}
@@ -295,11 +280,11 @@ function ConfirmStep({ orderId, canDispatch, onBack, onDispatch }: ConfirmStepPr
               <Field label="Order" value={orderId} />
             </View>
             <View style={styles.col}>
-              <Field label="Destination" value={MOCK_DELIVERY_ADDRESS} />
+              <Field label="Destination" value={SAMPLE_DISPATCH.deliveryAddress} />
             </View>
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Slot" value={MOCK_DELIVERY_SLOT} />
+            <Field label="Delivery Slot" value={SAMPLE_DISPATCH.deliverySlot} />
           </View>
         </View>
 
@@ -357,7 +342,7 @@ export function DispatchScreen({
   can,
   onBack,
   onNavigate,
-  orderId = 'ORD-1021',
+  orderId = SAMPLE_DELIVERY_ORDER_ID,
   initialStep = 'dispatch',
 }: DispatchScreenProps) {
   const [step, setStep] = useState<DispatchStep>(initialStep);

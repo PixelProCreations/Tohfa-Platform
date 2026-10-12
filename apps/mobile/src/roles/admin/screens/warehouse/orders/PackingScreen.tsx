@@ -27,15 +27,13 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { SAMPLE_ORDER_ID, SAMPLE_PACKING_CHECKLIST, SAMPLE_PACKING_SUMMARY } from './fixtures';
 import type { OrderScreenBaseProps, PackingStep, WarehouseNavigate } from './types';
 
 export interface PackingScreenProps extends OrderScreenBaseProps {
   /** Which step to open on; the host passes `params.step` (old M5S08 links use 'confirm'). */
   initialStep?: PackingStep | undefined;
 }
-
-/** Mock order id used until orders are wired to the API. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -198,12 +196,7 @@ interface ChecklistItem {
  * confirmation does not wipe what the packer already ticked and typed.
  */
 function usePackingForm() {
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: '1', name: 'Tomato · 2 KG', checked: true },
-    { id: '2', name: 'Carrot · 3 KG', checked: true },
-    { id: '3', name: 'Beans · 1 KG', checked: false },
-    { id: '4', name: 'Cabbage · 2 KG', checked: false },
-  ]);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(SAMPLE_PACKING_CHECKLIST);
   const [packedQty, setPackedQty] = useState('');
   const [packageType, setPackageType] = useState('Select');
   const [showPackagePicker, setShowPackagePicker] = useState(false);
@@ -444,7 +437,7 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Packed at</Text>
-                <Text style={styles.detailValue}>11:15 AM</Text>
+                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.packedAt}</Text>
               </View>
             </View>
           </View>
@@ -491,18 +484,18 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Items</Text>
-                <Text style={styles.detailValue}>4 / 4</Text>
+                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.items}</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, styles.twoColRowSpaced]}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Total Quantity</Text>
-                <Text style={styles.detailValue}>8 KG</Text>
+                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.totalQuantity}</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Customer</Text>
-                <Text style={styles.detailValue}>Arun Kumar</Text>
+                <Text style={styles.detailValue}>{SAMPLE_PACKING_SUMMARY.customer}</Text>
               </View>
             </View>
           </View>
