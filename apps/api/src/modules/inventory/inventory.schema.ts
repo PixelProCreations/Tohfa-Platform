@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 
 export const produceGrades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT'] as const;
 export type ProduceGrade = (typeof produceGrades)[number];
@@ -28,7 +29,12 @@ export type BatchIdParams = z.infer<typeof batchIdParams>;
 
 export const listBatchesQuery = z
   .object({
-    cursor: z.string().optional(),
+    // Opaque keyset cursor (http/keysetCursor.ts); anything this list did not produce is 422.
+    cursor: z
+      .string()
+      .max(512)
+      .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.inventoryBatches, raw) !== null, { message: 'Invalid cursor.' })
+      .optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     warehouseId: z.string().uuid().optional(),
     cropId: z.string().uuid().optional(),
@@ -40,7 +46,12 @@ export type ListBatchesQuery = z.infer<typeof listBatchesQuery>;
 
 export const listStockLedgerQuery = z
   .object({
-    cursor: z.string().optional(),
+    // Opaque keyset cursor (http/keysetCursor.ts); anything this list did not produce is 422.
+    cursor: z
+      .string()
+      .max(512)
+      .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.stockLedger, raw) !== null, { message: 'Invalid cursor.' })
+      .optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     batchId: z.string().uuid().optional(),
     warehouseId: z.string().uuid().optional(),

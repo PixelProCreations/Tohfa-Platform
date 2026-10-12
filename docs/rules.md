@@ -609,6 +609,8 @@ See also BR-66.
 
 **Note (2026-10-11, invoices).** A Sub Warehouse Admin's invoices (`invoice.view_own` at `own`) are those of orders placed at its assigned warehouse (`invoices.order_id` → `orders.warehouse_id`), on the list, the detail and the PDF download alike; another warehouse's invoice is the same 404 as an unknown id. An invoice with no order (purchase or payout invoice) has no warehouse and is not shown to a Sub Warehouse Admin (unconfirmed default). Before this date the invoice list returned nothing to a Sub Warehouse Admin. Tests: `BR-30: ...` in `apps/api/src/modules/invoices/invoice-access.test.ts`.
 
+**Note (2026-10-13, inventory list paging).** `GET /admin/batches`, `GET /admin/stock-ledger` and `GET /admin/allocations` page with an opaque keyset cursor on `(created_at, id)` that matches their `ORDER BY created_at DESC, id DESC`, the same scheme as the wallet and admin-order lists. Their cursor used to be the last row's id alone, which skipped or repeated rows (uuids are not time-ordered) and turned a non-uuid cursor into a 500. Contract: paging with any page size returns every row exactly once in order, including rows whose `created_at` ties to the microsecond; a cursor the list did not produce (a bare uuid, garbage, another list's cursor) is 422 `VALIDATION_FAILED`. Tests: `BR-30` (batches), `BR-37` (stock ledger) and `BR-12` (allocations) in `apps/api/src/modules/inventory/inventory.paging.test.ts`.
+
 See also BR-66.
 
 ---
