@@ -144,8 +144,6 @@ export {
 // Shared goods receiving & QC screens (W4); the wizard absorbed the standalone receiving steps and
 // ReceivingFlow the receiving list screens (dashboard, shipments, filters, history, quality issues).
 export {
-  ALERT_RECEIPT_ID,
-  DEMO_SHIPMENT,
   GoodsReceivingWizardScreen,
   ReceivingFlow,
   ReceivingHistoryDetailScreen,

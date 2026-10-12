@@ -151,10 +151,7 @@ import {
   HomeFlow,
   type AttentionFilter,
   MoreScreen,
-  GoodsReceivingWizardScreen,
-  ReceivingHistoryDetailScreen,
-  ALERT_RECEIPT_ID,
-  DEMO_SHIPMENT,
+  ReceivingFlow,
   StaffFlow,
   type AttendanceFilter,
   type StaffRoute,
@@ -1490,16 +1487,10 @@ export default function App(): React.JSX.Element {
             />
           ))
         ) : screen === 'SubWarehouseReviewReceiving' ? (
-          // SubWarehouseReviewReceivingScreen was absorbed as the wizard's Review step (W4 receiving-qc).
+          // The one-page review had no API; a receipt is recorded against a real
+          // purchase order, so this entry opens the incoming shipments to pick one.
           renderWithSubScope((subScope) => (
-            <GoodsReceivingWizardScreen
-              scope={subScope}
-              can={warehouseCan}
-              initialStep="review_receiving"
-              shipment={DEMO_SHIPMENT}
-              onBack={goBack}
-              onFinish={() => navigate('SubWarehouseAdminDashboard')}
-            />
+            <ReceivingFlow scope={subScope} can={warehouseCan} initialScreen="Shipments" onBack={goBack} />
           ))
         ) : screen === 'SubWarehouseNeedsAttention' ? (
           // Shared dashboard-home-more NeedsAttentionScreen through HomeFlow (W4), own warehouse only.
@@ -1779,15 +1770,9 @@ export default function App(): React.JSX.Element {
             />
           ))
         ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
-          // SubWarehouseGoodsReceiptDetailScreen was absorbed by the shared receipt detail (W4 receiving-qc).
+          // The alert carries no receipt id, so this entry opens the live Receiving History.
           renderWithSubScope((subScope) => (
-            <ReceivingHistoryDetailScreen
-              scope={subScope}
-              can={warehouseCan}
-              receiptId={ALERT_RECEIPT_ID}
-              onBack={goBack}
-              onTakeAction={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving' })}
-            />
+            <ReceivingFlow scope={subScope} can={warehouseCan} initialScreen="History" onBack={goBack} />
           ))
         ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
           // The RMA screens live in the shared warehouse/returns-rma area (W4);

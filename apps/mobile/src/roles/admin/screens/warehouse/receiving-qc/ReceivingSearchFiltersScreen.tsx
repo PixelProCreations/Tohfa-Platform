@@ -30,7 +30,7 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { EMPTY_RECEIVING_FILTERS, isMainScope } from './fixtures';
+import { EMPTY_RECEIVING_FILTERS, isMainScope } from './mappers';
 import { PermissionNote, canViewReceiving } from './ReceivingParts';
 import type { ReceivingFilters, WarehouseScreenBaseProps } from './types';
 

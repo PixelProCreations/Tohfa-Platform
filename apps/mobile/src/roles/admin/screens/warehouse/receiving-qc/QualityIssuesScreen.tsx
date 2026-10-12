@@ -2,27 +2,25 @@
  * Quality Issues (receiving QC issues), shared by the Main and Sub warehouse
  * admins. Read-only list.
  *
- * The Sub shell had no separate view: its Receiving dashboard listed these as
- * Needs Attention cards (QC pending, quantity mismatch, damage report) and sent
- * "Issues" to Operational Issues. This screen is the full list behind that
- * section and absorbs the Main QualityIssuesOperationsScreen: the summary
- * (Pending Checks, Damage Reported, Rejected, Partially Accepted), the
- * incident card and the "View Operational Issues & Action Center" link. Main
- * (scope.warehouseId undefined) sees every warehouse with the warehouse named
- * in each row; Sub only its own.
+ * Absorbed the Main QualityIssuesOperationsScreen. Live since integration
+ * phase 4: the open issues are the goods receipts still awaiting their quality
+ * check (the only receiving issue the API can tell), and the summary counts
+ * the warehouse's receipts by result. Damage reports and quantity mismatches
+ * have no API, so they are not listed or counted.
  *
- * Nothing here mutates: opening an issue hands it to the host, which opens the
- * wizard step (itself gated), the shipment or Operational Issues.
+ * Nothing here mutates: opening an issue hands it to the host, which resumes
+ * the wizard at the quality check (itself gated).
  * Gate: inventory.batch.view, inventory.goods_receipt.record or
  * inventory.quality_check.perform.
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
-import { EmptyState, ScopeHeader, SectionTitle, WalletButton, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
-import { QUALITY_ISSUES, RECEIVING_RECORDS, inReceivingScope, isMainScope } from './fixtures';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { ScopeHeader, SectionTitle, WalletButton, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { isMainScope } from './mappers';
 import {
   AlertCircleOutlineIcon,
   ChevronRightSmall,
@@ -31,13 +29,15 @@ import {
   canViewReceiving,
   qualityIssueTone,
 } from './ReceivingParts';
-import type { QualityIssue, ReceivingRecord, WarehouseScreenBaseProps } from './types';
+import type { QualityIssue, ReceivingLiveStateProps, ReceivingRecord, WarehouseScreenBaseProps } from './types';
 
-export interface QualityIssuesScreenProps extends WarehouseScreenBaseProps {
-  issues?: QualityIssue[] | undefined;
-  records?: ReceivingRecord[] | undefined;
+export interface QualityIssuesScreenProps extends WarehouseScreenBaseProps, ReceivingLiveStateProps {
+  /** Receipts awaiting their quality check. */
+  issues?: readonly QualityIssue[] | undefined;
+  /** The warehouse's receipts, for the summary counts. */
+  records?: readonly ReceivingRecord[] | undefined;
   onSelectIssue: (issue: QualityIssue) => void;
-  /** Operational Issues & Action Center (storage-ops). */
+  /** Operational Issues & Action Center (storage-ops), when the host offers it. */
   onOpenOperationalIssues?: (() => void) | undefined;
 }
 
@@ -45,8 +45,13 @@ export function QualityIssuesScreen({
   scope,
   can,
   onBack,
-  issues = QUALITY_ISSUES,
-  records = RECEIVING_RECORDS,
+  issues = [],
+  records = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
   onSelectIssue,
   onOpenOperationalIssues,
 }: QualityIssuesScreenProps) {
@@ -68,18 +73,39 @@ export function QualityIssuesScreen({
     );
   }
 
-  const rows = issues.filter((i) => inReceivingScope(scope, i.warehouseId));
-  const receipts = records.filter((r) => inReceivingScope(scope, r.warehouseId));
+  const hasData = issues.length > 0 || records.length > 0;
+  if (!hasData && isLoading) {
+    return (
+      <WalletScreen {...header}>
+        <AdminLoadingState />
+      </WalletScreen>
+    );
+  }
+  if (!hasData && error !== null && error !== undefined) {
+    return (
+      <WalletScreen {...header}>
+        <AdminErrorState error={error} onRetry={onRetry} />
+      </WalletScreen>
+    );
+  }
+
   const summary: [string, number][] = [
-    ['Pending Checks', rows.filter((i) => i.kind === 'QC Pending').length],
-    ['Damage Reported', rows.filter((i) => i.kind === 'Damage Reported').length],
-    ['Rejected', receipts.filter((r) => r.result === 'Rejected').length],
-    ['Partially Accepted', receipts.filter((r) => r.result === 'Partially Accepted').length],
+    ['Pending Checks', issues.length],
+    ['Rejected', records.filter((r) => r.result === 'Rejected').length],
+    ['Partially Accepted', records.filter((r) => r.result === 'Partially Accepted').length],
   ];
 
   return (
     <WalletScreen {...header}>
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={walletLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+          ) : undefined
+        }
+      >
         <SectionTitle>Quality Issues Summary</SectionTitle>
         <View style={styles.card}>
           {summary.map(([label, value], index) => (
@@ -91,8 +117,8 @@ export function QualityIssuesScreen({
         </View>
 
         <SectionTitle>Open Issues</SectionTitle>
-        {rows.length === 0 ? <EmptyState title="No open quality issues" /> : null}
-        {rows.map((issue) => {
+        {issues.length === 0 ? <AdminEmptyState title={t('receiving.empty.issues')} /> : null}
+        {issues.map((issue) => {
           const tone = adminColors[qualityIssueTone(issue.kind)];
           return (
             <TouchableOpacity
@@ -107,11 +133,8 @@ export function QualityIssuesScreen({
                 <AlertCircleOutlineIcon size={18} color={tone.text} />
               </View>
               <View style={styles.flex}>
-                <Text style={styles.title}>
-                  {issue.id} · {issue.kind}
-                </Text>
+                <Text style={styles.title}>{issue.kind}</Text>
                 <Text style={styles.meta}>
-                  {mainView ? `${warehouseNameOf(issue.warehouseId)} · ` : ''}
                   {issue.produce} — {issue.shipmentCode} · {issue.detail}
                 </Text>
               </View>

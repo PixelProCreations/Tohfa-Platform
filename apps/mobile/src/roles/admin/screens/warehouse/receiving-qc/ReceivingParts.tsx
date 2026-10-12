@@ -13,30 +13,32 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
 import type { QcCriterion, QualityIssue, ReceiptResult, ShipmentStatus } from './types';
 
-/** Badge tone of a shipment status (the old per-row hex pairs, by meaning). */
+/** Badge tone of a shipment status. */
+const SHIPMENT_TONE: Record<ShipmentStatus, AdminTone> = {
+  Expected: 'brandSoft',
+  'Awaiting QC': 'warning',
+  Receiving: 'info',
+  Completed: 'success',
+  Cancelled: 'danger',
+  Unknown: 'purple',
+};
+
 export function shipmentTone(status: ShipmentStatus): AdminTone {
-  switch (status) {
-    case 'Expected':
-      return 'brandSoft';
-    case 'Arrived':
-    case 'Completed':
-      return 'success';
-    case 'Receiving':
-      return 'info';
-    case 'Awaiting QC':
-    case 'Partially Accepted':
-      return 'warning';
-    default:
-      return 'danger';
-  }
+  return SHIPMENT_TONE[status];
 }
 
 /** Badge tone of a receipt result. */
+const RECEIPT_TONE: Record<ReceiptResult, AdminTone> = {
+  'Awaiting QC': 'brandSoft',
+  Accepted: 'success',
+  'Partially Accepted': 'warning',
+  Rejected: 'danger',
+  'Counter-Offered': 'info',
+  Unknown: 'purple',
+};
+
 export function receiptTone(result: ReceiptResult): AdminTone {
-  if (result === 'Accepted') return 'success';
-  if (result === 'Rejected') return 'danger';
-  if (result === 'Open') return 'brandSoft';
-  return 'warning';
+  return RECEIPT_TONE[result];
 }
 
 /** Accent tone of a QC issue. */
@@ -48,6 +50,31 @@ export function qualityIssueTone(kind: QualityIssue['kind']): AdminTone {
 export function canViewReceiving(can: (code: string) => boolean): boolean {
   return can(RECEIVING_CODES.batchView) || can(RECEIVING_CODES.receiptRecord);
 }
+
+/**
+ * The Quality step's five checklist rows, one per parameter the server records
+ * (QC_PARAMETER in ./mappers.ts). Scales are configured server-side; no
+ * numeric score is invented for a row.
+ */
+export const QC_CRITERIA: readonly QcCriterion[] = [
+  { id: 'appearance', code: '01 — REQUIRED', title: 'Appearance', icon: 'eye' },
+  { id: 'size', code: '02 — REQUIRED', title: 'Size Uniformity', icon: 'ruler' },
+  { id: 'moisture', code: '03 — REQUIRED', title: 'Moisture', icon: 'drop' },
+  { id: 'damage', code: '04 — REQUIRED', title: 'Damage / Pest', icon: 'bug' },
+  { id: 'freshness', code: '05 — REQUIRED', title: 'Freshness', icon: 'leaf' },
+];
+
+/** The receiving pipeline, in order (Main Receiving Activity card). */
+export const RECEIVING_PIPELINE = [
+  'Shipment Arrived',
+  'Receiving Started',
+  'Quantity Verification',
+  'Quality Check',
+  'Decision',
+  'Batch Assignment',
+  'Storage Assignment',
+  'Receipt Completion',
+] as const;
 
 /** docs/rbac.json codes the receiving screens check (each one exists there; MAIN=all, SUB=all unless noted). */
 export const RECEIVING_CODES = {

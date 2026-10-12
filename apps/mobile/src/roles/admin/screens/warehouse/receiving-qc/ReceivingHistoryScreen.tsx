@@ -2,26 +2,27 @@
  * Receiving History list (FINAL_LIST #90), shared by the Main and Sub
  * warehouse admins.
  *
- * Extracted from the Sub shell's inline Receiving "receiving_history" sub-view
- * (search, result pills, received / accepted / rejected figures, date) and
- * absorbs the Main ReceivingHistoryScreen: the warehouse in each row, the
- * all-warehouses selector (Main-only, scope.warehouseId undefined) and the
- * "Return to Receiving Dashboard" link. Rows come from the shared receipt
- * records (RECEIVING_RECORDS) instead of two inline lists, and a row opens
- * ReceivingHistoryDetailScreen. The wizard's "View receiving history" opens
- * this list too.
+ * Extracted from the Sub shell's inline Receiving "receiving_history"
+ * sub-view (search, result pills, received / accepted / rejected figures, date)
+ * and absorbs the Main ReceivingHistoryScreen. Live since integration phase 4:
+ * GET /admin/goods-receipts, paged, each pill a server-side status filter
+ * (ReceivingFlow fetches). The search narrows what is loaded. A row opens
+ * ReceivingHistoryDetailScreen. The Main warehouse selector is not offered
+ * (its options were fixture codes).
  *
  * Read-only. Gate: inventory.batch.view or inventory.goods_receipt.record; a
  * Sub scope sees only its own warehouse (BR-30).
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   ChipGroup,
-  EmptyState,
   ScopeHeader,
   SearchBar,
   StatusBadge,
@@ -29,43 +30,51 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { RECEIVING_RECORDS, inReceivingScope, isMainScope, matchesHistoryFilter } from './fixtures';
+import { isMainScope } from './mappers';
 import { PermissionNote, canViewReceiving, receiptTone } from './ReceivingParts';
-import type { HistoryFilter, ReceivingRecord, WarehouseScreenBaseProps } from './types';
+import type { HistoryFilter, ReceivingLiveStateProps, ReceivingRecord, WarehouseScreenBaseProps } from './types';
 
-const FILTERS: readonly HistoryFilter[] = ['All', 'Accepted', 'Partial', 'Rejected'];
+const FILTERS: readonly HistoryFilter[] = ['All', 'Awaiting QC', 'Accepted', 'Partial', 'Rejected'];
 
-export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps {
-  records?: ReceivingRecord[] | undefined;
-  initialFilter?: HistoryFilter | undefined;
+export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps, ReceivingLiveStateProps {
+  /** Receipts for the selected pill, page by page. */
+  records?: readonly ReceivingRecord[] | undefined;
+  onLoadMore?: (() => void) | undefined;
+  hasMore?: boolean | undefined;
+  /** The selected pill; the flow fetches for it. */
+  filter: HistoryFilter;
+  onChangeFilter: (filter: HistoryFilter) => void;
+  /** Opens a receipt by its uuid. */
   onSelectRecord: (receiptId: string) => void;
+}
+
+function kg(value: number | null): string {
+  return value === null ? t('inventory.noValue') : formatKg(value);
 }
 
 export function ReceivingHistoryScreen({
   scope,
   can,
   onBack,
-  records = RECEIVING_RECORDS,
-  initialFilter = 'All',
+  records = [],
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
+  filter,
+  onChangeFilter,
   onSelectRecord,
 }: ReceivingHistoryScreenProps) {
-  const [filter, setFilter] = useState<HistoryFilter>(initialFilter);
   const [query, setQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const mainView = isMainScope(scope);
 
   const header = {
     title: 'Receiving History',
     onBack,
-    headerExtra: (
-      <ScopeHeader
-        scope={scope}
-        label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId}
-        warehouseOptions={WALLET_WAREHOUSES}
-        selectedWarehouseId={selectedWarehouseId}
-        onSelectWarehouse={mainView ? setSelectedWarehouseId : undefined}
-      />
-    ),
+    headerExtra: <ScopeHeader scope={scope} label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId} />,
   };
 
   if (!canViewReceiving(can)) {
@@ -78,68 +87,93 @@ export function ReceivingHistoryScreen({
     );
   }
 
+  const view = queryViewState({ isLoading, error, itemCount: records.length });
   const q = query.trim().toLowerCase();
   const rows = records.filter(
     (r) =>
-      inReceivingScope(scope, r.warehouseId, selectedWarehouseId) &&
-      matchesHistoryFilter(r.result, filter) &&
-      (q === '' || r.receiptId.toLowerCase().includes(q) || r.product.toLowerCase().includes(q)),
+      q === '' ||
+      r.receiptId.toLowerCase().includes(q) ||
+      r.shipmentId.toLowerCase().includes(q) ||
+      r.product.toLowerCase().includes(q),
+  );
+
+  const renderRecord = ({ item: r }: { item: ReceivingRecord }) => (
+    <TouchableOpacity style={styles.card} onPress={() => onSelectRecord(r.id)} activeOpacity={0.8} accessibilityRole="button">
+      <View style={styles.rowBetween}>
+        <Text style={styles.code}>{r.receiptId}</Text>
+        <StatusBadge label={r.resultLabel} tone={receiptTone(r.result)} />
+      </View>
+      <Text style={styles.produce}>
+        {r.product}
+        {r.grade !== '' ? ` · ${r.grade}` : ''}
+      </Text>
+      <View style={styles.stats}>
+        {(
+          [
+            ['Received', r.receivedGrams],
+            ['Accepted', r.acceptedGrams],
+            ['Rejected', r.rejectedGrams],
+          ] as const
+        ).map(([label, grams]) => (
+          <View key={label} style={styles.statCol}>
+            <Text style={styles.meta}>{label}</Text>
+            <Text style={styles.statValue}>{kg(grams)}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.meta}>
+        {r.shipmentId !== '' ? `${r.shipmentId} · ` : ''}
+        {r.date}
+      </Text>
+    </TouchableOpacity>
   );
 
   return (
     <WalletScreen {...header}>
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SearchBar value={query} onChangeText={setQuery} placeholder="Search GR number / product" />
-        <View style={styles.pills}>
-          <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
+      <View style={styles.flex}>
+        <View style={styles.controls}>
+          <SearchBar value={query} onChangeText={setQuery} placeholder="Search GR number / product" />
+          <View style={styles.pills}>
+            <ChipGroup options={FILTERS} value={filter} onChange={onChangeFilter} />
+          </View>
         </View>
 
-        {rows.length === 0 ? <EmptyState title="No receipts" subtitle="Nothing matches this filter." /> : null}
-
-        {rows.map((r) => (
-          <TouchableOpacity
-            key={r.receiptId}
-            style={styles.card}
-            onPress={() => onSelectRecord(r.receiptId)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <View style={styles.rowBetween}>
-              <Text style={styles.code}>{r.receiptId}</Text>
-              <StatusBadge label={r.result} tone={receiptTone(r.result)} />
-            </View>
-            <Text style={styles.produce}>
-              {r.product} · {r.grade}
-            </Text>
-            <View style={styles.stats}>
-              {(
-                [
-                  ['Received', r.receivedKg],
-                  ['Accepted', r.acceptedKg],
-                  ['Rejected', r.rejectedKg],
-                ] as const
-              ).map(([label, kg]) => (
-                <View key={label} style={styles.statCol}>
-                  <Text style={styles.meta}>{label}</Text>
-                  <Text style={styles.statValue}>{kg} KG</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={styles.meta}>
-              {mainView ? `${r.warehouseName} · ` : ''}
-              {r.date}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <View style={styles.spacer} />
-        <WalletButton label="Return to Receiving Dashboard →" variant="outline" onPress={onBack} />
-      </ScrollView>
+        {view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={error} onRetry={onRetry} />
+        ) : (
+          <FlatList
+            data={rows}
+            keyExtractor={(r) => r.id}
+            renderItem={renderRecord}
+            contentContainerStyle={walletLayout.scrollContent}
+            showsVerticalScrollIndicator={false}
+            onEndReached={hasMore ? onLoadMore : undefined}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+              ) : undefined
+            }
+            ListEmptyComponent={<AdminEmptyState title={t('receiving.empty.receipts')} />}
+            ListFooterComponent={
+              <>
+                {hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
+                <View style={styles.spacer} />
+                <WalletButton label="Return to Receiving Dashboard →" variant="outline" onPress={onBack} />
+              </>
+            }
+          />
+        )}
+      </View>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  controls: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm },
   pills: { paddingVertical: adminSpacing.sm },
   spacer: { height: adminSpacing.sm },
   card: {

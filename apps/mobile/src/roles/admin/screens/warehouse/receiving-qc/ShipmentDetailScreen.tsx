@@ -3,24 +3,30 @@
  *
  * Extracted from the Sub shell's inline Receiving "shipment_detail" sub-view
  * (route card, shipment fields, items, Start Receiving / Receiving in
- * Progress) and absorbs the Main ShipmentDetailScreen: the shipment type, the
- * crate count, the Receiving Progress pipeline with its Product "Detail" and
- * "Timeline" links, and the shipment-documents note (Main-only,
- * scope.warehouseId undefined).
+ * Progress) and absorbs the Main ShipmentDetailScreen. Live since integration
+ * phase 4: one purchase order (GET /admin/purchase-orders/{id}) with its
+ * farmer, price and receipts, fetched by ReceivingFlow.
  *
- * Scope: a shipment of another warehouse resolves to "not found", never to a
- * forbidden state (CLAUDE.md 2.1). Gates: viewing needs inventory.batch.view
- * or inventory.goods_receipt.record; Start Receiving and the wizard links need
- * inventory.goods_receipt.record.
+ * The footer starts a new receipt while the order is open (Expected / partly
+ * received), or resumes the receipt awaiting its quality check, so a delivery
+ * is never recorded twice. The Main-only stage pipeline and documents note are
+ * gone: the API has no per-stage progress or shipment documents.
+ *
+ * Scope: an order of another warehouse is a 404, shown as "not found", never as
+ * a forbidden state (CLAUDE.md 2.1). Gates: viewing needs inventory.batch.view
+ * or inventory.goods_receipt.record; Start Receiving needs
+ * inventory.goods_receipt.record, resuming also inventory.quality_check.perform.
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { format } from '@tohfa/shared-types';
 
+import { t } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   InfoCard,
-  InfoNote,
   ScopeHeader,
   SectionTitle,
   WalletButton,
@@ -28,61 +34,74 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { RECEIVING_PIPELINE, findShipment, isMainScope, pipelineStagesDone } from './fixtures';
-import { PermissionNote, RECEIVING_CODES, RightArrowIcon, StepperCheckIcon, canViewReceiving } from './ReceivingParts';
-import type { IncomingShipment, WarehouseScreenBaseProps } from './types';
+import { isReceivable } from './mappers';
+import { PermissionNote, RECEIVING_CODES, RightArrowIcon, canViewReceiving } from './ReceivingParts';
+import type { IncomingShipment, ReceivingLiveStateProps, WarehouseScreenBaseProps } from './types';
 
-export interface ShipmentDetailScreenProps extends WarehouseScreenBaseProps {
-  shipmentId: string | undefined;
-  shipments?: IncomingShipment[] | undefined;
-  /** Start Receiving (or resume one in progress); the host opens the wizard. */
+export interface ShipmentDetailScreenProps extends WarehouseScreenBaseProps, ReceivingLiveStateProps {
+  /** The purchase order, once loaded. */
+  shipment?: IncomingShipment | undefined;
+  /** Start Receiving, or resume the receipt awaiting QC (`resume`); the host opens the wizard. */
   onStartReceiving: (shipment: IncomingShipment, resume: boolean) => void;
-  /** Main: Product Summary "Detail" (wizard quantity verification). */
-  onViewProductDetail?: ((shipment: IncomingShipment) => void) | undefined;
-  /** Main: Receiving Progress "Timeline" (wizard receipt summary). */
-  onViewTimeline?: ((shipment: IncomingShipment) => void) | undefined;
+}
+
+function kg(value: number | null): string {
+  return value === null ? t('inventory.noValue') : formatKg(value);
+}
+
+function orNone(value: string): string {
+  return value === '' ? t('inventory.noValue') : value;
 }
 
 export function ShipmentDetailScreen({
   scope,
   can,
   onBack,
-  shipmentId,
-  shipments,
+  shipment: s,
+  isLoading = false,
+  error,
+  onRetry,
+  onRefresh,
+  isRefreshing = false,
   onStartReceiving,
-  onViewProductDetail,
-  onViewTimeline,
 }: ShipmentDetailScreenProps) {
-  const mainView = isMainScope(scope);
   const canView = canViewReceiving(can);
   const canRecord = can(RECEIVING_CODES.receiptRecord);
-  const s = findShipment(scope, shipmentId, shipments);
-  const warehouseLabel = s ? warehouseNameOf(s.warehouseId) : scope.warehouseName;
+  const canQc = can(RECEIVING_CODES.qualityCheck);
+  const header = { title: 'Shipment Detail', onBack, headerExtra: <ScopeHeader scope={scope} label={scope.warehouseName} /> };
 
-  if (!canView || s === undefined) {
+  if (!canView) {
     return (
-      <WalletScreen title="Shipment Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} label={warehouseLabel} />}>
+      <WalletScreen {...header}>
         <View style={walletLayout.scrollContent}>
-          <PermissionNote message={!canView ? 'You do not have permission to view shipments.' : 'Shipment not found.'} />
+          <PermissionNote message="You do not have permission to view shipments." />
         </View>
       </WalletScreen>
     );
   }
+  if (s === undefined) {
+    return (
+      <WalletScreen {...header}>
+        {isLoading ? <AdminLoadingState /> : <AdminErrorState error={error} onRetry={onRetry} />}
+      </WalletScreen>
+    );
+  }
 
-  const resume = s.status === 'Awaiting QC' || s.status === 'Receiving';
-  const closed = s.status === 'Completed' || s.status === 'Rejected';
-  const done = pipelineStagesDone(s.status);
+  const resume = s.status === 'Awaiting QC' && s.pendingReceiptId !== undefined;
+  const canAct = resume ? canRecord && canQc : canRecord && isReceivable(s.status);
+  const closed = !resume && !isReceivable(s.status);
+  const unnamed = t('inventory.crop.unnamed');
 
   return (
     <WalletScreen
       title={s.code}
-      subtitle={`${s.status} · ${s.from} → ${s.to}`}
+      subtitle={s.from !== '' ? `${s.statusLabel} · ${s.from} → ${s.to}` : s.statusLabel}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={warehouseLabel} />}
+      headerExtra={<ScopeHeader scope={scope} label={s.to !== '' ? s.to : scope.warehouseName} />}
       footer={
         closed ? undefined : (
           <WalletFooter>
-            {canRecord ? (
+            {canAct ? (
               <WalletButton
                 label={resume ? 'Receiving in Progress' : 'Start Receiving'}
                 icon={<RightArrowIcon size={18} />}
@@ -95,16 +114,24 @@ export function ShipmentDetailScreen({
         )
       }
     >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={walletLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[adminColors.brand]} tintColor={adminColors.brand} />
+          ) : undefined
+        }
+      >
         <View style={styles.routeCard}>
           <View style={styles.flex}>
             <Text style={styles.routeTag}>SOURCE</Text>
-            <Text style={styles.routeName}>{s.from}</Text>
+            <Text style={styles.routeName}>{orNone(s.from)}</Text>
           </View>
           <RightArrowIcon size={18} color={adminColors.muted} />
           <View style={[styles.flex, styles.alignEnd]}>
             <Text style={styles.routeTag}>DESTINATION</Text>
-            <Text style={styles.routeName}>{warehouseNameOf(s.warehouseId)}</Text>
+            <Text style={styles.routeName}>{orNone(s.to !== '' ? s.to : scope.warehouseName ?? '')}</Text>
           </View>
         </View>
 
@@ -112,80 +139,39 @@ export function ShipmentDetailScreen({
         <InfoCard
           rows={[
             [
-              { label: 'Shipment ID', value: s.code },
-              { label: 'Reference', value: s.reference },
+              { label: t('receiving.detail.purchaseOrder'), value: s.code },
+              { label: t('receiving.detail.farmerId'), value: orNone(s.farmerCode) },
             ],
             [
-              { label: 'Type', value: s.type },
-              { label: 'Batch / Source', value: s.batchSource },
+              { label: t('receiving.detail.issued'), value: orNone(s.issuedOn) },
+              { label: 'Expected Arrival', value: orNone(s.expectedArrival) },
             ],
             [
-              { label: 'Dispatch Date', value: s.dispatchDate },
-              { label: 'Expected Arrival', value: s.expectedArrival },
+              { label: t('receiving.detail.pricePerKg'), value: format(s.pricePerKg) },
+              { label: t('receiving.detail.orderTotal'), value: format(s.totalAmount) },
             ],
-            [{ label: 'Actual Arrival', value: s.actualArrival ?? 'Pending' }],
           ]}
         />
 
-        <SectionTitle
-          right={
-            mainView && canRecord && onViewProductDetail ? (
-              <TouchableOpacity onPress={() => onViewProductDetail(s)} accessibilityRole="button">
-                <Text style={styles.link}>Detail →</Text>
-              </TouchableOpacity>
-            ) : undefined
-          }
-        >
-          Items
-        </SectionTitle>
+        <SectionTitle>Items</SectionTitle>
         <View style={styles.itemCard}>
           <View style={styles.flex}>
-            <Text style={styles.itemTitle}>{s.produce}</Text>
+            <Text style={styles.itemTitle}>{s.produce === unnamed && s.grade !== '' ? s.grade : s.produce}</Text>
             <Text style={styles.meta}>
-              {s.grade}
-              {s.crates !== undefined ? ` · ${s.crates} crates` : ''}
+              {[
+                s.produce === unnamed ? '' : s.grade,
+                s.receivedGrams !== null && s.receivedGrams > 0 ? t('receiving.detail.receivedSoFar', { qty: kg(s.receivedGrams) }) : '',
+              ]
+                .filter((part) => part !== '')
+                .join(' · ')}
             </Text>
           </View>
-          <Text style={styles.itemQty}>{s.expectedQty} KG</Text>
+          <Text style={styles.itemQty}>{kg(s.expectedGrams)}</Text>
         </View>
-
-        {mainView ? (
-          <>
-            <SectionTitle
-              right={
-                canRecord && onViewTimeline ? (
-                  <TouchableOpacity onPress={() => onViewTimeline(s)} accessibilityRole="button">
-                    <Text style={styles.link}>Timeline →</Text>
-                  </TouchableOpacity>
-                ) : undefined
-              }
-            >
-              Receiving Progress
-            </SectionTitle>
-            <View style={styles.progressCard}>
-              {RECEIVING_PIPELINE.map((stage, index) => {
-                const complete = index < done;
-                return (
-                  <View key={stage} style={styles.progressRow}>
-                    <View style={[styles.stepCircle, complete && styles.stepCircleDone]}>
-                      {complete ? <StepperCheckIcon size={11} /> : <View style={styles.stepDash} />}
-                    </View>
-                    <Text style={complete ? styles.stepTextDone : styles.stepText}>{stage}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            <InfoNote tone="brandSoft">
-              Shipment Documents only appears when the system actually supplies documents — none are invented as mandatory.
-            </InfoNote>
-          </>
-        ) : null}
       </ScrollView>
     </WalletScreen>
   );
 }
-
-const STEP = 20;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -203,7 +189,6 @@ const styles = StyleSheet.create({
   },
   routeTag: { ...adminType.caption, color: adminColors.muted },
   routeName: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
-  link: { ...adminType.caption, color: adminColors.brand },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -216,28 +201,4 @@ const styles = StyleSheet.create({
   itemTitle: { ...adminType.sectionHead, color: adminColors.ink },
   meta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   itemQty: { ...adminType.kpiValue, color: adminColors.ink },
-  progressCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.md,
-  },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
-  stepCircle: {
-    width: STEP,
-    height: STEP,
-    borderRadius: adminRadius.full,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.canvas,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepCircleDone: { backgroundColor: adminColors.success.text, borderColor: adminColors.success.text },
-  stepDash: { width: 8, height: 2, backgroundColor: adminColors.muted },
-  stepText: { ...adminType.body, color: adminColors.muted },
-  stepTextDone: { ...adminType.sectionHead, color: adminColors.ink },
 });

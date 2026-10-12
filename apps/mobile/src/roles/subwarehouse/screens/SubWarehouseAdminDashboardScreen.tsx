@@ -14,16 +14,10 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../farmer/api/auth';
 import {
-  ALERT_RECEIPT_ID,
-  GoodsReceivingWizardScreen,
   ReceivingFlow,
-  ReceivingHistoryDetailScreen,
-  findShipment,
   receivingRouteFor,
-  type IncomingShipment,
   type ReceivingRoute,
   type ReceivingRouteParams,
-  type ReceivingWizardStep,
 } from '../../admin/screens/warehouse/receiving-qc';
 import {
   NotificationsFlow,
@@ -1206,11 +1200,6 @@ export function SubWarehouseAdminDashboardScreen({
     setReceivingEntry({ screen, params });
     setActiveTab('Receiving');
   };
-  // Shipment the Home-tab receiving shortcuts open the wizard on.
-  const [selectedShipment, setSelectedShipment] = useState<IncomingShipment | undefined>(() =>
-    findShipment(scope, 'GR-1024'),
-  );
-  const [receivingWizardStep, setReceivingWizardStep] = useState<ReceivingWizardStep | null>(null);
   // The open notifications module: NotificationsFlow (list, detail, approval
   // alerts; system messages + message history are list filters) owns its stack
   // from here on (W4). `showNotifications` / `setShowNotifications` keep the
@@ -1237,7 +1226,6 @@ export function SubWarehouseAdminDashboardScreen({
     closeOnBack?: boolean | undefined;
   } | null>(null);
   const [showStorageInfo, setShowStorageInfo] = useState(false);
-  const [showReviewReceiving, setShowReviewReceiving] = useState(false);
   // The open customer module: CustomersFlow (list, search, details, orders,
   // purchases, issues, support, filters) owns its stack from here on (W4).
   const [customersEntry, setCustomersEntry] = useState<{
@@ -1253,7 +1241,6 @@ export function SubWarehouseAdminDashboardScreen({
   // Order a HomeFlow task opened (Task / Action Center order tasks); null = closed.
   const [taskOrderNo, setTaskOrderNo] = useState<string | null>(null);
   const [showExpenseRecord, setShowExpenseRecord] = useState(false);
-  const [showGoodsReceiptDetail, setShowGoodsReceiptDetail] = useState(false);
 
   const [showWalletOperations, setShowWalletOperations] = useState(false);
   // The open returns (RMA) module: ReturnsFlow owns the stack from here on.
@@ -1329,10 +1316,6 @@ export function SubWarehouseAdminDashboardScreen({
         setShowNotifications(true);
         return true;
       }
-      if (receivingWizardStep !== null) {
-        setReceivingWizardStep(null);
-        return true;
-      }
       // ReceivingFlow walks its own stack (its listener handles the press).
       if (activeTab === 'Receiving') return false;
       if (activeTab !== 'Home') {
@@ -1344,7 +1327,7 @@ export function SubWarehouseAdminDashboardScreen({
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [receivingWizardStep, activeTab, showNotifications, showOrdersModule]);
+  }, [activeTab, showNotifications, showOrdersModule]);
 
   useEffect(() => {
     fetchMe()
@@ -1394,54 +1377,6 @@ export function SubWarehouseAdminDashboardScreen({
     );
   }
 
-  if (showGoodsReceiptDetail) {
-    return (
-      // Was SubWarehouseGoodsReceiptDetailScreen, absorbed by the shared receipt detail (W4).
-      // "Take Action" reconciles the variance in the wizard's Damage / Mismatch step.
-      <ReceivingHistoryDetailScreen
-        scope={scope}
-        can={can}
-        receiptId={ALERT_RECEIPT_ID}
-        onBack={() => setShowGoodsReceiptDetail(false)}
-        onTakeAction={() => {
-          setShowGoodsReceiptDetail(false);
-          setReceivingWizardStep('damage_mismatch');
-        }}
-      />
-    );
-  }
-
-  if (receivingWizardStep !== null) {
-    return (
-      <GoodsReceivingWizardScreen
-        scope={scope}
-        can={can}
-        initialStep={receivingWizardStep}
-        shipment={selectedShipment}
-        receiverName={userName}
-        onBack={() => setReceivingWizardStep(null)}
-        onFinish={() => {
-          setReceivingWizardStep(null);
-          openReceiving();
-        }}
-        onBackToShipments={() => {
-          setReceivingWizardStep(null);
-          openReceiving('Shipments');
-        }}
-        onViewHistory={() => {
-          setReceivingWizardStep(null);
-          openReceiving('History');
-        }}
-        onViewBatch={(batchId) => {
-          setReceivingWizardStep(null);
-          setInventoryInitialScreen('M3S05');
-          setInventoryInitialParams({ batchId }); // pass parameter if M3S05 uses it
-          setActiveTab('Inventory');
-        }}
-      />
-    );
-  }
-
   if (notificationsEntry !== null) {
     return (
       <NotificationsFlow
@@ -1467,7 +1402,9 @@ export function SubWarehouseAdminDashboardScreen({
           setNotificationsEntry(null);
           setReturnToNotificationsOnBack(true);
           if (target === 'ReviewReceiving') {
-            setShowReviewReceiving(true);
+            // The one-page review had no API: pick the order to receive instead.
+            setReturnToNotificationsOnBack(false);
+            openReceiving('Shipments');
           } else if (target === 'Receiving') {
             openReceiving();
           } else if (target === 'Stock') {
@@ -1489,7 +1426,9 @@ export function SubWarehouseAdminDashboardScreen({
           if (alert.record === 'ExpenseRecord') {
             setShowExpenseRecord(true);
           } else if (alert.record === 'GoodsReceipt') {
-            setShowGoodsReceiptDetail(true);
+            // The alert carries no receipt id: open the live Receiving History.
+            setNotificationsEntry(null);
+            openReceiving('History');
           } else if (alert.record === 'LowStock') {
             setNotificationsEntry(null);
             setInventoryInitialScreen('M3S09');
@@ -1694,30 +1633,6 @@ export function SubWarehouseAdminDashboardScreen({
           setShowStorageInfo(false);
           setInventoryInitialScreen('M3S02');
           setActiveTab('Inventory');
-        }}
-      />
-    );
-  }
-
-  if (showReviewReceiving) {
-    return (
-      // Was SubWarehouseReviewReceivingScreen: now the wizard's one-page Review step (W4).
-      <GoodsReceivingWizardScreen
-        scope={scope}
-        can={can}
-        initialStep="review_receiving"
-        shipment={findShipment(scope, 'GR-1024')}
-        receiverName={userName}
-        onBack={() => {
-          setShowReviewReceiving(false);
-          if (returnToNotificationsOnBack) {
-            setReturnToNotificationsOnBack(false);
-            setShowNotifications(true);
-          }
-        }}
-        onFinish={() => {
-          setShowReviewReceiving(false);
-          openReceiving();
         }}
       />
     );
@@ -2304,7 +2219,7 @@ export function SubWarehouseAdminDashboardScreen({
               <View style={styles.quickActionsGrid}>
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
-                  onPress={() => setReceivingWizardStep('start_receiving')}
+                  onPress={() => openReceiving('Shipments')}
                 >
                   <ReceiveGoodsActionIcon />
                   <Text style={styles.quickActionLabel}>Receive Goods</Text>
@@ -2768,6 +2683,11 @@ export function SubWarehouseAdminDashboardScreen({
             onOpenOperationalIssues={
               isAreaAvailable('operationalIssues', can) ? () => setStorageEntry({ screen: 'OperationalIssues' }) : undefined
             }
+            onViewBatch={(batchId) => {
+              setInventoryInitialScreen('M3S05');
+              setInventoryInitialParams({ batchId });
+              setActiveTab('Inventory');
+            }}
           />
         )}
 
