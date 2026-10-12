@@ -291,7 +291,7 @@ export function findReceivingRecord(
  */
 export function recordsInScope(scope: WarehouseScope, records: ReceivingRecord[] = RECEIVING_RECORDS): ReceivingRecord[] {
   if (isMainScope(scope)) return records;
-  return records.filter((r) => r.warehouseId === scope.warehouseId);
+  return records.filter((r) => r.warehouseId === (scope.warehouseCode ?? scope.warehouseId));
 }
 
 // ─── Receiving list screens ──────────────────────────────────────────────────
@@ -600,7 +600,7 @@ export const EMPTY_RECEIVING_FILTERS: ReceivingFilters = {
 
 /** True when a row owned by `warehouseId` is visible to `scope` (and the Main selector, if any). */
 export function inReceivingScope(scope: WarehouseScope, warehouseId: string, selectedId?: string | undefined): boolean {
-  if (!isMainScope(scope)) return warehouseId === scope.warehouseId;
+  if (!isMainScope(scope)) return warehouseId === (scope.warehouseCode ?? scope.warehouseId);
   return selectedId === undefined || warehouseId === selectedId;
 }
 

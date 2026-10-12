@@ -34,7 +34,7 @@ export function isAllWarehouses(scope: WarehouseScope): boolean {
  */
 export function inScope(scope: WarehouseScope, warehouseId: string | undefined, selectedId?: string | undefined): boolean {
   if (warehouseId === undefined) return true;
-  if (scope.warehouseId !== undefined) return warehouseId === scope.warehouseId;
+  if (scope.warehouseId !== undefined) return warehouseId === (scope.warehouseCode ?? scope.warehouseId);
   return selectedId === undefined || warehouseId === selectedId;
 }
 

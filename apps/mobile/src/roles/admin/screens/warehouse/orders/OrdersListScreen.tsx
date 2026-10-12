@@ -293,7 +293,7 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
     isAllWarehouses ? routeParams?.warehouseId : undefined,
   );
 
-  const warehouseFilter = isAllWarehouses ? selectedWarehouseId : scope.warehouseId;
+  const warehouseFilter = isAllWarehouses ? selectedWarehouseId : (scope.warehouseCode ?? scope.warehouseId);
   const query = searchQuery.toLowerCase();
 
   const filteredOrders = ORDERS.filter((order) => {

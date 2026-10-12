@@ -1,5 +1,11 @@
 {
   "scaffold.role": "Admin",
   "scaffold.heading": "TOHFA Admin",
-  "scaffold.body": "Admin flavor scaffold is running. Real screens are built new in src/roles/admin in a later step."
+  "scaffold.body": "Admin flavor scaffold is running. Real screens are built new in src/roles/admin in a later step.",
+  "warehouseScope.loading": "Loading your warehouse…",
+  "warehouseScope.error.title": "Your warehouse could not be loaded",
+  "warehouseScope.error.noAssignment": "This account is not assigned to a sub warehouse. Ask an administrator to assign one, then sign in again.",
+  "warehouseScope.error.failed": "Check your connection and try again.",
+  "warehouseScope.retry": "Retry",
+  "warehouseScope.signOut": "Sign out"
 }

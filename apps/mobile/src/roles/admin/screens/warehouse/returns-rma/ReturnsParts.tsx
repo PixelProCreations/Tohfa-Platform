@@ -26,7 +26,7 @@ export function isAllWarehouses(scope: WarehouseScope): boolean {
  * server applies the real own-warehouse filter (rma.* SUB grant `own`).
  */
 export function inScope(scope: WarehouseScope, warehouseId: string | undefined): boolean {
-  return scope.warehouseId === undefined || warehouseId === undefined || warehouseId === scope.warehouseId;
+  return scope.warehouseId === undefined || warehouseId === undefined || warehouseId === (scope.warehouseCode ?? scope.warehouseId);
 }
 
 function BackArrowIcon() {

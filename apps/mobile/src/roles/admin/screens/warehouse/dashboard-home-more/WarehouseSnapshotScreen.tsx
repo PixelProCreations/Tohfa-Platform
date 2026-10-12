@@ -128,7 +128,7 @@ export function WarehouseSnapshotScreen({
   onNavigateToOperations,
 }: WarehouseSnapshotScreenProps) {
   const [showMap, setShowMap] = useState(false);
-  const warehouseId = scope.warehouseId;
+  const warehouseId = scope.warehouseCode ?? scope.warehouseId;
   const footer = onTabChange !== undefined ? <WarehouseTabBar activeTab="Home" onTabChange={onTabChange} onBack={onBack} /> : undefined;
 
   if (warehouseId === undefined) {

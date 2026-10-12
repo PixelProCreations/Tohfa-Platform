@@ -163,6 +163,7 @@ import {
   type StorageRoute,
   type StorageRouteParams,
   type WarehouseScope,
+  WarehouseScopeGate,
   FinanceFlow,
   type FinanceRoute,
   NotificationsFlow,
@@ -578,20 +579,16 @@ function TabPlusIcon({ size = 22, color = colors.white }: { size?: number; color
   );
 }
 
-/**
- * Warehouse scope for the Sub Warehouse admin screens. SPEC GAP: GET
- * /v1/auth/me carries no warehouse assignment, so the app cannot know which
- * warehouse a SUB_WH_ADMIN runs. Until it does, this is the seeded Coonoor
- * warehouse (db/seed/001_reference.sql code WH-COON) in ONE place instead of
- * a 'Coonoor Warehouse' literal inside every screen. See SPEC_GAPS.md.
- */
 /** Sales channel shown by a B2B / HORECA route (the merged ChannelSales / ChannelOrderDetail screens). */
 function channelForRoute(route: 'SubWarehouseB2BSales' | 'SubWarehouseB2BDetail' | 'SubWarehouseHorecaSales' | 'SubWarehouseHorecaDetail'): SalesChannel {
   return route === 'SubWarehouseB2BSales' || route === 'SubWarehouseB2BDetail' ? 'B2B' : 'HORECA';
 }
 
-const SUB_WAREHOUSE_SCOPE: WarehouseScope = { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' };
-/** Main Warehouse view: no warehouseId = all warehouses. */
+/**
+ * Main Warehouse view: no warehouseId = all warehouses. The Sub Warehouse
+ * scope is not a constant: it is the SUB_WH_ADMIN assignment from GET
+ * /auth/me (BR-30), rendered through WarehouseScopeGate (renderWithSubScope).
+ */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 /** Legacy Main inventory route keys -> shared InventoryFlow design ids (W4). */
 /** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST #106). */
@@ -873,14 +870,20 @@ export default function App(): React.JSX.Element {
   // after the retries, the role's docs/rbac.json grants stand in (see
   // roles/admin/permissions/warehousePermissions.ts). The server re-checks
   // every action anyway (CLAUDE.md 2.1).
-  const warehousePermissions = useWarehousePermissions({
+  // The same /auth/me also yields the Sub admin's own warehouse (roles[] ->
+  // SUB_WH_ADMIN warehouseId/warehouseName, BR-30); see renderWithSubScope.
+  const warehouseSession = useWarehousePermissions({
     enabled: shouldLoadWarehousePermissions(screen, params),
     adminRole: lastAdminRole,
     isDev: __DEV__,
-    loadPermissions: async () => (await fetchMe()).permissions ?? [],
+    loadSession: async () => {
+      const me = await fetchMe();
+      return { permissions: me.permissions ?? [], roles: me.roles ?? [] };
+    },
     hasCredentials: hasSessionCredentials,
     sessionKey: sessionEpoch,
-  }).permissions;
+  });
+  const warehousePermissions = warehouseSession.permissions;
   const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
   // Params for a BillingFlow entry, memoised so the flow does not restart its
   // stack on every App render. An invoice opened from a sale record falls back
@@ -1107,6 +1110,26 @@ export default function App(): React.JSX.Element {
   );
 
   /**
+   * Every Sub warehouse render site goes through here (BR-30): the screens
+   * get the admin's own warehouse from GET /auth/me, and render only once it
+   * is known. Loading and "no warehouse" states belong to WarehouseScopeGate;
+   * there is no fallback warehouse.
+   */
+  const renderWithSubScope = (render: (scope: WarehouseScope) => React.ReactNode): React.ReactNode => (
+    <WarehouseScopeGate
+      subScope={warehouseSession.subScope}
+      failed={warehouseSession.subScopeFailed}
+      onRetry={warehouseSession.retry}
+      onSignOut={() => signOutTo('Login')}
+    >
+      {render}
+    </WarehouseScopeGate>
+  );
+  /** Routes shared by both warehouse roles: Main keeps the all-warehouses scope, Sub is gated. */
+  const renderWithScope = (isMain: boolean, render: (scope: WarehouseScope) => React.ReactNode): React.ReactNode =>
+    isMain ? render(MAIN_WAREHOUSE_SCOPE) : renderWithSubScope(render);
+
+  /**
    * Sub warehouse modules outside storage-ops that own an activity record or a
    * Today metric tile (StorageFlow onOpenModule). Same targets the old Today's
    * Operations / Recent Activity / Warehouse Activity handlers used.
@@ -1318,19 +1341,21 @@ export default function App(): React.JSX.Element {
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           ) : adminShell === 'SUB_WH_ADMIN' ? (
-            <SubWarehouseAdminDashboardScreen
-              scope={SUB_WAREHOUSE_SCOPE}
-              can={warehouseCan}
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s, p) => navigate(s as ScreenName, p)}
-              onBack={goBack}
-              initialTab={params['initialTab'] as any}
-              initialReceivingSubView={params['initialReceivingSubView'] as any}
-              initialInventoryScreen={params['initialInventoryScreen'] as any}
-              initialShowOrders={!!params['showOrders']}
-              initialOrdersScreen={params['ordersInitialScreen'] as any}
-              initialOrdersParams={params['ordersInitialParams'] as any}
-            />
+            renderWithSubScope((subScope) => (
+              <SubWarehouseAdminDashboardScreen
+                scope={subScope}
+                can={warehouseCan}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s, p) => navigate(s as ScreenName, p)}
+                onBack={goBack}
+                initialTab={params['initialTab'] as any}
+                initialReceivingSubView={params['initialReceivingSubView'] as any}
+                initialInventoryScreen={params['initialInventoryScreen'] as any}
+                initialShowOrders={!!params['showOrders']}
+                initialOrdersScreen={params['ordersInitialScreen'] as any}
+                initialOrdersParams={params['ordersInitialParams'] as any}
+              />
+            ))
           ) : (
             // adminShell is 'SUPER_ADMIN' here: null never reaches this branch.
             <SuperAdminDashboardScreen
@@ -1367,144 +1392,150 @@ export default function App(): React.JSX.Element {
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           ) : (
-            <SubWarehouseAdminDashboardScreen
-              scope={SUB_WAREHOUSE_SCOPE}
-              can={warehouseCan}
-              initialTab={params?.initialTab as any}
-              initialReceivingSubView={params?.initialReceivingSubView as any}
-              initialInventoryScreen={params?.initialInventoryScreen as any}
-              initialShowOrders={!!params?.showOrders}
-              initialOrdersScreen={params?.ordersInitialScreen as any}
-            initialOrdersParams={params?.ordersInitialParams as any}
-            initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s, p) => navigate(s as ScreenName, p)}
-              onBack={goBack}
-            />
+            renderWithSubScope((subScope) => (
+              <SubWarehouseAdminDashboardScreen
+                scope={subScope}
+                can={warehouseCan}
+                initialTab={params?.initialTab as any}
+                initialReceivingSubView={params?.initialReceivingSubView as any}
+                initialInventoryScreen={params?.initialInventoryScreen as any}
+                initialShowOrders={!!params?.showOrders}
+                initialOrdersScreen={params?.ordersInitialScreen as any}
+              initialOrdersParams={params?.ordersInitialParams as any}
+              initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s, p) => navigate(s as ScreenName, p)}
+                onBack={goBack}
+              />
+            ))
           )
         ) : screen === 'SubWarehouseOverview' ? (
           // Was SubWarehouseOverviewScreen: the shared single-warehouse WarehouseSnapshotScreen (W4), scope-locked.
-          <HomeFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="WarehouseSnapshot"
-            onBack={goBack}
-            onTabChange={(tab) => {
-              // More from the Snapshot opens Wallet Operations (unchanged); every other tab is the shared handler.
-              if (tab === 'More') navigate('WarehouseWalletOperations');
-              else openWarehouseTab(tab);
-            }}
-            onOpenTarget={(target) => {
-              if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (target === 'ReceivingDashboard') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              else if (target === 'Operations') navigate('SubWarehouseWarehouseOperations');
-            }}
-          />
+          renderWithSubScope((subScope) => (
+            <HomeFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen="WarehouseSnapshot"
+              onBack={goBack}
+              onTabChange={(tab) => {
+                // More from the Snapshot opens Wallet Operations (unchanged); every other tab is the shared handler.
+                if (tab === 'More') navigate('WarehouseWalletOperations');
+                else openWarehouseTab(tab);
+              }}
+              onOpenTarget={(target) => {
+                if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+                else if (target === 'ReceivingDashboard') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+                else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+                else if (target === 'Operations') navigate('SubWarehouseWarehouseOperations');
+              }}
+            />
+          ))
         ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
           // The notification screens live in the shared warehouse/notifications area
           // (W4); each old notification key opens NotificationsFlow on the matching
           // route. System Messages / Message History are filter tabs of the list.
-          <NotificationsFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={NOTIFICATIONS_ROUTE_ENTRY[screen]}
-            initialParams={notificationsParamsFor(screen, params)}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onOpenTarget={(target) => {
-              if (target === 'ReviewReceiving') navigate('SubWarehouseReviewReceiving');
-              else if (target === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              else if (target === 'Stock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
-              else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              else if (target === 'Wallet') navigate('WarehouseWalletOperations');
-              else navigate('SubWarehouseReturnsIssues');
-            }}
-            onOpenAlertRecord={(alert) => {
-              if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
-              else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
-              else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
-              else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer', { transferScope: 'sub' });
-            }}
-          />
+          renderWithSubScope((subScope) => (
+            <NotificationsFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={NOTIFICATIONS_ROUTE_ENTRY[screen]}
+              initialParams={notificationsParamsFor(screen, params)}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onOpenTarget={(target) => {
+                if (target === 'ReviewReceiving') navigate('SubWarehouseReviewReceiving');
+                else if (target === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+                else if (target === 'Stock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
+                else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+                else if (target === 'Wallet') navigate('WarehouseWalletOperations');
+                else navigate('SubWarehouseReturnsIssues');
+              }}
+              onOpenAlertRecord={(alert) => {
+                if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
+                else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
+                else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
+                else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer', { transferScope: 'sub' });
+              }}
+            />
+          ))
         ) : screen === 'SubWarehouseReviewReceiving' ? (
           // SubWarehouseReviewReceivingScreen was absorbed as the wizard's Review step (W4 receiving-qc).
-          <GoodsReceivingWizardScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialStep="review_receiving"
-            shipment={DEMO_SHIPMENT}
-            onBack={goBack}
-            onFinish={() => navigate('SubWarehouseAdminDashboard')}
-          />
+          renderWithSubScope((subScope) => (
+            <GoodsReceivingWizardScreen
+              scope={subScope}
+              can={warehouseCan}
+              initialStep="review_receiving"
+              shipment={DEMO_SHIPMENT}
+              onBack={goBack}
+              onFinish={() => navigate('SubWarehouseAdminDashboard')}
+            />
+          ))
         ) : screen === 'SubWarehouseNeedsAttention' ? (
           // Shared dashboard-home-more NeedsAttentionScreen through HomeFlow (W4), own warehouse only.
-          <HomeFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="NeedsAttention"
-            initialParams={{ category: params['category'] as AttentionFilter | undefined }}
-            onBack={goBack}
-          />
+          renderWithSubScope((subScope) => (
+            <HomeFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen="NeedsAttention"
+              initialParams={{ category: params['category'] as AttentionFilter | undefined }}
+              onBack={goBack}
+            />
+          ))
         ) : SALES_ROUTE_ENTRY[screen] !== undefined ? (
           // The direct sales screens live in the shared warehouse/sales-direct area
           // (W4); each old 'SubWarehouseXxx' key opens SalesFlow on the matching route.
-          <SalesFlow
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            initialScreen={SALES_ROUTE_ENTRY[screen]}
-            initialParams={salesParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToNeedsAttention={(category) => navigate('SubWarehouseNeedsAttention', category ? { category } : {})}
-          />
+          renderWithScope(params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN', (scope) => (
+            <SalesFlow
+              scope={scope}
+              can={warehouseCan}
+              initialScreen={SALES_ROUTE_ENTRY[screen]}
+              initialParams={salesParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onNavigateToNeedsAttention={(category) => navigate('SubWarehouseNeedsAttention', category ? { category } : {})}
+            />
+          ))
         ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
-          <ChannelSalesScreen
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            channel={channelForRoute(screen)}
-            onBack={goBack}
-            onSelectOrder={(ord) => {
-              setSelectedChannelOrder(ord);
-              navigate(ord.channel === 'B2B' ? 'SubWarehouseB2BDetail' : 'SubWarehouseHorecaDetail');
-            }}
-          />
+          renderWithScope(params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN', (scope) => (
+            <ChannelSalesScreen
+              scope={scope}
+              can={warehouseCan}
+              channel={channelForRoute(screen)}
+              onBack={goBack}
+              onSelectOrder={(ord) => {
+                setSelectedChannelOrder(ord);
+                navigate(ord.channel === 'B2B' ? 'SubWarehouseB2BDetail' : 'SubWarehouseHorecaDetail');
+              }}
+            />
+          ))
         ) : screen === 'SubWarehouseB2BDetail' || screen === 'SubWarehouseHorecaDetail' ? (
-          <ChannelOrderDetailScreen
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            channel={channelForRoute(screen)}
-            // Only reuse the selection if it belongs to this route's channel.
-            order={selectedChannelOrder?.channel === channelForRoute(screen) ? selectedChannelOrder : undefined}
-            onBack={goBack}
-            onNavigate={(next, nextParams) => navigate(next as ScreenName, nextParams)}
-            onViewInvoice={(invoiceId) => navigate('SubWarehouseInvoiceDetail', { invoiceId })}
-            onViewStatus={(orderId) => {
-              setSelectedStatusOrderId(orderId);
-              navigate('SubWarehouseOrderStatusHistory');
-            }}
-          />
+          renderWithScope(params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN', (scope) => (
+            <ChannelOrderDetailScreen
+              scope={scope}
+              can={warehouseCan}
+              channel={channelForRoute(screen)}
+              // Only reuse the selection if it belongs to this route's channel.
+              order={selectedChannelOrder?.channel === channelForRoute(screen) ? selectedChannelOrder : undefined}
+              onBack={goBack}
+              onNavigate={(next, nextParams) => navigate(next as ScreenName, nextParams)}
+              onViewInvoice={(invoiceId) => navigate('SubWarehouseInvoiceDetail', { invoiceId })}
+              onViewStatus={(orderId) => {
+                setSelectedStatusOrderId(orderId);
+                navigate('SubWarehouseOrderStatusHistory');
+              }}
+            />
+          ))
         ) : screen === 'SubWarehouseOrderStatusHistory' ? (
-          <OrderStatusHistoryScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            orderId={selectedStatusOrderId || (params?.orderId as string) || 'ORD-1024'}
-            onNavigate={(nextScreen) => navigate(nextScreen as ScreenName)}
-            onBack={goBack}
-          />
+          renderWithSubScope((subScope) => (
+            <OrderStatusHistoryScreen
+              scope={subScope}
+              can={warehouseCan}
+              orderId={selectedStatusOrderId || (params?.orderId as string) || 'ORD-1024'}
+              onNavigate={(nextScreen) => navigate(nextScreen as ScreenName)}
+              onBack={goBack}
+            />
+          ))
         ) : PROFILE_ROUTE_ENTRY[screen] !== undefined ? (
           // The account screens live in the shared warehouse/profile-settings area
           // (W4); 'SubWarehouseSettings' opens the hub, 'SubWarehouseHelpSupport'
@@ -1512,266 +1543,294 @@ export default function App(): React.JSX.Element {
           // the warehouse-facing screens (part B; a location's detail stays here).
           // Report an issue is offered by the screen only with
           // support.ticket.create_own (none for warehouse admins today).
-          <ProfileFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={PROFILE_ROUTE_ENTRY[screen]}
-            onBack={goBack}
-            onLogout={() => signOutTo('Login')}
-            onReportIssue={() => navigate('SubWarehouseReportIssue')}
-            onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
-            onTabChange={openWarehouseTab}
-          />
+          renderWithSubScope((subScope) => (
+            <ProfileFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={PROFILE_ROUTE_ENTRY[screen]}
+              onBack={goBack}
+              onLogout={() => signOutTo('Login')}
+              onReportIssue={() => navigate('SubWarehouseReportIssue')}
+              onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
+              onTabChange={openWarehouseTab}
+            />
+          ))
         ) : screen === 'WarehouseMore' ? (
-          <MoreScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onNavigateToDashboard={() => navigate('SubWarehouseAdminDashboard')}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
-            // Wallet and Profile rows: same targets as the Sub shell's More tab
-            // (they only showed an "Opening ..." alert here before).
-            onNavigateToWallet={() => navigate('WarehouseWalletOperations')}
-            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
-            onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
-            onNavigateToOrders={() => navigate('SubWarehouseCustomerOrders')}
-            onNavigateToSales={() => navigate('SubWarehouseSales')}
-            onNavigateToReturns={() => navigate('SubWarehouseReturnsIssues')}
-            onNavigateToReturnHistory={() => navigate('SubWarehouseReturnHistory')}
-            onNavigateToFinance={() => navigate('SubWarehouseFinance')}
-            onNavigateToReports={() => navigate('SubWarehouseReports')}
-            onNavigateToStaff={() => navigate('SubWarehouseStaff')}
-            onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
-            onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
-            onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToSettings={() => navigate('SubWarehouseSettings')}
-            onLogout={() => signOutTo('Login')}
-          />
+          renderWithSubScope((subScope) => (
+            <MoreScreen
+              scope={subScope}
+              can={warehouseCan}
+              onBack={goBack}
+              onNavigateToDashboard={() => navigate('SubWarehouseAdminDashboard')}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
+              // Wallet and Profile rows: same targets as the Sub shell's More tab
+              // (they only showed an "Opening ..." alert here before).
+              onNavigateToWallet={() => navigate('WarehouseWalletOperations')}
+              onNavigateToProfile={() => navigate('SubWarehouseProfile')}
+              onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
+              onNavigateToOrders={() => navigate('SubWarehouseCustomerOrders')}
+              onNavigateToSales={() => navigate('SubWarehouseSales')}
+              onNavigateToReturns={() => navigate('SubWarehouseReturnsIssues')}
+              onNavigateToReturnHistory={() => navigate('SubWarehouseReturnHistory')}
+              onNavigateToFinance={() => navigate('SubWarehouseFinance')}
+              onNavigateToReports={() => navigate('SubWarehouseReports')}
+              onNavigateToStaff={() => navigate('SubWarehouseStaff')}
+              onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
+              onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
+              onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
+              onNavigateToSettings={() => navigate('SubWarehouseSettings')}
+              onLogout={() => signOutTo('Login')}
+            />
+          ))
         ) : CUSTOMERS_ROUTE_ENTRY[screen] !== undefined ? (
           // The customer screens live in the shared warehouse/customers area (W4);
           // each old 'SubWarehouseXxx' key opens CustomersFlow on the matching route.
           // Wallet, cash top-up, new sale, order detail and RMA stay App routes.
-          <CustomersFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={CUSTOMERS_ROUTE_ENTRY[screen]}
-            initialParams={customersParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
-              const customerName = p.customer?.name;
-              const customerCode = p.customer?.code ?? p.customer?.id;
-              if (target === 'CustomerWallet') {
-                navigate('SubWarehouseCustomerWallet', {
-                  customerName,
-                  name: customerName,
-                  id: customerCode,
-                  customerId: customerCode,
-                  mobile: p.customer?.phone,
-                  balance: p.customer?.walletBalance,
-                });
-              } else if (target === 'CashTopUp') {
-                navigate('SubWarehouseCashTopUp', {
-                  customerName,
-                  customerCode,
-                  currentBalance: p.customer?.walletBalance,
-                });
-              } else if (target === 'NewSale') {
-                navigate('SubWarehouseNewSale', { customerName });
-              } else if (target === 'OrderDetail') {
-                navigate('SubWarehouseOrderDetail', {
-                  orderNo: p.order?.orderNo ?? p.orderNo,
-                  orderStatus: p.order?.status,
-                  orderItems: p.order?.items,
-                  orderPrice: p.order?.price,
-                  orderDate: p.order?.date,
-                  orderType: p.order?.type,
-                  customerName,
-                });
-              } else if (target === 'RmaDetail') {
-                navigate('SubWarehouseReturnsIssues');
-              }
-            }}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
+          renderWithSubScope((subScope) => (
+            <CustomersFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={CUSTOMERS_ROUTE_ENTRY[screen]}
+              initialParams={customersParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
+                const customerName = p.customer?.name;
+                const customerCode = p.customer?.code ?? p.customer?.id;
+                if (target === 'CustomerWallet') {
+                  navigate('SubWarehouseCustomerWallet', {
+                    customerName,
+                    name: customerName,
+                    id: customerCode,
+                    customerId: customerCode,
+                    mobile: p.customer?.phone,
+                    balance: p.customer?.walletBalance,
+                  });
+                } else if (target === 'CashTopUp') {
+                  navigate('SubWarehouseCashTopUp', {
+                    customerName,
+                    customerCode,
+                    currentBalance: p.customer?.walletBalance,
+                  });
+                } else if (target === 'NewSale') {
+                  navigate('SubWarehouseNewSale', { customerName });
+                } else if (target === 'OrderDetail') {
+                  navigate('SubWarehouseOrderDetail', {
+                    orderNo: p.order?.orderNo ?? p.orderNo,
+                    orderStatus: p.order?.status,
+                    orderItems: p.order?.items,
+                    orderPrice: p.order?.price,
+                    orderDate: p.order?.date,
+                    orderType: p.order?.type,
+                    customerName,
+                  });
+                } else if (target === 'RmaDetail') {
+                  navigate('SubWarehouseReturnsIssues');
+                }
+              }}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ))
         ) : screen === 'WarehouseCustomerSearch' ? (
-          <CustomerSearchScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onNavigateToWallet={(cust) => {
-              navigate('SubWarehouseCustomerWallet', {
-                customerName: cust.name,
-                name: cust.name,
-                id: cust.code,
-                customerId: cust.code,
-                mobile: cust.phone || '+91 98765 43210',
-                balance: cust.balance,
-              });
-            }}
-            onSelectCustomer={(custOrName: any, id?: string) => {
-              if (typeof custOrName === 'string') {
-                navigate('SubWarehouseCustomerDetail', { customerName: custOrName, customerId: id });
-              } else {
+          renderWithSubScope((subScope) => (
+            <CustomerSearchScreen
+              scope={subScope}
+              can={warehouseCan}
+              onBack={goBack}
+              onNavigateToWallet={(cust) => {
                 navigate('SubWarehouseCustomerWallet', {
-                  customerName: custOrName.name,
-                  name: custOrName.name,
-                  id: custOrName.code,
-                  customerId: custOrName.code,
-                  mobile: custOrName.phone || '+91 98765 43210',
-                  balance: custOrName.balance,
+                  customerName: cust.name,
+                  name: cust.name,
+                  id: cust.code,
+                  customerId: cust.code,
+                  mobile: cust.phone || '+91 98765 43210',
+                  balance: cust.balance,
                 });
+              }}
+              onSelectCustomer={(custOrName: any, id?: string) => {
+                if (typeof custOrName === 'string') {
+                  navigate('SubWarehouseCustomerDetail', { customerName: custOrName, customerId: id });
+                } else {
+                  navigate('SubWarehouseCustomerWallet', {
+                    customerName: custOrName.name,
+                    name: custOrName.name,
+                    id: custOrName.code,
+                    customerId: custOrName.code,
+                    mobile: custOrName.phone || '+91 98765 43210',
+                    balance: custOrName.balance,
+                  });
+                }
+              }}
+              onNavigateToCashTopUp={(cust) =>
+                navigate('SubWarehouseCashTopUp', cust ? {
+                  customerName: cust.name,
+                  customerCode: cust.code,
+                  currentBalance: cust.balance,
+                } : undefined)
               }
-            }}
-            onNavigateToCashTopUp={(cust) =>
-              navigate('SubWarehouseCashTopUp', cust ? {
-                customerName: cust.name,
-                customerCode: cust.code,
-                currentBalance: cust.balance,
-              } : undefined)
-            }
-          />
+            />
+          ))
         ) : FINANCE_ROUTE_ENTRY[screen] !== undefined ? (
           // The finance screens live in the shared warehouse/finance-expenses area
           // (W4); each old finance key opens FinanceFlow on the matching route.
-          <FinanceFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={FINANCE_ROUTE_ENTRY[screen]}
-            initialParams={financeParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onOpenWallet={() => navigate('WarehouseWalletOperations')}
-            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
-            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
-          />
+          renderWithSubScope((subScope) => (
+            <FinanceFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={FINANCE_ROUTE_ENTRY[screen]}
+              initialParams={financeParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onOpenWallet={() => navigate('WarehouseWalletOperations')}
+              onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
+              onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
+            />
+          ))
         ) : WALLET_ROUTE_ENTRY[screen] !== undefined ? (
           // The wallet & cash top-up screens live in the shared warehouse/wallet-cashtopup
           // area (W4); each old wallet key opens WalletFlow on the matching route.
-          <WalletFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={WALLET_ROUTE_ENTRY[screen]}
-            initialParams={walletParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
-          />
+          renderWithSubScope((subScope) => (
+            <WalletFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={WALLET_ROUTE_ENTRY[screen]}
+              initialParams={walletParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onNavigateToProfile={() => navigate('SubWarehouseProfile')}
+            />
+          ))
         ) : BILLING_ROUTE_ENTRY[screen] !== undefined ? (
           // The billing & invoice screens live in the shared warehouse/billing-invoices
           // area (W4); each old 'SubWarehouseXxx' key opens BillingFlow on the matching route.
-          <BillingFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={BILLING_ROUTE_ENTRY[screen]}
-            initialParams={billingParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
+          renderWithSubScope((subScope) => (
+            <BillingFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={BILLING_ROUTE_ENTRY[screen]}
+              initialParams={billingParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ))
         ) : screen === 'SubWarehouseTaskActionCenter' || screen === 'SubWarehouseTaskDetail' ? (
           // Shared task screens through HomeFlow (W4): the list opens Task Details inside the
           // flow; an order task hands its order id to the Sub order detail. No task rbac code (ungated).
-          <HomeFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={screen === 'SubWarehouseTaskDetail' ? 'TaskDetail' : 'TaskActionCenter'}
-            initialParams={screen === 'SubWarehouseTaskDetail' ? { id: (params['taskId'] as string | undefined) ?? 'TSK-001' } : undefined}
-            onBack={goBack}
-            onOpenTarget={(target, ref) => {
-              if (target === 'OrderDetail') navigate('SubWarehouseOrderDetail', ref ? { orderNo: ref } : {});
-            }}
-          />
+          renderWithSubScope((subScope) => (
+            <HomeFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={screen === 'SubWarehouseTaskDetail' ? 'TaskDetail' : 'TaskActionCenter'}
+              initialParams={screen === 'SubWarehouseTaskDetail' ? { id: (params['taskId'] as string | undefined) ?? 'TSK-001' } : undefined}
+              onBack={goBack}
+              onOpenTarget={(target, ref) => {
+                if (target === 'OrderDetail') navigate('SubWarehouseOrderDetail', ref ? { orderNo: ref } : {});
+              }}
+            />
+          ))
         ) : screen === 'SubWarehouseOrderDetail' ? (
-          <OrdersModule
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="M5S04"
-            initialParams={{
-              orderId: (params['orderNo'] as string) || 'ORD-00251',
-              customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-            }}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-          />
+          renderWithSubScope((subScope) => (
+            <OrdersModule
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen="M5S04"
+              initialParams={{
+                orderId: (params['orderNo'] as string) || 'ORD-00251',
+                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
+              }}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+            />
+          ))
         ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
           // SubWarehouseGoodsReceiptDetailScreen was absorbed by the shared receipt detail (W4 receiving-qc).
-          <ReceivingHistoryDetailScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            receiptId={ALERT_RECEIPT_ID}
-            onBack={goBack}
-            onTakeAction={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving' })}
-          />
+          renderWithSubScope((subScope) => (
+            <ReceivingHistoryDetailScreen
+              scope={subScope}
+              can={warehouseCan}
+              receiptId={ALERT_RECEIPT_ID}
+              onBack={goBack}
+              onTakeAction={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving' })}
+            />
+          ))
         ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
           // The RMA screens live in the shared warehouse/returns-rma area (W4);
           // each old 'SubWarehouseXxx' key opens ReturnsFlow on the matching route.
-          <ReturnsFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={RETURNS_ROUTE_ENTRY[screen]}
-            initialParams={params}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
+          renderWithSubScope((subScope) => (
+            <ReturnsFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={RETURNS_ROUTE_ENTRY[screen]}
+              initialParams={params}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ))
         ) : STAFF_ROUTE_ENTRY[screen] !== undefined ? (
           // The staff & attendance screens live in the shared warehouse/staff-attendance
           // area (W4); each old key opens StaffFlow on the matching route.
-          <StaffFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
-            initialParams={staffParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onAssignDelivery={() => {
-              navigate('SubWarehouseAdminDashboard', {
-                showOrders: true,
-                initialTab: 'Home',
-                ordersInitialScreen: 'M5S02',
-                ordersInitialParams: { fulfillment: 'Delivery' },
-              });
-            }}
-          />
+          renderWithSubScope((subScope) => (
+            <StaffFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
+              initialParams={staffParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onAssignDelivery={() => {
+                navigate('SubWarehouseAdminDashboard', {
+                  showOrders: true,
+                  initialTab: 'Home',
+                  ordersInitialScreen: 'M5S02',
+                  ordersInitialParams: { fulfillment: 'Delivery' },
+                });
+              }}
+            />
+          ))
         ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
           // The storage-ops screens live in the shared warehouse/storage-ops area
           // (W4, M4 parts A and B); each old key opens StorageFlow on the matching route.
-          <StorageFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
-            initialParams={storageParams}
-            onBack={() =>
-              navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations', STORAGE_ROUTE_ENTRY[screen]?.backParams)
-            }
-            onOpenNotifications={() => navigate('SubWarehouseNotifications')}
-            onSupportRequestDone={() => navigate('SubWarehouseSettings')}
-            onOpenModule={openSubWarehouseModule}
-            onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
-            onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              // More from the hub itself returns to the dashboard's More tab, as the old hub did.
-              else if (tab === 'More')
-                navigate(screen === 'SubWarehouseWarehouseOperations' ? 'SubWarehouseAdminDashboard' : 'SubWarehouseWarehouseOperations', screen === 'SubWarehouseWarehouseOperations' ? { initialTab: 'More' } : {});
-            }}
-          />
+          renderWithSubScope((subScope) => (
+            <StorageFlow
+              scope={subScope}
+              can={warehouseCan}
+              initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
+              initialParams={storageParams}
+              onBack={() =>
+                navigate(STORAGE_ROUTE_ENTRY[screen]?.back ?? 'SubWarehouseWarehouseOperations', STORAGE_ROUTE_ENTRY[screen]?.backParams)
+              }
+              onOpenNotifications={() => navigate('SubWarehouseNotifications')}
+              onSupportRequestDone={() => navigate('SubWarehouseSettings')}
+              onOpenModule={openSubWarehouseModule}
+              onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
+              onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
+              onTabChange={(tab) => {
+                if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
+                else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
+                else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+                // More from the hub itself returns to the dashboard's More tab, as the old hub did.
+                else if (tab === 'More')
+                  navigate(screen === 'SubWarehouseWarehouseOperations' ? 'SubWarehouseAdminDashboard' : 'SubWarehouseWarehouseOperations', screen === 'SubWarehouseWarehouseOperations' ? { initialTab: 'More' } : {});
+              }}
+            />
+          ))
         ) : screen === 'SubWarehouseReports' ? (
-          <ReportsScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            canExport={warehouseCan('report.export.file')}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
+          renderWithSubScope((subScope) => (
+            <ReportsScreen
+              scope={subScope}
+              can={warehouseCan}
+              canExport={warehouseCan('report.export.file')}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ))
         ) : screen === 'WarehouseOverview' ? (
           // Main-only warehouse-admin flow (W4): overview -> city detail ->
           // settings / capacity / performance / documents, overview -> manage SWAs.
@@ -1802,12 +1861,14 @@ export default function App(): React.JSX.Element {
           // inventory flow and from a Sub transfer alert; the Sub entries pass
           // { transferScope: 'sub' } so the list shows only incoming transfers.
           // Initiate is refused by the flow without transfer.inter_warehouse.initiate.
-          <TransfersFlow
-            scope={params['transferScope'] === 'sub' ? SUB_WAREHOUSE_SCOPE : MAIN_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={screen === 'InitiateNewTransfer' ? 'InitiateNewTransfer' : 'Transfers'}
-            onBack={goBack}
-          />
+          renderWithScope(params['transferScope'] !== 'sub', (scope) => (
+            <TransfersFlow
+              scope={scope}
+              can={warehouseCan}
+              initialScreen={screen === 'InitiateNewTransfer' ? 'InitiateNewTransfer' : 'Transfers'}
+              onBack={goBack}
+            />
+          ))
         ) : screen === 'WarehouseSettings' ? (
           // Main-only warehouse settings now live in the shared profile-settings
           // area; ProfileFlow opens them for the Main scope (the screen is

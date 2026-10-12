@@ -14,6 +14,7 @@
  * None of this is authority. makeCan only decides what is worth rendering; the
  * server authorises every request on the caller's token (root CLAUDE.md 2.1).
  */
+import type { WarehouseScope } from '../screens/warehouse/finance-expenses/types';
 import { DEMO_ROLE_PERMISSIONS, type DemoWarehouseRole } from './demoGrants';
 
 /** Delays after the 1st, 2nd and 3rd failed /auth/me (ms). */
@@ -43,10 +44,108 @@ export function isDemoWarehouseRole(role: unknown): role is DemoWarehouseRole {
   return role === 'SUB_WH_ADMIN' || role === 'MAIN_WH_ADMIN';
 }
 
+/**
+ * One entry of GET /auth/me `roles[]`, structurally. Declared here rather than
+ * imported because roles/admin may not import roles/farmer (the farmer
+ * `UserRole` satisfies it), and the shared-types `CurrentUserRoleAssignment`
+ * does not allow the nulls the server sends for a role without a warehouse.
+ */
+export interface ScopeRoleAssignment {
+  code: string;
+  warehouseId?: string | null | undefined;
+  warehouseName?: string | null | undefined;
+}
+
+/** What the session loader returns: GET /auth/me `permissions` and `roles`. */
+export interface WarehouseSessionSnapshot {
+  permissions: readonly string[];
+  roles: readonly ScopeRoleAssignment[];
+}
+
+/**
+ * The Sub Warehouse Admin's own warehouse, from the SUB_WH_ADMIN assignment
+ * that names one (BR-30). Null when there is none: the account has no Sub
+ * role, or the assignment carries no warehouse. Fail closed: there is no demo
+ * or default warehouse here, unlike the dev permission fallback below, because
+ * a guessed warehouse would label (and later request) someone else's data.
+ */
+export function subWarehouseScopeFromRoles(
+  roles: readonly ScopeRoleAssignment[] | null | undefined,
+): WarehouseScope | null {
+  const assignment = (roles ?? []).find(
+    (r) => r.code === 'SUB_WH_ADMIN' && typeof r.warehouseId === 'string' && r.warehouseId !== '',
+  );
+  if (assignment === undefined || typeof assignment.warehouseId !== 'string') return null;
+  return typeof assignment.warehouseName === 'string' && assignment.warehouseName !== ''
+    ? { warehouseId: assignment.warehouseId, warehouseName: assignment.warehouseName }
+    : { warehouseId: assignment.warehouseId };
+}
+
 /** A fetched permission list, tagged with the session (App's sign-out counter) it was fetched in. */
 export interface SessionPermissions {
   sessionKey: unknown;
   list: readonly string[];
+  /**
+   * The Sub warehouse from the same /auth/me; null (or absent) when the
+   * account has none. Optional so a permissions-only record still type-checks;
+   * absent reads as "no warehouse" (fail closed), never as "still loading".
+   */
+  subScope?: WarehouseScope | null | undefined;
+}
+
+/**
+ * The Sub scope fetched in the current session: undefined while nothing has
+ * arrived (or what arrived belongs to a signed-out session), null when the
+ * account has no Sub warehouse. Same stale-session rule as
+ * permissionsForSession below.
+ */
+export function subScopeForSession(
+  fetched: SessionPermissions | undefined,
+  sessionKey: unknown,
+): WarehouseScope | null | undefined {
+  return fetched !== undefined && fetched.sessionKey === sessionKey ? (fetched.subScope ?? null) : undefined;
+}
+
+/**
+ * Result of GET /warehouses/{id} for the Sub scope: the human code
+ * (`Warehouse.code`, e.g. WH-COON), or null when the lookup failed.
+ */
+export interface WarehouseCodeLookup {
+  sessionKey: unknown;
+  warehouseId: string;
+  code: string | null;
+}
+
+/**
+ * The scope the Sub shell renders with: the /auth/me scope plus its warehouse
+ * code once the lookup for THIS warehouse in THIS session has settled. Waits
+ * (undefined) until then so screens still keyed on fixture codes do not flash
+ * empty; a failed lookup keeps the scope without a code rather than blocking.
+ */
+export function resolveSubScope(
+  scope: WarehouseScope | null | undefined,
+  lookup: WarehouseCodeLookup | undefined,
+  sessionKey: unknown,
+): WarehouseScope | null | undefined {
+  if (scope === undefined || scope === null) return scope;
+  if (lookup === undefined || lookup.sessionKey !== sessionKey || lookup.warehouseId !== scope.warehouseId) {
+    return undefined;
+  }
+  return lookup.code === null ? scope : { ...scope, warehouseCode: lookup.code };
+}
+
+/** What WarehouseScopeGate shows. */
+export type ScopeGateState = 'loading' | 'error' | 'ready';
+
+/**
+ * `failed` is true once every /auth/me attempt has failed. The dev permission
+ * fallback may still let `can` render in that case, but it never supplies a
+ * scope, so the gate shows the error (with Retry) instead.
+ */
+export function scopeGateState(scope: WarehouseScope | null | undefined, failed: boolean): ScopeGateState {
+  if (scope !== undefined && scope !== null) return 'ready';
+  if (scope === null || failed) return 'error';
+  return 'loading';
 }
 
 /**

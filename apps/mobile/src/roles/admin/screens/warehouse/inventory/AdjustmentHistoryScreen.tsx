@@ -72,7 +72,7 @@ export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments
 
   const filteredAdjustments = adjustments.filter((item) => {
     // Sub: only adjustments created in its own warehouse. Main sees all.
-    if (scope.warehouseId !== undefined && item.warehouseId !== undefined && item.warehouseId !== scope.warehouseId) {
+    if (scope.warehouseId !== undefined && item.warehouseId !== undefined && item.warehouseId !== (scope.warehouseCode ?? scope.warehouseId)) {
       return false;
     }
     if (activeTab === 'All') return true;

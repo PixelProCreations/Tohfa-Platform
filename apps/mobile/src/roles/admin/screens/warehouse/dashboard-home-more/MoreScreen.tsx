@@ -913,7 +913,7 @@ export function MoreScreen({
               <View style={styles.profileDivider} />
 
               <View style={styles.profileBottomRow}>
-                {!isMain && <Text style={styles.warehouseCodeText}>{scope.warehouseId}</Text>}
+                {!isMain && <Text style={styles.warehouseCodeText}>{scope.warehouseCode ?? scope.warehouseId}</Text>}
                 <View style={styles.activeStatusRow}>
                   <View style={styles.activeDot} />
                   <Text style={styles.activeStatusText}>Active</Text>

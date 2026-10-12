@@ -142,7 +142,7 @@ export function ReceivingHistoryDetailScreen({
   const canViewBatch = can(RECEIVING_CODES.batchView);
 
   const visible = (r: ReceivingRecord | undefined): ReceivingRecord | undefined =>
-    r !== undefined && (isMainScope(scope) || r.warehouseId === '' || r.warehouseId === scope.warehouseId) ? r : undefined;
+    r !== undefined && (isMainScope(scope) || r.warehouseId === '' || r.warehouseId === (scope.warehouseCode ?? scope.warehouseId)) ? r : undefined;
   const rec = visible(record ?? findReceivingRecord(receiptId, recordsInScope(scope, records)));
 
   const header = (

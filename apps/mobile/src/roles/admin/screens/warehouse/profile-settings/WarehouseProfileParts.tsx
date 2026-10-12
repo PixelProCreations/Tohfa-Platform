@@ -36,7 +36,7 @@ export function singleWarehouseId(
   selectedWarehouseId: string | undefined,
   options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
 ): string | undefined {
-  if (!isAllWarehouses(scope)) return scope.warehouseId;
+  if (!isAllWarehouses(scope)) return scope.warehouseCode ?? scope.warehouseId;
   return selectedWarehouseId ?? options[0]?.warehouseId;
 }
 
@@ -51,7 +51,7 @@ export function warehouseNameOf(
   warehouseId: string | undefined,
   options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
 ): string {
-  if (warehouseId !== undefined && warehouseId === scope.warehouseId && scope.warehouseName) return scope.warehouseName;
+  if (warehouseId !== undefined && warehouseId === (scope.warehouseCode ?? scope.warehouseId) && scope.warehouseName) return scope.warehouseName;
   const option = options.find((o) => o.warehouseId === warehouseId);
   return option?.warehouseName ?? warehouseId ?? '';
 }

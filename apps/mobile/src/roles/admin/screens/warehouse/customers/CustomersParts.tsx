@@ -39,7 +39,7 @@ export function isAllWarehouses(scope: WarehouseScope): boolean {
  * applies the real own-warehouse filter (customer.list.view SUB grant `own`).
  */
 export function inScope(scope: WarehouseScope, warehouseId: string | undefined): boolean {
-  return scope.warehouseId === undefined || warehouseId === undefined || warehouseId === scope.warehouseId;
+  return scope.warehouseId === undefined || warehouseId === undefined || warehouseId === (scope.warehouseCode ?? scope.warehouseId);
 }
 
 /**

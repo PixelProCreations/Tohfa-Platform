@@ -27,7 +27,7 @@ export function inWarehouse(
   picked: string | undefined,
   warehouseId: string | undefined,
 ): boolean {
-  const filter = scope.warehouseId ?? picked;
+  const filter = scope.warehouseCode ?? scope.warehouseId ?? picked;
   return filter === undefined || warehouseId === undefined || warehouseId === filter;
 }
 

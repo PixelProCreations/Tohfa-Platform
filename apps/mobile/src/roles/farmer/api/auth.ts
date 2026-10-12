@@ -32,8 +32,18 @@ import { saveTokens, clearTokens, getAccessToken as getStoredAccessToken } from 
 import { ADMIN_SHELL_ROLES, adminShellForRoles, type AdminShellRole } from '../utils/adminShell';
 import { clearCertificationsCache } from './farmer';
 
+/**
+ * One role assignment. GET /auth/me also resolves the warehouse and zone the
+ * role is held at (@tohfa/shared-types `CurrentUserRoleAssignment`); the login
+ * responses carry only the ids. All optional, and null is accepted because
+ * the server sends null for a role with no warehouse or zone.
+ */
 export interface UserRole {
   code: RoleCodeWithColor;
+  warehouseId?: string | null | undefined;
+  warehouseName?: string | null | undefined;
+  zoneId?: string | null | undefined;
+  zoneName?: string | null | undefined;
 }
 
 /**

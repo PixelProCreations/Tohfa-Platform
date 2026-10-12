@@ -82,7 +82,7 @@ export function SalesFlow({
   // The sale being built. A Main admin picks the warehouse on New Sale; a Sub
   // admin's sale is always its own warehouse.
   const [saleWarehouseId, setSaleWarehouseId] = useState<string | undefined>(
-    scope.warehouseId ?? SALE_WAREHOUSES[0]?.warehouseId,
+    scope.warehouseCode ?? scope.warehouseId ?? SALE_WAREHOUSES[0]?.warehouseId,
   );
   const [cart, setCart] = useState<SaleProduct[]>([]);
   const [customer, setCustomer] = useState<SaleCustomer | null>(null);

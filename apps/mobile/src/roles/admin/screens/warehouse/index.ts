@@ -6,6 +6,9 @@ export {
   type WarehouseAdminRouteParams,
 } from './warehouse-admin';
 
+// Holds the Sub warehouse screens until the admin's own warehouse (GET /auth/me, BR-30) is known.
+export { WarehouseScopeGate, type WarehouseScopeGateProps } from './WarehouseScopeGate';
+
 // Shared Main/Sub warehouse finance & expense screens (scope + can props).
 export {
   ExpenseCategoriesScreen,

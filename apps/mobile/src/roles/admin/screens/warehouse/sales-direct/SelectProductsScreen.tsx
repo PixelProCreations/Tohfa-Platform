@@ -193,7 +193,7 @@ export function SelectProductsScreen({
 }: SelectProductsScreenProps) {
   // Products are limited to the sale warehouse's stock (FINAL_LIST row 118).
   // Batches without a warehouseId are the (mock) stock of the viewer's own warehouse.
-  const stockWarehouse = saleWarehouseId ?? scope.warehouseId;
+  const stockWarehouse = saleWarehouseId ?? scope.warehouseCode ?? scope.warehouseId;
   const warehouseStock = useMemo(
     () => products.filter((p) => p.warehouseId === undefined || stockWarehouse === undefined || p.warehouseId === stockWarehouse),
     [products, stockWarehouse],

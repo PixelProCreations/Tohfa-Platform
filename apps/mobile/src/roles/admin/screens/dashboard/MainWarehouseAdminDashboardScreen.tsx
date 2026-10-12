@@ -842,10 +842,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
     enabled: true,
     adminRole: 'MAIN_WH_ADMIN',
     isDev: __DEV__,
-    loadPermissions: async () => {
+    loadSession: async () => {
       const me = await fetchMe();
       setUser(me);
-      return me.permissions ?? [];
+      return { permissions: me.permissions ?? [], roles: me.roles ?? [] };
     },
     hasCredentials: hasSessionCredentials,
   });
