@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
+import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
 import { deleteFarmAsset } from './api/farmAssets';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, hasSessionCredentials, logout } from './api/auth';
@@ -1269,7 +1270,12 @@ export default function App(): React.JSX.Element {
     screen.startsWith('MainWarehouse') ||
     Boolean(params && (params['adminRole'] === 'SUB_WH_ADMIN' || params['adminRole'] === 'MAIN_WH_ADMIN'));
 
+  // One TanStack Query cache per session: sessionEpoch changes on every
+  // sign-out, and the provider then drops the previous account's cache.
+  // CustomerMainApp mounts its own provider below; the nearest one wins.
+  // (Children left at their old indentation to keep this diff reviewable.)
   return (
+    <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaView style={[styles.screen, isAuthLanding && styles.screenSplash]}>
       <StatusBar
         barStyle="light-content"
@@ -3328,6 +3334,7 @@ export default function App(): React.JSX.Element {
         )}
       </View>
     </SafeAreaView>
+    </SessionQueryProvider>
   );
 }
 
