@@ -1,5 +1,5 @@
 /**
- * Generated from the _example reference module. See CLAUDE.md.
+ * Generated from the warehouses reference module. See CLAUDE.md.
  *
  * Notification-category preferences (BR-52). The caller only ever reads or
  * writes their OWN rows — the user id comes from the resolved scope, never

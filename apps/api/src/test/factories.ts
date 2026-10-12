@@ -20,7 +20,7 @@ loadDotenv({ path: join(REPO_ROOT, '.env') });
 import type { Actor } from '../auth/requireAuth.js';
 import type { RoleAssignment } from '../auth/jwt.js';
 import type { ResolvedScope } from '../rbac/requirePermission.js';
-import type { WarehouseResponse } from '../modules/_example/warehouses.schema.js';
+import type { WarehouseResponse } from '../modules/warehouses/warehouses.schema.js';
 
 /** Stable ids so assertions read well and failures are diffable. */
 export const IDS = {

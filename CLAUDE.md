@@ -94,7 +94,7 @@ scripts/                 rbac drift check, module scaffolder
 ## 4. How to add an API module
 
 **Do not improvise the structure.** Run the scaffolder, or copy
-`apps/api/src/modules/_example/` (the warehouses module), which exists solely as the pattern:
+`apps/api/src/modules/warehouses/` (the warehouses module), which exists solely as the pattern:
 
 ```bash
 pnpm exec tsx scripts/new-module.ts <module-name>

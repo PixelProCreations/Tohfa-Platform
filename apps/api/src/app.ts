@@ -22,7 +22,7 @@ import { errorHandler, notFoundHandler } from './http/errorHandler.js';
 import { rejectNulBytes } from './http/rejectNulBytes.js';
 import { logger, newTraceId, runWithContext } from './logger.js';
 import { healthRouter } from './modules/health/health.routes.js';
-import { warehousesRouter } from './modules/_example/warehouses.routes.js';
+import { warehousesRouter } from './modules/warehouses/warehouses.routes.js';
 import { subAdminsRouter, warehouseOpsRouter } from './modules/warehouse-ops/routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';
@@ -116,6 +116,9 @@ import {
   returnRequestsRouter,
 } from './modules/returnRequests/returnRequests.routes.js';
 import { reportsRouter } from './modules/reports/reports.routes.js';
+import { customersRouter } from './modules/customers/customers.routes.js';
+import { salesRouter } from './modules/sales/sales.routes.js';
+import { salesReadRouter } from './modules/sales-read/sales-read.routes.js';
 import {
   adminStaffAttendanceRouter,
   adminWarehouseStaffRouter,
@@ -165,6 +168,9 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/allocation-config', router: adminAllocationConfigRouter },
   { prefix: '/v1/admin', router: adminTopupRouter },
   { prefix: '/v1/admin/orders', router: adminFulfilmentRouter },
+  { prefix: '/v1/admin/customers', router: customersRouter },
+  { prefix: '/v1/admin/sales', router: salesRouter },
+  { prefix: '/v1/admin/sales', router: salesReadRouter },
   { prefix: '/v1/catalog', router: catalogRouter },
   { prefix: '/v1/wallets', router: walletsRouter },
   { prefix: '/v1/wallets', router: topupRouter },

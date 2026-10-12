@@ -62,7 +62,7 @@ one.
 ```
 apps/
   api/              Express 4 + TypeScript REST API. The reference codebase.
-    src/modules/_example/   COPY THIS for every new module.
+    src/modules/warehouses/   COPY THIS for every new module.
     src/rbac/               Permission resolution — read before touching auth.
   admin-web/        Angular 17 standalone admin console.
   mobile/           React Native 0.74, single app for farmer/customer/admin roles.
@@ -78,7 +78,7 @@ docs/
   rules.md          Business rules (fair price, counter-offers, allocation...).
 scripts/
   check-rbac-drift.ts   Fails CI when the DB disagrees with docs/rbac.json.
-  new-module.ts         Scaffolds a module from the _example pattern.
+  new-module.ts         Scaffolds a module from the warehouses pattern.
 ```
 
 ## Rules of the road
@@ -88,7 +88,7 @@ scripts/
 - Money is never a float. Use the `Money` helpers in `@tohfa/shared-types`.
 - Errors are RFC 9457 problem+json with a stable `code` from the `ErrorCode`
   union — clients switch on `code`, never on message text.
-- Every new API module copies `apps/api/src/modules/_example/` verbatim, then
+- Every new API module copies `apps/api/src/modules/warehouses/` verbatim, then
   renames. `pnpm new:module <name>` does that for you.
 
 ## Further reading

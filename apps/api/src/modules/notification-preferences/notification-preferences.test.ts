@@ -1,5 +1,5 @@
 /**
- * Two layers of test, per the _example reference module:
+ * Two layers of test, per the warehouses reference module:
  *
  *  1. SERVICE tests with a fake repo — where BR-52's preference semantics
  *     (sparse table, missing row = enabled, own-user only) are asserted.

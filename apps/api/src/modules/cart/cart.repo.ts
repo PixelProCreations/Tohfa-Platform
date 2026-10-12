@@ -1,5 +1,9 @@
 import type { Executor } from '../../db/pool.js';
+import { effectiveAvailableSql, shelfFreeSql } from '../../db/shelfAvailability.js';
 import type { ProduceGrade } from './cart.schema.js';
+
+/** BR-100: the ONLINE row's availability capped by the batch's unclaimed shelf. */
+const ONLINE_EFFECTIVE = effectiveAvailableSql('a', 'b');
 
 export interface CartRecord {
   id: string;
@@ -73,7 +77,7 @@ export interface CartRepo {
       grade: ProduceGrade;
       warehouseId?: string | null;
     },
-  ): Promise<{ totalAvailable: string; onlineAvailable: string }>;
+  ): Promise<{ totalAvailable: string; onlineAvailable: string; onlineAllocationAvailable: string }>;
 
   reserveAllocation(
     db: Executor,
@@ -211,6 +215,16 @@ export const cartRepo: CartRepo = {
   },
 
   async findAndLockOnlineAllocation(db, params) {
+    // BR-100: a cart may reserve only what is on the shelf. The candidate must cover the request
+    // with its EFFECTIVE availability (the ONLINE row capped by the batch's unclaimed shelf), not
+    // just its stored available_qty, because a DIRECT counter sale draws the batch without touching
+    // the allocation (BR-95). BR-12c is unchanged: only the ONLINE row is a candidate, never RESERVE.
+    //
+    // The batch row is locked as well as the allocation: a DIRECT/MARKET sale (sales.repo) and the
+    // stock ledger trigger lock the batch, so while we hold it neither the shelf nor its pending
+    // UPI holds can move under us. Lock order is allocation then batch, as at checkout
+    // (orders.repo); the sale path locks batch then the LIVE_MARKET row, a different row, so no
+    // cycle.
     const res = await db.query<AllocationRecord>(
       `SELECT a.id, a.batch_id, a.warehouse_id, a.allocated_qty::text,
               a.consumed_qty::text, a.reserved_qty::text, a.available_qty::text
@@ -222,9 +236,10 @@ export const cartRepo: CartRepo = {
           AND ($3::uuid IS NULL OR a.warehouse_id = $3)
           AND b.status = 'ACTIVE'
           AND a.available_qty >= $4::numeric
-        ORDER BY a.available_qty DESC, b.created_at ASC
+          AND ${ONLINE_EFFECTIVE} >= $4::numeric
+        ORDER BY ${ONLINE_EFFECTIVE} DESC, b.created_at ASC
         LIMIT 1
-        FOR UPDATE OF a`,
+        FOR UPDATE OF a, b`,
       [
         params.cropId,
         params.grade,
@@ -232,25 +247,60 @@ export const cartRepo: CartRepo = {
         params.requiredQty,
       ],
     );
-    return res.rows[0] ?? null;
+    const candidate = res.rows[0];
+    if (candidate === undefined) return null;
+
+    // Re-check under the locks, in a fresh statement. If the row was changed by a transaction we
+    // waited for, PostgreSQL re-evaluates the WHERE clause against the new allocation row but the
+    // shelf sub-selects keep the first statement's snapshot, so the figure above can be stale.
+    const recheck = await db.query<{ ok: boolean }>(
+      `SELECT ${ONLINE_EFFECTIVE} >= $2::numeric AS ok
+         FROM allocations a
+         JOIN inventory_batches b ON b.id = a.batch_id
+        WHERE a.id = $1 AND b.status = 'ACTIVE'`,
+      [candidate.id, params.requiredQty],
+    );
+    return recheck.rows[0]?.ok === true ? candidate : null;
   },
 
   async getAvailableStockBreakdown(db, params) {
-    const res = await db.query<{ totalAvailable: string; onlineAvailable: string }>(
-      `SELECT COALESCE(SUM(a.available_qty), 0)::text AS "totalAvailable",
-              COALESCE(SUM(CASE WHEN a.channel = 'ONLINE' THEN a.available_qty ELSE 0 END), 0)::text AS "onlineAvailable"
-         FROM allocations a
-         JOIN inventory_batches b ON b.id = a.batch_id
-        WHERE b.crop_id = $1
-          AND b.grade = $2
-          AND ($3::uuid IS NULL OR a.warehouse_id = $3)
-          AND b.status = 'ACTIVE'`,
+    // BR-100: both figures are capped per batch by the batch's unclaimed shelf. The total sums every
+    // channel of a batch first and caps that sum, so it can never exceed what is on the shelf even
+    // though four allocation rows share one batch. `onlineAllocationAvailable` is the stored ONLINE
+    // bucket figure, kept only to tell a BR-12c "above the Online bucket" refusal apart from a
+    // "not on the shelf" one.
+    const res = await db.query<{
+      totalAvailable: string;
+      onlineAvailable: string;
+      onlineAllocationAvailable: string;
+    }>(
+      `SELECT COALESCE(SUM(LEAST(per_batch.all_channels, per_batch.shelf_free)), 0)::numeric(14,3)::text
+                AS "totalAvailable",
+              COALESCE(SUM(LEAST(per_batch.online, per_batch.shelf_free)), 0)::numeric(14,3)::text
+                AS "onlineAvailable",
+              COALESCE(SUM(per_batch.online), 0)::numeric(14,3)::text
+                AS "onlineAllocationAvailable"
+         FROM (
+           SELECT ch.all_channels, ch.online, ${shelfFreeSql('b')} AS shelf_free
+             FROM inventory_batches b
+             JOIN LATERAL (
+               SELECT SUM(a.available_qty) AS all_channels,
+                      COALESCE(SUM(a.available_qty) FILTER (WHERE a.channel = 'ONLINE'), 0) AS online
+                 FROM allocations a
+                WHERE a.batch_id = b.id
+                  AND ($3::uuid IS NULL OR a.warehouse_id = $3)
+             ) ch ON ch.all_channels IS NOT NULL
+            WHERE b.crop_id = $1
+              AND b.grade = $2
+              AND b.status = 'ACTIVE'
+         ) per_batch`,
       [params.cropId, params.grade, params.warehouseId ?? null],
     );
     return (
       res.rows[0] ?? {
         totalAvailable: '0.000',
         onlineAvailable: '0.000',
+        onlineAllocationAvailable: '0.000',
       }
     );
   },

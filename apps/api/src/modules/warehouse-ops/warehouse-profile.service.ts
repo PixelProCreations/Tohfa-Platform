@@ -12,7 +12,7 @@ import type { Executor } from '../../db/pool.js';
 import { withTransaction } from '../../db/pool.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import type { WarehouseDetail } from '../_example/warehouses.schema.js';
+import type { WarehouseDetail } from '../warehouses/warehouses.schema.js';
 import { warehouseNotFound, requireReachableWarehouse } from './scope.js';
 import { warehouseProfileRepo, type ProfilePatch, type ProfileRow, type WarehouseProfileRepo } from './warehouse-profile.repo.js';
 import type { UpdateWarehouseProfileBody } from './warehouse-profile.schema.js';
