@@ -86,7 +86,7 @@ export function SalesFlow({
   );
   const [cart, setCart] = useState<SaleProduct[]>([]);
   const [customer, setCustomer] = useState<SaleCustomer | null>(null);
-  const [total, setTotal] = useState(320);
+  const [total, setTotal] = useState(0);
   const [itemsCount, setItemsCount] = useState(2);
   const [method, setMethod] = useState<SalePaymentMethod>('Cash');
 
@@ -170,8 +170,8 @@ export function SalesFlow({
           saleWarehouseId={saleWarehouse.warehouseId}
           onContinue={(items) => {
             setCart(items);
-            const sum = items.reduce((acc, it) => acc + (it.pricePerKg * (it.selectedQty ?? 1)), 0);
-            setTotal(sum || 320);
+            // Sale Summary computes the total from the cart (and lets the cashier edit
+            // quantities) and hands it on; Payment is reached from there.
             navigate('SaleSummary');
           }}
         />

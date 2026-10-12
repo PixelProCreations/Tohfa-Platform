@@ -14,6 +14,8 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { SalePaymentMethod, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
+import { formatPaise, rupeesNumberToPaise } from '../../../money/paise';
+import { evaluatePayment } from './salesMath';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -144,13 +146,18 @@ export function PaymentScreen({
   // Card State
   const [cardStatus] = useState<'Processing' | 'Approved'>('Processing');
 
-  // Wallet State
-  const balanceAfter = Math.max(0, walletBalance - amountDue);
-
-  const numericReceived = parseFloat(receivedAmount);
-  const changeAmount = isNaN(numericReceived) ? 180 : Math.max(0, numericReceived - amountDue);
+  // All comparisons in integer paise (CLAUDE.md 2.2). BR-17: a wallet shortfall
+  // disables confirm; cash needs a valid received amount covering the due.
+  const amountDuePaise = rupeesNumberToPaise(amountDue);
+  const { canConfirm, shortfallPaise, balanceAfterPaise, changePaise } = evaluatePayment({
+    method: selectedMethod,
+    amountDuePaise,
+    walletBalancePaise: rupeesNumberToPaise(walletBalance),
+    receivedInput: receivedAmount,
+  });
 
   const handleConfirm = () => {
+    if (!canConfirm) return;
     if (showConfirmPopup) {
       handleFinalConfirm();
     } else {
@@ -159,6 +166,11 @@ export function PaymentScreen({
   };
 
   const handleFinalConfirm = () => {
+    // The inline popup stays open while the amount can still be edited; re-check.
+    if (!canConfirm) {
+      setShowConfirmPopup(false);
+      return;
+    }
     setShowConfirmPopup(false);
     onPaymentConfirmed(selectedMethod);
   };
@@ -309,7 +321,7 @@ export function PaymentScreen({
 
             <View style={styles.changeCard}>
               <Text style={styles.changeLabel}>Change</Text>
-              <Text style={styles.changeValue}>₹{changeAmount}</Text>
+              <Text style={styles.changeValue}>{formatPaise(changePaise)}</Text>
             </View>
 
             {/* Payment Summary */}
@@ -408,7 +420,7 @@ export function PaymentScreen({
               <View style={styles.walletRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.detailLabel}>Wallet Available</Text>
-                  <Text style={styles.detailValue}>₹{walletBalance.toLocaleString()}</Text>
+                  <Text style={styles.detailValue}>{formatPaise(rupeesNumberToPaise(walletBalance))}</Text>
                 </View>
 
                 <View style={{ flex: 1, paddingLeft: 12 }}>
@@ -420,9 +432,17 @@ export function PaymentScreen({
               <View style={[styles.walletRow, { marginTop: 14 }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.detailLabel}>Balance After Payment</Text>
-                  <Text style={styles.detailValue}>₹{balanceAfter.toLocaleString()}</Text>
+                  <Text style={styles.detailValue}>{formatPaise(balanceAfterPaise)}</Text>
                 </View>
               </View>
+              {shortfallPaise > 0 ? (
+                <View style={[styles.walletRow, { marginTop: 14 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.detailLabel}>Shortfall: top up the wallet first</Text>
+                    <Text style={styles.detailValue}>{formatPaise(shortfallPaise)}</Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
           </View>
         )}
@@ -433,8 +453,10 @@ export function PaymentScreen({
       {/* ─── Bottom Action Button ─── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.confirmBtn}
+          style={[styles.confirmBtn, !canConfirm && styles.confirmBtnDisabled]}
           onPress={handleConfirm}
+          disabled={!canConfirm}
+          accessibilityState={{ disabled: !canConfirm }}
           activeOpacity={0.85}
         >
           <CashIcon size={20} color={adminColors.onBrand} />
@@ -653,6 +675,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
+  },
+  confirmBtnDisabled: {
+    opacity: 0.5,
   },
   confirmBtnText: {
     color: adminColors.onBrand,

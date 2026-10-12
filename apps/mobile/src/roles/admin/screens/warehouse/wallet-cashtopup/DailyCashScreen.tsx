@@ -25,6 +25,8 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { formatPaise } from '../../../money/paise';
+import { expectedClosingPaise, reconcileCash } from './cashMath';
 import { CASH_LEDGER, SAMPLE_DATE, WALLET_WAREHOUSES, warehouseNameOf } from './fixtures';
 import type { CashLedgerEntry, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
@@ -56,7 +58,13 @@ const OPENING_CASH = 15000;
 const DIRECT_SALES = 8500;
 const CASH_TOP_UPS = 5000;
 const EXPENSES = 6420;
-const EXPECTED_CLOSING = OPENING_CASH + DIRECT_SALES + CASH_TOP_UPS - EXPENSES;
+// Fixtures are whole rupees; converted to paise once here and kept as integers.
+const EXPECTED_CLOSING_PAISE = expectedClosingPaise({
+  openingRupees: OPENING_CASH,
+  directSalesRupees: DIRECT_SALES,
+  cashTopUpsRupees: CASH_TOP_UPS,
+  expensesRupees: EXPENSES,
+});
 
 type Breakdown = 'Cash In' | 'Cash Out';
 const BREAKDOWNS: readonly Breakdown[] = ['Cash In', 'Cash Out'];
@@ -85,8 +93,8 @@ export function DailyCashScreen({
     );
   }
 
-  const parsedActual = Number(actualCash.replace(/[^0-9]/g, '')) || 0;
-  const difference = parsedActual - EXPECTED_CLOSING;
+  // Typed value is decimal rupees ("21,980.50"); difference is computed in integer paise.
+  const { differencePaise: difference } = reconcileCash(actualCash, EXPECTED_CLOSING_PAISE);
   const rows = entries.filter((e) => e.type === breakdown && inScope(scope, e.warehouseId, selectedWarehouseId));
   const headerLabel = isAllWarehouses(scope)
     ? undefined
@@ -96,7 +104,7 @@ export function DailyCashScreen({
     // No rbac code covers reconciliation (SPEC_GAPS W4i-3); the server must own it.
     Alert.alert(
       'Reconciliation Submitted',
-      `Daily Cash Reconciliation for ${date} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatRupees(Math.abs(difference))}`,
+      `Daily Cash Reconciliation for ${date} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatPaise(Math.abs(difference))}`,
       [{ text: 'OK', onPress: onBack }],
     );
   };
@@ -143,12 +151,12 @@ export function DailyCashScreen({
         <SectionTitle>Closing Balance</SectionTitle>
         <Card>
           <Text style={styles.cardLabel}>Expected Closing Cash</Text>
-          <Text style={styles.cardBigValue}>{formatRupees(EXPECTED_CLOSING)}</Text>
+          <Text style={styles.cardBigValue}>{formatPaise(EXPECTED_CLOSING_PAISE)}</Text>
         </Card>
 
         <SectionTitle>Cash Reconciliation</SectionTitle>
         <Card>
-          <AmountRow label="Expected Cash" value={formatRupees(EXPECTED_CLOSING)} />
+          <AmountRow label="Expected Cash" value={formatPaise(EXPECTED_CLOSING_PAISE)} />
           <View style={styles.actualInputWrap}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput
@@ -163,7 +171,7 @@ export function DailyCashScreen({
           </View>
           <AmountRow
             label="Difference"
-            value={`${difference < 0 ? '-' : '+'}${formatRupees(Math.abs(difference))}`}
+            value={`${difference < 0 ? '-' : '+'}${formatPaise(Math.abs(difference))}`}
             emphasis={difference < 0 ? 'debit' : 'credit'}
           />
         </Card>
