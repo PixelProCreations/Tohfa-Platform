@@ -7,52 +7,43 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  StatusBar,
+  Platform,
 } from 'react-native';
-import { adminColors, adminShadow, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { SWAHeader } from '../../swa/components';
+import Svg, { Path } from 'react-native-svg';
 
 export type VarianceReviewScreenProps = InventoryScreenBaseProps;
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
-function DownArrowGreyIcon() {
+function BackArrowIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 4v16M5 13l7 7 7-7" stroke={adminColors.muted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function WarningTriangleIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke={adminColors.warning.text}
-        strokeWidth="2"
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M12 9v4M12 17h.01" stroke={adminColors.warning.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function InfoCircleBlueIcon() {
+function DownArrowGreyIcon() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 4v16M5 13l7 7 7-7" stroke="#71717A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function ListEditLinesIcon() {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 6h12M3 12h12M3 18h8M17 14l4 4M21 14l-4 4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6h11M4 12h8M4 18h8" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 15.5l4-4 2 2-4 4-2.5.5.5-2.5z" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -61,13 +52,30 @@ export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: V
   // rbac: inventory.stock_adjustment.create MAIN=all, SUB=own.
   const canCreateAdjustment = can('inventory.stock_adjustment.create');
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <SWAHeader
-          title="Variance Review"
-          onBack={onBack}
-        />
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
 
+      {/* Top SafeArea for Header */}
+      <SafeAreaView style={styles.topSafeArea}>
+        <View style={styles.header}>
+          <View style={styles.headerTitleRow}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={onBack}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Back"
+              >
+                <BackArrowIcon size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle} numberOfLines={1}>Variance Review</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+
+      <View style={styles.body}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Product Information - 2x2 Grid */}
           <View style={styles.productCard}>
@@ -82,7 +90,7 @@ export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: V
               </View>
             </View>
 
-            <View style={[styles.twoColRow, { marginTop: 12 }]}>
+            <View style={[styles.twoColRow, { marginTop: 14 }]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Batch</Text>
                 <Text style={styles.colValue}>BAT-2026-00124</Text>
@@ -114,64 +122,76 @@ export function VarianceReviewScreen({ can, onNavigate, onBack, routeParams }: V
             <Text style={styles.flowVarianceLabel}>VARIANCE</Text>
           </View>
 
-          {/* Variance Warning Box */}
-          <View style={styles.varianceWarningBox}>
-            <WarningTriangleIcon />
-            <Text style={styles.varianceWarningText}>
-              Variance Detected — this quantity cannot be corrected by editing the balance directly.
-            </Text>
-          </View>
-
-          {/* Blue Info Notice Box */}
-          <View style={styles.blueNoticeBox}>
-            <InfoCircleBlueIcon />
-            <Text style={styles.blueNoticeText}>
-              The physical count never overwrites system quantity. Continuing creates a Stock Adjustment Request, which goes through review before any ledger movement is posted.
-            </Text>
-          </View>
-
           {/* Bottom Spacing */}
-          <View style={{ height: 28 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
         {/* Fixed Continue Button at Bottom (only with stock_adjustment.create) */}
         {canCreateAdjustment ? (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.continueBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M3S13', routeParams ?? undefined)}
-          >
-            <ListEditLinesIcon />
-            <Text style={styles.continueBtnText}>Continue to Adjustment Request</Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView style={styles.bottomSafeArea}>
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={styles.continueBtn}
+              activeOpacity={0.85}
+              onPress={() => onNavigate?.('M3S13', routeParams ?? undefined)}
+            >
+              <ListEditLinesIcon />
+              <Text style={styles.continueBtnText}>Continue to Adjustment Request</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
         ) : null}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     flex: 1,
-    backgroundColor: adminColors.brand,
+    backgroundColor: '#F0562A',
   },
-  container: {
+  topSafeArea: {
+    backgroundColor: '#F0562A',
+  },
+  header: {
+    backgroundColor: '#F0562A',
+    paddingTop: Platform.OS === 'android' ? 14 : 10,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'Poppins',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  body: {
     flex: 1,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: '#FAF7F2',
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
   },
   productCard: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
+    borderColor: '#EAE6DF',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     marginBottom: 14,
   },
   twoColRow: {
@@ -182,99 +202,81 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colLabel: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginBottom: 2,
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4E5D56',
+    marginBottom: 3,
   },
   colValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
   },
   flowCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 22,
+    borderColor: '#EAE6DF',
+    paddingVertical: 28,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 14,
   },
   flowNumber: {
-    ...adminType.title,
-    color: adminColors.ink,
+    fontFamily: 'Poppins',
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 4,
   },
   flowLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    letterSpacing: 0.5,
-    marginTop: 2,
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#5C6B62',
+    letterSpacing: 0.8,
   },
   arrowWrap: {
-    marginVertical: 10,
+    marginVertical: 12,
   },
   flowVarianceNumber: {
-    ...adminType.title,
-    color: adminColors.danger.text,
+    fontFamily: 'Poppins',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#EF4444',
+    marginBottom: 4,
   },
   flowVarianceLabel: {
-    ...adminType.caption,
-    color: adminColors.danger.text,
-    letterSpacing: 0.5,
-    marginTop: 2,
+    fontFamily: 'Poppins',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#EF4444',
+    letterSpacing: 0.8,
   },
-  varianceWarningBox: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  varianceWarningText: {
-    ...adminType.rowTitle,
-    flex: 1,
-    color: adminColors.brandDeep,
-    lineHeight: 18,
-  },
-  blueNoticeBox: {
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.info.bg,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 16,
-  },
-  blueNoticeText: {
-    ...adminType.body,
-    flex: 1,
-    color: adminColors.info.text,
-    lineHeight: 18,
+  bottomSafeArea: {
+    backgroundColor: '#FAF7F2',
   },
   bottomBar: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: Platform.OS === 'android' ? 16 : 12,
     paddingTop: 8,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: '#FAF7F2',
   },
   continueBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: 14,
-    height: 50,
+    backgroundColor: '#F0562A',
+    borderRadius: 16,
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    ...adminShadow.sm,
   },
   continueBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.onBrand,
+    fontFamily: 'Poppins',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -66,7 +66,11 @@ export function NotificationsScreen({
 
   const openItem = (item: NotificationItem) => {
     if (!item.isRead) onMarkAsRead(item.id);
-    onSelectNotification(item);
+    if (item.category === 'quality' || item.title === 'QC Required' || item.target === 'ReviewReceiving') {
+      onOpenTarget?.(item.target ?? 'ReviewReceiving', item);
+    } else {
+      onSelectNotification(item);
+    }
   };
 
   return (

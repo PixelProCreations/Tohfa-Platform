@@ -7,7 +7,7 @@
  * (CLAUDE.md 2.1).
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
@@ -108,7 +108,7 @@ export function StepperHeader({ labels, current }: StepperHeaderProps) {
               </View>
               <Text
                 style={[partStyles.stepLabel, isDone && partStyles.stepLabelDone, isCurrent && partStyles.stepLabelCurrent]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {label}
               </Text>
@@ -224,9 +224,9 @@ export function AlertCircleOutlineIcon({ color = adminColors.brand, size = 20 }:
   );
 }
 
-export function EyeIcon({ color = adminColors.warning.text }: { color?: string }) {
+export function EyeIcon({ color = adminColors.warning.text, size = 18 }: { color?: string; size?: number }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
         stroke={color}
@@ -596,7 +596,7 @@ const partStyles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     paddingVertical: 18,
-    paddingHorizontal: adminSpacing.sm,
+    paddingHorizontal: 4,
     marginBottom: adminSpacing.lg,
     ...adminShadow.sm,
   },
@@ -659,6 +659,8 @@ const partStyles = StyleSheet.create({
   },
   stepLabel: {
     ...adminType.rowMeta,
+    fontSize: 8,
+    lineHeight: 10,
     fontWeight: '500',
     color: adminColors.muted,
     textAlign: 'center',
@@ -699,5 +701,719 @@ const partStyles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '600',
     color: adminColors.brandDeep,
+  },
+});
+
+// ─── Goods Receipt Summary & Sub-Screens ────────────────────────────────────
+
+export const RECEIPT_PALETTE = {
+  primary: '#F0562A',
+  btnOrange: '#E07026',
+  headerBg: '#F0562A',
+  headerText: '#FFFFFF',
+  orangeDeep: '#7A2E14',
+  noticeBgOrange: '#FDF3F0',
+  noticeBorderOrange: '#F7CFC4',
+  pageBg: '#F3EFE9',
+  textInk: '#1A1A1A',
+  textSecondary: '#5F5E5A',
+  border: '#EEDCD3',
+  borderRow: '#F2ECE5',
+  cardBg: '#FFFFFF',
+};
+
+export function ArrowBackIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function FileTextIcon({ size = 18, color = RECEIPT_PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function HistoryIcon({ size = 18, color = RECEIPT_PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export interface GoodsReceiptSummaryScreenProps {
+  grnId?: string;
+  shipmentId?: string;
+  source?: string;
+  destination?: string;
+  date?: string;
+  expectedQty?: string;
+  receivedQty?: string;
+  acceptedQty?: string;
+  rejectedQty?: string;
+  onBack?: () => void;
+  onAssignBatch?: () => void;
+  onViewPreview?: () => void;
+  onViewDetail?: () => void;
+  onViewActivity?: () => void;
+}
+
+export function GoodsReceiptSummaryScreen({
+  grnId = 'GRN-000842',
+  shipmentId = 'SHP-000124',
+  source = 'Farmer Admin',
+  destination = 'Coonoor',
+  date = '25 Sep 2026',
+  expectedQty = '500 KG',
+  receivedQty = '480 KG',
+  acceptedQty = '445 KG',
+  rejectedQty = '55 KG',
+  onBack,
+  onAssignBatch,
+  onViewPreview,
+  onViewDetail,
+  onViewActivity,
+}: GoodsReceiptSummaryScreenProps) {
+  return (
+    <View style={receiptStyles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={RECEIPT_PALETTE.primary} />
+      <View style={receiptStyles.header}>
+        <View style={receiptStyles.headerRow}>
+          <TouchableOpacity style={receiptStyles.backBtn} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Back">
+            <ArrowBackIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={receiptStyles.headerTitle}>Goods Receipt Summary</Text>
+        </View>
+        <Text style={receiptStyles.headerSubtitle}>{grnId}</Text>
+      </View>
+
+      <ScrollView style={receiptStyles.scroll} contentContainerStyle={receiptStyles.scrollPad} showsVerticalScrollIndicator={false}>
+        {/* 1. Shipment Section */}
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Shipment</Text>
+        </View>
+        <View style={receiptStyles.infoCard}>
+          <View style={receiptStyles.gridRow}>
+            <View style={receiptStyles.gridCol}>
+              <Text style={receiptStyles.gridLabel}>Shipment ID</Text>
+              <Text style={receiptStyles.gridValue}>{shipmentId}</Text>
+            </View>
+            <View style={receiptStyles.gridCol}>
+              <Text style={receiptStyles.gridLabel}>Source</Text>
+              <Text style={receiptStyles.gridValue}>{source}</Text>
+            </View>
+          </View>
+          <View style={[receiptStyles.gridRow, { marginBottom: 0 }]}>
+            <View style={receiptStyles.gridCol}>
+              <Text style={receiptStyles.gridLabel}>Destination</Text>
+              <Text style={receiptStyles.gridValue}>{destination}</Text>
+            </View>
+            <View style={receiptStyles.gridCol}>
+              <Text style={receiptStyles.gridLabel}>Date</Text>
+              <Text style={receiptStyles.gridValue}>{date}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 2. Quantity Section */}
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Quantity</Text>
+        </View>
+        <View style={receiptStyles.listCard}>
+          <View style={receiptStyles.listRow}>
+            <Text style={receiptStyles.listLabel}>Expected</Text>
+            <Text style={receiptStyles.listValue}>{expectedQty}</Text>
+          </View>
+          <View style={receiptStyles.listRow}>
+            <Text style={receiptStyles.listLabel}>Received</Text>
+            <Text style={receiptStyles.listValue}>{receivedQty}</Text>
+          </View>
+          <View style={receiptStyles.listRow}>
+            <Text style={receiptStyles.listLabel}>Accepted</Text>
+            <Text style={receiptStyles.listValue}>{acceptedQty}</Text>
+          </View>
+          <View style={[receiptStyles.listRow, { borderBottomWidth: 0 }]}>
+            <Text style={receiptStyles.listLabel}>Rejected</Text>
+            <Text style={receiptStyles.listValue}>{rejectedQty}</Text>
+          </View>
+        </View>
+
+        {/* 3. Decision Section */}
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Decision</Text>
+        </View>
+        <View style={receiptStyles.decisionCard}>
+          <Text style={receiptStyles.decisionValue}>PARTIAL ACCEPT</Text>
+        </View>
+
+        {/* 4. Next Steps Section */}
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Next Steps</Text>
+        </View>
+        <TouchableOpacity style={receiptStyles.nextStepCard} onPress={onAssignBatch} activeOpacity={0.8}>
+          <Text style={receiptStyles.nextStepTitle}>Assign Batch →</Text>
+        </TouchableOpacity>
+
+        <View style={receiptStyles.actionGridRow}>
+          <TouchableOpacity
+            style={receiptStyles.actionGridCard}
+            activeOpacity={0.8}
+            onPress={onViewPreview || onAssignBatch}
+          >
+            <EyeIcon size={18} color={RECEIPT_PALETTE.primary} />
+            <Text style={receiptStyles.actionGridLabel}>Preview</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={receiptStyles.actionGridCard}
+            activeOpacity={0.8}
+            onPress={onViewDetail || onAssignBatch}
+          >
+            <FileTextIcon size={18} color={RECEIPT_PALETTE.primary} />
+            <Text style={receiptStyles.actionGridLabel}>Full Detail</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={receiptStyles.actionGridCard}
+            activeOpacity={0.8}
+            onPress={onViewActivity || onAssignBatch}
+          >
+            <HistoryIcon size={18} color={RECEIPT_PALETTE.primary} />
+            <Text style={receiptStyles.actionGridLabel}>Activity</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 5. Receipt Reference */}
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Reference</Text>
+        </View>
+        <TouchableOpacity
+          style={receiptStyles.referenceCard}
+          onPress={() => Alert.alert('Receipt Reference', `${grnId} for Shipment ${shipmentId} is recorded in warehouse ledger.`)}
+          activeOpacity={0.8}
+        >
+          <Text style={receiptStyles.referenceText}>{grnId}</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      <View style={receiptStyles.bottomBar}>
+        <TouchableOpacity style={receiptStyles.actionBtn} onPress={onAssignBatch} activeOpacity={0.8}>
+          <QrCodeIcon size={20} color="#FFFFFF" />
+          <Text style={receiptStyles.actionBtnText}>Assign Batch</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export interface ReceiptPreviewScreenProps {
+  grnId?: string;
+  onBack?: () => void;
+  onAssignBatch?: () => void;
+  actionLabel?: string;
+}
+
+export function ReceiptPreviewScreen({
+  grnId = 'GRN-000842',
+  onBack,
+  onAssignBatch,
+  actionLabel,
+}: ReceiptPreviewScreenProps) {
+  return (
+    <View style={receiptStyles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={RECEIPT_PALETTE.primary} />
+      <View style={receiptStyles.header}>
+        <View style={receiptStyles.headerRow}>
+          <TouchableOpacity style={receiptStyles.backBtn} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Back">
+            <ArrowBackIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={receiptStyles.headerTitle}>Receipt Preview</Text>
+        </View>
+        <Text style={receiptStyles.headerSubtitle}>{grnId}</Text>
+      </View>
+
+      <ScrollView style={receiptStyles.scroll} contentContainerStyle={receiptStyles.scrollPad} showsVerticalScrollIndicator={false}>
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Preview</Text>
+        </View>
+        <View style={receiptStyles.previewNoteCard}>
+          <Text style={receiptStyles.previewNoteLabel}>Goods Receipt Note</Text>
+          <Text style={receiptStyles.previewNoteCode}>{grnId}</Text>
+        </View>
+        <View style={receiptStyles.previewNoticeCard}>
+          <Text style={receiptStyles.previewNoticeText}>Printable/view-only representation — not editable from here.</Text>
+        </View>
+
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Reference</Text>
+        </View>
+        <View style={receiptStyles.referenceCard}>
+          <Text style={receiptStyles.referenceText}>{grnId}</Text>
+        </View>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      <View style={receiptStyles.bottomBar}>
+        <TouchableOpacity style={receiptStyles.actionBtn} onPress={onAssignBatch} activeOpacity={0.8}>
+          <QrCodeIcon size={20} color="#FFFFFF" />
+          <Text style={receiptStyles.actionBtnText}>{actionLabel ?? 'Assign Batch'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export interface ReceiptDetailScreenProps {
+  grnId?: string;
+  onBack?: () => void;
+  onAssignBatch?: () => void;
+  actionLabel?: string;
+}
+
+export function ReceiptDetailScreen({
+  grnId = 'GRN-000842',
+  onBack,
+  onAssignBatch,
+  actionLabel,
+}: ReceiptDetailScreenProps) {
+  return (
+    <View style={receiptStyles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={RECEIPT_PALETTE.primary} />
+      <View style={receiptStyles.header}>
+        <View style={receiptStyles.headerRow}>
+          <TouchableOpacity style={receiptStyles.backBtn} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Back">
+            <ArrowBackIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={receiptStyles.headerTitle}>Receipt Detail</Text>
+        </View>
+        <Text style={receiptStyles.headerSubtitle}>{grnId}</Text>
+      </View>
+
+      <ScrollView style={receiptStyles.scroll} contentContainerStyle={receiptStyles.scrollPad} showsVerticalScrollIndicator={false}>
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Detail</Text>
+        </View>
+        <View style={receiptStyles.detailTextCard}>
+          <Text style={receiptStyles.detailParagraph}>
+            Complete finalized receipt — every field above (Shipment, Quantity, Quality, Grade & Product, Decision) merged into one read-only record referenced as {grnId}.
+          </Text>
+        </View>
+
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Reference</Text>
+        </View>
+        <View style={receiptStyles.referenceCard}>
+          <Text style={receiptStyles.referenceText}>{grnId}</Text>
+        </View>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      <View style={receiptStyles.bottomBar}>
+        <TouchableOpacity style={receiptStyles.actionBtn} onPress={onAssignBatch} activeOpacity={0.8}>
+          <QrCodeIcon size={20} color="#FFFFFF" />
+          <Text style={receiptStyles.actionBtnText}>{actionLabel ?? 'Assign Batch'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export interface ReceiptActivityScreenProps {
+  grnId?: string;
+  onBack?: () => void;
+  onAssignBatch?: () => void;
+  actionLabel?: string;
+}
+
+export function ReceiptActivityScreen({
+  grnId = 'GRN-000842',
+  onBack,
+  onAssignBatch,
+  actionLabel,
+}: ReceiptActivityScreenProps) {
+  return (
+    <View style={receiptStyles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={RECEIPT_PALETTE.primary} />
+      <View style={receiptStyles.header}>
+        <View style={receiptStyles.headerRow}>
+          <TouchableOpacity style={receiptStyles.backBtn} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Back">
+            <ArrowBackIcon size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={receiptStyles.headerTitle}>Receipt Activity</Text>
+        </View>
+        <Text style={receiptStyles.headerSubtitle}>{grnId}</Text>
+      </View>
+
+      <ScrollView style={receiptStyles.scroll} contentContainerStyle={receiptStyles.scrollPad} showsVerticalScrollIndicator={false}>
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Activity</Text>
+        </View>
+        <View style={receiptStyles.activityCard}>
+          <View style={receiptStyles.activityRow}>
+            <Text style={receiptStyles.activityTitle}>Quantity Verified</Text>
+            <Text style={receiptStyles.activityTime}>10:15 AM</Text>
+          </View>
+          <View style={receiptStyles.activityDashedDivider} />
+          <View style={receiptStyles.activityRow}>
+            <Text style={receiptStyles.activityTitle}>Quality Checked</Text>
+            <Text style={receiptStyles.activityTime}>10:22 AM</Text>
+          </View>
+          <View style={receiptStyles.activityDashedDivider} />
+          <View style={receiptStyles.activityRow}>
+            <Text style={receiptStyles.activityTitle}>Decision: Partial Accept</Text>
+            <Text style={receiptStyles.activityTime}>10:30 AM</Text>
+          </View>
+        </View>
+
+        <View style={receiptStyles.sectionHeaderRow}>
+          <Text style={receiptStyles.sectionTitle}>Receipt Reference</Text>
+        </View>
+        <View style={receiptStyles.referenceCard}>
+          <Text style={receiptStyles.referenceText}>{grnId}</Text>
+        </View>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      <View style={receiptStyles.bottomBar}>
+        <TouchableOpacity style={receiptStyles.actionBtn} onPress={onAssignBatch} activeOpacity={0.8}>
+          <QrCodeIcon size={20} color="#FFFFFF" />
+          <Text style={receiptStyles.actionBtnText}>{actionLabel ?? 'Assign Batch'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export const receiptStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: RECEIPT_PALETTE.pageBg,
+  },
+  header: {
+    backgroundColor: RECEIPT_PALETTE.headerBg,
+    paddingTop: Platform.OS === 'ios' ? 8 : 10,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 3,
+  },
+  backBtn: {
+    padding: 2,
+    marginRight: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginTop: 2,
+    paddingLeft: 2,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: RECEIPT_PALETTE.pageBg,
+  },
+  scrollPad: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  sectionHeaderRow: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: RECEIPT_PALETTE.orangeDeep,
+    letterSpacing: -0.2,
+  },
+  infoCard: {
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    padding: 18,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  gridCol: {
+    flex: 1,
+  },
+  gridLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: RECEIPT_PALETTE.textSecondary,
+    marginBottom: 5,
+  },
+  gridValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: RECEIPT_PALETTE.textInk,
+  },
+  listCard: {
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    paddingHorizontal: 18,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: RECEIPT_PALETTE.borderRow,
+  },
+  listLabel: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: RECEIPT_PALETTE.textInk,
+  },
+  listValue: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: RECEIPT_PALETTE.textInk,
+  },
+  decisionCard: {
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  decisionValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#B86B14',
+    letterSpacing: 0.5,
+  },
+  nextStepCard: {
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  nextStepTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: RECEIPT_PALETTE.textInk,
+  },
+  actionGridRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  actionGridCard: {
+    flex: 1,
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  actionGridLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: RECEIPT_PALETTE.textInk,
+  },
+  referenceCard: {
+    backgroundColor: RECEIPT_PALETTE.noticeBgOrange,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.noticeBorderOrange,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  referenceText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: RECEIPT_PALETTE.orangeDeep,
+    letterSpacing: 1,
+  },
+  previewNoteCard: {
+    backgroundColor: RECEIPT_PALETTE.noticeBgOrange,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.noticeBorderOrange,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  previewNoteLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: RECEIPT_PALETTE.orangeDeep,
+    marginBottom: 4,
+  },
+  previewNoteCode: {
+    fontSize: 16.5,
+    fontWeight: '900',
+    color: RECEIPT_PALETTE.orangeDeep,
+    letterSpacing: 0.5,
+  },
+  previewNoticeCard: {
+    backgroundColor: RECEIPT_PALETTE.noticeBgOrange,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.noticeBorderOrange,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  previewNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: RECEIPT_PALETTE.orangeDeep,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  detailTextCard: {
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    padding: 18,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  detailParagraph: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: RECEIPT_PALETTE.textInk,
+    lineHeight: 21,
+  },
+  activityCard: {
+    backgroundColor: RECEIPT_PALETTE.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: RECEIPT_PALETTE.border,
+    paddingHorizontal: 18,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  activityTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: RECEIPT_PALETTE.textInk,
+  },
+  activityTime: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: RECEIPT_PALETTE.textSecondary,
+  },
+  activityDashedDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#D9D3C7',
+    borderStyle: 'dashed',
+  },
+  bottomBar: {
+    backgroundColor: RECEIPT_PALETTE.pageBg,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
+  },
+  actionBtn: {
+    backgroundColor: RECEIPT_PALETTE.btnOrange,
+    borderRadius: 15,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: RECEIPT_PALETTE.btnOrange,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  actionBtnText: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });
