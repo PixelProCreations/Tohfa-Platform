@@ -17,9 +17,11 @@ import { useEffect, useRef, useState } from 'react';
 import {
   nextPermissionRetryDelay,
   permissionAttemptsExhausted,
+  permissionsForSession,
   resolveWarehousePermissions,
   type PermissionFailure,
   type ResolvedWarehousePermissions,
+  type SessionPermissions,
 } from './warehousePermissions';
 
 export interface UseWarehousePermissionsOptions {
@@ -33,11 +35,18 @@ export interface UseWarehousePermissionsOptions {
   loadPermissions: () => Promise<readonly string[]>;
   /** True when a token exists to authenticate /auth/me with. */
   hasCredentials: () => Promise<boolean>;
+  /**
+   * Changes on every sign-out. A list fetched under an older key is dropped and
+   * fetched again, so one admin's permissions never render for the next.
+   * Callers that unmount on sign-out (the Main shell) can leave it out.
+   */
+  sessionKey?: unknown;
 }
 
 export function useWarehousePermissions(options: UseWarehousePermissionsOptions): ResolvedWarehousePermissions {
-  const { enabled, adminRole, isDev } = options;
-  const [fetched, setFetched] = useState<readonly string[] | undefined>(undefined);
+  const { enabled, adminRole, isDev, sessionKey } = options;
+  const [fetchedForSession, setFetchedForSession] = useState<SessionPermissions | undefined>(undefined);
+  const fetched = permissionsForSession(fetchedForSession, sessionKey);
   const [failures, setFailures] = useState(0);
   const failuresRef = useRef(0);
   // Callers pass inline functions; keep the latest without restarting the loop.
@@ -45,6 +54,12 @@ export function useWarehousePermissions(options: UseWarehousePermissionsOptions)
   const credentialsRef = useRef(options.hasCredentials);
   loadRef.current = options.loadPermissions;
   credentialsRef.current = options.hasCredentials;
+
+  // A new session starts its retry count (and the dev fallback) from zero.
+  useEffect(() => {
+    failuresRef.current = 0;
+    setFailures(0);
+  }, [sessionKey]);
 
   useEffect(() => {
     if (!enabled || fetched !== undefined) return undefined;
@@ -56,7 +71,7 @@ export function useWarehousePermissions(options: UseWarehousePermissionsOptions)
       try {
         if (await credentialsRef.current()) {
           const list = await loadRef.current();
-          if (!cancelled) setFetched(list);
+          if (!cancelled) setFetchedForSession({ sessionKey, list });
           return;
         }
         reason = 'no-credentials';
@@ -76,7 +91,7 @@ export function useWarehousePermissions(options: UseWarehousePermissionsOptions)
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
     };
-  }, [enabled, fetched]);
+  }, [enabled, fetched, sessionKey]);
 
   return resolveWarehousePermissions({
     fetched,

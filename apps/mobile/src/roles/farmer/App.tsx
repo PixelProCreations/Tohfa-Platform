@@ -6,11 +6,13 @@ import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, hasSessionCredentials, logout } from './api/auth';
 import { useWarehousePermissions } from '../admin/permissions/useWarehousePermissions';
 import {
+  authFailureTarget,
   emptyHistoryBackTarget,
-  keepsScreenOnAuthFailure,
   resetsHistoryOn,
   shouldLoadWarehousePermissions,
 } from './utils/navigationSession';
+import { adminShellForRole } from './utils/adminShell';
+import { endSession } from './utils/signOut';
 import { Icon } from '@tohfa/mobile-ui';
 import { LOCALES, setLocale, t, type Locale } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
@@ -828,6 +830,11 @@ export default function App(): React.JSX.Element {
   // routes reached from the Sub shell do not all carry it, so remember it for
   // the dev-only demo fallback in useWarehousePermissions.
   const [lastAdminRole, setLastAdminRole] = useState<string | undefined>(undefined);
+  // Bumped on every sign-out and every dead session (failed refresh). App never
+  // unmounts, so state keyed to the signed-in account (the warehouse permission
+  // list below, lastAdminRole) must be dropped explicitly or the next admin to
+  // sign in on this device would render with the previous one's.
+  const [sessionEpoch, setSessionEpoch] = useState(0);
   useEffect(() => {
     const role = params['adminRole'];
     if (typeof role === 'string') setLastAdminRole(role);
@@ -847,6 +854,7 @@ export default function App(): React.JSX.Element {
     isDev: __DEV__,
     loadPermissions: async () => (await fetchMe()).permissions ?? [],
     hasCredentials: hasSessionCredentials,
+    sessionKey: sessionEpoch,
   }).permissions;
   const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
   // Params for a BillingFlow entry, memoised so the flow does not restart its
@@ -1052,6 +1060,28 @@ export default function App(): React.JSX.Element {
   );
 
   /**
+   * Every admin and warehouse sign-out. Revokes the server session and clears
+   * the Keychain tokens (api/auth `logout`), drops the account's cached state,
+   * then leaves for `target`. If the server call fails (offline) the tokens are
+   * still cleared and the user still leaves; see utils/signOut.ts. Navigating
+   * alone, as these used to, kept the session alive and a cold start
+   * (SplashScreen) restored the previous admin.
+   */
+  const signOutTo = useCallback(
+    (target: 'Login' | 'Welcome') => {
+      void endSession({
+        revoke: logout,
+        forget: () => {
+          setLastAdminRole(undefined);
+          setSessionEpoch((n) => n + 1);
+        },
+        leave: () => navigate(target),
+      });
+    },
+    [navigate],
+  );
+
+  /**
    * Sub warehouse modules outside storage-ops that own an activity record or a
    * Today metric tile (StorageFlow onOpenModule). Same targets the old Today's
    * Operations / Recent Activity / Warehouse Activity handlers used.
@@ -1162,16 +1192,15 @@ export default function App(): React.JSX.Element {
     // used to hardcode internally (it imported ./storage/tokenStorage directly).
     configureTokenStorage(tokenStorage);
     setOnAuthFailure(() => {
+      // The client has already cleared the tokens; drop the account's cached
+      // state too. Admin and warehouse routes go to Login, everything else to
+      // Welcome (utils/navigationSession.ts).
+      setLastAdminRole(undefined);
+      setSessionEpoch((n) => n + 1);
+      setParams({});
       setScreen((prev) => {
-        // Admin dashboards and every warehouse-admin route stay put: a 401 on
-        // the /auth/me permission fetch a Sub More destination fires on mount
-        // used to bounce the admin to Welcome (the Login page). See
-        // utils/navigationSession.ts.
-        if (keepsScreenOnAuthFailure(prev)) {
-          return prev;
-        }
         setHistory([]);
-        return 'Welcome';
+        return authFailureTarget(prev);
       });
     });
     return () => {
@@ -1186,6 +1215,11 @@ export default function App(): React.JSX.Element {
 
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
+
+  // The admin shell AdminMain renders, from the role the server returned at
+  // sign-in. null (unknown or missing) renders no admin shell: AdminMain falls
+  // through to the 'Unsupported' branch below instead of the Super Admin one.
+  const adminShell = adminShellForRole(params['adminRole']);
 
   const isSubWarehouse =
     screen.startsWith('SubWarehouse') ||
@@ -1247,27 +1281,27 @@ export default function App(): React.JSX.Element {
             applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
             onNavigate={(s) => navigate(s)}
           />
-        ) : screen === 'AdminMain' ? (
-          params['adminRole'] === 'TOHFA_ADMIN' ? (
+        ) : screen === 'AdminMain' && adminShell !== null ? (
+          adminShell === 'TOHFA_ADMIN' ? (
             <TohfaAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : params['adminRole'] === 'FARMER_ADMIN' ? (
+          ) : adminShell === 'FARMER_ADMIN' ? (
             <FarmerAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : params['adminRole'] === 'MAIN_WH_ADMIN' ? (
+          ) : adminShell === 'MAIN_WH_ADMIN' ? (
             <MainWarehouseAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : params['adminRole'] === 'SUB_WH_ADMIN' ? (
+          ) : adminShell === 'SUB_WH_ADMIN' ? (
             <SubWarehouseAdminDashboardScreen
               scope={SUB_WAREHOUSE_SCOPE}
               can={warehouseCan}
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
               initialTab={params['initialTab'] as any}
@@ -1278,36 +1312,38 @@ export default function App(): React.JSX.Element {
               initialOrdersParams={params['ordersInitialParams'] as any}
             />
           ) : (
+            // adminShell is 'SUPER_ADMIN' here: null never reaches this branch.
             <SuperAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           )
         ) : screen === 'SuperAdminDashboard' ? (
           <SuperAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'TohfaAdminDashboard' ? (
           <TohfaAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            initialTab={params['initialTab'] === 'Profile' ? 'Profile' : undefined}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'FarmerAdminDashboard' ? (
           <FarmerAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'MainWarehouseAdminDashboard' ? (
           <MainWarehouseAdminDashboardScreen
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
         ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' || screen === 'SubWarehouseRecentActivity' ? (
           // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
           params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN' ? (
             <MainWarehouseAdminDashboardScreen
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           ) : (
@@ -1321,7 +1357,7 @@ export default function App(): React.JSX.Element {
               initialOrdersScreen={params?.ordersInitialScreen as any}
             initialOrdersParams={params?.ordersInitialParams as any}
             initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
-              onSignOut={() => navigate('Welcome')}
+              onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s, p) => navigate(s as ScreenName, p)}
               onBack={goBack}
             />
@@ -1461,7 +1497,7 @@ export default function App(): React.JSX.Element {
             can={warehouseCan}
             initialScreen={PROFILE_ROUTE_ENTRY[screen]}
             onBack={goBack}
-            onLogout={() => navigate('Login')}
+            onLogout={() => signOutTo('Login')}
             onReportIssue={() => navigate('SubWarehouseReportIssue')}
             onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
             onTabChange={openWarehouseTab}
@@ -1491,7 +1527,7 @@ export default function App(): React.JSX.Element {
             onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
             onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
             onNavigateToSettings={() => navigate('SubWarehouseSettings')}
-            onLogout={() => navigate('Login')}
+            onLogout={() => signOutTo('Login')}
           />
         ) : CUSTOMERS_ROUTE_ENTRY[screen] !== undefined ? (
           // The customer screens live in the shared warehouse/customers area (W4);
@@ -1966,7 +2002,9 @@ export default function App(): React.JSX.Element {
               } else if (tab === 'Reports') {
                 navigate('ReportBuilder');
               } else if (tab === 'Profile') {
-                navigate('Welcome');
+                // Same as the Profile tab on the other admin shells: the
+                // dashboard's Profile tab (AdminProfileScreen, which owns sign-out).
+                navigate('TohfaAdminDashboard', { initialTab: 'Profile' });
               }
             }}
             onSelectFarmer={(f) => {
@@ -2181,8 +2219,11 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'CustomerMain' ? (
-          <CustomerMainApp onSignOut={() => navigate('Welcome')} />
-        ) : screen === 'Unsupported' ? (
+          <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
+        ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
+          // 'AdminMain' reaches here only when adminShell is null (an unknown or
+          // missing role): fail closed with the unsupported-account message and
+          // its sign-out, never an admin shell.
           <View style={styles.unsupportedContainer}>
             <Icon name="block" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
             <Text style={styles.unsupportedText}>{t('farmer.app.unsupportedRole')}</Text>
@@ -2199,12 +2240,7 @@ export default function App(): React.JSX.Element {
                   elevation: 2,
                 },
               ]}
-              onPress={() => {
-                void (async () => {
-                  await logout();
-                  navigate('Welcome');
-                })();
-              }}
+              onPress={() => signOutTo('Welcome')}
             >
               <Text style={{ color: colors.white, fontWeight: '700', fontSize: typography.body }}>
                 Sign Out & Return to Login
@@ -2910,7 +2946,7 @@ export default function App(): React.JSX.Element {
             onNavigateToChangePassword={() => navigate('ChangePassword')}
             onNavigateToChangeMobile={() => navigate('ChangeMobile')}
             onNavigateToAboutSupport={() => navigate('AboutSupport')}
-            onSignOut={() => navigate('Welcome')}
+            onSignOut={() => signOutTo('Welcome')}
           />
         ) : (
           /* MainTabs layout */

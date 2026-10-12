@@ -17,12 +17,12 @@ import {
   loginWithOAuth,
   isOAuthNotLinked,
   requestOtp,
-  resolveRouteAfterAuth,
+  resolveRouteAfterLogin,
   fetchMe,
   isRoleSelectionRequired,
   type OAuthProviderCode,
-  type AdminRoleCode,
 } from '../../api/auth';
+import { preferredRoleForSelection } from '../../utils/adminShell';
 import { ApiError } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
@@ -179,7 +179,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       }
 
       const me = await fetchMe();
-      const route = resolveRouteAfterAuth(me);
+      const route = resolveRouteAfterLogin(outcome, me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
       if (err instanceof SocialSignInCancelledError) {
@@ -203,66 +203,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
 
     const cMobile = cleanMobile();
 
-    // Direct role mappings for demo accounts
-    if (cMobile.endsWith('9800000001') || cMobile.endsWith('11223')) {
-      loginWithPassword({ mobile: cMobile, password, roleCode: 'SUPER_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'SUPER_ADMIN' });
-      return;
-    }
-    if (cMobile.endsWith('9800000002') || cMobile.endsWith('22334')) {
-      loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'TOHFA_ADMIN' });
-      return;
-    }
-    if (cMobile.endsWith('9800000003') || cMobile.endsWith('33445')) {
-      loginWithPassword({ mobile: cMobile, password, roleCode: 'FARMER_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'FARMER_ADMIN' });
-      return;
-    }
-    if (cMobile.endsWith('9800000004') || cMobile.endsWith('44556')) {
-      loginWithPassword({ mobile: cMobile, password, roleCode: 'TOHFA_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'TOHFA_ADMIN' });
-      return;
-    }
-    if (
-      cMobile.endsWith('9800000005') ||
-      cMobile.endsWith('55667') ||
-      cMobile.toLowerCase().includes('main') ||
-      cMobile.toLowerCase().includes('ooty') ||
-      cMobile.endsWith('0005')
-    ) {
-      loginWithPassword({ mobile: cMobile, password, roleCode: 'MAIN_WH_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'MAIN_WH_ADMIN' });
-      return;
-    }
-    if (
-      cMobile.endsWith('9800000006') ||
-      cMobile.endsWith('66778') ||
-      cMobile.toLowerCase().includes('sub') ||
-      cMobile.toLowerCase().includes('coonoor') ||
-      cMobile.endsWith('0006')
-    ) {
-      loginWithPassword({ mobile: cMobile, password, roleCode: 'SUB_WH_ADMIN' }).catch(() => {});
-      setLoading(false);
-      onNavigate('AdminMain', { adminRole: 'SUB_WH_ADMIN' });
-      return;
-    }
-
     try {
       let outcome = await loginWithPassword({ mobile: cMobile, password });
 
-      // An account with more than one role and no pinned roleCode:
-      // Prefer primary admin role if present, otherwise default to first available role.
+      // An account with more than one role and no pinned roleCode: complete the
+      // login with its admin role if it has one, otherwise its first role (no
+      // role picker exists; see preferredRoleForSelection).
       if (isRoleSelectionRequired(outcome)) {
-        const adminRole = outcome.availableRoles.find((r) =>
-          ['MAIN_WH_ADMIN', 'SUB_WH_ADMIN', 'SUPER_ADMIN', 'TOHFA_ADMIN', 'FARMER_ADMIN'].includes(r.code)
-        )?.code;
-        const chosenRole = adminRole || outcome.availableRoles[0]?.code;
+        const chosenRole = preferredRoleForSelection(outcome.availableRoles);
         if (!chosenRole) {
           setErrorMsg(t('error.generic'));
           return;
@@ -275,8 +223,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         return;
       }
 
+      // The shell comes from the role the server issued this session for. An
+      // unrecognised role opens no admin shell ('Unsupported').
       const me = await fetchMe();
-      const route = resolveRouteAfterAuth(me);
+      const route = resolveRouteAfterLogin(outcome, me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
       console.warn('[LoginScreen] Login error:', err);
