@@ -113,7 +113,7 @@ export const ErrorCode = {
   PAYMENT_AMOUNT_INSUFFICIENT: 'PAYMENT_AMOUNT_INSUFFICIENT',
   /** HORECA/B2B sale creation is not available in Track 1 — HTTP 501 (BR-13, BR-85). */
   SALE_CHANNEL_NOT_SUPPORTED: 'SALE_CHANNEL_NOT_SUPPORTED',
-  /** A DIRECT/MARKET counter sale is bound to the warehouse that made it and cannot be reassigned (BR-85f). HTTP 409. */
+  /** A DIRECT/MARKET counter sale is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409. */
   COUNTER_SALE_NOT_REASSIGNABLE: 'COUNTER_SALE_NOT_REASSIGNABLE',
 } as const;
 

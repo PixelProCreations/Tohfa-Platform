@@ -1994,6 +1994,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-85g` `payment.record` is checked in the service: a caller with `sales.sale.create` but not `payment.record` is refused 403 before any write.
 - `BR-85h` `GET /sales/horeca` and `GET /sales/b2b` are read-only: no mutating verb exists for them (405/404), and their responses obey BR-90.
 - `BR-85i` (derived, review of 2026-10-12) A DIRECT or MARKET counter sale stays at the warehouse that made it: `POST /admin/orders/{id}/assign-warehouse` on one (in particular a UPI sale still `PENDING_PAYMENT`, whose items already name that warehouse's batches) is 409 `COUNTER_SALE_NOT_REASSIGNABLE` and writes nothing.
+- `BR-85j` (derived, review of 2026-10-13) `POST /admin/orders/{id}/assign-warehouse` decides on the order row locked with `SELECT ... FOR UPDATE` inside its transaction (existence, scope, channel and status are all checked on that locked row). A pack or cancel that commits while the reassign waits makes it 409 `INVALID_STATE_TRANSITION`, and the order keeps its status and warehouse. An order-status update (`updateOrderStatus`, used by assign-warehouse, pack, dispatch and verify-otp) that matches no row appends no `order_status_history` row and is 409 `CONFLICT`, rolling back the audit row.
 
 ---
 

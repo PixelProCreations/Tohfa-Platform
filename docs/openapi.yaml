@@ -9839,8 +9839,11 @@ paths:
         any of the four warehouses (BR-27). A Sub Warehouse Admin cannot assign orders to its
         own warehouse. A DIRECT or MARKET counter sale (including a UPI sale still
         `PENDING_PAYMENT`) stays at the warehouse that made it: 409 `COUNTER_SALE_NOT_REASSIGNABLE`
-        (BR-85f); any other order outside `CONFIRMED` / `PENDING_PAYMENT` is 409
-        `INVALID_STATE_TRANSITION`.
+        (BR-85i); any other order outside `CONFIRMED` / `PENDING_PAYMENT` is 409
+        `INVALID_STATE_TRANSITION`. These checks are made on the order row locked inside the
+        reassign transaction (BR-85j), so a pack or cancel that commits first makes the reassign
+        409 `INVALID_STATE_TRANSITION`; an update that changes no row is 409 `CONFLICT`. Either
+        way nothing is written (no history row, no audit row).
       x-permission: order.warehouse.assign
       x-business-rules: [BR-21, BR-27, BR-85]
       parameters:
@@ -14086,7 +14089,7 @@ components:
         * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
         * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
-        * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85f). HTTP 409.
+        * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
       required: [type, title, status, code]
       properties:
         type:

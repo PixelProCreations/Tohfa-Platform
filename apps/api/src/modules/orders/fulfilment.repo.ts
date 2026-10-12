@@ -190,6 +190,21 @@ export interface FulfilmentRepo {
     warehouseId: string;
   } | null>;
 
+  /**
+   * BR-85j: the order row locked with SELECT ... FOR UPDATE, for a caller that must decide on the
+   * row's CURRENT status/channel/warehouse inside its own transaction (a concurrent pack or cancel
+   * then waits, or is waited for, instead of interleaving). Null when the order does not exist.
+   */
+  lockOrderForUpdate(
+    db: Executor,
+    orderId: string,
+  ): Promise<{ id: string; status: OrderStatus; channel: SalesChannel; warehouseId: string } | null>;
+
+  /**
+   * Conditional on `fromStatus`. Returns the number of order rows updated (0 or 1). On 0 nothing is
+   * appended to order_status_history: an append-only ledger must not record a change that did not
+   * happen. The caller decides what 0 means (BR-85j: a 409 that rolls the transaction back).
+   */
   updateOrderStatus(
     db: Executor,
     params: {
@@ -205,7 +220,7 @@ export interface FulfilmentRepo {
       otpVerifiedBy?: string;
       cancellationReason?: string;
     },
-  ): Promise<void>;
+  ): Promise<number>;
 
   incrementOtpAttempts(db: Executor, orderId: string): Promise<number>;
 
@@ -416,9 +431,22 @@ export const fulfilmentRepo: FulfilmentRepo = {
     };
   },
 
+  async lockOrderForUpdate(db, orderId) {
+    const res = await db.query<{ id: string; status: OrderStatus; channel: SalesChannel; warehouse_id: string }>(
+      `SELECT id, status, channel, warehouse_id
+         FROM orders
+        WHERE id = $1
+          FOR UPDATE`,
+      [orderId],
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return { id: row.id, status: row.status, channel: row.channel, warehouseId: row.warehouse_id };
+  },
+
   async updateOrderStatus(db, params) {
     // 1. Update orders table
-    await db.query(
+    const updated = await db.query(
       `UPDATE orders
           SET status = $1,
               warehouse_id = COALESCE($2, warehouse_id),
@@ -441,8 +469,10 @@ export const fulfilmentRepo: FulfilmentRepo = {
         params.fromStatus,
       ],
     );
+    const rowCount = updated.rowCount ?? 0;
+    if (rowCount === 0) return 0;
 
-    // 2. Append to order_status_history
+    // 2. Append to order_status_history (only for a change that actually happened)
     await db.query(
       `INSERT INTO order_status_history (
          order_id, from_status, to_status, changed_by, note, created_at
@@ -456,6 +486,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
         params.note ?? null,
       ],
     );
+    return rowCount;
   },
 
   async incrementOtpAttempts(db, orderId) {
