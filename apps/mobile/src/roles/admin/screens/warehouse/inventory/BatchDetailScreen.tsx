@@ -1,304 +1,300 @@
 // Design id: M3S05
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
 export type BatchDetailScreenProps = InventoryScreenBaseProps;
 
-function StoragePinIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function LedgerIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 21s-7-4.5-7-11a7 7 0 1 1 14 0c0 6.5-7 11-7 11z"
+        d="M5 20V5.5L7.5 3.5 10 5.5l2-2 2 2 2-2 3 2V20H5z"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="12" cy="10" r="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M8 9h8M8 13h8M8 16.5h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function AllocationPieIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function VerifyIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20z" stroke={color} strokeWidth="2" />
-      <Path d="M12 2v20" stroke={color} strokeWidth="2" />
-      <Path d="M12 12h10" stroke={color} strokeWidth="2" />
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
+      <Path d="M7.5 10l2 2 3.5-3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 15h10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function GoodsReceiptIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: BatchDetailScreenProps) {
+  const warehouse = (scope.warehouseName ?? String(routeParams?.warehouseName ?? 'Coonoor')).replace(' Warehouse', '');
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 3.5l2 1.5 2-1.5 2 1.5 2-1.5 2 1.5 2-1.5 2 1.5V20.5H6V3.5z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Fixed Header */}
+      <SWAHeader
+        title="BAT-2026-00124"
+        subtitle="Tomato · Grade 1"
+        onBack={onBack}
+        badge={
+          <View style={styles.activeBadge}>
+            <Text style={styles.activeBadgeText}>Active</Text>
+          </View>
+        }
       />
-      <Path d="M9.5 9h5M9.5 13h5M9.5 17h3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
-function TraceabilityHistoryIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 12a9 9 0 1 0 2.64-6.36L3 8"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M3 3v5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
+      <ScrollView 
+        style={styles.body} 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+      >
 
-export function BatchDetailScreen({ onBack }: BatchDetailScreenProps) {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <SWAHeader
-          title="Batch BT-000128"
-          subtitle="Tomato · Grade 1 · Ooty"
-          onBack={onBack}
-          colors={['#F0562A', '#F0562A']}
-        />
-
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Summary Card */}
+        {/* ── Batch Information ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Batch Information</Text>
           <View style={styles.card}>
-            <View style={styles.metricRow}>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Original</Text>
-                <Text style={styles.metricValue}>120 KG</Text>
-              </View>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Available</Text>
-                <Text style={styles.metricValue}>85 KG</Text>
-              </View>
-            </View>
-
-            <View style={[styles.metricRow, { marginTop: 14 }]}>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Reserved</Text>
-                <Text style={styles.metricValue}>15 KG</Text>
-              </View>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Allocated</Text>
-                <Text style={styles.metricValue}>15 KG</Text>
-              </View>
-            </View>
-
-            <View style={[styles.metricRow, { marginTop: 14 }]}>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Consumed</Text>
-                <Text style={styles.metricValue}>5 KG</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Notice Card */}
-          <View style={styles.noticeCard}>
-            <Text style={styles.noticeText}>
-              Source Farmer ID is internal traceability only — never exposed in customer-facing inventory views (farm-anonymous presentation).
-            </Text>
-          </View>
-
-          {/* Movement Timeline */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Movement Timeline</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.timelineRow}>
-                <Text style={styles.timelineItemText}>Goods Receipt</Text>
-              </View>
-              <View style={styles.dashedDivider} />
-
-              <View style={styles.timelineRow}>
-                <Text style={styles.timelineItemText}>Batch Created</Text>
-              </View>
-              <View style={styles.dashedDivider} />
-
-              <View style={styles.timelineRow}>
-                <Text style={styles.timelineItemText}>Allocation</Text>
-              </View>
-              <View style={styles.dashedDivider} />
-
-              <View style={styles.timelineRow}>
-                <Text style={styles.timelineItemText}>Reservation</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 2x2 Grid Action Cards */}
-          <View style={styles.gridContainer}>
             <View style={styles.gridRow}>
-              <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
-                <StoragePinIcon size={26} color="#F0562A" />
-                <Text style={styles.actionCardLabel}>Storage</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
-                <AllocationPieIcon size={26} color="#F0562A" />
-                <Text style={styles.actionCardLabel}>Allocation</Text>
-              </TouchableOpacity>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Batch Code</Text>
+                <Text style={styles.fieldValue}>BAT-2026-00124</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Product</Text>
+                <Text style={styles.fieldValue}>Tomato</Text>
+              </View>
             </View>
-
             <View style={styles.gridRow}>
-              <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
-                <GoodsReceiptIcon size={26} color="#F0562A" />
-                <Text style={styles.actionCardLabel}>Goods Receipt</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionCard} activeOpacity={0.7}>
-                <TraceabilityHistoryIcon size={26} color="#F0562A" />
-                <Text style={styles.actionCardLabel}>Traceability</Text>
-              </TouchableOpacity>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Grade</Text>
+                <Text style={styles.fieldValue}>Grade 1</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Warehouse</Text>
+                <Text style={styles.fieldValue}>{warehouse}</Text>
+              </View>
+            </View>
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Storage Location</Text>
+                <Text style={styles.fieldValue}>Cold Storage · A03</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Received Quantity</Text>
+                <Text style={styles.fieldValue}>100 KG</Text>
+              </View>
+            </View>
+            <View style={[styles.gridRow, { marginBottom: 0 }]}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Available Quantity</Text>
+                <Text style={styles.fieldValue}>95 KG</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Received Date</Text>
+                <Text style={styles.fieldValue}>24 Sep 2026</Text>
+              </View>
             </View>
           </View>
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+        </View>
+
+        {/* ── Traceability ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Traceability</Text>
+            <Text style={styles.sectionMuted}>Internal only</Text>
+          </View>
+          <View style={styles.card}>
+            <View style={[styles.gridRow, { marginBottom: 0 }]}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Goods Receipt</Text>
+                <Text style={styles.fieldValue}>GR-1024</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Source Farmer</Text>
+                <Text style={styles.fieldValue}>Internal reference</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Stock Movement Summary ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
+          <View style={styles.movementRow}>
+            <View style={styles.movementCard}>
+              <Text style={styles.movementValue}>100 KG</Text>
+              <Text style={styles.movementLabel}>RECEIVED</Text>
+            </View>
+            <View style={styles.movementCard}>
+              <Text style={styles.movementValue}>20 KG</Text>
+              <Text style={styles.movementLabel}>DISPATCHED</Text>
+            </View>
+            <View style={styles.movementCard}>
+              <Text style={styles.movementValue}>10 KG</Text>
+              <Text style={styles.movementLabel}>RESERVED</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Actions ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Actions</Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S06'))}
+            activeOpacity={0.7}
+          >
+            <LedgerIcon />
+            <Text style={styles.actionBtnText}>View Stock Ledger</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { marginBottom: 0 }]}
+            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S10'))}
+            activeOpacity={0.7}
+          >
+            <VerifyIcon />
+            <Text style={styles.actionBtnText}>Verify Stock</Text>
+          </TouchableOpacity>
+        </View>
+
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
-  container: {
+  body: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 36,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#EAE6DF',
-    padding: 16,
-    overflow: 'hidden',
-  },
-  metricRow: {
-    flexDirection: 'row',
-  },
-  metricCol: {
-    flex: 1,
-  },
-  metricLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  metricValue: {
-    fontFamily: 'Poppins',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  noticeCard: {
-    backgroundColor: '#FFF5EB',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-  noticeText: {
-    fontFamily: 'Poppins',
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#9A3412',
-    lineHeight: 18,
-  },
+
+  // Sections
   section: {
-    marginTop: 20,
+    marginBottom: 16,
   },
-  sectionHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontFamily: 'Poppins',
     fontSize: 15,
     fontWeight: '700',
-    color: '#52290D',
+    color: adminColors.ink,
+    marginBottom: 8,
   },
-  viewLink: {
-    fontFamily: 'Poppins',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F0562A',
+  sectionMuted: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: adminColors.muted,
   },
-  timelineRow: {
-    paddingVertical: 10,
-  },
-  timelineItemText: {
-    fontFamily: 'Poppins',
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  dashedDivider: {
-    height: 1,
-    borderWidth: 0.8,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-  },
-  gridContainer: {
-    marginTop: 18,
-    gap: 12,
+
+  // Card
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   gridRow: {
     flexDirection: 'row',
-    gap: 12,
+    marginBottom: 12,
   },
-  actionCard: {
+  gridCol: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: adminColors.muted,
+    letterSpacing: 0.2,
+    marginBottom: 3,
+  },
+  fieldValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+
+  // Movement cards
+  movementRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  movementCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EAE6DF',
-    paddingVertical: 22,
+    borderColor: adminColors.border,
+  },
+  movementValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 4,
+  },
+  movementLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: adminColors.muted,
+    letterSpacing: 0.5,
+  },
+
+  // Action buttons
+  actionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    backgroundColor: adminColors.card,
+    height: 48,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    gap: 8,
   },
-  actionCardLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 13.5,
+  actionBtnText: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: adminColors.brandDeep,
+  },
+
+  // Active badge — white pill with border matching reference
+  activeBadge: {
+    backgroundColor: adminColors.card,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: adminColors.onBrand,
+  },
+  activeBadgeText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: adminColors.success.text,
   },
 });

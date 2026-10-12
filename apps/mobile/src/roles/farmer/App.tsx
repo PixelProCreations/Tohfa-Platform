@@ -1376,7 +1376,7 @@ export default function App(): React.JSX.Element {
           <GoodsReceivingWizardScreen
             scope={SUB_WAREHOUSE_SCOPE}
             can={warehouseCan}
-            initialStep="quality_check"
+            initialStep="review_receiving"
             shipment={DEMO_SHIPMENT}
             onBack={goBack}
             onFinish={() => navigate('SubWarehouseAdminDashboard')}

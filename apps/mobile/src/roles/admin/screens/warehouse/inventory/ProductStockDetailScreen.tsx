@@ -1,138 +1,177 @@
 // Design id: M3S03
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
+import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
 export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
 
-export function ProductStockDetailScreen({ onNavigate, onBack }: ProductStockDetailScreenProps) {
+// ─── Custom Icons for Action Buttons ──────────────────────────────────────────
+
+function ActionBatchesIcon({ color = adminColors.brand }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 4h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke={color} strokeWidth="1.8" />
+      <Path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" fill={adminColors.card} />
+      <Path d="M8 10h8M8 14h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ActionLedgerIcon({ color = adminColors.brand }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" stroke={color} strokeWidth="1.8" />
+      <Path d="M7 8h10M7 12h10M7 16h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ActionPinIcon({ color = adminColors.brand }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function ActionVerifyIcon({ color = adminColors.brand }: { color?: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path d="M6.5 4h11A2.5 2.5 0 0 1 20 6.5v12a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-12A2.5 2.5 0 0 1 6.5 4z" stroke={color} strokeWidth="1.8" />
+      <Path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" fill={adminColors.card} />
+      <Path d="M8.5 12.5l2.5 2.5 4.5-4.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductStockDetailScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader
-          title="Tomato — Grade 1"
+        <SWAHeader 
+          title="Tomato"
+          subtitle="Grade 1"
           onBack={onBack}
-          colors={['#F0562A', '#F0562A']}
+          warehouseLocked={scope.warehouseId !== undefined}
+          warehouseName={scope.warehouseName}
+          badge={
+            <View style={styles.availableBadge}>
+              <Text style={styles.availableBadgeText}>Available</Text>
+            </View>
+          }
         />
-
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Top Summary Card (2 columns x 2 rows) */}
-          <View style={styles.card}>
-            <View style={styles.metricRow}>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Total</Text>
-                <Text style={styles.metricValue}>290 KG</Text>
+        
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Stock Summary - 3 Separate White Cards */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Stock Summary</Text>
+            <View style={styles.summaryCards}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>245 KG</Text>
+                <Text style={styles.summaryLabel}>AVAILABLE</Text>
               </View>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Available</Text>
-                <Text style={styles.metricValue}>210 KG</Text>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>50 KG</Text>
+                <Text style={styles.summaryLabel}>RESERVED</Text>
               </View>
-            </View>
-
-            <View style={[styles.metricRow, { marginTop: 14 }]}>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Allocated</Text>
-                <Text style={styles.metricValue}>30 KG</Text>
-              </View>
-              <View style={styles.metricCol}>
-                <Text style={styles.metricLabel}>Reserved</Text>
-                <Text style={styles.metricValue}>40 KG</Text>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>120 KG</Text>
+                <Text style={styles.summaryLabel}>ALLOCATED</Text>
               </View>
             </View>
           </View>
 
-          {/* Warehouse Distribution */}
+          {/* Allocation - Single Card Container (matching design mockup exactly) */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Warehouse Distribution</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.card}>
-              <View style={styles.listRow}>
-                <Text style={styles.listLabel}>Ooty</Text>
-                <Text style={styles.listValue}>120 KG</Text>
+            <Text style={styles.sectionTitle}>Allocation</Text>
+            <View style={styles.allocationSingleCard}>
+              <View style={styles.allocationRow}>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>ONLINE</Text>
+                  <Text style={styles.allocationValue}>120 KG</Text>
+                </View>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>LIVE MARKET</Text>
+                  <Text style={styles.allocationValue}>40 KG</Text>
+                </View>
               </View>
-              <View style={styles.divider} />
-              <View style={styles.listRow}>
-                <Text style={styles.listLabel}>Coonoor</Text>
-                <Text style={styles.listValue}>80 KG</Text>
+              <View style={styles.allocationRow}>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>RESERVE</Text>
+                  <Text style={styles.allocationValue}>50 KG</Text>
+                </View>
+                <View style={styles.allocationCol}>
+                  <Text style={styles.allocationLabel}>BUFFER</Text>
+                  <Text style={styles.allocationValue}>30 KG</Text>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* Batch List */}
+          {/* Batches & Storage - Single Card Container */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Batch List</Text>
-              <TouchableOpacity
-                onPress={() => onNavigate?.('M3S04')}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Batches & Storage</Text>
+            <View style={styles.batchesCard}>
+              <View style={styles.infoRowTop}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Active Batches</Text>
+                  <Text style={styles.infoValue}>5</Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>Storage Locations</Text>
+                  <Text style={styles.infoValue}>3</Text>
+                </View>
+              </View>
+              <View style={styles.primaryStorageRow}>
+                <Text style={styles.infoLabel}>Primary Storage</Text>
+                <Text style={styles.primaryStorageValue}>Cold Storage · Section A · Rack 03</Text>
+              </View>
             </View>
+          </View>
 
-            <TouchableOpacity
-              style={styles.card}
+          {/* Actions - White Cards with Orange Border and Centered Brown Text */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Actions</Text>
+            
+            <TouchableOpacity 
+              style={styles.actionButton}
               onPress={() => onNavigate?.('M3S04')}
               activeOpacity={0.7}
             >
-              <View style={styles.metricRow}>
-                <View style={styles.metricCol}>
-                  <Text style={styles.metricLabel}>Total Batches</Text>
-                  <Text style={styles.metricValue}>6</Text>
-                </View>
-                <View style={styles.metricCol}>
-                  <Text style={styles.metricLabel}>Storage Locations</Text>
-                  <Text style={styles.metricValue}>2</Text>
-                </View>
-              </View>
+              <ActionBatchesIcon color={adminColors.brandDeep} />
+              <Text style={styles.actionButtonText}>View Batches</Text>
             </TouchableOpacity>
-          </View>
 
-          {/* Allocation Summary */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Allocation Summary</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => onNavigate?.('M3S06')}
+              activeOpacity={0.7}
+            >
+              <ActionLedgerIcon color={adminColors.brandDeep} />
+              <Text style={styles.actionButtonText}>View Ledger</Text>
+            </TouchableOpacity>
 
-            <View style={styles.card}>
-              <View style={styles.listRow}>
-                <Text style={styles.listLabel}>Online</Text>
-                <Text style={styles.listValue}>120 KG</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.listRow}>
-                <Text style={styles.listLabel}>Reserve</Text>
-                <Text style={styles.listValue}>50 KG</Text>
-              </View>
-            </View>
-          </View>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => onNavigate?.('M3S08')}
+              activeOpacity={0.7}
+            >
+              <ActionPinIcon color={adminColors.brandDeep} />
+              <Text style={styles.actionButtonText}>View Storage Locations</Text>
+            </TouchableOpacity>
 
-          {/* Recent Movements */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Movements</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.card, { paddingVertical: 18, paddingHorizontal: 16 }]}>
-              <Text style={styles.movementText}>+100 KG · Receipt · Ooty</Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => onNavigate?.('M3S10')}
+              activeOpacity={0.7}
+            >
+              <ActionVerifyIcon color={adminColors.brandDeep} />
+              <Text style={styles.actionButtonText}>Verify Stock</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
@@ -143,94 +182,131 @@ export function ProductStockDetailScreen({ onNavigate, onBack }: ProductStockDet
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
   content: {
     flex: 1,
+    paddingTop: 10,
   },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 36,
+  availableBadge: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#EAE6DF',
-    padding: 16,
-    overflow: 'hidden',
-  },
-  metricRow: {
-    flexDirection: 'row',
-  },
-  metricCol: {
-    flex: 1,
-  },
-  metricLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  metricValue: {
-    fontFamily: 'Poppins',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+  availableBadgeText: {
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
   },
   section: {
-    marginTop: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    paddingHorizontal: 16,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontFamily: 'Poppins',
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#52290D',
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: 10,
   },
-  viewLink: {
-    fontFamily: 'Poppins',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F0562A',
-  },
-  listRow: {
+  // 3 Summary Cards
+  summaryCards: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 14,
     alignItems: 'center',
-    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
-  listLabel: {
-    fontFamily: 'Poppins',
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+  summaryValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+    marginBottom: 4,
   },
-  listValue: {
-    fontFamily: 'Poppins',
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+  summaryLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    letterSpacing: 0.8,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
+  // Single Allocation Card
+  allocationSingleCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
   },
-  movementText: {
-    fontFamily: 'Poppins',
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+  allocationRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  allocationCol: {
+    flex: 1,
+  },
+  allocationLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  allocationValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  // Batches & Storage Card
+  batchesCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+  },
+  infoRowTop: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  infoCol: {
+    flex: 1,
+  },
+  infoLabel: {
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  infoValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  primaryStorageRow: {
+    marginTop: 2,
+  },
+  primaryStorageValue: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  // Action Buttons (Centered, Orange Border, Brown Text)
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    height: 48,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+  },
+  actionButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginLeft: 10,
   },
 });
