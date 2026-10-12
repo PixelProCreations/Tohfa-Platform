@@ -6,6 +6,7 @@ import type { InventoryScreenBaseProps } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
+import { SAMPLE_STOCK_ITEMS } from './fixtures';
 
 export interface StockListScreenProps extends InventoryScreenBaseProps {
   initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
@@ -128,40 +129,7 @@ export function StockListScreen({
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const stockItems = [
-    {
-      name: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Healthy Stock',
-      available: '245 KG',
-      reserved: '50 KG',
-      allocated: '120 KG',
-    },
-    {
-      name: 'Carrot',
-      grade: 'Grade 1',
-      status: 'Low Stock',
-      available: '12 KG',
-      reserved: '0 KG',
-      allocated: '0 KG',
-    },
-    {
-      name: 'Beetroot',
-      grade: 'Grade 1',
-      status: 'Healthy Stock',
-      available: '60 KG',
-      reserved: '5 KG',
-      allocated: '15 KG',
-    },
-    {
-      name: 'Spinach',
-      grade: 'Grade 2',
-      status: 'Out of Stock',
-      available: '0 KG',
-      reserved: '0 KG',
-      allocated: '0 KG',
-    },
-  ];
+  const stockItems = SAMPLE_STOCK_ITEMS;
 
   return (
     <SafeAreaView style={styles.safeArea}>

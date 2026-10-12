@@ -2,27 +2,13 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryScreenBaseProps, StockBatchItem } from './types';
+import { SAMPLE_LEDGER_MOVEMENTS, SAMPLE_STOCK_BATCHES } from './fixtures';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-/** One batch row of the cross-warehouse batch list (absorbed Main StockLedgerScreen). */
-export interface StockBatchItem {
-  id: string;
-  name: string;
-  quantityKg: number;
-  batchId: string;
-  zone: string;
-  receivedDate: string;
-  warehouseName?: string | undefined;
-}
-
-const SAMPLE_BATCHES: StockBatchItem[] = [
-  { id: '1', name: 'Carrots', quantityKg: 240, batchId: 'BT-4471', zone: 'Zone A-2', receivedDate: 'Received Sep 9' },
-  { id: '2', name: 'Cabbage', quantityKg: 180, batchId: 'BT-4460', zone: 'Zone B-1', receivedDate: 'Received Sep 7' },
-  { id: '3', name: 'Beetroot', quantityKg: 95, batchId: 'BT-4452', zone: 'Zone A-3', receivedDate: 'Received Sep 5' },
-];
+export type { StockBatchItem } from './types';
 
 export interface StockLedgerScreenProps extends InventoryScreenBaseProps {
   /** Batches for the all-warehouses view; defaults to the design sample. */
@@ -140,7 +126,7 @@ export function StockLedgerScreen({
   onNavigate,
   onBack,
   warehouseOptions,
-  batches = SAMPLE_BATCHES,
+  batches = SAMPLE_STOCK_BATCHES,
 }: StockLedgerScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Ledger');
   // rbac: stock_ledger.view_all MAIN=all, SUB=none. With it the ledger spans
@@ -235,21 +221,21 @@ export function StockLedgerScreen({
             <View style={styles.cardTopRow}>
               <View style={styles.typeWithIconRow}>
                 <DownArrowGreenIcon />
-                <Text style={styles.receiptTypeText}>RECEIPT</Text>
+                <Text style={styles.receiptTypeText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.type}</Text>
               </View>
-              <Text style={styles.receiptQuantityText}>+100 KG</Text>
+              <Text style={styles.receiptQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.quantity}</Text>
             </View>
 
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
+            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.receipt.product}</Text>
 
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>BAT-2026-00124</Text></Text>
-              <Text style={styles.timeText}>24 Sep · 10:54 AM</Text>
+              <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.batch}</Text></Text>
+              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.time}</Text>
             </View>
 
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Ref <Text style={styles.metaValueText}>GR-1024</Text></Text>
-              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>100 KG</Text></Text>
+              <Text style={styles.metaLabelText}>Ref <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.ref}</Text></Text>
+              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.receipt.balance}</Text></Text>
             </View>
           </TouchableOpacity>
 
@@ -262,20 +248,20 @@ export function StockLedgerScreen({
             <View style={styles.cardTopRow}>
               <View style={styles.typeWithIconRow}>
                 <UpArrowRedIcon />
-                <Text style={styles.dispatchTypeText}>DISPATCH</Text>
+                <Text style={styles.dispatchTypeText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.type}</Text>
               </View>
-              <Text style={styles.dispatchQuantityText}>-20 KG</Text>
+              <Text style={styles.dispatchQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.quantity}</Text>
             </View>
 
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
+            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.product}</Text>
 
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>ORD-10242</Text></Text>
-              <Text style={styles.timeText}>24 Sep · 02:30 PM</Text>
+              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.order}</Text></Text>
+              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.time}</Text>
             </View>
 
             <View style={[styles.metaRow, { justifyContent: 'flex-end' }]}>
-              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>80 KG</Text></Text>
+              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.dispatch.balance}</Text></Text>
             </View>
           </TouchableOpacity>
 
@@ -288,15 +274,15 @@ export function StockLedgerScreen({
             <View style={styles.cardTopRow}>
               <View style={styles.typeWithIconRow}>
                 <BranchArrowIcon />
-                <Text style={styles.allocationTypeText}>ALLOCATION_ONLINE</Text>
+                <Text style={styles.allocationTypeText}>{SAMPLE_LEDGER_MOVEMENTS.allocation.type}</Text>
               </View>
-              <Text style={styles.neutralQuantityText}>20 KG</Text>
+              <Text style={styles.neutralQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.allocation.quantity}</Text>
             </View>
 
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
+            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.allocation.product}</Text>
 
             <View style={[styles.metaRow, { justifyContent: 'flex-end', marginTop: 4 }]}>
-              <Text style={styles.timeText}>24 Sep · 02:32 PM</Text>
+              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.allocation.time}</Text>
             </View>
           </TouchableOpacity>
 
@@ -309,16 +295,16 @@ export function StockLedgerScreen({
             <View style={styles.cardTopRow}>
               <View style={styles.typeWithIconRow}>
                 <LockSmallIcon />
-                <Text style={styles.allocationTypeText}>RESERVATION_HOLD</Text>
+                <Text style={styles.allocationTypeText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.type}</Text>
               </View>
-              <Text style={styles.neutralQuantityText}>10 KG</Text>
+              <Text style={styles.neutralQuantityText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.quantity}</Text>
             </View>
 
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
+            <Text style={styles.productTitle}>{SAMPLE_LEDGER_MOVEMENTS.reservation.product}</Text>
 
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>ORD-10245</Text></Text>
-              <Text style={styles.timeText}>24 Sep · 03:10 PM</Text>
+              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.order}</Text></Text>
+              <Text style={styles.timeText}>{SAMPLE_LEDGER_MOVEMENTS.reservation.time}</Text>
             </View>
           </TouchableOpacity>
 

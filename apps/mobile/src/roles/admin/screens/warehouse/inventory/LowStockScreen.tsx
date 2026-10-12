@@ -2,17 +2,12 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryScreenBaseProps, LowStockItem } from './types';
+import { SAMPLE_LOW_STOCK_ITEMS } from './fixtures';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-/** One low-stock row. `warehouseName` is shown in the Main (all-warehouses) view. */
-export interface LowStockItem {
-  name: string;
-  available: string;
-  threshold: string;
-  warehouseName?: string | undefined;
-}
+export type { LowStockItem } from './types';
 
 export interface LowStockScreenProps extends InventoryScreenBaseProps {
   /** Rows to show; defaults to the design sample. Thresholds come from system_config, never from this app. */
@@ -55,34 +50,7 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
   // 'Adjust Thresholds' is NOT carried over: alert.threshold.configure is none
   // for both warehouse roles.
   const canInitiateTransfer = can('transfer.inter_warehouse.initiate');
-  const sampleItems: LowStockItem[] = [
-    {
-      name: 'Carrot — Grade 1',
-      available: '12 KG',
-      threshold: '20 KG',
-    },
-    {
-      name: 'Beans — Grade 1',
-      available: '8 KG',
-      threshold: '15 KG',
-    },
-    {
-      name: 'Spinach — Grade 2',
-      available: '0 KG',
-      threshold: '10 KG',
-    },
-    {
-      name: 'Beetroot — Grade 1',
-      available: '6 KG',
-      threshold: '12 KG',
-    },
-    {
-      name: 'Cow Milk',
-      available: '4 L',
-      threshold: '10 L',
-    },
-  ];
-  const lowStockItems = items ?? sampleItems;
+  const lowStockItems = items ?? SAMPLE_LOW_STOCK_ITEMS;
 
   return (
     <SafeAreaView style={styles.safeArea}>

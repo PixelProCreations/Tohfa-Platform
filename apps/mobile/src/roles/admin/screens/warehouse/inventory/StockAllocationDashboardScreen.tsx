@@ -5,6 +5,7 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
+import { SAMPLE_ALLOCATIONS } from './fixtures';
 
 export type StockAllocationDashboardScreenProps = InventoryScreenBaseProps;
 
@@ -66,44 +67,14 @@ function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
 }
 
 export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: StockAllocationDashboardScreenProps) {
-  const allocations = [
-    {
-      channel: 'ONLINE',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.brand,
-      allocated: '420 KG',
-      consumed: '180 KG',
-      reserved: '120 KG',
-      available: '120 KG',
-    },
-    {
-      channel: 'LIVE MARKET',
-      titleColor: adminColors.success.text,
-      borderColor: adminColors.success.text,
-      allocated: '120 KG',
-      consumed: '40 KG',
-      reserved: '30 KG',
-      available: '50 KG',
-    },
-    {
-      channel: 'RESERVE',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.info.text,
-      allocated: '80 KG',
-      consumed: '20 KG',
-      reserved: '20 KG',
-      available: '40 KG',
-    },
-    {
-      channel: 'BUFFER',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.warning.text,
-      allocated: '60 KG',
-      consumed: '10 KG',
-      reserved: '10 KG',
-      available: '40 KG',
-    },
+  // Accent colours per card, in the design's channel order (the sample rows follow it).
+  const channelColors = [
+    { titleColor: adminColors.brandDeep, borderColor: adminColors.brand },
+    { titleColor: adminColors.success.text, borderColor: adminColors.success.text },
+    { titleColor: adminColors.brandDeep, borderColor: adminColors.info.text },
+    { titleColor: adminColors.brandDeep, borderColor: adminColors.warning.text },
   ];
+  const allocations = SAMPLE_ALLOCATIONS.map((row, index) => ({ ...row, ...channelColors[index] }));
 
   return (
     <SafeAreaView style={styles.safeArea}>

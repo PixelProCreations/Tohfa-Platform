@@ -5,6 +5,7 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
+import { SAMPLE_BATCH_DETAIL } from './fixtures';
 
 export type BatchDetailScreenProps = InventoryScreenBaseProps;
 
@@ -42,12 +43,12 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
 
       {/* Fixed Header */}
       <SWAHeader
-        title="BAT-2026-00124"
-        subtitle="Tomato · Grade 1"
+        title={SAMPLE_BATCH_DETAIL.batchCode}
+        subtitle={`${SAMPLE_BATCH_DETAIL.product} · ${SAMPLE_BATCH_DETAIL.grade}`}
         onBack={onBack}
         badge={
           <View style={styles.activeBadge}>
-            <Text style={styles.activeBadgeText}>Active</Text>
+            <Text style={styles.activeBadgeText}>{SAMPLE_BATCH_DETAIL.status}</Text>
           </View>
         }
       />
@@ -65,17 +66,17 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Batch Code</Text>
-                <Text style={styles.fieldValue}>BAT-2026-00124</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.batchCode}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Product</Text>
-                <Text style={styles.fieldValue}>Tomato</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.product}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Grade</Text>
-                <Text style={styles.fieldValue}>Grade 1</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.grade}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Warehouse</Text>
@@ -85,21 +86,21 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Storage Location</Text>
-                <Text style={styles.fieldValue}>Cold Storage · A03</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.storageLocation}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Received Quantity</Text>
-                <Text style={styles.fieldValue}>100 KG</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.receivedQty}</Text>
               </View>
             </View>
             <View style={[styles.gridRow, { marginBottom: 0 }]}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Available Quantity</Text>
-                <Text style={styles.fieldValue}>95 KG</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.availableQty}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Received Date</Text>
-                <Text style={styles.fieldValue}>24 Sep 2026</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.receivedDate}</Text>
               </View>
             </View>
           </View>
@@ -115,11 +116,11 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <View style={[styles.gridRow, { marginBottom: 0 }]}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Goods Receipt</Text>
-                <Text style={styles.fieldValue}>GR-1024</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.goodsReceipt}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Source Farmer</Text>
-                <Text style={styles.fieldValue}>Internal reference</Text>
+                <Text style={styles.fieldValue}>{SAMPLE_BATCH_DETAIL.sourceFarmer}</Text>
               </View>
             </View>
           </View>
@@ -130,15 +131,15 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
           <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
           <View style={styles.movementRow}>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>100 KG</Text>
+              <Text style={styles.movementValue}>{SAMPLE_BATCH_DETAIL.movementReceived}</Text>
               <Text style={styles.movementLabel}>RECEIVED</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>20 KG</Text>
+              <Text style={styles.movementValue}>{SAMPLE_BATCH_DETAIL.movementDispatched}</Text>
               <Text style={styles.movementLabel}>DISPATCHED</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>10 KG</Text>
+              <Text style={styles.movementValue}>{SAMPLE_BATCH_DETAIL.movementReserved}</Text>
               <Text style={styles.movementLabel}>RESERVED</Text>
             </View>
           </View>

@@ -5,6 +5,7 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
+import { SAMPLE_PRODUCT_STOCK_DETAIL } from './fixtures';
 
 export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
 
@@ -53,8 +54,8 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title="Tomato"
-          subtitle="Grade 1"
+          title={SAMPLE_PRODUCT_STOCK_DETAIL.name}
+          subtitle={SAMPLE_PRODUCT_STOCK_DETAIL.grade}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
@@ -71,15 +72,15 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
             <Text style={styles.sectionTitle}>Stock Summary</Text>
             <View style={styles.summaryCards}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>245 KG</Text>
+                <Text style={styles.summaryValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.available}</Text>
                 <Text style={styles.summaryLabel}>AVAILABLE</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>50 KG</Text>
+                <Text style={styles.summaryValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.reserved}</Text>
                 <Text style={styles.summaryLabel}>RESERVED</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>120 KG</Text>
+                <Text style={styles.summaryValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.allocated}</Text>
                 <Text style={styles.summaryLabel}>ALLOCATED</Text>
               </View>
             </View>
@@ -92,21 +93,21 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>ONLINE</Text>
-                  <Text style={styles.allocationValue}>120 KG</Text>
+                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.online}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>LIVE MARKET</Text>
-                  <Text style={styles.allocationValue}>40 KG</Text>
+                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.liveMarket}</Text>
                 </View>
               </View>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>RESERVE</Text>
-                  <Text style={styles.allocationValue}>50 KG</Text>
+                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.reserve}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>BUFFER</Text>
-                  <Text style={styles.allocationValue}>30 KG</Text>
+                  <Text style={styles.allocationValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.buffer}</Text>
                 </View>
               </View>
             </View>
@@ -119,16 +120,16 @@ export function ProductStockDetailScreen({ scope, onNavigate, onBack }: ProductS
               <View style={styles.infoRowTop}>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Active Batches</Text>
-                  <Text style={styles.infoValue}>5</Text>
+                  <Text style={styles.infoValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.activeBatches}</Text>
                 </View>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Storage Locations</Text>
-                  <Text style={styles.infoValue}>3</Text>
+                  <Text style={styles.infoValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.storageLocations}</Text>
                 </View>
               </View>
               <View style={styles.primaryStorageRow}>
                 <Text style={styles.infoLabel}>Primary Storage</Text>
-                <Text style={styles.primaryStorageValue}>Cold Storage · Section A · Rack 03</Text>
+                <Text style={styles.primaryStorageValue}>{SAMPLE_PRODUCT_STOCK_DETAIL.primaryStorage}</Text>
               </View>
             </View>
           </View>

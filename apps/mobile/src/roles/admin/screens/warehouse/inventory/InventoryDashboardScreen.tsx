@@ -6,6 +6,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
 import type { InventoryScreenBaseProps } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
+import { SAMPLE_INVENTORY_TOTALS, SAMPLE_TOP_STOCK_PRODUCTS } from './fixtures';
 
 export type InventoryDashboardScreenProps = InventoryScreenBaseProps;
 
@@ -200,7 +201,7 @@ export function InventoryDashboardScreen({
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Total Available Stock - White Card with Brown Text */}
           <View style={styles.totalStockCard}>
-            <Text style={styles.totalStockValue}>1,245 KG</Text>
+            <Text style={styles.totalStockValue}>{SAMPLE_INVENTORY_TOTALS.totalAvailable}</Text>
             <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
           </View>
 
@@ -213,7 +214,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatAvailableIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>1,245 KG</Text>
+              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.available}</Text>
               <Text style={styles.statLabel}>Available</Text>
             </TouchableOpacity>
 
@@ -224,7 +225,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatReservedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>320 KG</Text>
+              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.reserved}</Text>
               <Text style={styles.statLabel}>Reserved</Text>
             </TouchableOpacity>
 
@@ -235,7 +236,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatAllocatedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>580 KG</Text>
+              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.allocated}</Text>
               <Text style={styles.statLabel}>Allocated</Text>
             </TouchableOpacity>
 
@@ -246,7 +247,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatLowStockIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.lowStockValue}>05</Text>
+              <Text style={styles.lowStockValue}>{SAMPLE_INVENTORY_TOTALS.lowStockCount}</Text>
               <Text style={styles.statLabel}>Low Stock</Text>
             </TouchableOpacity>
 
@@ -257,7 +258,7 @@ export function InventoryDashboardScreen({
               activeOpacity={0.7}
             >
               <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>02</Text>
+              <Text style={styles.statValue}>{SAMPLE_INVENTORY_TOTALS.verificationPending}</Text>
               <Text style={styles.statLabel}>Verification Pending</Text>
             </TouchableOpacity>
 
@@ -284,98 +285,44 @@ export function InventoryDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            {/* Tomato - Available */}
-            <TouchableOpacity 
-              style={styles.productCard}
-              onPress={() => onNavigate?.('M3S03')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.productHeader}>
-                <View>
-                  <Text style={styles.productName}>Tomato</Text>
-                  <Text style={styles.productGrade}>Grade 1</Text>
+            {SAMPLE_TOP_STOCK_PRODUCTS.map((product) => (
+              <TouchableOpacity
+                key={product.name}
+                style={styles.productCard}
+                onPress={() => onNavigate?.(product.lowStock ? 'M3S09' : 'M3S03')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>{product.name}</Text>
+                    <Text style={styles.productGrade}>{product.grade}</Text>
+                  </View>
+                  {product.lowStock ? (
+                    <View style={styles.lowStockBadge}>
+                      <Text style={styles.lowStockBadgeText}>Low Stock</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.availableBadge}>
+                      <Text style={styles.availableBadgeText}>Available</Text>
+                    </View>
+                  )}
                 </View>
-                <View style={styles.availableBadge}>
-                  <Text style={styles.availableBadgeText}>Available</Text>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>{product.available}</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>{product.reserved}</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>{product.allocated}</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.productStats}>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Available</Text>
-                  <Text style={styles.productStatValue}>245 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Reserved</Text>
-                  <Text style={styles.productStatValue}>50 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Allocated</Text>
-                  <Text style={styles.productStatValue}>120 KG</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* Carrot - Available */}
-            <TouchableOpacity 
-              style={styles.productCard}
-              onPress={() => onNavigate?.('M3S03')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.productHeader}>
-                <View>
-                  <Text style={styles.productName}>Carrot</Text>
-                  <Text style={styles.productGrade}>Grade 1</Text>
-                </View>
-                <View style={styles.availableBadge}>
-                  <Text style={styles.availableBadgeText}>Available</Text>
-                </View>
-              </View>
-              <View style={styles.productStats}>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Available</Text>
-                  <Text style={styles.productStatValue}>180 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Reserved</Text>
-                  <Text style={styles.productStatValue}>20 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Allocated</Text>
-                  <Text style={styles.productStatValue}>80 KG</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* Beans - Low Stock */}
-            <TouchableOpacity 
-              style={styles.productCard}
-              onPress={() => onNavigate?.('M3S09')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.productHeader}>
-                <View>
-                  <Text style={styles.productName}>Beans</Text>
-                  <Text style={styles.productGrade}>Grade 1</Text>
-                </View>
-                <View style={styles.lowStockBadge}>
-                  <Text style={styles.lowStockBadgeText}>Low Stock</Text>
-                </View>
-              </View>
-              <View style={styles.productStats}>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Available</Text>
-                  <Text style={styles.productStatValue}>95 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Reserved</Text>
-                  <Text style={styles.productStatValue}>10 KG</Text>
-                </View>
-                <View style={styles.productStat}>
-                  <Text style={styles.productStatLabel}>Allocated</Text>
-                  <Text style={styles.productStatValue}>30 KG</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
           </View>
         </ScrollView>
 

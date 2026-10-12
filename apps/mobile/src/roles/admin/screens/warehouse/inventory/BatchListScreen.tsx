@@ -4,39 +4,12 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } fr
 import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import { SWAHeader } from '../../swa/components';
+import { SAMPLE_BATCH_LIST } from './fixtures';
 
 export type BatchListScreenProps = InventoryScreenBaseProps;
 
 export function BatchListScreen({ scope, onNavigate, onBack }: BatchListScreenProps) {
-  const batches = [
-    {
-      id: 'BAT-2026-00124',
-      product: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Active',
-      available: '95 KG',
-      storage: 'Cold Storage · A03',
-      dateText: 'Received 24 Sep 2026',
-    },
-    {
-      id: 'BAT-2026-00125',
-      product: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Active',
-      available: '150 KG',
-      storage: 'Cold Storage · A04',
-      dateText: 'Received 24 Sep 2026',
-    },
-    {
-      id: 'BAT-2026-00098',
-      product: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Active',
-      available: '0 KG',
-      storage: 'Cold Storage · A01',
-      dateText: 'Fully consumed',
-    },
-  ];
+  const batches = SAMPLE_BATCH_LIST;
 
   return (
     <SafeAreaView style={styles.safeArea}>
