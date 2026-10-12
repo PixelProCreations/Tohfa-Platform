@@ -176,5 +176,24 @@
   "inventory.level.low": "Low stock",
   "inventory.level.out": "Out of stock",
   "inventory.product.notFound": "This product has no stock in this warehouse.",
-  "inventory.batch.receivedOn": "Received {{date}}"
+  "inventory.batch.receivedOn": "Received {{date}}",
+
+  "receiving.shipmentStatus.expected": "Expected",
+  "receiving.shipmentStatus.awaitingQc": "Awaiting QC",
+  "receiving.shipmentStatus.receiving": "Partly received",
+  "receiving.shipmentStatus.completed": "Received",
+  "receiving.shipmentStatus.cancelled": "Cancelled",
+  "receiving.shipmentStatus.unknown": "Status not known",
+  "receiving.receiptResult.awaitingQc": "Awaiting QC",
+  "receiving.receiptResult.accepted": "Accepted",
+  "receiving.receiptResult.partiallyAccepted": "Partially accepted",
+  "receiving.receiptResult.rejected": "Rejected",
+  "receiving.receiptResult.counterOffered": "Counter-offered",
+  "receiving.receiptResult.unknown": "Status not known",
+  "receiving.issue.qcPending": "Received {{qty}}, awaiting quality check",
+  "receiving.issue.qcPendingNoQty": "Awaiting quality check",
+  "receiving.qc.problem.quantities": "Accepted and rejected cannot be more than the received weight.",
+  "receiving.qc.problem.moisture": "Enter moisture as a percentage from 0 to 100.",
+  "receiving.qc.problem.visualScore": "Enter the visual score as a whole number from 0 to 10.",
+  "receiving.qc.problem.defectNotesRequired": "Describe the defects: a rejected quantity needs a reason."
 }

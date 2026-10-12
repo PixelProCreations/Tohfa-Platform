@@ -15,6 +15,9 @@
  * decides what to render; the server enforces every action again, CLAUDE.md
  * 2.1). The record types below are declared once, here.
  */
+import type { Money } from '@tohfa/shared-types';
+import type { Grade } from '../../../api/inventory';
+
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -54,44 +57,54 @@ export type ReceivingWizardStep =
   | 'counter_offer'
   | 'review_receiving';
 
-/** One product line of a shipment, for the quantity verification table. */
+/**
+ * One product line of a shipment, for the quantity verification table.
+ * Weights are integer grams (roles/admin/money/quantity.ts), never floats;
+ * null is "not known yet" (no received weight typed), never zero.
+ */
 export interface ShipmentLineItem {
   product: string;
-  expectedKg: number;
-  receivedKg: number;
+  expectedGrams: number | null;
+  receivedGrams: number | null;
 }
 
-/** The shipment being received. Shell shipment rows are structurally compatible. */
+/**
+ * The purchase order being received, as the wizard needs it. Built from
+ * GET /admin/purchase-orders/{id} by ./mappers.ts (toIncomingShipment).
+ */
 export interface WizardShipmentData {
+  /** Purchase order uuid (what the API takes). */
+  purchaseOrderId: string;
+  /** Human code: the poNumber. */
   code: string;
+  /** Crop name, or a neutral label when the API sent none. */
   produce: string;
-  grade?: string | undefined;
-  expectedQty: number;
-  receivedQty?: number | undefined;
-  acceptedQty?: number | undefined;
-  rejectedQty?: number | undefined;
-  receivedDate?: string | undefined;
-  receivedTime?: string | undefined;
-  reference?: string | undefined;
-  from?: string | undefined;
-  to?: string | undefined;
-  batchSource?: string | undefined;
-  /** Other product lines on the same shipment (quantity verification table). */
-  lines?: ShipmentLineItem[] | undefined;
-  /** Vehicle and driver as recorded at the gate (review step). */
-  vehicle?: string | undefined;
-  /** Arrival time as recorded at the gate (review step). */
-  arrival?: string | undefined;
-  /** Tare of one crate in KG. Shipment data (crate type), not a business threshold. */
-  crateTareKg?: number | undefined;
+  /** Grade label ("Grade 1"), '' when the order has no grade. */
+  grade: string;
+  /** The order's listed grade, the default the QC grade picker starts on. */
+  apiGrade?: Grade | undefined;
+  /** Ordered quantity. */
+  expectedGrams: number | null;
+  /** Farmer name (from the detail; '' on a list row). Internal traceability only (BR-16). */
+  from: string;
+  /** Receiving warehouse name. */
+  to: string;
+  /** Receiving warehouse uuid. */
+  warehouseId: string;
+  /** Receipts already recorded against the order (their uuids). */
+  receiptIds: readonly string[];
+  /** A receipt of this order still awaiting QC: the wizard resumes it instead of creating another. */
+  pendingReceiptId?: string | undefined;
 }
 
 /** Quality check result of one criterion. */
 export type QcResult = 'pass' | 'attention' | 'fail';
 
 /** One quality check criterion of the wizard's Quality step. */
+export type QcCriterionId = 'appearance' | 'size' | 'moisture' | 'damage' | 'freshness';
+
 export interface QcCriterion {
-  id: string;
+  id: QcCriterionId;
   code: string;
   title: string;
   icon: 'eye' | 'ruler' | 'drop' | 'bug' | 'leaf';
@@ -104,20 +117,29 @@ export interface InspectionParameter {
   description: string;
 }
 
-/** A storage bay a batch can be put away to (batch / storage assignment). */
+/** A storage location a received lot can be put away to (GET /warehouses/{id}/storage-locations). */
 export interface StorageBayOption {
   id: string;
+  /** What the quality check sends as `storageLocation` (free text on the batch). */
+  code: string;
   label: string;
+  /** The location type, '' when none. */
   zone: string;
-  /** Free capacity in KG. */
-  availableKg: number;
+  /** Display-only capacity; null when the location has none. */
+  capacityGrams: number | null;
 }
 
 /** The three documented receiving outcomes (no other outcome is invented). */
 export type ReceivingOutcome = 'Accept' | 'Partial Accept' | 'Reject';
 
-/** Result of a recorded goods receipt. 'Open' = variance still under review. */
-export type ReceiptResult = 'Accepted' | 'Partially Accepted' | 'Rejected' | 'Open';
+/** Result of a recorded goods receipt, one per GoodsReceipt.status, plus a fallback. */
+export type ReceiptResult =
+  | 'Awaiting QC'
+  | 'Accepted'
+  | 'Partially Accepted'
+  | 'Rejected'
+  | 'Counter-Offered'
+  | 'Unknown';
 
 /** One timeline event of a receipt. */
 export interface ReceiptTimelineEvent {
@@ -126,84 +148,74 @@ export interface ReceiptTimelineEvent {
 }
 
 /**
- * One recorded goods receipt, as Receiving History, its detail screen and the
- * wizard's receipt_detail step show it. Declared once here (it was three
- * inline shapes: the wizard history list, the Main shell's per-id props and
- * the Sub GoodsReceiptDetail constants).
+ * One recorded goods receipt (GET /admin/goods-receipts), as Receiving
+ * History, its detail screen and the dashboard show it. Weights are integer
+ * grams; null is "not known" (e.g. accepted before the quality check), never 0.
  */
 export interface ReceivingRecord {
+  /** Goods receipt uuid (what the API and the routes take). */
+  id: string;
+  /** Human code: the grnNumber. */
   receiptId: string;
+  purchaseOrderId: string;
+  /** The order's poNumber, '' when the row did not carry it. */
   shipmentId: string;
-  /** Owning warehouse. A Sub scope only sees its own (inventory.batch.view = own). */
+  /** Owning warehouse. A Sub scope only sees its own (BR-30). */
   warehouseId: string;
   warehouseName: string;
   result: ReceiptResult;
-  receivedBy: string;
+  resultLabel: string;
+  /** When it was received (ISO instant), for day comparisons. */
+  receivedAt: string;
   date: string;
   product: string;
   grade: string;
-  expectedKg: number;
-  receivedKg: number;
-  acceptedKg: number;
-  rejectedKg: number;
+  /** The order's quantity, when the screen knows the order. */
+  expectedGrams: number | null;
+  receivedGrams: number | null;
+  acceptedGrams: number | null;
+  rejectedGrams: number | null;
   rejectionReason?: string | undefined;
-  /** Supplier as recorded on the receipt. Internal traceability only (BR-16). */
-  supplier?: string | undefined;
-  notes?: string | undefined;
+  vehicleNumber?: string | undefined;
+  /** The batch the receipt created, when the API returns one (it returns none today). */
   batchId?: string | undefined;
-  timeline?: ReceiptTimelineEvent[] | undefined;
-  qcResults?: Partial<Record<string, QcResult>> | undefined;
 }
 
 // ─── Receiving list screens (dashboard, shipments, filters, history, QC issues) ───
 
-/** Status of an incoming shipment (Main's old 'In Progress' is 'Receiving'). */
-export type ShipmentStatus =
-  | 'Expected'
-  | 'Arrived'
-  | 'Receiving'
-  | 'Awaiting QC'
-  | 'Mismatch'
-  | 'Partially Accepted'
-  | 'Completed'
-  | 'Rejected';
-
-/** The two documented shipment contexts; no other type is invented. */
-export type ShipmentType = 'Farmer/Admin' | 'Inter-Warehouse Transfer';
+/**
+ * Receiving status of a purchase order (./mappers.ts shipmentStatusOf):
+ * Expected = nothing received yet; Awaiting QC = a receipt waits for its
+ * quality check; Receiving = part of the order has arrived; Completed = all of
+ * it; Cancelled; Unknown = a status the app does not know (not receivable).
+ */
+export type ShipmentStatus = 'Expected' | 'Awaiting QC' | 'Receiving' | 'Completed' | 'Cancelled' | 'Unknown';
 
 /**
- * One incoming shipment, as the shipment list, its detail and the wizard show
- * it. Declared once here (it was the Sub shell's inline ShipmentItem and the
- * Main IncomingShipments / ShipmentDetail inline rows). Structurally a
- * WizardShipmentData, so a row opens the wizard as is.
+ * One purchase order expected at the warehouse, as the shipment list, its
+ * detail and the wizard show it (./mappers.ts toIncomingShipment).
  */
 export interface IncomingShipment extends WizardShipmentData {
-  code: string;
-  reference: string;
   status: ShipmentStatus;
-  type: ShipmentType;
-  /** Receiving warehouse. A Sub scope only sees its own. */
-  warehouseId: string;
-  from: string;
-  to: string;
-  produce: string;
-  grade: string;
-  dispatchDate: string;
+  statusLabel: string;
+  /** The farmer's TOHFA id (detail only). Internal traceability only (BR-16). */
+  farmerCode: string;
+  /** Price per kg and order total, as the API's Money strings. */
+  pricePerKg: Money;
+  totalAmount: Money;
+  /** "20 Oct 2026", '' when the order has no expected date. */
   expectedArrival: string;
-  actualArrival?: string | undefined;
-  batchSource: string;
-  /** "Dispatch" column of an Expected shipment. */
-  dispatchStatus?: string | undefined;
-  /** Shows the "Review" link on the list card (a variance to look at). */
-  hasReview?: boolean | undefined;
-  crates?: number | undefined;
+  /** "12 Oct 2026", '' when unknown. */
+  issuedOn: string;
+  /** Gross received over the order's receipts; null when the receipts are not known. */
+  receivedGrams: number | null;
 }
 
 /** Status pills of the Incoming Shipments list. */
-export type ShipmentFilterTab = 'All' | 'Expected' | 'Arrived' | 'Receiving' | 'QC Pending' | 'Completed' | 'Rejected';
+export type ShipmentFilterTab = 'All' | 'Expected' | 'Receiving' | 'QC Pending' | 'Completed';
 
-/** Result pills of Receiving History. */
-export type HistoryFilter = 'All' | 'Accepted' | 'Partial' | 'Rejected';
+/** Result pills of Receiving History (each is a server-side status filter). */
+export type HistoryFilter = 'All' | 'Awaiting QC' | 'Accepted' | 'Partial' | 'Rejected';
 
 /**
  * Facets of Receiving Search & Filters (SPEC_GAPS W4n-1). 'All' / '' = not
@@ -227,7 +239,10 @@ export type QualityIssueTarget = 'wizard' | 'shipment' | 'operational_issue';
 
 /** One quality / receiving issue (read-only list; Needs Attention on the dashboard). */
 export interface QualityIssue {
+  /** The goods receipt uuid the issue is about. */
   id: string;
+  /** Its purchase order (the wizard resumes on it). */
+  purchaseOrderId: string;
   kind: 'QC Pending' | 'Quantity Mismatch' | 'Damage Reported';
   shipmentCode: string;
   produce: string;
@@ -252,9 +267,20 @@ export type ReceivingRoute =
   | 'StorageAssignment';
 
 export interface ReceivingRouteParams {
+  /** Purchase order uuid. */
   shipmentId?: string | undefined;
+  /** Goods receipt uuid. */
   receiptId?: string | undefined;
   statusTab?: ShipmentFilterTab | undefined;
   historyFilter?: HistoryFilter | undefined;
   wizardStep?: ReceivingWizardStep | undefined;
+}
+
+/** What an API-backed receiving screen gets from the flow to pick its async state and refresh. */
+export interface ReceivingLiveStateProps {
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+  onRefresh?: (() => void) | undefined;
+  isRefreshing?: boolean | undefined;
 }
