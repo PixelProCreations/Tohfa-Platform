@@ -88,8 +88,13 @@ jobs:
 
       # Seeds create the roles and project docs/rbac.json into
       # permissions/role_permissions (db/seed/002_permissions.js).
+      # SEED_DEV_USERS=true is explicit and CI-only: the e2e suites log in as
+      # the dev admins from db/seed/003_dev_users.sql. `db:seed` skips those
+      # (and the demo fixtures) by default so they can never reach a shared DB.
       - name: Seed database
         run: pnpm db:seed
+        env:
+          SEED_DEV_USERS: 'true'
 
       # rbac:check compares the DB grant matrix against docs/rbac.json, so it
       # must run AFTER migrate + seed have created and populated those tables.

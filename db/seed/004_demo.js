@@ -2,7 +2,9 @@
 // =============================================================================
 // 004_demo.js — Demo dataset for client walkthroughs & Track 1 validation
 //
-// GATED: Only runs when SEED_DEMO=true. Never loads in production.
+// GATED: Only runs when SEED_DEMO=true (and, through `pnpm db:seed`, only when
+// SEED_DEV_USERS=true too — see SEED_KINDS in apps/api/src/db/runner.ts).
+// Refuses to run when NODE_ENV=production even if invoked directly.
 // IDEMPOTENT: Uses deterministic UUIDs and ON CONFLICT handling so re-running
 // does not duplicate records.
 // =============================================================================
@@ -12,6 +14,11 @@ import pg from 'pg';
 if (process.env.SEED_DEMO !== 'true') {
   console.log('SEED_DEMO is not "true" — skipping demo dataset seed.');
   process.exit(0);
+}
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Refusing to seed the demo dataset when NODE_ENV=production.');
+  process.exit(1);
 }
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -65,10 +72,13 @@ async function runDemoSeed() {
     // 2. Seed 12 Demo Farmers Across Lifecycle & Certification States
     // -------------------------------------------------------------------------
     console.log('Seeding 12 demo farmers...');
+    // expiryDays (from today; issued_on is today - 60) must stay inside BR-48's
+    // windows — system_config cert_expiry_max_past_days (365) and
+    // cert_expiry_max_future_days (730) — or the app cannot save an edit to it.
     const farmerConfigs = [
       { num: 1, name: 'Ramesh Patel (Organic Pro)', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 300, blocked: false },
       { num: 2, name: 'Lakshmi Narayanan', status: 'APPROVED', cert: 'NPOP', certStatus: 'VERIFIED', expiryDays: 200, blocked: false },
-      { num: 3, name: 'Suresh Gowda (Expiring Soon)', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 15, blocked: false },
+      { num: 3, name: 'Suresh Gowda', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 400, blocked: false },
       { num: 4, name: 'Anand Murugan (Expired Cert)', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: -5, blocked: true },
       { num: 5, name: 'Priya Sundaram (Unverified Cert)', status: 'APPROVED', cert: 'NPOP', certStatus: 'UNVERIFIED', expiryDays: 180, blocked: true },
       { num: 6, name: 'Muthuvel Karunanidhi', status: 'SUBMITTED', cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
@@ -77,7 +87,8 @@ async function runDemoSeed() {
       { num: 9, name: 'Balamurugan Raj', status: 'AUDIT', cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
       { num: 10, name: 'Venkatesh Babu (New Applicant)', status: 'SUBMITTED', cert: null, certStatus: 'UNVERIFIED', expiryDays: 0, blocked: true },
       { num: 11, name: 'Selvaraj Nadar (Rejected App)', status: 'REJECTED', cert: null, certStatus: 'REJECTED', expiryDays: -100, blocked: true },
-      { num: 12, name: 'Geetha Manoharan', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 400, blocked: false },
+      // 12: verified PGS expiring in 20 days — inside the 30-day warning window (cert_expiry_warning_days), still unexpired so not market-blocked.
+      { num: 12, name: 'Geetha Manoharan', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 20, blocked: false },
     ];
 
     const farmerIds = [];
@@ -105,11 +116,22 @@ async function runDemoSeed() {
       );
 
 
-      // Farmer
+      // Farmer. dob/gender/farming_experience_years/aadhaar_last4 mirror the exact values this
+      // same loop writes into this farmer's farmer_applications.step1_personal below -- a real
+      // approval copies those step1 fields onto this row (see farmer-applications.service.ts's
+      // approval handler), but this demo seed inserts the farmer directly, bypassing that copy, so
+      // without this they silently stayed null and the Profile screen showed truncated personal
+      // details for every demo farmer.
       await client.query(
-        `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, application_status, kyc_status, is_market_blocked, rejection_reason, market_block_reason)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (id) DO UPDATE SET application_status = EXCLUDED.application_status, is_market_blocked = EXCLUDED.is_market_blocked`,
+        `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, application_status, kyc_status, is_market_blocked, rejection_reason, market_block_reason, dob, gender, farming_experience_years, aadhaar_last4)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (id) DO UPDATE SET
+           application_status = EXCLUDED.application_status,
+           is_market_blocked = EXCLUDED.is_market_blocked,
+           dob = COALESCE(farmers.dob, EXCLUDED.dob),
+           gender = COALESCE(farmers.gender, EXCLUDED.gender),
+           farming_experience_years = COALESCE(farmers.farming_experience_years, EXCLUDED.farming_experience_years),
+           aadhaar_last4 = COALESCE(farmers.aadhaar_last4, EXCLUDED.aadhaar_last4)`,
         [
           fId,
           uId,
@@ -120,6 +142,10 @@ async function runDemoSeed() {
           f.blocked,
           f.status === 'REJECTED' ? 'Incomplete land title documentation' : null,
           f.blocked ? 'Pending unexpired PGS/NPOP certification' : null,
+          '1985-05-15',
+          'MALE',
+          10 + f.num,
+          '4321',
         ],
       );
 
@@ -131,6 +157,69 @@ async function runDemoSeed() {
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
         [farmId, fId, `${f.name}'s Organic Farm`, `SF-${100 + f.num}/A`, 3.5 + (f.num * 0.5), f.num],
       );
+
+      // Seed Plots (Zones) for approved farmers (including Farmer 1 Ramesh Patel)
+      if (f.status === 'APPROVED') {
+        const plotPrefix = `31000000-${String(f.num).padStart(4, '0')}-0000-0000`;
+        await client.query(
+          `INSERT INTO plots (id, farm_id, name, area_acres, soil_type, irrigation_type, sun_exposure)
+           VALUES
+             ($1, $2, 'Zone A - North Field', 2.000, 'Red Loam', 'Drip Irrigation', 'Full Sun'),
+             ($3, $2, 'Zone B - South Valley', 1.500, 'Clay Loam', 'Sprinkler', 'Partial Shade'),
+             ($4, $2, 'Zone C - Terrace Ridge', 1.000, 'Sandy Loam', 'Drip Irrigation', 'Full Sun')
+           ON CONFLICT (farm_id, name) DO UPDATE SET
+             area_acres = EXCLUDED.area_acres,
+             soil_type = EXCLUDED.soil_type,
+             irrigation_type = EXCLUDED.irrigation_type,
+             sun_exposure = EXCLUDED.sun_exposure`,
+          [
+            `${plotPrefix}-000000000001`,
+            farmId,
+            `${plotPrefix}-000000000002`,
+            `${plotPrefix}-000000000003`,
+          ],
+        );
+      }
+
+      // Farmer 3 (Suresh Gowda, 9870000003) additionally gets a real FMB boundary polygon, so this
+      // specific demo account has something to view/edit in FMBSketchScreen -- every other seeded
+      // farmer intentionally still has none (matching the app's own "not positioned yet" state).
+      if (f.num === 3) {
+        const boundaryGeoJson = JSON.stringify({
+          type: 'Polygon',
+          coordinates: [[
+            [76.70435, 11.42436],
+            [76.70565, 11.42436],
+            [76.70565, 11.42564],
+            [76.70435, 11.42564],
+            [76.70435, 11.42436],
+          ]],
+        });
+        await client.query(
+          `UPDATE farms
+           SET boundary = ST_GeomFromGeoJSON($2)::geography,
+               boundary_area_acres = 5.00,
+               boundary_drawn_by = $3,
+               boundary_drawn_at = now(),
+               boundary_version = 1
+           WHERE id = $1`,
+          [farmId, boundaryGeoJson, uId],
+        );
+      }
+
+      // Farmer 3 (Suresh Gowda) also gets a SECOND farm with no boundary at all, so this demo
+      // account exercises both FMBSketchScreen states: one farm with an existing boundary to
+      // edit (above), and one still "not positioned yet" that needs a boundary drawn from
+      // scratch -- matching every other seeded farmer's single, boundary-less farm.
+      if (f.num === 3) {
+        const secondFarmId = '30000000-0000-0000-0000-000000000103';
+        await client.query(
+          `INSERT INTO farms (id, farmer_id, name, survey_number, area_acres, centroid_lat, centroid_lng, village, district, is_primary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)
+           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+          [secondFarmId, fId, "Suresh Gowda's Second Plot", 'SF-203/B', 2.0, 11.4350, 76.7150, 'Kodanad', 'The Nilgiris'],
+        );
+      }
 
       // Certification if present
       if (f.cert) {
@@ -222,8 +311,10 @@ async function runDemoSeed() {
           `SELECT id FROM fair_prices WHERE crop_id = $1 AND grade = $2 AND effective_to IS NULL LIMIT 1`,
           [cropId, grade],
         );
+        let fpId;
         if (existingFp.rows.length > 0) {
-          fairPriceIds[`${cropSlug}_${grade}`] = existingFp.rows[0].id;
+          fpId = existingFp.rows[0].id;
+          await client.query(`UPDATE fair_prices SET ceiling_price = $1 WHERE id = $2`, [ceiling, fpId]);
         } else {
           const fpRes = await client.query(
             `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
@@ -231,8 +322,9 @@ async function runDemoSeed() {
              RETURNING id`,
             [cropId, grade, ceiling, superAdminUserId],
           );
-          fairPriceIds[`${cropSlug}_${grade}`] = fpRes.rows[0]?.id;
+          fpId = fpRes.rows[0]?.id;
         }
+        fairPriceIds[`${cropSlug}_${grade}`] = fpId;
       }
     }
 

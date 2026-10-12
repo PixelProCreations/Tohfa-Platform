@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -12,8 +12,11 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { t, type TranslationKey } from '../../../../i18n/farmer';
+import { authPalette as P, colors, typography } from '../../theme';
+import { getFarmWeather, type FarmWeather } from '../../api/weather';
+import { listAllActiveFarmCrops } from '../../api/crops';
+import { listProductionLogs } from '../../api/livestock';
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -53,6 +56,15 @@ function PencilEditIcon({ size = 20, color = P.twOrange600 }: { size?: number; c
   );
 }
 
+function PlusIcon({ size = 14, color = P.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function CloudWeatherIcon({ size = 22, color = P.sky600 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -61,7 +73,7 @@ function CloudWeatherIcon({ size = 22, color = P.sky600 }: { size?: number; colo
   );
 }
 
-function SnowflakeIcon({ size = 12, color = P.sky600 }: { size?: number; color?: string }) {
+function SnowflakeIcon({ size = 12, color = P.deepPurple800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="12" y1="2" x2="12" y2="22" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -97,13 +109,7 @@ function CalendarMiniIcon({ size = 12, color = P.deepGreen }: { size?: number; c
   );
 }
 
-function FlaskBeakerIcon({ size = 20, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+
 
 function UsersIcon({ size = 20, color = P.twGreen700 }: { size?: number; color?: string }) {
   return (
@@ -146,12 +152,48 @@ function GraduationCapIcon({ size = 22, color = P.sky600 }: { size?: number; col
   );
 }
 
-function CheckmarkMiniIcon({ size = 14, color = P.twGreen700 }: { size?: number; color?: string }) {
+function DropWaterIcon({ size = 22, color = P.teal400, fill }: { size?: number; color?: string; fill?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill={fill || 'none'}
+      />
     </Svg>
   );
+}
+
+// ─────────────────────────────────────────────
+// Real-data helpers for the module cards below
+//
+// These 3 cards (Weather, Crop Management, Dairy & Produce) used to show
+// fixed strings ("28°C, Rain expected today", "3 active crops", "18.5 L
+// milk · 24 eggs") regardless of the signed-in farmer's actual data. Each
+// card below now calls its own real endpoint on mount, independently of the
+// other two (same "a failing widget never blanks the others" shape
+// DashboardScreen's own widgets use) -- a slow/failed call degrades only its
+// own card to a dash, never fakes a number.
+// ─────────────────────────────────────────────
+
+/** Matches every `WeatherCondition` value 1:1 (see api/weather.ts) -- same
+ *  labels WeatherScreen's own (unexported) conditionToLabel renders. */
+function weatherConditionLabel(condition: FarmWeather['current']['condition']): string {
+  return t(`farmer.weather.condition.${condition}` as TranslationKey);
+}
+
+function todayIsoDate(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+/** Trims a trailing ".0" (18 -> "18", 18.5 -> "18.5") without the repeating-
+ *  decimal artifacts of summing floats from several production logs. */
+function formatQuantity(value: number): string {
+  return String(Math.round(value * 10) / 10);
 }
 
 // ─────────────────────────────────────────────
@@ -169,6 +211,7 @@ interface FarmManagementScreenProps {
   onNavigateToAttendance?: () => void;
   onNavigateToWorkforce?: () => void;
   onNavigateToLivestock?: () => void;
+  onNavigateToDairyProduce?: () => void;
   onNavigateToLearningHub?: () => void;
   onNavigateToCertifications?: () => void;
   onNavigateToProduceCalendar?: () => void;
@@ -186,14 +229,76 @@ export function FarmManagementScreen({
   onNavigateToAttendance,
   onNavigateToWorkforce,
   onNavigateToLivestock,
+  onNavigateToDairyProduce,
   onNavigateToLearningHub,
   onNavigateToCertifications,
   onNavigateToProduceCalendar,
-  onNavigateToSoilManagement,
 }: FarmManagementScreenProps): React.JSX.Element {
   const [isDiaryModalOpen, setIsDiaryModalOpen] = useState(false);
   const [diaryNote, setDiaryNote] = useState('');
-  const [isFertigationLogged, setIsFertigationLogged] = useState(false);
+
+  // Weather -- own silent load, same shape as DashboardScreen's weather
+  // widget: a failed or slow call just leaves this card showing '—'.
+  const [weather, setWeather] = useState<FarmWeather | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await getFarmWeather();
+        if (!cancelled) setWeather(data);
+      } catch {
+        if (!cancelled) setWeather(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Crop Management -- real active (GROWING + PLANNED) crop count across
+  // every plot, the same ACTIVE_FARM_CROP_STATUSES definition the Dashboard's
+  // Active Crops card and ActiveCropsScreen use. null = still loading/failed.
+  const [activeCropCount, setActiveCropCount] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await listAllActiveFarmCrops();
+        if (!cancelled) setActiveCropCount(result.items.length);
+      } catch {
+        if (!cancelled) setActiveCropCount(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Dairy & Produce -- today's real milk/egg totals, same "sum today's
+  // production logs" convention DairyProduceScreen's own summary tiles use.
+  const [todaysProduce, setTodaysProduce] = useState<{ milkLiters: number; eggs: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await listProductionLogs();
+        const today = todayIsoDate();
+        const todaysLogs = result.items.filter((log) => log.loggedOn === today);
+        const milkLiters = todaysLogs
+          .filter((log) => log.productType === 'MILK')
+          .reduce((sum, log) => sum + log.quantity, 0);
+        const eggs = todaysLogs
+          .filter((log) => log.productType === 'EGGS')
+          .reduce((sum, log) => sum + log.quantity, 0);
+        if (!cancelled) setTodaysProduce({ milkLiters, eggs });
+      } catch {
+        if (!cancelled) setTodaysProduce(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSaveDiary = () => {
     if (!diaryNote.trim()) {
@@ -203,16 +308,6 @@ export function FarmManagementScreen({
     Alert.alert(t('farmer.farmManagement.diary.successTitle'), t('farmer.farmManagement.diary.successBody'));
     setIsDiaryModalOpen(false);
     setDiaryNote('');
-  };
-
-  const handleToggleFertigation = () => {
-    setIsFertigationLogged(!isFertigationLogged);
-    Alert.alert(
-      !isFertigationLogged ? t('farmer.farmManagement.fertigation.loggedTitle') : t('farmer.farmManagement.fertigation.pendingTitle'),
-      !isFertigationLogged
-        ? t('farmer.farmManagement.fertigation.loggedBody')
-        : t('farmer.farmManagement.fertigation.pendingBody'),
-    );
   };
 
   const handleLivestockReview = () => {
@@ -334,6 +429,7 @@ export function FarmManagementScreen({
               onPress={onNavigateToDiary ? onNavigateToDiary : () => setIsDiaryModalOpen(true)}
               accessibilityRole="button"
             >
+              <PlusIcon size={13} color={P.white} />
               <Text style={styles.logEntryBtnText}>{t('farmer.farmManagement.module.diary.logEntry')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -344,7 +440,7 @@ export function FarmManagementScreen({
             activeOpacity={0.88}
             onPress={onNavigateToWeather}
             accessibilityRole="button"
-            accessibilityLabel="Weather"
+            accessibilityLabel={t('farmer.weather.title')}
           >
             <View style={styles.moduleCardTop}>
               <View style={[styles.iconBadge, { backgroundColor: P.sky100 }]}>
@@ -354,18 +450,30 @@ export function FarmManagementScreen({
 
             <View style={styles.moduleTextSection}>
               <Text style={styles.moduleTitle}>{t('farmer.weather.title')}</Text>
-              <Text style={styles.moduleDesc}>28°C · Rain expected today at 4 PM</Text>
+              <Text style={styles.moduleDesc}>
+                {weather
+                  ? t('farmer.farmManagement.module.weather.desc', {
+                      temp: Math.round(weather.current.temperatureC),
+                      condition: weatherConditionLabel(weather.current.condition),
+                    })
+                  : '—'}
+              </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.weatherRiskPill}
-              activeOpacity={0.85}
-              onPress={onNavigateToWeather}
-              accessibilityRole="button"
-            >
-              <SnowflakeIcon size={12} color={P.twBlue700} />
-              <Text style={styles.weatherRiskText}>{t('farmer.farmManagement.module.weather.frostRisk')}</Text>
-            </TouchableOpacity>
+            {/* Only a real active alert -- never a fixed "frost tonight" guess. */}
+            {weather?.alerts?.[0] ? (
+              <TouchableOpacity
+                style={styles.weatherRiskPill}
+                activeOpacity={0.85}
+                onPress={onNavigateToWeather}
+                accessibilityRole="button"
+              >
+                {weather.alerts[0].type === 'FROST' ? (
+                  <SnowflakeIcon size={12} color={P.deepPurple800} />
+                ) : null}
+                <Text style={styles.weatherRiskText}>{weather.alerts[0].title}</Text>
+              </TouchableOpacity>
+            ) : null}
           </TouchableOpacity>
 
           {/* 3. Produce Calendar */}
@@ -404,7 +512,7 @@ export function FarmManagementScreen({
             activeOpacity={0.88}
             onPress={onNavigateToCropManagement || onNavigateToActiveCrops}
             accessibilityRole="button"
-            accessibilityLabel="Crop Management"
+            accessibilityLabel={t('farmer.farmManagement.module.cropManagement.title')}
           >
             <View style={styles.moduleCardTop}>
               <View style={[styles.iconBadge, { backgroundColor: P.twEmerald100 }]}>
@@ -413,13 +521,21 @@ export function FarmManagementScreen({
             </View>
 
             <View style={styles.moduleTextSection}>
-              <Text style={styles.moduleTitle}>Crop Management</Text>
-              <Text style={styles.moduleDesc}>3 active crops · Zones & harvest cycles</Text>
+              <Text style={styles.moduleTitle}>{t('farmer.farmManagement.module.cropManagement.title')}</Text>
+              <Text style={styles.moduleDesc}>
+                {activeCropCount === null
+                  ? '—'
+                  : t('farmer.farmManagement.module.cropManagement.desc', { count: activeCropCount })}
+              </Text>
             </View>
 
             <View style={styles.statusRowGreen}>
               <CheckmarkCircleIcon size={16} color={P.twGreen700} />
-              <Text style={styles.statusRowGreenText}>3 Active</Text>
+              <Text style={styles.statusRowGreenText}>
+                {activeCropCount === null
+                  ? '—'
+                  : t('farmer.farmManagement.module.cropManagement.activeCount', { count: activeCropCount })}
+              </Text>
             </View>
           </TouchableOpacity>
 
@@ -473,32 +589,32 @@ export function FarmManagementScreen({
               <ChevronRightIcon size={14} color={P.twOrange600} />
             </View>
           </TouchableOpacity>
-
-          {/* 7. Soil Management (FR-F06) */}
-          <TouchableOpacity
-            style={styles.moduleCard}
-            activeOpacity={0.88}
-            onPress={onNavigateToSoilManagement}
-            accessibilityRole="button"
-            accessibilityLabel="Soil Management"
-          >
-            <View style={styles.moduleCardTop}>
-              <View style={[styles.iconBadge, { backgroundColor: P.mintTintBg }]}>
-                <FlaskBeakerIcon size={20} color={P.twGreen700} />
-              </View>
-            </View>
-
-            <View style={styles.moduleTextSection}>
-              <Text style={styles.moduleTitle}>Soil Management</Text>
-              <Text style={styles.moduleDesc}>pH 6.4 · Tests, health tracking & conservation</Text>
-            </View>
-
-            <View style={styles.statusRowGreen}>
-              <CheckmarkCircleIcon size={16} color={P.twGreen700} />
-              <Text style={styles.statusRowGreenText}>pH 6.4 Optimal</Text>
-            </View>
-          </TouchableOpacity>
         </View>
+
+        {/* ── Dairy & Produce Card ── */}
+        <TouchableOpacity
+          style={styles.dairyProduceCard}
+          activeOpacity={0.85}
+          onPress={onNavigateToDairyProduce}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.farmManagement.module.dairyProduce.title')}
+        >
+          <View style={styles.dairyProduceIconBox}>
+            <DropWaterIcon size={22} color={P.teal400} fill={P.teal400} />
+          </View>
+          <View style={styles.dairyProduceTextCol}>
+            <Text style={styles.dairyProduceTitle}>{t('farmer.farmManagement.module.dairyProduce.title')}</Text>
+            <Text style={styles.dairyProduceSubtitle}>
+              {todaysProduce
+                ? t('farmer.farmManagement.module.dairyProduce.desc', {
+                    liters: formatQuantity(todaysProduce.milkLiters),
+                    eggs: todaysProduce.eggs,
+                  })
+                : '—'}
+            </Text>
+          </View>
+          <ChevronRightIcon size={18} color={P.twGray400} />
+        </TouchableOpacity>
 
         {/* ── Learning Hub Card ── */}
         <TouchableOpacity
@@ -610,12 +726,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.green100,
     marginTop: 2,
@@ -635,12 +751,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   summaryStatNumber: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.white,
   },
   summaryStatLabel: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '600',
     color: colors.brandGreenLight,
     marginTop: 2,
@@ -648,8 +764,8 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: 14,
+    paddingBottom: 28,
   },
 
   /* Attention Banner */
@@ -668,12 +784,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   attentionTitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twAmber900,
   },
   attentionSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twAmber800,
     marginTop: 2,
   },
@@ -691,7 +807,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: P.twGray200,
     padding: 14,
-    minHeight: 180,
+    minHeight: 172,
     justifyContent: 'space-between',
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
@@ -721,12 +837,12 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   moduleTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
   moduleDesc: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     lineHeight: 16,
     marginTop: 4,
@@ -734,14 +850,17 @@ const styles = StyleSheet.create({
 
   /* Card Bottom Actions */
   logEntryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: P.twGreen700,
     borderRadius: 10,
     paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   logEntryBtnText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.white,
   },
@@ -749,15 +868,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: P.twBlue50,
+    backgroundColor: P.violetTint2,
     borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 8,
   },
   weatherRiskText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
-    color: P.twBlue700,
+    color: P.deepPurple800,
   },
   producePill: {
     flexDirection: 'row',
@@ -769,7 +888,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   producePillText: {
-    fontSize: 11,
+    fontSize: typography.caption,
     fontWeight: '700',
     color: P.deepGreen,
   },
@@ -784,7 +903,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   markLoggedBtnText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -795,7 +914,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statusRowGreenText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
   },
@@ -806,9 +925,48 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   reviewNeededText: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twOrange600,
+  },
+
+  /* Dairy & Produce Card */
+  dairyProduceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: P.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    padding: 16,
+    gap: 12,
+    marginTop: 14,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  dairyProduceIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: P.mintTintBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dairyProduceTextCol: {
+    flex: 1,
+  },
+  dairyProduceTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.twGray900,
+  },
+  dairyProduceSubtitle: {
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
+    marginTop: 2,
   },
 
   /* Learning Hub Card */
@@ -821,7 +979,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray200,
     padding: 16,
     gap: 12,
-    marginTop: 14,
+    marginTop: 10,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -845,7 +1003,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   learningHubTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
   },
@@ -856,7 +1014,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.twBlue500,
   },
   learningHubSubtitle: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -885,12 +1043,12 @@ const styles = StyleSheet.create({
     borderBottomColor: P.surfaceMuted,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: typography.title,
     fontWeight: '700',
     color: P.twGray900,
   },
   modalSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.twGray500,
     marginTop: 2,
   },
@@ -903,12 +1061,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseBtnText: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray500,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 8,
@@ -918,7 +1076,7 @@ const styles = StyleSheet.create({
     borderColor: P.twGray300,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
+    fontSize: typography.body,
     color: P.twGray900,
     minHeight: 100,
     textAlignVertical: 'top',
@@ -937,7 +1095,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '600',
     color: P.twGray700,
   },
@@ -949,7 +1107,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
   },

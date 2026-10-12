@@ -12,7 +12,7 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { ErrorState, Icon } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors } from '../../theme';
+import { authPalette as P, colors, typography } from '../../theme';
 import {
   getFarmWeather,
   type FarmWeather,
@@ -25,6 +25,15 @@ import { WeatherLottieHero } from './WeatherLottieHero';
 // Inline condition glyphs for hourly & 7-day rows
 // (Strict zero raw emoji rule per foundation.test.ts)
 // ─────────────────────────────────────────────
+
+function InfoCircleIcon({ size = 16, color }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 11v5M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 type WeatherKind = 'sunny' | 'partlyCloudy' | 'cloudy' | 'rain' | 'lightRain' | 'night' | 'frost';
 
@@ -261,6 +270,23 @@ export function WeatherScreen({ onNavigateBack }: WeatherScreenProps): React.JSX
           />
         ) : (
           <>
+            {/* Honest "not your farm's real data" notice -- shown whenever the
+                backend's per-farm call (provider === 'openweathermap') wasn't
+                what actually loaded, so a farmer never mistakes a public
+                regional estimate or synthetic fallback for their farm's live
+                conditions. Mirrors ChangeMobileScreen's infoBanner pattern. */}
+            {weather.provider !== 'openweathermap' ? (
+              <View style={styles.infoBanner}>
+                <View style={styles.infoBannerIcon}>
+                  <InfoCircleIcon size={16} color={P.greenDeep2} />
+                </View>
+                <View style={styles.infoBannerTextWrap}>
+                  <Text style={styles.infoBannerTitle}>{t('farmer.weather.estimatedBannerTitle')}</Text>
+                  <Text style={styles.infoBannerText}>{t('farmer.weather.estimatedBannerBody')}</Text>
+                </View>
+              </View>
+            ) : null}
+
             {/* Real-time Animated Weather Hero */}
             <WeatherLottieHero
               temperature={weather.current.temperatureC}
@@ -451,7 +477,7 @@ const styles = StyleSheet.create({
   },
   navBackIcon: {
     color: colors.primary,
-    fontSize: 24,
+    fontSize: typography.headline,
     lineHeight: 28,
     marginRight: 2,
   },
@@ -461,18 +487,50 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.textDark,
-    fontSize: 20,
+    fontSize: typography.title,
     fontWeight: 'bold',
   },
   headerSubtitle: {
     color: colors.textSubtle,
-    fontSize: 13,
+    fontSize: typography.body,
     marginTop: 2,
   },
 
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
+  },
+
+  infoBanner: {
+    flexDirection: 'row',
+    backgroundColor: P.lightGreen,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 10,
+  },
+  infoBannerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: P.greenPaleBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoBannerTextWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  infoBannerTitle: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.greenDeep5,
+  },
+  infoBannerText: {
+    fontSize: typography.bodySmall,
+    lineHeight: 18,
+    color: P.greenDeep5,
   },
 
   loadingContainer: {
@@ -482,13 +540,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.textSubtle,
     fontWeight: '500',
   },
 
   sectionHeading: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: colors.textSubtle,
     marginBottom: 12,
@@ -522,15 +580,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: 'bold',
     marginBottom: 2,
   },
   alertSubtitle: {
-    fontSize: 13,
+    fontSize: typography.body,
   },
   chevron: {
-    fontSize: 20,
+    fontSize: typography.title,
     marginLeft: 8,
   },
   alertDetailsBox: {
@@ -539,7 +597,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   alertDetailsText: {
-    fontSize: 13,
+    fontSize: typography.body,
     lineHeight: 20,
   },
   noAlertsCard: {
@@ -555,7 +613,7 @@ const styles = StyleSheet.create({
   },
   noAlertsText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textBody,
     lineHeight: 18,
   },
@@ -584,7 +642,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   hourlyTime: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.textSubtle,
     marginBottom: 8,
@@ -593,7 +651,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   hourlyTemp: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
   },
@@ -620,7 +678,7 @@ const styles = StyleSheet.create({
   },
   forecastDay: {
     width: 44,
-    fontSize: 13,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
   },
@@ -631,7 +689,7 @@ const styles = StyleSheet.create({
   },
   forecastSummary: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textSubtle,
     marginLeft: 4,
   },
@@ -641,14 +699,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   forecastHigh: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
     color: colors.textDark,
     width: 28,
     textAlign: 'right',
   },
   forecastLow: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: colors.textSubtle,
     width: 28,
     textAlign: 'right',

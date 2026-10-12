@@ -248,7 +248,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     return { orderId, orderNumber };
   }
 
-  it('BR-30a: Sub Warehouse Admin is scoped to own warehouse, cross-warehouse query is rejected (403/404)', async () => {
+  it('BR-30a: Sub Warehouse Admin is scoped to own warehouse; a cross-warehouse filter is empty and a cross-warehouse write is 404', async () => {
     if (!ready) return;
 
     // Create Order A in WH 1, Order B in WH 2
@@ -275,13 +275,16 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     expect(ids).toContain(orderWh1);
     expect(ids).not.toContain(orderWh2);
 
-    // 2. Sub WH Admin 1 querying WH 2 explicitly returns 403 WAREHOUSE_SCOPE_VIOLATION
+    // 2. Sub WH Admin 1 querying WH 2 explicitly gets an EMPTY page. This used to pin 403
+    //    WAREHOUSE_SCOPE_VIOLATION, which contradicted BR-30 ("cross-warehouse rows return empty,
+    //    not 403" — a 403 confirms the other warehouse's data exists); see BR-101c.
     const crossQueryRes = await request(app)
       .get(`/v1/admin/orders?warehouseId=${warehouseId2}`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`);
 
-    expect(crossQueryRes.status).toBe(403);
-    expect(crossQueryRes.body.code).toBe('WAREHOUSE_SCOPE_VIOLATION');
+    expect(crossQueryRes.status).toBe(200);
+    expect(crossQueryRes.body.items).toEqual([]);
+    expect(crossQueryRes.body.page).toEqual({ nextCursor: null, hasMore: false });
 
     // 3. Sub WH Admin 1 attempting to pack WH 2 order returns 404 (warehouse isolation)
     const packCrossRes = await request(app)

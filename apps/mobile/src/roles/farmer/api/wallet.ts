@@ -19,16 +19,29 @@ export interface Wallet {
   updatedAt: string;
 }
 
+/**
+ * Field names here match the server's actual response shape -- `docs/openapi.yaml`'s
+ * WalletTransaction schema and `apps/api/src/modules/wallet/wallet.schema.ts` both use
+ * `txnType`/`refType`/`refId`/`remarks`/`performedAt`, not `type`/`referenceType`/
+ * `referenceId`/`description`/`createdAt`. This interface previously declared the latter,
+ * which compiled fine but meant every field on a real transaction read as `undefined` at
+ * runtime (TypeScript has no way to catch a shape mismatch against an unvalidated
+ * `api.get<T>()` response). Corrected while wiring WalletScreen to real data -- see that
+ * screen's `toTransactionItem` for where this is consumed.
+ */
 export interface WalletTransaction {
   id: string;
   walletId: string;
-  type: WalletTransactionType;
+  txnType: WalletTransactionType;
   amount: string;
   balanceAfter: string;
-  referenceType?: string | null;
-  referenceId?: string | null;
-  description?: string | null;
-  createdAt: string;
+  refType: string | null;
+  refId: string | null;
+  fiscalCashTag: string | null;
+  warehouseId: string | null;
+  performedBy: string | null;
+  performedAt: string;
+  remarks: string | null;
 }
 
 export interface Invoice {

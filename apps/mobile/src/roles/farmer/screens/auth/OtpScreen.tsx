@@ -11,12 +11,11 @@ import {
   TextInput,
   Pressable,
 } from 'react-native';
-import { authPalette as themeAuthPalette } from '../../theme';
-import { t } from '../../../../i18n/farmer';
+import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
-import { ApiError } from '../../../../shell/api/client';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map
@@ -85,7 +84,14 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
   });
 
   async function handleVerify() {
-    if (code.length < 6 || otpState.isLocked) return;
+    if (code.length < 6) {
+      setErrorMsg('Please enter the complete 6-digit verification code.');
+      return;
+    }
+    if (otpState.isLocked) {
+      setErrorMsg('Too many failed attempts. Please try again later.');
+      return;
+    }
     if (purpose === 'PASSWORD_RESET') {
       onNavigate('ResetPassword', { challengeId: activeChallengeId, code });
       return;
@@ -117,16 +123,11 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         if (err.is('OTP_INVALID') || err.is('OTP_EXPIRED')) {
           const nextAttempts = Math.max(0, attemptsRemaining - 1);
           setAttemptsRemaining(nextAttempts);
-          setErrorMsg(t('error.OTP_INVALID'));
         } else if (err.is('OTP_LOCKED')) {
           setAttemptsRemaining(0);
-          setErrorMsg(t('error.OTP_LOCKED'));
-        } else {
-          setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
         }
-      } else {
-        setErrorMsg(t('error.generic'));
       }
+      setErrorMsg(formatErrorMessage(err, 'Verification failed. Please check the code and try again.'));
     } finally {
       setLoading(false);
     }
@@ -149,15 +150,7 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
       setAttemptsRemaining(res.attemptsRemaining);
       setCode('');
     } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        if (err.is('OTP_RESEND_TOO_SOON')) {
-          setErrorMsg(t('error.OTP_RESEND_TOO_SOON'));
-        } else {
-          setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
-        }
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      setErrorMsg(formatErrorMessage(err, 'Could not resend OTP. Please try again.'));
     } finally {
       setResendLoading(false);
     }
@@ -330,7 +323,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backButtonText: {
-    fontSize: 18,
+    fontSize: typography.title,
     color: authPalette.textLight,
     fontWeight: '600',
   },
@@ -346,31 +339,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.headline,
     fontWeight: '800',
     color: authPalette.text,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
     marginBottom: 8,
   },
   phoneNumber: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: authPalette.text,
     marginBottom: 8,
   },
   changeMobile: {
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '700',
     color: authPalette.focusBorder,
     marginBottom: 32,
   },
   errorText: {
     color: themeAuthPalette.red700,
-    fontSize: 14,
+    fontSize: typography.body,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -398,7 +391,7 @@ const styles = StyleSheet.create({
     borderColor: authPalette.focusBorder,
   },
   otpBoxText: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '700',
     color: authPalette.text,
   },
@@ -415,7 +408,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   resendLabel: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
   },
   resendTimer: {
@@ -436,14 +429,14 @@ const styles = StyleSheet.create({
   },
   verifyButtonText: {
     color: authPalette.inputBg,
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
   },
   supportContainer: {
     marginBottom: 16,
   },
   supportText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
   },
   supportLink: {
@@ -471,7 +464,7 @@ const styles = StyleSheet.create({
     backgroundColor: authPalette.successLight,
   },
   langText: {
-    fontSize: 14,
+    fontSize: typography.body,
     color: authPalette.textLight,
     fontWeight: '600',
   },

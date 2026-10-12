@@ -2,7 +2,7 @@
 /**
  * Module scaffolder — `pnpm new:module <plural-name> [--singular <name>]`.
  *
- * Copies `apps/api/src/modules/_example` (the warehouses reference module) into
+ * Copies `apps/api/src/modules/warehouses` (the warehouses reference module) into
  * `apps/api/src/modules/<plural-name>` and renames every identifier. The point
  * is that every module in this codebase has the same five files in the same
  * shape, so a reviewer (or an agent) only has to learn one layout.
@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MODULES_DIR = join(REPO_ROOT, 'apps', 'api', 'src', 'modules');
-const TEMPLATE_DIR = join(MODULES_DIR, '_example');
+const TEMPLATE_DIR = join(MODULES_DIR, 'warehouses');
 
 const TEMPLATE_PLURAL = 'warehouses';
 const TEMPLATE_SINGULAR = 'warehouse';
@@ -135,7 +135,7 @@ function main(): void {
     const body = rewrite(source, args)
       .replace(
         'REFERENCE PATTERN — copy this structure for every new module. See CLAUDE.md.',
-        `Generated from the _example reference module. See CLAUDE.md.`,
+        `Generated from the warehouses reference module. See CLAUDE.md.`,
       )
       .replace(
         /requirePermission\('[^']*'\)/g,

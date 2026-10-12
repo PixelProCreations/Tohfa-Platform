@@ -23,7 +23,7 @@ import {
   type OAuthProviderCode,
 } from '../../api/auth';
 import { preferredRoleForSelection } from '../../utils/adminShell';
-import { ApiError } from '../../../../shell/api/client';
+import { formatErrorMessage } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
   signInWithFacebook,
@@ -186,18 +186,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         // The farmer closed the native sheet — not an error worth surfacing.
         return;
       }
-      if (err instanceof ApiError) {
-        setErrorMsg(t(`error.${err.problem.code}` as unknown as Parameters<typeof t>[0]) || t('error.generic'));
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
     } finally {
       setSocialLoading(null);
     }
   }
 
   async function handlePasswordLogin() {
-    if (!mobile.trim() || !password.trim()) return;
+    const rawMobile = mobile.replace(/\s+/g, '').trim();
+    if (!rawMobile) {
+      setErrorMsg('Please enter your mobile number.');
+      return;
+    }
+    if (rawMobile.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
 
@@ -229,18 +237,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       const route = resolveRouteAfterLogin(outcome, me);
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
-      console.warn('[LoginScreen] Login error:', err);
-      if (err instanceof ApiError) {
-        const key = `error.${err.problem.code}` as unknown as Parameters<typeof t>[0];
-        const translated = t(key);
-        const resolvedMsg =
-          translated && translated !== key
-            ? translated
-            : err.problem.detail || err.problem.title || t('error.generic');
-        setErrorMsg(resolvedMsg);
-      } else {
-        setErrorMsg(t('error.generic'));
-      }
+      console.error('[LoginScreen] Catch block hit:', err);
+      setErrorMsg(formatErrorMessage(err, 'Invalid credentials. Please check your mobile number and password.'));
     } finally {
       setLoading(false);
     }
@@ -490,7 +488,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   googleGlyph: {
-    fontSize: 22,
+    fontSize: typography.title,
     fontWeight: '800',
     color: P.googleBlue,
   },
@@ -503,7 +501,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   facebookGlyph: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.white,
     marginTop: -1,
@@ -575,7 +573,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   passwordInputMasked: {
-    fontSize: 21,
+    fontSize: typography.title,
     letterSpacing: 3,
     fontWeight: '700',
   },

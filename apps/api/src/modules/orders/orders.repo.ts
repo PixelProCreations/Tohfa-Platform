@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
+import { AppError } from '../../http/problem.js';
 import type {
   DeliverySlot,
   FulfillmentType,
@@ -233,7 +234,6 @@ export const ordersRepo: OrdersRepo = {
   },
 
   async generateOrderNumber(db) {
-    await db.query(`CREATE SEQUENCE IF NOT EXISTS order_number_seq START WITH 1`);
     const res = await db.query<{ yr: string; num: string }>(
       `SELECT to_char(CURRENT_DATE, 'YYYY') AS yr,
               LPAD(nextval('order_number_seq')::text, 6, '0') AS num`,
@@ -518,20 +518,36 @@ export const ordersRepo: OrdersRepo = {
       }
 
       if (item.batchId) {
-        await db.query(
-          `INSERT INTO stock_ledger (
-             batch_id, warehouse_id, movement_type, qty_delta, balance_after,
-             ref_type, ref_id, remarks, created_by
-           )
-           VALUES ($1, $2, 'SALE', -$3::numeric, 0, 'ORDER', $4, 'Customer order checkout', $5)`,
-          [
-            item.batchId,
-            warehouseId,
-            item.qtyKg,
-            orderId,
-            actorUserId,
-          ],
-        );
+        try {
+          await db.query(
+            `INSERT INTO stock_ledger (
+               batch_id, warehouse_id, movement_type, qty_delta, balance_after,
+               ref_type, ref_id, remarks, created_by
+             )
+             VALUES ($1, $2, 'SALE', -$3::numeric, 0, 'ORDER', $4, 'Customer order checkout', $5)`,
+            [
+              item.batchId,
+              warehouseId,
+              item.qtyKg,
+              orderId,
+              actorUserId,
+            ],
+          );
+        } catch (error: unknown) {
+          // trg_stock_ledger_balance refuses a movement that would take the batch below zero. The
+          // allocation row can still show stock here, because a DIRECT counter sale draws the
+          // batch without touching any allocation (BR-95k, owner decision 2026-10-11). That is a
+          // stock conflict for the customer, not a server fault; the caller's transaction rolls
+          // back the debit and the order.
+          const pg = error as { code?: string; hint?: string };
+          if (pg.code === '23514' && pg.hint === 'code: INSUFFICIENT_STOCK') {
+            throw new AppError('STOCK_UNAVAILABLE', {
+              detail: `${item.name} (${item.grade}) is no longer in stock for the quantity in your cart.`,
+              cause: error,
+            });
+          }
+          throw error;
+        }
       }
     }
   },

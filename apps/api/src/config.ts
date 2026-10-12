@@ -9,6 +9,7 @@
 import { config as loadDotenv } from 'dotenv';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { parseDatabaseSsl } from './db/poolConfig.js';
 import { REPO_ROOT } from './paths.js';
 
 loadDotenv({ path: join(REPO_ROOT, '.env') });
@@ -30,16 +31,35 @@ const envSchema = z.object({
   PORT: intFromEnv(1, 65535).default(3000),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  // TLS for the Postgres connection: false (default) | true | no-verify.
+  // Semantics and the pg `sslmode=require` caveat live in db/poolConfig.ts.
+  DATABASE_SSL: z
+    .string()
+    .default('false')
+    .refine(
+      (value) => {
+        try {
+          parseDatabaseSsl(value);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      'DATABASE_SSL must be one of: false, true, no-verify',
+    ),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  // Short on purpose: `requireAuth` only verifies the JWT signature/expiry, it
-  // never checks whether the session was revoked (see requireAuth.ts's
-  // docblock). Logout, password reset, and session-revocation all invalidate
-  // the *refresh* token immediately, but an access token already issued stays
-  // valid until it naturally expires — this TTL is that window. 5 minutes
-  // bounds it tightly without materially increasing refresh-endpoint traffic,
-  // since the client already refreshes transparently on a 401.
+  // Short on purpose: `requireAuth` verifies the JWT signature/expiry, plus a
+  // Redis-backed per-user "don't trust tokens issued before this moment"
+  // stamp (see auth/tokenInvalidation.ts) that password change/reset write.
+  // Ordinary logout and refresh-token rotation still only invalidate the
+  // *refresh* token immediately -- that is a deliberate, narrower scope (see
+  // tokenInvalidation.ts's docblock) -- so an access token already issued for
+  // those stays valid until it naturally expires. This TTL is that window.
+  // 5 minutes bounds it tightly without materially increasing
+  // refresh-endpoint traffic, since the client already refreshes
+  // transparently on a 401.
   JWT_ACCESS_TTL: z.string().min(1).default('5m'),
   JWT_REFRESH_TTL: z.string().min(1).default('30d'),
 
@@ -52,11 +72,10 @@ const envSchema = z.object({
   RAZORPAYX_ACCOUNT: z.string().default(''),
   PAYMENT_PROVIDER: z.enum(['mock', 'razorpay']).default('mock'),
 
-  SMS_PROVIDER: z.enum(['mock', 'msg91', 'twilio']).default('mock'),
+  SMS_PROVIDER: z.enum(['mock', 'msg91']).default('mock'),
   MSG91_AUTH_KEY: z.string().default(''),
-  TWILIO_ACCOUNT_SID: z.string().default(''),
-  TWILIO_AUTH_TOKEN: z.string().default(''),
-  TWILIO_FROM_NUMBER: z.string().default(''),
+  /** DLT-approved Flow template id for the OTP SMS (##OTP## variable). */
+  MSG91_OTP_TEMPLATE_ID: z.string().default(''),
   FCM_SERVER_KEY: z.string().default(''),
   SENTRY_DSN: z.string().default(''),
 

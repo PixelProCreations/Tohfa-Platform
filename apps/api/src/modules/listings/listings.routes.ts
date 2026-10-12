@@ -63,7 +63,13 @@ listingsRouter.post(
   asyncHandler(async (req, res) => {
     const { id } = listingIdParam.parse(req.params);
     const version = req.body?.version ? Number(req.body.version) : undefined;
-    const result = await listingsService.withdrawListing(req.actor!, req.scope!, id, version);
+    const result = await listingsService.withdrawListing(
+      req.actor!,
+      req.scope!,
+      id,
+      version,
+      req.header('idempotency-key'),
+    );
     res.json(result);
   }),
 );

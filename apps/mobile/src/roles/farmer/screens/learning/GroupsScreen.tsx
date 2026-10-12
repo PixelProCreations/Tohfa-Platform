@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, authPalette as P } from '../../theme';
+import { colors, authPalette as P, typography } from '../../theme';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -387,13 +387,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: typography.title,
     fontWeight: '800',
     color: colors.textDark,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
     marginTop: 1,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.body,
     color: colors.textDark,
     marginLeft: 10,
     paddingVertical: 0,
@@ -465,13 +465,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   groupName: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 3,
   },
   groupMembersText: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.greyMid1,
   },
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   joinedBadgeText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.greenDeep1,
   },
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   joinButtonText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     fontWeight: '700',
     color: P.weatherCloudWhite,
   },
@@ -513,13 +513,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: colors.textDark,
     marginBottom: 4,
   },
   emptySub: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
   },
 
@@ -549,12 +549,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: colors.textDark,
   },
   modalSub: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: P.greyMid1,
     marginTop: 2,
   },
@@ -573,13 +573,13 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   discussionLabel: {
-    fontSize: 12.5,
+    fontSize: typography.bodySmall,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 6,
   },
   discussionText: {
-    fontSize: 13,
+    fontSize: typography.body,
     color: P.twGray600,
     lineHeight: 19,
   },
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
   },
   modalJoinBtnText: {
     color: P.weatherCloudWhite,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
   },
   modalLeaveBtn: {
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   modalLeaveBtnText: {
     color: P.twRed600,
-    fontSize: 14,
+    fontSize: typography.body,
     fontWeight: '800',
   },
 });

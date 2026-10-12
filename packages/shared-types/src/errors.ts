@@ -17,6 +17,8 @@ export const ErrorCode = {
   CERT_EXPIRED: 'CERT_EXPIRED',
   /** Certificate document exists but has not been verified by an admin. */
   CERT_UNVERIFIED: 'CERT_UNVERIFIED',
+  /** The farmer has no certificate that could qualify: none on file, or only rejected ones (BR-02). */
+  CERT_MISSING: 'CERT_MISSING',
   /** Asking price exceeds the Super-Admin-set fair price ceiling for the crop. */
   PRICE_ABOVE_CEILING: 'PRICE_ABOVE_CEILING',
   /** Customer-facing retail price exceeds the ceiling for that crop + grade. */
@@ -61,10 +63,14 @@ export const ErrorCode = {
   OTP_LOCKED: 'OTP_LOCKED',
   /** A resend was requested inside the 60-second window. */
   OTP_RESEND_TOO_SOON: 'OTP_RESEND_TOO_SOON',
+  /** The configured SMS provider rejected or failed to dispatch the OTP. */
+  OTP_SMS_DELIVERY_FAILED: 'OTP_SMS_DELIVERY_FAILED',
   /** A second audit was scheduled for a quarter that already has one. */
   AUDIT_QUARTER_TAKEN: 'AUDIT_QUARTER_TAKEN',
   /** A rating/audit category score falls outside its allowed range. */
   SCORE_OUT_OF_RANGE: 'SCORE_OUT_OF_RANGE',
+  /** An audit cannot be completed: one or more of the 10 category scores is missing (BR-06). */
+  AUDIT_INCOMPLETE: 'AUDIT_INCOMPLETE',
   /** A field only a Super Admin may change (Aadhaar, mobile) was submitted. */
   FIELD_LOCKED: 'FIELD_LOCKED',
   /** Requested state transition is not legal from the current state. */
@@ -79,6 +85,34 @@ export const ErrorCode = {
   OAUTH_IDENTITY_ALREADY_LINKED: 'OAUTH_IDENTITY_ALREADY_LINKED',
   /** The `linkToken` passed to `/auth/otp/verify` is expired, malformed or tampered with (BR-39). */
   OAUTH_LINK_TOKEN_INVALID: 'OAUTH_LINK_TOKEN_INVALID',
+  /** The sub-activity does not belong to the given activity category (BR-42). */
+  DIARY_INVALID_SUB_ACTIVITY: 'DIARY_INVALID_SUB_ACTIVITY',
+  /** The plot has no farm_crops row in status GROWING (BR-42). */
+  DIARY_NO_ACTIVE_CROP: 'DIARY_NO_ACTIVE_CROP',
+  /** Diary entry time-spent minutes is missing or not greater than zero (BR-42). */
+  DIARY_MINUTES_REQUIRED: 'DIARY_MINUTES_REQUIRED',
+  /** A diary workforce entry's hoursWorked is not greater than 0 and at most 24 (BR-44). */
+  DIARY_WORKER_HOURS_INVALID: 'DIARY_WORKER_HOURS_INVALID',
+  /** A diary workforce entry's wageRatePaise is not a positive integer number of paise (BR-44). */
+  DIARY_WAGE_RATE_INVALID: 'DIARY_WAGE_RATE_INVALID',
+  /** The plot already has another live crop in status GROWING (BR-46). */
+  CROP_PLOT_ALREADY_GROWING: 'CROP_PLOT_ALREADY_GROWING',
+  /** The animal already has a lifecycle event recorded; it cannot leave the herd twice (BR-47). */
+  LIVESTOCK_ALREADY_EXITED: 'LIVESTOCK_ALREADY_EXITED',
+  /** The training workshop has reached full capacity (BR-59). */
+  TRAINING_FULL: 'TRAINING_FULL',
+  /** A sale line's price differs from the quote the client echoed back; re-quote and confirm (BR-89). */
+  SALE_PRICE_CHANGED: 'SALE_PRICE_CHANGED',
+  /** Stock (or the LIVE_MARKET allocation) fell below a sale line's quantity since the quote (BR-89, BR-95). */
+  SALE_STOCK_CHANGED: 'SALE_STOCK_CHANGED',
+  /** A walk-in sale (no customer record) tried to pay by WALLET (BR-86). */
+  WALKIN_WALLET_NOT_ALLOWED: 'WALKIN_WALLET_NOT_ALLOWED',
+  /** The sale's UPI payment is not yet confirmed, so this action is not allowed (BR-94). */
+  PAYMENT_PENDING: 'PAYMENT_PENDING',
+  /** CASH amount received is below the sale total (BR-94). */
+  PAYMENT_AMOUNT_INSUFFICIENT: 'PAYMENT_AMOUNT_INSUFFICIENT',
+  /** HORECA/B2B sale creation is not available in Track 1 — HTTP 501 (BR-13, BR-85). */
+  SALE_CHANNEL_NOT_SUPPORTED: 'SALE_CHANNEL_NOT_SUPPORTED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -95,6 +129,8 @@ export const GenericProblemCode = {
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
+  /** The request body exceeds the configured size limit (HTTP 413). */
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   RATE_LIMITED: 'RATE_LIMITED',
   INTERNAL: 'INTERNAL',
 } as const;

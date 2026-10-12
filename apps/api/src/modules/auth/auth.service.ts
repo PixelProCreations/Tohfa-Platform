@@ -3,13 +3,17 @@ import bcrypt from 'bcryptjs';
 import { type RoleCode } from '@tohfa/shared-types';
 import { signOAuthLinkToken, signTokenPair, verifyOAuthLinkToken, verifyRefreshToken } from '../../auth/jwt.js';
 import type { Actor } from '../../auth/requireAuth.js';
+import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { markTokensInvalidBefore } from '../../auth/tokenInvalidation.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { config } from '../../config.js';
-import { pool, withTransaction } from '../../db/pool.js';
+import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
-import { authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
+import { authProfileRepo, authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
+import { smsTransport } from '../notifications/sms/index.js';
 import type {
+  ChangePasswordBody,
   ForgotPasswordBody,
   LoginBody,
   OAuthLinkBody,
@@ -18,6 +22,7 @@ import type {
   RegisterCustomerBody,
   ResetPasswordBody,
   SendOtpBody,
+  UpdateMeBody,
   VerifyOtpBody,
 } from './auth.schema.js';
 
@@ -40,6 +45,24 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: string }).code === '23505';
 }
 
+/**
+ * BR-67: allow-list of what a user may see about their own session. `isCurrent`
+ * is intentionally absent: the access token carries no session id, so there is
+ * no honest way to say which session the caller is on.
+ */
+export interface MySessionResponse {
+  id: string;
+  platform: 'ios' | 'android' | 'web' | null;
+  userAgent: string | null;
+  issuedAt: string;
+  lastSeenAt: string | null;
+  lastSeenIp: string | null;
+  expiresAt: string;
+}
+
+/** A user has a handful of sessions; this only bounds a pathological account. */
+const MY_SESSIONS_LIMIT = 50;
+
 export interface AuthService {
   registerCustomer(input: RegisterCustomerBody): Promise<unknown>;
   sendOtp(input: SendOtpBody): Promise<unknown>;
@@ -49,8 +72,12 @@ export interface AuthService {
   logout(actor: Actor): Promise<void>;
   forgotPassword(input: ForgotPasswordBody): Promise<unknown>;
   resetPassword(input: ResetPasswordBody): Promise<void>;
+  changePassword(actor: Actor, input: ChangePasswordBody): Promise<void>;
   terminateSession(actor: Actor, sessionId: string): Promise<void>;
   getMe(actor: Actor): Promise<unknown>;
+  /** BR-82: edit own fullName / preferredLocale. Returns the GET /auth/me shape. */
+  updateMyProfile(scope: ResolvedScope, input: UpdateMeBody): Promise<unknown>;
+  listMySessions(actor: Actor): Promise<MySessionResponse[]>;
   loginWithOAuth(
     provider: OAuthProviderCode,
     input: OAuthLoginBody,
@@ -59,6 +86,37 @@ export interface AuthService {
   ): Promise<unknown>;
   linkOAuthIdentity(actor: Actor, input: OAuthLinkBody): Promise<unknown>;
   unlinkOAuthIdentity(actor: Actor, provider: OAuthProviderCode): Promise<void>;
+}
+
+/** The GET /auth/me response; PATCH /auth/me answers with the same shape. */
+async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<unknown> {
+  const user = await repo.findUserById(db, userId);
+  if (user === null) {
+    throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+  }
+
+  const roles = await repo.getUserRoles(db, user.id);
+  const permissions = await repo.getUserPermissions(db, user.id);
+
+  return {
+    id: user.id,
+    fullName: user.full_name,
+    mobile: user.mobile,
+    email: user.email,
+    userType: user.user_type,
+    preferredLocale: user.preferred_locale,
+    status: user.status,
+    createdAt: user.created_at.toISOString(),
+    lastLoginAt: user.last_login_at === null ? null : user.last_login_at.toISOString(),
+    roles: roles.map((r) => ({
+      code: r.role_code,
+      warehouseId: r.warehouse_id ?? undefined,
+      warehouseName: r.warehouse_name ?? undefined,
+      zoneId: r.zone_id ?? undefined,
+      zoneName: r.zone_name ?? undefined,
+    })),
+    permissions,
+  };
 }
 
 export function createAuthService(
@@ -155,6 +213,28 @@ export function createAuthService(
         maxAttempts: config.OTP_MAX_ATTEMPTS, // 3 per BR-32
         expiresAt,
       });
+
+      // The challenge is already persisted at this point, so a failed SMS
+      // dispatch doesn't lose the code -- a client that has it some other
+      // way (or a resend once the provider recovers) can still verify. But
+      // the caller must be told delivery failed rather than being left
+      // thinking a text is on its way when none was ever sent.
+      const ttlMinutes = Math.round(config.OTP_TTL_SECONDS / 60);
+      const smsResult = await smsTransport.sendSms({
+        to: input.mobile,
+        // Used as-is by free-text transports (mock); msg91's Flow
+        // API ignores this and fills its own DLT-approved template instead
+        // (templateId + templateVars below) -- see SendSmsParams.
+        message: `Your TOHFA verification code is ${code}. It expires in ${ttlMinutes} minutes. Do not share this code with anyone.`,
+        templateId: config.MSG91_OTP_TEMPLATE_ID || undefined,
+        templateVars: { OTP: code },
+      });
+      if (smsResult.status === 'FAILED') {
+        throw new AppError('OTP_SMS_DELIVERY_FAILED', {
+          status: 502,
+          detail: 'Could not send the OTP SMS. Please try again in a moment.',
+        });
+      }
 
       return {
         challengeId: challenge.id,
@@ -651,14 +731,22 @@ export function createAuthService(
       const newTokenHash = hashValue(newPair.refreshToken);
       const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-      await withTransaction(async (tx) => {
-        await repo.rotateRefreshToken(tx, storedToken.id, {
+      const rotated = await withTransaction((tx) =>
+        repo.rotateRefreshToken(tx, storedToken.id, {
           sessionId: session.id,
           userId: user.id,
           tokenHash: newTokenHash,
           expiresAt: sessionExpiresAt,
+        }),
+      );
+      if (rotated === null) {
+        // A concurrent request consumed this token between our read and our claim: that
+        // is reuse, treated exactly like the sequential case above.
+        await repo.revokeSessionTokenFamily(pool, storedToken.session_id, 'TOKEN_REUSE_DETECTED');
+        throw new AppError('UNAUTHENTICATED', {
+          detail: 'Token reuse detected. All sessions in this family have been terminated.',
         });
-      });
+      }
 
       return {
         accessToken: newPair.accessToken,
@@ -713,7 +801,45 @@ export function createAuthService(
           await repo.updateUserPassword(tx, user.id, passwordHash);
           await repo.revokeAllUserSessions(tx, user.id, user.id, 'PASSWORD_RESET_ALL_SESSIONS');
         });
+        // Redis isn't part of the Postgres transaction above -- only stamp
+        // the invalidation once the password change has actually committed.
+        // Closes the gap where an access token issued before the reset would
+        // otherwise keep working until it naturally expired (see
+        // auth/tokenInvalidation.ts).
+        await markTokensInvalidBefore(user.id);
       }
+    },
+
+    async changePassword(actor, input) {
+      const user = await repo.findUserById(pool, actor.userId);
+      if (user === null) {
+        // Defensive: an authenticated actor's user row should always exist.
+        throw new AppError('NOT_FOUND', { detail: 'User not found.' });
+      }
+
+      if (user.password_hash === null) {
+        throw new AppError('UNAUTHENTICATED', {
+          detail: "This account doesn't have a password set yet. Use 'Forgot password' instead.",
+        });
+      }
+
+      const valid = await bcrypt.compare(input.currentPassword, user.password_hash);
+      if (!valid) {
+        throw new AppError('UNAUTHENTICATED', { detail: 'Current password is incorrect.' });
+      }
+
+      const passwordHash = await bcrypt.hash(input.newPassword, 12);
+      await withTransaction(async (tx) => {
+        await repo.updateUserPassword(tx, user.id, passwordHash);
+        // Same all-sessions revocation as resetPassword, including the
+        // caller's own current session -- a password change is exactly the
+        // kind of event that should force every device to re-authenticate.
+        await repo.revokeAllUserSessions(tx, user.id, user.id, 'PASSWORD_CHANGED_ALL_SESSIONS');
+      });
+      // Same reasoning as resetPassword above: stamp AFTER the commit, so an
+      // already-issued access token stops working immediately instead of
+      // riding out its remaining TTL.
+      await markTokensInvalidBefore(user.id);
     },
 
     async terminateSession(actor, sessionId) {
@@ -726,30 +852,69 @@ export function createAuthService(
     },
 
     async getMe(actor) {
-      const user = await repo.findUserById(pool, actor.userId);
-      if (user === null) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+      return buildMe(repo, pool, actor.userId);
+    },
+
+    async updateMyProfile(scope, input) {
+      // BR-33 / BR-82: mobile and email are locked identity fields. Refused
+      // before anything is read or written, so the other fields of the same
+      // request are not applied either.
+      if ('mobile' in input || 'email' in input) {
+        throw new AppError('FIELD_LOCKED', {
+          status: 403,
+          detail: 'Mobile number and e-mail are locked fields and cannot be modified here (BR-33).',
+        });
       }
 
-      const roles = await repo.getUserRoles(pool, user.id);
-      const permissions = await repo.getUserPermissions(pool, user.id);
+      await withTransaction(async (tx) => {
+        const user = await repo.findUserById(tx, scope.userId);
+        if (user === null) {
+          throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+        }
 
-      return {
-        id: user.id,
-        fullName: user.full_name,
-        mobile: user.mobile,
-        email: user.email,
-        userType: user.user_type,
-        preferredLocale: user.preferred_locale,
-        roles: roles.map((r) => ({
-          code: r.role_code,
-          warehouseId: r.warehouse_id ?? undefined,
-          warehouseName: r.warehouse_name ?? undefined,
-          zoneId: r.zone_id ?? undefined,
-          zoneName: r.zone_name ?? undefined,
-        })),
-        permissions,
-      };
+        // Only what really changes is written and audited; a repeat of the
+        // current values is a successful no-op.
+        const changed: string[] = [];
+        const changes: { fullName?: string; preferredLocale?: 'en' | 'ta' } = {};
+        if (input.fullName !== undefined && input.fullName !== user.full_name) {
+          changes.fullName = input.fullName;
+          changed.push('fullName');
+        }
+        if (input.preferredLocale !== undefined && input.preferredLocale !== user.preferred_locale) {
+          changes.preferredLocale = input.preferredLocale;
+          changed.push('preferredLocale');
+        }
+        if (changed.length === 0) return;
+
+        await authProfileRepo.updateUserProfile(tx, scope.userId, changes);
+        // Masked image: field NAMES only. The name itself is personal data and
+        // never goes into the audit log.
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'auth.profile.update_own',
+          entityType: 'user',
+          entityId: scope.userId,
+          changedFields: changed,
+        });
+      });
+
+      return buildMe(repo, pool, scope.userId);
+    },
+
+    async listMySessions(actor) {
+      // BR-67: the owner id comes only from the verified token (actor.userId),
+      // never from the request, so there is no way to ask for another user's.
+      const rows = await repo.listLiveSessionsForUser(pool, actor.userId, MY_SESSIONS_LIMIT);
+      return rows.map((row) => ({
+        id: row.id,
+        platform: row.platform,
+        userAgent: row.user_agent,
+        issuedAt: row.issued_at.toISOString(),
+        lastSeenAt: row.last_seen_at === null ? null : row.last_seen_at.toISOString(),
+        lastSeenIp: row.last_seen_ip,
+        expiresAt: row.expires_at.toISOString(),
+      }));
     },
 
     async loginWithOAuth(provider, input, ip, userAgent) {

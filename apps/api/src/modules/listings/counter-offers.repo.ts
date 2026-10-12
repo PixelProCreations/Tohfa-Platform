@@ -200,6 +200,19 @@ export const counterOffersRepo = {
     return res.rows[0]?.maxRound ?? 0;
   },
 
+  /**
+   * True once a purchase order was raised for the listing (at most one: uq_purchase_orders_listing_id).
+   * A negotiation on such a listing is a warehouse quality counter-offer (goods-receipts module),
+   * and closing it must return the listing to ACCEPTED, not to the approval queue (BR-10).
+   */
+  async hasPurchaseOrder(db: Executor, listingId: string): Promise<boolean> {
+    const res = await db.query<{ exists: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM purchase_orders WHERE listing_id = $1) AS "exists"`,
+      [listingId],
+    );
+    return res.rows[0]?.exists === true;
+  },
+
   /** BR-11 caps FARMER counters; admin rows do not count toward the limit. */
   async countFarmerCounters(db: Executor, listingId: string): Promise<number> {
     const res = await db.query<{ count: number }>(

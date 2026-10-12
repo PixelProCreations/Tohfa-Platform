@@ -17,8 +17,20 @@ export class Msg91SmsTransport implements SmsTransport {
       };
     }
 
+    if (!params.templateId) {
+      logger.error('MSG91 Flow API call attempted with no templateId');
+      return {
+        providerMessageId: `msg91-err-${Date.now()}`,
+        status: 'FAILED',
+        error: 'templateId is required for MSG91 Flow API (DLT-approved templates only, no free text).',
+      };
+    }
+
     try {
-      // MSG91 Send SMS endpoint
+      // MSG91 Flow API: DLT-approved template, filled in by variable name --
+      // never free text. `params.message` is intentionally unused here (see
+      // SendSmsParams' own doc comment); `templateVars` keys must match the
+      // approved template's own placeholder names exactly.
       const response = await fetch('https://control.msg91.com/api/v5/flow/', {
         method: 'POST',
         headers: {
@@ -30,7 +42,7 @@ export class Msg91SmsTransport implements SmsTransport {
           recipients: [
             {
               mobiles: params.to.replace(/^\+/, ''),
-              message: params.message,
+              ...params.templateVars,
             },
           ],
         }),

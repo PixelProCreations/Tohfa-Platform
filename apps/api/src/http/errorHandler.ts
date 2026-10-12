@@ -37,6 +37,15 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     return;
   }
 
+  const bodyError = bodyParserToAppError(error);
+  if (bodyError !== null) {
+    // The client sent something unreadable: a 4xx, so warn-level and never reported to Sentry.
+    // The parser's own message can quote the offending bytes, so it is logged but not returned.
+    logger.warn({ err: error, code: bodyError.code, path: instance }, 'request body rejected');
+    res.status(bodyError.status).type(PROBLEM_CONTENT_TYPE).json(bodyError.toProblem(instance));
+    return;
+  }
+
   if (error instanceof AppError) {
     const problem = error.toProblem(instance);
     if (error.status >= 500) {
@@ -57,6 +66,64 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   reportError({ error, tags: { env: config.NODE_ENV, path: stripQuery(instance) } });
   res.status(500).type(PROBLEM_CONTENT_TYPE).json(internalProblem(instance));
 };
+
+/**
+ * Failure types the `body-parser` / `raw-body` / `http-errors` stack attaches as `error.type`
+ * (express.json and express.urlencoded). Matching on this exact list, plus a 4xx status,
+ * keeps an unrelated error that happens to carry a `status` out of the client-error path.
+ */
+const BODY_PARSER_ERROR_TYPES: ReadonlySet<string> = new Set([
+  'entity.parse.failed',
+  'entity.verify.failed',
+  'entity.too.large',
+  'parameters.too.many',
+  'request.aborted',
+  'request.size.invalid',
+  'stream.encoding.set',
+  'charset.unsupported',
+  'encoding.unsupported',
+]);
+
+/** Fixed, body-free explanations; never the parser's message, which can quote the payload. */
+const BODY_PARSER_DETAIL: Record<string, string> = {
+  'entity.parse.failed': 'The request body is not valid JSON.',
+  'entity.too.large': 'The request body exceeds the maximum allowed size.',
+  'parameters.too.many': 'The request body has too many parameters.',
+  'charset.unsupported': 'The request body charset is not supported.',
+  'encoding.unsupported': 'The request Content-Encoding is not supported.',
+  'request.aborted': 'The request was aborted before the body was fully received.',
+};
+
+/**
+ * Map a body-parser failure to a client error, or `null` when `error` is not one.
+ *  - too large                          -> 413 PAYLOAD_TOO_LARGE
+ *  - anything else body-parser rejects  -> BAD_REQUEST, with the status body-parser chose
+ *                                          (400, or 415 for an unsupported charset/encoding).
+ */
+export function bodyParserToAppError(error: unknown): AppError | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const { type, status, statusCode, code } = error as {
+    type?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+    code?: unknown;
+  };
+  const httpStatus = typeof status === 'number' ? status : statusCode;
+  if (typeof httpStatus !== 'number' || httpStatus < 400 || httpStatus > 499) return null;
+
+  // A corrupt gzip/deflate body: body-parser passes zlib's error through with status 400 and a
+  // `Z_*` code but no `type`.
+  if (type === undefined && httpStatus === 400 && typeof code === 'string' && code.startsWith('Z_')) {
+    return new AppError('BAD_REQUEST', { detail: 'The request body could not be decompressed.', cause: error });
+  }
+  if (typeof type !== 'string' || !BODY_PARSER_ERROR_TYPES.has(type)) return null;
+
+  const detail = BODY_PARSER_DETAIL[type] ?? 'The request body could not be read.';
+  if (httpStatus === 413) {
+    return new AppError('PAYLOAD_TOO_LARGE', { detail, cause: error });
+  }
+  return new AppError('BAD_REQUEST', { status: httpStatus, detail, cause: error });
+}
 
 /** Drop the query string so Sentry groups by route, not by attacker-controlled params. */
 function stripQuery(path: string): string {

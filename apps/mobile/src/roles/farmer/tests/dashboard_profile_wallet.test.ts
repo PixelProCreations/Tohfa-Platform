@@ -22,7 +22,7 @@ import { setLocale, t } from '../../../i18n/farmer';
 
 describe('User Story 44 (S-44) Farmer Dashboard, Profile, Certifications and Wallet Tests', () => {
   describe('BR-01: Expired certificate blocks market listings', () => {
-    it('BR-01: market-blocked banner renders when certificate is expired (blocksListings=true, daysToExpiry < 0)', () => {
+    it('BR-01: market-blocked banner renders when the only certificate is expired (daysToExpiry < 0)', () => {
       const expiredCert: Certification = {
         id: 'cert-1',
         certType: 'PGS',
@@ -53,7 +53,8 @@ describe('User Story 44 (S-44) Farmer Dashboard, Profile, Certifications and Wal
       const blockState = evalMarketBlock(profile, [expiredCert]);
       expect(blockState.isBlocked).toBe(true);
       expect(blockState.reason).toBe('CERT_EXPIRED');
-      expect(blockState.messageKey).toBe('farmer.dashboard.banner.certExpired');
+      expect(blockState.titleKey).toBe('farmer.dashboard.banner.certExpiredTitle');
+      expect(blockState.messageKey).toBe('farmer.dashboard.banner.certExpiredMessage');
     });
 
     it('BR-01: server daysToExpiry drives danger styling inside warning window from config without device clock', () => {
@@ -79,7 +80,7 @@ describe('User Story 44 (S-44) Farmer Dashboard, Profile, Certifications and Wal
   });
 
   describe('BR-02: Unverified certificate blocks market listings', () => {
-    it('BR-02: market-blocked banner renders when certificate is unverified (verificationStatus=UNVERIFIED)', () => {
+    it('BR-02: market-blocked banner renders when the only certificate is unverified (verificationStatus=UNVERIFIED)', () => {
       const unverifiedCert: Certification = {
         id: 'cert-2',
         certType: 'NPOP',
@@ -110,7 +111,8 @@ describe('User Story 44 (S-44) Farmer Dashboard, Profile, Certifications and Wal
       const blockState = evalMarketBlock(profile, [unverifiedCert]);
       expect(blockState.isBlocked).toBe(true);
       expect(blockState.reason).toBe('CERT_UNVERIFIED');
-      expect(blockState.messageKey).toBe('farmer.dashboard.banner.certUnverified');
+      expect(blockState.titleKey).toBe('farmer.dashboard.banner.certPendingTitle');
+      expect(blockState.messageKey).toBe('farmer.dashboard.banner.certPendingMessage');
     });
   });
 

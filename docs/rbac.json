@@ -32,7 +32,7 @@
       "level": 3,
       "colorHex": "#3F7D32",
       "scopeDimension": "zone_id",
-      "summary": "Elected farmer, not paid staff. Approves peer produce listings but never their own (auto-routed), supports audits, mediates disputes, moderates community groups, edits farm ratings for their own zone only. NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
+      "summary": "Elected farmer, not paid staff. Approves peer produce listings but never their own (auto-routed), supports audits, mediates disputes, moderates community groups, edits farm ratings for their own zone only (superseded 2026-10-01: farm ratings are derived from completed INTERNAL audits only, there is no manual rating edit — see `conflicts`). NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
     },
     {
       "code": "MAIN_WH_ADMIN",
@@ -224,6 +224,66 @@
         "CUSTOMER": "all"
       },
       "source": "inferred — self-service counterpart of auth.session.revoke_own, scoped to BR-39"
+    },
+    {
+      "code": "auth.profile.edit_own",
+      "module": "Authentication & Onboarding",
+      "description": "Edit own display name and preferred language (admin roles). Mobile number and e-mail are locked identity fields (BR-33) and can never be changed through this permission.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin User Profile screen offers an edit modal but no admin own-profile edit code exists (SPEC_GAPS 1.14); owner approval pending. FARMER=none because farmers already edit through farmer.profile.edit_own; CUSTOMER=none because no customer profile route exists yet"
+    },
+    {
+      "code": "notification.own.admin_preferences",
+      "module": "Notifications & Reports",
+      "description": "View and manage own admin notification categories (goods receiving, inventory, orders, wallet and payout, system) on the admin Notification Settings screen.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin Notification Settings screen shows categories that exist for no farmer or customer, and notification.own.view is granted to every role; owner approval pending"
+    },
+    {
+      "code": "help.article.view",
+      "module": "Notifications & Reports",
+      "description": "Read the published Help & Support FAQ articles and contact channels in the admin app.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin Help & Support screen (FAQ list and contact cards) has no permission code; owner approval pending"
+    },
+    {
+      "code": "help.article.manage",
+      "module": "Notifications & Reports",
+      "description": "Create, edit, publish and unpublish Help & Support FAQ articles and set the Help & Support contact channels.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the admin Help & Support FAQ content is hard-coded in the prototype; making it admin-managed needs a write code, limited to SA/TA by the builder brief; owner approval pending"
     },
     {
       "code": "farmer.application.list_pending",
@@ -421,6 +481,51 @@
       "source": "matrix §2 — SA only"
     },
     {
+      "code": "farmer.bank_account.manage_own",
+      "module": "Farmers Management",
+      "description": "List, create, update, soft-delete, and set default bank accounts and UPI IDs for own farmer profile.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — farmer-bank-accounts module (BR-53); owner brief 2026-10-08"
+    },
+    {
+      "code": "farmer.bank_account.view",
+      "module": "Farmers Management",
+      "description": "View any farmer's bank account and payout details.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — admin read of farmer payout destinations (BR-53); no route uses it yet, kept pending owner decision"
+    },
+    {
+      "code": "farmer.documents.view_own",
+      "module": "Farmers Management",
+      "description": "View own uploaded registration and KYC documents with signed URLs.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — farmer-documents module (BR-54); owner brief 2026-10-08"
+    },
+    {
       "code": "farmer.account.disable",
       "module": "Farmers Management",
       "description": "Disable a farmer account.",
@@ -496,6 +601,126 @@
       "source": "matrix §9"
     },
     {
+      "code": "farmer.config.view",
+      "module": "Farmers Management",
+      "description": "View farmer-facing global platform config values (e.g. the certificate-expiry warning threshold). Not owned by any one farmer, so scope is `all` rather than `own`.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "all",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — no source document names this permission; added to back GET /v1/config/farmer, which the mobile client already calls"
+    },
+    {
+      "code": "farmer.farm.manage_own",
+      "module": "Farmers Management",
+      "description": "Create, edit and delete own land locations (farms) and their zones (plots). One permission covers both tables — a plot is only ever reached through a farm the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "inferred — BR-36 (own-data ownership for farmers); db/migrations/0003_farmers_and_farms.sql farms/plots were modelled but never wired to an API before this module"
+    },
+    {
+      "code": "farmer.soil.manage_own",
+      "module": "Soil Management",
+      "description": "Create, view and edit own soil diary records (tests, amendments, moisture, erosion notes, rotation plans) for plots on farms the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-36 (own-data ownership); new soil diary tables (db/migrations/0021_soil_management.sql) introduced for requirements FR-F06"
+    },
+    {
+      "code": "farmer.pest.manage_own",
+      "module": "Pest Management",
+      "description": "Create, view and edit own pest detections, treatment logs and treatment reminders for plots on farms the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-36 (own-data ownership); new pest management tables (db/migrations/0023_pest_management.sql) introduced for requirements FR-F07"
+    },
+    {
+      "code": "pest_library.view",
+      "module": "Pest Management",
+      "description": "Read access to the pest/disease reference library and region-scoped weather risk notes.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "view",
+        "CUSTOMER": "none"
+      },
+      "source": "new pest_library / weather_risk_notes tables (db/migrations/0023_pest_management.sql) introduced for requirements FR-F07"
+    },
+    {
+      "code": "farmer.workforce.manage_own",
+      "module": "Farm Workforce",
+      "description": "Create, view and edit own worker roster, daily attendance, advances and payouts for farms the actor owns.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-36 (own-data ownership), BR-41 (workforce pay computed never stored); new workforce tables (db/migrations/0025_workforce.sql) introduced for the Farm Workforce feature (worker roster, daily attendance, payroll)"
+    },
+    {
+      "code": "certification.view",
+      "module": "Farmers Management",
+      "description": "View any farmer's certification records (admin list and detail), ahead of a verify/unverify decision.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-01: rbac.json had no admin-read code for certifications; GET /v1/admin/certifications and GET /v1/admin/certifications/{id} reused certification.mark_verified before this fix, conflating a read with the verify/unverify action. Grants mirror the existing certification.mark_verified/verify_via_portal/block_listings codes (matrix §9 — SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here)."
+    },
+    {
+      "code": "certification.manage_any",
+      "module": "Farmers Management",
+      "description": "Edit or remove any farmer's certification record (correct a data-entry mistake). An edit sends the certificate back for verification and a removal is a soft delete, exactly as the farmer's own edit/delete (BR-49, BR-50, BR-51).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-06: no source document names an admin edit or removal of a farmer's certification record, and rbac.json had no code for it; added to back PATCH /v1/admin/certifications/{id} and DELETE /v1/admin/certifications/{id} (BR-51). Conservative default: grants mirror certification.view and certification.mark_verified (matrix §9 — SUPER_ADMIN/TOHFA_ADMIN only; Farmer Admin has no certification admin role here). See conflicts: \"Admin edit/delete of farmer certification records\" — needs client confirmation."
+    },
+    {
       "code": "certification.verify_via_portal",
       "module": "Farmers Management",
       "description": "Verify a certificate against the issuing body's official portal (manual).",
@@ -556,22 +781,6 @@
       "source": "reqs 6.1 + matrix §2 (see conflicts)"
     },
     {
-      "code": "farmer.rating.edit",
-      "module": "Farmers Management",
-      "description": "Edit farm rating category scores.",
-      "predicate": "OWN_ZONE_ONLY",
-      "grants": {
-        "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
-        "FARMER_ADMIN": "conditional",
-        "MAIN_WH_ADMIN": "none",
-        "SUB_WH_ADMIN": "none",
-        "FARMER": "none",
-        "CUSTOMER": "none"
-      },
-      "source": "reqs 6.1 — Farmer Admin: own zone only"
-    },
-    {
       "code": "farmer.rating.configure_tiers",
       "module": "Farmers Management",
       "description": "Configure rating tier thresholds.",
@@ -630,6 +839,411 @@
         "CUSTOMER": "none"
       },
       "source": "requirements §7.1 — farmer weather dashboard (own-farm scope)"
+    },
+    {
+      "code": "farmer.diary.view_own",
+      "module": "Farm Diary",
+      "description": "View own farm diary entries, plots, active crops and the activity category/sub-activity taxonomy.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "view",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.diary.create_own",
+      "module": "Farm Diary",
+      "description": "Create a new farm diary entry, including workforce/wage lines and attached photos, against an own plot.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.diary.edit_own",
+      "module": "Farm Diary",
+      "description": "Edit an own farm diary entry.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.diary.delete_own",
+      "module": "Farm Diary",
+      "description": "Delete an own farm diary entry.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-40/BR-41/BR-42, product decision 2026-09-24"
+    },
+    {
+      "code": "admin.diary_taxonomy.manage",
+      "module": "Farm Diary",
+      "description": "Create, edit and retire the farm diary activity category / sub-activity taxonomy.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-45, product decision 2026-09-24"
+    },
+    {
+      "code": "farmer.crops.view_own",
+      "module": "Crops",
+      "description": "View own farm_crops planting records, the crop taxonomy picker, and own plot rotation history.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "view",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-46, product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.crops.create_own",
+      "module": "Crops",
+      "description": "Plant a new crop (farm_crops row) on an own plot.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-46, product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.crops.edit_own",
+      "module": "Crops",
+      "description": "Edit an own farm_crops row: status transitions, recording harvest, seed/grade detail.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-46, product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.tree_planting.manage_own",
+      "module": "Crops",
+      "description": "Create, view, update, and delete own tree and perennial planting records.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M3 Tree Plantings (BR-55)"
+    },
+    {
+      "code": "farmer.crop_input.manage_own",
+      "module": "Crops",
+      "description": "Create, view, update, and delete own crop input applications and track cumulative NPK contribution.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M4 Crop Inputs (BR-56)"
+    },
+    {
+      "code": "farmer.crop_milestone.manage_own",
+      "module": "Crops",
+      "description": "View, initialize, and update milestone progress for own crops.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M5 Crop Milestones (BR-57)"
+    },
+    {
+      "code": "farmer.calendar.view_own",
+      "module": "Farmers Management",
+      "description": "View own consolidated calendar aggregating audits, certificates, harvests, and platform events.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M6 Tohfa Calendar (BR-58)"
+    },
+    {
+      "code": "platform.event.manage",
+      "module": "Farmers Management",
+      "description": "Create, edit, view and soft-delete platform events and calendar notices.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M6 Tohfa Calendar (BR-58)"
+    },
+    {
+      "code": "farmer.learning.view",
+      "module": "Farmers Management",
+      "description": "View published learning articles, videos, trainings, and community groups.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "all",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M7 Learning Hub (BR-59)"
+    },
+    {
+      "code": "farmer.learning.participate_own",
+      "module": "Farmers Management",
+      "description": "Enroll/unenroll in learning trainings and join/leave community groups.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M7 Learning Hub (BR-59)"
+    },
+    {
+      "code": "learning.admin.manage",
+      "module": "Farmers Management",
+      "description": "Create, edit, view and manage learning hub content (articles, videos, trainings, groups).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M7 Learning Hub (BR-59)"
+    },
+    {
+      "code": "farmer.support_ticket.manage_own",
+      "module": "Farmers Management",
+      "description": "Create, view, reply to, and close own support tickets (BR-60).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M8 Support Tickets (BR-60)"
+    },
+    {
+      "code": "support.ticket.manage_any",
+      "module": "Farmers Management",
+      "description": "List, triage, reply to, and transition support tickets across all farmers (BR-60).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for M8 Support Tickets (BR-60)"
+    },
+    {
+      "code": "admin.crop_taxonomy.manage",
+      "module": "Crops",
+      "description": "Create, edit and deactivate crop_master reference rows (the crop taxonomy).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.livestock.view_own",
+      "module": "Livestock",
+      "description": "View own livestock_animals records and production logs (milk/curd/paneer/... and egg collection).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "view",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-47, product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.livestock.create_own",
+      "module": "Livestock",
+      "description": "Register a new animal (livestock_animals row) or log a production entry, on the farmer's own operation.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-47, product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.livestock.edit_own",
+      "module": "Livestock",
+      "description": "Edit an own livestock_animals row, and record a lifecycle event (sold/transferred/culled/deceased) that ends its active lifecycle.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-47, product decision 2026-09-29"
+    },
+    {
+      "code": "admin.livestock.view_all",
+      "module": "Livestock",
+      "description": "View any farmer's livestock_animals records, for organic-certification audit purposes. Read-only: there is no admin-manageable livestock taxonomy.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.assets.view_own",
+      "module": "Farm Assets",
+      "description": "View own farm_assets records — the maintenance-tracked tool/equipment/machinery register.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "view",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.assets.create_own",
+      "module": "Farm Assets",
+      "description": "Register a new farm_assets row (tool, equipment or machinery) on an own farm.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "product decision 2026-09-29"
+    },
+    {
+      "code": "farmer.assets.edit_own",
+      "module": "Farm Assets",
+      "description": "Edit an own farm_assets row (including recording a service) and retire one (soft delete).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "product decision 2026-09-29"
+    },
+    {
+      "code": "admin.assets.view_all",
+      "module": "Farm Assets",
+      "description": "View any farmer's farm_assets records. Read-only: there is no admin-manageable asset taxonomy.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "product decision 2026-09-29"
     },
     {
       "code": "produce.calendar.view_consolidated",
@@ -1115,6 +1729,21 @@
       "source": "reqs 6.2"
     },
     {
+      "code": "warehouse.own.view",
+      "module": "Inventory & Warehouse",
+      "description": "View a warehouse (a Sub Warehouse Admin only its own).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-09: SUB_WH_ADMIN had no code to view its own warehouse; owner approval pending"
+    },
+    {
       "code": "warehouse.capacity.set",
       "module": "Inventory & Warehouse",
       "description": "Set warehouse capacity limits.",
@@ -1128,6 +1757,36 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 6.2 (matrix §7 says SA only — see conflicts)"
+    },
+    {
+      "code": "warehouse.storage_location.manage",
+      "module": "Inventory & Warehouse",
+      "description": "Create, edit, activate and deactivate the storage locations (cold, dry, bulk, staging) of a warehouse.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the Storage Info / Storage Location Detail screens are read-only for both roles and no code governs managing locations; SUB_WH_ADMIN is none because the design says capacity is never editable by a Sub Warehouse Admin; owner approval pending"
+    },
+    {
+      "code": "warehouse.profile.edit",
+      "module": "Inventory & Warehouse",
+      "description": "Edit a warehouse's contact phone and operating hours (nothing else on the warehouse record).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: Warehouse Contact and Operating Information are read-only for both roles in the design and Edit Threshold & Hours (Main Warehouse Settings) has no code; SUB_WH_ADMIN is none; owner approval pending"
     },
     {
       "code": "transfer.inter_warehouse.initiate",
@@ -1272,12 +1931,12 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "all",
+        "MAIN_WH_ADMIN": "own",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3; MAIN_WH_ADMIN all = owner decision 2026-10-09 (see conflicts)"
+      "source": "reqs 6.3"
     },
     {
       "code": "customer.profile.edit",
@@ -1308,6 +1967,81 @@
         "CUSTOMER": "own"
       },
       "source": "matrix §6"
+    },
+    {
+      "code": "customer.detail.view",
+      "module": "Customers Management",
+      "description": "View a customer's profile detail (SWA Module 7, BR-91, BR-92). At scope `own` the customer must be in the actor's warehouse scope (order or top-up at the warehouse, or preferred warehouse) — otherwise 404, never 403; and the response is PII-masked (name, masked mobile, customer code only).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.purchase_history.view",
+      "module": "Customers Management",
+      "description": "View a customer's purchases and orders (SWA Module 7, BR-91). At scope `own` only orders placed at the actor's warehouse are returned. No farm identity in any row (BR-16, BR-90).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.wallet.view",
+      "module": "Customers Management",
+      "description": "Read-only view of a customer's wallet: summary, transactions and transaction detail (SWA Module 7, BR-91, BR-93). Grants no wallet mutation.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.issues.view",
+      "module": "Customers Management",
+      "description": "View the issues (complaints, returns, disputes) a customer has raised (SWA Module 7, BR-91).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "customer.support_history.view",
+      "module": "Customers Management",
+      "description": "View a customer's support tickets and their threads (SWA Module 7, BR-91, BR-97). Internal notes naming a farmer are stripped (BR-16). Replying (`POST /admin/customers/{customerId}/support-tickets/{ticketId}/replies`) is double-gated by owner decision 2026-10-11: this code is checked FIRST and its resolved scope decides which customers are visible (BR-91; out of scope is 404), THEN support.ticket.respond authorises the write. A caller needs both.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "catalog.browse",
@@ -1437,12 +2171,117 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "all",
+        "MAIN_WH_ADMIN": "own",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3 (matrix §6 is stricter — see conflicts); MAIN_WH_ADMIN all = owner decision 2026-10-09"
+      "source": "reqs 6.3 (matrix §6 is stricter — see conflicts)"
+    },
+    {
+      "code": "sales.sale.create",
+      "module": "Sales Management",
+      "description": "Create a Direct (at-counter) or Market-day sale, including the customer lookup, sellable product list and quote that precede it (SWA Module 6, BR-85..BR-90, BR-94, BR-95, BR-98). HORECA/B2B creation stays 501 (BR-13). Taking any payment other than none also needs payment.record.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.history.view",
+      "module": "Sales Management",
+      "description": "View the sales history list and sale detail (SWA Module 6, BR-90). At scope `own` only sales at the actor's warehouse.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.dashboard.view",
+      "module": "Sales Management",
+      "description": "View the sales dashboard summary: counts and revenue of paid-and-completed sales only (SWA Module 6, BR-96).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.market_day.view",
+      "module": "Sales Management",
+      "description": "View market-day sales and the LIVE_MARKET allocation they draw from (SWA Module 6, BR-95).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.horeca.view",
+      "module": "Sales Management",
+      "description": "Read-only view of HORECA orders (SWA Module 6, BR-85). Creation stays 501 (BR-13).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "sales.b2b.view",
+      "module": "Sales Management",
+      "description": "Read-only view of B2B orders (SWA Module 6, BR-85). Creation stays 501 (BR-13).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
+    },
+    {
+      "code": "payment.record",
+      "module": "Sales Management",
+      "description": "Record payment for a Direct/Market sale: CASH and WALLET server-confirmed, UPI confirmed after the gateway callback, CARD by manual reference (SWA Module 6, BR-88, BR-94). Money-moving: Idempotency-Key required.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap — SWA M6/M7, approved by owner 2026-10-11"
     },
     {
       "code": "order.warehouse.assign",
@@ -1835,6 +2674,21 @@
       "source": "reqs 6.3"
     },
     {
+      "code": "finance.cash_close.manage",
+      "module": "Accounts & Finance",
+      "description": "View the daily cash summary and submit the daily cash close / reconciliation for a warehouse (BR-74).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: SPEC_GAPS (Daily Cash / Daily Cash Summary: no code, the prototype says reconciliation authority stays configurable); granted to both warehouse roles because the Daily Cash Summary screen is in both prototypes; owner approval pending"
+    },
+    {
       "code": "finance.dashboard.view",
       "module": "Accounts & Finance",
       "description": "View the financial dashboard.",
@@ -1872,12 +2726,28 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "all",
+        "MAIN_WH_ADMIN": "own",
         "SUB_WH_ADMIN": "own",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "reqs 6.3; MAIN_WH_ADMIN all = owner decision 2026-10-09 (see conflicts)"
+      "source": "reqs 6.3"
+    },
+    {
+      "code": "audit.view",
+      "module": "Audit Management",
+      "description": "View audits (schedule, category scores, findings, tier) and the compliance summary. Farmers see only their own audits, read-only (BR-36); a Farmer Admin sees only farmers in their own zone(s).",
+      "predicate": "OWN_ZONE_ONLY",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "conditional",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-01 (Audit module contract): rbac.json had no audit read code. FARMER own per BR-36 ('a farmer sees only their own ... audit history'); FARMER_ADMIN zone-scoped like the former farmer.rating.edit (reqs 6.1)."
     },
     {
       "code": "audit.schedule",
@@ -1924,6 +2794,21 @@
         "CUSTOMER": "none"
       },
       "source": "matrix §9"
+    },
+    {
+      "code": "audit.red_flag.manage",
+      "module": "Audit Management",
+      "description": "Red-flag a completed audit, or clear its red flag. Always an explicit admin action; never derived (BR-05b).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap 2026-10-01 (Audit module contract): BR-05b requires an explicit admin red-flag action and no existing code covered it. Grants mirror audit.findings.log (matrix §9)."
     },
     {
       "code": "audit.score.categories",
@@ -1978,27 +2863,57 @@
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "all",
+        "MAIN_WH_ADMIN": "own",
         "SUB_WH_ADMIN": "none",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §10; MAIN_WH_ADMIN all = owner decision 2026-10-09 (see conflicts)"
+      "source": "matrix §10"
     },
     {
-      "code": "warehouse.staff.list_view",
+      "code": "admin.staff.manage",
       "module": "Workforce & Staff",
-      "description": "View the warehouse workforce roster (drivers and warehouse staff) and a roster member's detail. Distinct from admin.staff.list_view, which is the admin-account list. Read-only: no edit, delivery-assignment or attendance authority is granted by this code.",
+      "description": "Create, edit and deactivate warehouse floor staff records (Module 14, BR-83). Reads of the staff list and detail stay on admin.staff.list_view.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
-        "MAIN_WH_ADMIN": "all",
-        "SUB_WH_ADMIN": "own",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "owner decision 2026-10-09 (spec gap: no source document defines a warehouse-roster permission; see conflicts)"
+      "source": "spec gap added 2026-10-11: rbac.json had no code for creating or editing a warehouse staff record; grants copy admin.staff.list_view (Sub none, Main own = all four warehouses, confirmed by the owner 2026-10-11); owner approval pending"
+    },
+    {
+      "code": "admin.staff.attendance.view",
+      "module": "Workforce & Staff",
+      "description": "View warehouse staff attendance: the daily roll call, attendance history and the per-staff summary (Module 14, BR-84). A Sub Warehouse Admin has no access: these views list staff, and Sub cannot list staff.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the attendance screens (Attendance, Attendance Detail, Attendance History, Today's Attendance) had no code; owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access (admin.staff.list_view is none for Sub); Main own = all four warehouses (confirmed by the owner 2026-10-11)"
+    },
+    {
+      "code": "admin.staff.attendance.mark",
+      "module": "Workforce & Staff",
+      "description": "Mark or correct warehouse staff attendance for a day, singly or in bulk (Module 14, BR-84). A Sub Warehouse Admin has no access: marking needs the staff list, and Sub cannot list staff.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: no code existed for marking attendance; floor attendance is a warehouse operation so TOHFA_ADMIN (platform staff) is none (owner approval pending for TOHFA_ADMIN); owner decision 2026-10-11: a Sub Warehouse Admin cannot list staff, so no attendance access; Main own = all four warehouses (confirmed by the owner 2026-10-11)"
     },
     {
       "code": "admin.super_admin.create",
@@ -2242,6 +3157,36 @@
       "source": "matrix §13 (reqs 6.4 'Configure notifications' is SA only — see conflicts)"
     },
     {
+      "code": "task.own.view",
+      "module": "Notifications & Reports",
+      "description": "View the worklist of open tasks derived from warehouse records (a Sub Warehouse Admin only its own warehouse) and mark a task done in one's own list.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: Task / Action Center and Task Details (screens 27, 28) have no code in the matrix; owner approval pending"
+    },
+    {
+      "code": "alert.own.view",
+      "module": "Notifications & Reports",
+      "description": "View live warehouse alerts (a Sub Warehouse Admin only its own warehouse) and dismiss or snooze them in one's own list.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-10-11: the Alerts queue (screen 23) was mapped to notification.own.view, which is `all` for every role and so cannot confine a Sub Warehouse Admin to its warehouse; owner approval pending"
+    },
+    {
       "code": "support.ticket.view_all",
       "module": "Notifications & Reports",
       "description": "View all support tickets.",
@@ -2259,7 +3204,7 @@
     {
       "code": "support.ticket.respond",
       "module": "Notifications & Reports",
-      "description": "Respond to a support ticket.",
+      "description": "Respond to a support ticket. Granted at `all` to the warehouse admins because it predates the per-warehouse customer surface, so it never decides customer visibility: the SWA Module 7 reply route (`POST /admin/customers/{customerId}/support-tickets/{ticketId}/replies`, BR-97) additionally requires customer.support_history.view, checked first, whose scope confines the reply to visible customers (owner decision 2026-10-11: keep both gates).",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -2269,7 +3214,7 @@
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §13"
+      "source": "matrix §13; double gate on the SWA M7 reply route: owner decision 2026-10-11"
     },
     {
       "code": "community.group.moderate",
@@ -2472,7 +3417,7 @@
     {
       "role": "FARMER_ADMIN",
       "dimension": "zone_id",
-      "rule": "Rating edits and other `own`/`conditional` grants MUST be filtered by the zones assigned to this Farmer Admin. Listing approval additionally applies the NOT_OWN_LISTING predicate, which auto-routes rather than returning empty.",
+      "rule": "`own`/`conditional` grants (e.g. audit.view) MUST be filtered by the zones assigned to this Farmer Admin. Listing approval additionally applies the NOT_OWN_LISTING predicate, which auto-routes rather than returning empty.",
       "source": "reqs 6.1 + FR-A03"
     },
     {
@@ -2529,7 +3474,7 @@
       "reqsCh6": "MAIN_WH_ADMIN = own, SUB_WH_ADMIN = own",
       "roleMatrix": "Horeca MW=view/SW=none; B2B MW=view/SW=none; Online MW=own/SW=own; Live market MW=full/SW=own",
       "precedence": "Role Matrix (adds detail Ch.6 omits)",
-      "decision": "Generic `sales.channel.manage` is MW all / SW own (Ch.6 stated own/own; MAIN widened to all by the owner decision 2026-10-09 on Main Warehouse Admin `own` grants, see below); per-channel permissions carry the matrix values. MW/SW have no Horeca or B2B write path."
+      "decision": "Generic `sales.channel.manage` keeps own/own per Ch.6; per-channel permissions carry the matrix values. MW/SW have no Horeca or B2B write path."
     },
     {
       "topic": "Manage integration keys",
@@ -2584,15 +3529,29 @@
       "topic": "Warehouse workforce roster (drivers and warehouse staff)",
       "reqsCh6": "not stated",
       "roleMatrix": "§10 defines only `admin.staff.list_view` (the admin-account list); no warehouse driver/staff roster permission exists in either document",
-      "precedence": "owner decision 2026-10-09 (spec gap filled)",
-      "decision": "New code `warehouse.staff.list_view`: SA/TA all, MAIN_WH_ADMIN all (all four warehouses it oversees, mirroring its admin.staff.list_view grant; owner decision 2026-10-09 on Main Warehouse Admin `own` grants, see below), SUB_WH_ADMIN own (its assigned warehouse), others none. `admin.staff.list_view` is NOT repurposed and SUB_WH_ADMIN stays none on it. Editing roster members, assigning deliveries and attendance remain ungated spec gaps with no code. Note the related driver-feature scope conflict above (Principle 9 vs Ch.2.3)."
+      "precedence": "owner decision 2026-10-09, SUPERSEDED by owner decision 2026-10-11",
+      "decision": "Superseded. The 2026-10-09 code `warehouse.staff.list_view` (Sub own) is withdrawn: per the owner decision of 2026-10-11 a Sub Warehouse Admin cannot list staff. The warehouse roster is read on `admin.staff.list_view` (SA/TA all, MAIN_WH_ADMIN own = all four warehouses, SUB_WH_ADMIN none); writes on `admin.staff.manage`, attendance on `admin.staff.attendance.view` / `admin.staff.attendance.mark` (Sub none on all). Note the related driver-feature scope conflict above (Principle 9 vs Ch.2.3)."
     },
     {
       "topic": "Main Warehouse Admin `own` grants (no scope dimension)",
       "reqsCh6": "MAIN_WH_ADMIN = own on customer list, sales income reports, manage sales channels",
       "roleMatrix": "MAIN_WH_ADMIN = own on admin staff list (§10); warehouse roster is an owner-decision code",
-      "precedence": "owner decision 2026-10-09 (interprets a Ch.6 value; does not contradict it)",
-      "decision": "MAIN_WH_ADMIN has `scopeDimension: null` and oversees all four warehouses, so `own` for it meant all four warehouses. Set to `all` on exactly: customer.list.view, finance.sales_income.view, sales.channel.manage, admin.staff.list_view, warehouse.staff.list_view. SUB_WH_ADMIN grants are unchanged (`own` = its assigned warehouse; `none` on admin.staff.list_view). NOT changed: `auditlog.view` MAIN `own` (the separate, still-open audit-log conflict above, Ch.6 own vs matrix view (all), awaiting client confirmation; an audit-log row is scoped by actor, not by warehouse, so this decision does not reach it) and `report.export.file` MAIN `view`."
+      "precedence": "owner decision 2026-10-09, SUPERSEDED (grants kept at the Ch.6 value)",
+      "decision": "Superseded. MAIN_WH_ADMIN keeps `own` on customer.list.view, finance.sales_income.view, sales.channel.manage and admin.staff.list_view (the Ch.6/matrix values, owner-confirmed 2026-10-11 as meaning all four warehouses). The server resolves Main's `own` to every warehouse in apps/api/src/rbac/warehouseScope.ts rather than widening the grant to `all`. SUB_WH_ADMIN `own` = its assigned warehouse. `auditlog.view` MAIN `own` remains the separate open audit-log conflict above."
+    },
+    {
+      "topic": "Edit farm rating category scores (farmer.rating.edit)",
+      "reqsCh6": "SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone only (reqs 6.1)",
+      "roleMatrix": "not separately stated",
+      "precedence": "product owner decision 2026-10-01 (explicit, supersedes reqs 6.1 for this row)",
+      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1."
+    },
+    {
+      "topic": "Admin edit/delete of farmer certification records (certification.manage_any)",
+      "reqsCh6": "not specified — Ch.6 has no row for an admin editing or removing a farmer's certification record; the certification rows it backs (certification.mark_verified, certification.verify_via_portal, certification.block_listings) are verification actions",
+      "roleMatrix": "not specified — §9 lists certification verification for SUPER_ADMIN/TOHFA_ADMIN only, with no edit/delete row",
+      "precedence": "neither document — specification gap, conservative default",
+      "decision": "`certification.manage_any` = all for SUPER_ADMIN and TOHFA_ADMIN, none for every other role (same grants as certification.view / certification.mark_verified). The edit resets verification to UNVERIFIED and the delete is soft, exactly as for the farmer (BR-49, BR-50, BR-51), so staff cannot use it to verify by editing. Open: whether FARMER_ADMIN should edit certificates of farmers in their own zone (would need the OWN_ZONE_ONLY predicate). Confirm with client."
     }
   ],
   "conflictPrecedence": "Requirements Document Ch.6 is authoritative. The Role & Feature Matrix supplies additional features Ch.6 omits, but never overrides a value Ch.6 states."

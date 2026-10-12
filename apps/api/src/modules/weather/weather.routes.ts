@@ -1,5 +1,5 @@
 /**
- * Generated from the _example reference module. See CLAUDE.md.
+ * Generated from the warehouses reference module. See CLAUDE.md.
  *
  * <name>.routes.ts is thin on purpose: wiring only.
  * Middleware order is FIXED and must not be shuffled:
